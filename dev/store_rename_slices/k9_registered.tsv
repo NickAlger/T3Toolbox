@@ -85,3 +85,10 @@ docs/glossary.md	c	714	R5 glossary Symbols intro (plan §6)	(the down store's: t
 docs/glossary.md	c	715	R5 glossary Symbols intro (plan §6)	cores are `B` (Tucker) and `G` (TT). Before 2026.5.0 the words up and down, and with them `nU` and `nD`, named the
 docs/glossary.md	c	731	R5 glossary Symbols D row (plan §4 item 9)	| `D` | the down frame core `Di`, a Tucker factor, and the down store's letter (frame pages, diagrams, equations, `update`). Before 2026.5.0 `D` also stood for the derivative (now the upright `d`), the forward jet shift (now `sh`), the padded-frame messages (now `Ψ`) and, in the `T3Frame` docstring, the TT-shaped core (now `U`) |
 docs/glossary.md	c	732	R5 glossary Symbols U row (plan §4 item 9)	| `U` | the up frame core `Ui`, TT-shaped, and the up store's letter (frame pages, diagrams, equations, `update`); the SVD factor in `UΣVᵀ`. Before 2026.5.0 `U` was the Tucker frame core and its `update` letter (now `D`), the reverse jet shift (now `shᵀ`) and the padded-frame note's edge frame (now `F_{x→t}`) |
+# 2026.5.0 docs pass (2026-11-15): clause idiom = an English idiom, not a store word ("up to rounding"); clause c as above. Line numbers of the docs-pass tree.
+t3toolbox/backend/optimizers.py	idiom	1273	idiom	Python bookkeeping); never ``None``, ``>= 0`` up to rounding."""
+t3toolbox/backend/optimizers.py	idiom	1287	idiom	remainder: float # window minus the phases above (>= 0 up to rounding)
+t3toolbox/backend/optimizers.py	idiom	1311	idiom	setup: typ.Optional[float] = None # row 0 only, from here down
+t3toolbox/optimizers.py	idiom	834	idiom	**Timing a run.** The same problem one level up: the rank-2 fit ``x0`` zero-padded to rank 3, restarted from the
+tests/backend/test_optimizers.py	idiom	1932	idiom	"""T3: a run that switches at row j is the Gauss-Newton trust-region run up to j (its radius carried into row j)
+t3toolbox/frame_variations_format.py	c	366	rewrite	Orthogonal cores (left/right/up/down) are defined in Appendix A.1 of Alger et al.

@@ -38,7 +38,7 @@ __all__ = [
 
 def _is_branch(t) -> bool:
     """A tree BRANCH is a non-string sequence. ``str``/``bytes`` are sequences of themselves, so
-    treating them as branches recurses forever (review R2-8); every tree recursion here uses this."""
+    treating them as branches recurses forever; every tree recursion here uses this."""
     return isinstance(t, typ.Sequence) and not isinstance(t, (str, bytes))
 
 
@@ -522,8 +522,8 @@ def tree_zip(
         return (T1, T2)
     if not _is_branch(T2) or len(T1) != len(T2):
         raise ValueError(
-            'tree_zip: trees differ in structure (a branch of length %d paired with %r) -- a silent '
-            'zip would truncate to the shorter branch (review R2-12)'
+            'tree_zip: trees differ in structure (a branch of length %d paired with %r); zipping them would '
+            'silently truncate to the shorter branch'
             % (len(T1), ('a leaf' if not _is_branch(T2) else 'length %d' % len(T2))))
     return tuple(tree_zip(t1, t2) for t1, t2 in zip(T1, T2))
 

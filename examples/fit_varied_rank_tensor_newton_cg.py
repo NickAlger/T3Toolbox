@@ -3,13 +3,13 @@ Riemannian Newton-CG with the **condition-number rank continuation of Section 5.
 
 What this example adds over ``fit_hilbert_tensor_newton_cg.py``
 --------------------------------------------------------------
-That example fits a *Hilbert* tensor, whose matrix unfoldings all have a similar singular-value decay,
+That example fits a *Hilbert* tensor, whose matricizations and unfoldings all have a similar singular-value decay,
 so **uniform** rank continuation (grow every Tucker rank and TT bond together: ``(r,...,r)``) is
-near-optimal. Many tensors are not like that -- different unfoldings carry very different amounts of
+near-optimal. Many tensors are not like that -- different matricizations and unfoldings carry very different amounts of
 information, and uniform continuation then either **over-fits the easy edges** (wasting degrees of
 freedom, hence data) or **under-fits the hard ones** (never reaching the rank they need). This example
 shows the alternative: choose *which* ranks to grow from the data, via the singular values of the
-current iterate's unfoldings.
+current iterate's matricizations and unfoldings.
 
 The target
 ----------
@@ -29,7 +29,7 @@ The method: condition-number rank continuation (Section 5.4.1)
 -------------------------------------------------------------
 After each fixed-rank fit we call :py:meth:`TuckerTensorTrain.continuation_ranks`, which:
 
-  * takes the T3-SVD singular values of the converged iterate's unfoldings,
+  * takes the T3-SVD singular values of the converged iterate's matricizations and unfoldings,
   * forms each edge's **condition number** ``kappa_i = sigma_1 / sigma_{rank_i}`` (large = the rank
     there is already "used up"; small = that edge is well conditioned and has room to grow),
   * grows only the **well-conditioned** edges -- those a factor ``tau`` below the worst edge -- so the
@@ -225,7 +225,7 @@ def level_ranks(level, shape):
 
 
 def oracle_relerr(A, tucker_ranks, tt_ranks):
-    """Relative error of the best rank-(tucker,tt) approximation of A (dense T3-SVD truncation)."""
+    """Relative error of the quasi-optimal rank-(tucker,tt) dense T3-SVD truncation of A."""
     Xr, _, _ = t3.TuckerTensorTrain.t3svd_dense(A, max_tucker_ranks=tucker_ranks, max_tt_ranks=tt_ranks)
     return float(np.linalg.norm(Xr.to_dense() - A)) / float(np.linalg.norm(A))
 

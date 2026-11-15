@@ -305,7 +305,7 @@ def edge_condition_numbers(
     typ.Tuple[float, ...],  # len=d,   Tucker edge condition numbers (kappa^Tucker)
     typ.Tuple[float, ...],  # len=d+1, TT edge condition numbers (kappa^TT); length-1 boundary bonds = 1.0
 ]:
-    '''Edge condition numbers ``kappa_i = sigma_{i,1} / sigma_{i,r_i}`` of the matrix unfoldings.
+    '''Edge condition numbers ``kappa_i = sigma_{i,1} / sigma_{i,r_i}`` of the matricizations and unfoldings.
 
     Section 5.4.1 of Alger et al. (2026), "Tucker Tensor Train Taylor Series" (arXiv:2603.21141): the
     ratio of the largest to the smallest *retained* singular value on each Tucker matricization and each
@@ -376,7 +376,7 @@ def compute_continuation_ranks(
     typ.Tuple[int, ...],  # (n0', ..., n(d-1)')  new Tucker ranks
     typ.Tuple[int, ...],  # (r0', ..., rd')      new TT ranks
 ]:
-    '''Rank-continuation update: choose new ranks from the current iterate's unfolding singular values.
+    '''Rank-continuation update: choose new ranks from the current iterate's matricization and unfolding singular values.
 
     Section 5.4.1 ("Choosing the new ranks") of Alger et al. (2026), "Tucker Tensor Train Taylor Series"
     (arXiv:2603.21141). Grow only the *well-conditioned* edges -- those a factor ``tau`` below the
@@ -648,7 +648,7 @@ def compute_orthogonal_representation_ranks(
 
     The boundary bonds are 1 (the sweep squashes the tails). Until 2026-08-22 this ran the paper's
     right-then-left order on the original bonds; on minimal-rank structures the two agree, on any
-    non-minimal TT bond they do not, and the uniform frame's left/up masks were too small (review S1).
+    non-minimal TT bond they do not, and the uniform frame's left/up masks were too small.
     Host numpy throughout: ranks are static structure (``use_jax`` is accepted for compatibility and ignored).
     '''
     tucker_ranks_arr = np.asarray(tucker_ranks)
@@ -743,7 +743,7 @@ def frame_has_minimal_ranks(
     each group (False otherwise -- untied ranks cannot carry tied factors), and the group ceiling
     can keep a rank the per-mode reduction would clip. A diagnostic, never a precondition (minimal
     rank -- shared or not -- is not a correctness precondition for any verified operation, and a
-    freshly rank-padded continuation restart legitimately sits below full shared rank).
+    freshly rank-padded warm start legitimately sits below full shared rank).
     '''
     if tuple(left_ranks) != tuple(right_ranks):
         return False

@@ -441,7 +441,7 @@ def randn(*args, use_jax: bool):
 def tree_contains_jax(T):
     if isinstance(T, typ.Sequence) and not isinstance(T, (str, bytes)):   # str IS a Sequence of strs:
         return any([tree_contains_jax(t) for t in T])                     # treat it as a leaf, not a
-    return is_jax_ndarray(T)                                              # branch (review R2-8)
+    return is_jax_ndarray(T)                                              # branch
 
 
 def tree_to_jax(T):
@@ -449,7 +449,7 @@ def tree_to_jax(T):
     structure; leaves already jax are a no-op (``jnp.asarray``). Numpy ``float64`` leaves become jax
     ``float32`` unless jax x64 is enabled -- the caller opts into jax precision. Without jax: numpy leaves
     and a one-time warning (the jax-absent policy, :py:func:`jax_or_warn`)."""
-    if isinstance(T, typ.Sequence) and not isinstance(T, (str, bytes)):   # str = a leaf (review R2-8)
+    if isinstance(T, typ.Sequence) and not isinstance(T, (str, bytes)):   # str = a leaf
         return type(T)(tree_to_jax(t) for t in T)   # preserve list-vs-tuple
     return jnp.asarray(T) if jax_or_warn('tree_to_jax') else np.asarray(T)
 
@@ -523,7 +523,7 @@ def load_core_families(
 def readonly_mask_copies(masks):
     """Defensive READ-ONLY numpy copies of a mask tuple, for storage in value-hashed aux objects:
     an aliased writeable caller array mutated in place would leave a stale cached jit key
-    (review H1-5; the ``_weight_matrix`` precedent)."""
+    (the ``_weight_matrix`` precedent)."""
     out = []
     for m in masks:
         c = np.array(m, copy=True)
@@ -535,7 +535,7 @@ def readonly_mask_copies(masks):
 class ExplicitEquality:
     """Mixin making ``==`` a directed error and the class unhashable: equality must be EXPLICIT.
 
-    The library's equality rule (ruled 2026-08-24, review R1-13 extended): **hash/eq belongs to the
+    The library's equality rule (ruled 2026-08-24): **hash/eq belongs to the
     jit-cache-key objects only** (the aux_data family -- mask holders, geometries, sampling kinds --
     which hash by VALUE because their equality decides compiled-program reuse). Every runtime
     array-carrying class (trains, weights, frames, variations, tangents) instead REFUSES ``==``:
@@ -592,7 +592,7 @@ class ValueHashedMasks:
     def _content_key(self) -> typ.Tuple:
         # shape + dtype + bytes: the ONE key both __hash__ and __eq__ use, so the hash/eq contract
         # (a == b => hash(a) == hash(b)) holds BY CONSTRUCTION -- the old pair (bytes-based hash,
-        # dtype-blind array_equal eq that also zip-truncated) could disagree (review H1-6 / R2-7).
+        # dtype-blind array_equal eq that also zip-truncated) could disagree.
         return tuple((m.shape, m.dtype.str, m.tobytes()) for m in self.data)
 
     def __hash__(self) -> int:
@@ -636,8 +636,7 @@ class ValueHashedFields:
         if is_ndarray(v):
             raise TypeError(
                 'a ValueHashedFields field holds a non-numpy array (%s): aux fields must be HOST '
-                'data -- a device array belongs in the traced leaves, not the jit cache key '
-                '(review R2-7)' % type(v).__name__)
+                'data -- a device array belongs in the traced leaves, not the jit cache key' % type(v).__name__)
         if isinstance(v, (tuple, list)):
             return tuple(ValueHashedFields._value_key(x) for x in v)
         return v
@@ -762,7 +761,7 @@ def require_concrete_masks(
 
     Under jit any ``jnp`` op on a mask returns a tracer, which breaks the layer two ways: host-int
     shape/rank extraction (``int(mask.sum())``) raises ``ConcretizationTypeError``, and recomputed masks
-    leak as tracers into the (identity-hashed, never-inspected) output ``aux_data`` -- silently invalid.
+    leak as tracers into the (value-hashed) output ``aux_data`` -- silently invalid.
     So a traced mask here means the masks were passed *among* the traced jit args; the fix is functional,
     not numerical (raise, per the structural-vs-numerical philosophy). See
     ``docs/contributor/uniform_pytree_composition.md``.

@@ -6,7 +6,7 @@
 
 Supercore-level sweeps, their core-level mirrors, and ``ut3_orthogonality_residual``. Why SVD
 rather than QR is load-bearing: ``docs/contributor/uniform_svd_prefix_orthogonalization.md``; the
-mask-aware **pad-safe** SVD the sweeps use (review S1b) is derived in ``docs/pad_safe_svd.tex``.
+mask-aware **pad-safe** SVD the sweeps use is derived in ``docs/pad_safe_svd.tex``.
 """
 import numpy as np
 import typing as typ
@@ -135,8 +135,8 @@ def down_orthogonalize_tucker_supercores(
     also reused by the T3-SVD sweep (which manages its own truncation masks).
 
     With masks (``row_mask``/``col_mask``) the SVD is the **pad-safe** one (:py:func:`~t3toolbox.backend.linalg.pad_safe_svd`):
-    at a numerically rank-deficient point the sigma~0 completion columns stay OFF the padding (review
-    S1b -- a black-box SVD may place them in padded slots, which the masks then erase: a lost tangent
+    at a numerically rank-deficient point the sigma~0 completion columns stay OFF the padding (a
+    black-box SVD may place them in padded slots, which the masks then erase: a lost tangent
     direction). ``out_mask`` additionally zeroes the don't-care completion columns beyond the output
     rank, keeping the result in canonical clean-padding form."""
     use_jax = tree_contains_jax((tucker_supercore, tt_supercore))
@@ -200,7 +200,7 @@ def up_orthogonalize_tt_supercores(
     if row_mask is None:
         U_ab_x, ss, WT_x_i = xnp.linalg.svd(H_ab_i, full_matrices=False)
     else:
-        # pad-safe (review S1b): sigma~0 completions stay off the padded (a,b)/rank slots
+        # pad-safe: sigma~0 completions stay off the padded (a,b)/rank slots
         U_ab_x, ss, WT_x_i = linalg.pad_safe_svd(H_ab_i, row_mask, col_mask)
         if out_mask is not None:
             U_ab_x = U_ab_x * out_mask[..., None, :]

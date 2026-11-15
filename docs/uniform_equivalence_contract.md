@@ -76,10 +76,10 @@ differently.
 
 **Consequence for testing.** Cross-representation equality tests must either start from a numerically
 full-rank point, or compare only quantities that survive a different completion — never per-iteration
-trajectories seeded from a padded restart.
+trajectories seeded from a zero-padded warm start.
 
 Until 2026-08 the uniform frame happened to match ragged **bitwise**, because both layers fed the same
-matrices to the same LAPACK kernel. That was never the contract, and it could not survive the S1b fix:
+matrices to the same LAPACK kernel. That was never the contract, and it could not survive the pad-safe SVD fix (2026.2.0):
 at a numerically rank-deficient point LAPACK's null-space completion may live in the *padded* slots, so
 the uniform sweep MUST choose a different — real-supported — completion there
 (`backend.linalg.pad_safe_svd`, derived in [`pad_safe_svd.tex`](pad_safe_svd.tex); the sweep is

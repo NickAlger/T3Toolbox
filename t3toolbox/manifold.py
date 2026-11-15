@@ -449,7 +449,7 @@ class T3Tangent(common.ExplicitEquality):
     __rmul__ = __mul__
 
     def __truediv__(self, s) -> 'T3Tangent':
-        """Scale by ``1/s`` (scalar only) -- ``v / 2 == v * 0.5`` (review R1-12)."""
+        """Scale by ``1/s`` (scalar only) -- ``v / 2 == v * 0.5``."""
         if np.ndim(s) != 0:
             raise TypeError('T3Tangent.__truediv__ takes a SCALAR divisor; got %s' % type(s).__name__)
         return self * (1.0 / s)
@@ -974,8 +974,8 @@ class T3Tangent(common.ExplicitEquality):
         Returns, for each mode ``i``, the stack ``y_i^(t) = d^t/ds^t [probe(X + s P)]_i|_0`` for
         ``t=0..order`` -- the derivative analogue of :py:meth:`probe`, obtained by perturbing every probe
         vector in the same direction ``P``. Index ``0`` is the ordinary :py:meth:`probe`. Stacks ``order
-        + W + K + C`` (order outermost; sample stack ``W``, tangent stack ``K``, frame stack ``C``). The
-        points ``X`` (``ww``) and the perturbations ``P`` (``pp``) must share the sample stack ``W``.
+        + W + K + C`` (order outermost; probe stack ``W``, tangent stack ``K``, frame stack ``C``). The
+        points ``X`` (``ww``) and the perturbations ``P`` (``pp``) must share the probe stack ``W``.
 
         See ``docs/symmetric_probe_derivatives.tex``.
 
@@ -1016,7 +1016,7 @@ class T3Tangent(common.ExplicitEquality):
 
         The all-modes analogue of :py:meth:`probe_derivatives` (and the derivative analogue of
         :py:meth:`apply`): ``y^(t) = d^t/ds^t apply(X + s P)|_0`` for ``t=0..order`` (a scalar per
-        stack element). Stacks ``order + W + K + C``. ``X`` and ``P`` must share the sample stack ``W``.
+        stack element). Stacks ``order + W + K + C``. ``X`` and ``P`` must share the probe stack ``W``.
 
         See Also
         --------
@@ -1091,18 +1091,18 @@ class T3Tangent(common.ExplicitEquality):
             pp:                 typ.Sequence[NDArray],    # perturbation vectors P, len=d, elm_shape=W+(Ni,)
             frame:              bvf.T3Frame,
             order:              int,                      # highest derivative order
-            sum_over_probes:    bool = False,             # True: sum the sample stack W (Gauss-Newton J^T r)
+            sum_over_probes:    bool = False,             # True: sum the probe stack W (Gauss-Newton J^T r)
             chunk_size:         typ.Optional[int] = 100,  # W-chunk size for the gradient assembly; None -> dense
     ) -> 'T3Tangent':
         """Transpose ``(J^(s))^T`` of :py:meth:`probe_derivatives`; returns a :py:class:`T3Tangent` at ``frame``.
 
         The adjoint of :py:meth:`probe_derivatives`. Residual jets ``ztildes`` live in its output space
-        (``(order+1)+W+K+C+(Ni,)``); the tangent batch ``K`` rides through, the sample stack ``W`` is
+        (``(order+1)+W+K+C+(Ni,)``); the tangent batch ``K`` rides through, the probe stack ``W`` is
         summed (``sum_over_probes=True``, the Gauss-Newton ``J^T r``) or kept (``False``, ``W`` becomes
         the tangent stack). Bare ``(J^(s))^T`` (no gauge projector).
 
         ``chunk_size`` bounds the peak memory of the (uniform+jax) gradient assembly by processing the
-        sample stack in slices; ``None`` runs the dense assembly. See :doc:`/chunking`.
+        probe stack in slices; ``None`` runs the dense assembly. See :doc:`/chunking`.
 
         See Also
         --------
@@ -1246,8 +1246,7 @@ class T3Tangent(common.ExplicitEquality):
             raise ValueError(
                 'stack_tangents: every leaf must carry the same tangent stack K to stack into one '
                 'outer level; got K shapes %s. Stack the K=() leaves separately, or unstack the '
-                'K-stacked one first (unstack_tangents). (Used to die inside numpy with an '
-                'inhomogeneous-shape error -- review H3-6.)' % sorted(kk))
+                'K-stacked one first (unstack_tangents).' % sorted(kk))
         variations_tree = stacking.apply_func_to_leaf_subtrees(tree, lambda t: t.variations.data, None)
         variations_data = tv_operations.tv_stack_tangent_stack(variations_tree)
         return _record_stacked_gauge_scale(T3Tangent(frame, bvf.T3Variations(*variations_data)), leaves)
@@ -1636,7 +1635,7 @@ class CorewiseGeometry:
         and adds the variations. ``p`` must be a corewise tangent (a frame from :py:meth:`frame`).
 
         A MANIFOLD-frame tangent is rejected whenever that is structurally detectable (its up/left
-        slots hold different cores, e.g. a slack frame with ``nU != nD`` -- review H3-8); when the
+        slots hold different cores, e.g. a slack frame with ``nU != nD``); when the
         manifold frame happens to have identically-shaped slots the two frame kinds are structurally
         indistinguishable, and pairing each geometry with its own frames is the caller's contract.
         """
@@ -1673,7 +1672,7 @@ def _flatten_tangents(tree) -> typ.List['T3Tangent']:
     return out
 
 
-# ---- The operand scale of the safe-mode gauge check (I-38). Shared with the uniform twin (UT3Tangent): both
+# ---- The operand scale of the safe-mode gauge check. Shared with the uniform twin (UT3Tangent): both
 # classes expose `_gauge_scale` (the cached-property slot, None = a leaf), `corewise_norm()` (per K+C element;
 # masked for uniform) and `.variations.data[:2]` (the variation arrays). The scale is RECORDED into the result's
 # instance __dict__ -- the slot functools.cached_property itself fills, which a frozen dataclass permits -- so the

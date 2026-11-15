@@ -307,7 +307,7 @@ def t3_down_svd_tt_core(
     typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # new_x
     NDArray,  # singular values, shape=(new_ni,)
 ]:
-    '''Compute SVD of ith TT-core outer unfolding and keep non-orthogonal factor with this core.
+    '''Compute SVD of ith TT-core matricization and keep non-orthogonal factor with this core.
     '''
     use_jax = tree_contains_jax(x)
     xnp, _, _ = get_backend(False, use_jax)
@@ -344,7 +344,7 @@ def t3_up_svd_tt_core(
     typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # new_x
     NDArray,  # singular values, shape=(new_ni,)
 ]:
-    '''Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor down into the tucker core below.
+    '''Compute SVD of ith TT-core matricization and contract non-orthogonal factor down into the tucker core below.
     '''
     tucker_cores, tt_cores = x
 

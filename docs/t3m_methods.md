@@ -21,7 +21,7 @@ With **no truncation requested, every method short-circuits to the exact full pr
 
 ## What there is to truncate
 
-Write a T3 as `T[x] = Σ_n (∏_i B_i[n_i, x_i]) · C[n]`, with the central Tucker core `C` stored as
+Write a T3 as `T[x] = Σ_n (∏_i B_i[n_i, x_i]) · C[n]`, with the central core `C` stored as
 a tensor train. The elementwise product splits into **two truncatable rank families**:
 
 - **Tucker factors:** `W_i = B_i^x ⊙ B_i^y` (row-wise Khatri-Rao), rank `n_x·n_y` → truncate to `ñ_i`;

@@ -5,7 +5,7 @@ A tangent vector to the fixed-rank manifold is stored as a **frame** plus **vari
 there are `d` of each but `d+1` rank/bond indices, and why the variations behave like plain **coordinates**
 — which is what makes `corewise` linear algebra (and the weighted metric, `T3FrameWeights`) work.
 
-## A tangent is a sum of `d` terms
+## A tangent is a sum of `2d` terms
 
 The key picture: a tangent vector is the **sum of `d` tensor-train diagrams**, each with one **variation
 core** (in parentheses) surrounded by **frame cores**:
@@ -30,17 +30,17 @@ families:
 | tucker-variation `Vᵢ` | `V` | Tucker-factor direction (in the `nU` complement) | `nU` |
 | tt-variation `Hᵢ` | `H` | TT-core direction | `nD`, `rL`, `rR` |
 
-## `d` cores, `d+1` bonds — and the "extra" `Ld`, `R0`
+## `d` cores, `d+1` bonds — and the carriers `L(d-1)`, `R0`
 
 Each family has **`d` cores** (`D0…D(d-1)`, `L0…L(d-1)`, …), but the TT **bonds** run `rL0 … rLd` and
 `rR0 … rRd` — **`d+1`** of them. Mathematically there are only `d` *natural* left/right cores: in the
-diagrams above, **`Ld` and `R0` are never used** (the leftmost term needs no left environment; the
+diagrams above, **`L(d-1)` and `R0` are never used** (the leftmost term needs no left environment; the
 rightmost needs no right environment).
 
 So why keep them? **To give the base point a home.** A frame is meant to *remember the point it was
 constructed at*, and that point is stored as a single extra variation term — the base point written as a
 gauged tangent, `v_X`, whose only nonzero variation is the **last TT variation** (`= L_last`, the
-`Ld`-adjacent slot). Keeping the padding `Ld` / `R0` cores means:
+`L(d-1)`-adjacent slot). Keeping the carriers `L(d-1)` / `R0` means:
 
 - there is a **canonical, non-arbitrary place** to put the base-point term (rather than picking one of the
   `d` cores by fiat), so `T3Tangent.to_t3(include_shift=True)` can fold the point back in; and
@@ -110,7 +110,7 @@ the other store ([release notes](release_notes.md), "Upgrading from 2026.4.0").
 (`tt_variations`). The paper ↔ code maps ([`entries_apply_probe.md`](entries_apply_probe.md) §8,
 [`batching_and_stacking.md`](batching_and_stacking.md) §8) keep the paper's letters.
 
-Each core must be orthonormal *in its own unfolding*, and that caps that core's own rank — you cannot have
+Each core must be orthonormal *in its own matricization or unfolding*, and that caps that core's own rank — you cannot have
 more orthonormal rows than the space they live in:
 
 | core | orthonormality | the rank it caps |
@@ -158,7 +158,7 @@ picture:
   The weighted norm is just `corewise_norm` of the weight-scaled variations; the frame stays orthonormal.
 
 The `d`-natural-edges count is not a coincidence — it is the same `d` as the variation cores, and the
-padding `Ld`/`R0` bonds (being base-point machinery, not tangent directions) correctly carry **no** weight.
+carrier bonds `rLd` / `rR0` (being base-point machinery, not tangent directions) correctly carry **no** weight.
 Putting inverse singular values on these coordinate edges penalises the poorly-informed tangent directions
 — the Grasedyck–Kramer preconditioner.
 

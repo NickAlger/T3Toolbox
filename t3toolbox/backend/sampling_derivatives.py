@@ -33,7 +33,7 @@ DEFAULT_CHUNK_SIZE = 100   # default W-chunk size for the chunkable probe gradie
 # left free). This module computes the *symmetric* directional derivatives of that map in a single
 # repeated direction P = (p_0, ..., p_{d-1}):
 #
-#     y_i^(t) := d^t/ds^t y_i(X + s P) |_{s=0},    t = 0, 1, ..., K.
+#     y_i^(t) := d^t/ds^t y_i(X + s P) |_{s=0},    t = 0, 1, ..., order.
 #
 # Jet view. Because X + sP is affine in s, each input vector carries a trivial Taylor jet -- value at
 # order 0, direction at order 1, zero above -- and every product of jets is a binomial convolution,
@@ -44,7 +44,7 @@ DEFAULT_CHUNK_SIZE = 100   # default W-chunk size for the chunkable probe gradie
 #   - compute_mu_jets : left  jets mu_i^(t)  (input jet on the mode).
 #   - compute_nu_jets : right jets nu_i^(t)  -- the mirror image (tt_reverse).
 #   - compute_eta_jets: combine at each free mode (nu jet on the bond).
-#   - assemble_z_jets : lift each order through the Tucker cores via tWCi_Cio_to_tWCo (t broadcast).
+#   - assemble_z_jets : lift each order through the Tucker cores via `contract('tWCi,Cio->tWCo', ...)` (t broadcast).
 # No kernel here contracts trs: see "The jet kernels" below for the recurrence and scan forms. The dense
 # trs forms are the test suite's reference twins (tests/_jet_trs_twins.py), never imported here.
 #
@@ -54,7 +54,7 @@ DEFAULT_CHUNK_SIZE = 100   # default W-chunk size for the chunkable probe gradie
 #
 # STACKING: the SAME three blocks as plain probing (frame-inner W + K + C), plus the convolved order
 # axis t. See docs/batching_and_stacking.md.
-#   - sample stack W: on the inputs ww/pp -- each sample is a paired (X, P) (duplicate a point across W
+#   - probe stack W: on the inputs ww/pp -- each sample is a paired (X, P) (duplicate a point across W
 #     to sweep many directions at it). This IS the probing probe stack W.
 #   - tangent stack K: on the variation cores only -- a batch of tangent vectors sharing one frame
 #     (Riemannian only). Rides the variation-derived jets (sigma/tau/deta/dxi), not the frame jets.
@@ -152,7 +152,7 @@ def t3_probe_derivatives(
     Returns, for each mode ``i``, the stack ``y_i^(t) = d^t/ds^t y_i(X + s P)|_0`` for ``t=0..order``,
     where ``y_i`` is the ``i``-th probing action. Index ``0`` is the ordinary probe ``t3_probe``.
 
-    Two independent stacks ride through, frame-inner as in plain probing: a sample stack ``W`` on the
+    Two independent stacks ride through, frame-inner as in plain probing: a probe stack ``W`` on the
     input vectors (each sample a paired ``(X, P)`` -- repeat a point across ``W`` to sweep many
     directions at it) and a frame/core stack ``C`` on the cores (a batch of T3s probed by the same
     samples). Outputs are ``order + W + C + (Ni,)`` (``W`` outer, ``C`` inner); either may be empty.
@@ -170,7 +170,7 @@ def t3_probe_derivatives(
     x: t3.TuckerTensorTrain.data
         Tucker tensor train, as a (tucker_cores, tt_cores) data tuple.
     order: int
-        highest derivative order K.
+        highest derivative order.
 
     Returns
     -------
@@ -208,13 +208,13 @@ def check_perturbation_vectors(
         ww: typ.Sequence[NDArray],  # points X,       len=d, elm_shape=W+(Ni,)
         pp: typ.Sequence[NDArray],  # perturbation P, len=d, elm_shape=W+(Ni,)
 ) -> None:
-    '''Structural check (hard error): the perturbation ``P`` (``pp``) shares the sample stack ``W`` and
+    '''Structural check (hard error): the perturbation ``P`` (``pp``) shares the probe stack ``W`` and
     mode dims of the points ``X`` (``ww``) -- each sample pairs a point with a direction. Used by the
     derivative-probe/apply frontends; shapes are static, so this is jit-safe.'''
     for i, (w, p) in enumerate(zip(ww, pp)):
         if np.shape(w) != np.shape(p):
             raise ValueError(
-                "perturbation P must match the shape (sample stack W and mode dim) of the points X; "
+                "perturbation P must match the shape (probe stack W and mode dim) of the points X; "
                 "mode %d: P %s vs X %s" % (i, np.shape(p), np.shape(w)))
 
 
@@ -224,7 +224,7 @@ def check_perturbation_index(
         shape: typ.Optional[typ.Sequence[int]]   # ambient mode dims (Ni), len=d -- if given, also check P's mode dim
              = None,
 ) -> None:
-    '''Structural check (hard error): the perturbation ``P`` shares the sample stack ``W`` of the grid
+    '''Structural check (hard error): the perturbation ``P`` shares the probe stack ``W`` of the grid
     points ``index`` (shape ``(d,)+W``), and -- when ``shape`` is given (the ambient mode dims ``Ni``,
     which the integer ``index`` does not carry) -- ``P``'s mode dim matches it. Used by the
     derivative-entries frontends; jit-safe.'''
@@ -232,7 +232,7 @@ def check_perturbation_index(
     for i, p in enumerate(pp):
         if tuple(np.shape(p)[:-1]) != iW:
             raise ValueError(
-                "perturbation P's sample stack W must match index's; mode %d: P %s vs index %s"
+                "perturbation P's probe stack W must match index's; mode %d: P %s vs index %s"
                 % (i, tuple(np.shape(p)[:-1]), iW))
         if shape is not None and np.shape(p)[-1] != shape[i]:
             raise ValueError(
@@ -521,7 +521,7 @@ def assemble_z_jets(
     '''Lift the combined jets back to the ambient modes through the Tucker cores (order by order).
 
     The Tucker factor is order-independent, so ``z_i^(t) = B_i eta_i^(t)`` applies per order
-    (``tWCi_Cio_to_tWCo``) -- the order axis rides as a leading broadcast batch.
+    (``contract('tWCi,Cio->tWCo', ...)``) -- the order axis rides as a leading broadcast batch.
     '''
     use_jax = tree_contains_jax((tucker_cores, eta_jets))
     is_uniform = is_ndarray(tucker_cores)
@@ -737,7 +737,7 @@ def compute_sigma_jets(
         dxi_jets:       typ.Sequence[NDArray],  # var  input jets, len=d, elm_shape=(2,)+W+K+C+(nUi,)
         mu_jets:        typ.Sequence[NDArray],  # frame left jets,  len=d, elm_shape=(order+1,)+W+C+(rLi,)
 ) -> typ.Tuple[NDArray, ...]:                   # sigma_jets. len=d, elm_shape=(order+1,)+W+K+C+(rRi,)
-    '''Variation-leftward edge-variable jets sigma (banded recurrence; the jet-ified Algorithm-7 sigma
+    '''Left-side variation edge-variable jets sigma (banded recurrence; the jet-ified Algorithm-7 sigma
     recursion).
 
     ``sigma_i = sigma_{i-1} R_i(xi_i) + mu_{i-1} H_i(xi_i) + mu_{i-1} U_i(dxi_i)``, boundary
@@ -767,7 +767,7 @@ def compute_tau_jets(
         dxi_jets:       typ.Sequence[NDArray],  # var  input jets, len=d, elm_shape=(2,)+W+K+C+(nUi,)
         nu_jets:        typ.Sequence[NDArray],  # frame right jets, len=d, elm_shape=(order+1,)+W+C+(rR(i+1),)
 ) -> typ.Tuple[NDArray, ...]:                   # tau_jets. len=d, elm_shape=(order+1,)+W+K+C+(rL(i+1),)
-    '''Variation-rightward edge-variable jets tau (banded recurrence) -- the mirror of
+    '''Right-side variation edge-variable jets tau (banded recurrence) -- the mirror of
     :py:func:`compute_sigma_jets`: reverse the train (L in the R-slot, U and H reversed), run the sigma
     sweep, reverse the result.'''
     reverse = tt_operations.tt_reverse
@@ -875,7 +875,7 @@ def assemble_tangent_z_jets(
         deta_jets:          typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(nDi,)
 ) -> typ.Tuple[NDArray, ...]:                       # z_jets. len=d, elm_shape=(order+1,)+W+K+C+(Ni,)
     '''Assemble tangent-probe-derivative jets: ``z_i = D_i deta_i + V_i eta_i`` -- two lifts
-    (``tWCi_Cio_to_tWCo``), the order axis riding as a leading broadcast batch.
+    (``contract('tWCi,Cio->tWCo', ...)``), the order axis riding as a leading broadcast batch.
     '''
     use_jax = tree_contains_jax((tucker_cores, var_tucker_cores, eta_jets, deta_jets))
     is_uniform = is_ndarray(tucker_cores)
@@ -948,7 +948,7 @@ def tv_probe_derivatives(
 
     Identical structure to :py:func:`t3_probe_derivatives` but on the tangent calculus: a frame sweep
     (frame cores) and a variation sweep. Full ``order + W + K + C`` stacking (frame-inner, mirroring
-    tv_probe): sample stack ``W``, tangent stack ``K`` (a batch of tangents sharing the frame, on
+    tv_probe): probe stack ``W``, tangent stack ``K`` (a batch of tangents sharing the frame, on
     the variation cores), frame stack ``C``; any may be empty.
 
     The symmetric-derivative formulation is not in the published T4S paper; verified against
@@ -1025,7 +1025,7 @@ def t3_apply_derivatives(
     ``y^(t) = d^t/ds^t apply(X, W + s P)|_0`` for ``t=0..order``, where ``apply`` contracts the tensor
     with the vectors in every mode (a scalar). Index ``0`` is the ordinary apply. Computed as the
     terminal carry of the left mu-jet sweep (via the cores), bond summed -- no right/central sweeps.
-    Stacks ride as ``order + W + C`` (sample stack ``W``, frame stack ``C``; no tangent stack here).
+    Stacks ride as ``order + W + C`` (probe stack ``W``, frame stack ``C``; no tangent stack here).
     Verified against :py:func:`dense_apply_derivatives`.
     '''
     tucker_cores, tt_cores = x
@@ -1120,7 +1120,7 @@ def tv_apply_derivatives(
     of :py:func:`apply.tv_apply`): returns ``y^(t) = d^t/ds^t [apply(v, W + s P)]|_0`` for
     ``t=0..order``, where ``v`` is the tangent vector ``(frame, variation)``. A single left-to-right pass
     (frame mu via L, perturbation sigma via R) to the terminal carry, bond summed. Stacks ``order + W +
-    K + C`` (sample stack ``W``, tangent stack ``K``, frame stack ``C``). Verified against
+    K + C`` (probe stack ``W``, tangent stack ``K``, frame stack ``C``). Verified against
     :py:func:`dense_apply_derivatives` on the densified tangent.
 
     See Also
@@ -1227,7 +1227,7 @@ def tv_entries_derivatives(
 # the swept order is freed) for the sweeps, and the ORDER-LESS three-jet product (TT, 3 edges) / plain
 # order-sum (Tucker, 1 edge) for the assembly. Each is realized as in the forward (the jet-kernel note
 # above): banded reverse recurrences where one factor is an input jet, order scans with a carried
-# up-shifted jet where both are full. Stacks (frame-inner W + C, as in plain probing): sample stack W on
+# up-shifted jet where both are full. Stacks (frame-inner W + C, as in plain probing): probe stack W on
 # the inputs, frame stack C on the cores; sum_over_probes sums W (the J^T r back-projection) else keeps
 # it (W rides into the variation stack). Verified against the adjoint identity.
 
@@ -1356,7 +1356,7 @@ def compute_tau_tilde_jets(
         deta_tildes:    typ.Sequence[NDArray],  # adjoint-upward jets, len=d, elm_shape=(order+1,)+W+K+C+(nDi,)
         mu_jets:        typ.Sequence[NDArray],  # frame left jets,  len=d, elm_shape=(order+1,)+W+C+(rLi,)
 ) -> typ.Tuple[NDArray, ...]:                   # tau_tildes. len=d, elm_shape=(order+1,)+W+K+C+(rLi,)
-    '''Adjoint-var-rightward edge-variable jets tau_tilde (jet-ified probing.compute_tau_tilde; reverse
+    '''Adjoint right-side variation edge-variable jets tau_tilde (jet-ified probing.compute_tau_tilde; reverse
     recurrence + order scan, :py:func:`_adj_tilde_step`).'''
     return _adj_sweep_scanned(left_tt_cores, xi_jets, deta_tildes, mu_jets)
 
@@ -1367,7 +1367,7 @@ def compute_sigma_tilde_jets(
         deta_tildes:    typ.Sequence[NDArray],  # adjoint-upward jets, len=d, elm_shape=(order+1,)+W+K+C+(nDi,)
         nu_jets:        typ.Sequence[NDArray],  # frame right jets, len=d, elm_shape=(order+1,)+W+C+(rR(i+1),)
 ) -> typ.Tuple[NDArray, ...]:                   # sigma_tildes. len=d, elm_shape=(order+1,)+W+K+C+(rR(i+1),)
-    '''Adjoint-var-leftward edge-variable jets sigma_tilde -- the reverse of
+    '''Adjoint left-side variation edge-variable jets sigma_tilde -- the reverse of
     :py:func:`compute_tau_tilde_jets`.'''
     rev = _adj_sweep_scanned(tt_operations.tt_reverse(right_tt_cores), xi_jets[::-1],
                              deta_tildes[::-1], nu_jets[::-1])
@@ -1744,7 +1744,7 @@ def assemble_tt_variation_jets(
     :py:func:`_assemble_tt_variation_jets_dense`: banded sigma~ / tau~ groups and an order scan for the deta~
     group, no binomial tensor).
 
-    The unchunked assembly's peak is exactly LINEAR in the sample stack W, so it is chunked along W: the
+    The unchunked assembly's peak is exactly LINEAR in the probe stack W, so it is chunked along W: the
     unchunked assembly runs per W-chunk and the partials are combined. Peak ~ ``chunk_size * (per-W-row)``
     instead of ``W * (per-W-row)``.
 
@@ -1831,7 +1831,7 @@ _SLOPE_CHUNKS = (128, 256)    # the two chunk sizes whose peak difference is the
 
 def _chunk_slope(
         make:   typ.Callable,           # chunk_size -> the function to lower (its arguments: ``args``)
-        args:   typ.Tuple,              # jax.ShapeDtypeStruct pytrees, the sample stack W = 4 * _SLOPE_CHUNKS[1]
+        args:   typ.Tuple,              # jax.ShapeDtypeStruct pytrees, the probe stack W = 4 * _SLOPE_CHUNKS[1]
 ) -> float:                             # bytes of compiled scratch per unit of chunk_size
     '''``d(temp)/d(chunk_size)`` of a compiled program: lower it abstractly (no allocation) at the two
     :py:data:`_SLOPE_CHUNKS` with ``W`` fixed and a multiple of both, and difference XLA's
@@ -2024,7 +2024,7 @@ def tv_probe_transpose_derivatives_from_sweep(
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = tv_precompute_probe_frame_sweep_jets(frame, ww, pp, order)
         order:      int,                    # highest derivative order
-        sum_over_probes: bool = False,      # True: sum the sample stack W (the J^T r back-projection)
+        sum_over_probes: bool = False,      # True: sum the probe stack W (the J^T r back-projection)
         chunk_size: typ.Optional[int] = DEFAULT_CHUNK_SIZE,   # W-chunk size for the gradient assembly; None -> dense. docs/chunking.md
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # V_tildes (Tucker variation gradient)
@@ -2059,7 +2059,7 @@ def tv_probe_derivatives_transpose(
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = T3Frame.data = (D, U, L, R)
         order:      int,                    # highest derivative order
-        sum_over_probes: bool = False,      # True: sum the sample stack W (the J^T r back-projection)
+        sum_over_probes: bool = False,      # True: sum the probe stack W (the J^T r back-projection)
         chunk_size: typ.Optional[int] = DEFAULT_CHUNK_SIZE,   # W-chunk size for the gradient assembly; None -> dense. docs/chunking.md
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # V_tildes (Tucker variation gradient)
@@ -2072,14 +2072,14 @@ def tv_probe_derivatives_transpose(
     assembly -- banded recurrences and order scans throughout, no binomial tensor.
 
     Full ``W + K + C`` stacking, frame-inner as in plain probing: the residual jets ``ztildes`` carry the
-    sample stack ``W``, the tangent stack ``K`` (the forward output's ``K``), and the frame stack ``C``.
+    probe stack ``W``, the tangent stack ``K`` (the forward output's ``K``), and the frame stack ``C``.
     The tangent batch ``K`` always rides through to the variation gradient. With ``sum_over_probes=False``
-    the sample stack ``W`` rides through into the variation stack too; with ``True`` it is summed (the
+    the probe stack ``W`` rides through into the variation stack too; with ``True`` it is summed (the
     ``J^T r`` back-projection used for fitting), ``K``/``C`` always kept. Verified against the dense
     adjoint identity ``<r, J v> = <J^T r, v>``.
 
     ``chunk_size`` bounds the peak memory of the (uniform+jax) gradient assembly by processing the
-    sample stack ``W`` in slices of that size; ``None`` (or ``>= W``) runs the dense assembly. The
+    probe stack ``W`` in slices of that size; ``None`` (or ``>= W``) runs the dense assembly. The
     default is a safe fixed value, tuned only for moderate problems (a fixed ``chunk_size`` bounds the
     chunk *count*, not the bytes); for a memory-balanced value from the problem shapes call
     :py:func:`estimate_chunk_size` once (eagerly). Chunking engages only on the uniform+jax path
@@ -2258,7 +2258,7 @@ def tv_apply_transpose_derivatives_from_sweep(
             typ.Sequence[NDArray],          # mu_jets
         ],                                  # = tv_precompute_apply_frame_sweep_jets(frame, ww, pp, order)
         order:      int,                    # highest derivative order
-        sum_over_probes: bool = False,      # True: sum the sample stack W (the J^T r back-projection)
+        sum_over_probes: bool = False,      # True: sum the probe stack W (the J^T r back-projection)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # V_tildes
     typ.Tuple[NDArray, ...],  # H_tildes
@@ -2282,7 +2282,7 @@ def tv_apply_derivatives_transpose(
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = T3Frame.data = (D, U, L, R)
         order:      int,                    # highest derivative order
-        sum_over_probes: bool = False,      # True: sum the sample stack W (the J^T r back-projection)
+        sum_over_probes: bool = False,      # True: sum the probe stack W (the J^T r back-projection)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # V_tildes (Tucker variation gradient)
     typ.Tuple[NDArray, ...],  # H_tildes (TT variation gradient)
@@ -2292,7 +2292,7 @@ def tv_apply_derivatives_transpose(
     residual jet ``c`` seeds one propagation sweep (no per-mode residual, no nu/eta), so it is about
     half the probe transpose. Full ``W + K + C`` stacking: ``c`` carries the tangent stack ``K``, which
     rides to the variation gradient; ``sum_over_probes`` sums (``True``, the Gauss-Newton ``J^T r``) or
-    keeps (``False``, ``W`` rides into the variation stack) the sample stack ``W``; ``K``/``C`` always
+    keeps (``False``, ``W`` rides into the variation stack) the probe stack ``W``; ``K``/``C`` always
     kept. Verified vs the dense adjoint identity ``<c, J v> = <J^T c, v>``.
 
     See Also
@@ -2318,7 +2318,7 @@ def tv_entries_transpose_derivatives_from_sweep(
             typ.Sequence[NDArray],          # mu_jets
         ],                                  # = tv_precompute_entries_frame_sweep_jets(frame, index, pp, order)
         order:      int,                    # highest derivative order
-        sum_over_probes: bool = False,      # True: sum the sample stack W (the J^T r back-projection)
+        sum_over_probes: bool = False,      # True: sum the probe stack W (the J^T r back-projection)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # V_tildes
     typ.Tuple[NDArray, ...],  # H_tildes
@@ -2357,7 +2357,7 @@ def tv_entries_derivatives_transpose(
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = T3Frame.data = (D, U, L, R)
         order:      int,                    # highest derivative order
-        sum_over_probes: bool = False,      # True: sum the sample stack W (the J^T r back-projection)
+        sum_over_probes: bool = False,      # True: sum the probe stack W (the J^T r back-projection)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # V_tildes
     typ.Tuple[NDArray, ...],  # H_tildes
@@ -2398,7 +2398,7 @@ def t3_probe_corewise_derivatives_transpose(
             typ.Sequence[NDArray],          # tt_cores,     len=d, elm_shape=C+(ri,ni,r(i+1))
         ],                                  # = TuckerTensorTrain.data
         order:      int,                    # highest derivative order
-        sum_over_probes: bool = False,      # True: sum the sample stack W (the gradient J^T r)
+        sum_over_probes: bool = False,      # True: sum the probe stack W (the gradient J^T r)
         chunk_size: typ.Optional[int] = DEFAULT_CHUNK_SIZE,   # W-chunk size for the gradient assembly; None -> dense. docs/chunking.md
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # tucker-core gradients, same shapes as tucker_cores
@@ -3457,7 +3457,7 @@ def dense_probe_derivatives(
         pp:     typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=(Ni,)
         T:      NDArray,                # dense tensor, shape=(N0,...,N(d-1))
         order:  int,                    # highest derivative order
-) -> typ.List[NDArray]:                 # z_jets. len=d, elm_shape=(K+1,Ni)
+) -> typ.List[NDArray]:                 # z_jets. len=d, elm_shape=(order+1,Ni)
     '''Exact dense symmetric probe derivatives, by the multilinear subset expansion (test oracle).
 
     Each action ``y_i`` is multilinear in the off-mode vectors, so ``y_i(X+sP)`` is a polynomial in

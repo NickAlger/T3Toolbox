@@ -45,14 +45,14 @@ the least-squares well conditioned):
 >>> np.random.seed(0)
 >>> shape, tucker_ranks, tt_ranks = (6, 7, 8), (2, 2, 2), (1, 2, 2, 1)
 >>> A = t3.TuckerTensorTrain.randn(shape, tucker_ranks, tt_ranks)
->>> ww = [np.random.randn(120, N) for N in shape]                    # measurement vectors, len=d
+>>> ww = [np.random.randn(120, N) for N in shape]                    # probe vectors, len=d
 >>> ww = [w / np.linalg.norm(w, axis=1, keepdims=True) for w in ww]  # unit-norm rows
 >>> pp = [np.random.randn(120, N) for N in shape]                    # perturbation directions
 >>> pp = [p / np.linalg.norm(p, axis=1, keepdims=True) for p in pp]
->>> K, rng = 2, np.random.default_rng(0)
->>> data  = A.apply(ww)                      # the apply measurements,        shape W
->>> pdata = A.probe(ww)                      # the probe measurements,        len=d
->>> jets  = A.apply_derivatives(ww, pp, K)   # the apply-derivative jets, shape (K+1,)+W
+>>> order, rng = 2, np.random.default_rng(0)
+>>> data  = A.apply(ww)                          # the apply measurements,        shape W
+>>> pdata = A.probe(ww)                          # the probe measurements,        len=d
+>>> jets  = A.apply_derivatives(ww, pp, order)   # the apply-derivative jets, shape (order+1,)+W
 >>> x0 = t3.TuckerTensorTrain.zeros(shape, tucker_ranks, tt_ranks)
 
 ```
@@ -73,9 +73,9 @@ True
 True
 
 >>> # fit from apply-DERIVATIVE jets, by Manifold Cauchy SGD, with a per-order weight ω (§2.3 adds a draw):
->>> w_order = [1.0, 0.5, 0.25]                          # ω, shape (K+1,) -- per order
+>>> w_order = [1.0, 0.5, 0.25]                          # ω, shape (order+1,) -- per order
 >>> x_mc, stats = topt.mc_sgd(t3m.MANIFOLD, 'apply_derivatives', (ww, pp), jets, x0,
-...                           rng, 20, order=K, weight=w_order, max_iter=60, check_every=20)
+...                           rng, 20, order=order, weight=w_order, max_iter=60, check_every=20)
 >>> bool(stats['losses'][-1] < stats['losses'][0])      # the (EMA-smoothed) full-batch loss checks descend
 True
 
@@ -206,10 +206,10 @@ True
 
 ```
 
-`draw(rng) → (sample_B, data_B)` returns the subset of measurement vectors **and** their measured values.
+`draw(rng) → (sample_B, data_B)` returns the subset of probe vectors **and** their measured values.
 *Every* slicing scheme — flat random pairs, slice-on-X, slice-on-P — is just a different index expression
 *you* write, on *your* arrays. **If you don't pass one, you get the flat default** (`flat_draw`: a uniform
-random subset across the whole flattened sample stack `W`). The optimizer never compiles the draw, so it's
+random subset across the whole flattened probe stack `W`). The optimizer never compiles the draw, so it's
 unconstrained Python/numpy — or write it in jax on device-resident data to keep the minibatch on the GPU
 (only the per-step *kernel* is jitted; see §4.5).
 
@@ -484,8 +484,8 @@ directions); on `COREWISE` it is weight decay `½λ Σ_c ‖core_c‖²`.
   so λ keeps the same meaning whatever batch size you use — you do **not** rescale λ by hand.
 - **Custom regularizers.** `IdentityRegularizer` is one implementation of the small `Regularizer` protocol
   (`backend.regularization`); a custom term supplies its value / gradient / Gauss–Newton contribution and
-  drops into the same slot. (An inverse-unfolding-singular-value prior, after Grasedyck–Kramer, is future
-  work.)
+  drops into the same slot. (An inverse-singular-value prior on the matricizations and unfoldings, after
+  Grasedyck–Kramer, is future work.)
 
 ---
 
@@ -544,14 +544,14 @@ of all four. The same `hessian='exact'` builds an exact `fitting.LocalModel` fro
 **When it helps.** On a **nonzero-residual** fit — noisy data, or a target the ranks cannot represent —
 Gauss-Newton converges linearly, at a rate set by the term it drops (on the history rows, `|1 − ρ|` and the
 ratio of successive gradient norms both measure it), while the exact Hessian gives the Newton tail. On a
-probe-derivative continuation restart (orders 0–2, 5 % noise, rank 2 → 3), Gauss-Newton with its line
+probe-derivative fit from a zero-padded warm start (orders 0–2, 5 % noise, rank 2 → 3), Gauss-Newton with its line
 search took 39 steps and 130 Hessian-applies, the exact Hessian with its trust region 10 and 28; on a
 seeded set of shared and unshared restarts of one such problem, 3.5–5× fewer outer steps and 5–6.6× fewer
 CG iterations, 1.6–2× less wall time. Where the residual vanishes at the solution (noise-free data at the
 true ranks) Gauss-Newton is already fast and the curvature term only adds cost. Far from a minimizer — a
-cold zero start, or the first steps after a zero-padded restart — the exact Hessian can be indefinite, so
+cold zero start, or the first steps after a zero-padded warm start — the exact Hessian can be indefinite, so
 the trust region limits the early steps, and it can settle in a different local minimum than Gauss-Newton
-would (measured downstream from a zero-padded restart: a verified minimum about 12 % above Gauss-Newton's).
+would (measured downstream from a zero-padded warm start: a verified minimum about 12 % above Gauss-Newton's).
 A Gauss-Newton warm start followed by exact steps is the natural pattern — the schedule is yours to choose
 (every knob is a `newton_cg` keyword, per call), or `hessian='switch'` picks the moment to change inside one call
 (§4.14).
@@ -609,7 +609,7 @@ exact CG compiles once per run, like Gauss-Newton's (about 1.5× the compile tim
 assembly fits too ([`chunking.md`](chunking.md)); ragged fits and the other five kinds do not chunk, in
 either mode.
 
-**Restarts need nothing special.** From a zero-padded continuation restart ([`rank_continuation.md`](rank_continuation.md))
+**Restarts need nothing special.** From a zero-padded warm start ([`rank_continuation.md`](rank_continuation.md))
 the new directions have zero singular values; the lift's clipped pseudo-inverse drops them (the Hessian
 is Gauss-Newton in those directions, while the gradient still moves along them) and the trust region
 bounds the step, so exact mode runs from the restart as from any other point (on a shared geometry, see
@@ -751,7 +751,7 @@ iter  1 | obj 3.617e+04  ‖g‖ 4.79e+03 (8.5e-02·g₀) | CG 3/200 tol 4.1e+02
     m1  1.2e-01  1.1e-01
     m2  1.1e-01  8.3e-02
 …
-iter  5 | obj 6.024e-02  ‖g‖ 2.65e-08 (4.7e-13·g₀) | converged (‖g‖ ≤ gtol·‖g₀‖)
+iter  5 | obj 6.024e-02  ‖g‖ 2.65e-08 (4.7e-13·g₀) | converged (‖g‖ ≤ gtol·‖g₀‖, g₀ = cone (aligned zero tensor))
   time  model 3.6e-03 [frame 4.7e-04 sweep 9.5e-04 comp 2.9e-06 resid 1.0e-03 curv 1.1e-03] | grad 2.8e-03 | cb 2.6e-04 | rest 1.9e-05
   rel err  rows=mode  cols=order
            ord0     ord1
@@ -860,7 +860,7 @@ compiles and memory.
 - The listener is process-global: compiles in other threads, or in a timed run nested inside a callback, are counted
   too.
 - A callback runs between two windows, so its time is the **next** row's `previous_callback` (the last row's is
-  `last_callback`): a heavy display shows up a row late.
+  `last_callback`): a heavy display appears a row late.
 - Work dispatched without a wait is charged to the next phase that waits for it: `-g`, dispatched in the remainder,
   finishes inside `cg` (tiny), and so does any jax work a callback starts without waiting.
 - A `Problem` subclass that overrides `local_model` is called as without timing; its whole build is reported in

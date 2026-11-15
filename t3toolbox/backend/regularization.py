@@ -9,11 +9,11 @@ A ``Regularizer`` is an additive objective term ``ρ(X)`` folded into the local 
 layer is **check-free** -- a raw-``.data`` user constructs and attaches a regularizer directly, exactly as
 a frontend user does (design record + the razor check: ``docs/contributor/fitting_internals.md`` §Regularization).
 
-The interface is **geometry-agnostic**: each method receives a ``GeometryOps`` and leans only on its
-primitives (``point_norm_sq`` / ``point_tangent`` / ``project`` / ``inner``), so the SAME regularizer
-works on manifold or corewise. Extending to a new regularizer (e.g. the Grasedyck-Kramer inverse-unfolding
--singular-value weighting) is a new subclass with the same four methods -- ``Problem`` / ``LocalModel`` /
-the optimizers are untouched.
+The interface is **geometry-agnostic**: each method receives a geometry (an ``optimizers.Geometry``, e.g.
+``ManifoldGeometryOps``) and leans only on its primitives (``point_norm_sq`` / ``point_tangent`` /
+``project`` / ``inner``), so the SAME regularizer works on manifold or corewise. Extending to a new
+regularizer (e.g. the Grasedyck-Kramer inverse-singular-value weighting of the matricizations and unfoldings)
+is a new subclass with the same four methods -- ``Problem`` / ``LocalModel`` / the optimizers are untouched.
 """
 import dataclasses as dc
 import typing as typ

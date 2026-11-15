@@ -28,7 +28,7 @@ The first design absorbed the tangent weights into the **frame** cores (`down→
 right→R`, variations untouched). It shipped as the opposite: a **metric on the variation
 coordinates**, absorbed into `V`/`H`, with the frame left orthonormal.
 
-Why: the frame's `d+1`-th left/right cores are base-point padding — "not really part of the frame"
+Why: the carriers `left[d-1]` / `right[0]` hold the base point — "not really part of the frame"
 (`docs/frame_variations.md`) — so there are only `d` *natural* tangent edges, matching the `d`
 variation cores. And the metric reading is what Grasedyck–Kramer actually needs.
 

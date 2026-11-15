@@ -519,7 +519,7 @@ def newton_cg(
         regularizer:            typ.Any = None,    # optional regularizer, e.g. optimizers.IdentityRegularizer(λ)
         chunk_size:             typ.Any = 'auto',  # probe_derivatives 𝒥ᵀ memory chunk; 'auto' -> estimate_chunk_size (docs/chunking.md)
 
-        g0_reference:           typ.Optional[str]   = None,  # which ‖g0‖: None = the geometry's own ('zero' on manifolds, 'warm_start' on corewise); 'zero' | 'warm_start'
+        g0_reference:           typ.Optional[str]   = None,  # which ‖g0‖: None = the geometry's own ('zero' on manifolds, 'warm_start' on corewise); 'zero' | 'warm_start' | 'cone'
         g0norm_newton:          typ.Optional[float] = None,  # explicit ‖g0‖ for the Newton stop (wins; > 0); also feeds CG unless g0norm_cg is given
         g0norm_cg:              typ.Optional[float] = None,  # explicit ‖g0‖ for the CG forcing term (wins for CG; > 0); default = the Newton reference
 
@@ -605,8 +605,8 @@ def newton_cg(
 
     **After a rank increase** (``padded_from`` / ``start_frame`` / ``g0_reference='cone'``). Rank continuation
     restarts Newton from ``x0`` = the previous level's ``x_old`` zero-padded to the new ranks. The orthonormal frame of
-    such a point is arbitrary on the padding, so the first Gauss-Newton step can miss the directions the fit needs.
-    ``padded_from=x_old`` builds iteration 0's frame by aligning the padding with the misfit gradient
+    such a point is arbitrary on the new slots, so the first Gauss-Newton step can miss the directions the fit needs.
+    ``padded_from=x_old`` builds iteration 0's frame by aligning the new slots with the misfit gradient
     (:py:func:`t3toolbox.backend.optimizers.padded_start`; the ``padded_*`` options: ``padded_max_passes=0`` is the
     hint-free padded frame). ``x_old`` must be ``x0``'s layer, shape, stack and padded ``N``; it is reduced to minimal
     ranks first, and a structurally zero ``x_old`` (any Tucker or interior TT rank 0) is the zero tensor. In safe
@@ -728,8 +728,8 @@ def newton_cg(
     * ``trial_retraction``, ``trial_objective`` -- every trial's retraction and objective (``trials`` counts them).
     * ``tracking`` -- ``hessian='switch'``: a tracked Gauss-Newton-phase row's curvature product (``switch_pKp``);
       ``None`` on every other row.
-    * ``previous_callback`` -- the previous row's ``callback`` (a display) and bookkeeping, so a heavy display shows
-      up a row late; ``remainder`` -- what no phase covers.
+    * ``previous_callback`` -- the previous row's ``callback`` (a display) and bookkeeping, so a heavy display appears
+      a row late; ``remainder`` -- what no phase covers.
 
     ``stats['timing']`` carries the run's ``total``, its one-offs (``setup``; ``alignment`` and ``alignment_passes``
     with ``padded_from``; ``reference_passes`` with ``'cone'``; ``last_callback``), each phase summed over the rows

@@ -122,9 +122,9 @@ new tests twice** — both times in a test that looked right, passed, and proved
 The pattern to distrust: a test that constructs a bad object and asserts it is rejected. It passes. But
 *which* check rejected it?
 
-- **S1.** `test_mask_mismatch_is_rejected` perturbed only the **tucker** mask. Deleting the tt-mask
+- `test_mask_mismatch_is_rejected` perturbed only the **tucker** mask. Deleting the tt-mask
   comparison from `ut3_weights_consistent` entirely — a predicate half-blind — left the suite green.
-- **S3.** The frame-weight version *widened the supercores* as well as perturbing the mask. So the
+- The frame-weight version *widened the supercores* as well as perturbing the mask. So the
   **shape** check rejected it, and the mask comparison was never reached: deleting the mask comparison
   left the suite green.
 

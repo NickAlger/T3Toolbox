@@ -8,7 +8,7 @@ minibatch of those pairs **totally at random**, mixing freely across base points
 
 Why try this
 ------------
-The sample stack is ``W = (N_P, N_X)``. The X-only scheme picks a subset of the ``N_X`` axis, so a
+The probe stack is ``W = (N_P, N_X)``. The X-only scheme picks a subset of the ``N_X`` axis, so a
 minibatch only ever sees a handful of distinct base points (its gradient is dominated by, and
 correlated within, those few ``X``). Flattening to ``W = (N_P * N_X,)`` and sampling pairs at random
 spreads each minibatch across (likely) *all* the base points, each contributing a random subset of its
@@ -28,7 +28,7 @@ The problem (unchanged from the reference example)
 The order-``d`` **Hilbert tensor** ``A[i0,...] = 1 / (1 + i0 + ... + i_{d-1})`` is smooth and low-rank-
 friendly; we never see ``A``, only **apply-derivative jets** along lines ``X + sP``:
 
-    b = [ d^t/ds^t  A(x0 + s p0, ..., x_{d-1} + s p_{d-1}) |_{s=0} ]_{t=0..K}.
+    b = [ d^t/ds^t  A(x0 + s p0, ..., x_{d-1} + s p_{d-1}) |_{s=0} ]_{t=0..order}.
 
 We sample ``N_X`` base points, ``N_P`` directions each, normalize per order (the essential conditioning
 step), add noise, and fit with rank continuation (increase-by-1, zero-padded warm starts, validation-
@@ -51,7 +51,7 @@ import t3toolbox.backend.sampling_derivatives as pd
 # Problem configuration (tweak these) -- identical to the reference example
 # --------------------------------------------------------------------------------------------------
 SHAPE        = (12, 12, 12, 12)    # Hilbert tensor shape (order d = len(SHAPE))
-ORDER        = 4                   # highest derivative order K (apply has degree d; orders 0..d carry it)
+ORDER        = 4                   # highest derivative order (apply has degree d; orders 0..d carry it)
 N_X_TRAIN    = 10                  # training base points X
 N_X_VAL      = 5                   # held-out validation base points X
 N_P          = 30                  # perturbation directions P sampled per base point X
@@ -81,7 +81,7 @@ def hilbert_tensor(shape):
 
 def unit_pairs_many_p(n_x, n_p, shape, rng):
     """``n_x`` unit-norm base points ``X``, each with ``n_p`` unit-norm directions ``P``; ``X``
-    replicated over the ``n_p`` axis so it shares ``P``'s ``(n_p, n_x)`` sample stack.
+    replicated over the ``n_p`` axis so it shares ``P``'s ``(n_p, n_x)`` probe stack.
 
     Returns ``ww, pp``: lists of ``d`` arrays each of shape ``(n_p, n_x, N)`` (``ww`` is ``X`` broadcast
     across the ``n_p`` directions; sample ``(p, x)`` pairs base point ``x`` with its ``p``-th direction)."""
@@ -96,7 +96,7 @@ def unit_pairs_many_p(n_x, n_p, shape, rng):
 
 
 def flatten_pairs(ww, pp, b):
-    """Collapse the ``(n_p, n_x)`` sample stack to one flat ``(n_p*n_x,)`` axis of ``(X, P)`` pairs.
+    """Collapse the ``(n_p, n_x)`` probe stack to one flat ``(n_p*n_x,)`` axis of ``(X, P)`` pairs.
 
     A pure reshape -- the same samples, regrouped so a minibatch can mix across base points. ``ww``/``pp``
     go ``(n_p, n_x, N) -> (n_p*n_x, N)``; ``b`` goes ``(order+1, n_p, n_x) -> (order+1, n_p*n_x)``."""
@@ -109,7 +109,7 @@ def flatten_pairs(ww, pp, b):
 
 def dense_apply_derivatives(A, ww, pp, order):
     """Ground-truth apply-derivative jets of the dense tensor ``A``: shape ``(order+1,) + W`` (``W`` the
-    sample stack). Each ``W``-element is ``dense_apply_derivatives`` (the exact subset expansion)."""
+    probe stack). Each ``W``-element is ``dense_apply_derivatives`` (the exact subset expansion)."""
     W = ww[0].shape[:-1]
     b = np.zeros((order + 1,) + W)
     for idx in np.ndindex(*W):
@@ -125,17 +125,17 @@ def rms(x):
 
 # --------------------------------------------------------------------------------------------------
 # The measurement operator (per-order-normalized apply-derivatives) -- reused verbatim from the
-# reference example; it treats the sample stack W as arbitrary leading axes, so a flat (X,P) stack
+# reference example; it treats the probe stack W as arbitrary leading axes, so a flat (X,P) stack
 # "just works". The optimizer below uses only `forward`, `transpose`, `meas_dot`.
 # --------------------------------------------------------------------------------------------------
 def apply_derivative_operator(ww, pp, order, s_vec):
     """forward / transpose / meas_dot for the per-order-normalized apply-derivative map.
 
-    Dividing the output (and the data) by ``s_vec`` (per order, broadcast over the sample stack ``W``)
+    Dividing the output (and the data) by ``s_vec`` (per order, broadcast over the probe stack ``W``)
     folds the per-order normalization into the operator, so ``transpose(r)`` applies ``J^T`` to
     ``r / s_vec``. ``sum_over_probes=True`` sums the whole ``W`` stack -> one tangent."""
     nW = ww[0].ndim - 1
-    sv = s_vec.reshape((order + 1,) + (1,) * nW)               # broadcast over the W sample stack
+    sv = s_vec.reshape((order + 1,) + (1,) * nW)               # broadcast over the W probe stack
     forward = lambda Z: np.asarray(Z.apply_derivatives(ww, pp, order)) / sv
     transpose = lambda r, frame: t3m.T3Tangent.apply_derivatives_transpose(
         np.asarray(r) / sv, ww, pp, frame, order, sum_over_probes=True)
@@ -251,8 +251,8 @@ def main():
     b_tr_n = b_tr / sv_tr                                          # normalized data
     b_va_n = b_va / sv_va
 
-    # Flatten the (N_P, N_X) sample stack to one (N_P*N_X,) axis of (X,P) pairs -- the only structural
-    # change from the reference example. Everything downstream sees a 1D sample stack.
+    # Flatten the (N_P, N_X) probe stack to one (N_P*N_X,) axis of (X,P) pairs -- the only structural
+    # change from the reference example. Everything downstream sees a 1D probe stack.
     ww_tr, pp_tr, b_tr_n = flatten_pairs(ww_tr, pp_tr, b_tr_n)     # (N_P*N_X_TRAIN, N), (order+1, *)
     ww_va, pp_va, b_va_n = flatten_pairs(ww_va, pp_va, b_va_n)
 

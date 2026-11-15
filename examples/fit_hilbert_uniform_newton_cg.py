@@ -36,7 +36,7 @@ A zero-padded start is numerically rank-deficient but **structurally** minimal (
 realizable), so ``uniform_minimal`` leaves it alone and the first gradient step grows the padding into the
 new rank block -- exactly as in the ragged example (the fitted ranks come out minimal at every level). The
 errors match the ragged run to the printed digits at the levels the fit converges (here up to the selected
-level); beyond it both runs stop at the Newton cap from a zero-padded restart, where the two layers' frames
+level); beyond it both runs stop at the Newton cap from a zero-padded warm start, where the two layers' frames
 legitimately differ (``docs/uniform_equivalence_contract.md``, "Gauge-carrying operations") and the
 unconverged errors agree only to a few percent. We track the held-out **validation** misfit and pick the
 rank level that minimizes it.
@@ -101,7 +101,7 @@ def level_ranks(level, shape):
 
 
 def oracle_relerr(A, tucker_ranks, tt_ranks):
-    """Relative error of the best rank-(tucker,tt) approximation of A (dense T3-SVD truncation)."""
+    """Relative error of the quasi-optimal rank-(tucker,tt) dense T3-SVD truncation of A."""
     Xr, _, _ = t3.TuckerTensorTrain.t3svd_dense(A, max_tucker_ranks=tucker_ranks, max_tt_ranks=tt_ranks)
     return float(np.linalg.norm(Xr.to_dense() - A)) / float(np.linalg.norm(A))
 
@@ -170,7 +170,7 @@ def main():
           f"(val {best['val']:.3e}, true error {best['true']:.3e}, DOF {best['dof']}).")
     print("The fitted tensor is a UniformTuckerTensorTrain. Where the fit converges, the errors match the ragged "
           "fit_hilbert_tensor_newton_cg.py run to the printed digits; at the capped levels beyond the selected "
-          "one, the two layers start from legitimately different frames (a zero-padded restart) and agree to a "
+          "one, the two layers start from legitimately different frames (a zero-padded warm start) and agree to a "
           "few percent.")
 
 

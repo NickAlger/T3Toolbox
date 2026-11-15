@@ -46,7 +46,7 @@ tested) Wolfe line search -- exactly the machinery we don't want to reimplement.
 Rank selection (and why no warm-started continuation)
 -----------------------------------------------------
 We fit at ranks ``1..R`` and pick the level that minimizes the **held-out validation** misfit (``oracle``
-is the best rank-``r`` dense T3-SVD -- a diagnostic only). Note what this does **not** do: the manifold
+is the rank-``r`` dense T3-SVD truncation (quasi-optimal) -- a diagnostic only). Note what this does **not** do: the manifold
 examples warm-start each level from the zero-padded previous solution, keeping every refit near its basin
 and giving clean, monotone tables. **Corewise cannot.** A zero-padded warm start leaves the new rank block
 at zero, where -- by the same vanishing-Jacobian argument above -- its gradient is exactly zero, so L-BFGS

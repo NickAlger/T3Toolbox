@@ -97,6 +97,14 @@ bit-identical; names, letters and messages change. Upgrade notes: `docs/release_
   its δG our H (`tt_variations`). Docs and changelog entries before 2026.5.0 wrote `U` for the Tucker factor and `O`
   for the TT-shaped core.
 
+### Fixed
+
+- **The verbose display names the `'cone'` reference.** A converged `newton_cg` row with `g0_reference='cone'` ended
+  "converged (‖g‖ ≤ gtol·‖g₀‖)", naming no reference; it now ends "…, g₀ = cone (aligned zero tensor))", as the other
+  references do.
+- **Messages.** Eight runtime error messages no longer end with an internal review code, and the ones that named a
+  "sample stack" or an "A-block" now say probe stack and old block, the words the docs use (`docs/glossary.md`).
+
 ### Added
 
 - **Phase timing for `newton_cg`: `timing=True`** (keyword-only, after `cone_seed`; backend and frontend, which

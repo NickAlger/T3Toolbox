@@ -18,13 +18,13 @@ rL_i <= n_i * rR_i    (each TT bond <= product of the other two legs of its core
 rR_i <= n_i * rL_i
 ```
 
-with `rL_i = r_i`, `rR_i = r_{i+1}`. These are exactly the **matricization ranks** of a generic tensor
-with that structure: cutting a single edge of the T3 tensor network splits the physical indices into two
-groups, and the minimal dimension of that edge is the rank of the corresponding matricization. (The T3
-network is a *tree* — a TT backbone with a pendant Tucker matrix on each node — so every single-edge cut
-is a clean bipartition with no hidden multi-cut degeneracy.) `compute_minimal_ranks` computes these by
-propagating the structural bottlenecks; check with `has_minimal_ranks`. See
-`test_compute_minimal_ranks_matches_matricization`.
+with `rL_i = r_i`, `rR_i = r_{i+1}`. These are exactly the **matricization and unfolding ranks** of a
+generic tensor with that structure: cutting a single edge of the T3 tensor network splits the physical
+indices into two groups, and the minimal dimension of that edge is the rank of the corresponding
+matricization (a Tucker edge) or unfolding (a TT bond). (The T3 network is a *tree* — a TT backbone
+with a pendant Tucker matrix on each node — so every single-edge cut is a clean bipartition with no
+hidden multi-cut degeneracy.) `compute_minimal_ranks` computes these by propagating the structural
+bottlenecks; check with `has_minimal_ranks`. See `test_compute_minimal_ranks_matches_matricization`.
 
 ### With shared Tucker factors
 
@@ -120,7 +120,7 @@ orthogonal frame and gauged variations; the settled audit is
 Plain TT-SVD / TT-rounding (Oseledets) has the same phenomenon: hard per-bond rank caps applied in a
 single directional sweep can leave an upstream bond above its structural minimum, because a downstream
 cap shrinks what that bond can support *after* it was already fixed. Tolerance-based rounding does not
-exhibit it — each truncation, after orthogonalization, sees the *true* matricization singular values and
+exhibit it — each truncation, after orthogonalization, sees the *true* matricization and unfolding singular values and
 adapts. The cure is the same: a structural sweep that propagates the post-cap bottlenecks. T3 simply adds
 one more flavor (a bond cap orphaning a Tucker rank).
 

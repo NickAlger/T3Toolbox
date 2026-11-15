@@ -54,12 +54,12 @@ A `regularizer` is an **objective term** `ρ(x)` folded into the backend `optimi
 (`objective`/`gradient`/`gn_quadratic`/`hvp`) and `Problem.objective`, so it reaches **every** optimizer and
 kind for free (they only ever touch those surfaces). It is **backend-homed** (`backend/regularization.py`,
 check-free) and re-exported, so a raw-`.data` user attaches it with the same one kwarg as the frontend.
-**Why an objective term and not Newton-Hessian-only damping** (decision D2): damping the Hessian alone is
+**Why an objective term and not Newton-Hessian-only damping**: damping the Hessian alone is
 invisible to the objective and gradient, so the first-order optimizers (`gradient_descent`/`mc_sgd`/`adam`)
 and even Newton's line search would be *unregularized*. To reach all of them, regularization must be a term
 in the objective, hence contribute to the gradient.
 
-**Identity reg is `ρ = ½λ‖x‖²` in the geometry's own tangent metric** (decision D1) → it contributes
+**Identity reg is `ρ = ½λ‖x‖²` in the geometry's own tangent metric** → it contributes
 `H_R = λ·project` (`= λp` for a gauged tangent). On the **manifold** the tangent coordinate metric *is* the
 Hilbert–Schmidt metric, so this is exactly the ambient ridge `½λ‖x‖²_HS`; on **corewise** it is weight decay
 `½λΣ‖core‖²` (which, as a bonus, makes the otherwise gauge-singular corewise Newton Hessian strictly PD).
@@ -116,7 +116,7 @@ keeps full-strength reg. A custom `draw` of a non-nominal batch size may want `�
 - **Per-sample gradients / multi-source fits** (SVRG-style; fitting from applies *and* entries together) —
   reachable at the backend level (`sum_over_probes=False`; sum two local models), not packaged.
 - **Grasedyck–Kramer regularization** — a `SingularValueRegularizer` implementing the same four
-  `Regularizer` methods with a frame-dependent SPD `M` built from the cores' unfolding singular values
+  `Regularizer` methods with a frame-dependent SPD `M` built from the matricization and unfolding singular values
   (penalize poorly-determined, small-σ directions more). Drops in with **no** change to
   `Problem`/`backend.optimizers.LocalModel`/optimizers/kinds — the payoff of designing the protocol now — and is the sharper
   tool for denoising a *good* fit (where identity λ is only a modest secondary knob; user doc §5). Reuses
@@ -140,8 +140,8 @@ keeps full-strength reg. A custom `draw` of a non-nominal batch size may want `�
   benchmarks behind the user doc's §4.7), `dev/archive/fitting_plan.md` (the original fitting-layer
   build; its §9 records the exact-GN dense-truth oracle behind the user doc's §4.2),
   `dev/archive/safe_unsafe_mode_plan.md` (the safe-mode preconditions the frontend enforces),
-  `dev/archive/regularization_design.md` (the full regularization build — the D1/D2/D3 decisions, the
-  `v_X`/`value` derivations verified this section summarizes, the uniform mask-safety spec, and the S4
+  `dev/archive/regularization_design.md` (the full regularization build — its design decisions, the
+  `v_X`/`value` derivations verified this section summarizes, the uniform mask-safety spec, and the
   Option-A regime exploration).
 - The polynomial/derivative fitting studies (MC-SGD minibatch findings, the symmetric-fit "halo")
   live in a separate research repo (maintainer-local); the user doc's §5 carries their practical

@@ -190,7 +190,7 @@ their unchunked transpose).
 
 ## Sharding over `W`
 
-For very large `|W|` the sample stack is often **sharded across devices**. Chunking and sharding
+For very large `|W|` the probe stack is often **sharded across devices**. Chunking and sharding
 compose — but *only* through `shard_map`, and the reason is worth understanding.
 
 `chunk_size` chunks **within a device**; sharding splits **across devices**. The transpose is a

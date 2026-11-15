@@ -4,7 +4,7 @@
 '''Frontend for the least-squares fitting layer: one geometry-generic local model.
 
 A :py:class:`~t3toolbox.fitting.LocalModel` is the local model of a least-squares objective
-``½‖F(X) − y‖²`` at a fixed point, linearized through a **geometry**: it exposes the objective value
+``½‖S(X) − y‖²`` at a fixed point, linearized through a **geometry**: it exposes the objective value
 ``c = ½‖r‖²``, the gradient ``g``, the Gauss-Newton Hessian action ``H p = JᵀJ p``, and the
 quadratic-model value ``m(p) = c + gᵀp + ½ pᵀ H p``. Built with ``hessian='exact'`` its
 :py:meth:`~LocalModel.hessian` is the **exact** Riemannian Hessian instead (the Gauss-Newton term plus the
@@ -202,7 +202,7 @@ class LocalModel:
     Built by a sampling-kind factory (:py:func:`apply_model` / :py:func:`entries_model` /
     :py:func:`probe_model`), not directly. Holds the geometry, the frame ``frame = geometry.frame(X)``, the
     sampling ``kind``, the measurement ``sample`` (the probe/apply vectors ``ww`` or the integer grid
-    ``index``), and the data residual ``r = F(X) − y``. The frame sweep, objective value, and gradient are
+    ``index``), and the data residual ``r = S(X) − y``. The frame sweep, objective value, and gradient are
     cached on first use.
 
     **Two modes**, chosen by the factory's ``hessian`` argument and derived rather than stored
@@ -303,7 +303,7 @@ class LocalModel:
     frame:    typ.Any              # = geometry.frame(X): a T3Frame (ragged) or UT3Frame (uniform)
     kind:     fb.SamplingKind      # the sampling kind; a uniform kind carries this model's fixed rank
     sample:   typ.Any              # ww / index (uniform: PACKED); the derivative kinds pair it with pp
-    residual: typ.Any              # r = F(X) − y; shape W+C (apply / entries) or len=d, W+C+(Ni,) (probe)
+    residual: typ.Any              # r = S(X) − y; shape W+C (apply / entries) or len=d, W+C+(Ni,) (probe)
     sweep:    typ.Any              # = kind.precompute(frame.data, sample); a FIELD (jax leaf) so it is
                                    # carried across a jit boundary and reused, not recomputed per matvec
 
@@ -638,8 +638,8 @@ def _uniform_model(
 
 def _check_ragged_sample(x, kind_name, sample, residual, order=0):
     """Structural validation of a ragged factory's (sample, residual) against the point ``x`` -- named
-    errors at construction instead of an einsum / index error deep inside the first gradient
-    (the 2026-08-22 review, C13). ``W`` is read off the sample; ``C`` is the point's stack."""
+    errors at construction instead of an einsum / index error deep inside the first gradient.
+    ``W`` is read off the sample; ``C`` is the point's stack."""
     d, C = x.d, tuple(x.stack_shape)
     deriv = kind_name.endswith('_derivatives')
     base = kind_name[:-len('_derivatives')] if deriv else kind_name

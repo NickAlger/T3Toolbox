@@ -117,7 +117,7 @@ def t3_sum_stack(
 
     if axis is None:
         summed_axes = list(range(m))
-    elif isinstance(axis, np.ndarray):                     # ndarray axis (0-d or 1-d) works too (R2-13)
+    elif isinstance(axis, np.ndarray):                     # ndarray axis (0-d or 1-d) works too
         summed_axes = [int(a) for a in np.atleast_1d(axis)]
     elif not isinstance(axis, typ.Sequence):
         summed_axes = [int(axis)]
@@ -189,7 +189,7 @@ def t3_inner_product(
 ) -> NDArray:  # HS inner product, shape=stack_shape (scalar if unstacked)
     """Compute Hilbert-Schmidt inner product of two Tucker tensor trains.
     """
-    use_jax = any([is_jax_ndarray(c) for c in tuple(x[0]) + tuple(x[1]) + tuple(y[0]) + tuple(y[1])])   # list/tuple mix ok (R2-13)
+    use_jax = any([is_jax_ndarray(c) for c in tuple(x[0]) + tuple(x[1]) + tuple(y[0]) + tuple(y[1])])   # list/tuple mix ok
     xnp, _, _ = get_backend(False, use_jax)
 
     #

@@ -112,7 +112,7 @@ def t3_left_orthogonal_norm_sq(
     (``docs/contributor/fitting_internals.md`` §"The base point as a tangent".)"""
     last = x_cores[1][-1]                                    # stack + (rL, n, rR)
     xnp, _, _ = get_backend(False, tree_contains_jax(x_cores))
-    return xnp.sum(last * last, axis=(-3, -2, -1))           # per stack element (review H3-5)
+    return xnp.sum(last * last, axis=(-3, -2, -1))           # per stack element
 
 
 def fv_base_point_tangent(
@@ -339,7 +339,7 @@ class ManifoldGeometryOps(ValueHashedFields):
     def inner(self, a, b):
         """The coordinate ``<.,.>`` on tangents (Hilbert-Schmidt on an orthonormal, gauged frame),
         **per-element over the leading stacks** (``K+C``) -- shape = stack, a 0-d scalar unstacked,
-        matching the uniform twin and the frontend ``MANIFOLD.inner`` (review H3-5)."""
+        matching the uniform twin and the frontend ``MANIFOLD.inner``."""
         return cw.corewise_stack_dot(a, b, a[0][0].ndim - 2)     # Tucker variation core = stack+(nU, N)
 
     def point_norm_sq(self, x_cores):
@@ -551,7 +551,7 @@ class CorewiseGeometryOps(ValueHashedFields):
 
     def inner(self, a, b):
         """The Euclidean coordinate ``<.,.>`` -- **per-element over the leading stacks** (shape =
-        stack, a 0-d scalar unstacked), matching the uniform twin (review H3-5)."""
+        stack, a 0-d scalar unstacked), matching the uniform twin."""
         return cw.corewise_stack_dot(a, b, a[0][0].ndim - 2)     # Tucker core = stack+(n, N)
 
     def point_norm_sq(self, x_cores):

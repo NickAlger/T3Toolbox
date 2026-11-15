@@ -5,9 +5,9 @@
 """T3Toolbox: Tucker tensor trains (T3) -- a Tucker decomposition whose central core is
 stored as a tensor train.
 
-This package root re-exports the **frontend** surface: the tensor classes (ragged and
-uniform), the frame/variations/tangent classes, the geometry singletons, the Gauss-Newton
-fitting models, and the optimizers. **Backend users import submodules explicitly** (e.g.
+This package root re-exports the **frontend** surface: the tensor classes (ragged and uniform),
+the frame/variations/tangent classes, the geometry singletons, the local models (``LocalModel``
+and its factories), and the optimizers. **Backend users import submodules explicitly** (e.g.
 ``from t3toolbox.backend import probing``) -- the backend is namespaced by module and
 deliberately not re-exported here. Naming conventions: ``docs/naming_conventions.md``.
 """

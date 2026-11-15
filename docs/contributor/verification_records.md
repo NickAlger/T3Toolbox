@@ -38,7 +38,7 @@ independent review (the slice records, archived under `dev/archive/`). The autom
 | the recurrence kernels vs the dense `_trs` twins (orders 0–4) | ≤ 5.8e-16 (bar 1e-14) |
 | apply / entries derivative two-holes vs an independent dense oracle (the review's own einsum, no FD, no library kernel), orders 0–3 | 9.7e-16 |
 | plain probe / apply / entries two-holes: entries == apply at the one-hot vectors | bitwise |
-| `<p, H p>` vs `d²/dt² f(R(tp))` (Richardson), resolving the curvature term itself | within 1e-3 of the curvature term (T7, every kind) |
+| `<p, H p>` vs `d²/dt² f(R(tp))` (Richardson), resolving the curvature term itself | within 1e-3 of the curvature term (every kind) |
 | the exact `hvp` vs the dense extrinsic oracle (Weingarten form through the exact Jacobians), every kind × geometry × representation × sharing × weight × regularizer, d ∈ {3, 2, 1} | always-on 720 cases, max 2.5e-14; slow tier 8000 cases (4 seeds, `W ∈ {(12,), (3, 4)}`, orders 1–3), max 2.6e-11 (bar 1e-9); a Gauss-Newton mutant fails 72/72, a per-mode-lift mutant 9/9 |
 | `jax.jvp` of each corewise transpose along θ̂ vs its two-hole (float64, 7 ragged + the uniform probe derivative) | ≤ 1e-12 |
 | uniform two-holes vs ragged, per element (varying-rank stacks, forced padding, a TT-slack element) | 5.4e-16 (kernels), 1.4e-14 (model hvp); finite garbage in θ, θ̂ (boundary bonds included), the frame and the samples: bitwise |
@@ -47,61 +47,61 @@ independent review (the slice records, archived under `dev/archive/`). The autom
 
 ### Convergence
 
-- **E2 — the critic's first restart experiment was ONE unseeded draw.** `check_restart_tr.py` seeded only a
+- **The critic's first restart experiment was ONE unseeded draw.** `check_restart_tr.py` seeded only a
   `default_rng(7)` stream, never the legacy `np.random` stream `TuckerTensorTrain.randn` draws from, so its
   "exact + TR 13 / 69, 0 rejected, vs GN + Armijo 54 and GN + TR 52 / 352" is irreproducible at any commit. Cite
-  the seeded rows instead (F19, F27).
-- **F19 (seeded; probe derivatives, order 2, ω = `[1, .5, .25]`, restart rank 2 → 3, target 4, 5 % noise):**
+  the seeded rows instead.
+- **Seeded: probe derivatives, order 2, ω = `[1, .5, .25]`, restart rank 2 → 3, target 4, 5 % noise:**
   Gauss-Newton + Armijo 39 steps / 130 Hessian-applies; exact + TR 8 / 23 at forcing power 1.0, 10 / 28 at
-  0.5, 0 rejected. **F26** (its reference interplay): zero 7.01e4 vs warm start 2.07e4 (ratio 0.30); GN 36 vs 39
+  0.5, 0 rejected. **Its reference interplay:** zero 7.01e4 vs warm start 2.07e4 (ratio 0.30); GN 36 vs 39
   steps at `gtol_rel` 1e-8, 13 vs 15 at 1e-3; exact + TR 9/27 vs 10/28 (power 0.5), 7/24 vs 8/23 (1.0).
-- **F27 (E2's three apply restarts, seeded):** warm/zero reference ratios 1.9e-2, 1.6e-14, 3.1e-1. The library's
+- **The three apply restarts above, seeded:** warm/zero reference ratios 1.9e-2, 1.6e-14, 3.1e-1. The library's
   exact `newton_cg` reproduces the critic harness row for row (outer / rejected / CG): A 18/1/117 at `gtol_rel`
   1e-8, 17/1/92 at 1e-3; B 4/1/12 (`objective_floor`, noise-free: the zero reference declares the start
   converged); C 11/1/53 and 10/1/33.
-- **F28 / F38 (no minimal reduction):** Tucker slack 20 outer / 4 rejected / 78 CG iterations → 2.6e-9; TT slack
+- **No minimal reduction:** Tucker slack 20 outer / 4 rejected / 78 CG iterations → 2.6e-9; TT slack
   34 / 9 / 272 → 2.2e-12; the same counts from the same tensor at minimal ranks; `ε = 0` ≡ `1e-6‖X‖`;
   reproduced **exactly** by the library on plain `apply`; `apply_derivatives` order 1: 17/4/56 (2.3e-9),
   31/10/240 (2.0e-9). (Gauss-Newton + Armijo's 80-step stall from the TT-slack start is a property of the
-  problem — identical from the minimal-rank tensor, f = 1.335520e3, E11 — not of the frame.)
-- **F22 / F29 (plain apply, target `(4,4,4)`, rank-2 fit, W = 200, 1 % noise; the GN warm-up uses
+  problem — identical from the minimal-rank tensor, f = 1.335520e3 — not of the frame.)
+- **Plain apply, target `(4,4,4)`, rank-2 fit, W = 200, 1 % noise; the GN warm-up uses
   `g0_reference='warm_start'`):** GN ratios 0.56–0.68; exact power 1.0 `e_{k+1}/e_k² ≤ 0.917`; power 0.5
   `e_{k+1}/e_k^{1.5}` 0.43–0.98 in `[1e-6, 1e-1]`. With the zero-reference warm-up the power-1.0 constant is
-  0.941 — the warm-up ends at a different point; the kernels are bit-identical. T16 itself is re-based on
+  0.941 — the warm-up ends at a different point; the kernels are bit-identical. The rate test itself is re-based on
   probe derivatives (order 1, W = 200, 6 GN warm-start steps, ≥ 2 window points per seed); an `apply_derivatives`
   rate test, if ever added, must draw its start by a predicate (exact Hessian PD on `range(Π)` and
   `ρ(H_GN⁻¹K) < 0.9`: one measured seed was genuinely indefinite, `ρ = 1.03–1.10`).
-- **T21 / T25 re-measured (S5, S8):** T21 (restart, W = 60) ragged 8 outer / 0 rejected / 27 CG; uniform 8/0/27,
-  the same final objective. T25 Tucker slack 14/1/26, TT slack 22/6/70 — uniform backend and frontend identical
-  counts, losses row by row ≤ 1.9e-13. T22 (shared restart) ragged 10/0/41, uniform 13/0/40 (same final
+- **The restart and slack tests re-measured:** the restart (W = 60) ragged 8 outer / 0 rejected / 27 CG; uniform 8/0/27,
+  the same final objective. Tucker slack 14/1/26, TT slack 22/6/70 — uniform backend and frontend identical
+  counts, losses row by row ≤ 1.9e-13. The shared restart: ragged 10/0/41, uniform 13/0/40 (same final
   objective, tied), Gauss-Newton 25 steps to `max_newton`.
 
 ### Cost and memory
 
 | measurement | result |
 |---|---|
-| exact / GN Hessian-apply, probe derivatives (numpy CPU; d5 r8 o2 W300 and d4 r16 o3 W2000) | S3: 2.2–2.7×; after the recurrence conversion (S3b) 2.8–3.5× — Gauss-Newton got 2.3× faster, the two-hole's dominant pieces were recurrences already (plan gate ≤ 3.5×) |
-| the same for the other kinds (S10–S12) | probe 2.8–2.9×, apply 3.1–3.2×, entries 3.1–3.3×; apply derivatives 3.0–3.1× (d5) / 3.5–3.9× (d4) |
+| exact / GN Hessian-apply, probe derivatives (numpy CPU; d5 r8 o2 W300 and d4 r16 o3 W2000) | first build 2.2–2.7×; after the recurrence conversion 2.8–3.5× — Gauss-Newton got 2.3× faster, the two-hole's dominant pieces were recurrences already (plan gate ≤ 3.5×) |
+| the same for the other kinds | probe 2.8–2.9×, apply 3.1–3.2×, entries 3.1–3.3×; apply derivatives 3.0–3.1× (d5) / 3.5–3.9× (d4) |
 | downstream (T3Polynomial, W = 208, dof 153 / 425 / 1001) | exact hvp 3.0 / 1.9 / 3.5× a GN hvp; an exact model build 2.5–2.7× |
-| two-hole per-row scratch vs the GN transpose (uniform, jax f32) | the TT-assembly kernel alone (unchunked `memory_analysis`): 2.2–2.8× after S3b (was 2.5–3.5×); the running chunked program (the estimator's slope, current jax): ~1.3–2.2× (~1× on jaxlib 0.4.30); unchunked peak 1.85–2.1× |
+| two-hole per-row scratch vs the GN transpose (uniform, jax f32) | the TT-assembly kernel alone (unchunked `memory_analysis`): 2.2–2.8× after the recurrence conversion (was 2.5–3.5×); the running chunked program (the estimator's slope, current jax): ~1.3–2.2× (~1× on jaxlib 0.4.30); unchunked peak 1.85–2.1× |
 | the chunked probe-derivative two-hole at `estimate_chunk_size(hessian='exact')` | 1.25–1.61× the GN assembly at its own default chunk, each held at its own jet floor (near, not strictly under, the plan's 1.5× gate; recorded, not changed) |
 | compile (fresh process, CPU x64, small problems) | the exact uniform CG compiles once per run, ~14.5–14.8 s vs ~9.2–9.7 s for Gauss-Newton |
-| S0c uniform-transpose re-mask overhead | F34: 0.08–0.61 % of the transpose; re-measured ~1.1 % eager on a small transpose including the host mask build, ~0.13 % large, 0 under jit |
+| uniform-transpose re-mask overhead | 0.08–0.61 % of the transpose; re-measured ~1.1 % eager on a small transpose including the host mask build, ~0.13 % large, 0 under jit |
 
 ### The zero reference
 
-- F30: per-layer LAPACK zero references differ ragged vs uniform by 0.56–1.93×, and 6 of 16 seeded `newton_cg`
-  pairs drift; with one reference, 0 of 16. F31 / F37: the canonical frame is valid (orthogonality residual 0,
+- Per-layer LAPACK zero references differ ragged vs uniform by 0.56–1.93×, and 6 of 16 seeded `newton_cg`
+  pairs drift; with one reference, 0 of 16. The canonical frame is valid (orthogonality residual 0,
   base point 0, Π idempotent) at d = 1, 3, 4 and shared; ragged == packed uniform to ≤ 3.9e-16; a mode's factor
   is bit-identical when another mode's rank or size changes; level `r`'s factor is exactly the prefix of level
   `r + 1`'s (error 0.0 over r = 1…7); the 44 O2 ragged/uniform pairs agree to 3.5e-12.
-- F32: on data with no energy on the leading coordinates, the LAPACK and identity-prefix completions give a
+- On data with no energy on the leading coordinates, the LAPACK and identity-prefix completions give a
   reference of exactly 0; Haar seeds 0–5 give 9.5–24 there and 4.4e1–7.0e1 on generic data (LAPACK 7.0e1).
-  E9: a mode rotation moves the reference by ≤ 1.6–1.7×; a nonzero start's `‖g‖` is invariant.
+  A mode rotation moves the reference by ≤ 1.6–1.7×; a nonzero start's `‖g‖` is invariant.
 - Downstream (T3Polynomial e01): the library's zero reference vs the downstream's own `_zero_gradient_norm`
   (a zero frame from `zeros()`' LAPACK completion) is 2.18 / 0.73 / 0.94 / 0.97 by level — not a drop-in.
 
-### The downstream measurement (S0b; T3Polynomial against the 2026.3.0 release candidate, small sizes)
+### The downstream measurement (T3Polynomial against the 2026.3.0 release candidate, small sizes)
 
 - **Tail** (e01 L3 checkpoint, `gtol_rel` 1e-9, ≤ 30 steps): Gauss-Newton 30 steps (ρ 0.02–0.03), 817 CG,
   `‖g‖` 4.2e-2 → 2.2e-2; exact **6 steps**, 205 CG, → 1.1e-8 (3.5e-12 at power 1.0). Damping 0 / 1e-6 / 1e-3 give
@@ -113,7 +113,7 @@ independent review (the slice records, archived under `dev/archive/`). The autom
   radius-limited for ~13 early steps (Δ0 = the Cauchy length, doubling per boundary step). On the small-residual
   b01 toy exact took 27/26/15 steps vs GN's 20/17/10 at 2.4× the wall.
 
-### The Newton-schedule experiments (I-36 inputs; the records are archived under `dev/archive/`)
+### The Newton-schedule experiments (the records are archived under `dev/archive/`)
 
 - **Shared vs unshared** (probe derivatives order 2, d = 4, shape `(6,6,6,6)`, W = 60, 9 seeds (+3 at W = 120), a
   heavily misspecified high-residual target): Gauss-Newton's rate constant `ρ(H_GN⁻¹K)` at the minimizer is ≈ 0.7
@@ -158,11 +158,11 @@ independent review. The automated guarantees are `tests/backend/test_padded_fram
 
 | check | result |
 |---|---|
-| the ragged step vs the dense oracle, d ∈ {1, 2, 3, 5} and the prototype list | T1: principal-angle sines and movements within 1e-9 (the bar); frames orthonormal to 1e-12; the old block bitwise; both base-point reconstructions to 1e-12 |
+| the ragged step vs the dense oracle, d ∈ {1, 2, 3, 5} and the prototype list | principal-angle sines and movements within 1e-9 (the bar); frames orthonormal to 1e-12; the old block bitwise; both base-point reconstructions to 1e-12 |
 | uniform vs ragged, per element (varying ranks, gappy masks, forced padding, `N` padded, stacks, sharing) | step, start and loop to rounding (stacked vs per-element 1e-13); junk bitwise zero |
 | uniform vs ragged loops on generic hints | the same pass counts; the captured energy equal to 1e-8 relative at `tol=1e-10` (the uniform docstring's example) |
-| the start's convention (D-41) | each store equals the seeded pinned QR of its keyed rows (T5); successive starts reuse no seed (T20, both layers) |
-| representation dependence (D-42, D-49; d = 4, generic, `t3svd` and shared points, three seeds each) | the layers' starts differ by 0.95–1.00 in span; the aligned frames by 7e-4–3e-2 at the default `tol` (equal pass counts) and 8e-13–6e-11 at `tol=1e-10` (pass counts within 2) |
+| the start's convention | each store equals the seeded pinned QR of its keyed rows; successive starts reuse no seed (both layers) |
+| representation dependence (d = 4, generic, `t3svd` and shared points, three seeds each) | the layers' starts differ by 0.95–1.00 in span; the aligned frames by 7e-4–3e-2 at the default `tol` (equal pass counts) and 8e-13–6e-11 at `tol=1e-10` (pass counts within 2) |
 | eager vs jitted loops (ragged and uniform) | the same pass counts and frames to rounding; the ragged jitted loop compiles at most four step programs, the uniform whole loop one program per structure, and a second eager-jax run at the same structure none |
 | first-call times | ragged eager step at d = 4: 932 compilations, ~22 s (0.16 s after); jitted, one ~2 s compile. Uniform whole loop: 8.8 s at d = 6, 9.0 s at d = 24 (second call 0.02–0.08 s); eager jax 41.5 / 42.6 s (0.57 / 0.64 s after); numpy 0.2 / 0.6 s |
 | memory mappings | 8,000–9,500 per eager-jax alignment at a new structure (`vm.max_map_count` 65,530); `jax.clear_caches()` returns to ~900 |

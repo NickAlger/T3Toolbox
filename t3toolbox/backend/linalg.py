@@ -5,7 +5,7 @@
 """Dense linear-algebra primitives shared by the orthogonalization and SVD sweeps.
 
 ``truncated_svd``, the directional ``left/right/up_svd`` and ``*_svd_pair`` factorizations
-(directions match the core-unfolding conventions), ``pad_safe_svd`` (the mask-aware SVD of a
+(directions match the core matricization/unfolding conventions), ``pad_safe_svd`` (the mask-aware SVD of a
 zero-padded matrix -- the uniform layer's replacement for a black-box SVD), the clipped and damped
 reciprocal of a spectrum with its pseudo-inverse (``filtered_reciprocal``,
 ``damped_pseudo_inverse``), the pinned completions (``pinned_completion``, ``pinned_leading_columns``:
@@ -221,8 +221,7 @@ def truncated_svd(
 
     if min_rank is not None and max_rank is not None and min_rank > max_rank:
         raise ValueError(
-            'truncated_svd: min_rank=%d > max_rank=%d -- the contract is 1 <= min_rank <= max_rank '
-            '(min_rank used to silently win; review R3-6)' % (min_rank, max_rank))
+            'truncated_svd: min_rank=%d > max_rank=%d -- the contract is 1 <= min_rank <= max_rank' % (min_rank, max_rank))
     max_rank = K if max_rank is None else min(K, max_rank)
     min_rank = 1 if min_rank is None else max(1, min_rank)
     r = max(max_rank, min_rank)
@@ -327,7 +326,7 @@ def up_svd(
     NDArray, # ss_x,    shape=(nx,)
     NDArray, # Vt_x_a,  shape=(nx, na)
 ]:
-    '''Compute (truncated) singular value decomposition of 3-tensor up unfolding.
+    '''Compute (truncated) singular value decomposition of a 3-tensor's up matricization (middle index as rows).
 
     First and last indices of the tensor are grouped to form rows for the SVD; the middle index forms
     columns: ``G[i,a,j] = sum_x U[i,x,j] ss[x] Vt[x,a]``, with ``U`` orthonormal in its grouped
@@ -345,7 +344,7 @@ def up_svd(
     >>> print(np.allclose(np.einsum('ixj,x,xa->iaj', U, ss, Vt), G))   # reconstructs G
     True
     >>> Um = U.transpose(0, 2, 1).reshape(4 * 6, -1)
-    >>> print(np.allclose(Um.T @ Um, np.eye(Um.shape[1])))   # up unfolding of U is orthonormal
+    >>> print(np.allclose(Um.T @ Um, np.eye(Um.shape[1])))   # up matricization of U is orthonormal
     True
     '''
     G0_i_j_a = G0_i_a_j.swapaxes(-2, -1)
@@ -460,7 +459,7 @@ def up_svd_pair(
     '''Compute (truncated) singular value decomposition of G, pushing non-orthogonal remainder onto B.
 
     ``G`` (a 3-tensor core) and ``B`` (a matrix) share ``G``'s middle index with ``B``'s first index.
-    Orthogonalizes ``G`` via its up unfolding (so ``new_G`` is up-orthonormal) and absorbs the
+    Orthogonalizes ``G`` via its up matricization (so ``new_G`` is up-orthonormal) and absorbs the
     ``ss @ Vt`` remainder into ``B``, leaving the product over the shared index unchanged. Truncation
     args behave as in :py:func:`truncated_svd`.
 
@@ -625,7 +624,7 @@ def pad_safe_svd(
     Examples
     --------
     The failure this exists for: a zero-padded warm start (interior pad rows, and a real column
-    that is exactly zero -- the padding of a rank-continuation restart). A black-box SVD puts
+    that is exactly zero -- the padding of a rank-continuation warm start). A black-box SVD puts
     null-space mass on the padded rows, so the masked real block is no longer orthonormal:
 
     >>> import numpy as np
@@ -745,7 +744,7 @@ def filtered_reciprocal(
       filter ``s / (s^2 + eps^2)``: ``~1/s`` for ``s >> eps``, ``~s/eps^2`` for ``s << eps``, and never
       above ``1/(2 eps)``. ``eps = 0`` is the exact reciprocal up to rounding (``s/s^2``).
 
-    The clip is what makes ``eps = 0`` safe at a zero-padded rank-continuation restart, whose padded
+    The clip is what makes ``eps = 0`` safe at a zero-padded warm start, whose padded
     singular values come back from LAPACK at roundoff (~1e-17) rather than at an exact zero; a zero
     spectrum (the zero tensor) is clipped entirely, so ``f`` is identically 0 there. Both guards are a
     double ``where`` (no division by zero is ever evaluated on a selected branch), so the result is
@@ -1014,7 +1013,7 @@ def pad_safe_pinned_completion(
     sign-fixed Householder QR of ``[real pins | selected seeds]`` on the real rows, scattered back to the
     selected seeds' columns, with every junk entry of the result bitwise zero.
 
-    The completion of a seeded start is defined by the ORDER of its seeds (Gram-Schmidt: column ``j`` is seed
+    The completion of a hint-free start is defined by the ORDER of its seeds (Gram-Schmidt: column ``j`` is seed
     ``j`` made orthonormal against the pins and the earlier selected seeds), so its padded twin must reproduce
     that order exactly, which an SVD does not (it orders by singular value). Static host permutations do it:
     the rows go real-first, the columns ``[real pins | selected seeds, in order | the rest]``. The junk rows

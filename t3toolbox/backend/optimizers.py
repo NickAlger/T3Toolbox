@@ -349,7 +349,7 @@ class Problem:
     geometry ``geom``. **Layout-agnostic**: it holds the operator (``kind``), the geometry, and the FULL
     ``(sample, data)``. ``local_model`` / ``objective`` linearize / evaluate at a point on the full data,
     or on an explicitly-passed minibatch ``(sample, data)`` (e.g. from a ``draw``). The ``Problem`` itself
-    owns **no** minibatch-layout logic -- where the sample stack ``W`` lives, how to slice it -- that is
+    owns **no** minibatch-layout logic -- where the probe stack ``W`` lives, how to slice it -- that is
     the ``kind``'s (``kind.take`` for the default flat draw) or the user's ``draw``."""
     geom:   typ.Any       # a Geometry (see the Geometry protocol above)
     kind:   typ.Any       # backend fitting.SamplingKind
@@ -514,7 +514,7 @@ def flat_draw(
         batch:   int,        # measurements per minibatch
 ) -> typ.Callable:           # draw(rng) -> (sample_B, data_B)
     """The **default** minibatch draw: a uniform random subset of ``batch`` measurements across the whole
-    (flattened) sample stack ``W`` -- the robust default. Returns a ``draw(rng) -> (sample_B, data_B)``
+    (flattened) probe stack ``W`` -- the robust default. Returns a ``draw(rng) -> (sample_B, data_B)``
     over ``problem``'s full data, via the kind's ``take``. A user may pass **any** ``draw`` instead (slice
     X / P / order, importance-sample, ...). Host numpy by default; pass jax data + a jax draw to keep the
     minibatch on device (the optimizer never compiles the draw -- only the per-step kernel)."""
@@ -587,7 +587,7 @@ def _prepare_jit_inputs(use_jit, x0, problem):
     constant. Returns ``(x0, problem)`` unchanged when ``use_jit`` is False.
 
     When ``use_jit`` but jax is unavailable: runs eager on numpy with a one-time warning (the library-wide
-    jax-absent policy, ``common._jax_or_warn`` -- a script developed without jax and deployed with it must
+    jax-absent policy, ``common.jax_or_warn`` -- a script developed without jax and deployed with it must
     run unchanged on both machines). Loud, not silent: the 2026.1.0 silent eager drop is what this replaces."""
     if not use_jit:
         return x0, problem
@@ -1038,7 +1038,7 @@ def gradient_descent(
                 ls_failed = False
                 break
             if _bt < 49:
-                alpha *= 0.5        # halve BETWEEN trials only (review R7-7)
+                alpha *= 0.5        # halve BETWEEN trials only
         if ls_failed:
             any_ls_failed = True
             if olsf == 'stop':
@@ -1253,7 +1253,7 @@ class PhaseSeconds:
     this row. The fields are in run order; with ``remainder`` they tile the window.
 
     * ``previous_callback`` -- the previous row's records, its ``callback`` and its history append (so a heavy
-      display shows up on the next row); ``None`` on row 0.
+      display appears on the next row); ``None`` on row 0.
     * ``frame``, ``sweep``, ``companion``, ``residual``, ``curvature`` -- the local model's build: ``geom.frame`` (or
       the start frame's structure check), ``kind.precompute``, ``geom.precompute``, the residual, and in exact mode
       ``geom.curvature_precompute`` (with ``hessian='switch'`` every build is exact-mode, the Gauss-Newton phase's
@@ -1495,7 +1495,8 @@ class NewtonInfo:
 
     * ``g0_reference`` -- which **Newton-stop** reference ``g0norm`` is: ``'zero'`` (the gradient norm at
       the zero tensor of these ranks, at the canonical zero-point frame), ``'warm_start'`` (the initial
-      ``‖g‖``), or ``'override'`` (``g0norm_newton`` was given).
+      ``‖g‖``), ``'cone'`` (the gradient norm at the zero tensor on the aligned frame), or ``'override'``
+      (``g0norm_newton`` was given).
     * ``cg_reference`` -- the CG forcing term's reference: ``'override'`` iff ``g0norm_cg`` was given, else
       equal to ``g0_reference`` (CG inherits the Newton reference).
     * ``step_control`` -- the step-acceptance mode: ``'line_search'`` (Armijo backtracking along the
@@ -1562,7 +1563,7 @@ class NewtonInfo:
     rho:          typ.Optional[float] = None           # actual / predicted reduction (model trust)
     step_rel:     typ.Optional[float] = None           # ‖αp‖ / ‖x‖ (coordinate norms; relative step size)
     wall_time:    typ.Optional[float] = None           # seconds spent in this iteration (host clock)
-    g0_reference: typ.Optional[str]   = None           # the Newton-stop reference: 'zero' | 'warm_start' | 'override'
+    g0_reference: typ.Optional[str]   = None           # the Newton-stop reference: 'zero' | 'warm_start' | 'cone' | 'override'
     cg_reference: typ.Optional[str]   = None           # the CG-forcing reference: 'override' iff g0norm_cg, else = g0_reference
     step_control: typ.Optional[str]   = None           # 'line_search' | 'trust_region'
     stop_reason:  typ.Optional[str]   = None           # last row only: 'gradient' | 'max_newton' | 'line_search' | 'objective_floor' | 'trust_region_floor'
@@ -1800,7 +1801,7 @@ def newton_cg(
         step_control:           typ.Optional[str]   = None,  # None = 'line_search' (GN) / 'trust_region' (exact, switch); either works with either
         tr_radius0:             typ.Optional[float] = None,  # trust region only: Δ0 > 0; None = the GN Cauchy length ‖g‖³/⟨g, H_GN g⟩
 
-        g0_reference:           typ.Optional[str]   = None,  # which ‖g0‖: None = the geometry's own ('zero' on manifolds, 'warm_start' on corewise); 'zero' | 'warm_start'
+        g0_reference:           typ.Optional[str]   = None,  # which ‖g0‖: None = the geometry's own ('zero' on manifolds, 'warm_start' on corewise); 'zero' | 'warm_start' | 'cone'
         g0norm_newton:          typ.Optional[float] = None,  # explicit ‖g0‖ for the Newton stop (wins; > 0). Also feeds CG unless g0norm_cg set.
         g0norm_cg:              typ.Optional[float] = None,  # explicit ‖g0‖ for the CG forcing term (wins for CG; > 0); default = the Newton reference
 
@@ -1923,7 +1924,7 @@ def newton_cg(
     **The start frame** (``start_frame`` / ``padded_from``). Iteration 0 linearizes at ``geom.frame(x0)`` by
     default. ``start_frame`` gives a frame of ``x0`` instead (structurally checked by the geometry's
     ``require_frame_structure``); ``padded_from=x_old`` builds it: ``x0`` is ``x_old`` zero-padded to the target
-    ranks, whose own frame is arbitrary on the padding, and :py:func:`padded_start` aligns the padding with the
+    ranks, whose own frame is arbitrary on the new slots, and :py:func:`padded_start` aligns the new slots with the
     misfit gradient (the ``padded_*`` options; ``padded_max_passes=0`` is the hint-free padded frame). Both
     need a manifold geometry. ``use_jit`` governs the alignment as well as CG. With either keyword,
     ``stats['start_frame']`` is ``'given'`` or ``'padded'`` and ``stats['start_movements']`` the passes. An
@@ -2204,12 +2205,12 @@ def newton_cg(
                         ls_steps, ls_failed = bt, False
                         break
                     if bt < 39:
-                        alpha *= 0.5    # halve BETWEEN trials only: alpha stays the last trial's step (review R7-7)
+                        alpha *= 0.5    # halve BETWEEN trials only: alpha stays the last trial's step
                 trials = bt + 1
                 delta_f = f_new - f
                 predicted = alpha * slope + 0.5 * alpha * alpha * pHp    # the model's change along αp
                 rho = (delta_f / predicted) if predicted != 0.0 else float('nan')
-                accepted = not (ls_failed and olsf == 'stop')            # 'stop' rejects: x unchanged (review R7-7)
+                accepted = not (ls_failed and olsf == 'stop')            # 'stop' rejects: x unchanged
                 if not accepted:
                     stop_reason, stop_now = 'line_search', True
                 tr_accepted = None

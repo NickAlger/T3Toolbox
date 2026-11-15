@@ -42,7 +42,8 @@ clean during that growth.
 T3 **tensor** algebra is built from two primitives on the underlying core spaces: addition is a
 direct sum (cores block-concatenate; ranks add) and multiplication is a Kronecker product (ranks
 multiply). The masks transform the same way — under `+` they **concatenate**, under `×` they
-**Kronecker** — and these produce real-slot patterns that are **not intervals**, even from interval
+**Kronecker** (on the uniform layer `×` exists only as a weights' `kronecker`; there is no uniform
+T3×T3 product) — and these produce real-slot patterns that are **not intervals**, even from interval
 inputs:
 
 - *Multiply.* `x` real in `{0,1}` of `n_x=3`, `y` real in `{0}` of `n_y=2`. The product's real set
@@ -50,9 +51,9 @@ inputs:
 - *Add.* Concatenating a prefix-with-slack `[0, k_x) ⊂ [0, n_x)` to another block leaves a gap on
   `[k_x, n_x)` before the second block — not a prefix.
 
-So after `+`/`×` your object's `.masks` may be **gappy**. This is expected and correct — the data
-stays in place (no compaction), and a gappy mask works fine for what most operations do with it
-(masking-to-zero inside contractions, where any pattern works).
+So after `+` (or a weights' `kronecker`) the `.masks` may be **gappy**. This is expected
+and correct — the data stays in place (no compaction), and a gappy mask works fine for what
+most operations do with it (masking-to-zero inside contractions, where any pattern works).
 
 ## Canonical form vs working form
 

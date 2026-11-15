@@ -63,11 +63,11 @@ class TuckerTensorTrain(common.ExplicitEquality):
             r0        r1        r2       r(d-1)          rd
         1 ------ G0 ------ G1 ------ ... ------ G(d-1) ------ 1
                  |         |                    |
-                 | n0      | n1                 | nd
+                 | n0      | n1                 | n(d-1)
                  |         |                    |
                  B0        B1                   B(d-1)
                  |         |                    |
-                 | N0      | N1                 | Nd
+                 | N0      | N1                 | N(d-1)
                  |         |                    |
 
     Cores:
@@ -98,7 +98,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
     - :py:attr:`~shape`: Tuple[int,...]
         ``shape = (N0, N1, ..., N(d-1))``
     - :py:attr:`~tucker_ranks`: Tuple[int,...]
-        ``tucker_ranks = (n0, r1, ..., n(d-1))``
+        ``tucker_ranks = (n0, n1, ..., n(d-1))``
     - :py:attr:`~tt_ranks`: Tuple[int,...]
         ``tt_ranks = (r0, r1, ..., rd)``
     - :py:attr:`~stack_shape`: Tuple[int,...]
@@ -612,7 +612,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
         Minimal ranks satisfy:
             - Left TT core unfoldings are full rank: ``r(i+1) <= (ri*ni)``
             - Right TT core unfoldings are full rank: ``ri <= (ni*r(i+1))``
-            - Up TT core unfoldings are full rank: ``ni <= (ri*r(i+1))``
+            - Up TT core matricizations are full rank: ``ni <= (ri*r(i+1))``
             - Tucker ranks do not exceed shape: ``ni <= Ni``
 
         In this function, minimal ranks are defined with respect to a
@@ -621,8 +621,8 @@ class TuckerTensorTrain(common.ExplicitEquality):
         the numerical values within the cores.
 
         Minimal ranks always exist and are unique.
-            - Minimal TT ranks are equal to the ranks of ``(N*...*Ni) x (N(i+1)*...*N(d-1))`` matrix unfoldings.
-            - Minimal Tucker ranks are equal to the ranks of ``Ni x (N1*...*N(i-1)*N(i+1)*...*N(d-1))`` matricizations.
+            - Minimal TT ranks are equal to the ranks of ``(N0*...*N(i-1)) x (Ni*...*N(d-1))`` matrix unfoldings.
+            - Minimal Tucker ranks are equal to the ranks of ``Ni x (N0*...*N(i-1)*N(i+1)*...*N(d-1))`` matricizations.
 
         With ``sharing`` (one hashable group label per mode), minimality is with respect to Tucker
         factors tied within each group: reductions apply group-wide, and the per-mode Tucker ceiling
@@ -2135,7 +2135,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
             kw['oversample'] = oversample
         return TuckerTensorTrain(*backend(self.data, other.data, **kw))
 
-    __rmul__ = __mul__      # scalar * x == x * scalar (elementwise * commutes; review R1-12)
+    __rmul__ = __mul__      # scalar * x == x * scalar (elementwise * commutes)
 
     def __truediv__(
             self,
@@ -2180,7 +2180,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
         """Bitwise equality of the REPRESENTATIONS: the same core structure and every stored core
         ``np.array_equal``. ``False`` on any mismatch, never raises. Two different representations
         of the same tensor (e.g. before/after ``t3svd``) are NOT corewise-equal -- for tensor-level
-        equality use :py:meth:`numerically_equal`."""
+        equality use :py:meth:`allclose`."""
         return type(other) is type(self) and corewise.corewise_equal(self.data, other.data)
 
     def __neg__(
@@ -2953,7 +2953,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
         'TuckerTensorTrain',  # new_x
         NDArray,  # singular values, shape=(new_ni,)
     ]:
-        '''Compute SVD of ith TT-core up unfolding and contract non-orthogonal factor down into the tucker core below.
+        '''Compute SVD of ith TT-core matricization and contract non-orthogonal factor down into the tucker core below.
 
         Parameters
         ----------
@@ -3917,8 +3917,8 @@ class TuckerTensorTrain(common.ExplicitEquality):
         ``t=0..order`` -- the derivative analogue of :py:meth:`probe`, perturbing every probe vector in
         the same direction ``P``. Index ``0`` is the ordinary :py:meth:`probe`. Stacks ``order + W + C``
         (order outermost; probe stack ``W``, T3 stack ``C``). ``X`` (``ww``) and ``P`` (``pp``) must
-        share the sample stack ``W``. (For the gradient w.r.t. the cores, see
-        :py:meth:`probe_corewise_derivatives_transpose`; for the Riemannian Jacobian use
+        share the probe stack ``W``. (For the gradient w.r.t. the cores, see
+        :py:meth:`probe_corewise_derivatives_transpose`; for the (bare) Jacobian use
         ``T3Tangent.probe_derivatives``.) See ``docs/symmetric_probe_derivatives.tex``.
 
         See Also
@@ -3954,7 +3954,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
 
         The all-modes analogue of :py:meth:`probe_derivatives` (derivative analogue of :py:meth:`apply`):
         ``y^(t) = d^t/ds^t apply(X + s P)|_0`` for ``t=0..order`` (a scalar per stack element). Stacks
-        ``order + W + C``. ``X`` and ``P`` share the sample stack ``W``.
+        ``order + W + C``. ``X`` and ``P`` share the probe stack ``W``.
 
         See Also
         --------
@@ -4207,7 +4207,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
         >>> print(x2.tucker_ranks, x2.tt_ranks)                    # reduced to minimal ranks
         (3, 4, 2) (1, 3, 2, 1)
 
-        The singular values ARE the singular values of the dense matrix unfoldings (the
+        The singular values ARE the singular values of the dense matricizations and unfoldings (the
         numerically-zero tail is dropped -- which is what reduces the ranks):
 
         >>> import numpy as np
@@ -4222,7 +4222,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
         3 3
         >>> # (the Tucker singular values ss_tucker[i] relate to the mode-i matricizations the same way)
 
-        Truncation -- a smooth tensor has gradually decaying unfolding spectra, so ``rtol``
+        Truncation -- a smooth tensor has gradually decaying matricization and unfolding spectra, so ``rtol``
         truncates meaningfully (a sharp random spectrum would not):
 
         >>> import numpy as np
@@ -4430,7 +4430,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
     ]:
         '''Rank-continuation update (Section 5.4.1): the ranks to grow to next, from this iterate's spectra.
 
-        Computes the implicit T3-SVD of ``self`` and feeds the unfolding singular values to
+        Computes the implicit T3-SVD of ``self`` and feeds the matricization and unfolding singular values to
         :py:func:`t3toolbox.backend.ranks.compute_continuation_ranks`, which grows the well-conditioned
         edges (each edge's condition number a factor ``tau`` below the worst) so the ranks trend toward
         comparable conditioning across edges. Pair with :py:meth:`resize` for the zero-padded warm start
@@ -4618,7 +4618,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
 
     @staticmethod
     def t3svd_dense(
-            T: NDArray,                              # shape=stack_shape+(N1, N2, .., Nd)
+            T: NDArray,                              # shape=stack_shape+(N0, ..., N(d-1))
             stack_shape: Sequence[int] = (),
             max_tucker_ranks: typ.Union[int, Sequence[int]] = None,  # scalar (caps all) or len=d
             max_tt_ranks: typ.Union[int, Sequence[int]] = None,      # scalar (caps all) or len=d+1
@@ -4923,7 +4923,7 @@ class T3Weights(common.ExplicitEquality):
 def _require_t3_weights_consistent(x: 'TuckerTensorTrain', weights: T3Weights, op_name: str) -> None:
     """Structural guard: ``weights`` must carry one vector per edge at ``x``'s ranks, and its stack
     must be ``x``'s (or ``()`` -- one metric broadcast over the stack). A mismatch used to surface as
-    a deep einsum broadcast error, or to broadcast silently (review R1-15 / R10-6)."""
+    a deep einsum broadcast error, or to broadcast silently."""
     d = x.d
     tw, ttw = weights.tucker_weights, weights.tt_weights
     if len(tw) != d or len(ttw) != d + 1:
@@ -4959,7 +4959,7 @@ def t3_weighted_norm(
 ) -> NDArray:
     """Weighted Hilbert-Schmidt norm ``||absorb_weights(x, weights)||`` (returns an array of shape
     ``stack_shape``; a scalar when unstacked). ``use_orthogonalization`` passes through to the backend
-    (the kwarg its backend and uniform twins always had -- review H2-6)."""
+    (the kwarg its backend and uniform twins always had)."""
     _require_t3_weights_consistent(x, weights, 't3_weighted_norm')
     return ragged_linalg.t3_weighted_norm(x.data, weights.data,
                                           use_orthogonalization=use_orthogonalization)

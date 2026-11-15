@@ -1,7 +1,7 @@
 # Uniform layer — implementation internals
 
 Contributor-facing design records for the uniform layer that user docs reference but do not carry.
-(Started during the docs user/dev split, S1; the S2/S3 extractions and the P9 polymorphism-lenses
+(Started during the docs user/dev split; later extractions and the polymorphism-lenses
 section land here too.)
 
 ## The equivalence contract as test strategy

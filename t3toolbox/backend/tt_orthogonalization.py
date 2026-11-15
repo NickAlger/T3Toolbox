@@ -37,7 +37,7 @@ def _tt_left_step_pad_safe(
         H0: NDArray,                # carry: running right factor, stack_shape+(rL,n,rR)
         x:  typ.Tuple[NDArray, NDArray, NDArray, NDArray],   # (G1, row_mask, col_mask, out_mask)
 ) -> typ.Tuple[NDArray, typ.Tuple[NDArray, NDArray]]:        # (next carry, (L0, H0))
-    """Pad-safe twin of :py:func:`_tt_left_step` for the uniform representation (review S1b): the
+    """Pad-safe twin of :py:func:`_tt_left_step` for the uniform representation: the
     left unfolding's SVD goes through :py:func:`~t3toolbox.backend.linalg.pad_safe_svd`, so at a
     numerically rank-deficient point the sigma~0 completion columns stay OFF the padded slots (a
     black-box SVD may place them there; the masks then erase them -- a lost tangent direction).
@@ -73,7 +73,7 @@ def tt_left_orthogonalize(
 
     ``pad_masks`` (uniform only): run each step's SVD through
     :py:func:`~t3toolbox.backend.linalg.pad_safe_svd` with the given per-step masks, so sigma~0
-    completion columns stay off the padded slots (review S1b) and the output chain is bitwise-clean.
+    completion columns stay off the padded slots and the output chain is bitwise-clean.
     """
     is_uniform = is_ndarray(tt_cores)
     use_jax = tree_contains_jax(tt_cores)

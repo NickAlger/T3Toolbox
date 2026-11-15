@@ -228,10 +228,10 @@ different pages are collected at the end, in [Symbols](#symbols).
   [The geometries](numerical_contracts.md#the-geometries-the-semantic-innernorm-live-here)
 - **base point** (also: point). The T3 at which a tangent space is attached; the frame encodes it. In the
   derivative examples, "base points X" are sample locations instead.
-  [A tangent is a sum of terms](frame_variations.md#a-tangent-is-a-sum-of-d-terms)
+  [A tangent is a sum of terms](frame_variations.md#a-tangent-is-a-sum-of-2d-terms)
 - **base-point tangent** (`v_X`; `fv_base_point_tangent`). The point written as a gauged tangent at its own frame: all
   variations zero except the last TT variation, so `‖X‖² = ‖L_last‖²`.
-  [`d` cores, `d+1` bonds](frame_variations.md#d-cores-d1-bonds--and-the-extra-ld-r0)
+  [`d` cores, `d+1` bonds](frame_variations.md#d-cores-d1-bonds--and-the-carriers-ld-1-r0)
 - **block layout** (split `(Na, Rb)`). The uniform alignment's internal layout: every rank slot is `[old block | new
   block]`, each padded to one width with its own mask; `(Na, Rb)` are the old block's Tucker and bond widths.
   [The uniform layer](aligned_padded_frame.md#the-uniform-layer)
@@ -240,7 +240,7 @@ different pages are collected at the end, in [Symbols](#symbols).
   and the upward single-store rotations are measured). [The alignment](aligned_padded_frame.md#the-alignment)
 - **carrier** (`left[d-1]`, `right[0]`; also: `Ld` / `R0`, frame-internal padding cores, base-point padding). The last
   left and first right frame cores. They hold the base point, not an edge's frame; a padded frame keeps their old
-  content only. [`d` cores, `d+1` bonds](frame_variations.md#d-cores-d1-bonds--and-the-extra-ld-r0)
+  content only. [`d` cores, `d+1` bonds](frame_variations.md#d-cores-d1-bonds--and-the-carriers-ld-1-r0)
 - **compaction** (`ufv_compact_frame`). Rewrite a block-layout frame at a level's widths, real slots first with prefix
   masks, so Newton reuses its compiled programs. [The uniform layer](aligned_padded_frame.md#the-uniform-layer)
 - **completion** (also: orthonormal completion). The orthonormal content of a store's new block, orthogonal to the
@@ -272,7 +272,7 @@ different pages are collected at the end, in [Symbols](#symbols).
   (2026.4.0, names reversed: up `Ui` (Tucker), down `Oi` or `Di`, `up_tucker_cores`, `down_tt_cores`)).
   Down: the orthonormal Tucker factors `(nD, N)`. Up: TT-shaped `(rL, nU, rR)`, the TT core of the Tucker-variation
   terms (`Vi` varies in the complement of `Di`'s rows). Left/right: the orthogonal TT environments. Each store is
-  named for the side of its edge its cores occupy. [Frame-variations](frame_variations.md#a-tangent-is-a-sum-of-d-terms)
+  named for the side of its edge its cores occupy. [Frame-variations](frame_variations.md#a-tangent-is-a-sum-of-2d-terms)
 - **frame-variations format** (`frame_variations_format`, `fv_` / `tv_`; also: frame-variations representation,
   (frame, variations) pair). A tangent stored as a frame plus variations; `fv_` treats the pair as indexed pieces,
   `tv_` as the sum of its terms. [Frame-variations](frame_variations.md)
@@ -330,9 +330,9 @@ different pages are collected at the end, in [Symbols](#symbols).
 - **retraction** (`retract`). Map a base point plus a tangent step back onto the set. `MANIFOLD`: truncate the shifted
   doubled-rank T3 to the frame's ranks by the implicit T3-SVD. `COREWISE`: add the step to the cores.
   [Choosing a geometry](fitting_and_optimization.md#24-choosing-a-geometry)
-- **same-frame** (`safety.frames_equal`; also: same tangent space, SF in the contract tables). Two tangents share a
-  tangent space iff their frames are numerically equal (identity is a fast path). Checked in safe mode.
-  [`T3Tangent`](numerical_contracts.md#t3tangent)
+- **same-frame** (`safety.frames_equal`; also: same tangent space, `FRAMES` in the contract tables, formerly `SF`).
+  Two tangents share a tangent space iff their frames are numerically equal (identity is a fast path). Checked in
+  safe mode. [`T3Tangent`](numerical_contracts.md#t3tangent)
 - **same-mask precondition**. Uniform tangent add/subtract and weight absorption require equal masks, a structural
   host-side check, since padding would hide a mismatch. [Tangent masks](uniform_masks_vs_ranks.md#tangent-variation-masks-a-different-algebra)
 - **schedule** (`oversampling`, `oversampled_passes`, `max_passes`, `tol`, `alternate`; mirrored by `padded_*`,
@@ -362,7 +362,7 @@ different pages are collected at the end, in [Symbols](#symbols).
   returns it with its singular values. [`T3FrameWeights`](weighting.md#t3frameweights--a-metric-on-a-tangent)
 - **tangent** (`T3Tangent`, `UT3Tangent`, `tv_`; also: tangent vector). A (frame, variations) pair representing a sum
   of `2d` terms, each with one variation core in place of a frame core (T4S eq. 46).
-  [A tangent is a sum of terms](frame_variations.md#a-tangent-is-a-sum-of-d-terms)
+  [A tangent is a sum of terms](frame_variations.md#a-tangent-is-a-sum-of-2d-terms)
 - **tangent cone**. At a point of lower rank than the target ranks (the zero tensor, a zero-padded point), the
   first-order directions into the tensors of at most those ranks: a union of linear spaces, not one tangent space.
   The cone merit and the cone reference are named for it. [The math note](padded_frame_cone.pdf)
@@ -491,6 +491,10 @@ different pages are collected at the end, in [Symbols](#symbols).
 - **`continuation_ranks`** (`compute_continuation_ranks`; `tau`, `n_chunk`, `max_grow`, `kappa_guard`; also:
   condition-number continuation). Propose the next ranks from the iterate's spectra, growing edges with `κi` at least a
   factor `tau` below the worst; the current ranks mean stop. [The idea](rank_continuation.md#the-idea-section-541)
+- **countable step** (switch mode). A Gauss-Newton-phase step that took the full model step: accepted, not the `−g`
+  fallback, and either an accepted trust-region trial or an Armijo step with `α = 1`. Only these can add to the
+  count; a rejected trial, a backtrack, the fallback or a forced step resets it.
+  [The switch](fitting_and_optimization.md#414-starting-with-gauss-newton-and-switching-to-the-exact-hessian)
 - **curvature damping** (`curvature_damping`, `ε`; `lift_eps`). The lift's damping relative to `‖X‖_HS` (default
   `1e-6`): directions with lift singular value well above it get the exact curvature, smaller ones are damped toward
   Gauss-Newton. A solver option, not a geometry field. [The exact Hessian](fitting_and_optimization.md#412-the-exact-hessian-and-the-trust-region)
@@ -505,12 +509,15 @@ different pages are collected at the end, in [Symbols](#symbols).
   [`ranks.edge_condition_numbers`](rank_continuation.md#the-idea-section-541)
 - **exact Hessian** (`hessian='exact'`; also: exact Riemannian Hessian, exact model). Gauss-Newton plus the curvature
   term; indefinite away from a minimizer, so it defaults to the trust region, and gives a superlinear tail when the
-  residual does not vanish. [The exact Hessian](fitting_and_optimization.md#412-the-exact-hessian-and-the-trust-region)
+  residual does not vanish. `hessian='switch'` starts in Gauss-Newton and changes to it within one call (**switch**).
+  [The exact Hessian](fitting_and_optimization.md#412-the-exact-hessian-and-the-trust-region)
 - **flat slot** (also: maximal-rank slot). A slot at its rank ceiling (Tucker rank = mode size, or TT rank = product of
   its neighbours); the curvature term has no component there. At `d = 1` every slot is flat.
   [The exact Hessian](fitting_and_optimization.md#412-the-exact-hessian-and-the-trust-region)
-- **forcing term** (`η`; `cg_forcing_power`). CG stops at relative residual `η = min(0.5, (‖g‖/‖g0‖)^power)`; the
-  default power is 0.5, and 1.0 makes the exact Hessian's tail q-quadratic (the error squares each step).
+- **forcing term** (`η`; `cg_forcing_power`, `switch_cg_forcing_power`). CG stops at relative residual
+  `η = min(0.5, (‖g‖/‖g0‖)^power)`; the default power is 0.5, and 1.0 makes the exact Hessian's tail q-quadratic (the
+  error squares each step). In switch mode `cg_forcing_power` is the Gauss-Newton phase's and
+  `switch_cg_forcing_power` (default 1.0) the exact phase's.
   [Practical guidance](fitting_and_optimization.md#5-practical-guidance-from-the-field)
 - **g0 reference** (`g0_reference`: `None`, `'zero'`, `'warm_start'`, `'cone'`; `g0norm_newton`, `g0norm_cg`; also:
   Newton reference, `‖g0‖`). The gradient norm the relative stop and forcing term divide by. `None` is the geometry's
@@ -519,12 +526,18 @@ different pages are collected at the end, in [Symbols](#symbols).
 - **Gauss-Newton model** (`hessian='gauss_newton'`; `gn_hessian`, `gn_quadratic`). `m(p) = c + gᵀp + ½pᵀHp` with
   `H = Π𝒥ᵀω²𝒥Π` (plus the regularizer's); exact on the tangent space, positive semidefinite.
   [The Gauss-Newton model](fitting_and_optimization.md#42-the-gauss-newton-model-is-exact-not-an-approximation)
+- **Gauss-Newton view** (switch mode; `_gauss_newton_view`, the callback's `info.lm`). Each Gauss-Newton-phase point
+  is built once, in exact mode; CG, the step control and the row use that build with its curvature dropped, so they are
+  the pure Gauss-Newton run's.
+  [The switch](fitting_and_optimization.md#414-starting-with-gauss-newton-and-switching-to-the-exact-hessian),
+  [Model-level rules](contributor/curvature_internals.md#model-level-rules)
 - **`gradient_descent`**. Steepest descent with a Cauchy initial step and an Armijo line search; eager only, the
   reference optimizer. [Drive a library optimizer](fitting_and_optimization.md#21-drive-a-library-optimizer-the-common-case)
 - **`gtol_rel`** (also: relative stop). `newton_cg` and `gradient_descent` stop when `‖g‖ ≤ gtol_rel · ‖g0‖` (default
   `1e-8`); there is no `gtol`. [Practical guidance](fitting_and_optimization.md#5-practical-guidance-from-the-field)
 - **history** (`stats['history']`, `NewtonInfo`). One record per Newton iteration: objective split, gradient norm,
-  CG and step-control outcome, reference kinds, trust-region and curvature fields.
+  CG and step-control outcome, reference kinds, trust-region and curvature fields, and `hessian`, the model that solved
+  the row's step. Switch mode adds five `switch_*` fields. `NewtonInfo.timing` is not a history field.
   [Drive a library optimizer](fitting_and_optimization.md#21-drive-a-library-optimizer-the-common-case)
 - **ladder** (also: continuation ladder). The sequence of levels of one rank-continuation run.
   [Rank continuation](rank_continuation.md)
@@ -537,34 +550,62 @@ different pages are collected at the end, in [Symbols](#symbols).
   smallest singular value it inverts. [The exact Hessian](fitting_and_optimization.md#412-the-exact-hessian-and-the-trust-region)
 - **local model** (`fitting.LocalModel`, `backend.optimizers.LocalModel`; formerly `GaussNewtonModel`). The objective's
   model at a base point, over one geometry: value, gradient, Hessian actions and retraction, with the frame sweep
-  computed once. Built by the `*_model` factories. [Build the local model](fitting_and_optimization.md#22-build-the-local-model-roll-your-own-optimizer)
+  computed once. Built by the `*_model` factories. It has one Hessian, so `'switch'` is a `newton_cg` option only.
+  [Build the local model](fitting_and_optimization.md#22-build-the-local-model-roll-your-own-optimizer)
 - **`mc_sgd`** (also: Manifold Cauchy SGD, MC-SGD). Each step draws a minibatch, takes the Cauchy step along the
   gradient, and retracts; tuning-free (T4S §5.3.2). [Drive a library optimizer](fitting_and_optimization.md#21-drive-a-library-optimizer-the-common-case)
+- **model errors** (`e_GN`, `e_N`; row fields `switch_e_gn`, `switch_e_n`; also: hit, miss). How far each quadratic
+  model missed the actual change of the objective along the step `s`: `e_GN = |Δf − m_GN(s)|`, `e_N = |Δf − m_N(s)|`.
+  A hit is `e_N < τ·e_GN` on a countable step.
+  [The switch](fitting_and_optimization.md#414-starting-with-gauss-newton-and-switching-to-the-exact-hessian)
 - **`newton_cg`** (also: inexact Riemannian Newton-CG). Each step builds the local model, solves `Hp = −g` by CG to the
-  forcing tolerance, then a line search or trust region. [Drive a library optimizer](fitting_and_optimization.md#21-drive-a-library-optimizer-the-common-case)
+  forcing tolerance, then a line search or trust region. `hessian=` picks Gauss-Newton (default), exact or the switch.
+  [Drive a library optimizer](fitting_and_optimization.md#21-drive-a-library-optimizer-the-common-case)
 - **oversampled ranks** (`oversampled_ranks`; also: working ranks). The ranks plus `p` on every Tucker rank and
   interior bond, made structurally minimal and never below the input: the alignment's ranks before truncation.
   [The schedule](aligned_padded_frame.md#the-schedule)
 - **padded start** (`newton_cg(padded_from=x_old)`, `padded_*` options, `start_frame=`; backend `padded_start`).
   Iteration 0's frame: the aligned padded frame of `x_old` with the misfit gradient as hint, or a given `start_frame`.
   [In the optimizers](aligned_padded_frame.md#in-the-optimizers)
+- **phase timing** (`newton_cg(timing=True)`; `PhaseSeconds`, `NewtonTiming`, `stats['timing']`; also: phase, window,
+  one-offs, compile wait, compile column). Splits each row's `wall_time` window into phases (the model build's parts,
+  the gradient, the reference, CG, the step's forms, the trials, the tracking product, the remainder), with jax's
+  compile wait beside each, plus the run's one-offs. Changes no number; on jax its waits serialize the run.
+  [Timing a Newton run](fitting_and_optimization.md#413-timing-a-newton-run)
 - **`Problem`** (backend `optimizers.Problem`). The least-squares oracle `(geometry, kind, sample, data)`;
   `local_model(x)` linearizes at a point. [The pieces](fitting_and_optimization.md#3-the-pieces-structure)
 - **rank continuation**. Fit at small ranks, grow the ranks, re-fit warm-started, and stop when more rank stops
   helping. The library proposes the ranks; the user drives the loop. [Rank continuation](rank_continuation.md)
+- **rounding gate** (switch mode). A tracked step counts only if the larger model error, `max(e_GN, e_N)`, is above a
+  hundred times the trust region's `objective_floor` threshold; both at the floor resets the count, and `e_N` at the
+  floor with `e_GN` above it is a hit. In float32 few steps pass, so enable jax x64.
+  [The switch](fitting_and_optimization.md#414-starting-with-gauss-newton-and-switching-to-the-exact-hessian)
 - **stacked point** (also: stacked optimization). A point with a frame stack `C`: the local model accepts it; the four
   optimizers raise `NotImplementedError`. [Stacked points](fitting_and_optimization.md#410-stacked-points-build-the-model-not-the-fit)
 - **stats** (`newton_steps`, `newton_accepted`, `stop_reason`, `history`, `losses`; `start_frame`, `start_movements`,
-  `cone_movements`). The dict an optimizer returns. `newton_steps` counts CG solves, `newton_accepted` steps taken.
+  `cone_movements`; `hessian`, `switch_track`, `switched_at` in switch mode; `timing` with `timing=True`). The dict an
+  optimizer returns. `newton_steps` counts CG solves, `newton_accepted` steps taken.
   [Drive a library optimizer](fitting_and_optimization.md#21-drive-a-library-optimizer-the-common-case)
 - **step control** (`step_control`: `'line_search'`, `'trust_region'`). How a Newton step is accepted: Armijo
-  backtracking (Gauss-Newton default) or a trust region (exact default); either works with either Hessian.
+  backtracking (Gauss-Newton default) or a trust region (exact and switch default); either works with any Hessian.
   [The exact Hessian](fitting_and_optimization.md#412-the-exact-hessian-and-the-trust-region)
 - **stop reason** (`'gradient'`, `'max_newton'`, `'line_search'`, `'objective_floor'`, `'trust_region_floor'`). Why
   `newton_cg` stopped. `'objective_floor'` is not a failure: the predicted change fell below the objective's
   floating-point resolution. [Drive a library optimizer](fitting_and_optimization.md#21-drive-a-library-optimizer-the-common-case)
+- **switch** (`hessian='switch'`; `switch_tau` = `τ`, `switch_k` = `k`, `switch_cg_forcing_power`, `switch_track`; also:
+  Gauss-Newton-to-exact switch). `newton_cg` starts in Gauss-Newton and moves to the exact Hessian for good after `k`
+  consecutive hits, `e_N < τ·e_GN` (defaults 0.25 and 2). Each call starts afresh; trust region by default.
+  [The switch](fitting_and_optimization.md#414-starting-with-gauss-newton-and-switching-to-the-exact-hessian)
+- **`switched_at`** (`stats['switched_at']`; row field `switch_fired`). The index of the first history row whose
+  model is exact: `len(history)` when the switch fired on the last row, `0` with `switch_k=0`, `None` if it never
+  fired.
+  [The switch](fitting_and_optimization.md#414-starting-with-gauss-newton-and-switching-to-the-exact-hessian)
 - **tied lift** (`fv_tied_lift_factors`). The lift on a shared point: each group's coordinates lift to one raw factor
   direction; a per-mode lift is not a tied direction. [Optimizing over shared factors](sharing.md#optimizing-over-shared-factors)
+- **tracking product** (`switch_pKp`; `switch_track`: `'countable'` (default), `'all'`). The one curvature product per
+  tracked Gauss-Newton-phase step, `⟨p, Lᵀ K_N L p⟩`, that gives the exact model's prediction `m_N`; reported apart from
+  the row's `pHp`. Its seconds are the `tracking` phase.
+  [The switch](fitting_and_optimization.md#414-starting-with-gauss-newton-and-switching-to-the-exact-hessian)
 - **trust region** (Steihaug–Toint CG; `tr_radius0` = `Δ0`; ratio `ρ`). CG inside `‖p‖ ≤ Δ`, then one trial
   retraction accepted iff `ρ = Δf / (gᵀp + ½pᵀHp) > 0.1`; `Δ0` defaults to the Gauss-Newton Cauchy length.
   [The exact Hessian](fitting_and_optimization.md#412-the-exact-hessian-and-the-trust-region)
@@ -575,6 +616,8 @@ different pages are collected at the end, in [Symbols](#symbols).
   [The idea](rank_continuation.md#the-idea-section-541)
 - **verbose display** (`verbose=True`, `callback`, `make_newton_display`, `val_sample`/`val_data`). A per-iteration
   block with a per-`(mode, order)` relative-error table, train and validation; `callback(NewtonInfo)` replaces it.
+  Switch mode adds the `sw` segment (`e_N / e_GN`, the count, `⇒ exact`); `timing=True` a `time` line per row and a
+  closing table.
   [Drive a library optimizer](fitting_and_optimization.md#21-drive-a-library-optimizer-the-common-case)
 - **warm start** (also: zero-padded start, padded restart, continuation restart, zero-padded rank increase). Starting
   a level from the previous level's point zero-padded to the new ranks by `resize`: the same tensor, numerically rank
@@ -722,7 +765,7 @@ below also carry other meanings on some pages.
 | `N` | mode size `Ni` (user guide, ragged `shape`); the padded mode width (uniform pages and classes); the normal part `N` of a gradient (the exact-Hessian and padded-frame math notes); sample counts `N_X`, `N_P` (derivative examples) |
 | `n` | Tucker rank `ni`; the padded Tucker width (uniform); the measurement count in `batch/n` (the `mc_sgd`/`adam` regularizer scaling) |
 | `r` | TT rank `ri`; the padded TT width (uniform); the residual `r` (fitting pages) |
-| `K` | the tangent stack (batching, naming conventions, shape comments); the derivative order in `fitting_and_optimization.md` §2.1, `backend/sampling_derivatives.py`'s module comment and the apply-derivative examples, where `order` is meant; the curvature operators `K_{Aᵀω²r}`, `K_{grad f}` (§4.12, `LocalModel` docstrings) |
+| `K` | the tangent stack (batching, naming conventions, shape comments); the curvature operators `K_{Aᵀω²r}`, `K_{grad f}` (§4.12, `LocalModel` docstrings) and `K_N = K_{Aᵀω²r} − K_{grad f}` (§4.14). Before 2026.5.0 some pages also wrote `K` for the derivative order, now `order` |
 | `W` | the probe stack (batching, shape comments); a `T3Weights` variable (`weighting.md`); the Khatri–Rao factor `Wi` (`t3m_methods.md`); the up-matricization `Wi` (shared-factor math note); an integer variable in a `chunking.md` example |
 | `P` | the derivative direction (`pp`); a completion `P⁺` (`aligned_padded_frame.md` movement, the padded-frame note); the tangent projector `P_X` / `P_F`; the core parameter space (`CorewiseGeometry`); T4S's left frame core, our `L` (see **T4S**; the paper ↔ code maps, `batching_and_stacking.md` §8 and `entries_apply_probe.md` §8, keep the paper's letters) |
 | `L` | the left frame cores `Li` and the left store's letter (user guide, `frame_variations.md`, `update`); the lift `L` (§4.12, curvature pages) |
@@ -732,6 +775,7 @@ below also carry other meanings on some pages.
 | `U` | the up frame core `Ui`, TT-shaped, and the up store's letter (frame pages, diagrams, equations, `update`); the SVD factor in `UΣVᵀ`. Before 2026.5.0 `U` was the Tucker frame core and its `update` letter (now `D`), the reverse jet shift (now `shᵀ`) and the padded-frame note's edge frame (now `F_{x→t}`) |
 | `κ` | the edge condition number `κi` and group `κ_g` (rank continuation, sharing); the display ratio `κ = pKp/(pHp − pKp)` (§4.12) |
 | `ρ` | the regularizer `ρ(x)`; the trust-region ratio of actual to predicted change |
+| `τ` | the continuation's threshold `tau` (grow an edge whose `κi` is a factor `tau` below the worst; rank continuation); the switch's hit threshold `τ = switch_tau` (§4.14); the tangent edge variables `τ`, `τ̃` (probing, the T4S paper ↔ code map) |
 | `η`, `σ` | `η`: the central edge variable and the CG forcing term; `σ`: singular values, a tangent edge variable, and `lift_sigma_min` in the display |
 | `Π` | the gauge projection on variations (`MANIFOLD.project`); `Π_{T(F)}`, the ambient projection onto a frame's tangent space (aligned-frame pages) |
 | `Ψ` | the padded-frame messages and products (`Ψ_{a→b}` in the padded-frame note, `Ψ` in `contributor/padded_frame_internals.md`, `Psi` in code), beside the note's edge frame `F_{x→t}`; before 2026.5.0 written `D` |
@@ -739,5 +783,5 @@ below also carry other meanings on some pages.
 | `T` | the frame factors `Ti` (exact-Hessian note); the tangent space `T(F)` (padded-frame pages); the represented tensor (shared-factor note) |
 | `d` | the number of modes; the leading supercore axis (uniform layer); a leading `d` in a local name's suffix is the supercore or derivative axis; upright, the differential (`dΦ`, `d²Φ`: `curvature_internals.md`, the exact-Hessian and symmetric-probe notes), told apart from the mode count by context. Before 2026.5.0 the differential was `D` |
 | `sh` | the jet shift: forward `(sh x)^(t) = t x^(t-1)` and its adjoint, reverse `(shᵀ x)^(s) = (s+1) x^(s+1)` (`backend/sampling_derivatives.py`, whose functions `_shift_down`, `_shift_up` keep their names; the exact-Hessian note's `\mathsf{sh}`); before 2026.5.0 written `D` and `U` |
-| `m` | the maximum derivative order in `symmetric_probe_derivatives.tex` (the code's `order`); the cone merit `m_c`; the Gauss-Newton model `m(p)` |
-| `ε` | the lift damping (`curvature_damping`); machine epsilon in the `objective_floor` test; `adam`'s `eps` |
+| `m` | the maximum derivative order in `symmetric_probe_derivatives.tex` (the code's `order`); the cone merit `m_c`; the Gauss-Newton model `m(p)`; the switch's two models' predicted changes `m_GN(s)`, `m_N(s)` (§4.14) |
+| `ε` | the lift damping (`curvature_damping`); machine epsilon in the `objective_floor` test and the switch's rounding gate; `adam`'s `eps` |

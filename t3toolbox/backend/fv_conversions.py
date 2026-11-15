@@ -189,7 +189,7 @@ def t3_orthogonal_representations(
         x = (x[0], tt_operations.tt_squash_tails(x[1]))
 
     if uniform_masks is not None:
-        # The pad-safe uniform sweep (review S1b): every SVD below goes through pad_safe_svd, with
+        # The pad-safe uniform sweep: every SVD below goes through pad_safe_svd, with
         # the per-site masks precomputed HERE (host numpy) by the same recurrences the frame masks
         # are built from (ranks.compute_orthogonal_representation_ranks; see that docstring for the
         # order). Each site also zeroes its don't-care completion columns (out masks), so the chain

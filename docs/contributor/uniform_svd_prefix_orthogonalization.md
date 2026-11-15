@@ -1,10 +1,11 @@
 # Why uniform orthogonalization must be SVD-based (the prefix-mask contract)
 
-> A short "why" note. The uniform layer represents per-stack ranks as **prefix** masks `[0, rank)` —
-> i.e. it asserts the *real* orthonormal frame vectors occupy the **leading** slots of each (padded)
+> A short "why" note. Orthogonalization and `ut3svd` produce **prefix** masks `[0, rank)` (the
+> canonical form; arithmetic can make masks gappy, `../uniform_masks_vs_ranks.md`) — i.e. the
+> masks assert the *real* orthonormal frame vectors occupy the **leading** slots of each (padded)
 > frame core, with `[rank, pad)` being don't-care garbage. This note records why that assertion is
-> correct **only because the orthogonalization is SVD-based**, and would break under (non-pivoted or
-> pivoted) QR. Pairs with `docs/uniform_masks_vs_ranks.md` and `uniform_pytree_composition.md`.
+> correct **only because the orthogonalization is SVD-based**, and would break under (non-pivoted
+> or pivoted) QR. Pairs with `docs/uniform_masks_vs_ranks.md` and `uniform_pytree_composition.md`.
 
 ## The contract
 
@@ -65,7 +66,7 @@ is invisible to jit.
 
 For the mask to mark them real, though, they must actually **live in the real slots** — and a black-box
 SVD does not promise that: the zero-σ eigenspace *contains the pad coordinates*, and LAPACK may place
-the completion there, which the masks then erase — a silently lost tangent direction (review S1b; it hit
+the completion there, which the masks then erase — a silently lost tangent direction (it hit
 every zero-padded `resize` warm start). Since 2026-08 every kept-basis SVD in the sweeps is therefore
 the **pad-safe** one (`backend.linalg.pad_safe_svd`): the masks are handed to the factorization as
 data, the completion is confined to the real rows bitwise, and the prefix property and the

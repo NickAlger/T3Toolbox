@@ -19,7 +19,7 @@ examples still produce what they claim) — it does *not* test the code (that's 
   `xy.tt_ranks == (1, 6, 6, 1)` when the true value is `(3, 6, 6, 2)`).
 
 A nuance on "not coverage": *illustrating a property* (e.g. that `t3svd`'s singular values are the dense
-unfoldings' spectra) is legitimate **pedagogy**, not coverage — provided it is reproducible and limited
+matricizations' and unfoldings' spectra) is legitimate **pedagogy**, not coverage — provided it is reproducible and limited
 to one **representative** case (one unfolding + "the rest are analogous"). Exhaustive verification of a
 property across every mode/branch stays in `tests/` or a verification doc.
 

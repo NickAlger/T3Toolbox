@@ -7,8 +7,9 @@
 
 ## The problem
 
-`get_backend` dispatches `xscan` / `xmap` to `jax.lax.scan` / `jax.lax.map` on the uniform+jax path,
-and `xwhile` to `jax.lax.while_loop`. Called **eagerly** — with jax arrays but outside a top-level
+`get_backend` dispatches `xscan` / `xmap` to `jax.lax.scan` / `jax.lax.map` on the uniform+jax path;
+`common.xwhile` (not from `get_backend`) uses `jax.lax.while_loop` only with `use_jit=True` and a jax state,
+a Python loop otherwise. Called **eagerly** — with jax arrays but outside a top-level
 `jit` — these primitives key their trace/compile cache on the **identity of the body function** (jax
 keeps a weak reference to it as the cache key). A body defined inside its caller is a new object on
 every call, so the cache can never hit:

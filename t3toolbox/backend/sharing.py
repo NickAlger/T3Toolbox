@@ -502,7 +502,7 @@ def fv_shared_frame_data(
        (Until 2026-08-22 the centers came from RE-SWEEPING the left chain with fresh SVDs, which
        reproduces the construction's ``H_i`` only when the same SVD ran on the same arrays; on a
        ``UT3Frame.to_t3frame()`` leaf -- padded batched SVD vs sliced per-core SVD -- the signs differed
-       and the tied projection was silently 30% off, review S9.)
+       and the tied projection was silently 30% off.)
     2. Per mode of each nontrivial group, ``S_i^T = <U_i, H_i>`` against the frame's STORED
        up core (``S_i S_i^T = Gamma_i`` and ``W2_i = S_i U2_i`` hold by the construction's
        own factorization; no re-SVD, so no sign/degenerate-block hazards).
@@ -592,7 +592,7 @@ def fv_share_tucker_variations(
     gauged when ``Ddot`` is, and ``Ddot`` inherits the gauge from gauged inputs); the
     projection is idempotent and fixes exactly-tied inputs. TT variations are untouched
     (sharing constrains only the Tucker factors). The clip makes the solve well-defined
-    (minimum-norm) at rank-deficient points -- which zero-padded continuation restarts visit by
+    (minimum-norm) at rank-deficient points -- which zero-padded warm starts visit by
     construction, where the gated directions correctly receive zero.
 
     Broadcasting: the companion carries the frame stack ``C``; the variations carry ``K + C``
@@ -757,10 +757,10 @@ def fv_tied_lift_factors(
     - **Exactness.** At ``eps = 0`` the tied lift satisfies ``dPhi[L v] = E v`` on tied coordinates wherever
       the stacked ``M_g`` has full column rank, which is the shared analogue of a numerically full-rank frame
       (the group spectrum ``s_g`` is the Jacobian spectrum of the shared factor, ``docs/sharing.md``). That is
-      sufficient, not necessary: the group part stays exact at a zero-padded restart too (a tied tangent's group
+      sufficient, not necessary: the group part stays exact at a zero-padded warm start too (a tied tangent's group
       coordinates lie in the range of ``M_g``, so the filter's zeros lose nothing; measured 8.8e-16), while the
       singleton Tucker and TT slots carry the unshared lift's caveat (exact on a numerically full-rank frame).
-    - **Padded restarts.** A zero-padded shared restart's new ``s_g`` levels are zero, so their filter is
+    - **Warm starts (zero-padded).** A zero-padded shared warm start's new ``s_g`` levels are zero, so their filter is
       exactly 0: the gated tied channel gets no curvature in the new directions, as it gets no first-order
       motion; the escape through the TT variations (their per-bond lift) is untouched.
 
@@ -1007,7 +1007,7 @@ def ufv_shared_frame_data(
     the padded slots hold the construction's arbitrary orthonormal completions, which must not pair up.
     (Until 2026-08-22 the centers came from RE-SWEEPING the stored left supercore with fresh SVDs, which
     had to see the arrays AS STORED to reproduce the construction's sign choices; the constraint, and
-    the 'frames packed from ragged are not guaranteed' caveat, went with it -- review S9.) The padded
+    the 'frames packed from ragged are not guaranteed' caveat, went with it.) The padded
     rows and columns of each ``S_i^T`` are then exact zeros. The SVD of the zero-bordered stacked ``M_g`` is
     not exact there: ``svd_U``'s padded rows and the padded levels of ``svd_s`` come back at roundoff, so
     its consumers re-mask (:py:func:`ufv_share_tucker_variations`) or zero by the masks (the uniform tied
@@ -1021,7 +1021,7 @@ def ufv_shared_frame_data(
     # Mask first: the centers are a zipper of the stored chains (no SVD), so the padded slots -- which hold
     # the construction's orthonormal completions -- must not contract against each other. (The former
     # RE-SWEEP had to see the arrays AS STORED to reproduce the construction's SVD signs; that constraint
-    # went with it, review S9.)
+    # went with it.)
     return fv_shared_frame_data(tuple(ufv_masking.ufv_apply_frame_masks(frame_data)), groups)
 
 

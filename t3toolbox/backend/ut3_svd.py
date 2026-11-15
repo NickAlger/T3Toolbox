@@ -244,7 +244,7 @@ def _ut3svd_step_pad_safe(
         NDArray,               # Y_next: stack_shape+(r,r)
         typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (new_B, new_G, ss_frame, ss_tt)
 ]:
-    """Pad-safe twin of :py:func:`_ut3svd_step` (review S1b): both kept-basis SVDs go through
+    """Pad-safe twin of :py:func:`_ut3svd_step`: both kept-basis SVDs go through
     :py:func:`~t3toolbox.backend.linalg.pad_safe_svd`, so at a numerically rank-deficient point the
     sigma~0 completion columns stay OFF the padded slots -- which matters when the output cores
     become a FRAME (``ut3svd_orthogonal_representations`` / ``already_left_orthogonal=True``).
@@ -332,7 +332,7 @@ def ut3svd_supercores(
 
         content: typ.Optional[typ.Tuple[typ.Sequence[int], NDArray, NDArray]] = None,
                  # (shape, tucker_edge_mask, tt_edge_mask) of the INPUT -- HOST. Given -> every
-                 # kept-basis SVD (pre-orthogonalization + scan) is PAD-SAFE (review S1b).
+                 # kept-basis SVD (pre-orthogonalization + scan) is PAD-SAFE.
 ) -> typ.Tuple[
     typ.Tuple[NDArray, NDArray],  # (tucker_supercore, tt_supercore) at the INPUT padded (n, r)
     NDArray,  # frame_singular_values, shape=(d,)+stack+(n,)
@@ -450,7 +450,7 @@ def _ut3svd_shared_step_pad_safe(
         NDArray,                             # Y_next: stack_shape+(r,r)
         typ.Tuple[NDArray, NDArray],         # (new_G, ss)
 ]:
-    """Pad-safe twin of :py:func:`_ut3svd_shared_step` (review S1b): the bond-rounding SVD goes
+    """Pad-safe twin of :py:func:`_ut3svd_shared_step`: the bond-rounding SVD goes
     through :py:func:`~t3toolbox.backend.linalg.pad_safe_svd`. Closure-free scan body; masks ride
     the scan ``xs`` as HOST arrays."""
     xnp, _, _ = get_backend(True, tree_contains_jax((carry, x)))
@@ -486,7 +486,7 @@ def _ut3svd_shared_supercores(
 
         content: typ.Optional[typ.Tuple[typ.Sequence[int], NDArray, NDArray]] = None,
                  # (shape, tucker_edge_mask, tt_edge_mask) of the INPUT -- HOST. Given -> every
-                 # kept-basis SVD (pre-orthogonalization + all four phases) is PAD-SAFE (review S1b).
+                 # kept-basis SVD (pre-orthogonalization + all four phases) is PAD-SAFE.
 ) -> typ.Tuple[
     typ.Tuple[NDArray, NDArray],  # (tucker_supercore, tt_supercore) at the INPUT padded (n, r)
     NDArray,  # frame_singular_values, shape=(d,)+stack+(n,); group modes carry the group spectrum s_g
@@ -518,7 +518,7 @@ def _ut3svd_shared_supercores(
     n, N = frame_supercore.shape[-2:]
     r = tt_supercore.shape[-1]
 
-    # -- pad-safe content recurrences (HOST; review S1b), phase by phase --
+    # -- pad-safe content recurrences (HOST), phase by phase --
     ph = None
     if content is not None:
         shape_c, tkm_c, ttm_c = content

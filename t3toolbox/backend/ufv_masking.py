@@ -202,7 +202,7 @@ def ufv_variation_masks_over_stack(
     carries. Every op that produces variations with a stack wider than the frame's needs this: the
     sampling transposes (``K_new`` = the kept probe/tangent stack), the ambient projection of a
     ``K``-stacked gradient, hence ``transport`` of a ``K``-stacked tangent (the last two used to hand a
-    ``C``-stack mask to ``K+C`` variations and fail in a reshape, review C3). Host numpy: static structure."""
+    ``C``-stack mask to ``K+C`` variations and fail in a reshape). Host numpy: static structure."""
     return _masks_over_stack(ufv_variation_masks(frame_masks), frame_stack, out_stack)
 
 

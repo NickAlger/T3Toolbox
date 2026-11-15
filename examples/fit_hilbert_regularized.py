@@ -27,7 +27,7 @@ sampling kind, geometry, and the ragged/uniform layers (it acts on ``X``, not on
 Because the manifold's rank constraint does most of the regularizing, identity ``λ`` is a *secondary*
 knob here -- the gain is modest (~1.2x), not dramatic. (Identity regularization earns its keep most in
 severely ill-posed fits, where the unregularized fit is worse than useless; a sharper prior that
-denoises the ill-conditioned directions *selectively* -- weighting cores by inverse unfolding singular
+denoises the ill-conditioned directions *selectively* -- weighting cores by inverse matricization and unfolding singular
 values, after Grasedyck & Kramer -- is the tool for a larger gain here, and is future work.)
 
 **Choosing λ without seeing the answer.** You cannot measure the recovery error in practice (no true

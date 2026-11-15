@@ -5,7 +5,7 @@ The Gauss-Newton model ``m(p) = c + gᵀp + ½ pᵀ(JᵀJ)p`` of a least-squares
 
   * the sampling **kind** (apply / entries / probe) -- the bare single-sample Jacobian ``𝒥`` / its
     transpose ``𝒥ᵀ`` (from :py:mod:`t3toolbox.backend.probing`), plus the kind-specific ``‖·‖²``
-    reduction over the sample stack; and
+    reduction over the probe stack; and
   * the **geometry** (manifold / corewise) -- the gauge projection ``Π`` (``geometry.project``), with
     the Riemannian forward ``J = 𝒥∘Π`` and gradient ``Jᵀr = Π∘𝒥ᵀr``.
 
@@ -145,13 +145,13 @@ def block_sumsq_over_probes(
 
 # --------------------------------------------------------------------------------------------------
 # Default-draw layout helpers (the minimal layout the kind exposes so the optimizer can build its
-# DEFAULT flat minibatch draw -- a random subset across the whole sample stack W. A USER-supplied draw
+# DEFAULT flat minibatch draw -- a random subset across the whole probe stack W. A USER-supplied draw
 # bypasses these entirely.) `n_measurements` = the flat W size; `take` gathers a flat W subset out of
 # (sample, data) -- both kind-specific, since W sits in a different place per kind (and the derivative
 # data has a leading order axis).
 # --------------------------------------------------------------------------------------------------
 def _flat_gather(
-        arr:     NDArray,    # an array carrying the sample stack W
+        arr:     NDArray,    # an array carrying the probe stack W
         w_start: int,        # axis where W begins
         n_w:     int,        # number of W axes (flattened to one, then gathered)
         idx:     NDArray,    # int -- the drawn flat positions over the combined W axis
@@ -310,7 +310,7 @@ class SamplingKind(ValueHashedFields):
 
     The *what you measure* axis of a fit. Holds the kind-specific operations the geometry-generic
     Gauss-Newton model needs -- the bare Jacobian and its transpose (no gauge ``Pi``: that is the
-    geometry's), the ``|.|^2`` reduction over the sample stack, and the point operation ``S(x)`` used to
+    geometry's), the ``|.|^2`` reduction over the probe stack, and the point operation ``S(x)`` used to
     form the residual -- plus the minimal layout the default minibatch draw needs.
 
     Built-in kinds: :py:data:`APPLY`, :py:data:`ENTRIES`, :py:data:`PROBE` (module singletons) and the
@@ -348,7 +348,7 @@ class SamplingKind(ValueHashedFields):
             "are writing a new operator from scratch." % type(self).__name__)
 
     def transpose(self, residual, sample, frame, sweep):
-        """The bare transpose ``J^T r``, summed over the sample stack ``W``; raw ``(V, H)``."""
+        """The bare transpose ``J^T r``, summed over the probe stack ``W``; raw ``(V, H)``."""
         raise NotImplementedError(
             "%s does not implement transpose(): the bare transpose J^T r. Subclass a concrete kind (ApplyKind, ProbeKind, "
             "the *DerivativesKind) to inherit it, or ScalarOutputKind / ProbeOutputKind if you "
@@ -377,7 +377,7 @@ class SamplingKind(ValueHashedFields):
             frame,             # this model's frame -- the slot forward / transpose take
             sweep,             # this model's precompute(frame, sample); its xi / mu half is what is reused
             base_point,        # theta = geom.base_point(frame): the raw cores the directions vary
-    ):                         # -> raw (dB, dG), stack K+C, sample stack W summed; MASK-FREE by contract
+    ):                         # -> raw (dB, dG), stack K+C, probe stack W summed; MASK-FREE by contract
         """The derivative of :py:meth:`transpose`'s **corewise** form along a core direction.
 
         ``K_r theta_hat = d/ds grad_theta <omega^2 r, S(Phi(theta + s theta_hat))> |_{s=0}`` at

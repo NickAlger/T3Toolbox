@@ -49,13 +49,13 @@ __all__ = [
 class UT3FrameMasks(common.ValueHashedMasks):
     """The static rank structure of a :py:class:`UT3Frame`: its four boolean edge masks.
 
-    Slot ``j`` of an edge is real iff its mask is ``True`` there (the prefix/canonical form). Held as a
-    separate object so it can ride as jax ``aux_data``; hash/eq are **value-based** (the
-    :py:class:`~t3toolbox.backend.common.ValueHashedMasks` mixin) so a rebuilt-but-identical frame is the
-    *same* jit cache key (no per-iteration recompile when the orthogonal frame is rebuilt in an
-    optimization loop). The plain-layer :py:class:`~t3toolbox.uniform_tucker_tensor_train.UT3Masks`
-    pattern; see ``docs/contributor/uniform_pytree_composition.md``. (The physical ``shape`` is a separate static int
-    tuple on :py:class:`UT3Frame` -- not a mask, and value-hashable.)
+    Slot ``j`` of an edge is real iff its mask is ``True`` there; canonically a prefix, gappy in a padded frame's
+    block layout. Held as a separate object so it can ride as jax ``aux_data``; hash/eq are **value-based** (the
+    :py:class:`~t3toolbox.backend.common.ValueHashedMasks` mixin) so a rebuilt-but-identical frame is the *same*
+    jit cache key (no per-iteration recompile when the orthogonal frame is rebuilt in an optimization loop). The
+    plain-layer :py:class:`~t3toolbox.uniform_tucker_tensor_train.UT3Masks` pattern; see
+    ``docs/contributor/uniform_pytree_composition.md``. (The physical ``shape`` is a separate static int tuple on
+    :py:class:`UT3Frame` -- not a mask, and value-hashable.)
     """
     down_mask:        NDArray  # dtype=bool, (d,)  +stack_shape+(nD,)
     up_mask:          NDArray  # dtype=bool, (d,)  +stack_shape+(nU,)
@@ -64,7 +64,7 @@ class UT3FrameMasks(common.ValueHashedMasks):
 
     def __post_init__(self):
         # Defensive READ-ONLY copies: the value key is cached on this frozen holder, so an aliased
-        # writeable caller array mutated in place would leave a stale jit cache key (review H1-5).
+        # writeable caller array mutated in place would leave a stale jit cache key.
         for _f in ('down_mask', 'up_mask', 'frame_left_mask', 'frame_right_mask'):
             _m = np.array(getattr(self, _f), copy=True)
             _m.setflags(write=False)
@@ -238,10 +238,10 @@ class UT3Frame(common.ExplicitEquality):
             sharing:       typ.Optional[typ.Sequence] = None,          # len=d group labels; None = unshared
             seed:          int = ZERO_FRAME_SEED,                      # the keyed seed streams of the completions
     ) -> typ.Tuple[
-        'UT3Frame',            # the seeded padded frame in block layout
+        'UT3Frame',            # the hint-free padded frame in block layout
         typ.Tuple[int, int],   # split (Na, Rb), for UT3Tangent.align_padded
     ]:
-        """The seeded padded frame of ``x_old`` at larger ranks, in block layout: the uniform twin of
+        """The hint-free padded frame of ``x_old`` at larger ranks, in block layout: the uniform twin of
         :py:meth:`~t3toolbox.frame_variations_format.T3Frame.padded`.
 
         Every rank slot is ``[old block | new block]``: ``x_old``'s own frame as its orthogonal representation gives
@@ -545,7 +545,7 @@ class UT3VariationsMasks(common.ValueHashedMasks):
 
     def __post_init__(self):
         # Defensive READ-ONLY copies: the value key is cached on this frozen holder, so an aliased
-        # writeable caller array mutated in place would leave a stale jit cache key (review H1-5).
+        # writeable caller array mutated in place would leave a stale jit cache key.
         for _f in ('variations_down_mask', 'variations_up_mask', 'variations_left_mask', 'variations_right_mask'):
             _m = np.array(getattr(self, _f), copy=True)
             _m.setflags(write=False)

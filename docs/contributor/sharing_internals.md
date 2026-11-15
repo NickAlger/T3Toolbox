@@ -26,7 +26,7 @@ exactly). Three decisions:
    the right chain (`tt_zipper_right_to_left`): GEMM-only, exact to roundoff (≤ 4.5e-15 float64,
    ≤ 3.2e-7 float32, flat in `d` and `κ_TT` because the operands are orthogonal), and gauge-consistent
    with the stored `U_i`/`R_i` *whatever built the frame*. A re-SVD would face sign/degenerate-block
-   hazards (symmetric tensors have repeated `Γ` eigenvalues). **History (2026-08-22 review, S9):** the
+   hazards (symmetric tensors have repeated `Γ` eigenvalues). **History (2026-08-22 review):** the
    first design re-ran `tt_right_orthogonalize(left_tt_cores, return_variation_cores=True)` — the same
    SVD sweep on the same stored arrays as the construction, hence bit-identical *when it was the same
    SVD on the same arrays*. On a `UT3Frame.to_t3frame()` leaf it was not (a padded batched SVD vs a
@@ -38,7 +38,7 @@ exactly). Three decisions:
    comes out at relative error **7.5e-5** from the SVD vs **3.1e-1** from a Gram-eigh (squaring
    destroys it). The SVD also gives the projection solve at sensitivity `κ_g` (not the normal
    equations' `κ_g²`) and a clipped pseudoinverse that is well-defined (minimum-norm) at the
-   rank-deficient points continuation restarts visit by construction.
+   rank-deficient points zero-padded warm starts visit by construction.
 
 Selected measurements on file (design round):
 
@@ -95,7 +95,7 @@ check), put `[D_g; Ḋ]` at every group mode (one array), and replace the up cor
 companion's center `H_i` (the identity `S_i`-absorbed-`U_i = H_i` makes this an exact rewrite of
 each Tucker term). Then the grouped `t3svd` truncates back to the frame's ranks.
 
-## Padded restarts: which tangent channels are alive
+## Warm starts (zero-padded): which tangent channels are alive
 
 Rank continuation warm-starts by zero-padding, which places the iterate *on* the lower-shared-rank
 stratum: the fresh factor directions carry no core mass, the corresponding rows of every `S_i`
@@ -114,8 +114,8 @@ a per-mode one: where a group's rank exceeds a member's own ceiling that member'
 its minimum-norm per-mode lift represents the tangent but is not a tied direction — the curvature then
 misses the shared manifold's own second fundamental form.
 
-The end-to-end continuation loop needs a Newton reference that is not the padded restart's deflated
-warm-start gradient ([`rank_continuation.md`](../rank_continuation.md)): with the warm start as the
+The end-to-end continuation loop needs a Newton reference that is not the deflated gradient of the
+zero-padded warm start ([`rank_continuation.md`](../rank_continuation.md)): with the warm start as the
 reference the fit stalled at the target level and continuation over-grew (observed during the 2026-08 build).
 Through 2026.2.0 the fix was to pin `g0norm_newton` across levels; since 2026.3.0 the default
 `g0_reference` does it — the zero tensor of each level's group ranks, at a canonical zero-point frame
@@ -161,7 +161,7 @@ over randomized structures/caps *before* implementation. Two lessons that cost r
    lifted above it (by garbage; the survey's roundoff stayed below 5% of the clip) — and clips at the
    group's *real* dimensions, `eps·max(Σ_i nU_i, n_g)`, as the ragged solve does (a clip at the padded
    dimensions is higher, and can drop a real level the ragged solve keeps); and `lift_sigma_min` reads only
-   the real levels (else every varying-rank stack would report a padded 0). A zero-padded restart's new
+   the real levels (else every varying-rank stack would report a padded 0). A zero-padded warm start's new
    level is a *real* level: it filters to 0 by the clip and is what `lift_sigma_min` reports.
 2. **Cross-layer comparisons must be gauge-invariant and start shared-minimal.** Each layer's frame
    construction chooses its own SVD sign gauge (padding changes LAPACK's choices), so tests compare

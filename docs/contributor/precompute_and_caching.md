@@ -34,7 +34,7 @@ wrong place breaks the execution model. So the design question is never "should 
    content) — rejected outright; hashing costs what it saves, float-equality semantics are a swamp,
    and reuse should follow provenance, not value coincidence.
 
-**The one seeded cache (2026-10-27, ruling I-38).** `T3Tangent._gauge_scale` / `UT3Tangent._gauge_scale`
+**The one seeded cache (2026-10-27).** `T3Tangent._gauge_scale` / `UT3Tangent._gauge_scale`
 is a mechanism-1 slot whose value is *not* derivable from the object alone: tangent arithmetic
 (`±`, scalar `*`, `stack_tangents`) writes its operands' scale into the RESULT's cached-property slot,
 so the safe-mode gauge check measures a cancellation `a − b` against `max(‖a‖, ‖b‖)` rather than its own

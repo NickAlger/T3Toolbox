@@ -78,11 +78,11 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
         - tucker_variations = (V0, ..., V(d-1)), elm_shape=(nUi, Ni)
         - tt_variations     = (H0, ..., H(d-1)), elm_shape=(rLi, nDi, rRi)
 
-    Note that Ld and R0 are not used in these diagrams. (Why keep them, then? They hold the base
-    point as one extra variation term so the frame remembers where it is attached, and they give every
-    family a uniform length d for code reuse / off-by-one safety. See ``docs/frame_variations.md`` for
-    the full rationale, and for how the gauged variations act as coordinates -- which is what the
-    weighted-layer metric ``T3FrameWeights`` reweights.)
+    Note that L(d-1) and R0 (the carriers) are not used in these diagrams. (Why keep them, then?
+    They hold the base point as one extra variation term so the frame remembers where it is
+    attached, and they give every family a uniform length d for code reuse / off-by-one safety.
+    See ``docs/frame_variations.md`` for the full rationale, and for how the gauged variations
+    act as coordinates -- which is what the weighted-layer metric ``T3FrameWeights`` reweights.)
 
     The edge ranks are shown in the following diagrams::
 
@@ -126,7 +126,7 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
 
     If these conditions are satisfied, then one can do "dumb" corewise linear algebra
     (add, scale, dot product, etc) with the variations, and those core faithfully correspond
-    to linear algebra with the N1 x ... x Nd tangent vectors represented by the variations.
+    to linear algebra with the N0 x ... x N(d-1) tangent vectors represented by the variations.
 
     The orthogonal representations (44)-(45) and gauge conditions (47)-(48) are defined in Appendix
     A.3 of Alger, Christierson, Chen & Ghattas (2026), "Tucker Tensor Train Taylor Series"
@@ -307,8 +307,8 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
 
             sharing:       typ.Optional[typ.Sequence] = None,  # len=d group labels; None = unshared
             seed:          int = ZERO_FRAME_SEED,              # the keyed seed streams of the completions
-    ) -> 'T3Frame':                                            # the seeded padded frame (old frame in the leading slots)
-        """The seeded padded frame of ``x_old`` at larger ranks: the start of an alignment, hint-free.
+    ) -> 'T3Frame':                                            # the hint-free padded frame (old frame in the leading slots)
+        """The hint-free padded frame of ``x_old`` at larger ranks: the start of an alignment.
 
         At a zero-padded rank increase the point ``x_old`` gains zero slots, and its orthonormal frame needs new
         directions there. This frame keeps ``x_old``'s own frame in the leading slots of every store and fills the new
@@ -363,7 +363,7 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
         ``stack_shape``; a scalar when unstacked) -- different base points in a stack can differ; reduce
         with ``.all()`` for a single verdict.
 
-        Orthogonal cores (left/right/outer/Tucker) are defined in Appendix A.1 of Alger et al.
+        Orthogonal cores (left/right/up/down) are defined in Appendix A.1 of Alger et al.
         (2026), "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
 
         Examples
@@ -1436,7 +1436,7 @@ class T3FrameWeights(common.ExplicitEquality):
     """Diagonal weights defining a **metric on the tangent coordinates** -- a Grasedyck-Kramer-style
     reweighting of the ``d`` variation directions (penalise poorly-informed ones with e.g. ``1/sigma``).
 
-    Four families, each ``len=d`` (one per variation core, Approach-1 / metric-on-variations):
+    Four families, each ``len=d`` (one per variation core; the weights are a metric on the variations):
     ``down`` (on ``H``'s ``nD`` leg), ``up`` (on ``V``'s ``nU`` leg), ``left`` (``H``'s ``rL``),
     ``right`` (``H``'s ``rR``). :py:meth:`T3Tangent.weighted_norm` / :py:meth:`~T3Tangent.weighted_inner`
     absorb these into the variation cores and take the coordinate norm/inner -- the frame stays orthonormal

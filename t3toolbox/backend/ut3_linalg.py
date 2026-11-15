@@ -199,7 +199,7 @@ def _ut3_left_orthogonalized(data: UT3Data) -> UT3Data:  # down-orth the Tucker,
 # The VALUE goes through the SVD-based left-orthogonalization (precise: the norm of an orthogonal chain is
 # the norm of its last core). Differentiating THROUGH that path is not an option: jax's SVD JVP carries
 # 1/(s_i^2 - s_j^2) terms, and a padded uniform train has several exactly-zero singular values, so every
-# gradient came out NaN (review S11). The derivative is instead the exact multilinear rule
+# gradient came out NaN. The derivative is instead the exact multilinear rule
 #     d<T(x), T(x)> = 2 <T(x), dT>,   d<T(x), T(y)> = <dT_x, T(y)> + <T(x), dT_y>,
 # with dT the directional derivative of the represented tensor along the core perturbation, obtained by
 # jax.jvp of the zipper inner product with the ORTHOGONALIZED other side held fixed: the zipper is plain

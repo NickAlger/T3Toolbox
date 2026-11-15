@@ -240,7 +240,7 @@ def level_ranks(level, shape):
 
 
 def oracle_relerr(A, tucker_ranks, tt_ranks):
-    """Relative error of the best rank-(tucker,tt) approximation of A (dense T3-SVD truncation)."""
+    """Relative error of the quasi-optimal rank-(tucker,tt) dense T3-SVD truncation of A."""
     Xr, _, _ = t3.TuckerTensorTrain.t3svd_dense(A, max_tucker_ranks=tucker_ranks, max_tt_ranks=tt_ranks)
     return float(np.linalg.norm(Xr.to_dense() - A)) / float(np.linalg.norm(A))
 

@@ -176,7 +176,7 @@ with identical test error; a library-start run from 2026-11-01 (zero-type refere
 **Earlier, from a laptop Darcy ladder** (exact Hessian, the same absolute stop for every start, two start seeds; the
 prototype, with an earlier hint-free convention):
 
-- **A generic seeded start roughly halves the Newton count at level 2.** The hint-free start and every aligned start
+- **A generic hint-free start roughly halves the Newton count at level 2.** The hint-free start and every aligned start
   with oversampling cut the library padded frame's 49 Newton iterations to 21–33.
 - **Its Newton value appears with rank.** At levels 1–2 it did not reduce Newton counts beyond the seed spread. At the
   higher-rank level 11 → 16, the aligned start with 10 or more passes cut Newton iterations by about 40 % and CG

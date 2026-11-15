@@ -5,8 +5,8 @@ Tucker tensor trains
 --------------------
 
 Tucker tensor trains are the composition of a `Tucker decomposition <https://en.wikipedia.org/wiki/Tucker_decomposition>`_
-with a `tensor train <https://en.wikipedia.org/wiki/Matrix_product_state>`_ (also called matrix product states)
-representation of the central Tucker core. (They are also known as **extended tensor trains**, ETT.)
+with a `tensor train <https://en.wikipedia.org/wiki/Matrix_product_state>`_ (also called matrix product states) representation
+of the central core (the Tucker decomposition's core tensor). (They are also known as **extended tensor trains**, ETT.)
 
 Tensor network diagram for a Tucker tensor train::
 
@@ -100,8 +100,8 @@ Tucker tensor trains are said to have *minimal ranks* if they satisfy:
 Minimal rank properties:
 
 - Minimal ranks always exist and are unique.
-- Minimal Tucker ranks ni are equal to the ranks of Ni x (N1*...*N(i-1)*N(i+1)*...*N(d-1)) matricizations.
-- Minimal TT ranks ri are equal to the ranks of (N*...*Ni) x (N(i+1)*...*N(d-1)) matrix unfoldings.
+- Minimal Tucker ranks ni are equal to the ranks of Ni x (N0*...*N(i-1)*N(i+1)*...*N(d-1)) matricizations.
+- Minimal TT ranks ri are equal to the ranks of (N0*...*N(i-1)) x (Ni*...*N(d-1)) matrix unfoldings.
 - Minimal rank representations of any T3 may be constructed with T3-SVD.
 
 In this package, minimal ranks are typically defined with respect to a
@@ -119,7 +119,7 @@ T3 manifold
 -----------
 
 Under the minimal rank conditions, the set of Tucker tensor trains with fixed ranks forms an embedded
-submanifold in R^(N1 x ... x Nd). In this case, any tangent vector may be represented as a sum which
+submanifold in R^(N0 x ... x N(d-1)). In this case, any tangent vector may be represented as a sum which
 looks like this::
 
 	      1--H0--R1--R2--1   1--L0--H1--R2--1   1--L0--L1--H2--1
@@ -163,37 +163,37 @@ The three sampling operations: entries, apply, probe
 ----------------------------------------------------
 
 The library's three sampling operations evaluate the dense tensor without ever forming it. They
-differ in how many modes stay free and in the test vectors used:
+differ in how many modes stay free and in the probe vectors used:
 
 - ``entries`` -- contract with one-hot vectors in all modes: individual tensor entries.
 - ``apply`` -- contract with general vectors in all modes: one scalar per sample.
 - ``probe`` -- contract with vectors in all but one mode: ``d`` vectors, one per mode.
 
-Containment: ``probe`` ⊃ ``apply`` ⊃ ``entries``. All three exist for tensors and for tangent
-vectors (the Riemannian Jacobian 𝒥 and its transpose 𝒥ᵀ), and all three have symmetric
-directional-derivative ("jet") generalizations with a leading order axis. What differs, what each
-costs, and how each fits a Riemannian least-squares solve: :doc:`entries_apply_probe`.
+Containment: ``probe`` ⊃ ``apply`` ⊃ ``entries``. All three exist for tensors and for tangent vectors
+(the bare Jacobian 𝒥 and its transpose 𝒥ᵀ; the Riemannian Jacobian is J = 𝒥∘Π), and all three have
+symmetric directional-derivative ("jet") generalizations with a leading order axis. What differs,
+what each costs, and how each fits a Riemannian least-squares solve: :doc:`entries_apply_probe`.
 
-Probing a N1 x N2 x N3 Tucker tensor with vectors u1, u2, u3 (lengths N1, N2, N3, respectively)
+Probing an N0 x N1 x N2 Tucker tensor with vectors u0, u1, u2 (lengths N0, N1, N2, respectively)
 looks like this::
 
 	                 1--G0--G1--G2--1
 	                    |   |   |
 	first probe:  =     B0  B1  B2
-	(len=N1)            |   |   |
-	                        u2  u3
+	(len=N0)            |   |   |
+	                        u1  u2
 
 	                 1--G0--G1--G2--1
 	                    |   |   |
 	second probe: =     B0  B1  B2
-	(len=N2)            |   |   |
-	                    u1      u3
+	(len=N1)            |   |   |
+	                    u0      u2
 
 	                 1--G0--G1--G2--1
 	                    |   |   |
 	third probe:  =     B0  B1  B2
-	(len=N3)            |   |   |
-	                    u1  u2
+	(len=N2)            |   |   |
+	                    u0  u1
 
 
 Batching and stacking
@@ -252,21 +252,21 @@ In this case:
 
 We keep track of which parts of the cores are supposed to be zero (to prevent filling in these parts
 during computations) with *edge masks*. For each edge, the mask is a boolean vector; in the canonical
-form it is a prefix ``(1,...,1,0,...,0)``, but ``+`` and the Hadamard product produce *gappy* working-form
-masks (the real slots are no longer a prefix) which the T3-SVD re-canonicalizes -- see
+form it is a prefix ``(1,...,1,0,...,0)``, but ``+`` (and, for edge weights, ``kronecker``) produces *gappy*
+working-form masks (the real slots are no longer a prefix) which the T3-SVD re-canonicalizes -- see
 ``docs/uniform_masks_vs_ranks.md``.
 
-- The masks for the edges between Tucker cores and TT-cores have length n. For the ith edge, the
-  first ni entries are 1, and the remaining entries are 0. These *Tucker edge masks* are collected
+- The masks for the edges between Tucker cores and TT-cores have length n. For the ith edge, in
+  canonical form the first ni entries are 1 and the rest 0. These *Tucker edge masks* are collected
   into a boolean array with shape (d, n).
-- The masks for the edges between adjacent TT-cores have length r. For the ith edge, the first ri
-  entries are 1, and the remaining entries are 0. These *TT edge masks* are collected into a boolean
+- The masks for the edges between adjacent TT-cores have length r. For the ith edge, in canonical
+  form the first ri entries are 1 and the rest 0. These *TT edge masks* are collected into a boolean
   array with shape (d+1, r).
 
 The governing principle is the **equivalence contract**: the uniform layer is a faster ragged
 layer -- ``to_uniform -> op -> to_ragged`` equals the ragged op on the real (masked) content, and
 the padding is don't-care garbage (:doc:`uniform_equivalence_contract`). The masks are boolean
-prefix vectors rather than integer ranks so that rank metadata stays closed under addition and
+vectors rather than integer ranks so that rank metadata stays closed under addition and
 multiplication (:doc:`uniform_masks_vs_ranks`), and they are deliberately **host numpy** (static
 pytree structure) while the supercores flow through numpy or jax (:doc:`contributor/uniform_pytree_composition`).
 
@@ -296,10 +296,10 @@ The one exception is **pure constructors with no array inputs** -- ``TuckerTenso
 ``zeros`` / ``ones`` / ``load`` and their backend twins -- which take a ``use_jax`` flag, because
 there is nothing to infer from. Factories that do take an existing object infer from it.
 
-The frontend classes (``TuckerTensorTrain``, ``T3Frame``, ``T3Variations``, ``T3Tangent``, their uniform
-twins ``UniformTuckerTensorTrain`` / ``UT3Frame`` / ``UT3Variations`` / ``UT3Tangent``, the weight classes, the
-Gauss-Newton models) are registered jax **pytrees**, so ``jax.jit`` / ``grad`` / ``vmap`` apply to
-frontend methods directly. Two design points make jit practical:
+The frontend classes (``TuckerTensorTrain``, ``T3Frame``, ``T3Variations``, ``T3Tangent``, their
+uniform twins ``UniformTuckerTensorTrain`` / ``UT3Frame`` / ``UT3Variations`` / ``UT3Tangent``, the
+weight classes, the local model ``fitting.LocalModel``) are registered jax **pytrees**, so ``jax.jit``
+/ ``grad`` / ``vmap`` apply to frontend methods directly. Two design points make jit practical:
 
 - A ``T3Tangent`` carries its frame as a pytree **leaf** -- the same-frame guard is a *numerical*
   check (``safety.frames_equal``), not object identity -- so the frame flows as traced data and

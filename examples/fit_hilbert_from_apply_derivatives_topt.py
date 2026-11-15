@@ -13,7 +13,7 @@ kind, instead of an inline loop. Three things the library carries that the refer
     *inside* the kind and the data stays **raw** (no pre-normalization of ``y``).
   * **The minibatch** -- a custom ``draw`` that slices base points ``X`` (mirroring the reference: a few
     ``X`` with all their directions ``P``). One line; the flat default (a random subset across the whole
-    sample stack) would be ``draw=None``.
+    probe stack) would be ``draw=None``.
 
 Everything else -- the ``ω``-weighted objective, the Cauchy step, the manifold retraction, the absolute-
 iteration stopping window -- lives in ``mc_sgd``. The rank continuation + validation stay here (a fitting
@@ -36,7 +36,7 @@ import t3toolbox.backend.sampling_derivatives as pd   # only for the dense groun
 # Problem configuration (matches the reference example)
 # --------------------------------------------------------------------------------------------------
 SHAPE        = (12, 12, 12, 12)    # Hilbert tensor shape (order d = len(SHAPE))
-ORDER        = 4                   # highest derivative order K
+ORDER        = 4                   # highest derivative order
 N_X_TRAIN    = 10                  # training base points X
 N_X_VAL      = 5                   # held-out validation base points X
 N_P          = 30                  # perturbation directions P sampled per base point X
@@ -59,7 +59,7 @@ def hilbert_tensor(shape):
 
 def unit_pairs_many_p(n_x, n_p, shape, rng):
     """``n_x`` unit-norm base points ``X``, each with ``n_p`` unit-norm directions ``P``; ``X`` replicated
-    over the ``n_p`` axis so it shares ``P``'s ``(n_p, n_x)`` sample stack. Returns ``ww, pp`` (lists of
+    over the ``n_p`` axis so it shares ``P``'s ``(n_p, n_x)`` probe stack. Returns ``ww, pp`` (lists of
     ``d`` arrays of shape ``(n_p, n_x, N)``)."""
     def unit(*lead):
         vs = [rng.standard_normal(lead + (N,)) for N in shape]
@@ -72,7 +72,7 @@ def unit_pairs_many_p(n_x, n_p, shape, rng):
 
 
 def dense_apply_derivatives(A, ww, pp, order):
-    """Ground-truth apply-derivative jets of dense ``A``: shape ``(order+1,) + W`` (``W`` the sample stack)."""
+    """Ground-truth apply-derivative jets of dense ``A``: shape ``(order+1,) + W`` (``W`` the probe stack)."""
     W = ww[0].shape[:-1]
     b = np.zeros((order + 1,) + W)
     for idx in np.ndindex(*W):

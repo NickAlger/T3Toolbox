@@ -219,7 +219,7 @@ def _mu_step(
         mu: NDArray,                      # carry: W+C+(rLi,)
         x:  typ.Tuple[NDArray, NDArray],  # (L, xi): C+(rLi,nDi,rL(i+1)) ; W+C+(nDi,)
 ) -> typ.Tuple[NDArray, typ.Tuple[NDArray]]:   # (next carry, (mu,))
-    '''One edge of the leftward sweep of :py:func:`compute_mu`. Closure-free scan body --
+    '''One edge of the left-to-right sweep of :py:func:`compute_mu`. Closure-free scan body --
     ``docs/contributor/scan_body_principles.md``.'''
     L, xi = x[0], x[1]
     mu_next = contractions.contract('WCa,Caib,WCi->WCb', mu, L, xi)
@@ -230,8 +230,8 @@ def compute_mu(
         left_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=C+(rLi,nDi,rL(i+1)) (the last core is not swept)
         xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=W+C+(nDi,)
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # mus. len=d, elm_shape=W+C+(rLi,)
-    '''Compute leftward edge variables associated with edges between adjacent TT-cores.
-    Used for probing a Tucker tensor train.
+    '''Compute the left edge variables mu (accumulated left to right), associated
+    with edges between adjacent TT-cores. Used for probing a Tucker tensor train.
 
     See Section 6.2, particularly Figure 7 and Algorithm 5, in:
         Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
@@ -255,8 +255,8 @@ def compute_nu(
         right_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=C+(rRi,nDi,rR(i+1))
         xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=W+C+(nDi,)
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # nus. len=d, elm_shape=W+C+(rR(i+1),)
-    '''Compute rightward edge variables associated with edges between adjacent TT-cores.
-    Used for probing a Tucker tensor train.
+    '''Compute the right edge variables nu (accumulated right to left), associated
+    with edges between adjacent TT-cores. Used for probing a Tucker tensor train.
 
     See Section 6.2, particularly Figure 7 and Algorithm 5, in:
         Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
@@ -371,7 +371,7 @@ def compute_dxi(
 
 
 def _sigma_step(sigma, R, U, H, xi, dxi, mu):
-    '''One step of the perturbation-leftward (sigma) recursion (Algorithm 7), shared by
+    '''One step of the left-side perturbation (sigma) recursion (Algorithm 7), shared by
     compute_sigma (which keeps the per-core sequence, for probing) and tv_apply/tv_entries
     (which keep only the terminal carry, for the all-modes contraction).
 
@@ -405,7 +405,7 @@ def compute_sigma(
         dxis:               typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nUi)
         mus:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,rLi)
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # sigmas. len=d, elm_shape=(...,rRi)
-    '''Compute var-leftward edge variables sigma.
+    '''Compute the left-side variation edge variables sigma.
     Used for probing a tangent vector.
 
     See Section 6.2.2, particularly Algorithm 7, in:
@@ -442,7 +442,7 @@ def compute_tau(
         dxis:               typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nUi)
         nus:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,rR(i+1))
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # taus. len=d, elm_shape=(...,rL(i+1))
-    '''Compute var-rightward edge variables tau.
+    '''Compute the right-side variation edge variables tau.
     Used for probing a tangent vector.
 
     See Section 6.2.2, particularly Algorithm 7, in:
@@ -896,7 +896,7 @@ def _tau_tilde_step(
         tau_tilde: NDArray,   # carry: W+K+C+(rLi,)
         x:         typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (L, xi, deta_tilde, mu)
 ) -> typ.Tuple[NDArray, typ.Tuple[NDArray]]:   # (next carry, (tau_tilde,))
-    '''One edge of the adjoint rightward sweep of :py:func:`compute_tau_tilde`. Closure-free scan
+    '''One edge of the adjoint left-to-right sweep of :py:func:`compute_tau_tilde`. Closure-free scan
     body -- ``docs/contributor/scan_body_principles.md``.'''
     L, xi, deta_tilde, mu = x
     # Three-group (W probe, K tangent, C frame): tau_tilde/deta_tilde carry K (from the residual),
@@ -914,7 +914,7 @@ def compute_tau_tilde(
         xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nDi)
         mus:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,rLi)
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # len=d, elm_shape=(...,rLi)
-    '''Adjoint-var-rightward edge variables tau_tilde.
+    '''Adjoint right-side variation edge variables tau_tilde.
     Used for computing the transpose of the map from a tangent vector to its probes.
 
     See Section 6.2.3, particularly Algorithm 8, in:
@@ -940,7 +940,7 @@ def compute_sigma_tilde(
         xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nDi)
         nus:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,rR(i+1))
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # len=d, elm_shape=(...,rR(i+1))
-    '''Adjoint-var-leftward edge variables sigma_tilde.
+    '''Adjoint left-side variation edge variables sigma_tilde.
     Used for computing the transpose of the map from a tangent vector to its probes.
 
     See Section 6.2.3, particularly Algorithm 8, in:

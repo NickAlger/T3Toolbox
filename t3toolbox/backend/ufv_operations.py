@@ -274,7 +274,7 @@ def ufv_frame_orthogonality_residual(data):  # UT3Frame .data -> max orthogonali
     """Max deviation of the four masked frame supercores from orthonormality, **per stack element** (shape
     ``stack_shape``). Each masked supercore slice IS a hypothetical ragged core (mask the padding to zero);
     require its Gram == ``diag(outgoing_mask)`` -- the masked-Gram pattern, over the four senses (down ``D``,
-    up/outer ``U``, left ``L``, right ``R``), with the correct outgoing mask per sense (left core ``i`` ->
+    up ``U``, left ``L``, right ``R``), with the correct outgoing mask per sense (left core ``i`` ->
     ``frame_left_mask[i+1]``). The uniform analog of
     :py:func:`fv_operations.fv_frame_orthogonality_residual`; the per-element oracle is the ragged
     one via ``to_t3frame``. The boundary left/right cores are remainders and are not checked (so left
@@ -291,7 +291,7 @@ def ufv_frame_orthogonality_residual(data):  # UT3Frame .data -> max orthogonali
 
     devs = [
         dev(xnp.einsum('...io,...jo->...ij', mdown, mdown), dm, nD),      # down: rows orthonormal over mode
-        dev(xnp.einsum('...iaj,...ibj->...ab', mup, mup), um, nU),        # up/outer: mode orthonormal over bonds
+        dev(xnp.einsum('...iaj,...ibj->...ab', mup, mup), um, nU),        # up: mode orthonormal over bonds
     ]
     if d > 1:   # interior left/right cores; the boundary core of each is the unchecked remainder
         devs.append(dev(xnp.einsum('...iaj,...iak->...jk', mleft[:-1], mleft[:-1]), lm[1:-1], rL))   # outgoing edges 1..d-1
@@ -534,7 +534,7 @@ def ufv_tied_lift_factors(
     relative clip; and the clip itself
     (``rcond=None``) is the ragged one, ``dtype eps * max(sum_i nU_i, nD)``, at the REAL dimensions. So per stack
     element the filter is the ragged filter on the real levels and exactly 0 beyond them, and the tied lift is the
-    ragged one. A real level that is zero -- a zero-padded restart's new level -- is clipped to 0 like the ragged
+    ragged one. A real level that is zero -- a zero-padded warm start's new level -- is clipped to 0 like the ragged
     one, and stays a real level (the smallest lift singular value reports it).
 
     The per-mode fields are :py:func:`ufv_lift_factors`'s, bit for bit (a group mode's entries go unused). Requires

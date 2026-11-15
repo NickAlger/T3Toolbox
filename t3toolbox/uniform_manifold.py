@@ -98,7 +98,7 @@ class UT3Tangent(common.ExplicitEquality):
     :py:class:`~t3toolbox.uniform_frame_variations_format.UT3Variations` (the tangent direction in that
     frame). The ``K``/``C`` stack split (extra tangent stack ``K`` over the shared frame stack ``C``) is
     **inferred** from the pair -- the variation stack is ``K + C`` and the frame stack is ``C`` -- never
-    stored (the split-agnostic stacking of increment 2c).
+    stored (split-agnostic stacking).
 
     Like the ragged class, the metric lives on the *geometry*, not here; this exposes only the **raw
     coordinate** :py:meth:`corewise_inner` / :py:meth:`corewise_norm` (no Hilbert-Schmidt claim), computed
@@ -151,7 +151,7 @@ class UT3Tangent(common.ExplicitEquality):
             sharing:       typ.Optional[typ.Sequence] = None,                         # len=d group labels; None = unshared
             update:        typ.Collection[str] = ('D', 'U', 'L', 'R'),                # as T3Tangent.align_padded
     ) -> typ.Tuple[
-        'ubv.UT3Frame',   # the aligned frame, block layout, P-blocks real-first
+        'ubv.UT3Frame',   # the aligned frame, block layout, new blocks real-first
         NDArray,          # movement, shape = frame stack C
     ]:
         """One alignment step of this tangent's block-layout padded frame: the uniform twin of
@@ -258,7 +258,7 @@ class UT3Tangent(common.ExplicitEquality):
         # NUMERICAL (skippable): are these the same frame? The `is` fast-path keeps the common eager case
         # O(1); the value compare runs only when the objects differ, e.g. a jit round-trip reconstructs a
         # value-equal frame. Skips under safety.unsafe() and under a jax trace. The supercores are MASKED
-        # first (review H5-5): the tangent space depends only on real content, so frames identical up to
+        # first: the tangent space depends only on real content, so frames identical up to
         # don't-care padding are the SAME frame -- safety.frames_equal only ever sees real content.
         if not (self.frame is other.frame
                 or safety.frames_equal_or_skip(ufv_masking.ufv_apply_frame_masks(self.frame.data),
@@ -552,7 +552,7 @@ class UT3Tangent(common.ExplicitEquality):
             self,
             ww:  typ.Sequence[NDArray],  # probe vectors, len=d, ith elm_shape=W+(Ni,)
     ) -> typ.Tuple[NDArray, ...]:        # d probes, ith elm_shape=W+K+C+(Ni,)
-        """Probe this tangent vector: the single-sample Riemannian Jacobian ``𝒥`` (contract all-but-one
+        """Probe this tangent vector: the single-sample bare Jacobian ``𝒥`` (contract all-but-one
         mode, for each mode). Uniform mirror of :py:meth:`~t3toolbox.manifold.T3Tangent.probe`; ``ww`` is
         packed at the boundary and the ``d`` probes come back as ragged-width vectors, stacked ``W+K+C``.
         The bare ``𝒥`` (no gauge projector ``Π``).
@@ -629,13 +629,13 @@ class UT3Tangent(common.ExplicitEquality):
             order:  int,                    # highest derivative order
     ) -> typ.Tuple[NDArray, ...]:           # len=d, ith elm_shape=(order+1,)+W+K+C+(Ni,)
         """Symmetric directional derivatives of :py:meth:`probe`, in one repeated direction ``P`` (``pp``):
-        the forward Riemannian Jacobian derivatives ``y_i^(t) = d^t/ds^t [probe(X + s P)]_i|_0`` for
+        the forward bare-Jacobian derivatives ``y_i^(t) = d^t/ds^t [probe(X + s P)]_i|_0`` for
         ``t=0..order`` (order 0 is :py:meth:`probe`; the bare ``𝒥``, no gauge ``Π``). ``ww``/``pp`` share the
-        sample stack ``W``; stacks ``order + W + K + C``. Uniform mirror of
+        probe stack ``W``; stacks ``order + W + K + C``. Uniform mirror of
         :py:meth:`~t3toolbox.manifold.T3Tangent.probe_derivatives`.
 
         No *numerical* precondition (gauge-invariant, any frame). **Structural precondition** (hard error):
-        ``P`` (``pp``) shares the sample stack ``W`` and mode dims of ``X`` (``ww``).
+        ``P`` (``pp``) shares the probe stack ``W`` and mode dims of ``X`` (``ww``).
 
         See Also
         --------
@@ -660,7 +660,7 @@ class UT3Tangent(common.ExplicitEquality):
         >>> print([bool(np.allclose(z[0], z0)) for z, z0 in zip(zj, v.probe(ww))])   # order 0 == probe
         [True, True, True]
 
-        ``P`` must match ``X``'s sample stack and mode dims (structural, raises):
+        ``P`` must match ``X``'s probe stack and mode dims (structural, raises):
 
         >>> v.probe_derivatives(ww, (np.random.randn(10), np.random.randn(11), np.random.randn(99)), 3)
         ... # doctest: +IGNORE_EXCEPTION_DETAIL
@@ -816,7 +816,7 @@ class UT3Tangent(common.ExplicitEquality):
         :py:class:`UT3Tangent` at ``frame``. The residual jets live in the forward derivative-probe space
         (``(order+1)+W+K+C+(Ni,)``); the transpose sums the order axis, so the result is a single tangent
         (no order axis). The tangent batch ``K`` rides through, ``sum_over_probes`` sums (``True``,
-        Gauss-Newton ``𝒥ᵀr``) or keeps (``False``) the sample stack ``W``. Bare ``𝒥ᵀ``. Uniform mirror of
+        Gauss-Newton ``𝒥ᵀr``) or keeps (``False``) the probe stack ``W``. Bare ``𝒥ᵀ``. Uniform mirror of
         :py:meth:`~t3toolbox.manifold.T3Tangent.probe_derivatives_transpose`.
 
         See Also

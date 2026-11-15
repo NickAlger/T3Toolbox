@@ -1,4 +1,4 @@
-# S2 — Numerical-contract catalog (precondition vs caveat sweep)
+# Numerical-contract catalog (precondition vs caveat sweep)
 
 _The decision record that designed safe mode, preserved as approved (2026-06-19). The
 **current-state statement** of these contracts — present tense, migration arrows resolved — is the
@@ -11,7 +11,7 @@ non-enforced **caveat**.*
 
 > **APPROVED by Nick, 2026-06-19**, with these decisions:
 > 1. `retract` precondition = **ORTH only** (not GAUGE — retract is gauge-invariant). ✓
-> 2. `MANIFOLD.inner` checks **all** of SF + ORTH + GAUGE (+ structural-minimal, below), the frame ones
+> 2. `MANIFOLD.inner` checks **all** of FRAMES + ORTH + GAUGE (+ structural-minimal, below), the frame ones
 >    cached on the frozen objects. ✓ *— the minimal-rank parenthetical was superseded the same day; see
 >    the note under this banner.*
 > 3. **Frontend-only** enforcement for now; a backend mirror is deferred and needs careful discussion
@@ -65,7 +65,7 @@ those properties only make them *equal HS*), so it moves to the geometry's `inne
 
 ## Master table (by surface)
 
-`SF` = same-frame, `ORTH` = orthogonal frame, `GAUGE` = variations gauged. "—" = no numerical precondition
+`FRAMES` = same-frame, `ORTH` = orthogonal frame, `GAUGE` = variations gauged. "—" = no numerical precondition
 (structural checks like shapes/ranks/`check_fv_pair` still apply, always, in both modes).
 
 > **Read the `minimal` entries in the caveat columns below as pre-experiment.** The "Minimal ranks"
@@ -73,27 +73,27 @@ those properties only make them *equal HS*), so it moves to the geometry's `inne
 > without minimality, and only `retract`'s *strict rank preservation* survives as a real caveat. The
 > rows are left as written because this is the record of the sweep as approved.
 
-### `T3Tangent` (after the §S3 rename)
+### `T3Tangent` (after the rename)
 | op | precondition (checked in safe mode) | caveat (never checked) | note |
 |---|---|---|---|
-| `+`, `−` | **SF** | — | today an `is`-identity "structural" guard → becomes `same_frame` (the root-cause fix) |
+| `+`, `−` | **FRAMES** | — | today an `is`-identity "structural" guard → becomes `same_frame` (the root-cause fix) |
 | `* scalar`, `__neg__` | — | — | |
-| `corewise_inner(other)` | **SF** | "= HS iff ORTH+GAUGE+minimal" | renamed from `inner`; the caveat moves to `MANIFOLD.inner` |
+| `corewise_inner(other)` | **FRAMES** | "= HS iff ORTH+GAUGE+minimal" | renamed from `inner`; the caveat moves to `MANIFOLD.inner` |
 | `corewise_norm()` | — (unary) | "= HS iff ORTH+GAUGE+minimal" | renamed from `norm` |
-| `normalized()`, `allclose(other)` | `allclose`: **SF** | — | `normalized` is unary |
+| `normalized()`, `allclose(other)` | `allclose`: **FRAMES** | — | `normalized` is unary |
 | `to_dense`, `to_t3` | — | — | realization is gauge-invariant, valid on any frame |
 | `probe`/`apply`/`entries` (+transposes), `*_derivatives` (+transposes) | — | — | **bare 𝒥/𝒥ᵀ** — gauge-invariant, any frame; the Riemannian `Π` is the geometry's, applied separately |
 | `to_vector`/`from_vector`, `zeros`/`unit`/`zeros_like`, `reverse`, `sum_tangents` | — | — | structural / constructors |
-| `stack_tangents` | **SF** (all leaves) | — | today identity |
+| `stack_tangents` | **FRAMES** (all leaves) | — | today identity |
 | `stack_frame`, `unstack_*` | — | — | `stack_frame` deliberately stacks *different* bases |
 | `is_orthogonal`/`is_gauged`/`has_minimal_ranks`, `minimal_ranks`, `tangent_space_dimension` | — | — | **checkers** — they *are* the checks; keep non-enforcing |
 
 ### Geometries (the semantic `inner`/`norm` live here — Nick's refinement)
 | op | precondition | caveat | note |
 |---|---|---|---|
-| `MANIFOLD.inner(t1,t2)` | **SF + ORTH + GAUGE(both)** | minimal (for exact HS) | the HS inner product; *checks* ORTH+GAUGE, can't cheaply check minimal |
-| `MANIFOLD.norm(t)` | **ORTH + GAUGE** | minimal | unary (no SF) |
-| `COREWISE.inner(t1,t2)` | **SF** | — | Euclidean; **no ORTH/GAUGE** (the corewise frame is non-orthonormal by design) |
+| `MANIFOLD.inner(t1,t2)` | **FRAMES + ORTH + GAUGE(both)** | minimal (for exact HS) | the HS inner product; *checks* ORTH+GAUGE, can't cheaply check minimal |
+| `MANIFOLD.norm(t)` | **ORTH + GAUGE** | minimal | unary (no FRAMES) |
+| `COREWISE.inner(t1,t2)` | **FRAMES** | — | Euclidean; **no ORTH/GAUGE** (the corewise frame is non-orthonormal by design) |
 | `COREWISE.norm(t)` | — | — | Euclidean, unary |
 | `MANIFOLD.project` (Π), `project_oblique` | **ORTH** | minimal (for oblique's HS-matching purpose) | the orthogonal-gauge projection needs an orthonormal frame to *be* the HS-orthogonal one |
 | `MANIFOLD.retract(p)` | **ORTH** | minimal (rank preservation) | precondition *implied, not currently documented* — confirm |
@@ -105,8 +105,8 @@ those properties only make them *equal HS*), so it moves to the geometry's `inne
 ### `LocalModel` (fitting)
 | op | precondition | note |
 |---|---|---|
-| `gradient`, `gn_hessian(p)`, `jacobian(p)`, `gn_quadratic(p)`, `evaluate(p)` | **SF** (`p` vs `model.frame`) | today `_require_at_frame` identity → `same_frame`. The frame's ORTH (manifold) is guaranteed by `geometry.frame(x)` at construction — a *construction invariant*, not a per-op check. `evaluate`/two-form use `corewise_inner` (coordinate metric), so **SF**, not HS. |
-| `hessian(p)`, `quadratic(p)`, `curvature_hessian(p)`, `curvature_quadratic(p)`, `retract(p)` (2026.3.0) | **SF** | no new enforced precondition; `curvature_*` on a Gauss-Newton model and a kind / geometry without the exact-mode members are **structural** errors. The exact Hessian's caveats (never checked): exact at ε = 0 on numerically full-rank points, damped toward Gauss-Newton for σ ≲ ε; a hand-built wide `T_i` gives a least-squares lift (every `t3_orthogonal_representations` frame gives an exact one-sided one); shared: exact where `s_g > 0`; `N ≡ 0` on flat slots; `objective_floor` is a resolution limit, not a convergence certificate; the zero reference is a convention good to an O(1) factor. User statement: `numerical_contracts.md` §"The exact Hessian". |
+| `gradient`, `gn_hessian(p)`, `jacobian(p)`, `gn_quadratic(p)`, `evaluate(p)` | **FRAMES** (`p` vs `model.frame`) | today `_require_at_frame` identity → `same_frame`. The frame's ORTH (manifold) is guaranteed by `geometry.frame(x)` at construction — a *construction invariant*, not a per-op check. `evaluate`/two-form use `corewise_inner` (coordinate metric), so **SF**, not HS. |
+| `hessian(p)`, `quadratic(p)`, `curvature_hessian(p)`, `curvature_quadratic(p)`, `retract(p)` (2026.3.0) | **FRAMES** | no new enforced precondition; `curvature_*` on a Gauss-Newton model and a kind / geometry without the exact-mode members are **structural** errors. The exact Hessian's caveats (never checked): exact at ε = 0 on numerically full-rank points, damped toward Gauss-Newton for σ ≲ ε; a hand-built wide `T_i` gives a least-squares lift (every `t3_orthogonal_representations` frame gives an exact one-sided one); shared: exact where `s_g > 0`; `N ≡ 0` on flat slots; `objective_floor` is a resolution limit, not a convergence certificate; the zero reference is a convention good to an O(1) factor. User statement: `numerical_contracts.md` §"The exact Hessian". |
 
 ### `TuckerTensorTrain`, `corewise`, `probing` — **precondition-free**
 | surface | precondition | why |
@@ -123,8 +123,8 @@ those properties only make them *equal HS*), so it moves to the geometry's `inne
    "Structural guard"; `T3Tangent._check_same_tangent_space` via `is`). **The root cause.** → `same_frame`
    (identity fast-path + `frames_equal`), safe-mode, eager-only. *This is what unblocks frame-as-leaf.*
 2. **`T3Tangent.inner`/`norm` fold the HS caveat into the op** (`.. warning:: equals HS only when
-   orthogonal and gauged`). → split: `MANIFOLD.inner`/`norm` (HS, *checks* ORTH+GAUGE+SF) vs
-   `corewise_inner`/`corewise_norm` (raw, *checks* SF). The op no longer pretends to be HS.
+   orthogonal and gauged`). → split: `MANIFOLD.inner`/`norm` (HS, *checks* ORTH+GAUGE+FRAMES) vs
+   `corewise_inner`/`corewise_norm` (raw, *checks* FRAMES). The op no longer pretends to be HS.
 3. **`retract` / `MANIFOLD.project` ORTH precondition is silent** (not in the docstrings). → state + check
    ORTH. (Confirm `retract` needs only ORTH, not GAUGE — gauge is a redundancy retract is invariant to.)
 4. **"some tangent ops only correct when minimal ranks — which exactly is TBD"** (`manifold.py`/`bvf`).
@@ -159,30 +159,30 @@ SVD; non-orthogonal frames return `False` — the SVD path for them is deferred,
 **Super-safe mode was considered and dropped** (no op needs it; it would be a ~no-op for orthogonal
 frames). Naming convention: bare `minimal_ranks` = structural; `numerically_minimal` = numerical.
 
-## Implementation notes (for S3–S5, not decisions here)
+## Implementation notes (not decisions here)
 
 - **`same_frame(b1, b2)` = `b1 is b2 or safety.frames_equal_or_skip(b1.data, b2.data)`** — the `is`
   fast-path keeps the common eager case O(1); the value compare only runs (and only matters) when objects
   differ but values match (jit round-trip) or genuinely differ. The tolerance is **jax-aware** (`rtol_jax`
   if any input is a jax array, else `rtol_numpy`); under a trace it skips (returns pass). Mechanism in
-  `t3toolbox/safety.py` (S1, done).
+  `t3toolbox/safety.py` (done).
 - **Where checks live (razor):** to serve raw-`.data` users, the ORTH/GAUGE checks belong at the **backend**
   functions that consume raw data (`tv_operations.*`, which already have `is_orthogonal`-style
   residual helpers), with the frontend methods inheriting them. `same_frame` is a frontend concept (it
   needs the two `T3Frame` objects); the backend's analogue is "the caller passed one shared frame", so the
   same-frame check is naturally frontend-only.
-- **Cost mitigation (done in S5):** cache the atol-*independent* **residual**, not the atol-bool —
+- **Cost mitigation (done):** cache the atol-*independent* **residual**, not the atol-bool —
   `T3Frame.orthogonality_residual` and `T3Tangent.gauge_residual` are `@cached_property`s, and
   `is_orthogonal(atol)`/`is_gauged(atol)` compare against them. A fixed frame/tangent in an inner loop is
   contracted once; the atol stays a free parameter.
-- **Operand-scaled GAUGE (2026-10-27, ruling I-38):** the GAUGE residual of a tangent built by
+- **Operand-scaled GAUGE (2026-10-27):** the GAUGE residual of a tangent built by
   `±`/scalar `*`/`stack_tangents` is relative to its operands' scale (`max(‖a‖, ‖b‖)`, `|c|·‖a‖`, per
   stack element, as a floor under its own norm) — a near-cancelling difference of gauged tangents (the
   finite-difference check `H_fd − hessian(p)`) used to false-fail against its own tiny norm. Backend:
   `tv_gauge_residual`/`utv_gauge_residual(..., scale=)`; the frontend records the scale in a cached
   slot ([`precompute_and_caching.md`](precompute_and_caching.md), "The one seeded cache"). Still a
   precondition, still checked; only the yardstick moved.
-- **Trace detection (done in S5):** the eager-only skip must fire even when the checked operand is a
+- **Trace detection (done):** the eager-only skip must fire even when the checked operand is a
   *closed-over concrete* array (not a tracer) while globally inside a trace — a jnp op then still yields a
   constant tracer. `safety.is_tracing` detects the global trace state (`jax.core.trace_state_clean`, with a
   committed-array-probe fallback), not just whether the passed arrays are tracers.

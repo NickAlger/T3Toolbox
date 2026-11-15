@@ -67,9 +67,9 @@ grouped reduction uses the group's own structural ceiling (below).
 
 ## What the group spectrum is
 
-The unshared `t3svd` reports, per edge, the singular values of a matrix unfolding across that edge.
-A shared group has no single tree edge — the same factor sits on `k` edges — so its spectrum is a
-genuinely different (but exactly characterized) object. `s_g` has four equivalent faces:
+The unshared `t3svd` reports, per edge, the singular values of the matricization (Tucker edge) or unfolding
+(TT bond) across that edge. A shared group has no single tree edge — the same factor sits on `k` edges — so
+its spectrum is a genuinely different (but exactly characterized) object. `s_g` has four equivalent faces:
 
 1. **The concatenated-matricization spectrum**: the singular values of
    `[T_(i₁) | T_(i₂) | … | T_(iₖ)]` — a property of the represented tensor and the partition alone
@@ -83,7 +83,7 @@ genuinely different (but exactly characterized) object. `s_g` has four equivalen
    the tied-factor subproblem, and `s_{g,min} → 0` exactly when the point approaches the stratum of
    lower shared rank.
 4. **An honest single-cut spectrum — of a lifted tensor**: stack the `k` mode-permutations of `T`
-   along a new copy axis; the cut separating the shared leg from everything else has unfolding
+   along a new copy axis; the cut separating the shared leg from everything else has matricization
    exactly the concatenation of face 1. The unshared "cut spectrum" intuition survives, one level
    up.
 
@@ -157,12 +157,12 @@ coordinates lift to **one** raw factor direction, `Ḃ = M_g⁺ [V_{i₁}; …]`
 the projection uses, damped like the rest of the lift — and the normal part of the curvature is taken
 against the *shared* gradient. A per-mode lift would represent the same tangent but not a tied
 direction, and its curvature would be wrong wherever a group's rank exceeds one of its modes' own
-ceilings. At a zero-padded restart the new levels of `s_g` are zero and the solve filters them to
+ceilings. At a zero-padded warm start the new levels of `s_g` are zero and the solve filters them to
 exactly 0: the gated tied channel gets no curvature, just as it gets no first-order motion, while the
 TT variations carry the escape; the diagnostics' smallest lift singular value (`lift_sigma_min`)
 reports `s_g` there. The shared retraction's second order, which makes the exact model's predicted
 decrease meaningful along it, is measured (finite differences converge at O(h²)) rather than proven. On
-measured continuation restarts the exact Hessian's gain over Gauss-Newton was the same size shared or
+measured zero-padded warm starts the exact Hessian's gain over Gauss-Newton was the same size shared or
 unshared — 3.5–5× fewer Newton steps — and tying more factors into one group did not change Gauss-Newton's
 linear rate ([`fitting_and_optimization.md`](fitting_and_optimization.md) §4.12;
 [`contributor/verification_records.md`](contributor/verification_records.md)).
@@ -170,10 +170,10 @@ linear rate ([`fitting_and_optimization.md`](fitting_and_optimization.md) §4.12
 ## Rank machinery: minimal ranks, dimension, continuation
 
 **Minimal ranks.** A shared basis column is useless only if it is useless for *every* mode of the
-group, so the per-mode Tucker ceiling `n_i ≤ min(N_i, r_{i-1}·r_i)` is replaced by the **group
+group, so the per-mode Tucker ceiling `n_i ≤ min(N_i, r_i·r_{i+1})` is replaced by the **group
 ceiling** — per-mode ceilings *add* across the group:
 
-    n_g ≤ min(N_g, Σ_{i∈g} min(N_g, r_{i-1}·r_i))
+    n_g ≤ min(N_g, Σ_{i∈g} min(N_g, r_i·r_{i+1}))
 
 A shared rank may legitimately exceed an individual mode's local ceiling; the unshared reduction
 would clip it there and untie the group. `TuckerTensorTrain.get_minimal_ranks(…, sharing=…)`:
@@ -206,7 +206,7 @@ variations within the first optimization steps, which is why full shared rank is
 never a precondition** anywhere in the library. The loop needs no reference bookkeeping either: on the
 shared manifold, `newton_cg`'s default Newton reference is the gradient at the zero tensor of the level's
 **group** ranks, taken in the shared geometry at a canonical zero-point frame with one Haar factor per
-group (so the zero point is exactly tied), not the deflated warm-start gradient of the padded restart
+group (so the zero point is exactly tied), not the deflated gradient of the zero-padded warm start
 ([`fitting_and_optimization.md`](fitting_and_optimization.md) §5).
 
 ## Batching

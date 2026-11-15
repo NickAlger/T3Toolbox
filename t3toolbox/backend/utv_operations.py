@@ -580,7 +580,7 @@ def utv_project_ut3_onto_tangent_space(
     variations representing the projection of ``x`` *directly* onto the tangent space (the linear subspace;
     it does NOT subtract the base point). The frame must be orthogonal (minimal rank not required).
     ``shared_data`` (SF-T3): tie the projection onto the SHARED tangent space, exactly as the ragged twin
-    does -- without it a raw-``.data`` user of a shared frame gets an untied projection (review R9-11).
+    does -- without it a raw-``.data`` user of a shared frame gets an untied projection.
 
     Mask-once up front, then: re-express ``x``'s TT cores in the frame's down-Tucker basis (a per-core map
     vectorized over ``d``); accumulate the left/right TT environments with the polymorphic

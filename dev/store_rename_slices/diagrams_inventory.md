@@ -7196,7 +7196,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: `(up, down, left, right)` → `(down, up, left, right)` (tier D); widths swap: C+(nUi, Ni) → C+(nDi, Ni), C+(rLi, nDi, rR(i+1)) → nUi, left/right nUi → nDi
 - re-laid out: y (R4a: re-laid out, K10b)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: 42
+- new span: 43
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -7218,7 +7218,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: variations: C+(nDi, Ni) → C+(nUi, Ni); C+(rLi, nUi, rR(i+1)) → nDi
 - re-laid out: n (R4a: in place, K10)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: 44
+- new span: 45
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -7511,7 +7511,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: the store words up/down (free prose, tier E) and widths swap together: "up (d,)+C+(nU, N), down (d,)+C+(rL, nD, rR)" → "down (d,)+C+(nD, N), up (d,)+C+(rL, nU, rR)"; left/right middle legs nU → nD; the mask line likewise; "block layout: nU = nD" stays true either way
 - re-laid out: y (R4a: re-laid out, K10b)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: 47–48
+- new span: 48–49
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -7535,7 +7535,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: V (d,)+C+(nD, N) → nU; H (d,)+C+(rL, nU, rR) → nD
 - re-laid out: n (R4a: in place, K10)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: 50
+- new span: 51
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:

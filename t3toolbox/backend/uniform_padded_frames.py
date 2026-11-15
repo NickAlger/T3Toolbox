@@ -4,14 +4,14 @@
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
 """The padded frame at a zero-padded rank increase, on uniform frame data, in BLOCK LAYOUT.
 
-Every rank slot of a padded frame is ``[A-block | P-block]``: the old frame's supercores as given (any mask pattern,
+Every rank slot of a padded frame is ``[old block | new block]``: the old frame's supercores as given (any mask pattern,
 junk masked to zero once), then the completion, each padded to one width with its own mask. Tucker slots are
 ``[Na | Ka]`` and bond slots ``[Rb | Kb]``, so the only positional fact is the split ``(Na, Rb)``.
 
-``ufv_empty_frame`` is the frame of the zero tensor (``Na = 0``, ``Rb = 1``). ``ufv_padded_frame`` is the seeded start,
-the uniform twin of ``padded_frames.fv_padded_frame``: the same seeds (every store's slot-indexed rows of its keyed
-Gaussian stream, generated on the host at the ragged unfolding's size and placed at the real rows in their ragged
-row-major order), completed by ``linalg.pad_safe_pinned_completion``, one batched completion per store.
+``ufv_empty_frame`` is the frame of the zero tensor (``Na = 0``, ``Rb = 1``). ``ufv_padded_frame`` is the hint-free start,
+the uniform twin of ``padded_frames.fv_padded_frame``: the same seeds (every store's slot-indexed rows of its keyed Gaussian
+stream, generated on the host at the size of the store's ragged matricization or unfolding and placed at the real rows in
+their ragged row-major order), completed by ``linalg.pad_safe_pinned_completion``, one batched completion per store.
 ``utv_align_padded_frame`` is one alignment step, the uniform twin of ``padded_frames.tv_align_padded_frame``: the maps over modes are batched contractions, the
 sweeps scans with module-level bodies, and every edge's completion one ``linalg.pad_safe_svd``. The host prepares the
 masks, selections and group tables; the arithmetic is one jittable kernel, run eagerly here.
@@ -89,7 +89,7 @@ def _pad_mask(
 def _store_seeds(
         store:   str,       # 'up' | 'left' | 'right'
         keys:    NDArray,   # HOST int, (M,): each core's mode
-        rows_a:  NDArray,   # HOST bool, (M,)+C+(wa,): the unfolding's first row slot, real slots
+        rows_a:  NDArray,   # HOST bool, (M,)+C+(wa,): the matricization's or unfolding's first row slot, real slots
         rows_b:  NDArray,   # HOST bool, (M,)+C+(wb,): the second row slot (a-major rows)
         pins:    NDArray,   # HOST bool, (M,)+C+(w,): the old columns' mask (its sum: the old width)
         count:   NDArray,   # HOST int, (M,)+C: the new columns
@@ -99,8 +99,8 @@ def _store_seeds(
     NDArray,   # seeds. HOST float, (M,)+C+(wa*wb, width): the ragged convention's seed rows at the real rows, junk zero
     NDArray,   # the real rows. HOST bool, (M,)+C+(wa*wb,)
 ]:
-    """The hint-free convention's seeds of one store, per core and stack element, placed at the unfolding's real rows
-    (in flat slot order: the ragged row-major order, since the masks keep the real slots in order)."""
+    """The hint-free convention's seeds of one store, per core and stack element, placed at the real rows of the store's
+    matricization or unfolding (in flat slot order: the ragged row-major order, since the masks keep the real slots in order)."""
     lead = rows_a.shape[:-1]
     wa, wb = rows_a.shape[-1], rows_b.shape[-1]
     real = (rows_a[..., :, None] & rows_b[..., None, :]).reshape(lead + (wa * wb,))
@@ -115,10 +115,10 @@ def _store_seeds(
 
 
 def _store_completion(
-        P:            NDArray,   # (M,)+C+(rows, w): the old cores unfolded at the new widths (zero off their real rows)
+        P:            NDArray,   # (M,)+C+(rows, w): the old cores matricized or unfolded at the new widths (zero off their real rows)
         pinned_mask:  NDArray,   # HOST bool, (M,)+C+(w,): the old columns' mask
         seeds:        NDArray,   # HOST float, (M,)+C+(rows, width): from _store_seeds
-        real:         NDArray,   # HOST bool, (M,)+C+(rows,): the unfolding's real rows
+        real:         NDArray,   # HOST bool, (M,)+C+(rows,): the real rows of the matricization or unfolding
         count:        NDArray,   # HOST int, (M,)+C: the new columns
 ) -> NDArray:                    # (M,)+C+(rows, width): the completion, real columns first, junk bitwise zero
     """One store's completion, batched over its cores: the seeds completed against the old columns (pad-safe)."""
@@ -177,10 +177,10 @@ def ufv_padded_frame(
         sharing:         typ.Optional[typ.Sequence] = None,           # len=d group labels; None = unshared
         seed:            int = ZERO_FRAME_SEED,                       # the keyed seed streams
 ) -> typ.Tuple[
-    UFrameData,            # block layout: [A-block | P-block] per slot, old frame as given (junk zeroed), completions real-first
-    typ.Tuple[int, int],   # split (Na, Rb): the static A-block widths
+    UFrameData,            # block layout: [old block | new block] per slot, old frame as given (junk zeroed), completions real-first
+    typ.Tuple[int, int],   # split (Na, Rb): the static old-block widths
 ]:
-    """The seeded padded frame in block layout: the old frame in the A-blocks, the completions by the hint-free convention."""
+    """The hint-free padded frame in block layout: the old frame in the old blocks, the completions by the hint-free convention."""
     D0, U0, L0, R0, shape, masks = old_frame_data
     require_concrete_masks(*masks)
     xnp, _, _ = get_backend(True, tree_contains_jax((D0, U0, L0, R0)))
@@ -264,10 +264,10 @@ def ufv_padded_frame(
 
 # --------------------------------------------------------------------------------------------------
 # One alignment step in block layout (the uniform twin of padded_frames.tv_align_padded_frame). Every slot is
-# [A-block | P-block] at the static split (Na, Rb); the P-parts are static slices. Map sites (all modes, or all sharing
+# [old block | new block] at the static split (Na, Rb); the P-parts are static slices. Map sites (all modes, or all sharing
 # groups, at once) use the d-prefixed contraction twins; scan bodies the plain strings, and they derive the split from
 # their operands' shapes (Kb = o.shape[-1], Rb = rT - Kb). Every edge's completion: pad_safe_svd of
-# [Abar | Y_perp / (4 |Y_perp|_F)], its triplets after the pins (the A-block mask sum) picked by a host one-hot.
+# [Abar | Y_perp / (4 |Y_perp|_F)], its triplets after the pins (the old-block mask sum) picked by a host one-hot.
 # --------------------------------------------------------------------------------------------------
 def _new_coordinates_d(
         X:     NDArray,   # (d,)+C+(a, n, b): cores in their old slot coordinates
@@ -509,9 +509,9 @@ def _sweep(
 
 
 def _selection(
-        pins:    NDArray,   # HOST int, (...,): the pin count (the A-block mask sum)
+        pins:    NDArray,   # HOST int, (...,): the pin count (the old-block mask sum)
         k_mask:  NDArray,   # HOST bool, (...,)+(K1,): the output completion mask
-        A:       int,       # the A-block width
+        A:       int,       # the old-block width
 ) -> NDArray:               # HOST bool, (...,)+(A + K1, K1): column j picks triplet pins + j where k_mask[j]
     """The static one-hot selecting an edge's completion triplets (they follow the pins in pad_safe_svd's order)."""
     K1 = k_mask.shape[-1]
@@ -623,7 +623,7 @@ def utv_align_padded_frame(
         sharing:          typ.Optional[typ.Sequence] = None,                 # len=d group labels; None = unshared
         update:           typ.Collection[str] = ('D', 'U', 'L', 'R'),        # static; as tv_align_padded_frame
 ) -> typ.Tuple[
-    UFrameData,   # P-blocks at the output widths (the counts' maxima), real-first; A-blocks as given
+    UFrameData,   # new blocks at the output widths (the counts' maxima), real-first; old blocks as given
     NDArray,      # movement, shape=C
 ]:
     """One alignment step in block layout: the uniform twin of ``padded_frames.tv_align_padded_frame``."""
@@ -651,7 +651,7 @@ def utv_align_padded_frame(
 
     old = (mD[..., :Na].sum(-1), mU[..., :Na].sum(-1), mL[..., :Rb].sum(-1), mR[..., :Rb].sum(-1))   # HOST int
     own = (mD.sum(-1), mU.sum(-1), mL.sum(-1), mR.sum(-1))
-    for which, counts in (('A-block', old), ('frame', own)):
+    for which, counts in (('old-block', old), ('frame', own)):
         layout = ranks.compute_orthogonal_representation_ranks(shape, counts[0], counts[2])
         bounds = (counts[2][0], counts[2][-1], counts[3][0], counts[3][-1])
         if any(not np.array_equal(c, w) for c, w in zip(counts, layout)) or any(np.any(b != 1) for b in bounds):

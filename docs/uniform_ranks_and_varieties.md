@@ -35,7 +35,7 @@ Both have a clean mathematical home:
 
 - **Fixed rank (uniform across the stack).** The set of T3s with ranks *exactly* `(n, r)` is a smooth
   **manifold** `M₍ₙ,ᵣ₎`. This is the home of everything Riemannian — tangent spaces, retraction,
-  gauge, the Taylor-series machinery the library is named for (T4S). A uniform-rank stack is a batch of
+  gauge, the Taylor-series machinery of the T4S paper. A uniform-rank stack is a batch of
   points on a single such manifold.
 
 - **Varying rank (padded to `(n, r)`, one mask per element).** Tucker ranks are matricization ranks

@@ -135,10 +135,10 @@ variables. Returns a **raw tuple** `(tucker_grads, tt_grads)` whose arrays have 
 
 ### Tangent — `T3Tangent.apply_transpose(c, ww, frame, sum_over_probes=…)`  *(static, takes a frame)*
 
-The Riemannian Jacobian transpose: back-projects `c` into a **tangent vector** at a base point on the
-fixed-rank manifold. Returns a `T3Tangent`. Requires an orthogonal (gauged) frame; the resulting tangent
-is the Riemannian gradient after the gauge projection. This is the operation for Riemannian
-optimization (Newton-CG, RGD); see the worked example `examples/fit_hilbert_tensor_newton_cg.py`. It
+The bare Jacobian transpose `𝒥ᵀ` (compose with `MANIFOLD.project` for `Jᵀ`): back-projects `c` into a **tangent
+vector** at a base point on the fixed-rank manifold. Returns a `T3Tangent`. Requires an orthogonal (gauged)
+frame; the resulting tangent is the Riemannian gradient after the gauge projection. This is the operation for
+Riemannian optimization (Newton-CG, RGD); see the worked example `examples/fit_hilbert_tensor_newton_cg.py`. It
 lives on `T3Tangent`, so the class name already says "tangent" — no qualifier needed.
 
 ---

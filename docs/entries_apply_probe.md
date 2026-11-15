@@ -4,8 +4,8 @@
 > evaluation, or a Riemannian Jacobian — read this first.** `entries`, `apply`, and `probe` are three
 > closely related operations that are easy to confuse (they share most of their machinery and their
 > stacking conventions). This doc explains exactly how they differ, how they relate, what they cost,
-> and how each lifts to the manifold (tangent) setting with a transpose. The terse version is in
-> `CLAUDE.md`; the stacking details live in [`batching_and_stacking.md`](batching_and_stacking.md).
+> and how each lifts to the manifold (tangent) setting with a transpose. The terse version is in the
+> [user guide](user_guide.rst); the stacking details live in [`batching_and_stacking.md`](batching_and_stacking.md).
 
 Math reference: **Section 6.2 (Algorithms 5–8)** of Alger, Christierson, Chen & Ghattas (2026),
 *"Tucker Tensor Train Taylor Series"* (arXiv:2603.21141) — probing and its Riemannian Jacobian — and
@@ -16,13 +16,13 @@ Math reference: **Section 6.2 (Algorithms 5–8)** of Alger, Christierson, Chen 
 ## TL;DR
 
 All three operations evaluate the **dense tensor** a Tucker tensor train represents — *without ever
-forming it* — by contracting it against test vectors, one per mode. They differ in **how many modes
-are left free** and **what kind of test vectors** are used:
+forming it* — by contracting it against probe vectors, one per mode. They differ in **how many modes
+are left free** and **what kind of probe vectors** are used:
 
-|                                  | **all modes contracted → scalar** | **one mode left free → vector(s)** |
-|----------------------------------|-----------------------------------|------------------------------------|
-| **general test vectors `wᵢ`**    | **`apply`**                       | **`probe`**                        |
-| **one-hot test vectors `e_{iᵢ}`**| **`entries`** (point evaluation)  | *(fiber extraction; = `probe` with one-hot — not a named API)* |
+|                                   | **all modes contracted → scalar** | **one mode left free → vector(s)** |
+|-----------------------------------|-----------------------------------|------------------------------------|
+| **general probe vectors `wᵢ`**    | **`apply`**                       | **`probe`**                        |
+| **one-hot probe vectors `e_{iᵢ}`**| **`entries`** (point evaluation)  | *(fiber extraction; = `probe` with one-hot — not a named API)* |
 
 - **`entries`** — read off `X[i₀,…,i_{d-1}]` at given multi-indices. A scalar per index.
 - **`apply`** — the full multilinear form `X(w₀,…,w_{d-1}) = Σ X[i] · w₀[i₀]···w_{d-1}[i_{d-1}]`. A
@@ -44,8 +44,8 @@ Shapes use the library's standard symbols (see [`batching_and_stacking.md`](batc
 
 - `d` — the tensor order (number of modes).
 - `Nᵢ` — ambient mode dimensions; `nᵢ` — Tucker ranks; `rᵢ` — TT bond ranks.
-- `W` — the **probe / sample stack** (a batch of test-vector sets, or of multi-indices). Lives on the
-  test vectors `ww` / the `index` array **only**, never on the cores.
+- `W` — the **probe stack** (a batch of probe-vector sets, or of multi-indices). Lives on the
+  probe vectors `ww` / the `index` array **only**, never on the cores.
 - `C` — the **frame/core stack** (`= stack_shape`; a batch of whole T3s). Lives on every core.
 - `K` — the **tangent stack** (a batch of tangent directions at one frame; tangent operations only).
 - Output stacking is always **frame-inner**: `W + K + C` (probe stack outer, frame stack inner).
@@ -99,10 +99,10 @@ Three exact identities make the picture precise:
 - **`apply` is `probe` with the last free index also contracted.** For *any* mode `m`,
   `apply(ww) == ⟨probe(ww)[m], w_m⟩`. (Contracting any one probe's free index against its own test
   vector collapses it to the scalar.)
-- **`entries` is `apply` with one-hot test vectors.** `entries(i) == apply(e_{i₀}, …, e_{i_{d-1}})`.
+- **`entries` is `apply` with one-hot probe vectors.** `entries(i) == apply(e_{i₀}, …, e_{i_{d-1}})`.
   (`entries` realizes this by fiber slicing rather than an actual contraction, which is why it is
   cheaper.)
-- **Fiber extraction is `probe` with one-hot test vectors** (`probe(e_i)[m]` is the mode-`m` fiber of
+- **Fiber extraction is `probe` with one-hot probe vectors** (`probe(e_i)[m]` is the mode-`m` fiber of
   `X` through `i`). This is the empty cell in the TL;DR table — useful, but not given its own API.
 
 So if you understand `probe`, the other two are restrictions of it; if you only need a scalar, reach
@@ -132,7 +132,7 @@ Each operation has a **tangent** form on `T3Tangent` — the directional derivat
 the T3 moves along a tangent vector at a base point — and a **transpose** (adjoint). These are what a
 manifold least-squares fit needs: the forward applies the Jacobian `J`, the transpose applies `Jᵀ`.
 
-Each op has a forward (`TuckerTensorTrain` Euclidean, `T3Tangent` the Riemannian Jacobian `𝒥`) and
+Each op has a forward (`TuckerTensorTrain` Euclidean, `T3Tangent` the bare Jacobian `𝒥`) and
 **three** transpose flavors — **tangent / corewise / ambient**. Full taxonomy, costs, and the decision
 guide live in **[`docs/transposes.md`](transposes.md)**; the quick map:
 
@@ -155,13 +155,13 @@ Notes:
   its adjoint. The full Riemannian operators factor as **`J = 𝒥 ∘ Π`** and **`Jᵀ = Π ∘ 𝒥ᵀ`**, where
   `Π = MANIFOLD.project` projects onto gauged variations. Compose `Π` yourself: take the
   gradient as `MANIFOLD.project(op_transpose(r, …, sum_over_probes=True))`.
-- **`sum_over_probes`** (transpose only): `False` (primary) keeps the probe/sample stack `W` — one
+- **`sum_over_probes`** (transpose only): `False` (primary) keeps the probe stack `W` — one
   tangent per sample; `True` sums it — the Gauss-Newton data-misfit gradient `Jᵀr` (a single tangent
   when `W` is the only extra stack). See [`batching_and_stacking.md`](batching_and_stacking.md) §11.
 
 ### All three are Riemannian-compatible (verified)
 
-For the least-squares objective `f(X) = ½‖S(X) − b‖²` on the fixed-rank manifold, with `S` any of the
+For the least-squares objective `f(X) = ½‖S(X) − y‖²` on the fixed-rank manifold, with `S` any of the
 three operations, the matrix-free Riemannian gradient
 `g = MANIFOLD.project(op_transpose(r, …, sum_over_probes=True))` and the Gauss-Newton
 Hessian `H V = (𝒥ᵀ 𝒥 V)` gauged were checked end-to-end at an orthogonal, minimal-rank frame: the
@@ -189,7 +189,7 @@ Full `W+K+C` stacking. Math:
 
 ## 5. Measurement spaces (for fitting)
 
-When `S` is the forward operator of a fit, its **measurement space** (where residuals `r = S(X) − b`
+When `S` is the forward operator of a fit, its **measurement space** (where residuals `r = S(X) − y`
 live) is:
 
 - `entries`, `apply` → **a scalar per sample**: `r ∈ ℝ^{|W|}`.

@@ -4,7 +4,7 @@
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
 """The padded frame at a zero-padded rank increase, on ragged frame data.
 
-``fv_empty_frame`` is the frame of the zero tensor. ``fv_padded_frame`` is the seeded start: an old frame in the
+``fv_empty_frame`` is the frame of the zero tensor. ``fv_padded_frame`` is the hint-free start: an old frame in the
 leading slots of every store (the four families of frame cores, down / up / left / right, each named for the side of
 its edges that its cores occupy; :doc:`/frame_variations`, "Four rank stores"), and the new slots completed by a
 data-independent convention.
@@ -165,7 +165,7 @@ def _seed_rows(
         seed:   int,
         w:      int,   # the old width: the slots already filled
         k:      int,   # the number of new slots
-        p:      int,   # the seed length: the mode size (down) or the real rows of the core's unfolding
+        p:      int,   # the seed length: the mode size (down) or the real rows of the core's matricization or unfolding
 ) -> NDArray:          # HOST float64, shape=(k, p): rows w .. w+k-1 of the keyed stream (slot s seeded by row s)
     """The hint-free convention's seeds: slot-indexed rows of the keyed stream ``RandomState([seed, store tag, key])``."""
     return np.random.RandomState([seed, _SEED_TAGS[store], key]).standard_normal((w + k, p))[w:]
@@ -271,7 +271,7 @@ def fv_padded_frame(
     typ.Tuple[NDArray, ...],    # left.  len=d, elm_shape=C+(rLi, nDi, rL(i+1)); left[d-1] = the old carrier, zero-padded
     typ.Tuple[NDArray, ...],    # right. len=d, elm_shape=C+(rRi, nDi, rR(i+1)); right[0] = the old carrier, zero-padded
 ]:
-    """The seeded padded frame: the old frame in the leading slots, the new slots by the hint-free convention."""
+    """The hint-free padded frame: the old frame in the leading slots, the new slots by the hint-free convention."""
     xnp, _, _ = get_backend(False, tree_contains_jax(old_frame))
     down0, up0, left0, right0 = (tuple(xnp.asarray(c) for c in cores) for cores in old_frame)
     old_stores = _frame_stores((down0, up0, left0, right0), 'old_frame')
@@ -311,14 +311,15 @@ def _unfold(
         X:     NDArray,   # C+(a, n, b)
         axis:  int,       # -3 | -2 | -1: the slot that becomes the columns
 ) -> NDArray:             # C+(rows, cols): the other two slots, row-major, as the rows
-    """A core unfolded with one slot as the columns (core axes only)."""
+    """A core reshaped with one slot as the columns: an unfolding for an end slot, a matricization for the middle
+    slot (core axes only)."""
     xnp, _, _ = get_backend(False, tree_contains_jax(X))
     Y = xnp.moveaxis(X, axis, -1)
     return Y.reshape(Y.shape[:-3] + (Y.shape[-3] * Y.shape[-2], Y.shape[-1]))
 
 
 def _fold(
-        F:            NDArray,             # C+(rows, cols): an unfolding
+        F:            NDArray,             # C+(rows, cols): a matricization or unfolding
         core_widths:  typ.Sequence[int],   # len=3, the core's (a, n, b); the entry at `axis` becomes cols
         axis:         int,                 # -3 | -2 | -1: the slot the columns become
 ) -> NDArray:                              # C+(a, n, b) with cols at `axis`
@@ -748,7 +749,7 @@ def fv_aligned_padded_frame(
     FrameData,                 # the aligned padded frame at the target ranks
     typ.Tuple[NDArray, ...],   # movements, one per pass, each shape=C
 ]:
-    """The aligned padded frame: the seeded start, then alignment passes against ``project(frame, hint)``."""
+    """The aligned padded frame: the hint-free start, then alignment passes against ``project(frame, hint)``."""
     return _fv_aligned_padded_frame(old_frame, tucker_ranks, tt_ranks, hint, project, sharing=sharing,
                                     oversampling=oversampling, oversampled_passes=oversampled_passes,
                                     max_passes=max_passes, tol=tol, alternate=alternate, seed=seed, use_jit=use_jit,

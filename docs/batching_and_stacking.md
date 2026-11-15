@@ -383,7 +383,7 @@ The naming scheme encodes axis layout — once you know it, the einsums read the
 
 - **Body locals** suffix the axis layout: `C_aib`, `mu_WCa`, `B0_b_j_c`, `xi_WCp`. Capitals = grouped
   index blocks (`C`/`W`/`K`), lowercase = single axes, a leading `d` = a stacked/derivative (uniform
-  supercore) axis. `apply`/`entries` use the same `W` (vec/index stack) and `C` (core stack) as
+  supercore) axis. `apply`/`entries` use the same `W` (probe stack) and `C` (core stack) as
   everywhere else.
 - **Grouped contractions** are `contract('WCa,Caib,WCi->WCb', ...)` calls: read each term as a
   grouped-block einsum signature; output is frame-inner (`W` outer, `C` inner).
@@ -412,7 +412,7 @@ The naming scheme encodes axis layout — once you know it, the einsums read the
   the *numerical* checkers are per-element in both layers.
 - **`to_dense` and the doubled-rank `to_t3` are not symmetric about broadcasting** — `to_dense`
   broadcasts lazily (bare array out), `to_t3` materializes (validated class out). See §5.
-- **`apply`/`entries` are `W+C`** (vec/index stack OUTER, T3 stack INNER), like everything else.
+- **`apply`/`entries` are `W+C`** (probe stack OUTER, T3 stack INNER), like everything else.
 - **Canonical core-tuple orderings (frontend takes precedence):** `TuckerTensorTrain.data =
   (tucker_cores, tt_cores)`; `T3Frame.data = (down, up, left, right) = (D, U, L, R)`; `T3Variations.data =
   (tucker_variations, tt_variations)`; `(frame, variations)` pairs are frame-first. Pass `.data`

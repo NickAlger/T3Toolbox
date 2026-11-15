@@ -104,7 +104,7 @@ value is a **solver option** when it changes only *how* the solver approaches th
 forcing power, an LM λ, a trust radius, a step-control mode — and those stay plain keyword arguments of
 the solver, threaded down to the call that reads them.
 
-The exact Hessian's lift damping is the worked case (2026.3.0, I-22). It is not a property of the
+The exact Hessian's lift damping is the worked case (2026.3.0). It is not a property of the
 manifold: changing it does not change the set being optimized over (unlike `groups`), so it is not
 geometry identity. So it is **not** a geometry field: `newton_cg(hessian='exact', curvature_damping=…)` →
 `Problem.local_model(x, hessian, curvature_damping)` → `geom.curvature_precompute(frame, misfit_gradient,

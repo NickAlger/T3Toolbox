@@ -52,7 +52,7 @@ __all__ = [
 class UT3Masks(common.ValueHashedMasks):  # eq=True would fail on arrays). See ValueHashedMasks.
     """The static rank structure of a uniform Tucker tensor train: its two boolean edge masks.
 
-    Slot ``j`` of an edge is real iff its mask is ``True`` there (the prefix/canonical form). Held as a
+    Slot ``j`` of an edge is real iff its mask is ``True`` there; canonically a prefix, gappy after ``+``. Held as a
     separate object so it can ride as jax ``aux_data``. Hash/eq are **value-based** (the
     :py:class:`~t3toolbox.backend.common.ValueHashedMasks` mixin), so a rebuilt-but-identical holder is the
     *same* jit cache key -- no per-iteration recompile in optimization loops; see
@@ -64,7 +64,7 @@ class UT3Masks(common.ValueHashedMasks):  # eq=True would fail on arrays). See V
 
     def __post_init__(self):
         # Defensive READ-ONLY copies: the value key is cached on this frozen holder, so an aliased
-        # writeable caller array mutated in place would leave a stale jit cache key (review H1-5).
+        # writeable caller array mutated in place would leave a stale jit cache key.
         for _f in ('tucker_edge_mask', 'tt_edge_mask'):
             _m = np.array(getattr(self, _f), copy=True)
             _m.setflags(write=False)
@@ -252,7 +252,7 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
     # ----------------------------------------------------------------- linear algebra
     def __mul__(self, s) -> 'UniformTuckerTensorTrain':
         """Scale by a scalar. (Scalar-only: the elementwise/Hadamard product of two trains is a ragged
-        operation -- convert with ``.to_t3()`` and use ragged ``*``; review H3-7.)"""
+        operation -- convert with ``.to_t3()`` and use ragged ``*``.)"""
         if isinstance(s, UniformTuckerTensorTrain) or np.ndim(s) != 0:
             raise TypeError(
                 'UniformTuckerTensorTrain.__mul__ takes a SCALAR (got %s). The elementwise product of '
@@ -264,7 +264,7 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
     __rmul__ = __mul__
 
     def __truediv__(self, s) -> 'UniformTuckerTensorTrain':
-        """Scale by ``1/s`` (scalar only; the ``__mul__`` guard rejects the rest) -- review R1-12."""
+        """Scale by ``1/s`` (scalar only; the ``__mul__`` guard rejects the rest)."""
         if np.ndim(s) != 0:
             raise TypeError('UniformTuckerTensorTrain.__truediv__ takes a SCALAR divisor; got %s'
                             % type(s).__name__)
@@ -279,7 +279,7 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
     ) -> NDArray:  # bool, shape=stack_shape (0-d unstacked); reduce with .all()
         """True where the REPRESENTED tensors are numerically equal, per stack element:
         ``||self - other|| <= atol + rtol * max(||self||, ||other||)`` (the uniform twin of
-        :py:meth:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain.numerically_equal`; the
+        :py:meth:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain.allclose`; the
         difference-and-orthogonalized-norm route, stable when ``self ~= other``). Structural
         mismatches (shape / d / stack) raise, as for subtraction; padded widths need not match.
         The bitwise representation check is :py:meth:`corewise_equal`; ``==`` is intentionally
@@ -299,7 +299,7 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
     ) -> bool:  # single bool: bitwise-identical representations (supercores, shape, AND masks)
         """Bitwise equality of the REPRESENTATIONS: same ``shape``, bitwise-equal rank masks, and
         bitwise-equal supercores (padding included). ``False`` on any mismatch, never raises. For
-        tensor-level equality (padding and gauge don't matter) use :py:meth:`numerically_equal`."""
+        tensor-level equality (padding and gauge don't matter) use :py:meth:`allclose`."""
         return (type(other) is type(self) and self.shape == other.shape
                 and cw.corewise_equal(self.masks.data, other.masks.data)
                 and cw.corewise_equal(self.supercores, other.supercores))
@@ -443,7 +443,7 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
         ordinary :py:meth:`probe`).
 
         No *numerical* precondition (exact for any cores). **Structural precondition** (hard error, both
-        modes): ``P`` (``pp``) must share the sample stack ``W`` and mode dims of ``X`` (``ww``). Uniform
+        modes): ``P`` (``pp``) must share the probe stack ``W`` and mode dims of ``X`` (``ww``). Uniform
         mirror of :py:meth:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe_derivatives`.
 
         See Also
@@ -467,7 +467,7 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
         >>> print([bool(np.allclose(z[0], z0)) for z, z0 in zip(zj, x.probe(ww))])   # order 0 == probe
         [True, True, True]
 
-        The perturbation ``P`` must match ``X``'s sample stack and mode dims (structural, raises):
+        The perturbation ``P`` must match ``X``'s probe stack and mode dims (structural, raises):
 
         >>> x.probe_derivatives(ww, (np.random.randn(10), np.random.randn(11), np.random.randn(99)), 3)
         ... # doctest: +IGNORE_EXCEPTION_DETAIL
@@ -515,7 +515,7 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
         :py:meth:`entries`): the Taylor data of the multilinear extension at grid corner ``index``
         (``y^(t) = d^t/ds^t apply(e_index + s P)|_0``; order 0 is :py:meth:`entries`).
 
-        Structural precondition: ``P`` shares ``index``'s sample stack ``W`` (and, when checkable, the mode dims).
+        Structural precondition: ``P`` shares ``index``'s probe stack ``W`` (and, when checkable, the mode dims).
 
         Examples
         --------
@@ -713,7 +713,7 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
     def minimal_ranks(self) -> Tuple[NDArray, NDArray]:
         """Structural minimal ranks ``(min_tucker_ranks, min_tt_ranks)`` for this UT3's shape/ranks.
         HOST numpy always, like all uniform rank metadata (masks/ranks are static structure; a jax rank
-        array would leak tracers into ``aux_data`` -- review R8-9)."""
+        array would leak tracers into ``aux_data``)."""
         return ranks.compute_minimal_ranks(self.shape, self.tucker_ranks, self.tt_ranks, use_jax=False)
 
     def oversampled_ranks(
@@ -861,7 +861,7 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
 
         Every leaf must share the SAME static layout -- ``shape`` and padded ``(N, n, r)`` (ranks/masks
         may differ; that is the point of a uniform stack). A mismatched pad used to die inside numpy
-        with an inhomogeneous-shape error (review R8-6); re-pad first (``from_t3(x, n=, r=)`` /
+        with an inhomogeneous-shape error; re-pad first (``from_t3(x, n=, r=)`` /
         ``backend.ut3_operations.ut3_pad_ranks``)."""
         layouts = set()
         def _collect(u):
@@ -1309,7 +1309,7 @@ class UT3Weights(common.ExplicitEquality):
         ``n``/``r`` (typically ``n=x.n, r=x.r``, mirroring :py:meth:`from_t3weights`) to zero-pad the
         weights to the train's own widths, so ``W.is_consistent_with(x)`` holds and the headline GK
         route ``UT3FrameWeights.from_ut3weights(W).reciprocal()`` pairs with ``x``'s frame with no
-        ragged detour (review R10-4). Padding only grows: smaller-than-tight ``n``/``r`` raise.
+        ragged detour. Padding only grows: smaller-than-tight ``n``/``r`` raise.
         """
         new_x, tucker_svals, tt_svals = x.t3svd(**kwargs)
         masks = new_x.masks
@@ -1328,7 +1328,7 @@ class UT3Weights(common.ExplicitEquality):
             if r2 > new_x.r:
                 tt_svals = xnp.concatenate(
                     [tt_svals, xnp.zeros(tt_svals.shape[:-1] + (r2 - new_x.r,))], axis=-1)
-            tkm, ttm = masks.data                    # HOST bool; padded with False (still prefix form)
+            tkm, ttm = masks.data                    # HOST bool; padded with False (real slots unchanged)
             masks = UT3Masks(
                 np.concatenate([tkm, np.zeros(tkm.shape[:-1] + (n2 - new_x.n,), dtype=bool)], axis=-1),
                 np.concatenate([ttm, np.zeros(ttm.shape[:-1] + (r2 - new_x.r,), dtype=bool)], axis=-1))

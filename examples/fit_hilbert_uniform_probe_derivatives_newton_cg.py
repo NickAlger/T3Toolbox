@@ -20,9 +20,9 @@ The order-``d`` Hilbert tensor ``A[i0,...] = 1 / (1 + i0 + ... + i_{d-1})`` is s
 We observe **probe-derivative jets**: for random frame probe vectors ``X = (x0,...,x_{d-1})`` and directions
 ``P = (p0,...,p_{d-1})``, each measurement is, for every free mode ``i``,
 
-    b_i = [ dᵗ/dsᵗ  probe_i(A; x + s p) |_{s=0} ]_{t=0..K},
+    b_i = [ dᵗ/dsᵗ  probe_i(A; x + s p) |_{s=0} ]_{t=0..order},
 
-a length-``K+1`` jet per output coordinate (order 0 is the ordinary probe). A ``probe`` leaves one mode
+a length-``order+1`` jet per output coordinate (order 0 is the ordinary probe). A ``probe`` leaves one mode
 free and contracts the other ``d-1``, so the restriction to the line ``X + sP`` has degree ``d-1``; orders
 ``0 .. d-1`` carry the whole line and higher orders vanish. We therefore fit orders ``0 .. d-1``.
 
@@ -36,7 +36,7 @@ free and contracts the other ``d-1``, so the restriction to the line ``X + sP`` 
 The method + rank continuation
 ------------------------------
 Riemannian inexact Newton-CG on the fixed-rank manifold, via ``optimizers.newton_cg(UNIFORM_MANIFOLD,
-'probe_derivatives', (ww, pp), data, ux0, order=K, weight=ω)``. Continuation keeps the cheap ``resize`` /
+'probe_derivatives', (ww, pp), data, ux0, order=ORDER, weight=ω)``. Continuation keeps the cheap ``resize`` /
 zero-pad bookkeeping in the **ragged** layer and drops into the **uniform** layer only for the fit (see
 ``fit_hilbert_uniform_newton_cg.py`` for why the zero-padded start is structurally minimal, so
 ``uniform_minimal`` leaves it alone and the gradient grows the new rank block). We track the validation
@@ -86,7 +86,7 @@ def dense_probe_derivative_jets(A, ww, pp, order):
     """Ground-truth probe-derivative jets of the dense tensor A, as the fitting-layer ``data``.
 
     Loops the exact per-sample dense jet (``backend.sampling_derivatives.dense_probe_derivatives``) over the
-    W=(M,) sample stack and stacks it: returns ``len=d``, each ``(order+1, M, N_i)`` -- the probe-derivative
+    W=(M,) probe stack and stacks it: returns ``len=d``, each ``(order+1, M, N_i)`` -- the probe-derivative
     residual layout ``(order+1) + W + (N_i,)``. (Data generation only; the fit never forms A.)"""
     M, d = ww[0].shape[0], len(ww)
     per = [pd.dense_probe_derivatives([w[s] for w in ww], [p[s] for p in pp], A, order) for s in range(M)]

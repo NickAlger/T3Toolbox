@@ -102,7 +102,8 @@ class TestFormatter(unittest.TestCase):
         hand-built row with no reference kind prints exactly as in 2026.2.0 (a display change only)."""
         conv = dict(converged=True, cg_iters=None, cg_converged=None)
         self.assertTrue(bdisp._format_header(_info(**conv), None).endswith("| converged (‖g‖ ≤ gtol·‖g₀‖)"))
-        for kind, name in (('zero', 'zero tensor'), ('warm_start', 'warm start'), ('override', 'override')):
+        for kind, name in (('zero', 'zero tensor'), ('warm_start', 'warm start'), ('cone', 'cone (aligned zero tensor)'),
+                           ('override', 'override')):
             with self.subTest(g0_reference=kind):
                 line = bdisp._format_header(_info(g0_reference=kind, **conv), None)
                 self.assertTrue(line.endswith("| converged (‖g‖ ≤ gtol·‖g₀‖, g₀ = %s)" % name), line)

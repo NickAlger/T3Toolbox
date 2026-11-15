@@ -292,12 +292,12 @@ of once per Hessian matvec; the built-in geometries pass `None`. Rationale:
 shared-factor geometry reuses the frame companion instead of rebuilding it per matvec. Accept and
 ignore the parameter if you do not need it.
 
-**One behavior change worth knowing about, which is not a signature break:** `use_jit=True` now moves
-your inputs onto jax rather than silently running eager when they are numpy. Runs that previously
-reported "jit" timings while executing eagerly will now genuinely compile, return **jax-backed**
-results (float32 unless you enable `jax_enable_x64`), and raise if jax is not installed. If you were
-relying on the old behavior you were not getting jit; see
-[`fitting_and_optimization.md`](fitting_and_optimization.md) §4.5.
+**One behavior change worth knowing about, which is not a signature break:** `use_jit=True` now
+moves your inputs onto jax rather than silently running eager when they are numpy. Runs that
+previously reported "jit" timings while executing eagerly will now genuinely compile, return
+**jax-backed** results (float32 unless you enable `jax_enable_x64`), and, since 2026.2.0, warn
+and run eager if jax is not installed. If you were relying on the old behavior you were not
+getting jit; see [`fitting_and_optimization.md`](fitting_and_optimization.md) §4.5.
 
 ```{include} ../CHANGELOG.md
 :start-line: 5

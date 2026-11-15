@@ -19,11 +19,11 @@ its name (the up store's edges point down, from chain to leaf;
 | `c_i → c_(i-1)` | `right[i]`, `i ≥ 1` | bond `i` |
 
 `left[d-1]` and `right[0]` are the carriers of the base point. They hold the old content only and are never
-completed. A padded frame has the old frame bitwise in the leading slots of each store (the **A-block**) and the
-completion in the trailing ones (the **P-block**).
+completed. A padded frame has the old frame bitwise in the leading slots of each store (the **old block**) and the
+completion in the trailing ones (the **new block**).
 
 `tv_align_padded_frame` replaces every completion by the leading new directions of a tangent vector's normal content
-at that edge, with the A-block pinned. It does this without ever forming the doubled-rank tangent, in two
+at that edge, with the old block pinned. It does this without ever forming the doubled-rank tangent, in two
 message-passing stages:
 
 1. **Far-side messages, at the old frames** (`_up_message`, `_left_message_step`, `_right_message_step`,
@@ -45,10 +45,11 @@ sweeps are scans with module-level bodies ([`scan_body_principles.md`](scan_body
 **Sharing.** A sharing group has one Tucker factor. Its down store's edge (`l_i → c_i`) stacks the members' contents
 side by side in one `Y` (`_down_edge`), so the group gets one completion.
 
-**Transport.** A store not in `update` gets `Y = g_old`: its old completion re-expressed in the new candidate space.
-Two-colour passes (`('D', 'L')`, then `('U', 'R')`) are alternating (Gauss–Seidel) updates of the two colours, with a
-projection in between. A pass may not both transport and truncate: a transported store can lose directions
-arbitrarily in a truncated neighbour's coordinates, so the step raises.
+**Store transport.** A store not in `update` gets `Y = g_old`: its old completion re-expressed
+in the new candidate space (not vector transport, `MANIFOLD.transport`). Two-colour passes
+(`('D', 'L')`, then `('U', 'R')`) are alternating (Gauss–Seidel) updates of the two colours,
+with a projection in between. A pass may not both transport and truncate: a transported store
+can lose directions arbitrarily in a truncated neighbour's coordinates, so the step raises.
 
 **What a store's update maximizes, and what the loop converges to.** Each updated store takes the leading directions
 of its own content matrix `Y` given the others, so it maximizes `‖P⁺ᵀY‖²`, the captured energy of that content. `Y`
@@ -67,8 +68,8 @@ best value does not depend on which side. The math note (§5) has the matrix pro
 
 ## The uniform layer: block layout
 
-Every rank slot of a uniform padded frame is `[A-block | P-block]`, each padded to one width with its own mask. The
-only positional fact is the static split `(Na, Rb)`, the A-block's Tucker and bond widths. The A-block is the old
+Every rank slot of a uniform padded frame is `[old block | new block]`, each padded to one width with its own mask. The
+only positional fact is the static split `(Na, Rb)`, the old block's Tucker and bond widths. The old block is the old
 frame's supercores AS GIVEN, with whatever gappy mask pattern they have; junk is zeroed once, at entry. Nothing
 assumes junk-last on input.
 
@@ -85,12 +86,12 @@ assumes junk-last on input.
 
 ## The start: the pad-safe pinned completion, and why a QR
 
-The hint-free start completes each store's A-block with Gaussian seeds: slot `s` gets row `s` of the keyed legacy
+The hint-free start completes each store's old block with Gaussian seeds: slot `s` gets row `s` of the keyed legacy
 `RandomState([seed, store tag, key])` stream (`_seed_rows`; tags down 0, up 1, left 2, right 3, the integers of
 2026.4.0's same physical stores, so seeded streams are unchanged; the key is the mode, or a sharing group's first
-mode). The rows are drawn on the host at the ragged unfolding's length. The ragged layer completes them with
-`linalg.pinned_completion`, the sign-fixed Householder QR of `[pins | seeds]`. The uniform layer places the same
-rows at the real rows (the flat slot order is the ragged row-major order) and calls
+mode). The rows are drawn on the host at the length of the store's ragged matricization or unfolding. The ragged
+layer completes them with `linalg.pinned_completion`, the sign-fixed Householder QR of `[pins | seeds]`. The uniform
+layer places the same rows at the real rows (the flat slot order is the ragged row-major order) and calls
 `linalg.pad_safe_pinned_completion`.
 
 A QR, not an SVD, because the convention is defined by the seeds' ORDER (Gram–Schmidt: column `j` is seed `j` made
@@ -102,13 +103,13 @@ touches them, and the result is bitwise zero there.
 The start is a function of the old frame's **representation**, slot signs included. A seed row is read in the
 neighbours' slot coordinates, and a Gaussian row does not flip when a slot's sign does. The two layers'
 orthogonalizations pick different signs and different bases at ties, so their starts differ (generically by about
-1.0 in span). This was accepted (D-42, D-49): the aligned output is representation-independent to `tol`.
+1.0 in span). This was accepted: the aligned output is representation-independent to `tol`.
 Representation-level canonical bases are a separate audit item. The tests compare the layers' starts per layer, each
-against its own old frame (`tests/backend/test_padded_frame.py`, T5; `TestStartChains`).
+against its own old frame (`tests/backend/test_padded_frame.py`; `TestStartChains`).
 
 ## Jit: kernels, getters, and compile accounting
 
-Nothing jits unless asked (D-39).
+Nothing jits unless asked.
 
 - **The kernels are jittable and module-level.** The ragged step is `tv_align_padded_frame` itself. The uniform step
   is `_utv_align_kernel(dynamic, skeleton, split, update)`; its host-side preparation (masks, row masks, pin counts,
@@ -127,13 +128,13 @@ Nothing jits unless asked (D-39).
     final `('D', 'L')`, and the compaction. One compile per structure; new values of `tol` or of the arrays do not
     recompile.
   - The loop bodies are bound with `functools.partial` inside that one jit. This is accepted in this instance only
-    and sets no precedent (D-47; [`scan_body_principles.md`](scan_body_principles.md)).
+    and sets no precedent ([`scan_body_principles.md`](scan_body_principles.md)).
 - **The record.** The jitted loop needs a static output shape, so the uniform movements are `(max_passes,)+C`, NaN
   after the last pass, in both modes. The stop uses `np.max` / `xnp.max`, so a NaN never stops the loop.
 - **Eager jax.** Each op compiles on first use. The first eager ragged step at d = 4 issued 932 compilations. Each
   eager-jax alignment at a new structure adds 8,000–9,500 process memory mappings, and `vm.max_map_count` is
   65,530. The tests release them with `jax.clear_caches()` (`_release_jax_programs` in `tests/test_dispatch.py`).
-  The loops do not warn (D-40); the user doc recommends `use_jit=True` for jax.
+  The loops do not warn; the user doc recommends `use_jit=True` for jax.
 
 ## The optimizer seam (T3-free)
 
@@ -162,10 +163,10 @@ and call `backend.optimizers.padded_start(problem, x0, x_old, ...)`. It returns 
 
 ## Where the guarantees live
 
-- `tests/backend/test_padded_frame.py`: the ragged start (T5 convention reference), step (T1–T4 against dense
-  oracles) and loop (T6, the pair rule).
-- `tests/backend/test_uniform_padded_frame.py`: the uniform twins against the ragged ones per element (T8–T12, T17),
-  the chains (T20).
-- `tests/backend/test_padded_start.py`: the seam (T14, T19).
-- `tests/test_aligned_padded_frame_frontend.py`: the frontend twins (T15).
+- `tests/backend/test_padded_frame.py`: the ragged start (the convention reference), step (against dense
+  oracles) and loop (the pair rule).
+- `tests/backend/test_uniform_padded_frame.py`: the uniform twins against the ragged ones per element,
+  the chains.
+- `tests/backend/test_padded_start.py`: the seam.
+- `tests/test_aligned_padded_frame_frontend.py`: the frontend twins.
 - `tests/test_dispatch.py`: dispatch rows for every public function, and the jit equivalence and compile counts.

@@ -95,7 +95,7 @@ def fv_variation_shapes(
         frame:  typ.Tuple,   # (D, U, L, R) frame data; len=d each, elm_shape=stack_shape+(...)
 ) -> VariationShapes:        # (tucker_variation_shapes, tt_variation_shapes); WITHOUT the stack
     '''The variation shapes of a frame: ``(nU_i, N_i)`` per Tucker variation and
-    ``(rL_i, nD_i, rR_i)`` per TT variation, read off the frame cores.
+    ``(rL_i, nD_i, rR_(i+1))`` per TT variation, read off the frame cores.
 
     The backend twin of the frontend ``T3Frame.variation_shapes`` -- and the ONE place the
     frame-to-variation axis convention is written down for the ragged layer. Frame bookkeeping is
@@ -488,7 +488,7 @@ def fv_center_factors(
     >>> print(all(np.allclose(H, H0) for H, H0 in zip(centers, variations[1])))
     True
     >>> X = x.to_dense()
-    >>> X1 = np.moveaxis(X, 1, 0).reshape(6, -1)                        # the mode-1 unfolding
+    >>> X1 = np.moveaxis(X, 1, 0).reshape(6, -1)                        # the mode-1 matricization
     >>> s_tucker = np.linalg.svd(tucker_factors_T[1], compute_uv=False)
     >>> print(np.allclose(s_tucker, np.linalg.svd(X1, compute_uv=False)[:3]))
     True
@@ -575,10 +575,10 @@ def fv_lift_factors(
     - **Exactness.** At ``eps = 0`` the lift is exact on every *numerically full-rank* frame from
       ``t3_orthogonal_representations``, minimal or not: a Tucker-slack ``S_i^T`` is wide (``nUi < nDi``) and a
       TT-slack ``T_i`` is tall (``rR < rL``), and on both the pseudo-inverse is an exact one-sided inverse. At a
-      rank-deficient point (a zero-padded restart) the clipped directions drop out: the lift then satisfies
+      rank-deficient point (a zero-padded warm start) the clipped directions drop out: the lift then satisfies
       ``dPhi[theta_hat] = E(Q v)`` with ``Q`` the projection off the clipped directions, not ``dPhi[theta_hat] = E v``.
     - **Rank-deficient points.** The filter clips (to exactly 0) every singular value below
-      ``rcond * sigma_max``, so a zero-padded rank-continuation restart -- whose padded singular values are
+      ``rcond * sigma_max``, so a zero-padded warm start -- whose padded singular values are
       roundoff -- gives finite factors at any ``eps``, ``eps = 0`` included. At the zero tensor everything is
       clipped: the lift is zero except the undamped last TT slot.
     - **Why it exists.** The lift is the only place an inverse singular value enters the exact Hessian
@@ -637,7 +637,7 @@ def fv_absorb_weights(
     typ.Tuple[NDArray, ...],  # weighted tt_variations,     elm_shape=stack+(rLi, nDi, rRi)
 ]:
     """Absorb the four-family metric weights into the VARIATION cores (the tangent metric on coordinates,
-    Approach-1 / metric-on-variations): ``up`` -> V's ``nU`` leg; ``down``/``left``/``right`` -> H's
+    i.e. on the variations): ``up`` -> V's ``nU`` leg; ``down``/``left``/``right`` -> H's
     ``nD``/``rL``/``rR`` legs. The frame is left orthonormal and untouched. ``corewise_stack_norm`` of the
     result is the weighted (Grasedyck-Kramer) tangent norm. All families are len=d (one per variation core).
 

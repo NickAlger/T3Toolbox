@@ -47,7 +47,7 @@ geometries, sampling kinds), whose equality decides compiled-program reuse
 
 | property | meaning | checker |
 |---|---|---|
-| **same-frame** (`SF`) | two tangents share one tangent space — their frames are *numerically equal* (`safety.frames_equal`, with an object-identity fast path; a jit round-trip of the same frame passes) | built into the checked ops |
+| **same-frame** (`FRAMES`) | two tangents share one tangent space — their frames are *numerically equal* (`safety.frames_equal`, with an object-identity fast path; a jit round-trip of the same frame passes) | built into the checked ops |
 | **orthogonal** (`ORTH`) | the frame is orthonormal (D/U/L/R conditions) | `T3Frame.is_orthogonal(atol)` |
 | **gauged** (`GAUGE`) | the variations satisfy the gauge conditions (47)–(48), relative to the tangent's scale (its operands' for an arithmetic result — [below](#the-gauge-check-scale-own-norm-or-operand-scale)) | `T3Tangent.is_gauged(atol)` |
 | **minimal rank** | no stored rank is redundant | `has_minimal_ranks` (structural) / `has_numerically_minimal_ranks` (numerical) — **diagnostic only, never enforced** (see the verdict below) |
@@ -127,15 +127,15 @@ always, in both modes).
 
 | op | precondition | caveat (never checked) |
 |---|---|---|
-| `+`, `−` | **SF** | |
+| `+`, `−` | **FRAMES** | |
 | `* scalar`, `__neg__`, `normalized()` | — | |
-| `allclose(other)` | **SF** | |
-| `corewise_inner(other)` | **SF** | "= HS iff orthogonal + gauged" (that claim belongs to `MANIFOLD.inner`) |
+| `allclose(other)` | **FRAMES** | |
+| `corewise_inner(other)` | **FRAMES** | "= HS iff orthogonal + gauged" (that claim belongs to `MANIFOLD.inner`) |
 | `corewise_norm()` | — (unary) | "= HS iff orthogonal + gauged" |
 | `to_dense`, `to_t3` | — | realization is gauge-invariant, valid on any frame |
 | `probe`/`apply`/`entries` (+ transposes), `*_derivatives` (+ transposes) | — | bare `𝒥`/`𝒥ᵀ` — gauge-invariant on any frame; the Riemannian projector `Π` is the geometry's, applied separately |
 | `to_vector`/`from_vector`, `zeros`/`unit`/`zeros_like`, `reverse`, `sum_tangents` | — | |
-| `stack_tangents` | **SF** (all leaves) | |
+| `stack_tangents` | **FRAMES** (all leaves) | |
 | `stack_frame`, `unstack_*` | — | `stack_frame` deliberately stacks *different* bases |
 | the checkers (`is_orthogonal`, `is_gauged`, `has_minimal_ranks`, …) | — | they *are* the checks; non-enforcing by design |
 
@@ -143,9 +143,9 @@ always, in both modes).
 
 | op | precondition | caveat |
 |---|---|---|
-| `MANIFOLD.inner(t1, t2)` | **SF + ORTH + GAUGE** (both operands) | minimal (for *strict* HS exactness — see the verdict: not needed) |
-| `MANIFOLD.norm(t)` | **ORTH + GAUGE** (unary — no SF) | minimal |
-| `COREWISE.inner(t1, t2)` | **SF** | — (Euclidean by design; no ORTH/GAUGE) |
+| `MANIFOLD.inner(t1, t2)` | **FRAMES + ORTH + GAUGE** (both operands) | minimal (for *strict* HS exactness — see the verdict: not needed) |
+| `MANIFOLD.norm(t)` | **ORTH + GAUGE** (unary — no FRAMES) | minimal |
+| `COREWISE.inner(t1, t2)` | **FRAMES** | — (Euclidean by design; no ORTH/GAUGE) |
 | `COREWISE.norm(t)` | — | |
 | `MANIFOLD.project` (`Π`), `project_oblique` | **ORTH** | minimal (for oblique's HS-matching purpose) |
 | `MANIFOLD.retract(p)` | **ORTH** (gauge-invariant, so ORTH only) | minimal (strict rank preservation — without it, retract drops numerically-redundant rank) |
@@ -171,14 +171,14 @@ would silently discard the differences), so safe mode checks it at the entry poi
 | `shared(…).project`, `project_ambient`, `randn` | the base geometry's preconditions only (they *produce* tied output) | |
 | `shared(…).inner` / `norm` | the base geometry's (sharing never reweights the metric) | |
 | `x.share(sharing, …)` | — (it is how you *enter* the format; untied input is the point) | |
-| **full shared rank** (`s_{g,min} > 0`) | **never enforced** — a zero-padded continuation restart sits *on* the lower-rank stratum by construction ([`sharing.md`](sharing.md)); the projection solve is a clipped pseudoinverse, well-defined there | diagnostic via the group spectrum |
+| **full shared rank** (`s_{g,min} > 0`) | **never enforced** — a zero-padded warm start sits *on* the lower-rank stratum by construction ([`sharing.md`](sharing.md)); the projection solve is a clipped pseudoinverse, well-defined there | diagnostic via the group spectrum |
 
 ### `fitting.LocalModel`
 
 | op | precondition |
 |---|---|
-| `gradient`, `gn_hessian(p)`, `jacobian(p)`, `gn_quadratic(p)`, `evaluate(p)` | **SF** — `p` must live at the model's frame (checked numerically, identity fast path). The frame's orthogonality is a construction invariant (`geometry.frame(x)` produces it), not a per-op check. |
-| `hessian(p)`, `quadratic(p)`, `curvature_hessian(p)`, `curvature_quadratic(p)`, `retract(p)` | **SF** (the same check). `curvature_*` on a Gauss-Newton model is a **structural** error, as is building an exact model from a kind without `corewise_hessian` or a geometry without the four exact-mode members. `retract` adds the geometry's own preconditions. |
+| `gradient`, `gn_hessian(p)`, `jacobian(p)`, `gn_quadratic(p)`, `evaluate(p)` | **FRAMES** — `p` must live at the model's frame (checked numerically, identity fast path). The frame's orthogonality is a construction invariant (`geometry.frame(x)` produces it), not a per-op check. |
+| `hessian(p)`, `quadratic(p)`, `curvature_hessian(p)`, `curvature_quadratic(p)`, `retract(p)` | **FRAMES** (the same check). `curvature_*` on a Gauss-Newton model is a **structural** error, as is building an exact model from a kind without `corewise_hessian` or a geometry without the four exact-mode members. `retract` adds the geometry's own preconditions. |
 
 ### The exact Hessian (`hessian='exact'`)
 
@@ -189,7 +189,7 @@ region; a non-positive `g0norm_*`). What the result *means* carries caveats, nev
 
 | caveat | what it says |
 |---|---|
-| exactness vs damping | The Hessian is exact at `curvature_damping=0` on a numerically full-rank point. The default damping `ε = 1e-6·‖X‖_HS` leaves directions with lift singular value `σ ≫ ε` exact and damps those with `σ ≲ ε` toward Gauss-Newton (a zero-padded restart's new directions get no curvature at all). |
+| exactness vs damping | The Hessian is exact at `curvature_damping=0` on a numerically full-rank point. The default damping `ε = 1e-6·‖X‖_HS` leaves directions with lift singular value `σ ≫ ε` exact and damps those with `σ ≲ ε` toward Gauss-Newton (a zero-padded warm start's new directions get no curvature at all). |
 | non-minimal frames | On every frame `t3_orthogonal_representations` builds — minimal or with Tucker / TT slack — the lift is an exact one-sided inverse, so the Hessian is exact there. Only a hand-built frame whose bond factor is *wide* gives a least-squares lift. |
 | shared factors | On a shared manifold the tied lift is exact where the group spectrum `s_g > 0`; a zero `s_g` level (a padded shared restart) gets no curvature. |
 | flat slots | The curvature term has no component on a slot at maximal rank, and none at all at `d = 1` (the representable set is flat there); the formula gives zero by itself, and the manifold `d = 1` model skips the work. |
@@ -201,7 +201,7 @@ region; a non-positive `g0norm_*`). What the result *means* carries caveats, nev
 | op | precondition | caveat (never checked) |
 |---|---|---|
 | `newton_cg` / `gradient_descent` with the zero reference (`g0_reference='zero'`, the default on the manifold geometries) | — (an explicit `'zero'` on a geometry with no zero-point frame, a vanishing explicit `'zero'`, and a non-positive `g0norm_*` are **structural** errors) | the zero reference is a **convention**: the gradient norm at the zero tensor of `x0`'s ranks, evaluated at the canonical zero-point frame (seeded Haar Tucker factors) — a deterministic data-gradient scale at these ranks, **good to an O(1) factor** (another seed or a rotation of the problem moved it by up to ~1.7× in the measured cases), not an intrinsic quantity; harmless for a relative stop ([`fitting_and_optimization.md`](fitting_and_optimization.md) §5) |
-| `newton_cg` / `gradient_descent` with the cone reference (`g0_reference='cone'`) | — (a corewise geometry, a geometry without an `aligned_padded_frame` member, `cone_*` options together with `cone_max_passes=0` other than `cone_seed`, and a vanishing value are **structural** errors) | the cone reference is measured at the zero tensor on the frame aligned with the data gradient there: a fixed point of the loop reached from a seeded start (in the measurements, a **local** maximum of the loop's merit, one of many); `cone_max_passes=0` evaluates at the zero tensor's hint-free start, a different frame from `'zero'`'s, so the two references differ ([`aligned_padded_frame.md`](aligned_padded_frame.md)) |
+| `newton_cg` / `gradient_descent` with the cone reference (`g0_reference='cone'`) | — (a corewise geometry, a geometry without an `aligned_padded_frame` member, `cone_*` options together with `cone_max_passes=0` other than `cone_seed`, and a vanishing value are **structural** errors) | the cone reference is measured at the zero tensor on the frame aligned with the data gradient there: a fixed point of the loop reached from a hint-free start (in the measurements, a **local** maximum of the loop's merit, one of many); `cone_max_passes=0` evaluates at the zero tensor's hint-free start, a different frame from `'zero'`'s, so the two references differ ([`aligned_padded_frame.md`](aligned_padded_frame.md)) |
 
 ### The padded and aligned frames
 
@@ -232,7 +232,7 @@ numerically redundant). Which operations actually *need* minimal ranks was settl
 |---|---|---|
 | `MANIFOLD.inner`/`norm` | **NO** | the gauged coordinate inner product equals the dense HS value *exactly* on a non-minimal orthonormal frame — **orthogonal + gauged suffices** |
 | `manifold_dim` / `tangent_space_dimension` | **NO** | the formula matches the true tangent-space dimension for any ranks |
-| `MANIFOLD.retract` | **caveat only** | on a *structurally* non-minimal but full-rank frame it is still a valid first-order retraction that *drops* the redundant rank (desirable cleanup) — minimal buys only strict rank preservation. At a *numerically rank-deficient* frame (zero singular values: a zero-padded `resize` warm start, `x + x`) it is **not** first-order accurate (the finite-difference ladder stays flat at ~1e-1); continuation restarts rely on the first Newton steps to leave that point, which they do |
+| `MANIFOLD.retract` | **caveat only** | on a *structurally* non-minimal but full-rank frame it is still a valid first-order retraction that *drops* the redundant rank (desirable cleanup) — minimal buys only strict rank preservation. At a *numerically rank-deficient* frame (zero singular values: a zero-padded `resize` warm start, `x + x`) it is **not** first-order accurate (the finite-difference ladder stays flat at ~1e-1); warm starts rely on the first Newton steps to leave that point, which they do |
 | `MANIFOLD.randn` / `project_oblique` | **NO** | correct on any orthonormal frame |
 | `MANIFOLD.project` / `project_ambient` / `transport`, the gauge projections | **NO** | orthogonality suffices |
 

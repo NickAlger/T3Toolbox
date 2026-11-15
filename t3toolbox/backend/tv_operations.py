@@ -161,7 +161,7 @@ def tv_oblique_gauge_projection(
     """Project the variations onto the gauge-satisfying subspace while preserving the tangent vector.
 
     Generalizes Holtz, Rohwedder & Schneider (2012), "On manifolds of tensors of fixed TT-rank".
-    The Tucker perturbation is made perpendicular to D (compensating through the up/outer cores),
+    The Tucker perturbation is made perpendicular to D (compensating through the up cores),
     then the TT variations are made left-perpendicular (compensating through the right cores).
     Stack-aware. Uniform twin: :py:func:`~t3toolbox.backend.utv_operations.utv_oblique_gauge_projection`.
 
@@ -178,7 +178,7 @@ def tv_oblique_gauge_projection(
     tucker_vars = list(tucker_variations)
     tt_vars = list(tt_variations)
 
-    # Make Tucker variations perpendicular to D; compensate through the up/outer cores.
+    # Make Tucker variations perpendicular to D; compensate through the up cores.
     for ii in range(num_cores):
         D = down_tucker_cores[ii]
         V = tucker_vars[ii]

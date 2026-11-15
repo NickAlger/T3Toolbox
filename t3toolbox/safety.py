@@ -156,7 +156,7 @@ def effective_rtol(*inputs):
 
 
 def comparison_rtol(*inputs):
-    '''The default tolerance for the named equality checks (``numerically_equal`` and friends): the
+    '''The default tolerance for the named equality checks (``allclose`` and friends): the
     ambient jax-aware tolerance, falling back to the defaults in unsafe mode. A pure comparison is
     mode-agnostic (like :py:func:`frames_equal`), so unlike :py:func:`effective_rtol` this never
     returns ``None``.'''
@@ -175,7 +175,7 @@ def _inside_jax_trace():
     result would fail. Inspecting only the passed arrays (``is_tracing``'s fast path) misses this. The
     probe: an op on a committed array is a tracer iff we are jit-tracing.
 
-    Deliberately jit-only (review H6-12): under ``grad``/``vmap`` with concrete operands the probe returns
+    Deliberately jit-only: under ``grad``/``vmap`` with concrete operands the probe returns
     False and the checks simply run -- harmless, since concrete operands mean ``bool(...)`` works, and the
     checks pass or fail on their merits. (The old primary detector, ``jax.core.trace_state_clean``, does
     not exist in jax 0.10; it cost a raise/catch per check and promised any-transform detection the

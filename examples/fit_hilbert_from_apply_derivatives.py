@@ -18,14 +18,13 @@ well approximated by low rank. We never see ``A`` directly.
     ``(N_X,)``; we **replicate** ``X`` over the ``N_P`` axis to give it the same ``(N_P, N_X)`` stack as
     ``P`` (the sampling functions pair an ``X`` with a ``P`` per stack element).  This mimics the common
     use case where base points are the scarce resource and the directional derivatives at each base point
-    are what is cheap -- exactly the regime where higher-order derivatives buy the most (see
-    ``docs/derivative_order_information_and_conditioning.md``).
+    are what is cheap -- exactly the regime where higher-order derivatives buy the most.
 
 For each ``(X, P)`` we observe the **apply-derivative jet**
 
-    b = [ d^t/ds^t  A(x0 + s p0, ..., x_{d-1} + s p_{d-1}) |_{s=0} ]_{t=0..K},
+    b = [ d^t/ds^t  A(x0 + s p0, ..., x_{d-1} + s p_{d-1}) |_{s=0} ]_{t=0..order},
 
-a vector of ``K+1`` numbers (order 0 is the ordinary apply). The restriction to the line ``X + sP`` is a
+a vector of ``order+1`` numbers (order 0 is the ordinary apply). The restriction to the line ``X + sP`` is a
 degree-``d`` polynomial in ``s``, so orders ``0..d`` carry the whole line and orders ``> d`` vanish. We
 measure on a training set of base points and a held-out validation set, with noise.
 
@@ -70,7 +69,7 @@ import t3toolbox.backend.sampling_derivatives as pd
 # Problem configuration (tweak these)
 # --------------------------------------------------------------------------------------------------
 SHAPE        = (12, 12, 12, 12)    # Hilbert tensor shape (order d = len(SHAPE))
-ORDER        = 4                   # highest derivative order K (apply has degree d; orders 0..d carry it)
+ORDER        = 4                   # highest derivative order (apply has degree d; orders 0..d carry it)
 N_X_TRAIN    = 10                  # training base points X
 N_X_VAL      = 5                   # held-out validation base points X
 N_P          = 30                  # perturbation directions P sampled per base point X
@@ -100,7 +99,7 @@ def hilbert_tensor(shape):
 
 def unit_pairs_many_p(n_x, n_p, shape, rng):
     """``n_x`` unit-norm base points ``X``, each with ``n_p`` unit-norm directions ``P``; ``X``
-    replicated over the ``n_p`` axis so it shares ``P``'s ``(n_p, n_x)`` sample stack.
+    replicated over the ``n_p`` axis so it shares ``P``'s ``(n_p, n_x)`` probe stack.
 
     Returns ``ww, pp``: lists of ``d`` arrays each of shape ``(n_p, n_x, N)`` (``ww`` is ``X`` broadcast
     across the ``n_p`` directions; sample ``(p, x)`` pairs base point ``x`` with its ``p``-th direction)."""
@@ -116,7 +115,7 @@ def unit_pairs_many_p(n_x, n_p, shape, rng):
 
 def dense_apply_derivatives(A, ww, pp, order):
     """Ground-truth apply-derivative jets of the dense tensor ``A``: shape ``(order+1,) + W`` (``W`` the
-    sample stack). Each ``W``-element is ``dense_apply_derivatives`` (the exact subset expansion)."""
+    probe stack). Each ``W``-element is ``dense_apply_derivatives`` (the exact subset expansion)."""
     W = ww[0].shape[:-1]
     b = np.zeros((order + 1,) + W)
     for idx in np.ndindex(*W):
@@ -137,11 +136,11 @@ def rms(x):
 def apply_derivative_operator(ww, pp, order, s_vec):
     """forward / transpose / meas_dot for the per-order-normalized apply-derivative map.
 
-    Dividing the output (and the data) by ``s_vec`` (per order, broadcast over the sample stack ``W``)
+    Dividing the output (and the data) by ``s_vec`` (per order, broadcast over the probe stack ``W``)
     folds the per-order normalization into the operator, so ``transpose(r)`` applies ``J^T`` to
     ``r / s_vec``. ``sum_over_probes=True`` sums the whole ``W = (n_p, n_x)`` stack -> one tangent."""
     nW = ww[0].ndim - 1
-    sv = s_vec.reshape((order + 1,) + (1,) * nW)               # broadcast over the W sample stack
+    sv = s_vec.reshape((order + 1,) + (1,) * nW)               # broadcast over the W probe stack
     forward = lambda Z: np.asarray(Z.apply_derivatives(ww, pp, order)) / sv
     transpose = lambda r, frame: t3m.T3Tangent.apply_derivatives_transpose(
         np.asarray(r) / sv, ww, pp, frame, order, sum_over_probes=True)

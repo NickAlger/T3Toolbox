@@ -124,7 +124,8 @@ def _format_table(train_err: NDArray, val_err: typ.Optional[NDArray], fmt: str) 
     return legend + "\n" + _grid(col_labels, row_labels, cells)
 
 
-_REFERENCE_NAMES = {'zero': 'zero tensor', 'warm_start': 'warm start', 'override': 'override'}   # NewtonInfo.g0_reference
+_REFERENCE_NAMES = {'zero': 'zero tensor', 'warm_start': 'warm start', 'cone': 'cone (aligned zero tensor)',
+                    'override': 'override'}   # NewtonInfo.g0_reference
 
 
 def _num(value: typ.Optional[float], fmt: str) -> str:

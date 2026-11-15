@@ -101,7 +101,7 @@ def ut3_orthogonal_representations(
     masked_tk, masked_tt = ut3_masking.ut3_apply_masks(data)   # zero the garbage before the SVD sweep
 
     # fv_conversions.t3_orthogonal_representations is polymorphic (accepts uniform supercores) and
-    # SVD-based; uniform_masks makes every SVD in the sweep PAD-SAFE (review S1b: at a numerically
+    # SVD-based; uniform_masks makes every SVD in the sweep PAD-SAFE (at a numerically
     # rank-deficient point a black-box SVD may put sigma~0 completion columns in padded slots, which
     # the masks then erase -- a lost tangent direction).
     (c_down, c_up, lc, rc), (tkv, ttv) = fv_conversions.t3_orthogonal_representations(

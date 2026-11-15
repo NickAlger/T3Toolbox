@@ -2,9 +2,9 @@
 
 > **If you are fitting a Tucker tensor train and don't know its ranks ahead of time, read this.**
 > Rank continuation grows the ranks gradually during optimization — solve at small ranks, grow, re-solve
-> warm-started — and stops when more rank stops helping. The question this doc answers is *which* ranks
-> to grow: instead of growing every rank together ("uniform"), grow the rank on each edge by an amount
-> the **data** tells you it can use, read off the singular values of the current iterate's unfoldings.
+> warm-started — and stops when more rank stops helping. The question this doc answers is *which* ranks to grow:
+> instead of growing every rank together ("uniform"), grow the rank on each edge by an amount the **data** tells
+> you it can use, read off the singular values of the current iterate's matricizations and unfoldings.
 
 Math reference: **Section 5.4** ("Rank continuation") of Alger, Christierson, Chen & Ghattas (2026),
 *"Tucker Tensor Train Taylor Series"* (arXiv:2603.21141) — §5.4.1 chooses the new ranks, §5.4.2 is the
@@ -26,7 +26,7 @@ freedom, but the smallest *uniform* ranks that contain it (`8` everywhere) need 
 
 ## The idea (Section 5.4.1)
 
-After each fixed-rank fit, look at the singular values of the current iterate's matrix unfoldings (from
+After each fixed-rank fit, look at the singular values of the current iterate's matricizations and unfoldings (from
 the implicit T3-SVD). For each edge form its **condition number** `κᵢ = σ₁ / σ_lastᵢ` — the ratio of the
 largest to the smallest *retained* singular value:
 
@@ -125,10 +125,10 @@ can give each level its own: `hessian='exact'` (the exact Riemannian Hessian wit
 [`fitting_and_optimization.md`](fitting_and_optimization.md) §4.12) or `hessian='switch'` (Gauss-Newton until the
 exact model predicts the objective clearly better, then exact; each level starts afresh in Gauss-Newton, §4.14),
 `cg_forcing_power`, `max_newton`, `gtol_rel`, the reference. The exact mode needs **nothing special at a zero-padded
-restart**: the restart's new directions have zero singular values, the lift's clipped pseudo-inverse drops them from
+warm start**: its new directions have zero singular values, the lift's clipped pseudo-inverse drops them from
 the curvature term (the Hessian is Gauss-Newton there, and the gradient still moves along them), and the trust region
 bounds the step — on a measured probe-derivative restart it took 10 steps where Gauss-Newton took 39 (from
-a zero-padded restart it can also settle in a different local minimum than Gauss-Newton would, §4.12). A
+a zero-padded warm start it can also settle in a different local minimum than Gauss-Newton would, §4.12). A
 sketch, with the schedule a function of the level (which schedule is the best default is still an open,
 empirical question):
 

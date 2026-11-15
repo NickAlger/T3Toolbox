@@ -7,9 +7,9 @@
 ``ut3_make_masks`` and ``ut3_apply_masks``. (The jit tracer guard ``require_concrete_masks`` is
 infrastructure and lives in ``common``, beside the ``ValueHashedMasks`` mixin -- the two halves of the
 uniform mask-representation contract, shared by every uniform object's masks.)
-Masks are boolean prefix vectors, static structure, and ALWAYS host numpy (``np``, never
-``xnp``) -- do not "fix" that (``docs/uniform_masks_vs_ranks.md``,
-``docs/contributor/uniform_rank_masks_rationale.md``).
+Masks are boolean vectors (prefix in canonical form, possibly gappy after arithmetic),
+static structure, and ALWAYS host numpy (``np``, never ``xnp``) -- do not "fix" that
+(``docs/uniform_masks_vs_ranks.md``, ``docs/contributor/uniform_rank_masks_rationale.md``).
 """
 import numpy as np
 import typing as typ
