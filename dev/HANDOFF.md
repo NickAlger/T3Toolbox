@@ -39,8 +39,10 @@ TIMING FEATURE COMPLETE (plan draft 6): P1 cbcdc1d6, P2 f8cbb442, P3 b263a1dc co
 PENDING (list in dev/newton_timing_slices/P3_handoff.md §6; display sample docs/fitting_and_optimization.md lines ~734–775).
 GN-TO-NEWTON SWITCH IN IMPLEMENTATION (plan draft 4): W1 COMMITTED (ca13b37c, the backend; review APPROVE after two rounds;
 the frontend mirror test carries a SELF-EXPIRING exemption that W2 MUST delete, plus a regex to update). W2 COMMITTED (c39b30bc; review APPROVE after two rounds; display sample dev/gn_newton_switch_slices/W2_handoff.md lines
-75-172). W3 RUNNING on the laptop (started 2026-11-14 12:20 CST; log T3Polynomial/data/w03_switch_2026_11/run_log.txt; ~10 h for all
-arms; resumable). W5 RUNNING on a NEW Runpod Nick started 2026-11-14 (ssh root@195.26.233.82 -p 35910; agent `afc368a453f62eab4`:
+75-172). W3 LAPTOP DONE 2026-11-14 20:43 (Nick trimmed it to the decisive pair, library start: switch 219 Newton / 7,979 CG /
+13,068 s net vs exact 277 / 9,139 / 16,777 s; fired on every level within 5-10 steps; tracking 170 of 22,711 apply-equiv.;
+T3Polynomial data/w03_switch_2026_11/w03_summary.md, committed 90dbd17; the other arms come from the GPU). W3_handoff.md
+still to write once the GPU results land; W4's verification given GO 20:50. W5 RUNNING on a NEW Runpod Nick started 2026-11-14 (ssh root@195.26.233.82 -p 35910; agent `afc368a453f62eab4`:
 10x100 all arms both starts, then 20x1000, then GPU timing figures for the timing docs; results -> T3Polynomial
 data/w03_switch_2026_11/gpu/summary.md). W4 (docs) WRITTEN, verification deferred until the laptop benchmark ends
 (agent `aa91e01e2e108cf36` awaits "GO for verification"). W3 was next (the 10x100
