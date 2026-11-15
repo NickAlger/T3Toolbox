@@ -1,0 +1,372 @@
+=== graded_messages_prototype.py
+order = 0
+  t3_probe_derivatives                                       rel err 3.3e-16
+  t3_apply_derivatives                                       rel err 1.7e-16
+  t3_probe                                                   rel err 2.4e-16
+  t3_apply                                                   rel err 1.2e-16
+  tv_probe_derivatives                                       rel err 3.7e-16
+  tv_apply_derivatives                                       rel err 6.2e-16
+  tv_probe                                                   rel err 4.1e-16
+  tv_apply                                                   rel err 1.4e-16
+  tv_apply_derivatives_transpose                             rel err 4.6e-16
+  tv_apply_transpose                                         rel err 3.4e-16
+  t3_apply_corewise_derivatives_hessian                      rel err 5.8e-16
+  t3_apply_corewise_hessian                                  rel err 4.3e-16
+  tv_probe_derivatives_transpose                             rel err 5.1e-16
+  tv_probe_transpose                                         rel err 4.0e-16
+  t3_probe_corewise_derivatives_hessian                      rel err 3.5e-16
+  t3_probe_corewise_hessian                                  rel err 3.2e-16
+  t3_entries_derivatives                                     rel err 3.5e-16
+  tv_entries_derivatives                                     rel err 2.7e-16
+  tv_entries                                                 rel err 1.3e-16
+  tv_entries_derivatives_transpose                           rel err 3.1e-16
+  tv_entries_transpose                                       rel err 3.4e-16
+  t3_entries_corewise_derivatives_hessian                    rel err 3.8e-16
+order = 3
+  t3_probe_derivatives                                       rel err 4.7e-16
+  t3_apply_derivatives                                       rel err 3.6e-16
+  tv_probe_derivatives                                       rel err 4.0e-16
+  tv_apply_derivatives                                       rel err 4.0e-16
+  tv_apply_derivatives_transpose                             rel err 9.5e-16
+  t3_apply_corewise_derivatives_hessian                      rel err 1.2e-15
+  tv_probe_derivatives_transpose                             rel err 5.4e-16
+  t3_probe_corewise_derivatives_hessian                      rel err 5.9e-16
+  t3_entries_derivatives                                     rel err 1.7e-16
+  tv_entries_derivatives                                     rel err 3.3e-16
+  tv_entries_derivatives_transpose                           rel err 3.9e-16
+  t3_entries_corewise_derivatives_hessian                    rel err 3.5e-16
+worst relative error over all checks: 1.2e-15
+
+=== probe_fit_step_example.py
+objective 7.991130e+09   (library 7.991130e+09)
+same frame as the library model: True
+relative differences from the library:
+  probes of the point       2.9e-16
+  bare J^T r                2.4e-16
+  J p                       3.1e-16
+  gradient                  4.0e-16
+  Gauss-Newton Hessian * p  6.9e-16
+
+=== correspondence_check.py
+  xi_jets (2 rows)   <-> xi                      rel err 0.0e+00
+  mu_jets            <-> mu                      rel err 5.9e-17
+  nu_jets            <-> nu                      rel err 2.6e-16
+  eta_jets           <-> eta                     rel err 3.2e-16
+  dxi_jets (2 rows)  <-> xi_t                    rel err 0.0e+00
+  sigma_jets         <-> mu_t                    rel err 2.7e-16
+  tau_jets           <-> nu_t                    rel err 3.5e-16
+  deta_jets          <-> eta_t                   rel err 3.7e-16
+  deta_tildes        <-> xi_z                    rel err 1.2e-16
+  tau_tildes         <-> mu_z                    rel err 2.1e-16
+  sigma_tildes       <-> nu_z                    rel err 1.9e-16
+  dxi_tildes (2 rows)<-> eta_z (top 2)           rel err 3.1e-16
+  sigma_hats         <-> nu_z (closure)          rel err 5.3e-16
+  boundary slots: sigma_jets[0] max |.| = 0.0e+00, tau_jets[-1] max |.| = 0.0e+00, tau_tildes[0] = 0.0e+00, sigma_tildes[-1] = 0.0e+00
+  prototype has no component there: False False False False
+
+=== pairing_check.py
+grade t, all jet orders, relative difference from tv_apply-derivatives value:
+  bonds 0..d   <mu, nu>  : 3e-16 3e-16 4e-16 2e-16 0e+00
+  mode edges   <xi, eta> : 3e-16 4e-16 3e-16 2e-16
+  leaves       <w, z>    : 3e-16 3e-16 2e-16 2e-16
+components per bond (space dims):
+  bond 0: mu {'': 1} | nu {'': 1, 't': 1}
+  bond 1: mu {'': 3, 't': 2} | nu {'': 2, 't': 3}
+  bond 2: mu {'': 2, 't': 4} | nu {'': 4, 't': 2}
+  bond 3: mu {'': 4, 't': 3} | nu {'': 3, 't': 4}
+  bond 4: mu {'': 1, 't': 1} | nu {'': 1}
+
+=== extra_core_experiment.py
+LIBRARY
+  output                             extras -> other random values extras -> NaN
+  tv_probe                           unchanged                    NaN in output
+  tv_apply                           unchanged                    NaN in output
+  tv_probe_transpose                 unchanged                    clean
+  tv_apply_transpose                 unchanged                    clean
+  tv_probe_derivatives               unchanged                    NaN in output
+  tv_apply_derivatives               unchanged                    NaN in output
+  tv_probe_derivatives_transpose     unchanged                    clean
+  tv_apply_derivatives_transpose     unchanged                    clean
+PROTOTYPE
+  output                             extras -> other random values extras -> NaN
+  J probe   (z at grade t)           unchanged                    clean
+  J apply   (Phi at grade t)         unchanged                    clean
+  J^T probe (dB, dG at grade z)      unchanged                    clean
+  J^T apply (dB, dG at grade z)      unchanged                    clean
+  plain value (Phi at grade "")      CHANGED (max diff 1.4e+04)   NaN in output
+
+=== index_check.py
+TT ranks (bond 0..d): (1, 2, 3, 4, 1)
+  i=0   mus[i] trailing dim 1  (bond 0)     nus[i] trailing dim 2  (bond 1)
+  i=1   mus[i] trailing dim 2  (bond 1)     nus[i] trailing dim 3  (bond 2)
+  i=2   mus[i] trailing dim 3  (bond 2)     nus[i] trailing dim 4  (bond 3)
+  i=3   mus[i] trailing dim 4  (bond 3)     nus[i] trailing dim 1  (bond 4)
+pairing against t3_apply (relative error):
+  <mus[1], nus[0]>  2.7e-16
+  <mus[2], nus[1]>  3.9e-16
+  <mus[3], nus[2]>  4.0e-16
+
+=== index_check2.py
+rL (bond 0..d) = (1, 3, 2, 4, 1)    rR (bond 0..d) = (1, 2, 4, 3, 1)
+  mus           dims over i = [1, 3, 2, 4]   -> bond i of rL
+  sigmas        dims over i = [1, 2, 4, 3]   -> bond i of rR
+  tau_tildes    dims over i = [1, 3, 2, 4]   -> bond i of rL
+  nus           dims over i = [2, 4, 3, 1]   -> bond i+1 of rR
+  taus          dims over i = [3, 2, 4, 1]   -> bond i+1 of rL
+  sigma_tildes  dims over i = [2, 4, 3, 1]   -> bond i+1 of rR
+  sigma_hats    dims over i = [2, 4, 3, 1]   -> bond i+1 of rR
+
+=== frame_consistency_check.py
+library frame (from_t3):
+  (D, L) vs original T3 on 8 random rank-1 samples: 4.9e-15
+  (D, R) vs original T3:                             3.9e-15
+  L-form vs R-form gap:                              1.0e-15
+hand-built inconsistent frames:
+  R[0] scaled by 1.001      -> gap 1.0e-03
+  L[-1] perturbed by 1e-6   -> gap 2.9e-10
+discarded final carry of compute_mu vs apply of the base point: 4.2e-15
+
+=== frame_consistency_nondense_check.py
+existing dense residual (fv_frame_consistency_residual): 1.1599913057635222e-15
+non-dense residual, consistent frame:                   9.2e-13
+R[0] scaled by 1+1e-03:  dense 9.99e-04   non-dense 9.99e-04
+R[0] scaled by 1+1e-06:  dense 1.00e-06   non-dense 1.00e-06
+R[0] scaled by 1+1e-09:  dense 1.00e-09   non-dense 1.00e-09
+R[0] scaled by 1+1e-12:  dense 1.00e-12   non-dense 1.19e-12
+
+=== f32_experiment.py
+d = 4, order 3, |p|/|w| = 1   (float64 transposes agree across normalizations: 8e-16)
+   t   max|y^(t)|  max|yhat_t|   f32 err: derivative-norm   Taylor-norm
+   0    9.56e+00    9.56e+00                   2.2e-07      2.9e-07
+   1    2.09e+01    2.09e+01                   2.3e-07      2.4e-07
+   2    6.28e+01    3.14e+01                   2.9e-07      2.9e-07
+   3    5.19e+01    8.64e+00                   2.6e-07      2.8e-07
+   transpose (gradient) f32 err:                3.7e-07      3.1e-07
+d = 12, order 8, |p|/|w| = 1   (float64 transposes agree across normalizations: 9e-16)
+   t   max|y^(t)|  max|yhat_t|   f32 err: derivative-norm   Taylor-norm
+   0    3.75e+03    3.75e+03                   4.0e-07      6.2e-07
+   1    1.97e+04    1.97e+04                   4.6e-07      6.3e-07
+   2    6.88e+04    3.44e+04                   5.2e-07      7.5e-07
+   4    4.92e+06    2.05e+05                   4.1e-07      5.9e-07
+   7    2.39e+09    4.74e+05                   4.5e-07      5.4e-07
+   8    1.15e+10    2.86e+05                   7.2e-07      7.4e-07
+   transpose (gradient) f32 err:                5.0e-07      5.8e-07
+d = 16, order 12, |p|/|w| = 1   (float64 transposes agree across normalizations: 2e-15)
+   t   max|y^(t)|  max|yhat_t|   f32 err: derivative-norm   Taylor-norm
+   0    1.03e+04    1.03e+04                   8.5e-07      9.5e-07
+   1    3.84e+04    3.84e+04                   8.6e-07      1.2e-06
+   2    9.32e+05    4.66e+05                   9.1e-07      1.6e-06
+   6    3.57e+09    4.95e+06                   4.4e-07      4.6e-07
+  11    1.56e+14    3.90e+06                   1.1e-06      1.2e-06
+  12    2.00e+15    4.17e+06                   7.4e-07      1.5e-06
+   transpose (gradient) f32 err:                7.9e-07      1.1e-06
+d = 16, order 12, |p|/|w| = 3   (float64 transposes agree across normalizations: 2e-15)
+   t   max|y^(t)|  max|yhat_t|   f32 err: derivative-norm   Taylor-norm
+   0    1.03e+04    1.03e+04                   8.5e-07      9.5e-07
+   1    1.15e+05    1.15e+05                   9.5e-07      1.2e-06
+   2    8.39e+06    4.20e+06                   8.7e-07      1.0e-06
+   6    2.60e+12    3.61e+09                   9.1e-07      7.5e-07
+  11    2.76e+19    6.91e+11                   7.5e-07      5.9e-07
+  12    1.06e+21    2.22e+12                   8.6e-07      4.8e-07
+   transpose (gradient) f32 err:                8.1e-07      6.6e-07
+d = 24, order 20, |p|/|w| = 1   (float64 transposes agree across normalizations: 3e-15)
+   t   max|y^(t)|  max|yhat_t|   f32 err: derivative-norm   Taylor-norm
+   0    2.56e+06    2.56e+06                   1.7e-06      1.4e-06
+   1    2.25e+07    2.25e+07                   1.3e-06      1.1e-06
+   2    1.56e+08    7.81e+07                   1.0e-06      6.9e-07
+  10    1.07e+16    2.94e+09                   9.7e-07      1.1e-06
+  19    5.01e+25    4.12e+08                   9.0e-07      9.4e-07
+  20    2.85e+26    1.17e+08                   1.3e-06      1.5e-06
+   transpose (gradient) f32 err:                9.6e-07      2.0e-06
+
+=== gn_fusion_check.py
+xi_z vs eta_t                      : 6.197752988804172e-16
+fused J^T J p vs through-ambient   : 4.588218547786099e-16
+largest array formed, through-ambient: W x N = 30 x 60;  fused: W x n = 30 x 5
+
+=== plan_mockup.py
+W = 4096 samples; the data w and y are 6.9 MB each
+the fill policy chose: Plan(samples=2048, assembly=None, path='carry_first', orders='sequential', sites='sequential', executor='host_loop')
+
+1. every plan and keep set against the library
+plan                                                 kept      kept MB  Hp peak MB   difference from the library (f, g, Hp, r)
+Plan()                                               FRAME        2.97       10.88   3e-16  4e-15  1e-15  3e-15
+Plan()                                               NOTHING      0.00       13.78   3e-16  4e-15  1e-15  3e-15
+Plan(samples=512)                                    INPUTS       0.75        1.86   5e-16  4e-15  1e-15  3e-15
+Plan(samples=512, assembly=64, path='input_first')   NOTHING      0.00        1.96   3e-16  4e-15  1e-15  3e-15
+fill(..., budget_bytes=8 MiB, keep=INPUTS)           INPUTS       0.75        6.59   3e-16  4e-15  1e-15  3e-15
+
+2. any subset of the keepable components may be handed in
+   g  under all 512 subsets of 9 components: worst difference 0e+00
+   Hp under all 16 subsets of 4 components:  worst difference 3e-17
+
+3. peak MB during the call, including what it returns, under Plan(samples=512) with xi handed in
+   the residual r is 6.9 MB, the size of the data
+   want=('f',)                                           1.90
+   want=('f', 'r')                                       8.78
+   want=('f', 'g')                                       2.19
+   want=('f', 'g', 'r')                                  9.07
+   want=('f', 'g', 'xi_z', 'mu_z', 'nu_z', 'eta_z')      5.12
+
+4. one Gauss-Newton product: kept MB + peak MB during the call = total (the data is not counted)
+   kept                      one block            blocks of 512            blocks of 128
+   FRAME          2.97 + 10.88 = 13.84     2.97 +  1.60 =  4.57     2.97 +  0.90 =  3.87
+   INPUTS         0.75 + 13.03 = 13.78     0.75 +  1.86 =  2.61     0.75 +  0.81 =  1.56
+   NOTHING        0.00 + 13.78 = 13.78     0.00 +  1.95 =  1.95     0.00 +  0.85 =  0.85
+
+5. bytes per sample of each keepable component (float64), for this problem
+   xi 192   mu 200   nu 176   eta 192   r 1760   xi_z 192   mu_z 200   nu_z 176   eta_z 192
+   the data, w and y together: 3520
+
+6. the dependency graph, as declared  (component <- the components it reads;
+   every rule also reads frame cores; xi, xi_t, g and Hp read w; r reads y; the tangent grade reads p)
+   xi        <- (inputs only)
+   mu        <- xi
+   nu        <- xi
+   eta       <- mu, nu
+   z         <- eta
+   r         <- z
+   f         <- r
+   xi_z      <- r
+   mu_z      <- xi, mu, xi_z
+   nu_z      <- xi, nu, xi_z
+   eta_z     <- mu, nu, mu_z, nu_z
+   g         <- xi, mu, nu, eta, r, xi_z, mu_z, nu_z, eta_z
+   xi_t      <- (inputs only)
+   mu_t      <- xi, mu, xi_t
+   nu_t      <- xi, nu, xi_t
+   eta_t     <- mu, nu, mu_t, nu_t
+   Jp        <- eta, eta_t
+   Jp.xi_z   <- Jp
+   Jp.mu_z   <- xi, mu, Jp.xi_z
+   Jp.nu_z   <- xi, nu, Jp.xi_z
+   Jp.eta_z  <- mu, nu, Jp.mu_z, Jp.nu_z
+   Hp        <- xi, mu, nu, eta, Jp, Jp.xi_z, Jp.mu_z, Jp.nu_z, Jp.eta_z
+
+=== reuse_check.py
+1. through the point's own cores (B, G), against the frame's components
+   xi 3.4e+00   mu different shapes   nu different shapes
+2. through the base point (D, L), against the frame's components
+   xi 0.0e+00   mu 0.0e+00   nu different shapes
+3. nu through L against S nu through R (bonds 1..d-1):          9.3e-16
+   residual grade: nu_z through L against S nu_z through R:     9.9e-16
+4. probe output from the frame's eta and the Tucker center cores: 1.7e-15
+   probe output from the frame's mu, nu and the TT center cores:  1.7e-15
+5. the library's cached probe frame sweep against these components
+   xi 1.2e-16   mu 2.3e-16   nu 2.6e-16   eta 3.5e-16
+   the exact-Hessian kernel's re-swept nu, compute_nu(L, xi), against nu through L: 2.1e-16
+
+=== component_graphs.py
+The dependency graph of every case, traced from the graded program (order 0).
+entries has the same graph as apply in every case: True
+with jets (orders 0..2) every case has the same components and reads as at order 0: True
+apply and entries: the adjoint sweep nu_z equals the scalar residual times the plain nu: largest relative difference 3e-16
+
+probe, value, corewise frame
+   xi       <- w                                            through B
+   mu       <- xi                                           through G
+   nu       <- xi                                           through G
+   eta      <- mu, nu                                       through G
+   z        <- eta                                          through B
+
+probe, J p, manifold frame
+   xi       <- w                                            through D
+   mu       <- xi                                           through L
+   nu       <- xi                                           through R
+   eta      <- mu, nu                                       through U
+   xi_t     <- w                                            through V
+   mu_t     <- mu, xi, xi_t                                 through H, R, U
+   nu_t     <- nu, xi, xi_t                                 through H, L, U
+   eta_t    <- mu, mu_t, nu, nu_t                           through H, L, R
+   z_t      <- eta, eta_t                                   through D, V
+
+probe, J^T r, manifold frame
+   xi       <- w                                            through D
+   mu       <- xi                                           through L
+   nu       <- xi                                           through R
+   eta      <- mu, nu                                       through U
+   xi_z     <- r                                            through D
+   mu_z     <- mu, xi, xi_z                                 through L
+   nu_z     <- nu, xi, xi_z                                 through R
+   eta_z    <- mu, mu_z, nu, nu_z                           through U
+   dB_z     <- eta, eta_z, w, r                             through -
+   dG_z     <- mu, mu_z, nu, nu_z, xi, xi_z                 through -
+
+probe, exact K p, corewise frame
+   xi       <- w                                            through B
+   mu       <- xi                                           through G
+   xi_t     <- w                                            through Bdot
+   mu_t     <- mu, xi, xi_t                                 through G, Gdot
+   nu       <- xi                                           through G
+   nu_t     <- nu, xi, xi_t                                 through G, Gdot
+   eta_t    <- mu, mu_t, nu, nu_t                           through G, Gdot
+   xi_z     <- r                                            through B
+   mu_z     <- mu, xi, xi_z                                 through G
+   xi_tz    <- r                                            through Bdot
+   mu_tz    <- mu, mu_t, mu_z, xi, xi_t, xi_tz, xi_z        through G, Gdot
+   nu_z     <- nu, xi, xi_z                                 through G
+   nu_tz    <- nu, nu_t, nu_z, xi, xi_t, xi_tz, xi_z        through G, Gdot
+   eta_tz   <- mu, mu_t, mu_tz, mu_z, nu, nu_t, nu_tz, nu_z through G, Gdot
+   dB_tz    <- eta_t, eta_tz, w, r                          through -
+   dG_tz    <- mu, mu_t, mu_tz, mu_z, nu, nu_t, nu_tz, nu_z, xi, xi_t, xi_tz, xi_z through -
+
+apply and entries, value, corewise frame
+   xi       <- w                                            through B
+   mu       <- xi                                           through G
+   phi      <- b_R, mu                                      through -
+
+apply and entries, J p, manifold frame
+   xi       <- w                                            through D
+   mu       <- xi                                           through L
+   xi_t     <- w                                            through V
+   mu_t     <- mu, xi, xi_t                                 through H, R, U
+   phi_t    <- b_R, mu_t                                    through -
+
+apply and entries, J^T r, manifold frame
+   xi       <- w                                            through D
+   mu       <- xi                                           through L
+   nu_z     <- xi, c                                        through R
+   eta_z    <- mu, nu_z                                     through U
+   dB_z     <- eta_z, w                                     through -
+   dG_z     <- mu, nu_z, xi                                 through -
+
+apply and entries, exact K p, corewise frame
+   xi       <- w                                            through B
+   mu       <- xi                                           through G
+   xi_t     <- w                                            through Bdot
+   mu_t     <- mu, xi, xi_t                                 through G, Gdot
+   nu_z     <- xi, c                                        through G
+   nu_tz    <- nu_z, xi, xi_t                               through G, Gdot
+   eta_tz   <- mu, mu_t, nu_tz, nu_z                        through G, Gdot
+   dB_tz    <- eta_tz, w                                    through -
+   dG_tz    <- mu, mu_t, nu_tz, nu_z, xi, xi_t              through -
+
+Which components each case needs  (P = probe, A = apply and entries, . = not needed)
+            value       J p         J^T r       exact K p
+   xi       PA          PA          PA          PA       
+   mu       PA          PA          PA          PA       
+   nu       P           P           P           P        
+   eta      P           P           P           .        
+   xi_t     .           PA          .           PA       
+   mu_t     .           PA          .           PA       
+   nu_t     .           P           .           P        
+   eta_t    .           P           .           P        
+   xi_z     .           .           P           P        
+   mu_z     .           .           P           P        
+   nu_z     .           .           PA          PA       
+   eta_z    .           .           PA          .        
+   xi_tz    .           .           .           P        
+   mu_tz    .           .           .           P        
+   nu_tz    .           .           .           PA       
+   eta_tz   .           .           .           PA       
+
+=== sharing_check.py
+shared point: tucker ranks (9, 9, 3, 9), tt ranks (1, 3, 4, 3, 1), factors tied: True
+1. the evaluator, unchanged, at the shared point, against the unshared geometry
+   g 2e-15   Hp 4e-16
+2. sharing as a core-sized step after the sample loop, against the shared geometry
+   tied projection of g  2e-15   tied projection of Hp 5e-16
+3. the group's down Tucker cores D differ by at most 0e+00
+   xi of the group's modes, different sample vectors: largest difference 5.4e+00
+   xi of the group's modes, the same sample vector:   largest difference 0.0e+00
+

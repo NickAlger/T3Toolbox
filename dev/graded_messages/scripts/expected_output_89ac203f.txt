@@ -1,0 +1,181 @@
+=== graded_messages_prototype.py
+order = 0
+  t3_probe_derivatives                                       rel err 3.3e-16
+  t3_apply_derivatives                                       rel err 1.7e-16
+  t3_probe                                                   rel err 2.4e-16
+  t3_apply                                                   rel err 1.2e-16
+  tv_probe_derivatives                                       rel err 3.7e-16
+  tv_apply_derivatives                                       rel err 6.2e-16
+  tv_probe                                                   rel err 4.1e-16
+  tv_apply                                                   rel err 1.4e-16
+  tv_apply_derivatives_transpose                             rel err 4.6e-16
+  tv_apply_transpose                                         rel err 3.4e-16
+  t3_apply_corewise_derivatives_hessian                      rel err 5.8e-16
+  t3_apply_corewise_hessian                                  rel err 4.3e-16
+  tv_probe_derivatives_transpose                             rel err 5.1e-16
+  tv_probe_transpose                                         rel err 4.0e-16
+  t3_probe_corewise_derivatives_hessian                      rel err 3.5e-16
+  t3_probe_corewise_hessian                                  rel err 3.2e-16
+  t3_entries_derivatives                                     rel err 3.5e-16
+  tv_entries_derivatives                                     rel err 2.7e-16
+  tv_entries                                                 rel err 1.3e-16
+  tv_entries_derivatives_transpose                           rel err 3.1e-16
+  tv_entries_transpose                                       rel err 3.4e-16
+  t3_entries_corewise_derivatives_hessian                    rel err 3.8e-16
+order = 3
+  t3_probe_derivatives                                       rel err 4.7e-16
+  t3_apply_derivatives                                       rel err 3.6e-16
+  tv_probe_derivatives                                       rel err 4.0e-16
+  tv_apply_derivatives                                       rel err 4.0e-16
+  tv_apply_derivatives_transpose                             rel err 9.5e-16
+  t3_apply_corewise_derivatives_hessian                      rel err 1.2e-15
+  tv_probe_derivatives_transpose                             rel err 5.4e-16
+  t3_probe_corewise_derivatives_hessian                      rel err 5.9e-16
+  t3_entries_derivatives                                     rel err 1.7e-16
+  tv_entries_derivatives                                     rel err 3.3e-16
+  tv_entries_derivatives_transpose                           rel err 3.9e-16
+  t3_entries_corewise_derivatives_hessian                    rel err 3.5e-16
+worst relative error over all checks: 1.2e-15
+
+=== probe_fit_step_example.py
+objective 7.991130e+09   (library 7.991130e+09)
+same frame as the library model: True
+relative differences from the library:
+  probes of the point       2.9e-16
+  bare J^T r                2.4e-16
+  J p                       3.1e-16
+  gradient                  4.0e-16
+  Gauss-Newton Hessian * p  6.9e-16
+
+=== correspondence_check.py
+  xi_jets (2 rows)   <-> xi                      rel err 0.0e+00
+  mu_jets            <-> mu                      rel err 5.9e-17
+  nu_jets            <-> nu                      rel err 2.6e-16
+  eta_jets           <-> eta                     rel err 3.2e-16
+  dxi_jets (2 rows)  <-> xi_t                    rel err 0.0e+00
+  sigma_jets         <-> mu_t                    rel err 2.7e-16
+  tau_jets           <-> nu_t                    rel err 3.5e-16
+  deta_jets          <-> eta_t                   rel err 3.7e-16
+  deta_tildes        <-> xi_z                    rel err 1.2e-16
+  tau_tildes         <-> mu_z                    rel err 2.1e-16
+  sigma_tildes       <-> nu_z                    rel err 1.9e-16
+  dxi_tildes (2 rows)<-> eta_z (top 2)           rel err 3.1e-16
+  sigma_hats         <-> nu_z (closure)          rel err 5.3e-16
+  boundary slots: sigma_jets[0] max |.| = 0.0e+00, tau_jets[-1] max |.| = 0.0e+00, tau_tildes[0] = 0.0e+00, sigma_tildes[-1] = 0.0e+00
+  prototype has no component there: False False False False
+
+=== pairing_check.py
+grade t, all jet orders, relative difference from tv_apply-derivatives value:
+  bonds 0..d   <mu, nu>  : 3e-16 3e-16 4e-16 2e-16 0e+00
+  mode edges   <xi, eta> : 3e-16 4e-16 3e-16 2e-16
+  leaves       <w, z>    : 3e-16 3e-16 2e-16 2e-16
+components per bond (space dims):
+  bond 0: mu {'': 1} | nu {'': 1, 't': 1}
+  bond 1: mu {'': 3, 't': 2} | nu {'': 2, 't': 3}
+  bond 2: mu {'': 2, 't': 4} | nu {'': 4, 't': 2}
+  bond 3: mu {'': 4, 't': 3} | nu {'': 3, 't': 4}
+  bond 4: mu {'': 1, 't': 1} | nu {'': 1}
+
+=== extra_core_experiment.py
+LIBRARY
+  output                             extras -> other random values extras -> NaN
+  tv_probe                           unchanged                    NaN in output
+  tv_apply                           unchanged                    NaN in output
+  tv_probe_transpose                 unchanged                    clean
+  tv_apply_transpose                 unchanged                    clean
+  tv_probe_derivatives               unchanged                    NaN in output
+  tv_apply_derivatives               unchanged                    NaN in output
+  tv_probe_derivatives_transpose     unchanged                    clean
+  tv_apply_derivatives_transpose     unchanged                    clean
+PROTOTYPE
+  output                             extras -> other random values extras -> NaN
+  J probe   (z at grade t)           unchanged                    clean
+  J apply   (Phi at grade t)         unchanged                    clean
+  J^T probe (dB, dG at grade z)      unchanged                    clean
+  J^T apply (dB, dG at grade z)      unchanged                    clean
+  plain value (Phi at grade "")      CHANGED (max diff 1.4e+04)   NaN in output
+
+=== index_check.py
+TT ranks (bond 0..d): (1, 2, 3, 4, 1)
+  i=0   mus[i] trailing dim 1  (bond 0)     nus[i] trailing dim 2  (bond 1)
+  i=1   mus[i] trailing dim 2  (bond 1)     nus[i] trailing dim 3  (bond 2)
+  i=2   mus[i] trailing dim 3  (bond 2)     nus[i] trailing dim 4  (bond 3)
+  i=3   mus[i] trailing dim 4  (bond 3)     nus[i] trailing dim 1  (bond 4)
+pairing against t3_apply (relative error):
+  <mus[1], nus[0]>  2.7e-16
+  <mus[2], nus[1]>  3.9e-16
+  <mus[3], nus[2]>  4.0e-16
+
+=== index_check2.py
+rL (bond 0..d) = (1, 3, 2, 4, 1)    rR (bond 0..d) = (1, 2, 4, 3, 1)
+  mus           dims over i = [1, 3, 2, 4]   -> bond i of rL
+  sigmas        dims over i = [1, 2, 4, 3]   -> bond i of rR
+  tau_tildes    dims over i = [1, 3, 2, 4]   -> bond i of rL
+  nus           dims over i = [2, 4, 3, 1]   -> bond i+1 of rR
+  taus          dims over i = [3, 2, 4, 1]   -> bond i+1 of rL
+  sigma_tildes  dims over i = [2, 4, 3, 1]   -> bond i+1 of rR
+  sigma_hats    dims over i = [2, 4, 3, 1]   -> bond i+1 of rR
+
+=== frame_consistency_check.py
+library frame (from_t3):
+  (D, L) vs original T3 on 8 random rank-1 samples: 4.9e-15
+  (D, R) vs original T3:                             3.9e-15
+  L-form vs R-form gap:                              1.0e-15
+hand-built inconsistent frames:
+  R[0] scaled by 1.001      -> gap 1.0e-03
+  L[-1] perturbed by 1e-6   -> gap 2.9e-10
+discarded final carry of compute_mu vs apply of the base point: 4.2e-15
+
+=== frame_consistency_nondense_check.py
+existing dense residual (fv_frame_consistency_residual): 1.1599913057635222e-15
+non-dense residual, consistent frame:                   9.2e-13
+R[0] scaled by 1+1e-03:  dense 9.99e-04   non-dense 9.99e-04
+R[0] scaled by 1+1e-06:  dense 1.00e-06   non-dense 1.00e-06
+R[0] scaled by 1+1e-09:  dense 1.00e-09   non-dense 1.00e-09
+R[0] scaled by 1+1e-12:  dense 1.00e-12   non-dense 1.19e-12
+
+=== f32_experiment.py
+d = 4, order 3, |p|/|w| = 1   (float64 transposes agree across normalizations: 8e-16)
+   t   max|y^(t)|  max|yhat_t|   f32 err: derivative-norm   Taylor-norm
+   0    9.56e+00    9.56e+00                   2.2e-07      2.9e-07
+   1    2.09e+01    2.09e+01                   2.3e-07      2.4e-07
+   2    6.28e+01    3.14e+01                   2.9e-07      2.9e-07
+   3    5.19e+01    8.64e+00                   2.6e-07      2.8e-07
+   transpose (gradient) f32 err:                3.7e-07      3.1e-07
+d = 12, order 8, |p|/|w| = 1   (float64 transposes agree across normalizations: 9e-16)
+   t   max|y^(t)|  max|yhat_t|   f32 err: derivative-norm   Taylor-norm
+   0    3.75e+03    3.75e+03                   4.0e-07      6.2e-07
+   1    1.97e+04    1.97e+04                   4.6e-07      6.3e-07
+   2    6.88e+04    3.44e+04                   5.2e-07      7.5e-07
+   4    4.92e+06    2.05e+05                   4.1e-07      5.9e-07
+   7    2.39e+09    4.74e+05                   4.5e-07      5.4e-07
+   8    1.15e+10    2.86e+05                   7.2e-07      7.4e-07
+   transpose (gradient) f32 err:                5.0e-07      5.8e-07
+d = 16, order 12, |p|/|w| = 1   (float64 transposes agree across normalizations: 2e-15)
+   t   max|y^(t)|  max|yhat_t|   f32 err: derivative-norm   Taylor-norm
+   0    1.03e+04    1.03e+04                   8.5e-07      9.5e-07
+   1    3.84e+04    3.84e+04                   8.6e-07      1.2e-06
+   2    9.32e+05    4.66e+05                   9.1e-07      1.6e-06
+   6    3.57e+09    4.95e+06                   4.4e-07      4.6e-07
+  11    1.56e+14    3.90e+06                   1.1e-06      1.2e-06
+  12    2.00e+15    4.17e+06                   7.4e-07      1.5e-06
+   transpose (gradient) f32 err:                7.9e-07      1.1e-06
+d = 16, order 12, |p|/|w| = 3   (float64 transposes agree across normalizations: 2e-15)
+   t   max|y^(t)|  max|yhat_t|   f32 err: derivative-norm   Taylor-norm
+   0    1.03e+04    1.03e+04                   8.5e-07      9.5e-07
+   1    1.15e+05    1.15e+05                   9.5e-07      1.2e-06
+   2    8.39e+06    4.20e+06                   8.7e-07      1.0e-06
+   6    2.60e+12    3.61e+09                   9.1e-07      7.5e-07
+  11    2.76e+19    6.91e+11                   7.5e-07      5.9e-07
+  12    1.06e+21    2.22e+12                   8.6e-07      4.8e-07
+   transpose (gradient) f32 err:                8.1e-07      6.6e-07
+d = 24, order 20, |p|/|w| = 1   (float64 transposes agree across normalizations: 3e-15)
+   t   max|y^(t)|  max|yhat_t|   f32 err: derivative-norm   Taylor-norm
+   0    2.56e+06    2.56e+06                   1.7e-06      1.4e-06
+   1    2.25e+07    2.25e+07                   1.3e-06      1.1e-06
+   2    1.56e+08    7.81e+07                   1.0e-06      6.9e-07
+  10    1.07e+16    2.94e+09                   9.7e-07      1.1e-06
+  19    5.01e+25    4.12e+08                   9.0e-07      9.4e-07
+  20    2.85e+26    1.17e+08                   1.3e-06      1.5e-06
+   transpose (gradient) f32 err:                9.6e-07      2.0e-06
+

@@ -1,0 +1,53 @@
+=== order_numpy.py
+library numpy path for WCa,Caib,WCi->WCb : ('einsum_path', (0, 1), (0, 1))
+sizes                       mu with G first  G with xi first library contract
+W=4096 r=64 n=8                    14.70 ms         51.68 ms         14.91 ms
+W=4096 r=32 n=32                   41.17 ms          6.74 ms         29.13 ms
+W=4096 r=8 n=64                    11.77 ms          0.88 ms         11.62 ms
+W=4096 r=8 n=256                   93.07 ms          2.83 ms         99.91 ms
+W=20000 r=16 n=16                  17.59 ms          7.97 ms         14.37 ms
+
+=== eta_axes.py
+d=8 r=8 n=8 order=5 W=256
+   order sequential, sites sequential (library)     scratch      0.3 MB   time     1.63 ms   diff 0e+00
+   order sequential, sites vectorized               scratch      2.0 MB   time     1.72 ms   diff 0e+00
+   order vectorized, sites sequential               scratch      1.0 MB   time     1.51 ms   diff 3e-07
+   order vectorized, sites vectorized               scratch      8.2 MB   time     1.46 ms   diff 3e-07
+d=8 r=32 n=16 order=5 W=4096
+   order sequential, sites sequential (library)     scratch     20.1 MB   time    84.49 ms   diff 0e+00
+   order sequential, sites vectorized               scratch    148.0 MB   time   176.47 ms   diff 0e+00
+   order vectorized, sites sequential               scratch     99.0 MB   time   138.98 ms   diff 3e-07
+   order vectorized, sites vectorized               scratch    792.0 MB   time   342.92 ms   diff 3e-07
+d=8 r=96 n=32 order=5 W=1024
+   order sequential, sites sequential (library)     scratch     21.4 MB   time   180.64 ms   diff 0e+00
+   order sequential, sites vectorized               scratch    156.0 MB   time   293.41 ms   diff 0e+00
+   order vectorized, sites sequential               scratch    146.3 MB   time   287.42 ms   diff 4e-07
+   order vectorized, sites vectorized               scratch   1170.0 MB   time   545.20 ms   diff 3e-07
+d=24 r=16 n=8 order=2 W=2048
+   order sequential, sites sequential (library)     scratch      2.5 MB   time    23.68 ms   diff 0e+00
+   order sequential, sites vectorized               scratch     55.5 MB   time    27.06 ms   diff 0e+00
+   order vectorized, sites sequential               scratch      6.4 MB   time    22.73 ms   diff 2e-07
+   order vectorized, sites vectorized               scratch    153.0 MB   time    63.91 ms   diff 2e-07
+
+=== sweep_blocks.py
+d=8 r=32 n=16 W=16384   (the sweep's output is 16 MB)
+   block  16384   scratch    34.1 MB   time    68.5 ms   diff 0e+00
+   block   4096   scratch    30.6 MB   time    56.4 ms   diff 0e+00
+   block   1024   scratch    25.7 MB   time    50.7 ms   diff 0e+00
+   block    256   scratch    24.5 MB   time    62.1 ms   diff 0e+00
+   block     64   scratch    24.2 MB   time    81.0 ms   diff 0e+00
+   block     16   scratch    24.1 MB   time    95.3 ms   diff 1e-06
+d=8 r=128 n=32 W=4096   (the sweep's output is 16 MB)
+   block   4096   scratch    68.0 MB   time   194.1 ms   diff 0e+00
+   block   1024   scratch    27.5 MB   time   179.2 ms   diff 0e+00
+   block    256   scratch    23.4 MB   time   193.5 ms   diff 0e+00
+   block     64   scratch    21.3 MB   time   362.6 ms   diff 0e+00
+   block     16   scratch    20.3 MB   time   864.4 ms   diff 0e+00
+d=8 r=8 n=8 W=16384   (the sweep's output is 4 MB)
+   block  16384   scratch     4.5 MB   time     3.8 ms   diff 0e+00
+   block   4096   scratch    10.1 MB   time     6.2 ms   diff 0e+00
+   block   1024   scratch     8.5 MB   time     5.4 ms   diff 0e+00
+   block    256   scratch     8.1 MB   time     5.4 ms   diff 0e+00
+   block     64   scratch     8.0 MB   time     5.6 ms   diff 4e-07
+   block     16   scratch     8.0 MB   time     7.9 ms   diff 4e-07
+

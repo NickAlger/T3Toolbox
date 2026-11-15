@@ -1,0 +1,57 @@
+111c111
+< def evaluate(frame, centers, w, plan, want, have=None, y=None, p=None):
+---
+> def evaluate(frame, centers, w, plan, want, have=None, y=None, p=None, sample_groups=None):
+117c117,121
+<     `y` is needed by anything downstream of the residual, `p` by anything downstream of the direction."""
+---
+>     `y` is needed by anything downstream of the residual, `p` by anything downstream of the direction.
+> 
+>     `sample_groups` is a label per mode, like the library's `sharing`. Modes with equal labels have the same
+>     Tucker factor AND receive the same sample vector, so their `xi` is one array: it is computed, kept and
+>     handed in once per group. The default is one group per mode."""
+121a126,127
+>     labels = list(sample_groups) if sample_groups is not None else list(range(len(w)))
+>     group_of = [sorted(set(labels), key=labels.index).index(label) for label in labels]    # site -> group
+124c130
+<         out = run(block_graph(frame, centers, s['w'], s.get('y'), p, plan), s['have'], summed + mapped)
+---
+>         out = run(block_graph(frame, centers, s['w'], s.get('y'), p, plan, group_of), s['have'], summed + mapped)
+155c161
+< def block_graph(frame, centers, w, y, p, plan):
+---
+> def block_graph(frame, centers, w, y, p, plan, group_of=None):
+158a165,166
+>     group_of = list(range(len(D))) if group_of is None else group_of
+>     first = [group_of.index(g) for g in range(max(group_of) + 1)]      # one representative mode per group
+161,162c169,170
+<     def node(name, reads, rule):
+<         graph[name] = (reads, rule)
+---
+>     def node(name, reads, rule, view=None):          # view: how readers see the stored value (default: as stored)
+>         graph[name] = (reads, rule, view)
+165c173,174
+<     node('xi',  (),            lambda: sitewise(UP, [(D, w)]))
+---
+>     node('xi',  (),            lambda: sitewise(UP, [([D[m] for m in first], [w[m] for m in first])]),   # per group
+>          view=lambda xi: [xi[g] for g in group_of])                                               # read per site
+204a214,218
+> def seen_by_readers(graph, name, value):
+>     view = graph[name][2] if name in graph else None
+>     return value if view is None else view(value)
+> 
+> 
+232,233c246,247
+<         reads, rule = graph[name]
+<         values[name] = rule(*(values[dep] for dep in reads))
+---
+>         reads, rule, _ = graph[name]
+>         values[name] = rule(*(seen_by_readers(graph, dep, values[dep]) for dep in reads))
+524c538
+<     edges = [(dep, name) for name, (reads, _) in graph.items() for dep in reads]
+---
+>     edges = [(dep, name) for name, (reads, *_) in graph.items() for dep in reads]
+528c542
+<     for name, (reads, _) in graph.items():
+---
+>     for name, (reads, *_) in graph.items():

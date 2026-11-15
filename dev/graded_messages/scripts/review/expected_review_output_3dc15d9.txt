@@ -1,0 +1,252 @@
+=== unbundled_examples.py
+J p        against tv_probe                    3.7e-16
+J^T r      against tv_probe_transpose          4.3e-16
+two-hole   against t3_probe_corewise_hessian   3.9e-16
+22 component functions, 59 terms in total, 7 literal subscript strings
+
+=== jet_steps_check.py
+order 0   z 2.0e-16   f 3.6e-16   r_block_sumsq 4.0e-16   g 2.9e-16   Jp 3.4e-16   Jp_sumsq 0.0e+00   JtJp 3.6e-16   Kp 2.3e-16
+order 2   z 3.2e-16   f 1.9e-16   r_block_sumsq 2.6e-16   g 2.1e-16   Jp 2.9e-16   Jp_sumsq 0.0e+00   JtJp 3.5e-16   Kp 3.3e-16
+order 4   z 3.2e-16   f 0.0e+00   r_block_sumsq 2.8e-16   g 2.7e-16   Jp 3.0e-16   Jp_sumsq 3.8e-16   JtJp 2.1e-16   Kp 3.9e-16
+22 step functions, 60 terms, 7 term functions; the same for every order
+
+=== kind_readout_check.py
+apply    z 5.8e-16   Jp 3.5e-16   Jt c 7.5e-16
+entries  z 3.9e-16   Jp 1.8e-16   Jt c 4.1e-16
+
+=== tilde_adjoint_check.py
+1. multiplier sense: dF/d(variable) against the partner tilde variable (F is multilinear, so exact)
+   dF/d mu  at site/bond 2  =  <nu_tilde, delta>     rel err 1.3e-15
+   dF/d nu  at site/bond 2  =  <mu_tilde, delta>     rel err 2.5e-15
+   dF/d xi  at site/bond 1  =  <eta_tilde, delta>     rel err 3.3e-15
+   dF/d eta at site/bond 1  =  <xi_tilde, delta>     rel err 2.6e-15
+2. forward sense: d(variable)/d(sample) along s against the tilde variable of the same name
+   d xi /dw along s  =  xi_tilde     rel err 9.3e-11 (central difference)
+   d mu /dw along s  =  mu_tilde     rel err 7.0e-11 (central difference)
+   d nu /dw along s  =  nu_tilde     rel err 1.6e-10 (central difference)
+   d eta/dw along s  =  eta_tilde     rel err 1.5e-10 (central difference)
+
+=== slot_tuple_examples.py
+manifold frame, tangent grade            tuples vs dicts, every family and grade: max rel diff 0.0e+00
+manifold frame, residual grade           tuples vs dicts, every family and grade: max rel diff 0.0e+00
+corewise frame, two-hole                 tuples vs dicts, every family and grade: max rel diff 2.1e-16
+                                         tuples vs library two-hole (order 2): rel err 5.5e-16
+
+what the values look like
+  xi at site 1, (plain, t, z, tz):    ((3, 5, 4), (3, 5, 4), (3, 5, 4), (3, 5, 4))
+  mu after site 1:                    ((3, 5, 2), (3, 5, 2), (3, 5, 2), (3, 5, 2))
+  TT core gradient at site 1:         (None, None, (3, 5, 3, 4, 2), (3, 5, 3, 4, 2))
+  a TT pointed core (R, U, L, H):     ((3, 4, 2), (3, 4, 2), (3, 4, 2), (3, 4, 2))
+  a Tucker pointed core (D, D, V):    ((4, 5), (4, 5), (4, 5))
+  static split of (xi family, shape): 16 dynamic leaves, 16 of them arrays; round trip ok: True
+
+evaluate with aligned tuples, against the dict version
+  f   1.7e-16   g   1.8e-15   Hp (xi handed in)  7.2e-16   Hp (sweep handed in)  7.2e-16
+  held sweep: a tuple of 4 components; r: a tuple of 4 arrays, the first (4096, 60)
+
+=== pad_reshape_check.py
+probe,   W=10 padded to 12, blocks of 4:  f 0e+00   g 1e-16   Hp 1e-16
+         probe output at the padded samples: largest entry 0.0e+00
+         the same kernels on the two-axis sample stack, no loop:  g 2e-16
+apply:   value at the padded samples: largest entry 0.0e+00
+entries: J p at the padded samples: largest entry 1.4e-01
+         Hp with padded indices, no mask 4e-01;  with a zero weight on the padded samples 0e+00
+
+=== levels_sketch.py
+sample stack (4, 8, 16) = 512 samples; differences from the flat, unblocked evaluation
+  no levels: everything vectorized                                                                         f 0e+00  g 0e+00  Hp 0e+00  r 0e+00
+  outer only: scan axis 0                                                                                  f 2e-16  g 1e-15  Hp 6e-16  r 0e+00
+  inner only, as the library chunks today: keep every per-sample component, scan axis 1 for the assembly   f 0e+00  g 1e-15  Hp 6e-16  r 0e+00
+  nested: scan axis 0; then keep the frame components and scan axis 1                                      f 0e+00  g 1e-15  Hp 5e-16  r 0e+00
+  three levels: scan 0; keep xi, scan 1; keep mu and nu, scan 2                                            f 0e+00  g 1e-15  Hp 6e-16  r 2e-16
+  one level, two axes, not in stack order: scan (2, 0)                                                     f 0e+00  g 1e-15  Hp 5e-16  r 0e+00
+  inner axis before outer axis: scan 1; then keep the frame components and scan 0                          f 0e+00  g 1e-15  Hp 5e-16  r 0e+00
+
+=== slot_tuple_check.py
+tuple sweep: dynamic leaves [(4, 3), None, (4, 3), None, (4, 3), None, (4, 3), None]
+  round trip keeps None slots: True | shape static: True | mask is host numpy: True
+  under jit: 46.0
+dict sweep: dynamic leaves ['dict'] -> the dict is one leaf, with its shape and mask inside
+
+=== levels_jax_check.py
+jax 0.12.0.1, 4 devices
+A. Gauss-Newton product under jit, sample stack (4, 6, 8), against unblocked numpy
+   vectorized                                   3e-16
+   scan axis 0                                  4e-16
+   keep the sweep, scan axis 0                  4e-16
+   scan 0, keep the sweep per block, scan 1     3e-16
+   scan axis 1 (not leading)                    3e-16
+B. traced program size for 4 blocks and for 64 blocks: 962 and 963 lines
+   XLA scratch for the product, all 4096 samples vectorized:    7.25 MB
+   XLA scratch for the product, blocks of 512, scanned:         1.05 MB
+   XLA scratch for the product, blocks of 64, scanned:          0.13 MB
+C. sharding over 4 devices; 8 blocks of 16, the block axis sharded
+   1. shard_map, each device scans its own blocks:        difference 5e-16   all-gathers 0
+   2. plain jit, scanning the sharded axis:               difference 5e-16   all-gathers 12
+   3. plain jit, a separate sharded axis left vectorized, scanning the next axis:
+                                                           difference 5e-16   all-gathers 0
+   4. a per-sample result (J p) under shard_map:          difference 4e-16   all-gathers 0   sharded: True
+   5. six CG iterations as one compiled while_loop, the scanned product inside, under shard_map:
+                                                           difference 1e-15   all-gathers 0
+D. entries, 1000 samples padded to 1024 (blocks of 32 on 4 devices), mask on the padded samples
+   one device, jit:  difference 7e-16;   without the mask 3e-02
+   shard_map:        difference 7e-16   all-gathers 0
+E. jets (order 2): the seed has the order axis before the sample axis
+   one device, jit:  difference 3e-16
+   shard_map:        difference 3e-16   all-gathers 0
+F. uniform layout (the kernels scan over sites inside the scan over blocks), against the unblocked model
+   one device, jit:  difference 3e-16
+   shard_map:        difference 3e-16   all-gathers 0
+
+=== order0_assessment.py
+PART 1.  The library today, on jax: the plain probe kind against the derivative kind at order 0
+  z   (point_forward)            results agree to 3e-16
+      plain kind         dot_general 32  transpose 4  broadcast_in_dim 2   | all 38   | XLA scratch   1480 bytes
+      derivative kind, 0 dot_general 36  concatenate 6  transpose 16  broadcast_in_dim 12  mul 8  add 4   | all 122   | XLA scratch   1680 bytes
+  Jp  (precompute + forward)     results agree to 3e-16
+      plain kind         dot_general 112  transpose 16  broadcast_in_dim 4  add 28   | all 160   | XLA scratch   7904 bytes
+      derivative kind, 0 dot_general 116  concatenate 14  transpose 60  broadcast_in_dim 26  mul 24  add 36   | all 396   | XLA scratch   9168 bytes
+  g   (precompute + transpose)   results agree to 2e-16
+      plain kind         dot_general 112  transpose 20  broadcast_in_dim 4  add 24   | all 160   | XLA scratch   7200 bytes
+      derivative kind, 0 dot_general 112  concatenate 34  transpose 56  broadcast_in_dim 58  mul 48  add 72   | all 588   | XLA scratch   9104 bytes
+
+PART 2.  The explicit form in Taylor coefficients, with an order group that is empty at order 0
+  order 0, numpy: jet-capable terms against plain-only terms, call by call
+      contractions: plain-only 124, jet-capable 124;  same operand and result shapes, in the same order: True
+      largest ndim of any operand or result: plain-only 3, jet-capable 3
+      results bitwise equal: True
+      against the library plain kind:  z 4e-16   Jp 2e-16   g 1e-16
+  order 0, jax: the traced programs
+      plain-only   dot_general 216  transpose 12  broadcast_in_dim 7  add 52   | all 287
+      jet-capable  dot_general 216  transpose 12  broadcast_in_dim 7  add 52   | all 287
+      the two traced programs are identical, character for character: True
+  order 2: against the library derivative kind (converting at the comparison only):  z 4e-16   Jp 3e-16   g 4e-16   | jax against numpy 5e-16   | 304 contractions
+  order 4: against the library derivative kind (converting at the comparison only):  z 4e-16   Jp 4e-16   g 3e-16   | jax against numpy 3e-16   | 452 contractions
+
+=== merged_frontend_prototype.py
+probe: shapes of zz[0] (N0 = 14)
+   W = ()       order 0: (14,)           order 3: (4, 14)           order-0 result is x.probe: True;  z3[t] * t! is x.probe_derivatives: 0e+00;  z3[0] is the order-0 result: 3e-16
+   W = (5,)     order 0: (5, 14)         order 3: (4, 5, 14)        order-0 result is x.probe: True;  z3[t] * t! is x.probe_derivatives: 0e+00;  z3[0] is the order-0 result: 3e-16
+   W = (2, 5)   order 0: (2, 5, 14)      order 3: (4, 2, 5, 14)     order-0 result is x.probe: True;  z3[t] * t! is x.probe_derivatives: 0e+00;  z3[0] is the order-0 result: 2e-16
+probe_corewise_transpose: the transpose is the adjoint of probe in the Taylor pairing
+   order 0: residual elm_shape (5, 14)       <c, d probe> = -23163.1824663190   <transpose(c), dx> = -23163.1824631392   rel diff 1e-10
+   order 3: residual elm_shape (4, 5, 14)    <c, d probe> = -20845.3197787628   <transpose(c), dx> = -20845.3197769101   rel diff 9e-11
+what a wrong call says
+   probe(x, ww, pp)                                 ValueError: pp was given but order is 0. A direction is read only when order >= 1; pass order, or drop pp.
+   probe(x, ww, order=2)                            ValueError: order is 2 but no direction pp was given. Pass pp, with the same shapes as ww.
+   probe_corewise_transpose(x, <jet residual>, ww)  ValueError: ztildes has 1 axis(es) beyond W+C+(Ni,), but order=0 calls for 0.
+
+=== tilde_jet_pairing_check.py
+order n = 4
+1. the pairing
+   beta(a, b) is the dot product of a with b reversed:            0e+00
+   beta is invariant, beta(a b, c) = beta(a, b c):                1e-16
+   beta is nondegenerate (its matrix is the flip, determinant +1)
+2. the transpose of a product
+   flip . (matrix of a)^T . flip is the matrix of a:              0e+00
+   so  (matrix of a)^T c  =  rev( rev(c) a ):                     3e-17
+   in natural order the same thing is a correlation, sum_{t>=j} a[t-j] c[t]:  2e-16
+   which is the non-positive part of a(s) c(1/s), c read as a polynomial in 1/s:  2e-16
+3. a chain of two products, z = (a x) y: sensitivities by beta against finite differences
+   x_tilde[t] is d f / d x[n-t]:                                  2e-10
+   the directional derivative is beta(x_tilde, dx):               4e-11
+   x_tilde[0] reads only the top residual: d x_tilde[0] / d resid = [False False False False  True]
+4. a constant (order-0) factor: the readout is the top coefficient
+   d f / d g  =  top( z_tilde a y ):                              2e-11
+5. in derivative coordinates (slot t holds the t-th derivative, t! times the coefficient)
+   the flip alone is not the transpose:      |flip N^T flip - N| / |N| = 0.6
+   it needs the weights t!(n-t)!:            |S N^T S^-1 - N| / |N|    = 0e+00
+6. a tilde jet as an ordinary Taylor jet: run the PLAIN transpose at each s, with the seed c(s) = sum_t resid[t] s^(n-t)
+   its Taylor coefficients 0..n are the tilde jet x_tilde:        4e-13
+   and d f / d g is its coefficient of s^n:                       2e-11
+
+=== type_catalog_check.py
+Part A. Arbitrary invertible changes of basis in N, X^D, X^U, A^L, A^R (condition numbers up to 4).
+        Each variable in the new bases against the catalog's rule applied to the old one:
+        plain     ( 7 variables: w, xi, mu, nu, eta, gamma, z)  worst relative difference 1e-15
+        dot       ( 9 variables: xi_dot, mu_dot, nu_dot, eta_dot, Jp, c_xi_dot, c_mu_dot, gamma_dot, c_eta_dot)  worst relative difference 1e-15
+        tilde     ( 8 variables: w_tilde, xi_tilde, mu_tilde, nu_tilde, eta_tilde, gamma_tilde, V_tilde, H_tilde)  worst relative difference 1e-15
+        tilde-dot ( 6 variables: xi_tilde_dot, mu_tilde_dot, gamma_tilde_dot, eta_tilde_dot, V_tilde_dot, H_tilde_dot)  worst relative difference 1e-15
+        the blocks are covectors on the cores: <V_tilde, V> + <H_tilde, H> is unchanged: 7e-16;  the same for Kp: 2e-15
+Part B. The one inner product: residual -> seed.  The residual is a covector of N; the seed is a vector of N.
+        N changed by an arbitrary invertible  matrix:  omega^2 r copied into the seed is off by 7e-01;  the misfit changes by 2e-01
+        N changed by an orthogonal            matrix:  omega^2 r copied into the seed is off by 9e-16;  the misfit changes by 1e-15
+Part C. The order factor, under s -> c s with c = 1.7 (the direction p becomes c p).
+        jets: slot t is multiplied by c^t                                   worst 4e-16
+        a functional in forward order: slot t is multiplied by c^-t (given), so <phi, z> is unchanged: 0e+00
+        dual jets, as stored (representing jets): slot t is multiplied by c^-n c^t worst 6e-16
+        dual jets, read in forward order: slot t is multiplied by c^-t            worst 6e-16
+        the blocks are real: unchanged                                           worst 4e-16
+
+=== arrow_type_check.py
+1. The whole program type checks with the maintainer's arrows: 424 contractions over network indices and
+   176 sums, in the 22 step functions, at order 2 with d = 4.  No error.
+   The numbers are those of the untyped program: largest difference 0e+00.
+2. Which way each variable flows (its leg at site or bond 1; "-" = the arrow leaves it = it flows WITH the arrow):
+   with the arrows:    w, xi, mu, nu, eta, w_tilde, xi_tilde, mu_tilde, nu_tilde, eta_tilde, c_xi_dot, c_mu_dot, xi_tilde_dot, mu_tilde_dot
+   against the arrows: gamma, z, xi_dot, mu_dot, nu_dot, eta_dot, Jp, gamma_tilde, gamma_dot, c_eta_dot, gamma_tilde_dot, eta_tilde_dot
+   each block fits its hole (the legs of the block are the legs of the direction, every sign flipped):
+      V_tilde      (XU1-, N1-; order real)          fits V      True
+      H_tilde      (AL1-, XD1-, AR2-; order real)   fits H      True
+      V_tilde_dot  (XD1+, N1-; order real)          fits B_dot  True
+      H_tilde_dot  (AL1-, XD1-, AL2+; order real)   fits G_dot  True
+3. What the checker rejects
+   the residual put back as it is:          xi_term(D, r)               REJECTED: xi_term: on edge N1 both legs have sign +: the arrow points the wrong way
+   weights applied, order not reversed:     xi_term(D, omega^2 r)       REJECTED: xi_term: an operand's order leg is 'out': it cannot enter the product
+   mu swept through an R core:              mu_term(mu, R, xi)          REJECTED: mu_term: contraction across two different edges, AL1 and AR1
+   nu swept through an L core:              nu_term(L, xi, nu)          REJECTED: nu_term: contraction across two different edges, AR2 and AL2
+   gamma used where nu is wanted:           eta_term(mu, U, gamma)      REJECTED: eta_term: contraction across two different edges, AL2 and AR2
+   a bond variable from the wrong bond:     mu_term(mu[2], L[1], xi[1]) REJECTED: mu_term: contraction across two different edges, AL2 and AL1
+   a sum of mu and mu_dot:                  mu + mu_dot                 REJECTED: sum of unlike types: (AL1-; order in) and (AR1+; order in)
+
+=== gauge_arrow_check.py
+D  down_orthogonalize_tucker_cores  sum over o       : 9e-16
+L  left_orthogonalize_tt_cores      sum over a, i    : 4e-16   (all cores but the last)
+R  right_orthogonalize_tt_cores     sum over i, b    : 9e-16   (all cores but the first)
+   the known exceptions: the last L core is off by 2e+03, the first R core by 2e+03 (they carry the norm)
+U  up_orthogonalize_tt_cores        sum over a, b    : 7e-16
+
+=== tilde_multiplier_check.py
+order n = 3.  dF when the dot variable is perturbed, against the pairing with the tilde variable
+   perturbed  multiplier top coefficient        slot by slot (wrong)  
+   eta_dot    xi_tilde   relative error 1e-11   relative error 3e+01  
+   xi_dot     eta_tilde  relative error 5e-15   relative error 7e-01  
+   nu_dot     mu_tilde   relative error 3e-13   relative error 2e+00  
+   mu_dot     nu_tilde   relative error 6e-13   relative error 2e-01  
+
+=== bad_scaling_example.py
+The fit: Newton from the zero tensor, default settings.  Test error = relative error of the tensor applied
+to 400 fresh samples, in the ORIGINAL coordinates (a scalar, so it does not depend on any scaling).
+Case 1: 8 samples.  The higher orders of the jets are needed.
+   The data as given.  Norm of each block (rows: modes, columns: orders 0..3):
+      [[1.7e+03 3.8e+01 8.5e-01 8.5e-03]
+       [1.4e+03 2.0e+01 5.1e-01 5.5e-03]
+       [1.1e+03 2.2e+01 3.3e-01 4.8e-03]
+       [1.9e+03 2.4e+01 4.9e-01 4.5e-03]]
+   largest / smallest block: 4e+05.   The coordinate scales of the samples span 1e+04.
+   Read off the data: a factor of 64 on the directions (they were made 100 times too short), and
+   coordinate scales within a factor 1.6 of the true ones.
+   preparation                                        fit
+   as given                                           bad   (test error above 0.1)
+   equalizing weight only                             bad   (test error above 0.1)
+   coordinates only                                   bad   (test error above 0.1)
+   coordinates, then the direction                    good  (test error below 1e-6)
+   coordinates, then equalizing weight                good  (test error below 1e-6)
+   coordinates and direction, then equalizing weight  good  (test error below 1e-6)
+   Blocks after the full preparation: largest / smallest 2.9.
+Case 2: 200 samples.  The order-0 data determine the tensor alone.
+   The data as given.  Norm of each block (rows: modes, columns: orders 0..3):
+      [[1.9e+04 2.9e+02 6.2e+00 1.1e-01]
+       [1.1e+04 2.1e+02 4.9e+00 7.2e-02]
+       [9.6e+03 1.5e+02 3.0e+00 4.7e-02]
+       [1.4e+04 2.0e+02 4.6e+00 8.8e-02]]
+   largest / smallest block: 4e+05.   The coordinate scales of the samples span 1e+04.
+   Read off the data: a factor of 56 on the directions (they were made 100 times too short), and
+   coordinate scales within a factor 1.1 of the true ones.
+   preparation                                        fit
+   as given                                           bad   (test error above 0.1)
+   equalizing weight only                             bad   (test error above 0.1)
+   coordinates only                                   good  (test error below 1e-6)
+   coordinates, then equalizing weight                good  (test error below 1e-6)
+   Blocks after the full preparation: largest / smallest 1.6.
+
