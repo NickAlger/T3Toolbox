@@ -2866,28 +2866,31 @@ class TestSwitchNewton(unittest.TestCase):
         """T9 at one structure: jax in, jax out; after a pure Gauss-Newton trust-region run there, a switch_tau=0 run
         compiles no CG program (the Gauss-Newton view's structure is a Gauss-Newton model's), a firing run at most one
         (the exact phase's), a second firing run none; and (ragged) the eager-jax run equals the jit run: the same
-        switch row, the objectives to 1e-9 relative."""
+        switch row, the objectives to 1e-9 relative. Every run starts at the test module's ``_untied_radius``, not the
+        default Δ0: there row 0's boundary stop is a rounding tie, which eager and jit broke differently on some CI
+        machines (switched_at 6 against 7)."""
         cg = bopt._jitted(bopt._cg_core, (4,))
         if not hasattr(cg, '_cache_size'):
             self.skipTest("this jax has no jit _cache_size()")
         problem, x0 = self.cases()._switch_case(layer, geometry)
-        bopt.newton_cg(problem, x0, max_newton=3, step_control='trust_region', use_jit=True)
+        kw = dict(tr_radius0=self.cases()._untied_radius(problem, x0), use_jit=True)
+        bopt.newton_cg(problem, x0, max_newton=3, step_control='trust_region', **kw)
         size = cg._cache_size()
-        x, stats = bopt.newton_cg(problem, x0, max_newton=3, hessian='switch', switch_tau=0.0, use_jit=True)
+        x, stats = bopt.newton_cg(problem, x0, max_newton=3, hessian='switch', switch_tau=0.0, **kw)
         self.assertEqual(cg._cache_size(), size, 'the Gauss-Newton phase compiled another CG program')
         self._leaves(x)
         self.assertTrue(any(row['switch_e_n'] is not None for row in stats['history']))
-        x, stats = bopt.newton_cg(problem, x0, max_newton=16, hessian='switch', use_jit=True)
+        x, stats = bopt.newton_cg(problem, x0, max_newton=16, hessian='switch', **kw)
         self._leaves(x)
         self.assertIsNotNone(stats['switched_at'])
         self.assertLessEqual(cg._cache_size() - size, 1, 'the switch compiled more than the exact CG program')
         size = cg._cache_size()
-        again = bopt.newton_cg(problem, x0, max_newton=16, hessian='switch', use_jit=True)
+        again = bopt.newton_cg(problem, x0, max_newton=16, hessian='switch', **kw)
         self.assertEqual(cg._cache_size(), size, 'a second switch run compiled a CG program')
         self.assertEqual(again[1]['switched_at'], stats['switched_at'])
         if layer == 'ragged':
             jx, jproblem = bopt._prepare_jit_inputs(True, x0, problem)
-            _, eager = bopt.newton_cg(jproblem, jx, max_newton=16, hessian='switch')
+            _, eager = bopt.newton_cg(jproblem, jx, max_newton=16, hessian='switch', tr_radius0=kw['tr_radius0'])
             self.assertEqual(eager['switched_at'], stats['switched_at'])
             self.assertEqual(len(eager['losses']), len(stats['losses']))
             for a, b in zip(eager['losses'], stats['losses']):

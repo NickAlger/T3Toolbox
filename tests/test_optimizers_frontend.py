@@ -498,7 +498,8 @@ class TestLeastSquaresProblemAndKeywords(unittest.TestCase):
                 kwargs = {}
             else:
                 kwargs = dict(timing=value)
-            with self.subTest(timing=value):
+            with self.subTest(timing=value if value is None else bool(value),     # builtin labels: xdist (execnet)
+                              numpy_bool=isinstance(value, np.bool_)):          # cannot ship numpy 1.x's np.bool_
                 with mock.patch.object(bopt, 'newton_cg', side_effect=lambda problem, x0, **kw: (x0, {})) as spy:
                     topt.newton_cg(t3m.MANIFOLD, 'apply', self.ww, self.b, self.x0, **kwargs)
                 if forwarded:

@@ -1841,6 +1841,29 @@ _ASCENT = lambda p, rhs: cw.corewise_scale(rhs, -1.0)          # p = +g: the slo
 _OVERSHOOT = lambda p, rhs: cw.corewise_scale(p, 4.0)          # four Newton steps: Armijo backtracks
 
 
+def _objective_stub_at(n, change):
+    """Patch ``Problem.objective`` so that its ``n``-th call (1-based) returns ``change(f)`` in place of ``f``. Under the
+    trust region ``newton_cg`` calls it once per row, on the trial point, so the ``n``-th call is row ``n - 1``'s trial."""
+    real, calls = opt.Problem.objective, []
+
+    def stub(self, x_cores, sample=None, data=None):
+        calls.append(1)
+        f = real(self, x_cores, sample, data)
+        return change(f) if len(calls) == n else f
+    return unittest.mock.patch.object(opt.Problem, 'objective', stub)
+
+
+def _untied_radius(problem, x0):
+    """Half the default ``tr_radius0`` (the Gauss-Newton Cauchy length ``‖g‖³ / ⟨g, H_GN g⟩``), for a trust-region run
+    whose rows a test depends on. Under Gauss-Newton the default is a TIE: CG's first iterate is the Cauchy point, whose
+    length IS the default radius, so whether row 0 stops on the boundary (and so whether the radius doubles for row 1)
+    is decided by rounding -- it differs between machines (BLAS kernels) and between eager and jit, and the whole
+    trajectory with it. At half the default that iterate is twice the radius: a boundary stop by a factor of 2."""
+    lm = problem.local_model(x0)
+    g = lm.gradient
+    return 0.5 * opt._initial_radius(lm, g, float(problem.geom.inner(g, g)) ** 0.5)
+
+
 class _NoTwoHoleKind(bfit.ProbeDerivativesKind):
     """A kind that re-declares the marked ``corewise_hessian`` stub: it works with Gauss-Newton only."""
     corewise_hessian = bfit.SamplingKind.corewise_hessian
@@ -1968,24 +1991,28 @@ class TestSwitchNewton(unittest.TestCase):
         return unittest.mock.patch.object(opt, '_switch_sample', always)
 
     def reset_runs(self, **kw):
-        """T4's runs, each a {name: (stats, the row its condition is on)}: a rejected trust-region trial (an objective
-        offset the model does not see: three accepted steps, then rejections), an Armijo backtrack (CG's second step
-        quadrupled), the -g fallback under each step control (CG's second step an ascent), a forced 'accept' (Armijo
-        cannot be met) and a countable step that CG stopped on the trust-region boundary."""
+        """T4's runs, each a {name: (stats, the row its condition is on)}: a rejected trust-region trial (row 3's trial
+        objective raised by f(x0), so that trial is an ascent from any accepted point: three accepted steps, then a
+        rejection), an Armijo backtrack (CG's second step quadrupled), the -g fallback under each step control (CG's
+        second step an ascent), a forced 'accept' (Armijo cannot be met) and a countable step that CG stopped on the
+        trust-region boundary. Each event is driven, not found on a trajectory: the trust-region runs start at
+        ``_untied_radius`` (half the default Δ0), so rows 0 and 1 stop on the boundary by a factor, not by rounding."""
         base, x0 = _pd_problem(0), _rank2_start()
-        offset = _OffsetProblem(base.geom, base.kind, base.sample, base.data, None, 0.05 * float(base.objective(x0)))
-        run = lambda problem, **more: opt.newton_cg(problem, x0, hessian='switch', **more, **kw)[1]
+        f0, radius = float(base.objective(x0)), _untied_radius(base, x0)
+        run = lambda **more: opt.newton_cg(base, x0, hessian='switch', **more, **kw)[1]
+        with _objective_stub_at(4, lambda f: f + f0):                 # f(trial) + f(x0) - f(x) > 0 once f(x) < f(x0)
+            rejected = run(max_newton=6, tr_radius0=radius)
         with _cg_stub_at(2, _OVERSHOOT):
-            backtrack = run(base, max_newton=4, step_control='line_search')
+            backtrack = run(max_newton=4, step_control='line_search')
         with _cg_stub_at(2, _ASCENT):
-            fallback_tr = run(base, max_newton=4)
+            fallback_tr = run(max_newton=4, tr_radius0=radius)
         with _cg_stub_at(2, _ASCENT):
-            fallback_ls = run(base, max_newton=4, step_control='line_search')
-        runs = {'rejected trial': (run(offset, max_newton=6), 3), 'backtrack': (backtrack, 1),
+            fallback_ls = run(max_newton=4, step_control='line_search')
+        runs = {'rejected trial': (rejected, 3), 'backtrack': (backtrack, 1),
                 'fallback, trust region': (fallback_tr, 1), 'fallback, line search': (fallback_ls, 1),
-                'forced accept': (run(base, max_newton=2, c_armijo=10.0, step_control='line_search',
+                'forced accept': (run(max_newton=2, c_armijo=10.0, step_control='line_search',
                                       on_line_search_failure='accept'), 0),
-                'boundary': (run(base, max_newton=3), 1)}
+                'boundary': (run(max_newton=3, tr_radius0=radius), 1)}
         h = {name: stats['history'] for name, (stats, _) in runs.items()}
         self.assertTrue(h['rejected trial'][2]['tr_accepted'] and h['rejected trial'][3]['tr_accepted'] is False)
         self.assertTrue(h['backtrack'][1]['ls_steps'] > 0 and not h['backtrack'][1]['ls_failed'])
