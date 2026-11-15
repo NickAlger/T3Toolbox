@@ -111,7 +111,7 @@ bit-identical; names, letters and messages change. Upgrade notes: `docs/release_
   aside). User guide: `docs/fitting_and_optimization.md` §4.13.
   - `NewtonInfo.timing`: a `NewtonTiming` per row (`window`, `seconds` and `compile_seconds` as `PhaseSeconds`,
     `trials`, `accepted_retraction`; row 0 adds the one-offs), `None` when off; not a history field. Both records are
-    in `backend.optimizers`. (`PhaseSeconds.tracking` is reserved for a Gauss-Newton-to-exact switch.)
+    in `backend.optimizers`. (`PhaseSeconds.tracking` times the `hessian='switch'` tracking product, below.)
   - `stats['timing']`, a plain dict: `total`, `setup`, `alignment`, `alignment_passes`, `reference_passes`,
     `last_callback`, `phases`, `compile`, `cg_per_iteration`, `rows`; `total` is the sum of the setup, the alignment,
     the rows' windows and the last callback.
@@ -123,8 +123,46 @@ bit-identical; names, letters and messages change. Upgrade notes: `docs/release_
   - `backend.common.tree_block_until_ready(tree)`: wait for every jax array in a pytree (a no-op without one).
   - **Cost.** Every phase waits for its results, which serializes a jax run. Measured on a laptop CPU (AMD Ryzen 7
     3700U; numpy 2.4, jax 0.10.2 in x64), timing on against off differed by −4 % to +2 % on numpy, eager jax and
-    `use_jit`, ragged and uniform, at d = 3 and d = 6: within the run-to-run noise. A GPU overlaps more of the host's
-    work with the device's and can lose more.
+    `use_jit`, ragged and uniform, at d = 3 and d = 6: within the run-to-run noise. On an A100 GPU the same cases and
+    a downstream level differed by −1.4 % to +3.1 %, also within the noise.
+- **Starting with Gauss-Newton and switching to the exact Hessian: `newton_cg(hessian='switch')`** (backend and
+  frontend). The run starts with Gauss-Newton and switches to the exact Hessian for good once the exact model has
+  predicted the objective clearly better: after each countable step (the full model step taken: an accepted
+  trust-region trial, or an Armijo step with `α = 1`), one curvature product gives the exact model's miss
+  `e_N = |Δf − m_N(s)|` beside Gauss-Newton's `e_GN = |Δf − m_GN(s)|`, and `switch_k` consecutive steps with
+  `e_N < switch_tau·e_GN` switch, from the next point on (defaults: four times better, twice running). A miss, a
+  rejected trust-region trial, a line-search backtrack, the `−g` fallback, a step forced by
+  `on_line_search_failure='accept'`, or two errors at the objective's rounding level (`1000·ε·(‖ω⊙y‖·‖ω⊙r‖ + |f|)`,
+  `ε` the residual dtype's) resets the count. The default step control is the trust region, whose radius carries
+  across the switch; each call starts in Gauss-Newton. Before the switch the run is the Gauss-Newton run with the
+  same step control, step for step; after it, the exact run resumed at that point. The rule comes from the
+  maintainer's nicks-optimizers (https://github.com/NickAlger/nicks-optimizers). User guide:
+  `docs/fitting_and_optimization.md` §4.14.
+  - Four keyword-only options after `timing`, each `None` by default and a structural error without
+    `hessian='switch'`: `switch_tau` (`0.25`; in `[0, 1)`; `0` tracks and never switches), `switch_k` (`2`; an int
+    `≥ 0`; `0` is exact from iteration 0), `switch_cg_forcing_power` (`1.0`, the forcing power from the switch on;
+    `cg_forcing_power` stays the Gauss-Newton phase's) and `switch_track` (`'countable'`, or `'all'`: the product on
+    every Gauss-Newton-phase step, the non-countable ones reported but never counted). An option the run would not
+    read raises too (`switch_tau` or `switch_track` with `switch_k=0`; `switch_k` or `switch_cg_forcing_power` with
+    `switch_tau=0`).
+  - The rows: `NewtonInfo.hessian` is now the row's model (`'gauss_newton'` or `'exact'`; the run's mode, as before,
+    outside switch mode). Five new fields, `switch_e_gn`, `switch_pKp`, `switch_e_n`, `switch_count` and
+    `switch_fired`, are `None` outside switch mode and in `stats['history']` only in switch mode. On a
+    Gauss-Newton-phase row `lm` is the Gauss-Newton view of the point's exact-mode build, and the row equals the pure
+    Gauss-Newton run's row apart from the `switch_*` fields and `wall_time`.
+  - `stats`, in switch mode only: `hessian` (`'switch'`), `switch_track` and `switched_at` (the index of the first
+    row whose model is exact; `None` if the switch never fired).
+  - The display: each Gauss-Newton-phase step row's header ends with `sw <e_N/e_GN> ×<count>`, the switching row
+    with `⇒ exact`. With `timing=True` the tracking product is the `tracking` phase (the `track` cell).
+  - `least_squares_problem(hessian='switch')` sizes `chunk_size='auto'` as `'exact'`. `Problem.local_model` and the
+    `fitting` `*_model` factories keep their two modes (a model has one Hessian).
+  - Cost: each Gauss-Newton-phase point is built once, in exact mode (one misfit transpose, as in either pure mode,
+    plus the curvature data), and each tracked step adds one curvature product; under `use_jit` CG compiles at most
+    two programs per call, the Gauss-Newton one shared with a pure Gauss-Newton run. With `hessian` other than
+    `'switch'` every run is bitwise unchanged.
+  - Messages: the invalid-`hessian` messages of `newton_cg` and `least_squares_problem` list `'switch'`, and
+    `newton_cg`'s `curvature_damping` with Gauss-Newton now reads "... only meaningful with hessian='exact' or
+    'switch'".
 
 ## [2026.4.0] — 2026-11-10
 

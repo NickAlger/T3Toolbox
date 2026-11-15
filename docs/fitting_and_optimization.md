@@ -112,8 +112,9 @@ True
   `val_sample`/`val_data` to add a validation column. The records are also returned in
   `stats['diagnostics']`. The table layout follows the kind's axes — plain probe has modes in columns,
   `probe_derivatives` has modes × orders. Worked demo (both layouts): `examples/fit_probe_display.py`.
-  An exact-Hessian run adds its trust-region and curvature columns (§4.12), and `timing=True` a `time` line per row
-  and a closing table (§4.13). Backend users get the identical display via
+  An exact-Hessian run adds its trust-region and curvature columns (§4.12), a `hessian='switch'` run an `sw` segment
+  on its Gauss-Newton-phase rows (§4.14), and `timing=True` a `time` line per row and a closing table (§4.13).
+  Backend users get the identical display via
   `backend.optimizer_display.make_newton_display` + `backend.optimizers.newton_cg(..., callback=...)`.
 - **Kind** is a string: `'apply'` / `'entries'` / `'probe'`, or `'apply_derivatives'` /
   `'entries_derivatives'` / `'probe_derivatives'`.
@@ -132,6 +133,8 @@ True
 - **`hessian='exact'`** (`newton_cg` only) solves with the exact Riemannian Hessian under a trust region
   instead of Gauss-Newton under a line search — the superlinear Newton tail on a nonzero-residual fit
   (§4.12).
+- **`hessian='switch'`** (`newton_cg` only) starts with Gauss-Newton and switches to the exact Hessian inside the
+  run, once the exact model has predicted the objective clearly better (§4.14).
 
 ### 2.2 Build the local model (roll your own optimizer)
 
@@ -550,7 +553,8 @@ cold zero start, or the first steps after a zero-padded restart — the exact He
 the trust region limits the early steps, and it can settle in a different local minimum than Gauss-Newton
 would (measured downstream from a zero-padded restart: a verified minimum about 12 % above Gauss-Newton's).
 A Gauss-Newton warm start followed by exact steps is the natural pattern — the schedule is yours to choose
-(every knob is a `newton_cg` keyword, per call).
+(every knob is a `newton_cg` keyword, per call), or `hessian='switch'` picks the moment to change inside one call
+(§4.14).
 
 ```python
 >>> np.random.seed(1)
@@ -697,14 +701,14 @@ last callback tile the run (the fourth); the window is the same float as the row
 | `sweep` | the sampling kind's sweep at the frame (`kind.precompute`) | as `frame` |
 | `companion` | the geometry's per-frame data (`geom.precompute`) | as `frame` |
 | `residual` | the residual `S(x) − y` | as `frame` |
-| `curvature` | the exact Hessian's curvature data (`geom.curvature_precompute`) | Gauss-Newton; as `frame` |
-| `gradient` | the misfit transpose `Π 𝒥ᵀ r` (in both modes; exact mode runs it inside the build), the objective's parts, the gradient, `‖g‖`, the lift diagnostics | as `frame` |
+| `curvature` | the exact Hessian's curvature data (`geom.curvature_precompute`): with `hessian='exact'`, and with `'switch'` on every build, the Gauss-Newton phase's included (§4.14) | `hessian='gauss_newton'`; as `frame` |
+| `gradient` | the misfit transpose `Π 𝒥ᵀ r` (in every mode; exact and switch mode run it inside the build), the objective's parts, the gradient, `‖g‖`, the lift diagnostics | as `frame` |
 | `reference` | the reference `‖g0‖` (`g0_reference`): one sweep and transpose for `'zero'`, the alignment loop for `'cone'` | every row but row 0 |
 | `cg` | the CG solve (under `use_jit`, one compiled call) | the converged row |
 | `forms` | the step's scalars: the first trust radius, the slope, the descent fallback, `pᵀHp`, `‖p‖` | the converged row |
 | `trial_retraction` | every trial's retraction (the line search may try several; the trust region tries one) | the converged row |
 | `trial_objective` | every trial's objective | the converged row |
-| `tracking` | reserved for a Gauss-Newton-to-exact switch | always, for now |
+| `tracking` | `hessian='switch'`: the tracking product `⟨p, Lᵀ K_N L p⟩` on a tracked Gauss-Newton-phase row (its `switch_pKp`, §4.14) | every other row |
 | `remainder` | what no phase covers: the forcing term, `‖x‖`, the trust region's data norm, bookkeeping | never |
 
 A row's record (`NewtonInfo.timing`, a `NewtonTiming`; `stats['timing']['rows']` holds them as dicts) adds `window`,
@@ -776,9 +780,10 @@ iter  5 | obj 6.024e-02  ‖g‖ 2.65e-08 (4.7e-13·g₀) | converged (‖g‖ �
 
 `model` is the build with its parts in brackets, `grad` the gradient phase, `ref` the reference with the cone loop's
 pass count, `cg` its seconds and its seconds per CG iteration, `trials` the retractions and objectives with the trial
-count (on a backtracked row, `accepted` is the accepted trial's retraction), `cb` the previous row's callback, `rest`
-the remainder; row 0 adds `setup` and `align` with its pass count, and a jax run a `compile` cell (the phases that
-compiled, or `0`). In this run CG took two thirds of the rows' time and row 0's `'cone'` reference a sixth.
+count (on a backtracked row, `accepted` is the accepted trial's retraction), `track` the switch's tracking product
+(§4.14), `cb` the previous row's callback, `rest` the remainder; row 0 adds `setup` and `align` with its pass count,
+and a jax run a `compile` cell (the phases that compiled, or `0`). In this run CG took two thirds of the rows' time
+and row 0's `'cone'` reference a sixth.
 
 **What it costs.** Every phase ends by waiting for its results (`common.tree_block_until_ready`), because jax
 dispatches asynchronously: without the wait, a phase's work would be charged to whichever later phase first needed
@@ -800,8 +805,12 @@ timing costs nothing measurable. The waits themselves cost 0.1 % of a numpy run 
 example), and on a CPU, jax's dispatch of these small operations overlaps little with the host's work, so there is
 little to lose.
 
-A GPU overlaps far more of the host's work with the device's than a laptop CPU does, so it loses more to the waits:
-measure on the GPU before reading its split.
+On a GPU (an A100-SXM4-80GB, jax 0.10.2 in x64, the same protocol) the two cases above and one level of a downstream
+fit (dof 12,352) measured −1.4 % to +3.1 %, jit and eager, each within its run-to-run spread (up to 10 %): the waits
+cost nothing measurable there either. The small cases are dispatch-bound on the GPU and run slower than on the laptop
+(the example, uniform `use_jit`: 1.62 s against 0.82 s), with CG at 1–4 ms per iteration and the eager phases around
+it dominating the split, while on the downstream level CG takes 66 % of the rows' time. Cold runs compile a little
+longer than on the laptop (the example under `use_jit`: 43 s ragged and uniform, against 31 and 36 s).
 
 **Jit or eager, as the compile column shows it.** On a cold run (empty program caches) the compile wait is most of the
 run, and where it sits tells jit from eager. The example above on jax (x64), `use_jit=True`, cold and then again at
@@ -862,6 +871,254 @@ compiles and memory.
 - The frontend's own setup (building the problem, reducing `x0` and `padded_from` to minimal ranks, building the
   display) runs before the backend's clock starts: `stats['timing']` describes the backend call, the same for a
   raw-`.data` user.
+
+### 4.14 Starting with Gauss-Newton and switching to the exact Hessian
+
+Gauss-Newton is cheap per step but converges only linearly on a nonzero-residual fit; the exact Hessian (§4.12) gives
+the superlinear tail but costs 3–4× per apply and is indefinite far from a minimizer. A Gauss-Newton start followed by
+exact steps is the natural pattern, and `newton_cg(..., hessian='switch')` picks the moment inside one call: it starts
+with Gauss-Newton, checks after each clean step whether the exact model would have predicted the actual change of the
+objective better, and switches to the exact Hessian for good once it clearly would have. The frontend and the backend
+take the same keywords.
+
+**The two models.** Along a step `s` from `x` (`s = αp` on the line search, `s = p` in the trust region, where
+`α = 1`), each quadratic model predicts the change of the objective:
+
+```
+Δf       = f(R_x(s)) − f(x)                    the actual change                (the row's delta_f)
+m_GN(s)  = ⟨g, s⟩ + ½⟨s, H_GN s⟩               Gauss-Newton's predicted change  (the row's α·slope + ½α²·pHp)
+m_N(s)   = m_GN(s) + ½⟨s, Π Lᵀ K_N L Π s⟩      the exact model's                (one curvature product)
+```
+
+with `K_N = K_{Aᵀω²r} − K_{grad f}` and `L` the lift of §4.12 (on a corewise geometry `L = I` and
+`K_N = K_{Aᵀω²r}`). Gauss-Newton's prediction is already on the history row; the exact model's costs one curvature
+product, the **tracking product**.
+
+**The rule.**
+
+```
+e_GN   = |Δf − m_GN(s)|                        how far Gauss-Newton missed
+e_N    = |Δf − m_N(s)|                         how far the exact model missed
+hit    : e_N < τ·e_GN on a countable step      τ = switch_tau, default 0.25
+switch : k consecutive hits                    k = switch_k, default 2; for good, from the next point on
+```
+
+In words, with the defaults: **the exact model must have predicted the objective at least four times better than
+Gauss-Newton, on two clean steps in a row.** Why it works: near a minimizer with a nonzero residual, along a
+second-order retraction, `e_GN = ½|⟨s, Π Lᵀ K_N L Π s⟩| + O(‖s‖³)` (the term Gauss-Newton drops) while
+`e_N = O(‖s‖³)`, so `e_N / e_GN → 0`; in the transient far from it the ratio is about 1 or more, and a threshold well
+below 1, required on consecutive steps, rarely fires early. Equivalently, with `δ = Δf − m_GN(s)` (Gauss-Newton's
+signed miss) and `c = m_N(s) − m_GN(s)` (the curvature term's prediction of it), a hit is `|δ − c| < τ·|δ|`: the
+curvature term predicted Gauss-Newton's own error to a relative accuracy `τ`.
+
+**What counts, what resets.** A Gauss-Newton-phase step is **countable** iff it took the full model step: accepted,
+not the `−g` fallback, and either an accepted trust-region trial or an Armijo step with `α = 1`. Only countable steps
+add to the count; anything that suggests the local quadratic model went wrong starts the evidence over:
+
+| row | the count |
+|---|---|
+| countable, a hit | plus one |
+| countable, a miss, or both errors at the rounding floor (below) | reset to 0 |
+| a rejected trust-region trial; a line-search backtrack (`α < 1`); the `−g` fallback (CG's step was not a descent direction); a step forced by `on_line_search_failure='accept'` | reset to 0 (by default without a tracking product) |
+| CG stopped on the trust region's boundary, truncated, or at its iteration cap | counted like any step: both models are judged at the step actually taken |
+| the converged row | unchanged (no step) |
+
+Tracking starts at iteration 0, with no delay.
+
+**The rounding gate.** `Δf` is a difference of two objective values, so below the objective's floating-point
+resolution neither error can be measured. The gate's floor is a hundred times the trust region's `objective_floor`
+threshold (§4.12):
+
+```
+resolution  = ε·(‖ω⊙y‖·‖ω⊙r‖ + |f|)          ε: the residual dtype's machine epsilon
+floor       = 100 · 10 · resolution          the trust region's objective_floor is at 10 · resolution
+informative = e_GN and e_N finite, and max(e_GN, e_N) > floor
+hit         = informative and e_N < τ·e_GN
+```
+
+Both errors at the floor is uninformative, a reset; `e_GN` at the floor with `e_N` above it is a miss, also a reset;
+`e_N` at the floor with `e_GN` well above it is a hit. In float32 (`use_jit=True` without jax x64) the floor is
+`1.2e-4·(‖ω⊙y‖·‖ω⊙r‖ + |f|)`, so only large early steps are informative and the switch rarely fires: **enable jax x64
+with `hessian='switch'`.**
+
+**At and after the switch.** The switch is one-way and lands on a fresh linearization: only accepted steps count, so
+the row that switches is followed by a new point, which is built in exact mode (no model changes in the middle of a
+point). Before the switch the run is the Gauss-Newton run with the same step control, step for step (`ρ` and the
+radius rules read `m_GN`); from the switch on it is the exact run resumed at that point (`ρ` reads `m_N`). The trust
+radius carries over, `Δ0` and the cap `10⁴·Δ0` stay iteration 0's, and the references `‖g0‖` are resolved once, at
+iteration 0, for both phases (§5). The CG forcing power is `cg_forcing_power` (default `0.5`) before the switch and
+`switch_cg_forcing_power` (default `1.0`, the exact Hessian's q-quadratic tail) after it. Each `newton_cg` call starts
+in Gauss-Newton with a count of 0: nothing carries across calls.
+
+**The options.** Four keyword-only options after `timing`, each `None` by default and each a structural error, raised
+before any work, when set without `hessian='switch'`:
+
+| keyword | default | meaning |
+|---|---|---|
+| `hessian` | `'gauss_newton'` | `'switch'` (case-insensitive): Gauss-Newton, then the exact Hessian |
+| `switch_tau` | `None` = `0.25` | the hit threshold `τ`, a number in `[0, 1)`; `0` tracks and never switches (the Gauss-Newton run with the same step control, bit for bit, plus the tracking) |
+| `switch_k` | `None` = `2` | the consecutive hits `k` that switch, an int `≥ 0`; `0` is exact from iteration 0 (the exact run with `cg_forcing_power=switch_cg_forcing_power`) |
+| `switch_cg_forcing_power` | `None` = `1.0` | the CG forcing power from the switch on; `cg_forcing_power` stays the Gauss-Newton phase's |
+| `switch_track` | `None` = `'countable'` | the steps the tracking product runs on: the countable ones, or `'all'` (case-insensitive), every Gauss-Newton-phase step, which reports `e_N` on the non-countable steps too, at one product each, and moves no count, so the switch fires at the same row |
+
+An option the run would not read raises too: `switch_tau` or `switch_track` with `switch_k=0` (nothing is tracked),
+`switch_k` or `switch_cg_forcing_power` with `switch_tau=0` (nothing switches). The rest is exact mode's: the kind and
+the geometry must implement the exact Hessian (checked at the call), the default step control is the trust region
+(the line search works too), `curvature_damping` applies to every exact build, the tracking ones included, and
+`tr_radius0` sets the first radius. A local model has one Hessian, so `Problem.local_model` and the `fitting`
+`*_model` factories do not take `'switch'`; `least_squares_problem(hessian='switch')` sizes `chunk_size='auto'` as
+`'exact'` ([`chunking.md`](chunking.md)).
+
+**A worked run.** §4.13's problem at rank 2 (a noisy rank-3 target, probe derivatives of order 1; `x_old` is five
+Gauss-Newton steps from a random start), with the warm-start reference, so the stop is relative to `x_old`'s own
+gradient:
+
+```python
+>>> warm = dict(order=1, max_newton=40, g0_reference='warm_start')
+>>> _, sw = topt.newton_cg(t3m.MANIFOLD, 'probe_derivatives', probes, noisy, x_old, hessian='switch', **warm)
+>>> sw['hessian'], sw['switch_track'], sw['stop_reason'] in ('gradient', 'objective_floor')
+('switch', 'countable', True)
+>>> j = sw['switched_at']                                     # the first row whose model is exact
+>>> [row['hessian'] for row in sw['history'][j - 1:j + 1]]    # the row that switched, and the next
+['gauss_newton', 'exact']
+>>> fired = sw['history'][j - 1]
+>>> fired['switch_fired'], fired['switch_count'], fired['switch_e_n'] < 0.25 * fired['switch_e_gn']
+(True, 2, True)
+>>> fired['pKp'], fired['switch_pKp'] is not None             # the tracking product is not in the row's pHp
+(None, True)
+>>> _, gntr = topt.newton_cg(t3m.MANIFOLD, 'probe_derivatives', probes, noisy, x_old, step_control='trust_region',
+...                          **warm)                          # Gauss-Newton under the same step control
+>>> sw['newton_steps'] < gntr['newton_steps'] / 2
+True
+
+```
+
+The same run with `verbose=True` on the maintainer's laptop (numpy; the header lines only, the error tables left out;
+this block is not checked):
+
+```
+iter  0 | obj 2.547e+05  ‖g‖ 9.84e+02 (1.0e+00·g₀) | CG 1/200 tol 4.9e+02 resid 2.3e+02 ✓ | TR Δ 2.51e+00 ✓ ‖Δx‖/‖x‖ 1.9e-02 | Δf -1.07e+03 ρ 0.86 | 0.03s | sw 1.3e-02 ×1
+iter  1 | obj 2.537e+05  ‖g‖ 4.17e+02 (4.2e-01·g₀) | CG 1/200 tol 2.1e+02 resid 1.2e+02 ✓ | TR Δ 2.51e+00 ✓ ‖Δx‖/‖x‖ 8.7e-03 | Δf -2.03e+02 ρ 0.85 | 0.03s | sw 3.0e-03 ×2 ⇒ exact
+iter  2 | obj 2.535e+05  ‖g‖ 2.43e+02 (2.5e-01·g₀) | CG 2/200 tol 6.0e+01 resid 1.9e+01 ✓ | TR Δ 2.51e+00 ✓ ‖Δx‖/‖x‖ 7.2e-03 | Δf -9.75e+01 ρ 1.00 | 0.05s | κ -3.5e-01 σ 5.8e+01 ε 1.3e-04
+iter  3 | obj 2.534e+05  ‖g‖ 1.87e+01 (1.9e-02·g₀) | CG 4/200 tol 3.5e-01 resid 1.9e-01 ✓ | TR Δ 2.51e+00 ✓ ‖Δx‖/‖x‖ 3.9e-04 | Δf -4.24e-01 ρ 1.00 | 0.08s | κ -1.7e-02 σ 5.8e+01 ε 1.3e-04
+iter  4 | obj 2.534e+05  ‖g‖ 1.91e-01 (1.9e-04·g₀) | CG 8/200 tol 3.7e-05 resid 2.8e-05 ✓ | TR Δ 2.51e+00 ✓ ‖Δx‖/‖x‖ 5.7e-06 | Δf -6.38e-05 ρ 1.00 | 0.14s | κ -3.0e-01 σ 5.8e+01 ε 1.3e-04
+iter  5 | obj 2.534e+05  ‖g‖ 2.82e-05 (2.9e-08·g₀) | CG 14/200 tol 8.1e-13 resid 5.3e-13 ✓ | TR Δ 2.51e+00 ✓ ‖Δx‖/‖x‖ 6.4e-10 | Δf -2.91e-11 ρ 26.73 | 0.23s | κ -1.4e-02 σ 5.8e+01 ε 1.3e-04
+iter  6 | obj 2.534e+05  ‖g‖ 1.97e-10 (2.0e-13·g₀) | converged (‖g‖ ≤ gtol·‖g₀‖, g₀ = warm start)
+```
+
+The exact model's miss was 78 times smaller than Gauss-Newton's on row 0 (`sw 1.3e-02 ×1`, a hit) and 337 times
+smaller on row 1 (`sw 3.0e-03 ×2 ⇒ exact`), so row 2 is the first exact row (`switched_at = 2`) and shows exact mode's
+`κ σ ε` cells. The run took 6 Newton steps and 30 CG iterations, against 25 steps and 90 CG iterations for
+Gauss-Newton with the same trust region (29 steps with its line search) and 5 steps and 27 CG iterations for the exact
+Hessian at power 1.0 from the start: one Newton step and two tracking products more than choosing the exact Hessian
+in advance. From the random rank-2 start that `x_old`'s five steps began at, the Gauss-Newton phase is longer: in the
+transient the exact model's miss was 3.5–9.6 times *larger* (`sw 9.6e+00 ×0`: three misses), then came two hits (the
+run used `switch_track='all'`; every Gauss-Newton-phase row here is countable, so the default prints the same; row 0's
+CG stopped on the boundary, `∂`, and counted like any step):
+
+```
+iter  0 | obj 3.707e+06  ‖g‖ 1.85e+04 (1.0e+00·g₀) | CG 1/200 tol 9.3e+03 resid 5.2e+03 ∂ | TR Δ 5.13e+01 ✓ ‖Δx‖/‖x‖ 7.4e+00 | Δf -3.62e+05 ρ 0.76 | 0.03s | sw 9.6e+00 ×0
+iter  1 | obj 3.345e+06  ‖g‖ 3.17e+04 (1.7e+00·g₀) | CG 1/200 tol 1.6e+04 resid 8.1e+03 ✓ | TR Δ 1.03e+02 ✓ ‖Δx‖/‖x‖ 1.8e+00 | Δf -1.27e+06 ρ 1.07 | 0.03s | sw 8.1e+00 ×0
+iter  2 | obj 2.080e+06  ‖g‖ 3.17e+04 (1.7e+00·g₀) | CG 1/200 tol 1.6e+04 resid 7.4e+03 ✓ | TR Δ 1.03e+02 ✓ ‖Δx‖/‖x‖ 9.9e-01 | Δf -1.52e+06 ρ 1.15 | 0.02s | sw 3.5e+00 ×0
+iter  3 | obj 5.621e+05  ‖g‖ 1.37e+04 (7.4e-01·g₀) | CG 1/200 tol 6.9e+03 resid 3.5e+03 ✓ | TR Δ 1.03e+02 ✓ ‖Δx‖/‖x‖ 3.4e-01 | Δf -2.89e+05 ρ 1.07 | 0.03s | sw 8.1e-02 ×1
+iter  4 | obj 2.727e+05  ‖g‖ 3.17e+03 (1.7e-01·g₀) | CG 1/200 tol 1.3e+03 resid 1.2e+03 ✓ | TR Δ 1.03e+02 ✓ ‖Δx‖/‖x‖ 8.5e-02 | Δf -1.64e+04 ρ 0.96 | 0.03s | sw 8.9e-02 ×2 ⇒ exact
+iter  5 | obj 2.562e+05  ‖g‖ 1.48e+03 (8.0e-02·g₀) | CG 3/200 tol 1.2e+02 resid 5.7e+01 ✓ | TR Δ 1.03e+02 ✓ ‖Δx‖/‖x‖ 3.3e-02 | Δf -2.84e+03 ρ 1.00 | 0.06s | κ -2.1e-01 σ 5.8e+01 ε 1.3e-04
+iter  6 | obj 2.534e+05  ‖g‖ 6.22e+01 (3.4e-03·g₀) | CG 6/200 tol 2.1e-01 resid 7.3e-02 ✓ | TR Δ 1.03e+02 ✓ ‖Δx‖/‖x‖ 1.9e-03 | Δf -7.16e+00 ρ 1.00 | 0.12s | κ -1.7e-01 σ 5.8e+01 ε 1.3e-04
+iter  7 | obj 2.534e+05  ‖g‖ 9.10e-02 (4.9e-06·g₀) | CG 11/200 tol 4.5e-07 resid 2.0e-07 ✓ | TR Δ 1.03e+02 ✓ ‖Δx‖/‖x‖ 2.6e-06 | Δf -1.37e-05 ρ 1.00 | 0.19s | κ -1.1e-01 σ 5.8e+01 ε 1.3e-04
+iter  8 | obj 2.534e+05  ‖g‖ 2.32e-07 (1.2e-11·g₀) | converged (‖g‖ ≤ gtol·‖g₀‖, g₀ = warm start)
+```
+
+**What it reports.** The history rows (`backend.optimizers.NewtonInfo`):
+
+| field | on | value |
+|---|---|---|
+| `hessian` | every row | the model that solved the row's step: `'gauss_newton'` before the switch, `'exact'` from it on (outside switch mode, the run's mode, as before) |
+| `switch_e_gn` | Gauss-Newton-phase rows with a step | `e_GN` |
+| `switch_pKp` | tracked rows | the tracking product `⟨p, Lᵀ K_N L p⟩`; not part of the row's `pHp`, which stays Gauss-Newton's |
+| `switch_e_n` | tracked rows | `e_N`, with `m_N(s) = m_GN(s) + ½α²·switch_pKp` |
+| `switch_count` | Gauss-Newton-phase rows | the count after this row (0: a reset); the converged row carries it |
+| `switch_fired` | every row of a switch run | `True` on the row whose count reached `k`, else `False` |
+
+The five `switch_*` fields are `None` outside switch mode and appear in `stats['history']` only in switch mode, so the
+rows of every other mode keep their keys. On an exact-phase row `switch_fired` is `False` and the other four `None`;
+the row carries exact mode's `pKp`, `lift_sigma_min` and `lift_eps`. On a Gauss-Newton-phase row those three are
+`None` and the callback's `info.lm` is the Gauss-Newton view of the point's exact build: such a row equals the pure
+Gauss-Newton run's row apart from the `switch_*` fields and `wall_time`. (The view's `gradient` recomputes the misfit
+transpose; the loop itself reads the exact build's.)
+
+`stats` gains three keys, in switch mode only: `hessian` (`'switch'`), `switch_track` (the resolved `'countable'` or
+`'all'`; `None` with `switch_k=0`) and `switched_at`, the index of the first row whose model is exact (`len(history)`
+when the switch fired on the last row; `0` with `switch_k=0`; `None` if it never fired).
+
+**The display.** With `verbose=True` (or `make_newton_display` as the backend callback) each Gauss-Newton-phase step
+row's header ends with `sw`, the ratio `e_N / e_GN` (`—` where no product ran, as on a reset row under the default
+`switch_track`), then `×` and the count; the switching row adds `⇒ exact`, and a last row's `stop:` comes after it.
+The exact-phase rows show `κ σ ε` (§4.12), and every other mode prints as before. With `timing=True` (§4.13) the
+tracking product is its own phase, `tracking` (the `track` cell of the `time` line), and every build of a switch run
+times its curvature data under `curvature`, the Gauss-Newton phase's included: a Gauss-Newton-phase row's tracking
+overhead is `curvature + tracking`, with their compile twins on jax.
+
+**What it costs.** Each Gauss-Newton-phase point is linearized once, in exact mode: one misfit transpose, as in either
+pure mode, plus the geometry's curvature data (on the manifold `2d − 1` small SVDs and one small T3-to-T3 sweep,
+nothing `W`-sized). CG, the step control and the row use its Gauss-Newton view, so the steps are Gauss-Newton's.
+Each tracked step adds one tracking product, about an exact Hessian-apply less a Gauss-Newton one: two to three
+Gauss-Newton applies, by §4.12's 3–4×. Against a Gauss-Newton step, which costs one apply per CG iteration plus a
+transpose, the trial retractions and their objectives, that is a few percent when CG runs many iterations per step and
+a large fraction when it runs one or two (as in the worked run's Gauss-Newton phase). Under `use_jit` CG compiles at
+most two programs per call: the Gauss-Newton one, which the Gauss-Newton phase shares with a pure Gauss-Newton run at
+the same structure, and the exact one when the switch fires (measured: two at each level of a zero-padded
+continuation, none when a level is run again). The per-point build and the tracking product run eagerly in the host
+loop, like exact mode's build and `pᵀHp`, so on a small jax problem their dispatch, not their arithmetic, can dominate
+their time.
+
+**Measured downstream.** A rank continuation of a Darcy-flow surrogate (directional derivatives up to order 4 at 10
+points × 100 directions, six levels to rank 24, `‖g‖ ≤ 10⁻³·‖g0‖` on the zero reference, at most 300 steps a level;
+jax x64, `use_jit`, an A100 GPU). Ladder totals, apply-equivalents in Gauss-Newton applies at measured cost:
+
+| `newton_cg` | Newton steps | CG iterations | apply-equivalents | wall s, less compile and display | levels at the cap |
+|---|---|---|---|---|---|
+| Gauss-Newton, line search (the default) | 1,625 | 24,682 | 24,682 | 427 | 4 of 6 |
+| Gauss-Newton, trust region | 1,618 | 27,023 | 27,023 | 436 | 4 of 6 |
+| `hessian='exact'` | 267 | 10,751 | 33,309 | 275 | 0 |
+| `hessian='switch'` | 223 | 6,303 | 19,794 | 177 | 0 |
+
+The switch fired on every level after 5–8 Gauss-Newton steps, its tracking took 3 % of its time, and at the rank level
+the validation error selected its errors were no worse than Gauss-Newton's. Restarted from the aligned frame
+(`padded_from`) it fired everywhere too, but took 303 Newton steps to the exact Hessian's 231; on a 20 × 1000 ladder
+of 11 levels the two were even, at both starts.
+
+**When to use it, and when not.**
+
+- **Use it** on a nonzero-residual fit (noisy data, or a target the ranks cannot represent) when you would otherwise
+  run Gauss-Newton first and then the exact Hessian, and do not know when to change.
+- **Each call starts in Gauss-Newton**, by design: after a rank increase the run may have left the quadratic basin.
+  So in a rank continuation every level pays for at least `k` tracked Gauss-Newton steps, with their exact-mode
+  builds, before it switches. Where the exact Hessian is known to pay off from a level's first step (a warm-started
+  level near its minimizer), `hessian='exact'` saves them: in the worked run, 5 steps against 6.
+- **It may never fire**, and then the run is Gauss-Newton plus the tracking cost: safe, but not free. That happens
+  where the curvature term vanishes (the manifold at `d = 1`, where every slot is flat, §4.12, and `e_N = e_GN`);
+  where the residual is zero at the solution (noise-free data at the true ranks: both errors shrink to the floor
+  together, and Gauss-Newton is fast there anyway); where the retraction is only first order at the point (near small
+  singular values, and at a zero-padded start, whose new directions the lift drops: `e_N` keeps an `O(‖s‖²)` part, and
+  the switch can hold off until the new singular values have grown, though on the downstream ladders above it fired
+  on every zero-padded level); and in float32 (the gate above). The rows cannot say which: the lift diagnostics are
+  `None` on Gauss-Newton-phase rows, the price of those rows equalling the pure Gauss-Newton run's.
+
+**Where the rule comes from.** The rule, its defaults and the name `'switch'` come from the maintainer's
+[`nicks-optimizers`](https://github.com/NickAlger/nicks-optimizers) (`hessian="switch"` in its trust-region and
+line-search Newton solvers, as of commit `1ab10dc`, 2026-11-11; its experiments are in `experiments/gn_newton_switch/`).
+Here it differs in six ways:
+
+- The rounding gate is dtype-aware and tests both errors. The source's is float64's `100·10·ε·max(1, |f|)`, tested on
+  `e_GN` alone; testing both moves the count exactly as testing `e_GN` alone would.
+- The forcing power after the switch defaults to `1.0`, for the exact Hessian's q-quadratic tail (§4.12); the source
+  settled on `0.5` after its experiments (`switch_cg_forcing_power=0.5` gives that).
+- Two more kinds of row reset the count: a line-search backtrack and a step forced by `on_line_search_failure='accept'`
+  (which the source does not have). The `−g` fallback resets in both.
+- By default the tracking product runs on countable steps only; the source runs it on every Gauss-Newton-phase
+  iteration, rejected trials included, as `switch_track='all'` does.
+- `switch_tau = 0` and `switch_k = 0` are allowed (the source requires `0 < τ < 1` and `k ≥ 1`).
+- There is no resume state: each call starts in Gauss-Newton.
 
 ---
 
@@ -941,11 +1198,12 @@ repo, maintainer-local):
   Hessian-apply. The zero reference makes `η` tighter than a deflated warm start does (downstream
   continuation measured ~2× more CG work per step at high rank, for the same accuracy); that trade is
   accepted, and an `η` floor or an objective-plateau stop remain open questions.
-- **The Newton schedule is yours.** Gauss-Newton (the default) or the exact Hessian (§4.12), the forcing
-  power, the reference, the caps — every knob is a per-call `newton_cg` keyword, so a continuation loop can
-  run each level with its own schedule (e.g. Gauss-Newton until the step stalls, then exact; or exact at
-  every warm-started level). Which default is best is an open, empirical question; on the measured
-  restarts the exact Hessian paid off whenever the fit had a nonzero residual.
+- **The Newton schedule is yours.** Gauss-Newton (the default), the exact Hessian (§4.12) or the automatic
+  `hessian='switch'` (§4.14), the forcing power, the reference, the caps — every knob is a per-call `newton_cg`
+  keyword, so a continuation loop can run each level with its own schedule (e.g. Gauss-Newton until the step stalls,
+  then exact; exact at every warm-started level; or `'switch'` at every level, which changes over inside each call
+  once the exact model predicts the objective clearly better). Which default is best is an open, empirical question;
+  on the measured restarts the exact Hessian paid off whenever the fit had a nonzero residual.
 - **A failed line search now stops the run (or, on request, pushes through).** If `newton_cg`'s
   Armijo search exhausts all 40 halvings, the objective's floor has been reached; the default
   `on_line_search_failure='stop'` rejects the step and terminates (the iteration's history row carries

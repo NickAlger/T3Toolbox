@@ -183,7 +183,7 @@ take a `chunk_size` argument defaulting to `'auto'` (the backend `probe_derivati
 `int` or `None`, default `100`; `'auto'` is resolved by the frontend): for a uniform
 `probe_derivatives` fit they call `estimate_chunk_size` once with the shapes read off `x0` (and the
 minibatch size for the minibatch optimizers), so a large-`|W|` fit stops OOMing with no action from you;
-`newton_cg(..., hessian='exact')` passes its mode, so the chunk fits the two-hole too.
+`newton_cg(..., hessian='exact')` (or `'switch'`) passes its mode, so the chunk fits the two-hole too.
 Pass an `int` or `None` to override; ragged and non-`probe_derivatives` fits ignore it — the other five
 kinds have no chunked transpose or two-hole, in either mode (their exact two-holes peak at about twice
 their unchunked transpose).

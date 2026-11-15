@@ -707,6 +707,8 @@ def newton_cg(
         iter  1 | obj 2.537e+05 ... | Δf -2.03e+02 ρ 0.85 | 0.03s | sw 3.0e-03 ×2 ⇒ exact
         iter  2 | obj 2.535e+05 ... | Δf -9.75e+01 ρ 1.00 | 0.05s | κ -3.5e-01 σ 5.8e+01 ε 1.3e-04
 
+    The rule, the options, the cost, when to use it and a worked run: :doc:`/fitting_and_optimization` §4.14.
+
     **Timing a run** (``timing=True``). Where does a Newton run's time go -- CG or the model build, the retraction or
     the line search's extra trials, the alignment of a padded start, the compiler? ``timing=True`` splits each history
     row's ``wall_time`` window into phases and adds ``stats['timing']``. It changes no number: ``x`` and every other
@@ -741,8 +743,8 @@ def newton_cg(
     On jax they serialize the run (the host no longer queues the next phase while the device works), so a timed jax
     run is slower, and its times describe the serialized run. On the maintainer's laptop CPU, timing on against off
     differed by -4 % to +2 % on numpy, eager jax and ``use_jit``, ragged and uniform, at d = 3 and d = 6: within the
-    run-to-run noise. A GPU overlaps far more than a laptop CPU, so it can lose more: measure there before trusting
-    its split.
+    run-to-run noise. On an A100 GPU the same cases and a downstream level differed by -1.4 % to +3.1 %, also within
+    the noise.
 
     *The compile column.* On a jax run each phase also carries jax's compile wait (``compile_seconds``: tracing,
     lowering and backend compilation, from ``jax.monitoring``). With ``use_jit=True`` CG is one program, compiled on

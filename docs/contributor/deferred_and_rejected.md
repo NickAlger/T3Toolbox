@@ -214,6 +214,28 @@ cross-references.)
   (3.5–5× fewer outer steps, 5–6.6× fewer CG, 1.6–2× wall), and tying more factors leaves the rate flat;
   downstream (T3Polynomial) exact is superlinear in the tail (6 vs 30+ steps) but from zero-padded *cold*
   starts it can pick a worse basin and is radius-limited early. Thin: one setup, numpy, a handful of seeds.
+  **Built in 2026.5.0: `hessian='switch'`**, the in-run schedule (Gauss-Newton until the exact model has predicted
+  the objective clearly better on `switch_k` consecutive countable steps, then exact;
+  [`../fitting_and_optimization.md`](../fitting_and_optimization.md) §4.14). It settles *when to switch* inside one
+  call (each call restarts the switch in Gauss-Newton by design). Measured at the release on the downstream A100
+  Darcy ladder (user guide §4.14, *Measured downstream*): from the library start the switch took 223 Newton steps
+  against exact's 267 and Gauss-Newton's 1,625 (at the cap on 4 of 6 levels); from the aligned start (`padded_from`)
+  exact took 231 against the switch's 303, so which mode a level should start in stays open.
+- **The Gauss-Newton-to-exact switch: what 2026.5.0 left out** (the switch plan's §4 and §9, Nick 2026-11-13; the
+  plan archived under `dev/archive/` with the 2026.5.0 release; the source's open items, `nicks-optimizers`'
+  `dev/TODO.md`). Each is reachable from the shipped pieces. *Switching back* (one-way, as in the source). *A delayed
+  tracking start*: run the product only once Gauss-Newton is visibly linear (its `|1 − ρ|`, or the ratio of
+  successive gradient norms, levels off); in the source the switch fired one or two steps before convergence on
+  Rosenbrock, where the tracking bought nothing. *A trigger with no product* (Fletcher–Xu: the relative decrease of
+  `f`), as a baseline. *A secant `S`* (NL2SOL-style). *Carrying the state across calls* (the source's `resume=`):
+  decided against for continuation levels, since after a rank increase the run may have left the basin. *Thinning
+  or jitting the tracking* (`switch_track_every`, a jitted product, a measured default): G-4, "no need for more
+  elaborate options at this time"; on an A100 at 10 points × 100 directions the eager product was dispatch-bound,
+  about 80 ms at every rank (12–32 Gauss-Newton applies, against about 2 on a CPU), yet at most 3.3 % of a switch
+  run's net wall: a jitted product is the candidate if a problem tracks much longer. *Public `_switch_sample` /
+  `_gauss_newton_view`* (G-6: public when a user asks). *The lift diagnostics on Gauss-Newton-phase rows*: left
+  `None`, so a Gauss-Newton-phase row equals the pure Gauss-Newton run's; the price is that the rows cannot show why
+  the switch holds off near small singular values. *`gradient_descent`, `mc_sgd`, `adam`*: no Hessian to switch.
 - **Exact-Newton refinements** (2026.3.0; each reachable from the shipped pieces). *Storing* the
   residual-dependent curvature state per model instead of recomputing it per Hessian-apply (I-11: ~+60 % of the
   jet sweep resident for ~10–15 % of the two-hole; the T/S transforms of

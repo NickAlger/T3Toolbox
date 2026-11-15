@@ -1876,6 +1876,7 @@ def newton_cg(
     solved it (``hessian``) and the ``switch_*`` fields (:py:class:`NewtonInfo`); ``stats`` gains three keys (below). A
     ``switch_*`` option without ``hessian='switch'`` raises, as does one the run would not read (``switch_tau`` or
     ``switch_track`` with ``switch_k=0``; ``switch_k`` or ``switch_cg_forcing_power`` with ``switch_tau=0``).
+    The user guide, with a worked run: ``docs/fitting_and_optimization.md`` §4.14.
 
     **Step control** (``step_control``; the default follows the Hessian, and either combines with either):
 

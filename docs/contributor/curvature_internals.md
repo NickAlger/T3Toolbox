@@ -152,6 +152,20 @@ model just carry the companion as a child — so a rebuilt exact model, a new fr
 jit cache key, and a uniform companion's host masks are never traced. The mode is **derived**, never
 stored (`is_exact = curvature is not None`, I-3, B1); the term is present iff `geometry_data is not None`.
 
+**The Gauss-Newton view** (`hessian='switch'`, 2026.5.0). The switch's Gauss-Newton phase builds each point once, in
+exact mode, and hands CG, the step control and the history row `_gauss_newton_view(lm)`, which is
+`dc.replace(lm, curvature=None)`: frame, sweep, residual, companion and regularizer shared, so its `hvp` /
+`quadratic` / `gn_quadratic` / `retract` are a Gauss-Newton model's bit for bit, and since the mode is derived from
+`curvature` (M3), its pytree structure is a Gauss-Newton model's too. **One build, one transpose**: the loop reads
+`g` from the exact build (`CurvatureState.misfit_gradient`, M2), never from the view, whose `gradient` would redo the
+transpose (a test counts the `kind.transpose` calls). **Two CG programs per structure**: under `use_jit` the
+Gauss-Newton phase reuses a pure Gauss-Newton run's compiled `_cg_core` and the exact phase adds one (measured: two
+on a cold firing run, none on a repeat, none for a `switch_tau=0` run after a Gauss-Newton trust-region run). The
+tracking product is the exact build's `curvature_quadratic(p)`, the term alone, reported as `switch_pKp` and never
+added to the row's `pHp`, so the display's `κ = pKp / (pHp − pKp)`, which assumes `pHp` contains `pKp`, is
+untouched. The build and the product run eagerly in the host loop, as exact mode's build and `pᵀHp` do. User story:
+[`../fitting_and_optimization.md`](../fitting_and_optimization.md) §4.14.
+
 **θ̂ masking from the FRAME** (uniform; m29, F18, F23, F25). On a uniform supercore a direction's padding
 multiplies *into* real slots in the second derivative, so the masks are load-bearing (an unmasked `θ̂`
 corrupts the real block by 2.6e3), not hygiene. The uniform kinds' `corewise_hessian` masks `θ` and `θ̂`
@@ -283,7 +297,8 @@ module constants (O-2). A descent-guard step with scale < 1 counts as a boundary
 `pHp` is `gn_quadratic(p) + curvature_quadratic(p)` with ONE two-hole (`== lm.quadratic(p)`). The floors
 are checked only after a rejection (an accepted step never stops the run): `objective_floor` when
 `|pred| ≤ 10·ε·(‖ω⊙y‖·‖ω⊙r‖ + |f|)` with `ε = np.finfo(residual dtype).eps` (host-side, dtype-only — I-25,
-m30), then `trust_region_floor` (`Δ < 10⁻¹²·Δ0`). A rejected trial keeps `x` and its local model, so the
+m30), then `trust_region_floor` (`Δ < 10⁻¹²·Δ0`); the resolution is `_objective_resolution`, which the switch's
+rounding gate reads too, at a hundred times this floor. A rejected trial keeps `x` and its local model, so the
 row *after* it — at the same point, since each row describes `x` *before* its step — re-uses the rejected
 row's error tables; the display reuses them only when that row was rejected **and** `info.lm is` its model
 (a callback shared across continuation levels never prints a stale table).

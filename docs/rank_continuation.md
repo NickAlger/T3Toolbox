@@ -122,10 +122,11 @@ above), and **select** the rank level that minimized a held-out validation error
 
 **The per-level schedule is yours too.** Every Newton knob is a per-call `newton_cg` keyword, so the loop
 can give each level its own: `hessian='exact'` (the exact Riemannian Hessian with its trust region,
-[`fitting_and_optimization.md`](fitting_and_optimization.md) §4.12), `cg_forcing_power`, `max_newton`,
-`gtol_rel`, the reference. The exact mode needs **nothing special at a zero-padded restart**: the restart's
-new directions have zero singular values, the lift's clipped pseudo-inverse drops them from the curvature
-term (the Hessian is Gauss-Newton there, and the gradient still moves along them), and the trust region
+[`fitting_and_optimization.md`](fitting_and_optimization.md) §4.12) or `hessian='switch'` (Gauss-Newton until the
+exact model predicts the objective clearly better, then exact; each level starts afresh in Gauss-Newton, §4.14),
+`cg_forcing_power`, `max_newton`, `gtol_rel`, the reference. The exact mode needs **nothing special at a zero-padded
+restart**: the restart's new directions have zero singular values, the lift's clipped pseudo-inverse drops them from
+the curvature term (the Hessian is Gauss-Newton there, and the gradient still moves along them), and the trust region
 bounds the step — on a measured probe-derivative restart it took 10 steps where Gauss-Newton took 39 (from
 a zero-padded restart it can also settle in a different local minimum than Gauss-Newton would, §4.12). A
 sketch, with the schedule a function of the level (which schedule is the best default is still an open,
