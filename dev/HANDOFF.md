@@ -47,7 +47,7 @@ GN-TR library partial levels 0-4; GPU timing figures for §4.13): T3Polynomial d
 committed dbda0de; pod notes nicks_research_experiments ed9e55b. Headline: §6.2 bar MET at the library start (switch 223
 Newton vs exact 267 vs GN-TR 1,618), NOT at the aligned start (exact 231 vs switch 303); 20x1000 switch ~= exact; the
 tracking product is dispatch-bound on GPU (~80 ms, rank-independent) -> a jitted product is a FUTURE option only (G-4).
-Nick was told to stop the pod (the remaining 20x1000 GN-TR/tracking arms are optional and were left running). W3_handoff.md
+Nick STOPPED the pod 2026-11-14 ~21:30 CST; the remaining 20x1000 GN-TR/tracking arms will not finish (GN-TR library levels 0-4 were collected as partial). W3_handoff.md
 being written by agent `a3c10a75204cd1699` from both summaries, with the docs paragraph for §4.14's placeholder and §4.13's
 GPU sentences as text; the session fills them after W4's verification reports, then the W4 reviewer runs. W4 (docs) WRITTEN, verification deferred until the laptop benchmark ends
 (agent `aa91e01e2e108cf36` awaits "GO for verification"). W3 was next (the 10x100
