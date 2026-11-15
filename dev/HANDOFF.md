@@ -50,8 +50,12 @@ tracking product is dispatch-bound on GPU (~80 ms, rank-independent) -> a jitted
 Nick STOPPED the pod 2026-11-14 ~21:30 CST; the remaining 20x1000 GN-TR/tracking arms will not finish (GN-TR library levels 0-4 were collected as partial). W3_handoff.md
 being written by agent `a3c10a75204cd1699` from both summaries, with the docs paragraph for §4.14's placeholder and §4.13's
 GPU sentences as text; the session fills them after W4's verification reports, then the W4 reviewer runs. W4 COMMITTED (c4d606d4; review APPROVE after one round). THE SWITCH FEATURE IS COMPLETE (plan draft 6). REVIEW STOP WITH NICK
-PENDING (list in dev/gn_newton_switch_slices/W4_review.md; docs/fitting_and_optimization.md §4.14 lines ~875-1124). THEN: the
-glossary/docs pass (601 rows + the new terms), the release commit (version bump; CHANGELOG intro headlining all three with a
+PENDING (list in dev/gn_newton_switch_slices/W4_review.md; docs/fitting_and_optimization.md §4.14 lines ~875-1124). THE GLOSSARY/DOCS PASS IS COMMITTED (8ad6dea3, 2026-11-15: 8 new glossary entries, 505/599 rows, 'cone' label, gates
+green; records dev/glossary_docs_pass_2026-11-15.md + _review; status dev/glossary_naming_decisions_status.md). Nick 2026-11-15:
+"Let's do the diagram hand fixes" -> agent `a1aaf395631720c38` is making the 17 hand fixes (7 in-block rows + 9 TT-variation
+`(rLi, nDi, rRi)` -> `(rLi, nDi, rR(i+1))` siblings + 'central Tucker core'), record dev/hand_fixes_2026-11-15.md, then a
+reviewer, then commit. Agent `aac50e9014084cc49` is DRAFTING the release commit as text in dev/release_2026.5.0_prep.md (no
+tracked edits). THEN: the release commit (version bump; CHANGELOG intro headlining all three with a
 Measured paragraph; re-cut release_notes_2026.5.0.md; archive the plans), Nick tags. W3 was next (the 10x100
 benchmark, run by the session in T3Polynomial; a report, not a stop), W4 (docs §4.14, CHANGELOG, and fix §4.13's stale tracking/curvature rows; REVIEW STOP), W5
 optional GPU. Slice records in dev/gn_newton_switch_slices/. Then the glossary/docs pass (add 'phase timing' + the timing stats key), then the release commit
