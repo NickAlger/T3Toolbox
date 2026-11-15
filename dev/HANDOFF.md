@@ -49,8 +49,10 @@ Newton vs exact 267 vs GN-TR 1,618), NOT at the aligned start (exact 231 vs swit
 tracking product is dispatch-bound on GPU (~80 ms, rank-independent) -> a jitted product is a FUTURE option only (G-4).
 Nick STOPPED the pod 2026-11-14 ~21:30 CST; the remaining 20x1000 GN-TR/tracking arms will not finish (GN-TR library levels 0-4 were collected as partial). W3_handoff.md
 being written by agent `a3c10a75204cd1699` from both summaries, with the docs paragraph for §4.14's placeholder and §4.13's
-GPU sentences as text; the session fills them after W4's verification reports, then the W4 reviewer runs. W4 (docs) WRITTEN, verification deferred until the laptop benchmark ends
-(agent `aa91e01e2e108cf36` awaits "GO for verification"). W3 was next (the 10x100
+GPU sentences as text; the session fills them after W4's verification reports, then the W4 reviewer runs. W4 COMMITTED (c4d606d4; review APPROVE after one round). THE SWITCH FEATURE IS COMPLETE (plan draft 6). REVIEW STOP WITH NICK
+PENDING (list in dev/gn_newton_switch_slices/W4_review.md; docs/fitting_and_optimization.md §4.14 lines ~875-1124). THEN: the
+glossary/docs pass (601 rows + the new terms), the release commit (version bump; CHANGELOG intro headlining all three with a
+Measured paragraph; re-cut release_notes_2026.5.0.md; archive the plans), Nick tags. W3 was next (the 10x100
 benchmark, run by the session in T3Polynomial; a report, not a stop), W4 (docs §4.14, CHANGELOG, and fix §4.13's stale tracking/curvature rows; REVIEW STOP), W5
 optional GPU. Slice records in dev/gn_newton_switch_slices/. Then the glossary/docs pass (add 'phase timing' + the timing stats key), then the release commit
 (version bump; CHANGELOG intro to headline all three; re-cut release_notes_2026.5.0.md) and Nick tags. History: P1 COMMITTED (cbcdc1d6: the geometry side -- tree_block_until_ready, per-pass
