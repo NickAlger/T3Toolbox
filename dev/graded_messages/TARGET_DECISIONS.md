@@ -594,7 +594,7 @@ Notes:
 | --- | --- | --- | --- |
 | 3.1 | The primitives of a variable's name are a letter for the side contracted (`mu`, `nu`, `xi`, `eta`), the basis of the cut edge where it is not the usual one, and a grade (plain, dot, tilde, tilde-dot) | Decided | 9.6 |
 | 3.2 | `nu_L` (`gamma` until 2026-11-15, 23:23) stays, as an ordinary variable. It is computed only when `Kp` is wanted, or when the value goes through `D`. No frame convention removes it | Decided | 4.1 |
-| 3.3 | The tilde names always mean the adjoint sweep of the residual. The adjoint sweep of `Jp` has no names in a call that also holds the residual's; its variables are reached by a call with `Jp` given as the residual | Decided | 6.5 | The engine trusts a held variable and checks only its shape, the order included. Whoever holds it vouches for it. The caller may give the engine whatever they want, modified variables included | Decided | |
+| 3.3 | The tilde names always mean the adjoint sweep of the residual. The adjoint sweep of `Jp` has no names in a call that also holds the residual's; its variables are reached by a call with `Jp` given as the residual | Decided | 6.5 |
 | 3.4 | In the sampling layer a kind is closed: a small description (what goes in at a mode edge, what comes out, the order), not a class a user subclasses. The open extension point is in the fitting layer: a protocol for an objective, which the built-in objectives implement by calling the engine | Decided | 1.1 |
 | 3.5 | The output is `z` for every kind | Decided | |
 | 3.6 | The engine takes the data `y` and an optional `weight` (ones by default). The weight acts on `f`, `g`, `JtJp` and `Kp` alike, through one public helper that turns a jet into a dual jet. The bare transpose takes a seed and no weight. The engine has no other notion of a loss | Decided | 1.1 |
@@ -962,7 +962,7 @@ Notes:
 | 6.2 | What are its remaining arguments: the kind and the order, the directions, the data and the weight? | Open | 2.8, 3.4, 4.5 |
 | 6.3 | What other public functions does the sampling layer have, and do any of the existing public kernel names remain? | Reopened | 1.1 |
 | 6.4 | Which variables are public for each kind, and is the docstring table of reads generated from the declared graph? | To confirm | 3.1 to 3.4 |
-| 6.5 | Who guarantees that a held variable is valid for this point, these samples, this data and this order? | Open | |
+| 6.5 | The engine trusts a held variable and checks only its shape, the order included. Whoever holds it vouches for it. The caller may give the engine whatever they want, modified variables included | Decided | |
 | 6.6 | The plain and the jetted sampling function are one function: `probe(ww, pp=None, order=0)`, returning `T + W + C + (Ni,)`. This holds for the frontend methods of the flagship classes and for the backend function behind each, which uses the engine | Decided | 2.6, 2.7 |
 | 6.7 | Preparing the data and creating weights is done by standalone functions that the user calls before the fitting functions. The fitting functions have opt-in keywords that call those functions. A keyword inside a fit does only preparation that changes the loss alone; anything that changes the unknowns or belongs to the problem stays standalone | Decided | 2.5 |
 
