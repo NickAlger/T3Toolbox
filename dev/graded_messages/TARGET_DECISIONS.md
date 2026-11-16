@@ -134,6 +134,35 @@ the stochastic step, as today, and makes `take` traceable).
   decisions and dead ends we tried"; written by one Opus agent, reviewed by another, the two iterating until they
   agree; then looked over together.
 
+**The small items Part 1 needed, settled** (2026-11-16, 16:50 to 16:55). Six, put by Claude with a proposal each.
+
+1. **How the engine is told that a call is corewise.** On the frame `(B, G, G, G)` it cannot see that `nu` and
+   `nu_L` are one array and would sweep twice. Decided ("Agree"): a corewise call passes the point's cores
+   `(B, G)` where a frame `(D, U, L, R)` would go. The structure of the argument says which, and it stays visible
+   under `jit`, where a test of object identity would not. The corewise geometry's `frame(x)` returns the point
+   itself; "`f` at raw cores" is the same call; on such a call the variables have no basis in their names.
+2. **Where frame consistency is checked** (4.2). Decided: in safe mode only, once when a `LocalModel` is built,
+   and in the engine when centers are given. Otherwise the engine does not check; someone who calls it with four
+   hand-made stores vouches for them. The maintainer: "Agree if you mean safe mode only. Unsafe mode should not
+   check."
+3. **The old kernels are deleted as the last step of Part 1,** behind a gate: the tests by definition and the
+   identities pass, and the consumer's benchmark is run with chunking off, new against old. The maintainer: "Yes,
+   last step. We will run on CPU, and I will also start a runpod for GPU at that time."
+4. **Part 1 is not released on its own.** The maintainer: "No, both parts are needed for the release. Work
+   remains on the separate branch until both parts are complete."
+5. **A port of the consumer is part of "done"** (ground rule 0.4): the plan includes a dry port, a script in this
+   folder that makes T3Polynomial's main fit call through the new interface. The maintainer: "Agree. You should
+   have access to edit T3Polynomial through github connectors. If not I can set that up." (Until then Claude had
+   been told to read that repository and not edit it.)
+6. **Names.** Several are placeholders: three keywords of the engine, the helpers, the batch record, the oracle
+   classes, the reference module, the modules things live in. Decided: the plan's writer proposes one complete
+   table of names, and they are settled when the plan is looked over.
+
+**What the writer and the reviewer of the plan are to keep in mind,** from the maintainer, as things that "have
+been tricky in the past": safe mode against unsafe mode; the ragged against the uniform layout; the dispatch
+between numpy and jax; shared Tucker factors; the razor between backend and frontend; sharding; compiling with
+jit.
+
 ## What remains, in groups (2026-11-15, 15:34)
 
 Of the 57 rows in sections 1 to 9 (9.7 was added on 2026-11-16), 46 are decided, 3 are guidance and 1 is parked. The other 7 are below, in

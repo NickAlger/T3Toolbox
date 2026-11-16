@@ -354,8 +354,13 @@ Tucker edge it is `xi_U_dot` paired with `eta` plus `xi` paired with `eta_D_dot`
 
 The corewise frame `(B, G, G, G)` has one basis on each edge, so a call on it uses the four letters and their
 grades with no basis in the name. Its `nu` is what a call on a manifold frame calls `nu_L`, its `eta` is
-`eta_D`, and its dots are those of the raw form. Whether such a call also accepts the spellings with a basis
-is not decided.
+`eta_D`, and its dots are those of the raw form.
+
+**A corewise call passes the point's cores `(B, G)` where a frame `(D, U, L, R)` would go** (decided on
+2026-11-16, 16:55). Two stores or four: the structure of the argument says which kind of call it is, and it stays
+visible under `jit`. The engine then knows that there is one basis on each edge and makes each sweep once. The
+corewise geometry's `frame(x)` returns the point itself, and "`f` at raw cores" is the same call. Whether such a
+call also accepts the spellings with a basis is not decided.
 
 ## 10. Old names to new
 
@@ -419,7 +424,8 @@ always mean the residual's application of the transpose (section 5.3). The cente
   against is more convincing, particularly the extra sweep cost. This will be a real performance hit and is
   unacceptable." The cost meant: with `(B, G, G, G)` put in, the engine does not know that `nu` and `nu_L` are
   one array, and sweeps twice when both `z` and `g` are wanted. So a call on a corewise frame must not sweep
-  twice. How the engine is told, and which spellings such a call accepts, are open.
+  twice. Decided on 2026-11-16 (16:55): the engine is told by the structure of the argument, the point's cores
+  `(B, G)` in place of a frame (section 9). Which spellings such a call accepts is still open.
 - What the dots that `Kp` reads are when the curvature damping is above zero (section 5.2).
 - In a formula the index is written as a subscript after the basis, as in `L,3`. This is how the drawings were
   made and shown; the maintainer asked for the basis as a subscript and did not speak of the index.

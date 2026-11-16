@@ -1733,3 +1733,16 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
 - **Next:** the small planning items Part 1 needs from him, then an implementation plan for Part 1 written by one
   Opus agent and reviewed by another until they agree.
 - The split is recorded in `TARGET_DECISIONS.md`, section "The two parts".
+
+## 95. The small items of Part 1 settled; the plan for Part 1 commissioned (2026-11-16, 16:55)
+
+- **Corewise calls** pass the point's cores `(B, G)` in place of a frame. **Frame consistency** is checked in safe
+  mode only, when a `LocalModel` is built and in the engine when centers are given. **The old kernels** are
+  deleted as the last step of Part 1, behind the tests and a benchmark the maintainer runs on CPU and on a GPU
+  pod. **No release of Part 1 alone:** the work stays on the branch until both parts are done. **A dry port** of
+  the consumer's main fit is part of the plan; the maintainer says Claude may edit T3Polynomial through the
+  GitHub connector. **Names** are proposed by the plan's writer and settled at the review.
+- **The plan:** `PART1_PLAN.md`, written by one Opus agent and reviewed by another until they agree, then read
+  with the maintainer. To be kept in mind, in his words things that "have been tricky in the past": safe mode vs
+  unsafe mode, ragged vs uniform layer, numpy vs jax dispatch, shared Tucker factors, backend vs frontend razor,
+  sharding, jit compiling.
