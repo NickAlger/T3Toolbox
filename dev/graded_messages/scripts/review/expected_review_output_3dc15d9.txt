@@ -195,6 +195,10 @@ B. Twins: one subnetwork in two bases, joined by the lift's own factors
 A. order 0, the recurrences against the library:  z 2e-16   g 3e-16   Jp 3e-16   JtJp 4e-16   Kp 2e-16
 B. order 0, 14 variables as sums over where the direction and the seed are put:  equal (worst 1e-15)
 C. order 0, the direction at the 9 cut edges, as one side dotted against the other plain:  equal (worst 6e-16)
+D. order 0, xi_tilde  = deta_tildes   0e+00   one array per site or bond, of shape (5, 3) (5, 4) (5, 2) (5, 3)
+D. order 0, mu_tilde  = tau_tildes    5e-17   one array per site or bond, of shape (5, 1) (5, 3) (5, 2) (5, 4)
+D. order 0, nu_tilde  = sigma_tildes  1e-16   one array per site or bond, of shape (5, 2) (5, 4) (5, 3) (5, 1)
+D. order 0, eta_tilde = dxi_tildes    3e-16   one array per site or bond, of shape (5, 2) (5, 3) (5, 3) (5, 2)
 A. order 2, the recurrences against the library:  z 3e-16   g 2e-16   Jp 3e-16   JtJp 4e-16   Kp 3e-16
 B. order 2, 14 variables as sums over where the direction and the seed are put:  equal (worst 5e-16)
 C. order 2, the direction at the 9 cut edges, as one side dotted against the other plain:  equal (worst 2e-16)

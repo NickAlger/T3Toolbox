@@ -8,6 +8,11 @@ This is the program of SAMPLE_VARIABLES.md, written out with the names of that p
      edge, with a direction put in at one site (dot), a seed put in at one input (tilde), or both, summed over
      where they are put.  Each sum is formed here term by term, with no recurrence, and compared with the
      recurrence of part A.  This is what the drawings of the "Variable diagrams" tab show.
+  C. THE DIRECTION AT A CUT EDGE (section 8 of the page).
+  D. THE TILDE VARIABLES ARE THE LIBRARY'S ADJOINT VARIABLES, array by array, at order 0: `xi_tilde`, `mu_tilde`,
+     `nu_tilde`, `eta_tilde` against `compute_deta_tilde`, `compute_tau_tilde`, `compute_sigma_tilde`,
+     `compute_dxi_tilde` of `backend/probing.py`.  There is one array per variable; it combines the residuals of
+     every mode on its side.
 
 A name is  <letter>[_<basis>][_tilde][_dot].  The letter is the side that is contracted: mu the left of a bond,
 nu the right of a bond, xi the leaf below a Tucker edge, eta the trunk above it.  The basis is written only where
@@ -285,6 +290,28 @@ def main(repo):
         ok = ok and worst < 1e-12
         print('C. order %d, the direction at the %d cut edges, as one side dotted against the other plain:  %s (worst %.0e)'
               % (order, len(cuts), 'equal' if worst < 1e-12 else 'DIFFERENT', worst))
+
+        # ================= D. the tilde variables are the library's adjoint variables, array by array ====
+        # One array per variable.  Each combines the residuals of every mode on its side: the library's sweep
+        # (`_tau_tilde_step`: carry . L . xi  +  mu . L . deta_tilde) is the recurrence of mu_tilde above.
+        if order == 0:
+            import t3toolbox.backend.probing as probing
+            plain = lambda xs: [x[0] for x in xs]                              # drop the order axis (one slot)
+            ztildes = plain(w_tilde)                                           # one residual-like array per mode
+            mus, nus, xis = plain(mu[:d]), plain(nu[1:]), plain(xi)
+            deta_tildes = probing.compute_deta_tilde(D, ztildes)
+            tau_tildes = probing.compute_tau_tilde(deta_tildes, L, xis, mus)
+            sigma_tildes = probing.compute_sigma_tilde(deta_tildes, R, xis, nus)
+            dxi_tildes = probing.compute_dxi_tilde(sigma_tildes, tau_tildes, U, mus, nus)
+            pairs = [('xi_tilde  = deta_tildes ', plain(xi_tilde), deta_tildes),
+                     ('mu_tilde  = tau_tildes  ', plain(mu_tilde[:d]), tau_tildes),
+                     ('nu_tilde  = sigma_tildes', plain(nu_tilde[1:]), sigma_tildes),
+                     ('eta_tilde = dxi_tildes  ', plain(eta_tilde), dxi_tildes)]
+            for name, mine, theirs in pairs:
+                e = err(mine, theirs)
+                ok = ok and e < 1e-12
+                print('D. order 0, %s  %.0e   one array per site or bond, of shape %s'
+                      % (name, e, ' '.join(str(tuple(a.shape)) for a in theirs)))
 
     print('all checks passed' if ok else 'SOME CHECK FAILED')
 

@@ -180,11 +180,21 @@ it, in the `L` and in the `R` basis; `xi_dot` and `xi_U_dot` are the leaf with t
 and in the `U` basis. Two limits: with slack ranks `mu_R_dot` is the image of `mu_dot` but not the other way
 round; and with curvature damping above zero the lifted direction is not exactly the tangent (not examined).
 
-### 5.3 Tilde: the seed put in place of one input
+### 5.3 Tilde: the adjoint variables
 
-The seed `w_tilde` has one vector per mode, `w_tilde[k]`, of the size of the input `w[k]`. A tilde variable is a
-sum of terms. In each term the seed stands in place of one input of the contracted side, and the sum is over
-that input. The cores are those of the plain variable.
+The tilde variables are the adjoint variables of the transpose. They are the library's `deta_tilde`,
+`tau_tilde`, `sigma_tilde` and `dxi_tilde` under new names, computed by the same recurrences. Part D of the check
+compares them with the library's arrays, one by one.
+
+**The seed.** The transpose takes one residual-like vector for each output: `w_tilde[k]` for mode `k`, of the
+size of `z[k]`. The `d` of them together are called the seed on this page. They are the library's `ztildes`.
+
+**One variable of each kind, combining all the modes.** There is one `mu_tilde`, one `nu_tilde`, one `xi_tilde`
+and one `eta_tilde`: one array per bond or site, exactly as for the plain variables. There is not one set per
+mode. `mu_tilde[i]` is a sum over the modes `k` to the left of bond `i`; the term of mode `k` is the network of
+`mu[i]` with the input `w[k]` replaced by the residual-like vector `w_tilde[k]`. The recurrence carries that sum
+along the chain in one sweep (the library's `_tau_tilde_step`: the carry through `L` and `xi`, plus `mu` through
+`L` and `deta_tilde`). A drawing of a tilde variable shows one term of the sum; the variable is the whole sum.
 
 | Variable | Recurrence | As a subnetwork |
 | --- | --- | --- |
@@ -195,9 +205,12 @@ that input. The cores are those of the plain variable.
 | `eta_tilde[i]` | `eta_term(mu_tilde[i], U[i], nu[i+1]) + eta_term(mu[i], U[i], nu_tilde[i+1])` | `eta[i]` with the seed in place of one input other than input `i` |
 | `eta_D_tilde[i]` | `eta_term(mu_tilde[i], L[i], nu_L[i+1]) + eta_term(mu[i], L[i], nu_L_tilde[i+1])` | `eta_D[i]` with the seed in place of one input other than input `i` |
 
-A tilde variable is linear in its seed. The seed of the gradient is the weighted residual; the seed of `JtJp` is
-the weighted `Jp`. Whether each seed gives its tilde variables a name of their own is target decision 3.3, not
-decided.
+**The transpose is applied twice in a Newton step, to two different seeds.** With the weighted residual as the
+seed it gives the gradient `g`. With the weighted `Jp` as the seed it gives `JtJp`. These are two applications of
+one map, as in the library today, where the kind's `transpose` is called once with the residual and once with
+`Jp`. Each application has its own tilde variables while it runs, and each is linear in its seed. Target
+decision 3.3 is only about names: when one call computes both `g` and `JtJp`, which of the two applications does
+the name `mu_tilde` refer to. It is not a question about the algorithm.
 
 ### 5.4 Tilde-dot: both
 
@@ -373,11 +386,21 @@ functions.
 
 ## 11. Not decided
 
-- The name of the raw core direction as an argument (`(B_dot, G_dot)` here; `core_directions` in the library).
-- Whether a step function is named by letter and grade alone, with the basis following from the cores it is
-  given (`nu_step` given `L` cores returns `nu_L`). Claude's reading of the scheme; not said by the maintainer.
-- Which spellings a call on the corewise frame accepts (section 9).
-- Whether each seed gives the tilde variables a name of their own (target decision 3.3).
+- **The name of the argument that carries the direction of `Kp`.** `Jp` takes the direction as `(V, H)`, in the
+  frame's coordinates. `Kp`, the curvature term of the exact Hessian, takes the same direction after the lift:
+  one array of the shape of each core of the base point. This page writes it `(B_dot, G_dot)`. In the library it
+  is the first argument of the kind's `corewise_hessian`, called `core_directions`. What the engine
+  (`sampling_variables`) calls that argument is not decided.
+- **A call on the corewise frame** (section 9). Under discussion. The maintainer's principle (2026-11-16, 00:03):
+  "The engine is designed for the manifold setting. When corewise operations are required, this is done by having
+  the caller of the engine put in the B and G cores, and it is their responsibility to track the altered meaning
+  of the variables. The engine remains manifold-focused."
+- **Two step functions for one variable.** The maintainer (00:03): "I would prefer to have separate step
+  functions. It is ok to have lots of small functions." So each variable has its own step function (target
+  decision 5.1). `nu_L_dot` and `eta_D_dot` each have two recurrences, the frame's form and the raw form
+  (section 5.2); what the two functions are called is open, and depends on the previous point.
+- **Which application of the transpose a tilde name refers to**, when one call computes both `g` and `JtJp`
+  (target decision 3.3; section 5.3).
 - What the dots that `Kp` reads are when the curvature damping is above zero (section 5.2).
 - In a formula the index is written as a subscript after the basis, as in `L,3`. This is how the drawings were
   made and shown; the maintainer asked for the basis as a subscript and did not speak of the index.

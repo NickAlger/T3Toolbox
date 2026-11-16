@@ -1224,3 +1224,42 @@ axes. How do we tell whether an axis is part of the batch, or a derivative order
 - **Step 3, done** (2026-11-16, 00:45). An Opus agent surveyed the folder and the doc:
   `reviews/notation_2026-11-15/SURVEY.md`, 103 findings.
 
+
+## 58. The maintainer's answers to "Not decided"; the tilde variables are the library's adjoints (2026-11-16, 00:03)
+
+The maintainer answered four of the six open points of `SAMPLE_VARIABLES.md` section 11, and then stopped:
+"Stopping my response here, we need to resolve the tildes issue."
+
+- **The raw core direction as an argument.** "I don't understand what is being asked here. Argument of what
+  function? Please explain in more detail." The point was badly put. It is the argument that carries the
+  direction of `Kp`: the library's `core_directions`, the first argument of `corewise_hessian`. Section 11 now
+  says so.
+- **Step functions.** "I would prefer to have separate step functions. It is ok to have lots of small
+  functions." Recorded under 5.1.
+- **The corewise frame.** His principle, on which he asked for the pros and cons: "The engine is designed for
+  the manifold setting. When corewise operations are required, this is done by having the caller of the engine
+  put in the B and G cores, and it is their responsibility to track the altered meaning of the variables. The
+  engine remains manifold-focused." Not decided.
+- **The tilde variables.** On "whether each seed gives the tilde variables a name of their own": "This is making
+  me worried that we somehow changed the probing algorithm in this proposal process (rather than just changing
+  naming and code structure), and the change may be bad. As I understand it, the tilde variables are adjoint
+  variables which arise from pairing the all of the outputs with residual-like vectors. ... Is this the idea that
+  we create d different sets of tilde variables, one for each network? If so this is a problem and something has
+  gone wrong. There should be only one tilde variable of a type, and it is a variable which combines information
+  from all the networks. Please look at how the corresponding adjoint variables are done in the existing
+  codebase."
+- **Claude's answer: nothing was changed, and his description is exactly what the page's variables are.** There
+  is one tilde variable of each kind, one array per bond or site, combining the residuals of all the modes on
+  its side. Looked at in the library (`backend/probing.py`): `_tau_tilde_step` carries
+  `tau_tilde . L . xi + mu . L . deta_tilde`, which is the page's recurrence for `mu_tilde` term for term; the
+  same holds for `compute_deta_tilde`, `compute_sigma_tilde` and `compute_dxi_tilde`. Checked on the arrays
+  (part D of `scripts/review/sample_variables_check.py`): `xi_tilde`, `mu_tilde`, `nu_tilde`, `eta_tilde` equal
+  the library's `deta_tildes`, `tau_tildes`, `sigma_tildes`, `dxi_tildes` to rounding, and each is one array per
+  site or bond with no axis over the modes.
+- **Where the confusion came from.** "Seed" on the page means the whole residual-like input of the transpose,
+  all `d` vectors. "Each seed" meant the two different inputs the transpose is given in a Newton step: the
+  weighted residual (for `g`) and the weighted `Jp` (for `JtJp`). The library does the same with two calls of
+  `transpose`. Target decision 3.3 asks only which of the two a tilde name refers to when one call computes
+  both. The page's section 5.3 and section 11 were rewritten to say this.
+- **Step 4 is held** until the maintainer has seen this, since the page is what the editor would carry through
+  the folder.

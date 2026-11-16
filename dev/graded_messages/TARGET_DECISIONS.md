@@ -654,6 +654,11 @@ Notes:
   "what each kernel does today", is a reason from history.
 - **5.5.** Decision 4 left association out, on the library's own measurement that one contraction per term is
   right on jax.
+- **5.1, separate step functions, said again** (the maintainer, 2026-11-16, 00:03). Asked whether a step
+  function is named by letter and grade alone, with the basis following from the cores it is given: "I would
+  prefer to have separate step functions. It is ok to have lots of small functions." So each variable of
+  `SAMPLE_VARIABLES.md` has its own step function. Open: `nu_L_dot` and `eta_D_dot` each have two recurrences
+  (the frame's form and the raw form), so one variable has two step functions, which need two names.
 - **Rules for how the functions are written** (the maintainer, 2026-11-15, 19:50, said while settling 2.9):
   "The implementation is through the xscan abstraction, which dispatches to a jax scan if jax is used and the
   layer is uniform, and a loop if pure numpy or ragged. In general, things should respect the numpy vs jax dispatch
