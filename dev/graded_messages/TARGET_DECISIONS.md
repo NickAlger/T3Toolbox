@@ -773,6 +773,38 @@ Notes:
   - **A consequence for 6.5, noted.** If `r` can be held, the transpose applied to any array of the type of `z`
     is `want=('g',)` with that array held as `r`. A held variable is then an input with a meaning, and its
     validity is the caller's.
+- **What "public" means, the maintainer's two objections** (2026-11-15, 21:44). Not decided.
+  - **His words.** "First, the edge variables like eta_tilde are themselves valid mathematical quantities with a
+    definition (jetted adjoint with respect to a top level order) that user may want. This particular example
+    seems unlikely, but I can easily see situations where the user would want, say, mu. And I don't have a clear
+    sense of where to draw the line, which suggests that we provide all of them. Second, the shape contract has
+    some nuance when it comes to jets, particularly since we are planning to unify the jetted and unjetted
+    variables, so that the unjetted variable is just the jet of order zero. Perhaps this is fine given our
+    definition of the optional T index group."
+  - **Claude's answer to the first: the third part of the test is withdrawn.** "A use outside" drew a line that
+    has no principle behind it. Every variable of a kind's graph, at every grade, can be wanted and held. What a
+    name promises is then two things: a meaning that does not depend on the route, and one shape. Whether a
+    variable is worth holding is guidance in the table, not a condition for having a name.
+    - **A rule this needs:** wanting a variable never changes any value; not wanting it lets the engine skip
+      work. `eta_tilde` is the case in point: wanted, it is formed at every order; not wanted, only the two
+      slots that `g` reads are formed. Those are two forms of one step, and the short one has to equal a slice
+      of the full one, by test.
+    - **The seeds (3.3).** A tilde variable is linear in its seed. If `r` can be held, one name per tilde
+      variable is enough: the copy seeded by `Jp` is the same name in a call with `Jp` held as `r`. Then "which
+      seeded copies are public" has the answer "all, under one name". This rests on 6.5.
+    - **Still without a name:** the `eta`-like variable through `L` that `z` reads, and the dot variables of
+      `Kp`, which belong to the lifted direction. To be named or given a route at 6.4. Not checked.
+  - **Claude's answer to the second: the optional group `T` carries it, with three things the table has to
+    say.** Every variable has the shape `[d] + T + W + [K] + C + (leg,)`, with `T = (order+1,) if order else ()`,
+    so at order 0 it is today's plain variable, and the rank is declared by `order`, never read off an array.
+    - **Affine variables do not have `T`.** The input `w + s p`, `xi` and `xi_dot` have two coefficients at
+      every order above 0 (catalog, point 6; 2.6; 2.9). Their order group is a second optional group, two slots
+      or absent. The library stores `xi_jets` this way. The prototype pads them to `T` with zeros, which is
+      expediency. Claude's reading; not said by the maintainer.
+    - **The tilde grades have the same `T` with the order leg turned** (2.4), so the table needs a column for
+      the orientation; the shape does not show it.
+    - **A plain jet cut at a lower order is the jet of that order; a tilde jet is not** (catalog, point 4).
+      This bears on what a held variable is valid for (6.5), not on the shape.
 - **6.3.** The review kept the old kernels as public adapters and the new names as a second vocabulary. That was
   compatibility. With one vocabulary, the near miss between the new `xi_tilde` and today's `dxi_tilde` exists
   only during migration.

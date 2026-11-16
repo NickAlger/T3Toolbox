@@ -1119,3 +1119,15 @@ axes. How do we tell whether an axis is part of the batch, or a derivative order
   proposed (a route-independent meaning, one shape, a use outside), with its consequences for `eta_tilde`, for the
   docstring table as the shape contract, and for 3.4 and 6.5. The engine itself has not been prototyped.
 - **Recorded** in the notes to section 6 of `TARGET_DECISIONS.md`. No row changes status.
+
+## 52. Public: provide every variable; the shape with jets (2026-11-15, 21:44). Under discussion
+
+- **The maintainer.** Edge variables are mathematical quantities a user may want; he sees no clear place to draw a
+  line, "which suggests that we provide all of them". And the shape contract has nuance with jets, perhaps
+  covered by the optional group `T`.
+- **Claude's answer.** The third part of the proposed test ("a use outside") is withdrawn; every variable of the
+  graph at every grade can be wanted and held. A rule is proposed with it: wanting a variable never changes a
+  value, and not wanting it lets the engine skip work (the two slots of `eta_tilde`). With `r` holdable, one
+  name per tilde variable covers every seed. On shapes: `T` carries it; the affine variables have a two-slot
+  group of their own, the tilde grades have a turned order leg, and only plain jets are nested in the order.
+- **Recorded** in the notes to section 6 of `TARGET_DECISIONS.md`. No row changes status.
