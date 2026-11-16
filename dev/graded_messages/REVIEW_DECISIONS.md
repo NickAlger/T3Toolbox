@@ -1408,3 +1408,13 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   holds nothing. (b) is the default. The table is in the note to 4.3 of `TARGET_DECISIONS.md`.
 - **Counts.** 27 rows decided, 25 remain. Group B has four left: the rest of 4.2, 4.4, 3.2, 4.5.
 
+## 67. 4.2 decided: frame consistency is a precondition in safe mode, checked only where needed, never through a dense tensor (2026-11-16, 02:07)
+
+- **The maintainer's words** are in the note to 4.2 of `TARGET_DECISIONS.md`. In short: a precondition checked
+  in safe mode at the moment a function that requires it is called; no runtime safety check through a dense
+  tensor; the norm of a difference through the existing non-dense machinery; `is_consistent` rewritten to avoid
+  the dense tensor; no check where it is not needed.
+- **Found in the library on the way:** `T3Frame.is_consistent` forms two dense tensors and does not look at
+  `U`.
+- **Counts.** 28 rows decided, 24 remain. Group B has three left: 4.4, 3.2, 4.5.
+

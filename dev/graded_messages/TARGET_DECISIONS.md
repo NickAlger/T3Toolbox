@@ -30,28 +30,28 @@ planned only after the target is settled.
 
 ## What remains, in groups (2026-11-15, 15:34)
 
-Of the 56 rows in sections 1 to 9, 27 are decided, 3 are guidance and 1 is parked. The other 25 are below, in
+Of the 56 rows in sections 1 to 9, 28 are decided, 3 are guidance and 1 is parked. The other 24 are below, in
 seven groups that cut across the sections. The grouping and the suggested order are Claude's, made at the
 maintainer's request; they decide nothing.
 
 | Group | Rows | Open | Reopened | To confirm | Held |
 | --- | --- | --- | --- | --- | --- |
 | A. Jets and the misfit | 0 | | | | |
-| B. The frame and the value | 4 | | 2 | 2 | |
+| B. The frame and the value | 3 | | 1 | 2 | |
 | C. What a kind is, and the public surface | 7 | 4 | 2 | 1 | |
 | D. One program for every layout and stack | 5 | 3 | 1 | 1 | |
 | E. Plans, memory and scale | 5 | 3 | 2 | | |
 | F. The fitting layer above | 3 | 1 | | 2 | |
 | G. What defines correct | 1 | 1 | | | |
-| Total | 25 | 12 | 7 | 6 | |
+| Total | 24 | 12 | 6 | 6 | |
 
 - **A. Jets and the misfit.** (Decided on the afternoon of 2026-11-15: 2.4, what a tilde jet is; 2.5, the misfit;
   2.3, the derivative-mode adapter; and, at 19:32, 2.9, how a term is carried out over the orders.)
   (And on 2026-11-16: at 01:04, 3.6, the weight inside the engine; at 01:32, 3.7, what happens to the sample
   stack on each output; at 01:36, 3.3, which adjoint sweep a tilde name refers to.) Group A is finished.
 - **B. The frame and the value.** (Decided on 2026-11-16: at 01:52, 4.1, what a frame is, with the centers' part
-  of 4.2; at 01:59, 4.3, the route to the value at a trial point.) 4.2 frame consistency, for the four stores
-  among themselves (reopened); 4.4 tails and boundaries (reopened); 3.2 whether `gamma` (now `nu_L`) is
+  of 4.2; at 01:59, 4.3, the route to the value at a trial point; at 02:07, the rest of 4.2, frame
+  consistency.) 4.4 tails and boundaries (reopened); 3.2 whether `gamma` (now `nu_L`) is
   first-class (to confirm, depends on 4.1); 4.5 where the projection, the lift and the Hessian assembly live (to
   confirm).
 - **C. What a kind is, and the public surface.** 3.4 what a sampling kind is and whether a user can define one
@@ -700,7 +700,7 @@ Notes:
 | # | Question | Status | Depends on |
 | --- | --- | --- | --- |
 | 4.1 | A frame is the four stores `(D, U, L, R)`, and `(D, L)` is the base point. The Tucker center cores may be supplied beside it. With them the value is read off the frame, `z[i]` being `eta[i]` through the center; without them it goes through `D` | Decided | 1.1, 1.2 |
-| 4.2 | Is frame consistency a precondition or a diagnostic? | Reopened | 4.1 |
+| 4.2 | Frame consistency (the four stores describe one tensor; given centers agree with it) is a precondition, checked in safe mode at the moment a function that requires it is called, and never otherwise. No runtime safety check goes through a dense tensor | Decided | 4.1 |
 | 4.3 | At an accepted point the value is read off the frame with `Vc` (4.1). At a trial point the optimizers offer three policies: the trial's raw cores; a frame at every trial, with its plain variables held for the accepted one (the default); a frame at every trial with the gradient computed with the value | Decided | 4.1 |
 | 4.4 | Tails and boundaries: are default frames squashed, what are the boundary vectors, and what is the contract at the ends of the frame? | Reopened | 4.1 |
 | 4.5 | Where do the gauge projection, the lift, and the assembly of the exact Hessian product live? | To confirm | 1.1 |
@@ -744,6 +744,28 @@ Notes:
   - This reverses decision 7 of 2026-11-14 in part: reading the value off the frame is no longer parked. Its
     three objections were the missing guard (now the safe-mode check), the missing channel in the geometry
     protocol (now provided), and the library's caching audit (a fact about the present structure).
+- **4.2, decided** (2026-11-16, 01:52 for the centers, 02:07 for the four stores).
+  - **What agreement means.** A frame describes one tensor several times: `D` over `L`, `D` over `R`, and at each
+    site `L` cores to the left, `U`, and `R` cores to the right. A frame the library builds agrees by
+    construction; one assembled by hand need not. If the stores disagree, the value comes from one tensor and
+    `Jp`, `g`, `JtJp` go through the cores of another, so `g` is not the gradient of `f`, silently.
+  - **The library today.** `T3Frame.is_consistent` is a diagnostic that nothing calls automatically. It compares
+    the `L` and the `R` reconstruction only, not `U`, and it forms both dense tensors
+    (`fv_frame_consistency_residual`); its docstring calls it expensive. Decision 7 of 2026-11-14 left it a
+    diagnostic.
+  - **The maintainer** (02:07): "This is a precondition checked in safe mode at the moment that a function that
+    requires it is called. Runtime safety checks must not go through dense; this will probably blow out the
+    users memory. We can check ||A-B|| using the existing non-dense norm machinery. The is_consistent helper
+    should be updated to avoid dense as well. Do not call the check when it is not needed; the user may do
+    whatever they want with the extra core; if they are not using functions that depend on consistency, then we
+    let them be."
+  - **So:** a precondition in safe mode, skipped in unsafe mode and under jit like the others; checked only
+    where a function needs it; computed through the cores, as the norm of the difference of two tensors in T3
+    form, never through a dense tensor. `is_consistent` and `fv_frame_consistency_residual` are to be rewritten
+    the same way. With 01:52: centers that are given and do not agree with `(D, L)` are the same kind of error.
+  - **Open:** which functions require it. Claude's reading, to be settled with the table of variables (6.4): the
+    fitting layer's local model always; `g` when its residual comes from the `z` of the same frame; `z` with
+    `Vc` (the centers' agreement); and not an edge variable asked for on its own, nor `z` through `D`.
 - **4.3, the trial point, decided** (2026-11-16, 01:59). The maintainer: "Add all three as options, default to
   (b)".
   - The engine does not care: a trial's value is `f` on whatever frame it is given. The policy belongs to the
