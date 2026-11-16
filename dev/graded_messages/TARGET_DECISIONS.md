@@ -1733,6 +1733,52 @@ Notes:
   - The maintainer, on the three points (the phases with the default left to the performance discussion; the
     safe-mode rule; traceable `take` now and multi-step MC-SGD later), at 14:30: "Confirmed".
 
+- **8.4, decided in part; the derivative-mode point open** (2026-11-16, 14:32 to 14:57).
+  - **The earlier decision** (2026-11-14, decision 9): the display gets a summed variable `r_block_sumsq`, so it
+    needs no per-sample residual; the data's block sums and weighted norm stay `kind.block_sumsq(data)` and
+    `kind.sumsq(data)`; the trust-region floor reads only the residual's dtype. That was written against kinds.
+  - **Claude's restatement with an oracle in place** (14:32). Train table, numerators: `r_block_sumsq`, an
+    optional oracle output at the model's frame, using `held`. Denominators: `y_block_sumsq`, an optional oracle
+    output that does not depend on the frame; the least-squares oracle computes it once when it is made.
+    Validation table: a validation oracle, asked for `r_block_sumsq` at the model's frame. Unweighted objective:
+    half the sum of the block sums, as today. Trust-region floor: `f_resolution`, an optional oracle output.
+    Callbacks: `info.x_cores` and `info.lm` as today, `info.lm` carrying the oracle, the frame and `held`.
+  - **The maintainer on the table** (14:43): "Regarding the data block sum display. If I recall correctly,
+    previously we displayed differently for the unjetted and jetted variants, because the jetted one had the
+    additional derivative order axis. Here the unjetted versions are subsumed as jetted problems of zeroth order,
+    so one display has to work for both. What is important is that the display show the full table of errors,
+    for each derivative order and for each tensor index. The display and stored diagnostics should not reduce
+    this information over any axis."
+    - Checked in the library: today the block sums are always a 2-D array `(n_mode, n_order)` with a size-1 axis
+      where a kind has no modes or no orders, and one formatter, `_format_table`, chooses among four layouts by
+      that shape. So the two displays already come from one function.
+    - **The rule, put to him at 14:50 and not objected to:** `r_block_sumsq` and `y_block_sumsq` have exactly the
+      shape of the weight (probe: `(d,)` at order 0 and `(d, order+1)` above; apply and entries: a scalar at
+      order 0 and `(order+1,)` above). An absent axis takes the place of today's size-1 axis and the same four
+      layouts follow. Nothing is reduced over modes or orders: the only sums are over the samples and over the
+      entries of each mode's output vector; the display prints every entry; the stored record keeps the full
+      arrays for training and validation at every iteration; the unweighted objective is an extra number and
+      replaces nothing. Claude read "for each tensor index" as "for each mode" and said so.
+  - **Decided** (14:57: "1.,2.,3. are confirmed."):
+    1. A validation set is an oracle, as a minibatch is. `make_newton_display` takes `val_oracle` in place of
+       `val_sample` and `val_data`.
+    2. The trust-region floor is the oracle's statement: an optional output `f_resolution`. The formula
+       `eps (|y| |r| + |f|)` is the cancellation error of a least-squares misfit and belongs in the
+       least-squares oracle. An oracle without it gets `eps |f|`, with `eps` from the dtype of `f`.
+    3. An oracle without block sums gets the display's header line and no table, where today the display raises.
+  - **Open: point 4, derivative mode.** Claude proposed converting the unweighted objective back to the form the
+    user gave the data in. That went against 2.3 as decided ("Nothing is converted on the way out"). The
+    maintainer (14:57): "For 4, I am considering the architecture regarding taylor mode vs derivative mode data.
+    In my conceptualization, derivative mode data is prepared for taylor mode optimization outside the optimizer
+    using helper functions that we provide, which scale the data and create weights. I believe we also decided
+    to add a helper option that can do it for them in the optimizer, but this is a nicety and not central. The
+    optimizer remains focused on Taylor mode. Now here, it seems like the structure is mixing. Instead of Taylor
+    mode being what the optimizer does, with an adapter to prepare derivative mode data and generate its weights,
+    now both are becoming first class citizens, with all the complications that entails. Can you look through our
+    previous work on this? I am considering simply moving the derivative mode stuff completely outside, and
+    forcing the user to prepare their derivative mode data before optimizing it. Please think through the pros
+    and cons of this."
+
 - **8.2, decided, the name apart** (2026-11-16, 02:45). The maintainer: "I agree with this data structure.
   However, I would like to find another word than objective. When the user hears "objective", they may think
   just "f", and not all of the other things that come bundled with it."
