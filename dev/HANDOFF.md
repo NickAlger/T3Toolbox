@@ -41,8 +41,8 @@ severely breaking"); it is merged when it is done. Look on the branch for the li
 changed yet.
 
 **Read, in this order:** its `README.md`; `TARGET_DECISIONS.md`, the working agenda (its sections "Where this stands"
-and "What remains, in groups" are the state: 18 of 55 rows decided, 33 open in seven groups, being settled one at a time
-with Nick, group A "jets and the misfit" under way); `TYPE_CATALOG.md` (the types of every sampling variable, arrows on
+and "What remains, in groups" are the state and carry the counts; the rows are being settled one at a time with
+Nick, group A "jets and the misfit" first); `TYPE_CATALOG.md` (the types of every sampling variable, arrows on
 the edges, a type checker for every contraction); then `DESIGN_AFTER_REVIEW.md` and `REVIEW_DECISIONS.md` (the log).
 The older documents there carry status notes and are history.
 

@@ -985,3 +985,17 @@ axes. How do we tell whether an axis is part of the batch, or a derivative order
 - **2.3.** A minimal example of the adapter was shown in the conversation: the standalone conversions used by hand,
   and the keyword doing the same inside a fit. Not decided.
 
+## 44. The derivative-mode adapter decided (2026-11-15, 18:37)
+
+- **The maintainer.** "Yes, this is good. Regarding the keyword dependent meaning: yes, but let's make sure to
+  document clearly. We can have a doctest example illustrating this behavior, showing what happens to the data in
+  each case".
+- **Target decision 2.3, decided.** Standalone conversions and one opt-in keyword on the fitting functions; with
+  the keyword and no weight, the weight is `t!` per order, which reproduces the plain sum of squares of the
+  derivative residuals. Required: documentation with a doctest of the three cases.
+- **A draft of that doctest** runs in `scripts/review/adapter_doctest_draft.py` (14 examples). 32 rows remain;
+  group A has four, all marked to confirm: 2.9, 3.6, 3.7 and 3.3.
+- **A slip in the record.** The commit `be509da` carried only the draft and the runner; an edit script had failed
+  before it wrote the documents, and the commit message said more than the commit held. The documents followed
+  in the next commit.
+

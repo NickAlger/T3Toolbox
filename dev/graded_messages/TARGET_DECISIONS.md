@@ -30,27 +30,26 @@ planned only after the target is settled.
 
 ## What remains, in groups (2026-11-15, 15:34)
 
-Of the 55 rows in sections 1 to 9, 18 are decided, 3 are guidance and 1 is parked. The other 33 are below, in
+Of the 55 rows in sections 1 to 9, 19 are decided, 3 are guidance and 1 is parked. The other 32 are below, in
 seven groups that cut across the sections. The grouping and the suggested order are Claude's, made at the
 maintainer's request; they decide nothing.
 
 | Group | Rows | Open | Reopened | To confirm | Held |
 | --- | --- | --- | --- | --- | --- |
-| A. Jets and the misfit | 5 | 1 | | 4 | |
+| A. Jets and the misfit | 4 | | | 4 | |
 | B. The frame and the value | 6 | | 4 | 2 | |
 | C. What a kind is, and the public surface | 8 | 4 | 2 | 2 | |
 | D. One program for every layout and stack | 5 | 3 | 1 | 1 | |
 | E. Plans, memory and scale | 5 | 3 | 2 | | |
 | F. The fitting layer above | 3 | 1 | | 2 | |
 | G. What defines correct | 1 | 1 | | | |
-| Total | 33 | 13 | 9 | 11 | |
+| Total | 32 | 12 | 9 | 11 | |
 
-- **A. Jets and the misfit.** (2.4, what a tilde jet is, was decided at 16:10, and 2.5, the misfit, at 17:00.)
-  2.3
-  what the derivative-mode adapter converts (open); 2.9 how a term is carried out over the orders (to confirm);
+- **A. Jets and the misfit.** (Decided on the afternoon of 2026-11-15: 2.4, what a tilde jet is; 2.5, the misfit;
+  2.3, the derivative-mode adapter.) 2.9 how a term is carried out over the orders (to confirm);
   3.6 whether the loss is inside the sampling layer (to confirm); 3.7 which reductions over the samples are
   sampling variables (to confirm); 3.3 which seeded tilde copies are public (to confirm). The type catalog bears
-  on all five.
+  on all four.
 - **B. The frame and the value.** 4.1 what a frame is (reopened); 4.2 frame consistency (reopened); 4.3 the route
   to the value (reopened); 4.4 tails and boundaries (reopened); 3.2 whether `gamma` is first-class (to confirm,
   depends on 4.1); 4.5 where the projection, the lift and the Hessian assembly live (to confirm).
@@ -161,7 +160,7 @@ attempts failed.
 | --- | --- | --- | --- |
 | 2.1 | Taylor coefficients replace derivatives everywhere, and jet edge variables are first-class, like the plain ones | Decided | |
 | 2.2 | Derivative mode is one adapter at the outer level of fitting, done by scaling and weighting. Taylor is the default and the only form underneath | Decided | 2.1 |
-| 2.3 | What exactly does that adapter convert (data, weights, returned jets, displayed and validation errors), and where does it sit? | Open | 2.2, 1.1 |
+| 2.3 | The derivative-mode adapter is standalone conversions plus one opt-in keyword on the fitting functions. Data and validation data are divided by `t!`; the weight is multiplied by `t!`; with the keyword and no weight the weight is `t!`, so that the objective is the plain sum of squares of the derivative residuals. Nothing is converted on the way out. The sampling methods have no such keyword, and the backend is Taylor only. This behaviour of the keyword is documented with a doctest | Decided | 2.2, 6.7 |
 | 2.4 | A tilde jet is an adjoint variable: a Lagrange multiplier, a dual object. The data and the residual are of the type of `z`, in forward order. The misfit is the weighted sum of squares slot by slot. The dualization is one step at the seed: the weights, then the turn of the order leg. Tilde variables are stored turned, the ones a user holds included. `w_tilde` names the seed | Decided | 2.1 |
 | 2.5 | The misfit is `1/2 sum omega^2 r^2` over modes, orders and samples, on Taylor coefficient residuals. With no weight given the weight is ones; that default may change in a later release if a more robust method that "just works" is found. The weight has the shape `(d,) + T` for probe and `T` for apply and entries, with no rule for a bare vector | Decided | 2.1, 2.2 |
 | 2.6 | Is an input jet always affine (`w + s p`), or can it be general? This decides whether the two-term banded form is part of the structure | Decided | |
@@ -449,6 +448,18 @@ Notes:
   conversation. A point the example raises: with the keyword and no weight, the weight has to be `t!` per order,
   so that the objective is the plain sum of squares of the derivative residuals. Checked on numbers: the
   conversions reproduce the derivative-mode objective exactly, with a weight and without. Not decided.
+- **2.3, decided** (2026-11-15, 18:37). The maintainer, on the form of the adapter and its example: "Yes, this is
+  good." On the keyword changing what "no weight" means: "yes, but let's make sure to document clearly. We can
+  have a doctest example illustrating this behavior, showing what happens to the data in each case".
+  - Three standalone conversions: derivatives to Taylor coefficients (slot `t` divided by `t!`), the reverse, and
+    a derivative-mode weight to a Taylor weight (slot `t` multiplied by `t!`).
+  - One opt-in keyword on the fitting functions that applies them to the data, the validation data and the
+    weight. With the keyword and no weight, the weight is `t!` per order.
+  - Required: clear documentation of that, with a doctest that shows what happens to the data in each case. A
+    draft that runs is `scripts/review/adapter_doctest_draft.py` (three cases: Taylor data; derivative data with
+    a weight; derivative data with no weight).
+  - Not decided: the names of the functions and the spelling of the keyword (`jet_form='derivatives'` in the
+    draft), and what the display shows in derivative mode (8.4).
 
 ## 3. Variables and kinds
 
