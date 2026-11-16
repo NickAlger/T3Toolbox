@@ -1491,3 +1491,12 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
 - **02:52, the name.** `Oracle`. The maintainer: "Oracle is ok, let's go with it. I see your point about jargon,
   but I have not thought of anything better".
 
+## 76. Group C finished: 9.2 decided (2026-11-16, 02:56)
+
+- **The maintainer:** "Confirmed. We will need to discuss 3 more later in the broader context of performance
+  optimization hooks and defaults".
+- **Decided:** the three kind strings are the kind everywhere; `'sweep'` as a unit name goes and a `hold` lists
+  variable names. The sizing function names move to 7.6.
+- **Counts.** 38 rows decided, 14 remain: group D (5.2, 5.3, 5.4, 5.5, 5.6), group E (7.2, 7.3, 7.5, 7.6, 7.7),
+  group F (8.1, 8.3, 8.4) and group G (9.3). Groups A, B and C are finished.
+

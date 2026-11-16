@@ -30,7 +30,7 @@ planned only after the target is settled.
 
 ## What remains, in groups (2026-11-15, 15:34)
 
-Of the 56 rows in sections 1 to 9, 37 are decided, 3 are guidance and 1 is parked. The other 15 are below, in
+Of the 56 rows in sections 1 to 9, 38 are decided, 3 are guidance and 1 is parked. The other 14 are below, in
 seven groups that cut across the sections. The grouping and the suggested order are Claude's, made at the
 maintainer's request; they decide nothing.
 
@@ -38,12 +38,12 @@ maintainer's request; they decide nothing.
 | --- | --- | --- | --- | --- | --- |
 | A. Jets and the misfit | 0 | | | | |
 | B. The frame and the value | 0 | | | | |
-| C. What a kind is, and the public surface | 1 | 1 | | | |
+| C. What a kind is, and the public surface | 0 | | | | |
 | D. One program for every layout and stack | 5 | 3 | 1 | 1 | |
 | E. Plans, memory and scale | 5 | 3 | 2 | | |
 | F. The fitting layer above | 3 | 1 | | 2 | |
 | G. What defines correct | 1 | 1 | | | |
-| Total | 15 | 9 | 3 | 3 | |
+| Total | 14 | 8 | 3 | 3 | |
 
 - **A. Jets and the misfit.** (Decided on the afternoon of 2026-11-15: 2.4, what a tilde jet is; 2.5, the misfit;
   2.3, the derivative-mode adapter; and, at 19:32, 2.9, how a term is carried out over the orders.)
@@ -53,19 +53,21 @@ maintainer's request; they decide nothing.
   of 4.2; at 01:59, 4.3, the route to the value at a trial point; at 02:07, the rest of 4.2, frame consistency;
   at 02:12, 4.4, tails and boundaries; at 02:16, 3.2, `nu_L` stays, and 4.5, the projection, the lift and the
   Hessian assembly stay in the geometry.
-- **C. What a kind is, and the public surface.** (Decided: on 2026-11-15 at 23:23, with the notation of 9.6,
-  3.1, letters and grades as the primitives; on 2026-11-16 at 02:22, 3.4, a kind is closed in the sampling layer
-  and the open extension point is an objective protocol in the fitting layer; at 02:31, 6.5, a held variable
-  is trusted and only its shape is checked; at 02:34, 6.2, the arguments of `sampling_variables`, up to three
-  names; at 02:37, 6.4, the table of variables written out and tested against the declared graph; at 02:40,
-  6.3, the public functions of the sampling layer; at 02:45, 8.2, the protocol of the fitting layer's open
-  extension point, named `Oracle` at 02:52.) 9.2 names chosen to match things that will go (open).
+- **C. What a kind is, and the public surface.** Finished on 2026-11-16 (3.1 had been decided with the notation
+  on 2026-11-15 at 23:23): at 02:22, 3.4, a kind is closed in the sampling layer and the open extension point is
+  in the fitting layer; at 02:31, 6.5, a held variable is trusted and only its shape is checked; at 02:34, 6.2,
+  the arguments of `sampling_variables`, up to three names; at 02:37, 6.4, the table of variables written out and
+  tested against the declared graph; at 02:40, 6.3, the public functions of the sampling layer; at 02:45 and
+  02:52, 8.2, the oracle; at 02:56, 9.2, the kind strings and the unit name `'sweep'`, with the sizing function
+  names moved to 7.6.
 - **D. One program for every layout and stack.** 5.2 one set of step functions for ragged and uniform (open); 5.4
   terms generic over the stack groups (open); 5.3 sites scanned or vectorized (reopened); 5.5 association order
   inside a term (to confirm); 5.6 the dtype rule (open). The cases the order-0 assessment did not cover are here.
   The maintainer gave rules for how the functions are written on 2026-11-15, 19:50 (notes to section 5).
 - **E. Plans, memory and scale.** 7.3 where the plan lives (reopened); 7.2 the defaults (reopened); 7.5 inert
-  padded samples for entries (open); 7.6 automatic sizing (open); 7.7 sharding and device placement (open).
+  padded samples for entries (open); 7.6 automatic sizing, with the names of the sizing functions and of the pad-and-reshape helpers (open); 7.7
+  sharding and device placement (open). The maintainer wants the sizing names taken up "in the broader context
+  of performance optimization hooks and defaults" (02:56).
 - **F. The fitting layer above.** 8.1 what `LocalModel` is (to confirm); 8.3 the optimizers' contract with a model
   and what is compiled as one program (open); 8.4 what the display and diagnostics read (to confirm).
 - **G. What defines correct.** 9.3 the reference when old behaviour is not it (open).
@@ -1340,7 +1342,7 @@ Notes:
 | # | Question | Status | Depends on |
 | --- | --- | --- | --- |
 | 9.1 | The names settled on 2026-11-14 | Decided | |
-| 9.2 | Which of those names were chosen to match something that will no longer exist: the kind strings, `'sweep'` as a unit name, the sizing function names? | Open | 3.4, 6.3, 7.6 |
+| 9.2 | The kind is one of the three strings `'probe'`, `'apply'`, `'entries'`, everywhere. `'sweep'` as a unit name goes: a `hold` lists variable names. The names of the sizing functions are settled with 7.6 | Decided | 3.4, 6.3, 7.6 |
 | 9.3 | What defines correct when old behaviour is not the reference: the generic twin, adjoint identities, finite differences? | Open | |
 | 9.4 | What is the order axis called as a group, so that it is not taken for a batching axis, and what letter does it have in contraction strings? | Decided | 2.7 |
 | 9.5 | The convention for arrows on the edges. An arrow shows the way a vector travels: where it leaves an array the index is plain, where it enters the index is dual. A contraction joins the two ends of one arrow. Every arrow of a frame points away from its store, towards the hole. Arrows are described by the way they point in the diagram: left-to-right, right-to-left, bottom-to-top, top-to-bottom | Decided | |
@@ -1348,6 +1350,18 @@ Notes:
 
 Notes:
 
+- **9.2, decided** (2026-11-16, 02:56). The maintainer: "Confirmed. We will need to discuss 3 more later in the
+  broader context of performance optimization hooks and defaults".
+  - **1. The kind strings.** On 2026-11-14 the engine's three strings stood beside the frontend's six, and the
+    two spellings "need reconciling". The six went with the `*_derivatives` kinds (2.8), and a kind is a closed
+    description (3.4). The three strings `'probe'`, `'apply'`, `'entries'` are the kind, everywhere.
+  - **2. `'sweep'` as a unit name in `hold`.** It named a kind's whole frame sweep as one unit, because a
+    user-written kind would have only that unit. There are no user-written kinds, every variable has a name
+    (6.4), and a "sweep" is a set of held variables (6.3). The unit name goes; a `hold` lists variable names, so
+    the old default is `('xi', 'mu', 'nu', 'eta')`.
+  - **3. The sizing function names** (`estimate_chunk_size`, `max_chunk_size_within`, and the helpers `chunk`
+    and `unchunk`, which were to be methods of a kind). Not settled here: moved to 7.6, to be discussed with the
+    performance hooks and defaults as a whole.
 - **Names and the T4S paper** (the maintainer, 2026-11-15, 21:59). "Trying to keep consistency with the t4s paper's
   notation through this refactor is an impossible task. We do not need to attempt it." So a name is chosen for the
   target alone; `sigma`, `tau` and the other letters the refactor frees may be given new meanings. (The notation of
