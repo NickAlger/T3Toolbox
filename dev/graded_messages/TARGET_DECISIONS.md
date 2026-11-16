@@ -30,7 +30,7 @@ planned only after the target is settled.
 
 ## What remains, in groups (2026-11-15, 15:34)
 
-Of the 56 rows in sections 1 to 9, 34 are decided, 3 are guidance and 1 is parked. The other 18 are below, in
+Of the 56 rows in sections 1 to 9, 35 are decided, 3 are guidance and 1 is parked. The other 17 are below, in
 seven groups that cut across the sections. The grouping and the suggested order are Claude's, made at the
 maintainer's request; they decide nothing.
 
@@ -38,12 +38,12 @@ maintainer's request; they decide nothing.
 | --- | --- | --- | --- | --- | --- |
 | A. Jets and the misfit | 0 | | | | |
 | B. The frame and the value | 0 | | | | |
-| C. What a kind is, and the public surface | 4 | 2 | 1 | 1 | |
+| C. What a kind is, and the public surface | 3 | 2 | 1 | | |
 | D. One program for every layout and stack | 5 | 3 | 1 | 1 | |
 | E. Plans, memory and scale | 5 | 3 | 2 | | |
 | F. The fitting layer above | 3 | 1 | | 2 | |
 | G. What defines correct | 1 | 1 | | | |
-| Total | 18 | 10 | 4 | 4 | |
+| Total | 17 | 10 | 4 | 3 | |
 
 - **A. Jets and the misfit.** (Decided on the afternoon of 2026-11-15: 2.4, what a tilde jet is; 2.5, the misfit;
   2.3, the derivative-mode adapter; and, at 19:32, 2.9, how a term is carried out over the orders.)
@@ -57,10 +57,9 @@ maintainer's request; they decide nothing.
   3.1, letters and grades as the primitives; on 2026-11-16 at 02:22, 3.4, a kind is closed in the sampling layer
   and the open extension point is an objective protocol in the fitting layer; at 02:31, 6.5, a held variable
   is trusted and only its shape is checked; at 02:34, 6.2, the arguments of `sampling_variables`, up to three
-  names.) 8.2 the fitting layer's kind
-  object, now the objective protocol (open); 6.3 the other public functions (reopened); 6.4
-  the table of variables generated from the graph (to confirm; that every variable is public is decided); 9.2
-  names chosen to match things that will go (open).
+  names; at 02:37, 6.4, the table of variables written out and tested against the declared graph.) 8.2 the
+  fitting layer's kind object, now the objective protocol (open); 6.3 the other public functions (reopened);
+  9.2 names chosen to match things that will go (open).
 - **D. One program for every layout and stack.** 5.2 one set of step functions for ragged and uniform (open); 5.4
   terms generic over the stack groups (open); 5.3 sites scanned or vectorized (reopened); 5.5 association order
   inside a term (to confirm); 5.6 the dtype rule (open). The cases the order-0 assessment did not cover are here.
@@ -75,7 +74,7 @@ maintainer's request; they decide nothing.
 wait on 4.1 and 4.5. C feeds F: 8.1 and 8.3 need the public surface. D and E are each mostly self-contained; E's
 7.3 is tied to F's 8.1. G bears on how every other answer is checked.
 
-**The four rows marked to confirm** are earlier decisions that were not taken for reasons of compatibility.
+**The three rows marked to confirm** are earlier decisions that were not taken for reasons of compatibility.
 They may go quickly, several at a time.
 
 **Outside the list:** 8.5 shared sample vectors (parked); weights on internal edges as inner products (parked for
@@ -961,7 +960,7 @@ Notes:
 | 6.1 | `sampling_variables` is a public backend function. It returns a tuple aligned with `want`, and held variables are keyword arguments | Decided | |
 | 6.2 | The arguments of `sampling_variables`: `kind`, `frame`, `sample`, `want`, then `order`, `plan`, `y`, `weight`, the direction `(V, H)`, the lifted direction `(D_dot, L_dot)`, `Vc`, whether `g`, `JtJp`, `Kp` are summed over the samples, and the held variables by name. Decided up to the names of three keywords | Decided | 2.8, 3.4, 4.5 |
 | 6.3 | What other public functions does the sampling layer have, and do any of the existing public kernel names remain? | Reopened | 1.1 |
-| 6.4 | Which variables are public for each kind, and is the docstring table of reads generated from the declared graph? | To confirm | 3.1 to 3.4 |
+| 6.4 | Every variable of a kind's graph, at every grade, can be wanted and held. The table of variables (name, shape, what it reads, which arguments it needs) is written out in the docstring and the documentation, the engine declares its graph as data, and a test checks that the two agree exactly | Decided | 3.1 to 3.4 |
 | 6.5 | The engine trusts a held variable and checks only its shape, the order included. Whoever holds it vouches for it. The caller may give the engine whatever they want, modified variables included | Decided | |
 | 6.6 | The plain and the jetted sampling function are one function: `probe(ww, pp=None, order=0)`, returning `T + W + C + (Ni,)`. This holds for the frontend methods of the flagship classes and for the backend function behind each, which uses the engine | Decided | 2.6, 2.7 |
 | 6.7 | Preparing the data and creating weights is done by standalone functions that the user calls before the fitting functions. The fitting functions have opt-in keywords that call those functions. A keyword inside a fit does only preparation that changes the loss alone; anything that changes the unknowns or belongs to the problem stays standalone | Decided | 2.5 |
@@ -997,6 +996,20 @@ Notes:
     argument here (7.3).
   - A missing argument is a structural error: `Kp` wanted without the lifted direction, or `r` wanted without
     `y` and without a held `r`.
+- **6.4, the table, decided** (2026-11-16, 02:37). The maintainer: "Let's go with the second. Table written out
+  and tested against the declared graph." (That every variable can be wanted and held was confirmed on
+  2026-11-15 at 21:57.)
+  - `sampling_variables` returns a tuple aligned with `want`, so no signature carries the shapes: the table is
+    the contract.
+  - **Not taken:** a docstring built from the declared graph at import time. It cannot drift, but the table is
+    then not in the source.
+  - **Taken:** the table written by hand, the graph declared as plain data (a tuple of records with a name, a
+    step function, the names it reads and the arguments it needs), and an exact test that the two agree row for
+    row. This keeps the code statically readable and is an exact test of a structural thing, the two ground
+    rules that apply.
+  - **Two more tests the table makes possible** (Claude's, put with the question): asking for one variable
+    computes only what the table says it reads; and the short form of a step equals a slice of the full one
+    (wanting never changes a value).
 - **6.5, decided** (2026-11-16, 02:31). The maintainer: "Agree with proposal. Check shapes, trust values. Also,
   I want to leave it open to the user to apply the algorithm to whatever they want. There may be situations where
   applying the sweeping algorithms to modified variables could be useful."

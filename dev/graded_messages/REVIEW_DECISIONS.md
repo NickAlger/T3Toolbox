@@ -1467,3 +1467,9 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   6.5 open; found on the next read and fixed in the following commit.
 - **Counts.** 34 rows decided, 18 remain. Group C has four left: 8.2, 6.3, 6.4, 9.2.
 
+## 73. 6.4 decided: the table of variables is written out and tested against the declared graph (2026-11-16, 02:37)
+
+- **The maintainer:** "Let's go with the second. Table written out and tested against the declared graph."
+- **Decided** as in the note to 6.4 of `TARGET_DECISIONS.md`.
+- **Counts.** 35 rows decided, 17 remain. Group C has three left: 8.2, 6.3, 9.2.
+
