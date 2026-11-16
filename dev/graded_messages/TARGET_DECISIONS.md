@@ -56,8 +56,9 @@ The maintainer paused the session at 04:46 on 2026-11-16, to pick up the next da
   amended). At 15:44 the oracle became a description with the data as an argument,
   `newton_cg(geom, oracle, batch, x0, regularizer=None, ...)`, which rewords 8.1 to 8.4; and the equalizing
   weight became an explicit call with no keyword (6.7 amended). 43 rows are decided and 9 remain. The next
-  question is 9.3. `DESIGN_AFTER_REVIEW.md` and `dev/HANDOFF.md` do not yet carry the decisions made since the
-  pause.
+  question was 9.3, decided at 15:58: 44 rows are decided and 8 remain, all of them in groups D and E (5.3,
+  5.4, 5.5, 7.2, 7.3, 7.5, 7.6, 7.7). How the sampling variables are documented is under discussion.
+  `DESIGN_AFTER_REVIEW.md` and `dev/HANDOFF.md` do not yet carry the decisions made since the pause.
 
 ## Where this stood at the earlier pause (2026-11-15, 05:53)
 
@@ -82,7 +83,7 @@ The maintainer paused the session at 04:46 on 2026-11-16, to pick up the next da
 
 ## What remains, in groups (2026-11-15, 15:34)
 
-Of the 56 rows in sections 1 to 9, 43 are decided, 3 are guidance and 1 is parked. The other 9 are below, in
+Of the 56 rows in sections 1 to 9, 44 are decided, 3 are guidance and 1 is parked. The other 8 are below, in
 seven groups that cut across the sections. The grouping and the suggested order are Claude's, made at the
 maintainer's request; they decide nothing.
 
@@ -94,8 +95,8 @@ maintainer's request; they decide nothing.
 | D. One program for every layout and stack | 3 | 2 | 1 | | |
 | E. Plans, memory and scale | 5 | 3 | 2 | | |
 | F. The fitting layer above | 0 | | | | |
-| G. What defines correct | 1 | 1 | | | |
-| Total | 9 | 6 | 3 | | |
+| G. What defines correct | 0 | | | | |
+| Total | 8 | 5 | 3 | | |
 
 - **A. Jets and the misfit.** (Decided on the afternoon of 2026-11-15: 2.4, what a tilde jet is; 2.5, the misfit;
   2.3, the derivative-mode adapter; and, at 19:32, 2.9, how a term is carried out over the orders.)
@@ -128,7 +129,7 @@ maintainer's request; they decide nothing.
   14:30, 8.3, the optimizers' contract, in three parts; at 15:12, 8.4, what the display and the diagnostics
   read, with derivative mode moved out of the fitting layer (2.2 and 2.3 amended); at 15:44, the oracle as a
   description with the data as an argument, which rewords 8.1 to 8.4.
-- **G. What defines correct.** 9.3 the reference when old behaviour is not it (open).
+- **G. What defines correct.** Finished on 2026-11-16 at 15:58: 9.3, correct is defined by the definitions.
 
 **How the groups depend on each other.** A stands alone and continues the morning's work. B feeds C: 6.2 and 6.4
 wait on 4.1 and 4.5. C feeds F: 8.1 and 8.3 need the public surface. D and E are each mostly self-contained; E's
@@ -1950,13 +1951,44 @@ Notes:
 | --- | --- | --- | --- |
 | 9.1 | The names settled on 2026-11-14 | Decided | |
 | 9.2 | The kind is one of the three strings `'probe'`, `'apply'`, `'entries'`, everywhere. `'sweep'` as a unit name goes: a `hold` lists variable names. The names of the sizing functions are settled with 7.6 | Decided | 3.4, 6.3, 7.6 |
-| 9.3 | What defines correct when old behaviour is not the reference: the generic twin, adjoint identities, finite differences? | Open | |
+| 9.3 | Correct is defined by the definitions, checked on small problems without any of the sweeps: every edge variable against its contracted subnetwork by a dense einsum, `z` against the dense tensor, jets against the Taylor expansion of the same contraction, `Jp` against the dense tangent tensor, the transposes and the tilde variables against the dense Jacobian, `Kp` against the second derivative of the dense objective. The identities are tests in their own right. The generic twin is a second check. Numerical comparisons are to a tolerance, structural ones exact. The old library is a bridge used once during the port. These checks also serve as documentation | Decided | |
 | 9.4 | What is the order axis called as a group, so that it is not taken for a batching axis, and what letter does it have in contraction strings? | Decided | 2.7 |
 | 9.5 | The convention for arrows on the edges. An arrow shows the way a vector travels: where it leaves an array the index is plain, where it enters the index is dual. A contraction joins the two ends of one arrow. Every arrow of a frame points away from its store, towards the hole. Arrows are described by the way they point in the diagram: left-to-right, right-to-left, bottom-to-top, top-to-bottom | Decided | |
 | 9.6 | The notation for the sampling variables: four letters and a basis. `mu`, `nu`, `xi`, `eta` name the four sides of a cut edge that can be contracted; the store of the basis follows the letter where the basis is not the usual one (`nu_L`, `eta_D`, `mu_R`, `xi_U`); then the grade. The reference is `SAMPLE_VARIABLES.md` | Decided | |
 
 Notes:
 
+- **9.3, decided** (2026-11-16, 15:50 to 15:58). The maintainer: "I agree wholeheartedly with the proposal about
+  how the definitions are checked, and that the identities listed get tests. On top of that, the definition
+  checks and identity tests can also serve as a form of documentation, illustrating to the user what the things
+  being computed actually are, in code."
+  - **The reference for each output,** on small problems, without any of the sweeps: every plain and dot edge
+    variable, its definition as a contracted subnetwork (`SAMPLE_VARIABLES.md`) by a hand-written dense einsum;
+    `z`, the dense tensor contracted with the inputs; jets of any of these, the Taylor expansion in `s` of the
+    same dense contraction, by interpolation in `s`, which is exact for a polynomial; `Jp`, the same contraction
+    applied to the dense tangent tensor; `g`, `JtJp` and the tilde variables, the dense Jacobian (the forward
+    applied to a basis), transposed; `Kp`, the second derivative of the dense objective, by automatic
+    differentiation where jax is present and by finite differences otherwise; `f`, `r`, the block sums and
+    `Jp_norm_sq`, their formulas on the outputs above. This extends the library's rule that dense ground truth
+    is the bedrock. `scripts/review/sample_variables_check.py`, parts B and C, does it for 14 variables.
+  - **The identities, tests in their own right,** each with a random weight: the adjoint identity between `Jp`
+    and `g`; `p` paired with `JtJp` equals `Jp_norm_sq`; `g` is the derivative of `f`; a held variable gives the
+    result of a recomputed one; the result does not depend on the plan, the chunking, the contraction order, the
+    layout or the backend; order 0 equals the first slot of a higher order.
+  - **The generic twin** stays as a second check: it derives every term mechanically, so it catches a missing
+    term, and it shares the sweep structure, so it cannot catch an error in that.
+  - **Tolerances.** Numerical things to a tolerance scaled to the dtype, never bit for bit, comparisons across
+    plans, contraction orders and device counts included. Structural things exact: shapes, the table of
+    variables against the declared graph, the dtype rule, uniform masks.
+  - **The old library is a bridge, used once.** During the port new outputs may be compared with the old
+    kernels through the stated conversions. It is not a permanent test, and a disagreement is settled by the
+    definitions.
+  - **Optimizers** are judged by outcomes on problems with known answers and by the model's internal
+    consistency, not by the old iteration counts or stop reasons.
+  - **At scale,** correctness rests on the invariances that link a large run to a small verified one; the
+    identities are cheap at any size and can be run on the real problem.
+  - **Raised by the maintainer with his agreement:** how all of this (the definitions, the diagrams, the
+    identities, the code that tests them) is organized as documentation for the user. Under discussion.
 - **9.2, decided** (2026-11-16, 02:56). The maintainer: "Confirmed. We will need to discuss 3 more later in the
   broader context of performance optimization hooks and defaults".
   - **1. The kind strings.** On 2026-11-14 the engine's three strings stood beside the frontend's six, and the

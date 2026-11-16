@@ -1656,3 +1656,14 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   2. The equalizing weight is an explicit call when the batch is made, with no keyword in the fitting functions
      (6.7 amended). It is done once and no layer below can tell.
 - **Counts.** Unchanged: 43 rows decided, 9 remain.
+
+## 88. 9.3 decided: correct is defined by the definitions (2026-11-16, 15:50 to 15:58)
+
+- **Decided:** the reference for every output is its definition, checked on small problems by dense contractions
+  that use none of the sweeps; the identities are tests in their own right; the generic twin is a second check;
+  numerical comparisons are to a tolerance and structural ones exact; the old library is a bridge used once.
+- **The maintainer:** "I agree wholeheartedly with the proposal about how the definitions are checked, and that
+  the identities listed get tests." He added that these checks can serve as documentation, and opened the
+  question of how the variables are documented as a whole.
+- **Counts.** 44 rows decided, 8 remain (5 open, 3 reopened), all in groups D and E. Groups A, B, C, F and G are
+  finished.
