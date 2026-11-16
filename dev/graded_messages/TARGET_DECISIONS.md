@@ -117,9 +117,9 @@ maintainer's request; they decide nothing.
   sharding and device placement (open). The maintainer wants the sizing names taken up "in the broader context
   of performance optimization hooks and defaults" (02:56).
 - **F. The fitting layer above.** (Decided on 2026-11-16 at 04:46: 8.1, what `LocalModel` is.) 8.3 the optimizers'
-  contract with a model (open: part 1, the contract and how `held` passes, was decided on 2026-11-16 at 13:51;
-  part 2, how a minibatch is given, and part 3, what is compiled as one program, remain); 8.4 what the display
-  and diagnostics read (to confirm).
+  contract with a model (open: part 1, the contract and how `held` passes, was decided on 2026-11-16 at 13:51,
+  and part 2, a minibatch is an oracle, at 14:07; part 3, what is compiled as one program, remains); 8.4 what
+  the display and diagnostics read (to confirm).
 - **G. What defines correct.** 9.3 the reference when old behaviour is not it (open).
 
 **How the groups depend on each other.** A stands alone and continues the morning's work. B feeds C: 6.2 and 6.4
@@ -1450,7 +1450,7 @@ By 1.1 this section is in scope.
 | --- | --- | --- | --- |
 | 8.1 | `LocalModel` is the geometry, the oracle and the regularizer put together at one frame, and the holder of the local information at that point. Its own `gn_quadratic` and `hvp` are built on the fused `Jp_norm_sq` and `JtJp`. `residual` and `jacobian(p)` stay on it, as optional outputs of an oracle. It stores only what the plan's `hold` keeps; the rest is reachable through `model.oracle`, `model.frame` and `model.held` | Decided | 1.1, 6.1, 8.2 |
 | 8.2 | The fitting layer's open extension point is a frozen record with one operation: at a frame, return the wanted ones of `f`, `g`, `JtJp`, `Jp_norm_sq` (required) and `Kp`, `Jp`, `r` (optional), the blocks before projection, in the engine's vocabulary. The built-in one is least squares, implemented by one call of `sampling_variables`. It is called an oracle (`Oracle`) | Decided | 3.4 |
-| 8.3 | The optimizers' contract. Part 1, decided: an optimizer touches a `Geometry`, an `Oracle`, a `Regularizer` and the `LocalModel` built from them; the oracle's one operation takes `want` and `held` and returns the values and `held`; a model is built once and never changes. Open: how a minibatch is given (part 2) and what is compiled as one program (part 3) | Open | 1.1, 8.1, 8.2 |
+| 8.3 | The optimizers' contract. Part 1, decided: an optimizer touches a `Geometry`, an `Oracle`, a `Regularizer` and the `LocalModel` built from them; the oracle's one operation takes `want` and `held` and returns the values and `held`; a model is built once and never changes. Part 2, decided: a minibatch is an oracle, scaled so that it estimates the full one; the default draw keeps the drawn indices on it. Open: what is compiled as one program (part 3) | Open | 1.1, 8.1, 8.2 |
 | 8.4 | What do the display and the diagnostics read? | To confirm | 3.7 |
 | 8.5 | Shared sample vectors: in the target or not? | Parked | |
 
@@ -1640,6 +1640,43 @@ Notes:
   - **Carried forward under A,** from the list of what counts against it: how an oracle says which outputs it
     supplies, so that a missing optional one (`Kp` in exact mode) is found before any work, as the library
     checks `corewise_hessian` today; and that `want` is a literal at every call site in the library.
+
+- **8.3, part 2, decided: a minibatch is an oracle** (2026-11-16, 13:55 to 14:07).
+  - **Today.** `draw(rng)` returns `(sample_B, data_B)` and the optimizer passes them to
+    `problem.local_model(x, sample_B, data_B)`. The default draw uses the kind's `n_measurements` and `take`.
+    The optimizer scales the regularizer by `batch/n` with `batch` the nominal size, so a custom draw of another
+    size gets the wrong factor, as the docstring of `_minibatch_step_problem` says.
+  - **Decided** (the maintainer, 14:07: "1. Agree. Settled."): `draw(rng)` returns an oracle, and the step
+    builds its model from the geometry, that oracle and the regularizer. The optimizer never sees a sample or
+    data. The default draw is for the least-squares oracle, a uniform random subset as today; `n_measurements`
+    and `take` become methods of the least-squares oracle and are not part of the oracle protocol. A user's
+    oracle comes with its own draw, and MC-SGD or Adam on a user's oracle without a draw raises. Every
+    minibatch oracle has the same statics and shapes, so the step compiles once. The full-batch stop check
+    uses the full oracle. `rng` stays a host generator passed by the caller.
+  - **The regularizer's fraction: decided, the third of three options** (14:07: "2. Your lean."). The options
+    were: the nominal `batch`, as today; the draw returning the fraction beside the oracle; or the minibatch
+    oracle scaled so that it estimates the full one. Taken: a draw returns an oracle whose `f` is an unbiased
+    estimate of the full `f` (its `f`, `g` and the rest scaled by `n/batch`), and the regularizer is not
+    scaled. The optimizer then has no batch logic: no `batch` in the step, no scaled regularizer, no count of
+    measurements. The scale is a field of its own on the least-squares oracle, not folded into the weight,
+    because the weight means the inner product on the data space. Its name is open.
+    - Put with the question: MC-SGD takes the same step either way (scaling the data term by `c` in place of
+      the regularizer by `1/c` scales the gradient by `c` and the Cauchy length by `1/c`); Adam is the same up
+      to its `eps`, and the size of its gradient no longer depends on the batch size. Argued, not run.
+  - **Is the minibatch data still accessible?** The maintainer (14:05): "will the minibatch data itself still be
+    accessible under this architecture? I can imagine future optimization methods which want to use the
+    minibatch data for,e.g., building regularizers or preconditioners, or steplengths, or something else."
+    Yes: the drawn `sample`, `data` and `weight` are fields of the minibatch oracle; the model built on it has
+    `model.oracle`, `model.residual` and `model.jacobian(p)`, and with `model.frame` and `model.held` the engine
+    gives any sampling variable on the minibatch; and the oracle enters a compiled step as an argument with its
+    arrays as leaves. The access is through the concrete oracle and not through the protocol, which says
+    nothing of samples or data: a method that needs the minibatch data is written for oracles that have data.
+  - **The drawn indices are kept** (14:07: "Also do the suggested addition (keep drawn indices on minibatch
+    oracle)."). The default draw records on the minibatch oracle which samples it drew; variance-reduction
+    methods need to know which, not only their values. The field's name is open.
+  - **Sharding.** A draw of random indices across all samples moves data between devices. Since a draw is any
+    function returning an oracle, a shard-local or a block draw fits the contract unchanged. Which draws the
+    library ships is left to the performance discussion.
 
 - **8.2, decided, the name apart** (2026-11-16, 02:45). The maintainer: "I agree with this data structure.
   However, I would like to find another word than objective. When the user hears "objective", they may think

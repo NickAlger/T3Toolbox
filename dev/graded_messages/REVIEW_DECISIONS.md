@@ -1596,3 +1596,16 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
 - **Decided** (13:51): "Having thought through all of this, I have a greater appreciation for your original
   design with oracle.evaluate. Let’s go with that". Alternative A, as first proposed.
 - **Counts.** Unchanged: 41 rows decided, 11 remain. 8.3 stays open for parts 2 and 3.
+
+## 84. 8.3, part 2: a minibatch is an oracle (2026-11-16, 13:55 to 14:07)
+
+- **Decided:** `draw(rng)` returns an oracle; the optimizer never sees a sample or data. The default draw is the
+  least-squares oracle's, and `n_measurements` and `take` are its methods, outside the protocol.
+- **The regularizer's fraction:** the minibatch oracle is scaled by `n/batch` so that its `f` is an unbiased
+  estimate of the full `f`, and the regularizer is not scaled. The scale is its own field of the least-squares
+  oracle, not part of the weight. The optimizer keeps no batch logic.
+- **Asked by the maintainer** (14:05): whether the minibatch data stays accessible, for future methods that build
+  regularizers, preconditioners or step lengths from it. It does, through the concrete oracle's fields and
+  through the model; not through the protocol.
+- **Added at his word** (14:07): the default draw keeps the drawn indices on the minibatch oracle.
+- **Counts.** Unchanged: 41 rows decided, 11 remain. 8.3 stays open for part 3.
