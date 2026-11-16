@@ -1038,3 +1038,20 @@ axes. How do we tell whether an axis is part of the batch, or a derivative order
   form is now a form of its own in `scripts/review/order_scan_check.py`: correct under jit, 34 lines of traced
   program at every order.
 
+## 48. Two forms over the orders, chosen through the plan (2026-11-15, 19:32)
+
+- **The maintainer.** "Let's have two options, controllable by the user through the Plan abstraction. The analog of
+  the libraries current scheme, and a loop with slices. The scan is the default. In the plentiful memory regime,
+  I can imagine jax's jit compiler may find optimizations which increase speed,if it can see the whole loop."
+- **Decided (2.9).** A product of two full jets has two forms, and the plan says which. The default is the scan
+  over one operand's coefficients with the other jet carried and shifted one slot per step. The other is the
+  loop with slices. "No user option" leaves the row; "no dense order-by-order form" stays. The plan (7.1) gains
+  one setting.
+- **Claude's readings, recorded as such in the note to 2.9.** One setting for the whole call; a real scan on every
+  layout under the default; agreement of the two settings to rounding only; products with an affine operand,
+  order 0 and the block readouts do the same contractions under both.
+- **Not decided.** The name of the setting.
+- **Checked.** `scripts/review/order_scan_check.py`, part 3: the two settings agree under jit at orders 1 to 16 in
+  float64 and float32.
+- **Counts.** 20 rows decided, 31 remain. Group A has three: 3.6, 3.7, 3.3, all marked to confirm.
+

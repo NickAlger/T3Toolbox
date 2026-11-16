@@ -20,8 +20,15 @@ Two different contractions are involved, and they do not cost the same:
 So the carried shift costs more than the loop only in the cheap contraction, by the factor
 (P - 1) / 2 / (n + (P + 1) / 2) of the whole, and the pair table is the worst of the three.
 
+DECIDED (the maintainer, 2026-11-15, 19:32): the target has TWO of these forms, chosen by the user through the
+plan.  The carried shift is the default.  The loop with slices is the other: it leaves the whole order loop
+visible to the compiler, which may find optimizations when memory is plentiful, and it makes no promise about
+peak memory.  The pair table is not in the target.  `product_of_full_jets` below is the two as one function; the
+spelling of the setting is a placeholder.
+
 The script checks that each form gives the explicit sum of jet_steps_check.py under jit, shows the size of each
-traced program, and evaluates the counts above at two sets of sizes.
+traced program, evaluates the counts above at two sets of sizes, and checks that the two settings of the option
+agree with each other to rounding in float64 and in float32.
 
 Needs jax.  Reads nothing from T3Toolbox.   Usage:  python3 -I order_scan_check.py
 """
@@ -61,6 +68,15 @@ def product_by_loop(a, G, b):
         Gb = jnp.einsum('aib,Wi->Wab', G, b[r])                          # E
         c = c.at[r:].add(jnp.einsum('tWa,Wab->tWb', a[:P - r], Gb))      # c: against the P - r slots that stay in range
     return c
+
+
+def product_of_full_jets(a, G, b, over_orders='scan'):
+    """The option of 2.9: how the product of two full jets is taken over the orders.  Set by the plan."""
+    if over_orders == 'scan':                                            # the default: bounded memory, one program size
+        return product_by_carried_shift(a, G, b)
+    if over_orders == 'loop':                                            # the whole loop is visible to the compiler
+        return product_by_loop(a, G, b)
+    raise ValueError("over_orders must be 'scan' or 'loop', got %r" % (over_orders,))
 
 
 def pair_table(P):
@@ -123,6 +139,19 @@ def main():
         for order in (1, 2, 4, 8, 16):
             loop, shift, table = counts(order + 1, *sizes)
             print('   %-6d %-16s %-16s' % (order, '%.2f' % (shift / loop), '%.2f' % (table / loop)))
+    print("3. The option: over_orders='scan' (the default) against over_orders='loop', under jit")
+    print('   %-6s %-22s %-22s' % ('order', 'float64', 'float32'))
+    for order in (1, 2, 4, 8, 16):
+        P = order + 1
+        a, b = rng.standard_normal((P, W, ra)), rng.standard_normal((P, W, n))
+        cells = []
+        for dtype, tol in ((np.float64, 1e-13), (np.float32, 1e-5)):
+            ops = tuple(jnp.asarray(x.astype(dtype)) for x in (a, G, b))
+            scan = np.asarray(jax.jit(lambda *o: product_of_full_jets(*o, over_orders='scan'))(*ops))
+            loop = np.asarray(jax.jit(lambda *o: product_of_full_jets(*o, over_orders='loop'))(*ops))
+            same = scan.dtype == loop.dtype == dtype and np.linalg.norm(scan - loop) / np.linalg.norm(loop) < tol
+            cells.append('agree to rounding' if same else 'DIFFER')
+        print('   %-6d %-22s %-22s' % ((order,) + tuple(cells)))
 
 
 if __name__ == '__main__':

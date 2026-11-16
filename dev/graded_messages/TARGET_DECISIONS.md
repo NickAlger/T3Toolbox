@@ -30,27 +30,26 @@ planned only after the target is settled.
 
 ## What remains, in groups (2026-11-15, 15:34)
 
-Of the 55 rows in sections 1 to 9, 19 are decided, 3 are guidance and 1 is parked. The other 32 are below, in
+Of the 55 rows in sections 1 to 9, 20 are decided, 3 are guidance and 1 is parked. The other 31 are below, in
 seven groups that cut across the sections. The grouping and the suggested order are Claude's, made at the
 maintainer's request; they decide nothing.
 
 | Group | Rows | Open | Reopened | To confirm | Held |
 | --- | --- | --- | --- | --- | --- |
-| A. Jets and the misfit | 4 | | | 4 | |
+| A. Jets and the misfit | 3 | | | 3 | |
 | B. The frame and the value | 6 | | 4 | 2 | |
 | C. What a kind is, and the public surface | 8 | 4 | 2 | 2 | |
 | D. One program for every layout and stack | 5 | 3 | 1 | 1 | |
 | E. Plans, memory and scale | 5 | 3 | 2 | | |
 | F. The fitting layer above | 3 | 1 | | 2 | |
 | G. What defines correct | 1 | 1 | | | |
-| Total | 32 | 12 | 9 | 11 | |
+| Total | 31 | 12 | 9 | 10 | |
 
 - **A. Jets and the misfit.** (Decided on the afternoon of 2026-11-15: 2.4, what a tilde jet is; 2.5, the misfit;
-  2.3, the derivative-mode adapter.) 2.9 how a term is carried out over the orders (confirmed at 19:08 except
-  for loop or scan, which is being reconsidered);
+  2.3, the derivative-mode adapter; and, at 19:32, 2.9, how a term is carried out over the orders.)
   3.6 whether the loss is inside the sampling layer (to confirm); 3.7 which reductions over the samples are
   sampling variables (to confirm); 3.3 which seeded tilde copies are public (to confirm). The type catalog bears
-  on all four.
+  on all three.
 - **B. The frame and the value.** 4.1 what a frame is (reopened); 4.2 frame consistency (reopened); 4.3 the route
   to the value (reopened); 4.4 tails and boundaries (reopened); 3.2 whether `gamma` is first-class (to confirm,
   depends on 4.1); 4.5 where the projection, the lift and the Hessian assembly live (to confirm).
@@ -72,7 +71,7 @@ maintainer's request; they decide nothing.
 wait on 4.1 and 4.5. C feeds F: 8.1 and 8.3 need the public surface. D and E are each mostly self-contained; E's
 7.3 is tied to F's 8.1. G bears on how every other answer is checked.
 
-**The eleven rows marked to confirm** are earlier decisions that were not taken for reasons of compatibility.
+**The ten rows marked to confirm** are earlier decisions that were not taken for reasons of compatibility.
 They may go quickly, several at a time.
 
 **Outside the list:** 8.5 shared sample vectors (parked); weights on internal edges as inner products (parked for
@@ -167,7 +166,7 @@ attempts failed.
 | 2.6 | Is an input jet always affine (`w + s p`), or can it be general? This decides whether the two-term banded form is part of the structure | Decided | |
 | 2.7 | Is order 0 the one-coefficient case of the same functions, with no order axis ever created? | Decided | 2.1, 2.6 |
 | 2.8 | There are three sampling kinds, `probe`, `apply` and `entries`, each with an `order` (0 for the plain computation), in place of six. The fitting layer has the same shape as the frontend methods of 6.6 | Decided | 2.7, 6.6 |
-| 2.9 | A term over the orders is the truncated product of its operands' jets. One operand carries the order axis `T` through the contraction; the other is taken one coefficient at a time: two contractions when it is affine. No dense order-by-order form. No user option. The block readouts compute only the terms whose orders sum to the top. **Being reconsidered:** how a full jet operand is taken, by a loop or by a scan, and by which scan | To confirm | 2.4, 2.6 |
+| 2.9 | A term over the orders is the truncated product of its operands' jets. One operand carries the order axis `T` through the contraction; the other is taken one coefficient at a time: two contractions when it is affine. No dense order-by-order form. Where both operands are full jets there are two forms, chosen by the user through the plan (7.1): a scan over one operand's coefficients with the other jet carried and shifted one slot per step, which is the default; and a loop with slices. The block readouts compute only the terms whose orders sum to the top | Decided | 2.4, 2.6, 7.1 |
 
 Notes:
 
@@ -516,6 +515,38 @@ Notes:
   pair and costs 2 to 7 times the loop: Claude's recommendation of it is withdrawn. The scan with a shift and a
   mask that Claude wrote first is the library's scheme done less well (a traced shift and a mask where a carried
   shift needs neither). All three forms give the explicit sum under jit. Nothing was timed.
+- **2.9, decided: two forms, chosen through the plan** (2026-11-15, 19:32). The maintainer: "Let's have two
+  options, controllable by the user through the Plan abstraction. The analog of the libraries current scheme, and
+  a loop with slices. The scan is the default. In the plentiful memory regime, I can imagine jax's jit compiler
+  may find optimizations which increase speed,if it can see the whole loop."
+  - **The scan (the default).** The library's present scheme in Taylor form: a scan over the coefficients of one
+    operand; each step contracts that one coefficient with the core and then with every slot of the other jet,
+    which rides the carry and is shifted one slot per step. One coefficient of the expensive product is live at
+    a time, the compiled program has one size at every order, and it does the square of the cheap contractions
+    where the triangle would do.
+  - **The loop with slices.** A Python loop over the same coefficients, with the truncation done by slicing. It
+    does only the triangle, the compiler sees the whole loop, the compiled program grows with the order, and
+    nothing is promised about peak memory (the library's own note on its scan: "an unrolled loop does not" bound
+    it).
+  - This replaces "No user option" in the row. "No dense order-by-order form" stands: neither option is that
+    form. It is one more of the performance options the framework hands to the user, and like the others it
+    changes how the computation is carried out and never what is computed.
+  - **Claude's readings, not said by the maintainer:**
+    - The setting is one field of the plan and applies to every product of two full jets in the call, not term
+      by term or site by site. The order axis is not an axis of the sample stack, so it is a setting of its own
+      and not one more entry in the plan's tuple of scans (see 7.1).
+    - With the default, the scan is a real scan on every layout. The library's is one only on the uniform
+      layout; nothing in the ragged layout prevents it, since the order axis has the same length at every site.
+      This meets 5.2 and 5.3 in group D.
+    - The two settings agree to rounding, not bit for bit, so the test that they agree is a tolerance test.
+    - A product with an affine operand, and order 0, are the same under both settings: neither has a loop over
+      the orders.
+    - The block readouts take only the pairs of orders that sum to the top, so there the two settings do the
+      same contractions and differ only in the form of the program.
+  - Not decided: the name of the setting and of its two values (`over_orders='scan'` and `'loop'` in the
+    prototype are placeholders).
+  - Checked (`scripts/review/order_scan_check.py`, part 3): the two settings as one function agree to rounding
+    under jit at orders 1 to 16, in float64 and in float32, and keep the dtype.
 
 ## 3. Variables and kinds
 
@@ -735,7 +766,7 @@ Notes:
 
 | # | Question | Status | Depends on |
 | --- | --- | --- | --- |
-| 7.1 | A plan is an ordered tuple of scans over axes of the sample stack, each with a `hold`, plus a top-level `hold` | Decided | |
+| 7.1 | A plan is an ordered tuple of scans over axes of the sample stack, each with a `hold`, plus a top-level `hold`. Since 2.9 it also carries how a product of two full jets is taken over the orders | Decided | |
 | 7.2 | What are the defaults: the default plan, and what a model holds between calls? | Reopened | 7.3 |
 | 7.3 | Where does the plan live: in the model, or as a solver parameter passed to each operation? | Reopened | 1.1 |
 | 7.4 | Chunk sizes are array shapes: the user pads and reshapes, with helpers | Decided | |
@@ -746,6 +777,10 @@ Notes:
 
 Notes:
 
+- **7.1, one more setting** (2026-11-15, 19:32). By 2.9 the plan also says how a product of two full jets is
+  taken over the orders: a scan with a carried shift (the default) or a loop with slices. The plan stays what it
+  was: settings that change how a computation is carried out and never what it computes. What the default plan
+  is otherwise is still 7.2.
 - **7.2.** The default plan was defined as "today's behaviour". The lean default for what the model holds was the
   maintainer's choice between two options framed against today's behaviour.
 - **7.3.** Decision 3 put the plan in `LocalModel` because threading it through about 25 optimizer functions was

@@ -276,4 +276,11 @@ the doctest of the adapter draft: 14 examples, 0 failures
    4      1.29             2.14            
    8      1.44             2.78            
    16     1.62             3.46            
+3. The option: over_orders='scan' (the default) against over_orders='loop', under jit
+   order  float64                float32               
+   1      agree to rounding      agree to rounding     
+   2      agree to rounding      agree to rounding     
+   4      agree to rounding      agree to rounding     
+   8      agree to rounding      agree to rounding     
+   16     agree to rounding      agree to rounding     
 
