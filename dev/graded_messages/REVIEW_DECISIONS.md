@@ -1625,3 +1625,19 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   stays an addition: `take(indices)` on the least-squares oracle is traceable with a static batch size.
 - **The maintainer** (14:30): "Confirmed".
 - **Counts.** 42 rows decided, 10 remain (6 open, 3 reopened, 1 to confirm).
+
+## 86. 8.4 decided; derivative mode moved out of the fitting layer (2026-11-16, 14:32 to 15:12)
+
+- **8.4.** The display and the diagnostics read from oracles: `r_block_sumsq` and `y_block_sumsq` as optional
+  outputs in the shape of the weight, a validation set as an oracle, the trust-region floor as the optional
+  output `f_resolution`, and no table for an oracle without block sums. At the maintainer's word (14:43) nothing
+  is reduced over modes or orders, in the display or in the stored record.
+- **Derivative mode.** Claude's fourth point (convert the unweighted objective back for the display) went against
+  2.3 and was withdrawn. The maintainer saw Taylor and derivative mode "becoming first class citizens" and
+  considered moving derivative mode out entirely. Decided (15:12): "Ok, let's move it out and add the standalone
+  conversion function like you suggest." 2.2 and 2.3 are amended: no keyword anywhere; four standalone
+  functions, the fourth preparing data, validation data and weight together and returning the weight `t!` when
+  none is given. The doctest draft is rewritten to match.
+- **Not included:** the equalizing-weight keyword of 6.7, which he sees as a tunable of the Taylor problem and
+  wants thought through separately.
+- **Counts.** 43 rows decided, 9 remain (6 open, 3 reopened). Groups A, B, C and F are finished.

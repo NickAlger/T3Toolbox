@@ -281,7 +281,7 @@ Case 2: 200 samples.  The order-0 data determine the tensor alone.
    Blocks after the full preparation: largest / smallest 1.6.
 
 === adapter_doctest_draft.py
-the doctest of the adapter draft: 14 examples, 0 failures
+the doctest of the derivative data draft: 18 examples, 0 failures
 
 === order_scan_check.py
 1. Each form against the explicit sum, under jit (jax), and the lines of its traced program (scan body included)

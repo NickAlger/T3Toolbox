@@ -52,7 +52,9 @@ The maintainer paused the session at 04:46 on 2026-11-16, to pick up the next da
   memory (note to 8.3).
 - **The Claude doc** is in step with this folder at this pause.
 - **Since the pause** (resumed on 2026-11-16 at 13:03): 8.3, the optimizers' contract, was decided in three parts
-  (13:51, 14:07, 14:30). 42 rows are decided and 10 remain. The next questions are 8.4 and 9.3.
+  (13:51, 14:07, 14:30), and 8.4 at 15:12, with derivative mode moved out of the fitting layer (2.2 and 2.3
+  amended). 43 rows are decided and 9 remain. The next question is 9.3; the equalizing-weight keyword of 6.7 is
+  under discussion.
 
 ## Where this stood at the earlier pause (2026-11-15, 05:53)
 
@@ -77,7 +79,7 @@ The maintainer paused the session at 04:46 on 2026-11-16, to pick up the next da
 
 ## What remains, in groups (2026-11-15, 15:34)
 
-Of the 56 rows in sections 1 to 9, 42 are decided, 3 are guidance and 1 is parked. The other 10 are below, in
+Of the 56 rows in sections 1 to 9, 43 are decided, 3 are guidance and 1 is parked. The other 9 are below, in
 seven groups that cut across the sections. The grouping and the suggested order are Claude's, made at the
 maintainer's request; they decide nothing.
 
@@ -88,9 +90,9 @@ maintainer's request; they decide nothing.
 | C. What a kind is, and the public surface | 0 | | | | |
 | D. One program for every layout and stack | 3 | 2 | 1 | | |
 | E. Plans, memory and scale | 5 | 3 | 2 | | |
-| F. The fitting layer above | 1 | | | 1 | |
+| F. The fitting layer above | 0 | | | | |
 | G. What defines correct | 1 | 1 | | | |
-| Total | 10 | 6 | 3 | 1 | |
+| Total | 9 | 6 | 3 | | |
 
 - **A. Jets and the misfit.** (Decided on the afternoon of 2026-11-15: 2.4, what a tilde jet is; 2.5, the misfit;
   2.3, the derivative-mode adapter; and, at 19:32, 2.9, how a term is carried out over the orders.)
@@ -119,15 +121,15 @@ maintainer's request; they decide nothing.
   padded samples for entries (open); 7.6 automatic sizing, with the names of the sizing functions and of the pad-and-reshape helpers (open); 7.7
   sharding and device placement (open). The maintainer wants the sizing names taken up "in the broader context
   of performance optimization hooks and defaults" (02:56).
-- **F. The fitting layer above.** (Decided on 2026-11-16: at 04:46, 8.1, what `LocalModel` is; from 13:51 to
-  14:30, 8.3, the optimizers' contract, in three parts.) 8.4 what the display and diagnostics read (to confirm).
+- **F. The fitting layer above.** Finished on 2026-11-16: at 04:46, 8.1, what `LocalModel` is; from 13:51 to
+  14:30, 8.3, the optimizers' contract, in three parts; at 15:12, 8.4, what the display and the diagnostics
+  read, with derivative mode moved out of the fitting layer (2.2 and 2.3 amended).
 - **G. What defines correct.** 9.3 the reference when old behaviour is not it (open).
 
 **How the groups depend on each other.** A stands alone and continues the morning's work. B feeds C: 6.2 and 6.4
 wait on 4.1 and 4.5. C feeds F: 8.1 and 8.3 need the public surface. D and E are each mostly self-contained; E's
 7.3 is tied to F's 8.1. G bears on how every other answer is checked.
 
-**The row marked to confirm** (8.4) is an earlier decision that was not taken for reasons of compatibility.
 
 **Outside the list:** 8.5 shared sample vectors (parked); weights on internal edges as inner products (parked for
 another arc); review finding F17 (never discussed; listed under "After the target"); forward-only probing as a
@@ -216,8 +218,8 @@ attempts failed.
 | # | Question | Status | Depends on |
 | --- | --- | --- | --- |
 | 2.1 | Taylor coefficients replace derivatives everywhere, and jet edge variables are first-class, like the plain ones | Decided | |
-| 2.2 | Derivative mode is one adapter at the outer level of fitting, done by scaling and weighting. Taylor is the default and the only form underneath | Decided | 2.1 |
-| 2.3 | The derivative-mode adapter is standalone conversions plus one opt-in keyword on the fitting functions. Data and validation data are divided by `t!`; the weight is multiplied by `t!`; with the keyword and no weight the weight is `t!`, so that the objective is the plain sum of squares of the derivative residuals. Nothing is converted on the way out. The sampling methods have no such keyword, and the backend is Taylor only. This behaviour of the keyword is documented with a doctest | Decided | 2.2, 6.7 |
+| 2.2 | Taylor coefficients are the only form in the sampling, fitting and optimization layers. Derivative mode is not a mode of the library: a user with derivative data prepares it before fitting, with standalone conversions (amended on 2026-11-16; it had been an adapter at the outer level of fitting) | Decided | 2.1 |
+| 2.3 | The conversions for derivative data are standalone functions and nothing else: derivatives to Taylor coefficients (slot `t` divided by `t!`), the reverse, a derivative-mode weight to a Taylor weight (slot `t` multiplied by `t!`), and one function that prepares the data, the validation data and the weight together and returns the weight `t!` when none is given. No fitting function, oracle, display or sampling method has a keyword for it, and nothing is converted on the way out. The functions are documented with a doctest (amended on 2026-11-16: the opt-in keyword on the fitting functions is removed) | Decided | 2.2, 6.7 |
 | 2.4 | A tilde jet is an adjoint variable: a Lagrange multiplier, a dual object. The data and the residual are of the type of `z`, in forward order. The misfit is the weighted sum of squares slot by slot. The dualization is one step at the seed: the weights, then the turn of the order leg. Tilde variables are stored turned, the ones a user holds included. `w_tilde` names the seed | Decided | 2.1 |
 | 2.5 | The misfit is `1/2 sum omega^2 r^2` over modes, orders and samples, on Taylor coefficient residuals. With no weight given the weight is ones; that default may change in a later release if a more robust method that "just works" is found. The weight has the shape `(d,) + T` for probe and `T` for apply and entries, with no rule for a bare vector | Decided | 2.1, 2.2 |
 | 2.6 | Is an input jet always affine (`w + s p`), or can it be general? This decides whether the two-term banded form is part of the structure | Decided | |
@@ -507,6 +509,8 @@ Notes:
   conversation. A point the example raises: with the keyword and no weight, the weight has to be `t!` per order,
   so that the objective is the plain sum of squares of the derivative residuals. Checked on numbers: the
   conversions reproduce the derivative-mode objective exactly, with a weight and without. Not decided.
+- **2.3, amended on 2026-11-16 (15:12): the keyword is removed and a fourth standalone function is added; see
+  the note "Derivative mode moved out of the fitting layer" in section 8.**
 - **2.3, decided** (2026-11-15, 18:37). The maintainer, on the form of the adapter and its example: "Yes, this is
   good." On the keyword changing what "no weight" means: "yes, but let's make sure to document clearly. We can
   have a doctest example illustrating this behavior, showing what happens to the data in each case".
@@ -1452,7 +1456,7 @@ By 1.1 this section is in scope.
 | 8.1 | `LocalModel` is the geometry, the oracle and the regularizer put together at one frame, and the holder of the local information at that point. Its own `gn_quadratic` and `hvp` are built on the fused `Jp_norm_sq` and `JtJp`. `residual` and `jacobian(p)` stay on it, as optional outputs of an oracle. It stores only what the plan's `hold` keeps; the rest is reachable through `model.oracle`, `model.frame` and `model.held` | Decided | 1.1, 6.1, 8.2 |
 | 8.2 | The fitting layer's open extension point is a frozen record with one operation: at a frame, return the wanted ones of `f`, `g`, `JtJp`, `Jp_norm_sq` (required) and `Kp`, `Jp`, `r` (optional), the blocks before projection, in the engine's vocabulary. The built-in one is least squares, implemented by one call of `sampling_variables`. It is called an oracle (`Oracle`) | Decided | 3.4 |
 | 8.3 | The optimizers' contract. An optimizer touches a `Geometry`, an `Oracle`, a `Regularizer` and the `LocalModel` built from them; the oracle's one operation takes `want` and `held` and returns the values and `held`; a model is built once and never changes. A minibatch is an oracle, scaled so that it estimates the full one; the default draw keeps the drawn indices on it. The units of compilation are five phases (build, gradient, CG solve, trial, stochastic step), with the outer loop on the host; a compiled program's preconditions are checked on the host in safe mode. Which phases are compiled by default is left to 7.2 | Decided | 1.1, 8.1, 8.2, 7.2 |
-| 8.4 | What do the display and the diagnostics read? | To confirm | 3.7 |
+| 8.4 | The display and the diagnostics read from oracles. `r_block_sumsq` (at the model's frame) and `y_block_sumsq` (independent of the frame) are optional oracle outputs in the shape of the weight; nothing is reduced over modes or orders, in the display or in the stored record. A validation set is an oracle. The trust-region floor is the optional output `f_resolution`, and `eps |f|` without it. An oracle without block sums gets the header line and no table. Nothing is converted for the display | Decided | 3.7, 8.2 |
 | 8.5 | Shared sample vectors: in the target or not? | Parked | |
 
 Notes:
@@ -1733,7 +1737,7 @@ Notes:
   - The maintainer, on the three points (the phases with the default left to the performance discussion; the
     safe-mode rule; traceable `take` now and multi-step MC-SGD later), at 14:30: "Confirmed".
 
-- **8.4, decided in part; the derivative-mode point open** (2026-11-16, 14:32 to 14:57).
+- **8.4, the first part** (2026-11-16, 14:32 to 14:57; the derivative-mode point was settled at 15:12, next note).
   - **The earlier decision** (2026-11-14, decision 9): the display gets a summed variable `r_block_sumsq`, so it
     needs no per-sample residual; the data's block sums and weighted norm stay `kind.block_sumsq(data)` and
     `kind.sumsq(data)`; the trust-region floor reads only the residual's dtype. That was written against kinds.
@@ -1778,6 +1782,53 @@ Notes:
     previous work on this? I am considering simply moving the derivative mode stuff completely outside, and
     forcing the user to prepare their derivative mode data before optimizing it. Please think through the pros
     and cons of this."
+
+- **Derivative mode moved out of the fitting layer; 8.4 decided** (2026-11-16, 15:05 to 15:12). This amends 2.2
+  and 2.3.
+  - **What had been decided** (2026-11-15): derivative mode as one adapter at the outer level of fitting (2.2);
+    three standalone conversions and one opt-in keyword on the fitting functions that calls them on the data, the
+    validation data and the weight, with nothing converted on the way out and, under the keyword, "no weight"
+    meaning `t!` per order (2.3); preparation by standalone functions, with opt-in keywords in the fitting
+    functions for preparation that changes the loss alone (6.7).
+  - **Claude's reading of the mixing** (15:05). Its own point 4 caused it and is withdrawn. But the keyword
+    leaks further than the display: every fitting entry point has to take it; a validation set is now an oracle
+    the user builds, so the oracle's constructor would need it too; "no weight" gets two meanings; a weight that
+    changes between iterations is converted only the first time; and what the library reports is in Taylor form
+    while the user's arrays are not. The keyword does nothing that the standalone calls do not do.
+  - **For moving it out:** one form and no branch in the fitting layer, with "no weight" always ones; every number
+    the library reports is in the form of the arrays the user passed in, so the display question disappears;
+    nothing reaches the oracle, the validation oracle, the display or the stored diagnostics; the conversion is
+    one visible place in the user's script; fewer signatures, tests and documents. **Against:** the user writes
+    the conversion; the weight trap (a user who converts the data and passes no weight gets ones on Taylor
+    coefficients, which is not ones on derivatives: the weight must be `t!`); what they want back in derivative
+    form they convert themselves. **Neither way:** derivative data read as Taylor coefficients is a silently
+    wrong fit whether the user forgets a keyword or forgets a call.
+  - **Decided** (the maintainer, 15:12): "Ok, let's move it out and add the standalone conversion function like
+    you suggest." So:
+    - Taylor coefficients are the only form in the sampling, fitting and optimization layers. No fitting
+      function, oracle, display or sampling method has a keyword for derivative data.
+    - The standalone functions are four: derivatives to Taylor coefficients (slot `t` divided by `t!`); the
+      reverse; a derivative-mode weight to a Taylor weight (slot `t` multiplied by `t!`); and one function that
+      prepares the data, the validation data and the weight together and returns the weight `t!` when none is
+      given, which answers the weight trap in one line.
+    - The doctest required by 2.3 documents these functions. The draft is rewritten:
+      `scripts/review/adapter_doctest_draft.py` (three cases, the validation data, and the objective reproduced).
+      The names are placeholders. For probe the weight has a mode axis as well, which the draft, written for
+      apply, does not show.
+    - If a keyword is ever wanted again, the `fit(...)` facade planned for later is the layer for it (Claude's
+      remark, not a decision).
+  - **So 8.4, point 4:** nothing is converted for the display. Everything it prints is in the form of the arrays
+    the user passed in. With points 1 to 3 and the rule that nothing is reduced over modes or orders, 8.4 is
+    decided.
+  - **Not included: the other preparation keywords of 6.7.** The maintainer (15:12): "Regarding 6.7 (equalization
+    weights). I see these differently. For derivative vs Taylor, it is about adapting a different problem
+    (derivative) to our setting (Taylor). For equalization, I see that more as a tunable parameter for solving
+    the Taylor problem better. Now, strictly speaking the optimization problem itself does change for
+    equalization too. But I see it as the same in the broader sense that we are trying to fit a polynomial to
+    Taylor data. Now, that said, some of added commplexity downsides may still be present for 6.7 and I would
+    like to think through these. If we equalize weights, is that something which is done once at the outset of
+    the optimization, then never used again, or does the fact that weights have equalized cause more branching
+    behavior deeper in the optimization?" Under discussion; see the notes to 6.7.
 
 - **8.2, decided, the name apart** (2026-11-16, 02:45). The maintainer: "I agree with this data structure.
   However, I would like to find another word than objective. When the user hears "objective", they may think
