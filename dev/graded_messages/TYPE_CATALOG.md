@@ -426,3 +426,80 @@ checked catalog of `type_catalog_check.py` by edge and direction:
   of the `L`-bond one, `eta_tilde` of the `U`-edge one, `xi_tilde` of the `D`-edge one.
 - **What B leaves to settle.** Two more letters. And which spelling a call on the corewise frame accepts, since
   there the edges merge and each tangent variable equals a dot: the question already open for `nu` and `gamma`.
+
+## 14. A variable is a contracted subnetwork in a basis; one dot (2026-11-15, 22:24 to 22:27)
+
+The maintainer: "Let's allow ourselves the freedom to explore broader concepts for the naming scheme. This is all
+still in the planning stage, so there is no precedent to worry about. What is the minimal amount of information
+that is required to identify a variable? Can they be identified by which core they come out of, which direction
+they go, and whether they are tilde or not? For example, in this case mu would become L2 since it comes out of
+index 2 (L_aib, a is index zero, i is index 1, b is index 2) of the L core." And at 22:27: "One idea is to
+consider the edge variables as being as corresponding to fully contracted subnetworks on one side of the edge."
+Claude's analysis. Not a decision. Checked by `scripts/review/subtree_gauge_check.py`.
+
+**Three things identify a variable.**
+
+1. **Which side of which edge is contracted.** The network is a tree, so a cut edge has two sides. There are four
+   kinds: the left of a bond, the right of a bond, the leaf below a Tucker edge, the trunk above it. (At a mode
+   edge the leaf is the input `w` and the trunk is the output `z`.) This is a property of the tensor and of the
+   samples. It does not depend on a gauge.
+2. **Which basis the cut edge is written in.** A manifold frame gives each cut edge two: the base point's own
+   (the stores `L` and `D`) and the frame's other one (the stores `R` and `U`). The corewise frame has one.
+3. **What was differentiated:** the cores along the direction (dot), the inputs along the seed (tilde), or both.
+
+That is 4 x 2 x 2 x 2 = 32 possibilities, of which 22 occur:
+
+| Side contracted | In the base point's basis (`L`, `D`) | In the frame's other basis (`R`, `U`) |
+| --- | --- | --- |
+| The left of a bond | `mu`: plain, dot, tilde, tilde-dot | the frame's `mu_dot`: dot only |
+| The right of a bond | `gamma`: plain, dot, tilde, tilde-dot | `nu`: plain, tilde |
+| The leaf below a Tucker edge | `xi`: plain, dot, tilde, tilde-dot | the frame's `xi_dot`: dot only |
+| The trunk above a Tucker edge | `zeta`: plain, dot, tilde, tilde-dot | `eta`: plain, tilde |
+
+The first column is the base point's complete family: four sides in four grades. The second column is what the
+orthogonal frame adds. This is the table of section 13 with its rows explained: an edge of section 13 is a basis
+here, and a direction of travel is a side.
+
+**One dot.** Sections 2 and 13 treated the frame's dot variables (along the tangent direction `(V, H)`) and the
+base point's dots (along a raw core direction) as two families. Along the lifted direction they are one tangent
+vector, and the check shows it on the arrays, with the library's own frame, gauge projection and undamped lift:
+
+- Where both are in the same basis they are the same array: the frame's `nu_dot` is `gamma_dot`, and the
+  frame's `eta_dot` is `zeta_dot`.
+- Where they are in different bases they are one subnetwork in two bases, joined by the lift's own factors:
+  the frame's `mu_dot` and `mu_dot`; the frame's `xi_dot` and `xi_dot`. The same factors join the plain pairs
+  `nu` and `gamma`, `eta` and `zeta`.
+
+So the collision of rows 5 and 6 (target decisions, notes to section 6) is not between two directions. It is the
+situation of `nu` and `gamma` again: one side, two bases.
+
+**Two limits of that statement.**
+
+- With slack ranks a twin relation holds in one direction only. On the checked frame the last bond has 4
+  dimensions in the `L` basis and 3 in the `R` basis; the frame's `mu_dot` is the image of `mu_dot`, but not the
+  other way round, because `mu_dot` is free in the dimension that the right side annihilates.
+- With curvature damping above zero the lifted direction is not exactly the tangent, so the dots that `Kp` uses
+  are then along a slightly different direction. Not examined.
+
+**The maintainer's naming by the core and the leg a variable comes out of.**
+
+- For the plain variables it is exact and unique: `mu` comes out of leg `b` of `L`, `gamma` out of leg `a` of
+  `L`, `zeta` out of leg `i` of `L`, `nu` out of leg `a` of `R`, `eta` out of leg `i` of `U`, `xi` out of leg `i`
+  of `D`, and `z` out of leg `o` of `D`. It explains at once why `gamma` is not `nu`.
+- For a dotted variable it is not unique: the frame's `mu_dot` is a sum of terms that come out of `R`, of `H`
+  and of `U`. What stays unique is the side and the basis.
+- So the core and leg are the right definition of a plain variable, to be given in the table of variables. As
+  the name itself, a digit after a store letter also reads as a site number.
+
+**Two schemes that follow from the table.** Neither is decided.
+
+- **Eight letters: a letter for each side in each basis.** `mu`, `gamma`, `xi`, `zeta` for the base point's
+  column and `nu`, `eta` and two new letters for the frame's column. The two new ones are exactly the variables
+  that exist only as dots, the twins of `mu` and `xi`: `sigma` and `tau` fit there as a pair.
+- **Four letters and a basis: a letter for each side, and the store of the basis where it is not the usual
+  one.** `mu`, `nu`, `xi`, `eta` name the four sides, as they did at the start. The usual basis of each is the
+  store it travels away from: `L` for `mu`, `R` for `nu`, `D` for `xi`, `U` for `eta`. The other four are
+  `nu_L` (today's `gamma`), `eta_D` (`zeta`), `mu_R` (the frame's `mu_dot`) and `xi_U` (the frame's `xi_dot`).
+  What this buys: a name can be read without a table; a term function's name agrees with what it returns
+  (`nu_step` through `L` returns `nu_L`); and a call on the corewise frame, which has one basis, uses the four
+  letters with no suffix, so the question of two spellings for one array there does not arise.

@@ -1154,3 +1154,20 @@ axes. How do we tell whether an axis is part of the batch, or a derivative order
   vector on an `R` bond and the vector on a `U` edge, and only the frame's tangent variables live there. Option B
   follows the precedent of `nu` and `gamma`; option A marks something that is not a coordinate of the catalog.
   Not decided.
+
+## 55. Naming from first principles: a variable is a contracted subnetwork in a basis (2026-11-15, 22:24, 22:27)
+
+- **The maintainer.** Freedom to explore broader naming concepts, with no precedent to worry about. What is the
+  minimal information that identifies a variable? Could it be the core and leg it comes out of (`mu` as `L2`)?
+  And: an edge variable as the fully contracted subnetwork on one side of the edge.
+- **Analysis** (section 14 of `TYPE_CATALOG.md`). Three things identify a variable: the side contracted (the left
+  or the right of a bond, the leaf or the trunk at a Tucker edge), the basis of the cut edge (the base point's or
+  the frame's other one), and what was differentiated. 22 of the 32 combinations occur.
+- **Found and checked** (`scripts/review/subtree_gauge_check.py`). Along the lifted direction, the frame's dots
+  and the base point's dots are the same tangent vector: equal arrays where the basis is the same, and joined by
+  the lift's factors where it differs. The same factors join `nu` with `gamma` and `eta` with `zeta`. With slack
+  ranks a twin relation holds one way only. With damping the statement is not exact; not examined.
+- **The core-and-leg naming** is exact for the seven plain variables and not unique for a dotted one.
+- **Two schemes offered.** Eight letters (with `sigma` and `tau` for the two variables that exist only as dots),
+  or four letters for the four sides with the store of the basis as a suffix where it is not the usual one.
+  Not decided.

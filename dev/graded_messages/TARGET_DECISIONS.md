@@ -849,6 +849,16 @@ Notes:
     edge getting a different letter is the catalog's precedent (`nu` and `gamma`); B carried through needs a
     letter for each of the frame's four tangent variables, and makes a letter fix the edge and the direction in
     every grade.
+  - **The naming problem widened** (2026-11-15, 22:24 and 22:27). The maintainer asked for the minimal
+    information that identifies a variable, proposed naming by the core and leg a variable comes out of
+    (`mu` as `L2`), and suggested seeing an edge variable as the fully contracted subnetwork on one side of an
+    edge. He set precedent aside: "This is all still in the planning stage, so there is no precedent to worry
+    about." Claude's analysis is section 14 of `TYPE_CATALOG.md`, checked by
+    `scripts/review/subtree_gauge_check.py`. A variable is identified by the side contracted (four kinds), the
+    basis of the cut edge (two on a manifold frame), and what was differentiated. Along the lifted direction the
+    frame's dots and the base point's dots are one tangent vector: the frame's `nu_dot` is `gamma_dot` and its
+    `eta_dot` is `zeta_dot`, on the arrays. So rows 5 and 6 are one side in two bases, as `nu` and `gamma` are,
+    and not two directions. Two schemes follow (eight letters; or four letters and a basis). Not decided.
 - **6.3.** The review kept the old kernels as public adapters and the new names as a second vocabulary. That was
   compatibility. With one vocabulary, the near miss between the new `xi_tilde` and today's `dxi_tilde` exists
   only during migration.

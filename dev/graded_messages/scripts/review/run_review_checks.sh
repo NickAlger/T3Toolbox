@@ -26,6 +26,7 @@ fi
 run merged_frontend_prototype "$HERE/merged_frontend_prototype.py" "$REPO"
 run tilde_jet_pairing_check "$HERE/tilde_jet_pairing_check.py"
 run type_catalog_check     "$HERE/type_catalog_check.py"
+run subtree_gauge_check "$HERE/subtree_gauge_check.py" "$REPO"
 run arrow_type_check       "$HERE/arrow_type_check.py"
 run gauge_arrow_check      "$HERE/gauge_arrow_check.py" "$REPO"
 run tilde_multiplier_check "$HERE/tilde_multiplier_check.py"

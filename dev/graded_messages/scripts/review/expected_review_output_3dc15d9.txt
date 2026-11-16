@@ -178,6 +178,19 @@ Part C. The order factor, under s -> c s with c = 1.7 (the direction p becomes c
         dual jets, read in forward order: slot t is multiplied by c^-t            worst 6e-16
         the blocks are real: unchanged                                           worst 4e-16
 
+=== subtree_gauge_check.py
+A. One dot: the frame along (V, H) against the base point along the lifted direction
+   Jp                                                        equal
+   right of a bond, L basis:   frame nu_dot   and gamma_dot   equal
+   trunk, D basis:             frame eta_dot  and zeta_dot    equal
+B. Twins: one subnetwork in two bases, joined by the lift's own factors
+   left of a bond:   frame mu_dot (R)  and mu_dot (L)         equal
+      the other way round, through the bond factor         different: the bond has slack
+   leaf:             xi_dot (D)  and frame xi_dot (U)         equal
+   right of a bond:  nu (R)      and gamma (L)                equal
+   trunk:            eta (U)     and zeta (D)                 equal
+   bond sizes, L basis [3, 2, 4], R basis [3, 2, 3]
+
 === arrow_type_check.py
 1. The whole program type checks with the maintainer's arrows: 424 contractions over network indices and
    176 sums, in the 22 step functions, at order 2 with d = 4.  No error.
