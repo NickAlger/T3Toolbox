@@ -59,7 +59,8 @@ The maintainer paused the session at 04:46 on 2026-11-16, to pick up the next da
   question was 9.3, decided at 15:58: 44 rows are decided and 8 remain, all of them in groups D and E (5.3,
   5.4, 5.5, 7.2, 7.3, 7.5, 7.6, 7.7). At 16:03 a row was added and decided, 9.7, how the sampling variables are
   documented; and at 16:26, 5.4, the terms over the stacks: 46 of 57 rows are decided and 7 remain (5.3, 5.5,
-  7.2, 7.3, 7.5, 7.6, 7.7).
+  7.2, 7.3, 7.5, 7.6, 7.7). At 16:45 the refactor was split into two parts (section "The two parts"): Part 1,
+  what is computed, goes forward; Part 2, how it is carried out, holds the 7 open rows and comes later.
   `DESIGN_AFTER_REVIEW.md` and `dev/HANDOFF.md` do not yet carry the decisions made since the pause.
 
 ## Where this stood at the earlier pause (2026-11-15, 05:53)
@@ -82,6 +83,56 @@ The maintainer paused the session at 04:46 on 2026-11-16, to pick up the next da
   them.
 - **Nearest open questions:** 2.4 above; 2.5 and 2.3, for which the catalog says the misfit is a choice of inner
   product on data jets and derivative mode is another such choice; 2.9; the rest of 6.2; 6.3; 3.4.
+
+## The two parts (decided 2026-11-16, 16:45)
+
+The maintainer (16:35): "The refactor has gotten big enough to the point where I am having trouble holding all of
+it in my mind at once. Therefore, I would like to try to find way to cleanly split it into two parts. One of which
+we can move forward on without much more planning, and the other which comes later." On the split below (16:45):
+"Ok, let's do it."
+
+- **Part 1: what is computed.** The variables and their names, the conventions, and how the layers talk. It
+  carries out every computation the way the library does today.
+- **Part 2: how it is carried out.** The plan and every performance option. It changes no number.
+- **The test for any item:** does it change a result, a name or an interface (Part 1), or only time and memory
+  (Part 2)? The line is the maintainer's own, from 2.9: a performance option "changes how the computation is
+  carried out and never what is computed".
+
+| | Part 1 | Part 2 |
+| --- | --- | --- |
+| Sampling | the engine `sampling_variables`; the variables of `SAMPLE_VARIABLES.md`; `jet_contract` and the literal strings; Taylor coefficients; order 0 as the same functions; the weight and the data as arguments; frames with centers; arbitrary tails; both layouts | scans over chunks of samples; the choice of sites scanned or vectorized; the contraction order; the loop form over the orders |
+| Fitting | the oracle and the batch; `LocalModel`; the optimizers' seam; the display; derivative data and weights prepared outside | what is held by default; which phases are compiled; the trial policies b and c; which draws the library ships |
+| Around it | the reference module; the page in `docs/`, the example and the note; the tests by definition and the identities | sizing helpers; sharding and device placement; padded samples for entries; MC-SGD over several steps |
+| Rows | every decided row, with the exceptions below | 5.3, 5.5, 7.2, 7.3, 7.5, 7.6, 7.7 |
+
+**Decided rows whose options wait for Part 2** (the row stands; Part 1 builds only the form the library has today):
+2.9, the loop form over the orders (Part 1 has the scan); 4.3, the trial policies b and c (Part 1 has policy a,
+with the frame's centers of 4.1 in place); 7.1 and 7.4, the plan and chunk sizes as array shapes (Part 1 has no
+plan); 8.3, which phases are compiled and several steps of MC-SGD in one program (Part 1 compiles the CG solve and
+the stochastic step, as today, and makes `take` traceable).
+
+**What Part 1 fixes where a row is open,** each as the library does it today:
+
+| Open row | Part 1 |
+| --- | --- |
+| 5.3 sites | sweeps scanned; map-type operations in a loop on the ragged layout and at all sites at once on the uniform one |
+| 5.5 the contraction order | `contract`'s present default |
+| 7.2 the defaults | the model holds the plain sweep variables and the residual |
+| 7.3 where the plan lives | there is no plan, and no signature has the argument |
+| 7.5, 7.6, 7.7 | no chunking, so no padding, no sizing and no promise about sharding |
+
+- **Part 2 adds to Part 1's interface and does not change it:** the plan arrives as optional arguments and fields.
+- **What keeps the two honest:** by 9.3 the result does not depend on the plan. Part 1 is the reference that every
+  option of Part 2 is tested against.
+- **The cost.** Part 1 has no chunking of samples, and the frontend's `chunk_size` goes. Today's library chunks
+  two assemblies on the uniform layout with jax. So Part 1 alone is a step back in memory for large jetted fits
+  until Part 2. T3Polynomial runs with chunking off today: its fitting module defaults to `chunk_size=None`
+  (`t3polynomial/fitting.py`), and so do its scripts, the GPU benchmark included.
+- **Next** (the maintainer, 16:45): the small planning items Part 1 still needs from him; then "a focused
+  implementation plan document for part 1, which includes not just what we want to do, but also how we will do
+  it", with "more details about what will be done, and less details about the historical path we took to get to
+  decisions and dead ends we tried"; written by one Opus agent, reviewed by another, the two iterating until they
+  agree; then looked over together.
 
 ## What remains, in groups (2026-11-15, 15:34)
 

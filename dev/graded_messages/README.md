@@ -41,7 +41,7 @@ documents and some of the proposal.
   at the outer level of fitting; order 0 is the one-coefficient case of the same functions, with the order axis
   an optional axis `T` that is absent at order 0; input jets are always a point and one direction; and the plain
   and jetted sampling functions are one function, `probe(ww, pp=None, order=0)`, with three fitting kinds that
-  take an `order` in place of six (`REVIEW_DECISIONS.md` entries 12 to 93).
+  take an `order` in place of six (`REVIEW_DECISIONS.md` entries 12 to 94).
 - **Paused on 2026-11-15 at 05:53, to resume the next day.** Decided that morning: one function for the plain and
   the jetted computation (6.6), three kinds with an `order` (2.8), how the direction `pp` is passed (part of 6.2),
   and the convention for arrows on the edges (9.5). Held: what a tilde jet is (2.4); the material for it is
@@ -66,6 +66,11 @@ documents and some of the proposal.
   an `Oracle`; `LocalModel` is the geometry, the oracle and the regularizer at one frame. Held for one sitting on
   performance: 5.3, 5.5 and all of group E. Owed: a prototype for 5.4. Next: 8.3, 8.4, 9.3. The section "Where
   this stands" at the top of `TARGET_DECISIONS.md` has the full state.
+- **Split into two parts on 2026-11-16 at 16:45.** Part 1 is what is computed: the variables, the names, the
+  conventions and how the layers talk, carried out the way the library does it today. Part 2 is how it is carried
+  out: the plan and every performance option. All 46 decided rows are in Part 1; the 7 open rows (5.3, 5.5, 7.2,
+  7.3, 7.5, 7.6, 7.7) are Part 2 and come later. An implementation plan for Part 1 is the next document. See
+  "The two parts" in `TARGET_DECISIONS.md`.
 - **The earlier documents are not rewritten.** `EXECUTION_PLANS.md`, `EVALUATOR.md` and `scripts/plan_mockup.py`
   describe the design before the review, and `PROPOSAL.md`, `API_IMPACT.md` and `WORKED_EXAMPLE.md` are affected in
   places. Each has a status note at its top saying what no longer holds. Where they disagree with

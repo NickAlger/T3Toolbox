@@ -1720,3 +1720,16 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   closes the one case the two keywords left open (a stray axis where `W` and `K` stand together).
 - **Then** he asked for a clean split of the refactor into two parts: one that can go forward without much more
   planning, and one that comes later.
+
+## 94. The refactor is split into two parts (2026-11-16, 16:45)
+
+- **The maintainer** asked for a clean split, his mind "running out of metaphorical context", and agreed to
+  this one: "Ok, let's do it."
+- **Part 1, what is computed:** the variables and names, the conventions, how the layers talk; carried out the
+  way the library does it today. **Part 2, how it is carried out:** the plan and every performance option; it
+  changes no number. Every decided row is in Part 1 (with the performance options of 2.9, 4.3, 7.1, 7.4 and 8.3
+  waiting for Part 2); the seven open rows are Part 2.
+- **The cost:** Part 1 has no chunking of samples. T3Polynomial runs with chunking off today.
+- **Next:** the small planning items Part 1 needs from him, then an implementation plan for Part 1 written by one
+  Opus agent and reviewed by another until they agree.
+- The split is recorded in `TARGET_DECISIONS.md`, section "The two parts".
