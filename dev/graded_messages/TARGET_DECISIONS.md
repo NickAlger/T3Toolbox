@@ -1488,7 +1488,7 @@ Notes:
     and not proposed); the form in which the oracle's one operation returns and takes back `held`; how a
     minibatch is given, with `Problem` holding the geometry, the oracle and the regularizer (8.3); what the
     display reads (8.4).
-- **8.1, the discussion** (2026-11-16, 04:08 to 04:41; decided at 04:46, next note).
+- **8.1, the discussion** (2026-11-16, 04:08 to 04:41; decided at 04:46, the note above).
   - **Claude's first proposal** (04:08): `LocalModel` is the geometry, the oracle and the regularizer put together
     at one frame. It holds `geom`, `oracle`, the frame with its centers, an opaque `held`, the regularizer, the
     geometry's companion and the curvature state. `kind`, `sample`, `n_w`, `sweep` and `residual` stop being
@@ -1524,7 +1524,7 @@ Notes:
       Checked (`scripts/review/jet_steps_check.py`, the line added on 2026-11-16): with a random weight for every
       mode and order, at orders 0, 2 and 4, the two agree to rounding, and each agrees with the library's own
       weighted kind. Not covered there: apply and entries, the `K` and `C` stacks, the uniform layout.
-    - **The name.** Decided at 04:46 (next note). Claude's suggestion: `Jp_norm_sq`, with `sumsq` kept for the plain sum of squares
+    - **The name.** Decided at 04:46 (the note above). Claude's suggestion: `Jp_norm_sq`, with `sumsq` kept for the plain sum of squares
       (`r_block_sumsq`, which is unweighted) and `norm_sq` meaning the squared norm in the weighted inner
       product; the library has `point_norm_sq`. The other candidate: `pJtJp`.
     - **Jets and the inner product.** By 2.5 the weight has one entry for each mode and order (`(d,) + T` for
