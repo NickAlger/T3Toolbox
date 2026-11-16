@@ -1055,3 +1055,29 @@ axes. How do we tell whether an axis is part of the batch, or a derivative order
   float64 and float32.
 - **Counts.** 20 rows decided, 31 remain. Group A has three: 3.6, 3.7, 3.3, all marked to confirm.
 
+## 49. How the scan is written; rules for dispatch (2026-11-15, 19:50)
+
+- **The maintainer.** "The implementation is through the xscan abstraction, which dispatches to a jax scan if jax is used and the
+  layer is uniform, and a loop if pure numpy or ragged. In general, things should respect the numpy vs jax dispatch
+  rule, and scan type operations should be polymorphic in ragged vs uniform. This may have reasonable exceptions
+  for performance optimizations and issues related to masking; though for uniform sampling the pattern is to mask
+  first, then compute edge variables with the assumption that masking was already done. For map-type operations,
+  uniform and ragged may have different behavior for performance and memory considerations; this is one of the
+  things we are helping the user control with the Plan abstraction in this refactor arc. Dispatch at the lowest
+  level within reason, use jax if any input is jax and numpy otherwise, write code generically with xscan and
+  similar, which are obtained from the get_backend function and may also use the tree_contains_jax function.
+  Uniform vs nonuniform is deduced from the input types. Look at other functions in the library for examples, for
+  example things in the existing backend/probing.py."
+- **A reading of Claude's corrected.** Entry 48 recorded Claude's reading that the default would be a real scan
+  on every layout. It is not: the scan is written with `xscan`, a real scan with jax on the uniform layout and
+  a Python loop on numpy or on the ragged layout.
+- **Recorded.** For 2.9, in its notes. As general rules for how the functions are written, in the notes to
+  section 5 of `TARGET_DECISIONS.md`: numpy or jax inferred from the inputs at the lowest level; the layout
+  deduced from the input types; scan-type operations generic through `xscan`; mask first on the uniform layout;
+  map-type operations may differ between the layouts, under the plan's control; `backend/probing.py` as the
+  example. No row changes status; they bear on 5.2, 5.3 and 5.6.
+- **Prototype.** `scripts/review/order_scan_check.py` rewritten in the library's pattern and checked on the four
+  backends in float64 and float32. It now takes the path of the T3Toolbox checkout.
+- **Claude's observation, for 7.2.** Where `xscan` is a Python loop the `'scan'` setting keeps the square of the
+  cheap contractions without the scan's two properties, so `'loop'` does less work there and gives up nothing.
+

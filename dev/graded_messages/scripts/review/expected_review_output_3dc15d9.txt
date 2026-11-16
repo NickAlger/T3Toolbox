@@ -254,33 +254,36 @@ Case 2: 200 samples.  The order-0 data determine the tensor alone.
 the doctest of the adapter draft: 14 examples, 0 failures
 
 === order_scan_check.py
-1. Each form against the explicit sum, under jit, and the lines of its traced program (scan body included)
-   order  loop                   carried shift          pair table            
-   1      correct, 56 lines      correct, 34 lines      correct, 74 lines     
-   2      correct, 85 lines      correct, 34 lines      correct, 74 lines     
-   4      correct, 143 lines     correct, 34 lines      correct, 74 lines     
-   8      correct, 259 lines     correct, 34 lines      correct, 74 lines     
-   16     correct, 491 lines     correct, 34 lines      correct, 74 lines     
+1. Each form against the explicit sum, under jit (jax), and the lines of its traced program (scan body included)
+   order  'loop'                 'scan', uniform        'scan', ragged         pair table            
+   1      correct, 54 lines      correct, 34 lines      correct, 59 lines      correct, 74 lines     
+   2      correct, 82 lines      correct, 34 lines      correct, 87 lines      correct, 74 lines     
+   4      correct, 138 lines     correct, 34 lines      correct, 143 lines     correct, 74 lines     
+   8      correct, 250 lines     correct, 34 lines      correct, 255 lines     correct, 74 lines     
+   16     correct, 474 lines     correct, 34 lines      correct, 479 lines     correct, 74 lines     
 2. Multiplications, relative to the loop
    W = 1000, bonds 64, mode rank 32
-   order  carried shift    pair table      
+   order  'scan'           pair table      
    1      1.01             1.97            
    2      1.03             1.94            
    4      1.06             2.83            
    8      1.11             4.46            
    16     1.20             7.24            
    W = 1000, bonds 4, mode rank 4
-   order  carried shift    pair table      
+   order  'scan'           pair table      
    1      1.09             1.82            
    2      1.17             1.67            
    4      1.29             2.14            
    8      1.44             2.78            
    16     1.62             3.46            
-3. The option: over_orders='scan' (the default) against over_orders='loop', under jit
-   order  float64                float32               
-   1      agree to rounding      agree to rounding     
-   2      agree to rounding      agree to rounding     
-   4      agree to rounding      agree to rounding     
-   8      agree to rounding      agree to rounding     
-   16     agree to rounding      agree to rounding     
+3. The option on the four backends: over_orders='scan' (the default) against 'loop', orders 1 to 16
+   inputs           layout     xscan is       the settings agree   output          
+   numpy float64    ragged     ragged_scan    to rounding          numpy float64   
+   numpy float32    ragged     ragged_scan    to rounding          numpy float32   
+   numpy float64    uniform    numpy_scan     to rounding          numpy float64   
+   numpy float32    uniform    numpy_scan     to rounding          numpy float32   
+   jax float64      ragged     ragged_scan    to rounding          jax float64     
+   jax float32      ragged     ragged_scan    to rounding          jax float32     
+   jax float64      uniform    scan           to rounding          jax float64     
+   jax float32      uniform    scan           to rounding          jax float32     
 

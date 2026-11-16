@@ -61,6 +61,7 @@ maintainer's request; they decide nothing.
 - **D. One program for every layout and stack.** 5.2 one set of step functions for ragged and uniform (open); 5.4
   terms generic over the stack groups (open); 5.3 sites scanned or vectorized (reopened); 5.5 association order
   inside a term (to confirm); 5.6 the dtype rule (open). The cases the order-0 assessment did not cover are here.
+  The maintainer gave rules for how the functions are written on 2026-11-15, 19:50 (notes to section 5).
 - **E. Plans, memory and scale.** 7.3 where the plan lives (reopened); 7.2 the defaults (reopened); 7.5 inert
   padded samples for entries (open); 7.6 automatic sizing (open); 7.7 sharding and device placement (open).
 - **F. The fitting layer above.** 8.1 what `LocalModel` is (to confirm); 8.3 the optimizers' contract with a model
@@ -535,9 +536,9 @@ Notes:
     - The setting is one field of the plan and applies to every product of two full jets in the call, not term
       by term or site by site. The order axis is not an axis of the sample stack, so it is a setting of its own
       and not one more entry in the plan's tuple of scans (see 7.1).
-    - With the default, the scan is a real scan on every layout. The library's is one only on the uniform
-      layout; nothing in the ragged layout prevents it, since the order axis has the same length at every site.
-      This meets 5.2 and 5.3 in group D.
+    - ~~With the default, the scan is a real scan on every layout.~~ **Wrong; corrected by the maintainer at
+      19:50** (next note). The scan is written through `xscan`, so it is a real scan with jax on the uniform
+      layout and a Python loop on numpy or on the ragged layout, as in the library today.
     - The two settings agree to rounding, not bit for bit, so the test that they agree is a tolerance test.
     - A product with an affine operand, and order 0, are the same under both settings: neither has a loop over
       the orders.
@@ -547,6 +548,36 @@ Notes:
     prototype are placeholders).
   - Checked (`scripts/review/order_scan_check.py`, part 3): the two settings as one function agree to rounding
     under jit at orders 1 to 16, in float64 and in float32, and keep the dtype.
+- **2.9, how the scan is written** (2026-11-15, 19:50). The maintainer, correcting Claude's reading above:
+  "The implementation is through the xscan abstraction, which dispatches to a jax scan if jax is used and the
+  layer is uniform, and a loop if pure numpy or ragged. In general, things should respect the numpy vs jax dispatch
+  rule, and scan type operations should be polymorphic in ragged vs uniform. This may have reasonable exceptions
+  for performance optimizations and issues related to masking; though for uniform sampling the pattern is to mask
+  first, then compute edge variables with the assumption that masking was already done. For map-type operations,
+  uniform and ragged may have different behavior for performance and memory considerations; this is one of the
+  things we are helping the user control with the Plan abstraction in this refactor arc. Dispatch at the lowest
+  level within reason, use jax if any input is jax and numpy otherwise, write code generically with xscan and
+  similar, which are obtained from the get_backend function and may also use the tree_contains_jax function.
+  Uniform vs nonuniform is deduced from the input types. Look at other functions in the library for examples, for
+  example things in the existing backend/probing.py."
+  - For 2.9: the `'scan'` setting is the carried shift written with `xscan`. With jax on the uniform layout it
+    is `jax.lax.scan`; on numpy or on the ragged layout it is a Python loop over the same body. The `'loop'`
+    setting is the loop with slices on every backend.
+  - The general rules in this statement are recorded under section 5, where they bear on 5.2, 5.3 and 5.6.
+  - The prototype is rewritten in that pattern (`scripts/review/order_scan_check.py`): `get_backend`,
+    `tree_contains_jax`, `xscan`, a closure-free body with the core on the carry, and the library's `contract`.
+    The layout is deduced by the caller and handed down as `is_uniform`, as `_eta_jets_core` does, because one
+    core's arrays look the same in both layouts. Checked on all four backends, in float64 and float32: both
+    settings give the explicit sum, numpy in gives numpy out, jax in gives jax out, and the dtype is kept.
+  - **What follows, Claude's observation.** Where `xscan` is a Python loop, the `'scan'` setting has neither of
+    the scan's two properties: under jit on the ragged layout its traced program grows with the order (143 lines
+    at order 4, 479 at order 16, against 34 at every order on the uniform layout), and nothing bounds the peak
+    memory. It still does the square of the cheap contractions, where `'loop'` does the triangle (138 and 474
+    lines). So on the ragged layout and on numpy, `'loop'` does less work and gives up nothing. The user can
+    choose it through the plan. Whether the default should depend on the layout is a question for 7.2 (the
+    default plan); as decided, the default is `'scan'`.
+  - The line counts quoted in the earlier notes (143 and 491 for the loop) were of a first draft written in
+    jax only. Written generically the loop has 138 and 474.
 
 ## 3. Variables and kinds
 
@@ -613,6 +644,31 @@ Notes:
   "what each kernel does today", is a reason from history.
 - **5.5.** Decision 4 left association out, on the library's own measurement that one contraction per term is
   right on jax.
+- **Rules for how the functions are written** (the maintainer, 2026-11-15, 19:50, said while settling 2.9):
+  "The implementation is through the xscan abstraction, which dispatches to a jax scan if jax is used and the
+  layer is uniform, and a loop if pure numpy or ragged. In general, things should respect the numpy vs jax dispatch
+  rule, and scan type operations should be polymorphic in ragged vs uniform. This may have reasonable exceptions
+  for performance optimizations and issues related to masking; though for uniform sampling the pattern is to mask
+  first, then compute edge variables with the assumption that masking was already done. For map-type operations,
+  uniform and ragged may have different behavior for performance and memory considerations; this is one of the
+  things we are helping the user control with the Plan abstraction in this refactor arc. Dispatch at the lowest
+  level within reason, use jax if any input is jax and numpy otherwise, write code generically with xscan and
+  similar, which are obtained from the get_backend function and may also use the tree_contains_jax function.
+  Uniform vs nonuniform is deduced from the input types. Look at other functions in the library for examples, for
+  example things in the existing backend/probing.py."
+  Read as rules, by Claude:
+  - **numpy or jax** is inferred from the inputs: jax if any input is a jax array, numpy otherwise
+    (`tree_contains_jax`). The dispatch is made at the lowest level, within reason. No `use_jax` argument.
+  - **Ragged or uniform** is deduced from the input types.
+  - **Scan-type operations** are written once, generically, with `xscan` and its relatives from `get_backend`,
+    and are polymorphic in the layout. Exceptions are allowed for performance and for masking.
+  - **Masking on the uniform layout:** mask first; the edge variables are then computed on the assumption that
+    the masking has been done.
+  - **Map-type operations** may behave differently on the two layouts, for performance and memory. That
+    difference is one of the things the plan lets the user control.
+  - The existing `backend/probing.py` is the example to follow.
+  These bear on 5.2 (one set of step functions), 5.3 (sites scanned or vectorized) and 5.6 (the dtype rule).
+  The rows are not marked decided by this; they are to be taken up in group D with these rules as given.
 
 ## 6. The interface
 
