@@ -1563,3 +1563,17 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   (open; `Jp_norm_sq` suggested), and asked how jets meet the inner product (diagonal, one weight per mode and
   order by 2.5). Full record in the note to 8.1 of `TARGET_DECISIONS.md`.
 - **Counts.** Unchanged: 40 rows decided, 12 remain.
+
+## 82. 8.1 decided: what `LocalModel` is; `Jp_norm_sq`; the session paused (2026-11-16, 04:46)
+
+- **The maintainer:** "1. Go with Jp_norm_sq. 2. confirmed. After recording this, please update the handoff and
+  let's pause. We will pick up tomorrow"
+- **8.1.** `LocalModel` is the geometry, the oracle and the regularizer put together at one frame, and the holder
+  of the local information at that point. Its own `gn_quadratic` and `hvp` use the fused `Jp_norm_sq` and `JtJp`;
+  `residual` and `jacobian(p)` stay on it, as optional outputs of an oracle; it stores only what the plan's `hold`
+  keeps. 8.2 is amended: `f`, `g`, `JtJp`, `Jp_norm_sq` required of an oracle; `Kp`, `Jp`, `r` optional.
+- **The name.** `Jp_sumsq` is now `Jp_norm_sq`, in the live documents and in `jet_steps_check.py`; earlier entries
+  of this log keep the old name.
+- **Counts.** 41 rows decided, 11 remain (7 open, 3 reopened, 1 to confirm).
+- **The pause.** The state is in "Where this stands" at the top of `TARGET_DECISIONS.md`, in the status list of
+  the folder's `README.md`, and in `dev/HANDOFF.md` on the branch `graded-messages`.

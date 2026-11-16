@@ -12,7 +12,7 @@ The library's conventions are kept at the boundary: the inputs (w, p), the data 
 and the outputs z, r, Jp are derivative-normalized, exactly as `ProbeDerivativesKind` takes and returns them.
 
 Checked against the library's own kind (`backend.fitting.ProbeDerivativesKind`):  z, f, r_block_sumsq, g, Jp,
-Jp_sumsq, JtJp, Kp.  Ragged cores, numpy, one sample axis.  Not covered: the uniform layout, the K and C stacks,
+Jp_norm_sq, JtJp, Kp.  Ragged cores, numpy, one sample axis.  Not covered: the uniform layout, the K and C stacks,
 jit, order scans (the truncated products here are plain loops), apply and entries with jets.
 
 Usage:  python3 -I jet_steps_check.py /path/to/T3Toolbox
@@ -246,7 +246,7 @@ def main(repo):
         nu_L_dot = right_to_left(nu_dot_step, zeros_start(P, W, L[-1].shape[2]), d, nu[1:], xi, xi_U_dot, L, U, H)
         eta_D_dot = each_site(eta_dot_step, d, mu_R_dot, mu, nu_L_dot[1:], nu[1:], L, R, H)
         Jp = [derivatives(a) for a in each_site(Jp_step, d, eta_D_dot, eta, D, V)]
-        Jp_sumsq = sum(np.sum((omega[i] ** 2).reshape((P, 1, 1)) * Jp[i] ** 2) for i in range(d))
+        Jp_norm_sq = sum(np.sum((omega[i] ** 2).reshape((P, 1, 1)) * Jp[i] ** 2) for i in range(d))
         JtJp_V, JtJp_H, _ = tilde_family([seed_jet(c) for c in weigh(Jp)], w, xi, mu, nu, eta, frame, d, P, W)
 
         # Kp: the two-hole term at the base point (D, L), raw core direction (D_dot, L_dot), seed omega^2 r.
@@ -278,19 +278,19 @@ def main(repo):
         Jp_ref = kind.forward((V, H), sample, frame, sweep)
         JtJp_ref = kind.transpose(Jp_ref, sample, frame, sweep)
         Kp_ref = kind.corewise_hessian((D_dot, L_dot), r_ref, sample, frame, sweep, (D, L))
-        print('order %d   z %.1e   f %.1e   r_block_sumsq %.1e   g %.1e   Jp %.1e   Jp_sumsq %.1e   JtJp %.1e   Kp %.1e'
+        print('order %d   z %.1e   f %.1e   r_block_sumsq %.1e   g %.1e   Jp %.1e   Jp_norm_sq %.1e   JtJp %.1e   Kp %.1e'
               % (order, err(z, z_ref),
                  abs(f - 0.5 * float(kind.sumsq(r_ref, n_w))) / (0.5 * float(kind.sumsq(r_ref, n_w))),
                  err([r_block_sumsq], [np.asarray(kind.block_sumsq(r_ref, n_w))]),
                  err(V_tilde + H_tilde, list(g_ref[0]) + list(g_ref[1])),
                  err(Jp, Jp_ref),
-                 abs(Jp_sumsq - float(kind.sumsq(Jp_ref, n_w))) / float(kind.sumsq(Jp_ref, n_w)),
+                 abs(Jp_norm_sq - float(kind.sumsq(Jp_ref, n_w))) / float(kind.sumsq(Jp_ref, n_w)),
                  err(JtJp_V + JtJp_H, list(JtJp_ref[0]) + list(JtJp_ref[1])),
                  err(Kp_V + Kp_H, list(Kp_ref[0]) + list(Kp_ref[1]))))
         # the weighted quadratic two ways: <Jp, omega^2 Jp> with no adjoint sweep, and p paired with JtJp
         p_JtJp = sum(float(np.sum(a * b)) for a, b in zip(list(V) + list(H), JtJp_V + JtJp_H))
         print('          <Jp, omega^2 Jp> against <p, JtJp>, random weight per mode and order   %.1e'
-              % (abs(Jp_sumsq - p_JtJp) / abs(p_JtJp)))
+              % (abs(Jp_norm_sq - p_JtJp) / abs(p_JtJp)))
 
     import inspect
     import re

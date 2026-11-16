@@ -92,7 +92,7 @@ the reversal.
 | Every term of a plain or dot step | The product of the ring: `R x R -> R` | convolution | convolution |
 | Every term of a tilde or tilde-dot step. Exactly one operand is a dual jet | The action of the ring on its dual: `R x R* -> R*` | correlation | convolution |
 | The block readouts: `V_term` and `H_term` in the tilde and tilde-dot grades | A dual pairing, `R* x R -> real`: one dual jet against the product of the jets | sum over slots | top coefficient |
-| The misfit `f`, `r_block_sumsq`, `Jp_sumsq` | An inner product on `R`, with the weights `omega^2` on its diagonal | sum over slots | same |
+| The misfit `f`, `r_block_sumsq`, `Jp_norm_sq` | An inner product on `R`, with the weights `omega^2` on its diagonal | sum over slots | same |
 | The seed: `omega^2 r`, and `omega^2 Jp` for `JtJp` | The Riesz map of that inner product, `R -> R*` | multiply slot `t` by `omega[t]^2` | the same, then the flip |
 
 The order index is contracted away only in the last three rows. Inside the sweeps it is never contracted.
@@ -106,7 +106,7 @@ sweep of the probe kind starts from the zero functional.
 | --- | --- |
 | Every contraction over a bond, a Tucker-rank or a mode index, inside every term | A dual pairing of a vector with a covector. No inner product |
 | The sum over the samples at a block readout | A dual pairing over the sample index |
-| The misfit `f`, `r_block_sumsq`, `Jp_sumsq` | The dot product on `N`, for each sample: an inner product |
+| The misfit `f`, `r_block_sumsq`, `Jp_norm_sq` | The dot product on `N`, for each sample: an inner product |
 | The seed | The Riesz map of that dot product: a covector of `N` (the residual) becomes a vector of `N` (the seed). The identity on the array |
 | Outside the sampling layer: the orthogonality of the frame, the gauge projection, the lift, the retraction, the inner products of the Krylov solver | Inner products on the spaces of the cores |
 

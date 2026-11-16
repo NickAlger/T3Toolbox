@@ -140,7 +140,7 @@ The seven site rules are named after the variable they produce, with no directio
 | `Kp` | the curvature part of the exact product | `(V_tilde_dot, H_tilde_dot)` seeded by `omega^2 r` |
 | `Hp` | the exact Hessian-vector product | assembled by `LocalModel` from `JtJp` and `Kp`; not a sampling variable |
 | `r_block_sumsq` | per-mode, per-order sums of squares of `r` | |
-| `Jp_sumsq` | weighted sum of squares of `Jp`, the Gauss-Newton quadratic | |
+| `Jp_norm_sq` | weighted sum of squares of `Jp`, the Gauss-Newton quadratic | |
 
 - `Hp` never means Gauss-Newton. The maintainer's concern is confusion between the two. `JtJp` was preferred to
   `HGNp` because it has no `H` and composes with `Jp`.
@@ -263,7 +263,7 @@ For the probe kind, among public variables. "Worth holding" depends on what a va
 | --- | --- | --- |
 | The point and the samples | `xi`, `mu`, `nu`, `eta`, `nu_L`, `eta_D`, `z` | every call at this point |
 | Also the data | `r`, `f`, `r_block_sumsq`, `xi_tilde`, `mu_tilde`, `nu_tilde`, `eta_tilde`, `nu_L_tilde`, `g` | every call at this point with this data |
-| Also the direction | the dot variables, `Jp`, `Jp_sumsq`, `JtJp`, `Kp` | one product |
+| Also the direction | the dot variables, `Jp`, `Jp_norm_sq`, `JtJp`, `Kp` | one product |
 
 | Want | Reads directly | Ideal to have |
 | --- | --- | --- |
@@ -372,7 +372,7 @@ in one pass needs the residual formed inside the chunk scan.
 | Per-mode, per-order sums of squares of `r` | numerators of the display's relative errors; also on validation samples | `r_block_sumsq` |
 | The same sums for the data | the display's normalization | `kind.block_sumsq(data)`, unchanged |
 | Weighted sum of squares of the data | the trust-region floor | `kind.sumsq(data)`, unchanged |
-| Weighted sum of squares of `Jp` | the Gauss-Newton quadratic, read after each solve and in the model value | `Jp_sumsq` |
+| Weighted sum of squares of `Jp` | the Gauss-Newton quadratic, read after each solve and in the model value | `Jp_norm_sq` |
 
 The trust-region floor also reads the residual, but only its dtype.
 
@@ -465,7 +465,7 @@ The maintainer's requirement (section 7) rules out leaving any of the wiring und
 
 - **Stage 1, independent of the kernel refactor.**
   - `LocalModel` is written once against a names-based interface: it asks for `f`, `g`, `Jp`, `JtJp`, `Kp`, `r`,
-    `r_block_sumsq`, `Jp_sumsq` under a `SamplePlan`.
+    `r_block_sumsq`, `Jp_norm_sq` under a `SamplePlan`.
   - An adapter serves that interface for every kind, built-in or user-written, by calling the six existing kind
     operations inside the chunk scans. The kind protocol does not change, apart from `chunk` and `unchunk`, which
     are optional in the way `take` is.
@@ -533,7 +533,7 @@ All on small problems, in numpy unless noted, against T3Toolbox at `3dc15d9`. Re
 | Script | Shows | Agreement |
 | --- | --- | --- |
 | `unbundled_examples.py` | The explicit form, order 0, probe: `Jp`, `Jt r`, two-hole | 4e-16 |
-| `jet_steps_check.py` | The explicit form with jets and weights, final names, against `ProbeDerivativesKind` at orders 0, 2, 4: `z`, `f`, `r_block_sumsq`, `g`, `Jp`, `Jp_sumsq`, `JtJp`, `Kp` | 4e-16 |
+| `jet_steps_check.py` | The explicit form with jets and weights, final names, against `ProbeDerivativesKind` at orders 0, 2, 4: `z`, `f`, `r_block_sumsq`, `g`, `Jp`, `Jp_norm_sq`, `JtJp`, `Kp` | 4e-16 |
 | `kind_readout_check.py` | Apply and entries on the probe kind's steps: `z`, `Jp`, transpose | 8e-16 |
 | `tilde_adjoint_check.py` | The two readings of the tilde | 3e-15; 1e-10 |
 | `slot_tuple_examples.py`, `slot_tuple_check.py` | The declined fixed-slot form, kept as a record | 2e-16 |
@@ -639,7 +639,7 @@ to `REVIEW_DECISIONS.md`.
 | F4 | Decision 8: names |
 | F5 | Decision 4: no association option; one contraction per term |
 | F6 | Decisions 1, 2: the plan holds no sizes |
-| F9 | Decision 9: the top-level `hold`, `r_block_sumsq`, `Jp_sumsq` |
+| F9 | Decision 9: the top-level `hold`, `r_block_sumsq`, `Jp_norm_sq` |
 | F10 | Open: where the `W` axes sit in held variables |
 | F11 | Decision 10: wired in stage 1 through an adapter; marking decided inside the refactor |
 | F16 | No conflict: the library's docs pass uses the same wording for `mu` |

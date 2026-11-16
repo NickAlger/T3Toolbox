@@ -5,11 +5,11 @@ two-hole   against t3_probe_corewise_hessian   3.9e-16
 22 component functions, 59 terms in total, 7 literal subscript strings
 
 === jet_steps_check.py
-order 0   z 2.0e-16   f 3.6e-16   r_block_sumsq 4.0e-16   g 2.9e-16   Jp 3.4e-16   Jp_sumsq 0.0e+00   JtJp 3.6e-16   Kp 2.3e-16
+order 0   z 2.0e-16   f 3.6e-16   r_block_sumsq 4.0e-16   g 2.9e-16   Jp 3.4e-16   Jp_norm_sq 0.0e+00   JtJp 3.6e-16   Kp 2.3e-16
           <Jp, omega^2 Jp> against <p, JtJp>, random weight per mode and order   0.0e+00
-order 2   z 3.2e-16   f 1.9e-16   r_block_sumsq 2.6e-16   g 2.1e-16   Jp 2.9e-16   Jp_sumsq 0.0e+00   JtJp 3.5e-16   Kp 3.3e-16
+order 2   z 3.2e-16   f 1.9e-16   r_block_sumsq 2.6e-16   g 2.1e-16   Jp 2.9e-16   Jp_norm_sq 0.0e+00   JtJp 3.5e-16   Kp 3.3e-16
           <Jp, omega^2 Jp> against <p, JtJp>, random weight per mode and order   0.0e+00
-order 4   z 3.2e-16   f 0.0e+00   r_block_sumsq 2.8e-16   g 2.7e-16   Jp 3.0e-16   Jp_sumsq 3.8e-16   JtJp 2.1e-16   Kp 3.9e-16
+order 4   z 3.2e-16   f 0.0e+00   r_block_sumsq 2.8e-16   g 2.7e-16   Jp 3.0e-16   Jp_norm_sq 3.8e-16   JtJp 2.1e-16   Kp 3.9e-16
           <Jp, omega^2 Jp> against <p, JtJp>, random weight per mode and order   1.9e-16
 22 step functions, 60 terms, 7 term functions; the same for every order
 

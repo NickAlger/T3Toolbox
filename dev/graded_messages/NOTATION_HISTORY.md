@@ -428,3 +428,11 @@ from the cores it is given (`nu_step` given `L` cores returns `nu_L`; `mu_dot_st
 frame's `xi_U_dot` returns `mu_R_dot`, given `(L, L, L_dot)` and the raw `xi_dot` it returns `mu_dot`). Decided by
 the maintainer on 2026-11-16 at 00:23: "There is no need for extra step functions if they literally do the exact
 same things with different arguments."
+
+## 8. An output renamed on 2026-11-16 (04:46)
+
+`Jp_sumsq` became `Jp_norm_sq`. The maintainer, at 04:41: "I do not like the name Jp_sumsq since the desired
+quantity is ||Jp||=<Jp,Jp> under weighted norm/inner product"; at 04:46: "Go with Jp_norm_sq." It is the squared
+norm of `Jp` in the weighted inner product, `<Jp, omega^2 Jp>`. `r_block_sumsq` keeps its name: it is a plain sum
+of squares, unweighted. The live documents and `scripts/review/jet_steps_check.py` were renamed; the log
+(`REVIEW_DECISIONS.md`) and quotations keep `Jp_sumsq`.

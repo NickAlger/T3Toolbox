@@ -1,7 +1,7 @@
 # T3Toolbox — current handoff
 
 _Updated 2026-11-15, at the 2026.5.0 release; "The next arc" updated the same evening, when the design work moved into
-`dev/graded_messages/`._ The previous handoff (the store rename R1–R6, phase timing P1–P3, the
+`dev/graded_messages/`, and again at the pause of 2026-11-16, 04:46 (on the branch `graded-messages`)._ The previous handoff (the store rename R1–R6, phase timing P1–P3, the
 switch W1–W4, the glossary/docs pass, the hand fixes, and the 2026.4.0 arc's state blocks) is archived verbatim at
 `dev/archive/handoff_2026-11-15_pre-2026.5.0.md`; older ones are `handoff_2026-10-29_pre-2026.3.0.md`,
 `handoff_2026-08-21_optimization_layer.md`, `handoff_2026-08-20_pre-2026.1.0.md` and
@@ -42,9 +42,20 @@ changed yet.
 
 **Read, in this order:** its `README.md`; `TARGET_DECISIONS.md`, the working agenda (its sections "Where this stands"
 and "What remains, in groups" are the state and carry the counts; the rows are being settled one at a time with
-Nick, group A "jets and the misfit" first); `TYPE_CATALOG.md` (the types of every sampling variable, arrows on
-the edges, a type checker for every contraction); then `DESIGN_AFTER_REVIEW.md` and `REVIEW_DECISIONS.md` (the log).
-The older documents there carry status notes and are history.
+Nick); `SAMPLE_VARIABLES.md`, THE reference for the names and definitions of the sampling variables (the notation Nick
+locked in on 2026-11-15, 23:23: a letter for the side contracted, `mu`/`nu`/`xi`/`eta`, a basis written only when it is
+not the usual one, then `_tilde`, `_dot`; `NOTATION_HISTORY.md` when an older text is read); `TYPE_CATALOG.md` (the
+types of every sampling variable, arrows on the edges, a type checker for every contraction); then
+`DESIGN_AFTER_REVIEW.md` and `REVIEW_DECISIONS.md` (the log). The older documents there carry status notes and are
+history.
+
+**State at the pause of 2026-11-16, 04:46** (Nick: "let's pause. We will pick up tomorrow"): 41 of the 56 rows decided,
+11 remain. Groups A (jets and the misfit), B (the frame and the value) and C (what a kind is, and the public surface)
+are finished. HELD by Nick for one sitting on performance hooks and defaults: 5.3, 5.5 (the contraction order is in the
+plan; granularity, the field's form and the helpers open) and all of group E (7.2, 7.3, 7.5, 7.6, 7.7). OWED: a
+prototype for 5.4 (terms generic over several sample axes, `K`, `C` and the order group). NEXT, one question per
+message: 8.3 (the optimizers' contract with a model), 8.4 (what the display reads), 9.3 (the reference when old
+behaviour is not it). A Claude doc mirrors the folder, tab by tab, and is in step at this pause.
 
 **Settled so far, in brief** (the rows of `TARGET_DECISIONS.md` are authoritative): one public backend function
 `sampling_variables`, with `SamplePlan`/`SampleScan` hooks and explicit per-variable functions; jets are Taylor
@@ -53,7 +64,18 @@ with the order axis absent (an optional axis `T`); the plain and the jetted samp
 `probe(ww, pp=None, order=0)`, and the fitting layer has three kinds with an `order` in place of six; data and residuals
 are of the type of the output, in forward order, and the tilde variables are stored turned (reversed) inside; the misfit's
 default weight is ones, with the weight shaped `(d,) + T`; preparation of data and weights is done by standalone
-functions with opt-in keywords. All of this is USER-VISIBLE and overrides the first proposal's "no user-visible
+functions with opt-in keywords. Added in the session of 2026-11-15/16: the weight is an ARGUMENT of the engine (with
+the data `y`) and acts on `f`, `g`, `JtJp`, `Kp` and `Jp_norm_sq`, so that they are derivatives of each other, and a
+bare transpose takes a seed and no weight; transposes SUM over the samples by default (the reverse of today's
+`sum_over_probes=False`); a frame is the four stores `(D, U, L, R)` with OPTIONAL centers `(Vc, Hc)` beside it, the value
+read off the frame when they are given; frame consistency is a safe-mode precondition checked only where needed and
+never through a dense tensor; frames support arbitrary tails (in the functions this arc touches); three trial-point
+policies as an optimizer option; a kind is CLOSED in the sampling layer (three strings plus an order) and the open
+extension point is an `Oracle` in the fitting layer (a frozen record: at a frame, return the wanted ones of `f`, `g`,
+`JtJp`, `Jp_norm_sq`, and optionally `Kp`, `Jp`, `r`, as blocks before projection); `LocalModel` is the geometry, the
+oracle and the regularizer at one frame and still the holder of local information (`residual`, `jacobian(p)` stay); the
+projection, the lift and the exact-Hessian assembly stay in the geometry; one set of step functions for the ragged and
+the uniform layout; the dtype rule is absorbing (jax over numpy, lower precision over higher). All of this is USER-VISIBLE and overrides the first proposal's "no user-visible
 convention has to change".
 
 **Planned after the target is settled** (from the handoff written at the release; confirmed by Nick on 2026-11-15, 18:32): an agent

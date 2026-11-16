@@ -7,7 +7,50 @@ found that the review of 2026-11-14 had leaned on preserving old behaviour and o
 Nothing here is about how the refactor is carried out. Migration, staging and what a consumer has to change are
 planned only after the target is settled.
 
-## Where this stands (pause of 2026-11-15, 05:53)
+## Where this stands (pause of 2026-11-16, 04:46)
+
+The maintainer paused the session at 04:46 on 2026-11-16, to pick up the next day.
+
+- **Counts.** Of the 56 rows in sections 1 to 9: 41 decided, 3 guidance, 1 parked, 11 remaining (7 open,
+  3 reopened, 1 to confirm). The section "What remains, in groups" lists them.
+- **Decided in the session of 2026-11-15, 15:34 to 2026-11-16, 04:46:**
+  - Group A, jets and the misfit, finished: 2.4, 2.5, 2.3, 2.9, 3.6 (the weight inside the engine), 3.7 (what
+    happens to the sample stack on each output), 3.3 (which adjoint sweep the tilde names refer to).
+  - The notation, 9.6 with 3.1: four letters and a basis. `SAMPLE_VARIABLES.md` is the reference; the folder and
+    the Claude doc were brought into line by an editor and a reviewer agent (`reviews/notation_2026-11-15/`).
+  - Group B, the frame and the value, finished: 4.1 (four stores, optional centers `Vc`, `Hc`), 4.2 (frame
+    consistency as a precondition, never through a dense tensor), 4.3 (three trial-point policies), 4.4
+    (arbitrary tails), 3.2 (`nu_L` stays), 4.5 (projection, lift and Hessian assembly stay in the geometry).
+  - Group C, what a kind is and the public surface, finished: 3.4 (a kind is closed; the open extension point is
+    in the fitting layer), 6.5, 6.2 (the signature sketch of `sampling_variables`), 6.4, 6.3, 8.2 (the `Oracle`),
+    9.2.
+  - Group D in part: 5.2 (one set of step functions for both layouts), 5.6 (the absorbing dtype rule).
+  - Group F in part: 8.1 (what `LocalModel` is), with the name `Jp_norm_sq`.
+- **Held for one sitting on performance hooks and defaults, at the maintainer's wish:** 5.3 (sites scanned or
+  vectorized); 5.5 (the contraction order: it is in the plan; its granularity, the form of the field and the
+  helpers are open, and a reading for jets is proposed and not yet confirmed); all of group E (7.2 and 7.3 the
+  defaults and where the plan lives, 7.5 inert padded samples, 7.6 automatic sizing with the names of the sizing
+  and pad-and-reshape helpers, 7.7 sharding and device placement).
+- **Owed by Claude:** a prototype for 5.4, the terms written generically over several sample axes, `K`, `C` and
+  the order group, with `K` on a different operand in each term. Not started.
+- **The next questions, one at a time:** 8.3 (the optimizers' contract with a model: how a minibatch is given,
+  how `held` passes between calls of an oracle, what is compiled as one program); 8.4 (what the display and the
+  diagnostics read, including from a user's oracle); 9.3 (the reference when old behaviour is not it).
+- **Open details carried forward** (none of them a row):
+  - the keyword names `direction`, `core_direction` and `sum_samples` in the sketch of 6.2;
+  - the names and modules of the jet-to-dual-jet helper, its inverse, and the data preparation functions;
+  - the name of the trial-policy option and of its three values (4.3);
+  - which functions require frame consistency (4.2);
+  - how the engine is told that a frame is corewise, so that it does not sweep twice (`SAMPLE_VARIABLES.md`,
+    section 11);
+  - the damping case for the dots that `Kp` reads, and whether an index subscript follows the basis in formulas;
+  - which inputs count for the dtype rule and where the casting is done (5.6).
+- **For the branch, when code is written:** `is_consistent` and `fv_frame_consistency_residual` rewritten without
+  dense tensors; every function the refactor touches supports arbitrary tails; the library's own open question
+  `dev/OPEN_QUESTION_extension_surface.md` given its resolution; the paper-to-code notation map rewritten.
+- **The Claude doc** is in step with this folder at this pause.
+
+## Where this stood at the earlier pause (2026-11-15, 05:53)
 
 - **Decided on 2026-11-15:** Taylor coefficients replace derivatives, with derivative mode as one adapter at the
   outer level of fitting (2.1, 2.2). Input jets are a point and one direction (2.6). Order 0 is the one-coefficient
@@ -30,7 +73,7 @@ planned only after the target is settled.
 
 ## What remains, in groups (2026-11-15, 15:34)
 
-Of the 56 rows in sections 1 to 9, 40 are decided, 3 are guidance and 1 is parked. The other 12 are below, in
+Of the 56 rows in sections 1 to 9, 41 are decided, 3 are guidance and 1 is parked. The other 11 are below, in
 seven groups that cut across the sections. The grouping and the suggested order are Claude's, made at the
 maintainer's request; they decide nothing.
 
@@ -41,9 +84,9 @@ maintainer's request; they decide nothing.
 | C. What a kind is, and the public surface | 0 | | | | |
 | D. One program for every layout and stack | 3 | 2 | 1 | | |
 | E. Plans, memory and scale | 5 | 3 | 2 | | |
-| F. The fitting layer above | 3 | 1 | | 2 | |
+| F. The fitting layer above | 2 | 1 | | 1 | |
 | G. What defines correct | 1 | 1 | | | |
-| Total | 12 | 7 | 3 | 2 | |
+| Total | 11 | 7 | 3 | 1 | |
 
 - **A. Jets and the misfit.** (Decided on the afternoon of 2026-11-15: 2.4, what a tilde jet is; 2.5, the misfit;
   2.3, the derivative-mode adapter; and, at 19:32, 2.9, how a term is carried out over the orders.)
@@ -71,16 +114,16 @@ maintainer's request; they decide nothing.
   padded samples for entries (open); 7.6 automatic sizing, with the names of the sizing functions and of the pad-and-reshape helpers (open); 7.7
   sharding and device placement (open). The maintainer wants the sizing names taken up "in the broader context
   of performance optimization hooks and defaults" (02:56).
-- **F. The fitting layer above.** 8.1 what `LocalModel` is (to confirm); 8.3 the optimizers' contract with a model
-  and what is compiled as one program (open); 8.4 what the display and diagnostics read (to confirm).
+- **F. The fitting layer above.** (Decided on 2026-11-16 at 04:46: 8.1, what `LocalModel` is.) 8.3 the optimizers'
+  contract with a model and what is compiled as one program (open); 8.4 what the display and diagnostics read (to
+  confirm).
 - **G. What defines correct.** 9.3 the reference when old behaviour is not it (open).
 
 **How the groups depend on each other.** A stands alone and continues the morning's work. B feeds C: 6.2 and 6.4
 wait on 4.1 and 4.5. C feeds F: 8.1 and 8.3 need the public surface. D and E are each mostly self-contained; E's
 7.3 is tied to F's 8.1. G bears on how every other answer is checked.
 
-**The two rows marked to confirm** are earlier decisions that were not taken for reasons of compatibility.
-They may go quickly, several at a time.
+**The row marked to confirm** (8.4) is an earlier decision that was not taken for reasons of compatibility.
 
 **Outside the list:** 8.5 shared sample vectors (parked); weights on internal edges as inner products (parked for
 another arc); review finding F17 (never discussed; listed under "After the target"); forward-only probing as a
@@ -602,7 +645,7 @@ Notes:
 | 3.4 | In the sampling layer a kind is closed: a small description (what goes in at a mode edge, what comes out, the order), not a class a user subclasses. The open extension point is in the fitting layer: a protocol for an objective, which the built-in objectives implement by calling the engine | Decided | 1.1 |
 | 3.5 | The output is `z` for every kind | Decided | |
 | 3.6 | The engine takes the data `y` and an optional `weight` (ones by default). The weight acts on `f`, `g`, `JtJp` and `Kp` alike, through one public helper that turns a jet into a dual jet. The bare transpose takes a seed and no weight. The engine has no other notion of a loss | Decided | 1.1 |
-| 3.7 | What happens to the sample stack `W` on each output. Kept: `z`, `r`, `Jp` and every edge variable. Summed by default, kept on request: the outputs shaped like cores, `g`, `JtJp`, `Kp`. Always summed: `f`, `r_block_sumsq`, `Jp_sumsq` | Decided | 3.6 |
+| 3.7 | What happens to the sample stack `W` on each output. Kept: `z`, `r`, `Jp` and every edge variable. Summed by default, kept on request: the outputs shaped like cores, `g`, `JtJp`, `Kp`. Always summed: `f`, `r_block_sumsq`, `Jp_norm_sq` | Decided | 3.6 |
 
 Notes:
 
@@ -699,16 +742,16 @@ Notes:
   | --- | --- |
   | Kept | `z`, `r`, `Jp`, and every edge variable |
   | Summed by default, kept on request | The outputs shaped like cores: `g`, `JtJp`, `Kp` |
-  | Always summed | `f`, `r_block_sumsq`, `Jp_sumsq` |
+  | Always summed | `f`, `r_block_sumsq`, `Jp_norm_sq` |
 
   - The third row holds numbers, not arrays over the samples. They are formed inside the pass, because under a
     chunked plan `r` and `Jp` are dropped chunk by chunk.
   - `f = 1/2 <r, omega^2 r>` is the objective. `r_block_sumsq` is the sum of squares of `r` for each mode and
     order, unweighted, in the shape of the weight; the display's table of relative errors reads it.
-    `Jp_sumsq = <Jp, omega^2 Jp>` is the Gauss-Newton quadratic: the same number as `p` paired with `JtJp`, with
+    `Jp_norm_sq = <Jp, omega^2 Jp>` is the Gauss-Newton quadratic: the same number as `p` paired with `JtJp`, with
     no adjoint sweep.
   - **Said with the question and not spoken of in his answer** (Claude's, to be corrected if wrong): `f` keeps
-    `C`, `Jp_sumsq` keeps `K + C`, and `r_block_sumsq` keeps `C` (the library's `block_sumsq` sums `C` away
+    `C`, `Jp_norm_sq` keeps `K + C`, and `r_block_sumsq` keeps `C` (the library's `block_sumsq` sums `C` away
     today); and an unsummed `W` on a transpose becomes the tangent stack of the result in the order
     `W + K + C`, as in the library today.
   - The block sums of squares of the data are not sampling variables: they depend on the data alone (6.7).
@@ -1084,7 +1127,7 @@ Notes:
           order=0,              # highest Taylor order.  T=(order+1,) if order else ()
           plan=None,            # how the pass is carried out
           y=None,               # the data; needed for r and what reads it
-          weight=None,          # ones if None; acts on f, g, JtJp, Kp, Jp_sumsq
+          weight=None,          # ones if None; acts on f, g, JtJp, Kp, Jp_norm_sq
           direction=None,       # (V, H); needed for the dot grade
           core_direction=None,  # (D_dot, L_dot); needed for Kp
           Vc=None,              # Tucker centers; the value is read off the frame if given
@@ -1402,15 +1445,50 @@ By 1.1 this section is in scope.
 
 | # | Question | Status | Depends on |
 | --- | --- | --- | --- |
-| 8.1 | What is `LocalModel` in the target, and what does it ask the sampling layer for? | To confirm | 1.1, 6.1 |
-| 8.2 | The fitting layer's open extension point is a frozen record with one operation: at a frame, return the wanted ones of `f`, `g`, `JtJp`, `Jp_sumsq`, `Kp`, as blocks before projection, in the engine's vocabulary. The built-in one is least squares, implemented by one call of `sampling_variables`. It is called an oracle (`Oracle`) | Decided | 3.4 |
+| 8.1 | `LocalModel` is the geometry, the oracle and the regularizer put together at one frame, and the holder of the local information at that point. Its own `gn_quadratic` and `hvp` are built on the fused `Jp_norm_sq` and `JtJp`. `residual` and `jacobian(p)` stay on it, as optional outputs of an oracle. It stores only what the plan's `hold` keeps; the rest is reachable through `model.oracle`, `model.frame` and `model.held` | Decided | 1.1, 6.1, 8.2 |
+| 8.2 | The fitting layer's open extension point is a frozen record with one operation: at a frame, return the wanted ones of `f`, `g`, `JtJp`, `Jp_norm_sq` (required) and `Kp`, `Jp`, `r` (optional), the blocks before projection, in the engine's vocabulary. The built-in one is least squares, implemented by one call of `sampling_variables`. It is called an oracle (`Oracle`) | Decided | 3.4 |
 | 8.3 | What is the optimizers' contract with a model, and what is compiled as one program? | Open | 1.1 |
 | 8.4 | What do the display and the diagnostics read? | To confirm | 3.7 |
 | 8.5 | Shared sample vectors: in the target or not? | Parked | |
 
 Notes:
 
-- **8.1, under discussion** (2026-11-16, 04:08 to 04:41). Not decided.
+- **8.1, decided** (2026-11-16, 04:46). Asked for the name and whether he confirmed the revised proposal as a
+  whole, the maintainer: "1. Go with Jp_norm_sq. 2. confirmed."
+  - **What `LocalModel` is.** The quadratic model of the objective at one frame, which the optimizers query; and,
+    in the maintainer's words, "a holder for local information at a point, which may be used by the user for their
+    own optimizers or their own other purposes." It is the geometry, the oracle and the regularizer put together.
+  - **What it holds:** `geom`; `oracle`; the frame, with the centers `(Vc, Hc)` when the geometry returned them;
+    `held`, what the oracle asked to have kept at this frame, which the model passes back and never looks into;
+    the regularizer; the geometry's companion; the curvature state. `kind`, `sample` and `n_w` are no longer
+    fields of the model: the least-squares oracle has the kind, the order, the sample, the data and the weight
+    as its own fields, reachable as `model.oracle`.
+  - **What each method asks the oracle for:** `misfit` and `objective`, `f`; `gradient`, `g`, then the
+    projection; `gn_quadratic(p)`, `Jp_norm_sq` at the projected `p`; `hvp(p)`, `JtJp` at the projected `p`, and
+    in exact mode `JtJp` and `Kp` in one request so that they can share the dotted sweep, with the geometry's
+    lift, tangential curvature and lift transpose around `Kp`; `retract(p)`, nothing. The regularizer adds its
+    terms as it does today.
+  - **The model's own methods do not form arrays over the samples.** `gn_quadratic` and `hvp` no longer call
+    `jacobian`. MC-SGD's Cauchy step stays `|g|^2 / gn_quadratic(g)`.
+  - **`residual` and `jacobian(p)` stay on the model.** `jacobian(p)` asks the oracle for `Jp` at the projected
+    `p`; `residual` asks it for `r`, read from the held variables if `r` is held and computed otherwise. Neither
+    is a field that is always stored: the plan's `hold` decides what is kept.
+  - **This amends 8.2.** An oracle's outputs are `f`, `g`, `JtJp` and `Jp_norm_sq`, required, and `Kp`, `Jp` and
+    `r`, optional. An oracle without `Kp` works with the Gauss-Newton Hessian only; one without `Jp` or `r` makes
+    `jacobian` or `residual` raise, and the rest works.
+  - **The name `Jp_norm_sq`** replaces `Jp_sumsq` (the name in every record before 04:46): the squared norm of
+    `Jp` in the weighted inner product, `<Jp, omega^2 Jp>`. The rule behind it, Claude's and put with the
+    question: `sumsq` means a plain sum of squares (`r_block_sumsq` is unweighted and keeps its name); `norm_sq`
+    means the squared norm in the weighted inner product, as in the library's `point_norm_sq`.
+  - **Two tests required of the target** (Claude's, put with the answer on the weights and not objected to), both
+    tolerance tests with a random weight: `p` paired with `JtJp` equals `Jp_norm_sq`; and `g` is the derivative
+    of `f` by finite differences.
+  - **Left open:** what the least-squares oracle keeps in `held` and where the plan lives (7.2, 7.3, the
+    performance discussion; a field of the least-squares oracle is a third possible home for the plan, noted
+    and not proposed); the form in which the oracle's one operation returns and takes back `held`; how a
+    minibatch is given, with `Problem` holding the geometry, the oracle and the regularizer (8.3); what the
+    display reads (8.4).
+- **8.1, the discussion** (2026-11-16, 04:08 to 04:41; decided at 04:46, next note).
   - **Claude's first proposal** (04:08): `LocalModel` is the geometry, the oracle and the regularizer put together
     at one frame. It holds `geom`, `oracle`, the frame with its centers, an opaque `held`, the regularizer, the
     geometry's companion and the curvature state. `kind`, `sample`, `n_w`, `sweep` and `residual` stop being
@@ -1446,7 +1524,7 @@ Notes:
       Checked (`scripts/review/jet_steps_check.py`, the line added on 2026-11-16): with a random weight for every
       mode and order, at orders 0, 2 and 4, the two agree to rounding, and each agrees with the library's own
       weighted kind. Not covered there: apply and entries, the `K` and `C` stacks, the uniform layout.
-    - **The name.** Open. Claude's suggestion: `Jp_norm_sq`, with `sumsq` kept for the plain sum of squares
+    - **The name.** Decided at 04:46 (next note). Claude's suggestion: `Jp_norm_sq`, with `sumsq` kept for the plain sum of squares
       (`r_block_sumsq`, which is unweighted) and `norm_sq` meaning the squared norm in the weighted inner
       product; the library has `point_norm_sq`. The other candidate: `pJtJp`.
     - **Jets and the inner product.** By 2.5 the weight has one entry for each mode and order (`(d,) + T` for
@@ -1463,10 +1541,10 @@ Notes:
     a transpose, sums of squares and the curvature term, and wraps each in the geometry's projection and lift.
     With the geometry's parts left in the geometry (4.5), what remains is a list of quantities at a frame: `f`
     (the value, at trial and accepted points), `g` (the gradient before projection), `JtJp` (for a direction
-    `(V, H)`), `Jp_sumsq` (the Gauss-Newton quadratic), `Kp` (for a lifted direction `(D_dot, L_dot)`, exact
+    `(V, H)`), `Jp_norm_sq` (the Gauss-Newton quadratic), `Kp` (for a lifted direction `(D_dot, L_dot)`, exact
     Hessian only), and `r_block_sumsq` for the display. That is the engine's own output vocabulary.
   - **Decided: the data structure.** A frozen record with one operation: at this frame, give these of `f`, `g`,
-    `JtJp`, `Jp_sumsq`, `Kp`, with the directions passed when needed; blocks before any projection, in the
+    `JtJp`, `Jp_norm_sq`, `Kp`, with the directions passed when needed; blocks before any projection, in the
     engine's shapes. Its parameters are fields, so it has value identity. The built-in one is least squares: it
     holds the kind, the sample, the data, the weight and the order, and implements the operation with one call
     of `sampling_variables`. A user's implements the same operation however it likes: several data sources add

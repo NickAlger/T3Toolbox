@@ -41,7 +41,7 @@ documents and some of the proposal.
   at the outer level of fitting; order 0 is the one-coefficient case of the same functions, with the order axis
   an optional axis `T` that is absent at order 0; input jets are always a point and one direction; and the plain
   and jetted sampling functions are one function, `probe(ww, pp=None, order=0)`, with three fitting kinds that
-  take an `order` in place of six (`REVIEW_DECISIONS.md` entries 12 to 81).
+  take an `order` in place of six (`REVIEW_DECISIONS.md` entries 12 to 82).
 - **Paused on 2026-11-15 at 05:53, to resume the next day.** Decided that morning: one function for the plain and
   the jetted computation (6.6), three kinds with an `order` (2.8), how the direction `pp` is passed (part of 6.2),
   and the convention for arrows on the edges (9.5). Held: what a tilde jet is (2.4); the material for it is
@@ -58,6 +58,14 @@ documents and some of the proposal.
   in `NOTATION_HISTORY.md`, marked as deprecated. The folder was brought into line on 2026-11-16: the live
   documents and prototypes use the new names; the snapshot documents keep theirs, with a notice in their status
   notes.
+- **Paused on 2026-11-16 at 04:46, to resume the next day.** In the session that began on 2026-11-15 at 15:34,
+  groups A (jets and the misfit), B (the frame and the value) and C (what a kind is, and the public surface) were
+  finished, and groups D and F were begun. 41 of the 56 rows are decided and 11 remain. Among the decisions: the
+  weight is an argument of the engine and acts on `f`, `g`, `JtJp`, `Kp` and `Jp_norm_sq`; a frame is four
+  stores with optional centers; the engine's signature is sketched; the fitting layer's open extension point is
+  an `Oracle`; `LocalModel` is the geometry, the oracle and the regularizer at one frame. Held for one sitting on
+  performance: 5.3, 5.5 and all of group E. Owed: a prototype for 5.4. Next: 8.3, 8.4, 9.3. The section "Where
+  this stands" at the top of `TARGET_DECISIONS.md` has the full state.
 - **The earlier documents are not rewritten.** `EXECUTION_PLANS.md`, `EVALUATOR.md` and `scripts/plan_mockup.py`
   describe the design before the review, and `PROPOSAL.md`, `API_IMPACT.md` and `WORKED_EXAMPLE.md` are affected in
   places. Each has a status note at its top saying what no longer holds. Where they disagree with
