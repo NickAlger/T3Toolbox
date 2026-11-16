@@ -1188,3 +1188,10 @@ axes. How do we tell whether an axis is part of the batch, or a derivative order
 - **How it is made.** `scripts/variable_diagrams_gen.py` generates the drawings. Each row is its own drawing at the
   full width of the page, because a drawing inside a table cell would be scaled down below a readable size.
 - **Not decided.** The scheme, and the form of the rows; the other fifteen variables are not drawn.
+- **23:10, the maintainer:** "This is excellent. There is one modification I would suggest, which is to use greek
+  letters and latex-style annotations for tildes dots etc in the diagrams (keep the spelling in the left column).
+  In things like nu_L, the L can become a subscript". Done in all seven rows: inside a drawing the open edge is
+  labelled with the Greek letter, a tilde or a dot above it, and the basis and the site as subscripts; the cores
+  and the inputs have their site as a subscript; the seed is `w` with a tilde. The left column and the sentence
+  above each drawing keep the code spelling. Claude's choice, to be corrected if wrong: the site is a subscript
+  after the basis, as in `nu` with the subscript `L,3`.
