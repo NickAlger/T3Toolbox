@@ -30,24 +30,25 @@ planned only after the target is settled.
 
 ## What remains, in groups (2026-11-15, 15:34)
 
-Of the 56 rows in sections 1 to 9, 22 are decided, 3 are guidance and 1 is parked. The other 30 are below, in
+Of the 56 rows in sections 1 to 9, 23 are decided, 3 are guidance and 1 is parked. The other 29 are below, in
 seven groups that cut across the sections. The grouping and the suggested order are Claude's, made at the
 maintainer's request; they decide nothing.
 
 | Group | Rows | Open | Reopened | To confirm | Held |
 | --- | --- | --- | --- | --- | --- |
-| A. Jets and the misfit | 3 | | | 3 | |
+| A. Jets and the misfit | 2 | | | 2 | |
 | B. The frame and the value | 6 | | 4 | 2 | |
 | C. What a kind is, and the public surface | 7 | 4 | 2 | 1 | |
 | D. One program for every layout and stack | 5 | 3 | 1 | 1 | |
 | E. Plans, memory and scale | 5 | 3 | 2 | | |
 | F. The fitting layer above | 3 | 1 | | 2 | |
 | G. What defines correct | 1 | 1 | | | |
-| Total | 30 | 12 | 9 | 9 | |
+| Total | 29 | 12 | 9 | 8 | |
 
 - **A. Jets and the misfit.** (Decided on the afternoon of 2026-11-15: 2.4, what a tilde jet is; 2.5, the misfit;
   2.3, the derivative-mode adapter; and, at 19:32, 2.9, how a term is carried out over the orders.)
-  3.6 whether the loss is inside the sampling layer (to confirm); 3.7 which reductions over the samples are
+  (And on 2026-11-16 at 01:04: 3.6, the weight inside the engine.)
+  3.7 which reductions over the samples are
   sampling variables (to confirm); 3.3 which seeded tilde copies are public (to confirm). The type catalog bears
   on all three.
 - **B. The frame and the value.** 4.1 what a frame is (reopened); 4.2 frame consistency (reopened); 4.3 the route
@@ -73,7 +74,7 @@ maintainer's request; they decide nothing.
 wait on 4.1 and 4.5. C feeds F: 8.1 and 8.3 need the public surface. D and E are each mostly self-contained; E's
 7.3 is tied to F's 8.1. G bears on how every other answer is checked.
 
-**The nine rows marked to confirm** are earlier decisions that were not taken for reasons of compatibility.
+**The eight rows marked to confirm** are earlier decisions that were not taken for reasons of compatibility.
 They may go quickly, several at a time.
 
 **Outside the list:** 8.5 shared sample vectors (parked); weights on internal edges as inner products (parked for
@@ -593,7 +594,7 @@ Notes:
 | 3.3 | Which seeded copies of the tilde variables are public? | To confirm | |
 | 3.4 | What is a sampling kind in the target, and can a user define one? | Reopened | 1.1 |
 | 3.5 | The output is `z` for every kind | Decided | |
-| 3.6 | Is the loss (weighted least squares) inside the sampling layer, or supplied from above? | To confirm | 1.1 |
+| 3.6 | The engine takes the data `y` and an optional `weight` (ones by default). The weight acts on `f`, `g`, `JtJp` and `Kp` alike, through one public helper that turns a jet into a dual jet. The bare transpose takes a seed and no weight. The engine has no other notion of a loss | Decided | 1.1 |
 | 3.7 | Which reductions over the samples are sampling variables? | To confirm | 3.6 |
 
 Notes:
@@ -612,7 +613,32 @@ Notes:
 - **3.4.** Decision 8 left the `SamplingKind` protocol unchanged so that user-written kinds keep working. That is a
   compatibility reason. This question is also the library's standing open question on its extension surface,
   which the target can answer instead of deferring.
-- **3.6.** Decided on 2026-11-14 as inside, because computing `f` and `g` in one pass needs the residual formed
+- **3.6, decided** (2026-11-16, 00:56 to 01:04).
+  - **Why anything is inside.** The gradient is the transpose applied to a seed, and the seed is made from the
+    output: `r = z - y`, then the weight. For `f` and `g` in one pass over the samples that step has to happen
+    inside the pass, between the forward and the adjoint sweep of one chunk. Otherwise the plain variables are
+    swept twice, or held for every sample.
+  - **The maintainer's structure** (00:56): "we create a publicly accessible helper function which converts a
+    dual jet to a jet using weights and jet reversal (and another function which does the inverse), then we pass
+    the weights to the engine as needed, and inside the engine it calls the helper function. The helper function
+    can also be used by the user for their own purposes."
+  - **The weight on `f`** (01:04). Claude had said that `f` does not need the weight inside, since the block sums
+    of squares could be weighted outside. The maintainer: "There needs to be consistency between f and its
+    derivatives. Therefore, if g, JtJp, and Kp are weighted, then f must be weighted. Therefore I think we should
+    add the weight to f. If the user supplies the same weight to all these functions, then the results they get
+    are derivatives of each other without extra work. It should be optional on all of these, defaulting to ones.
+    The transpose does not need weight. Really, JtJp is "JtWJP" where W is the Riesz operator (inverse mass
+    matrix), and Jt is the unweighted transpose. We keep the name JtJp, because the weight is seen as optional."
+  - **So:** `f = 1/2 <r, W r>`, `g = Jt W r`, `JtJp = Jt W J p`, and `Kp` uses the seed `W r`, with one optional
+    `weight` of the shape of 2.5. The bare transpose takes a seed and no weight. `W` is applied in one place, the
+    public helper. The regularizer, the derivative-mode adapter (2.3) and the data preparation (6.7) stay above
+    the engine. Another loss is built above it from `z` and the bare transpose, at the cost of a second pass.
+  - **Details noted by Claude, not answered:** the inverse helper divides by the weight squared, so it does not
+    exist where a weight is zero (6.7 lets a weight be zero to mask a block); the helper works in Taylor
+    coefficients, the `t!` factors being the adapter's; at order 0 it is the multiplication alone. The names of
+    the two helpers are open (6.3).
+  - **Considered and not taken:** a loss function passed by the caller and applied inside the pass.
+- **3.6, the earlier record.** Decided on 2026-11-14 as inside, because computing `f` and `g` in one pass needs the residual formed
   inside the chunk scan. A reviewer argued for outside.
 
 ## 4. The frame and the value

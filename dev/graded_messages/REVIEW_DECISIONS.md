@@ -1295,3 +1295,25 @@ The maintainer answered four of the six open points of `SAMPLE_VARIABLES.md` sec
   to be corrected if wrong. On the corewise frame `(B, G, G, G)` it is `(B_dot, G_dot)`.
 - **00:30:** "While they are working let's slowly go through outstanding open questions".
 
+## 60. The weight inside the engine: 3.6 decided (2026-11-16, 00:56 to 01:04)
+
+- **The question** put by Claude at 00:35: is the loss inside the sampling layer, or supplied from above? The
+  proposal: weighted least squares inside, with the diagonal weight of 2.5; everything else about the objective
+  above.
+- **00:56, the maintainer:** "I'm leaning towards this, but want some more information first. How is it proposed
+  for the weight to be supplied? Is it an extra argument the user gives to the engine when they want certain
+  variables that require it? Also, the only time this is needed is for f and the fused JtJp computation, correct?
+  All other ones, the user can apply the Riesz map themselves outside the engine is this right?" And his
+  structure: a public helper that converts between a jet and a dual jet with the weights and the reversal, and
+  its inverse; the weights passed to the engine; the engine calling the helper.
+- **Claude's answer.** The weight is a keyword of the engine. It is needed inside wherever a seed is made from
+  something computed in the same pass: `g` together with `z` or `f`, `JtJp`, and `Kp` unless the seed is held.
+  `f` alone would not need it, given the block sums of squares. The inverse helper does not exist at a zero
+  weight.
+- **01:04, the maintainer decided:** the weight is on `f` too, optional on all of `f`, `g`, `JtJp`, `Kp`, ones by
+  default, so that with one weight they are derivatives of each other; the transpose takes no weight; `JtJp` is
+  really `Jt W J p` and keeps its name. His words are in the note to 3.6 of `TARGET_DECISIONS.md`.
+- **Counts.** 23 rows decided, 29 remain. Group A has two: 3.7 and 3.3. Claude put 3.7 to him at 01:06: `f`
+  (weighted), `r_block_sumsq` (unweighted, in the shape of the weight) and `Jp_sumsq` (weighted) as the three
+  reductions over the samples that are sampling variables.
+
