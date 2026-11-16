@@ -381,6 +381,9 @@ the library today" is the array's name in the kernels of `backend/probing.py`; t
 `V_tilde_dot`, `H_tilde_dot`, the stores `D`, `U`, `L`, `R`, the direction `(V, H)`, and the seven term
 functions.
 
+**The raw core direction** was `(B_dot, G_dot)` in this folder until 2026-11-16 (00:30), and is `core_directions`
+in the library. At the base point of a manifold frame it is now `(D_dot, L_dot)`.
+
 **Four things to watch when reading an older text.**
 
 - **Two names changed their meaning.** `mu_dot` and `xi_dot` used to mean the frame's variables. They now mean
