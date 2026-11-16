@@ -30,7 +30,7 @@ planned only after the target is settled.
 
 ## What remains, in groups (2026-11-15, 15:34)
 
-Of the 56 rows in sections 1 to 9, 31 are decided, 3 are guidance and 1 is parked. The other 21 are below, in
+Of the 56 rows in sections 1 to 9, 32 are decided, 3 are guidance and 1 is parked. The other 20 are below, in
 seven groups that cut across the sections. The grouping and the suggested order are Claude's, made at the
 maintainer's request; they decide nothing.
 
@@ -38,12 +38,12 @@ maintainer's request; they decide nothing.
 | --- | --- | --- | --- | --- | --- |
 | A. Jets and the misfit | 0 | | | | |
 | B. The frame and the value | 0 | | | | |
-| C. What a kind is, and the public surface | 7 | 4 | 2 | 1 | |
+| C. What a kind is, and the public surface | 6 | 4 | 1 | 1 | |
 | D. One program for every layout and stack | 5 | 3 | 1 | 1 | |
 | E. Plans, memory and scale | 5 | 3 | 2 | | |
 | F. The fitting layer above | 3 | 1 | | 2 | |
 | G. What defines correct | 1 | 1 | | | |
-| Total | 21 | 12 | 5 | 4 | |
+| Total | 20 | 12 | 4 | 4 | |
 
 - **A. Jets and the misfit.** (Decided on the afternoon of 2026-11-15: 2.4, what a tilde jet is; 2.5, the misfit;
   2.3, the derivative-mode adapter; and, at 19:32, 2.9, how a term is carried out over the orders.)
@@ -53,12 +53,13 @@ maintainer's request; they decide nothing.
   of 4.2; at 01:59, 4.3, the route to the value at a trial point; at 02:07, the rest of 4.2, frame consistency;
   at 02:12, 4.4, tails and boundaries; at 02:16, 3.2, `nu_L` stays, and 4.5, the projection, the lift and the
   Hessian assembly stay in the geometry.
-- **C. What a kind is, and the public surface.** 3.4 what a sampling kind is and whether a user can define one
-  (reopened); 8.2 the fitting layer's kind object (open); 6.2 the remaining arguments of `sampling_variables`
-  (open; the sample and the direction are decided); 6.3 the other public functions (reopened); 6.4 which
-  variables are public for each kind (to confirm); 6.5 who guarantees a held variable is valid (open); 9.2
-  names chosen to match things that will go (open). (Decided on 2026-11-15 at 23:23, with the notation of 9.6:
-  3.1, letters and grades as the primitives.)
+- **C. What a kind is, and the public surface.** (Decided: on 2026-11-15 at 23:23, with the notation of 9.6,
+  3.1, letters and grades as the primitives; on 2026-11-16 at 02:22, 3.4, a kind is closed in the sampling layer
+  and the open extension point is an objective protocol in the fitting layer.) 8.2 the fitting layer's kind
+  object, now the objective protocol (open); 6.2 the remaining arguments of `sampling_variables` (open; the
+  sample, the direction, the data and the weight are decided); 6.3 the other public functions (reopened); 6.4
+  the table of variables generated from the graph (to confirm; that every variable is public is decided); 6.5
+  who guarantees a held variable is valid (open); 9.2 names chosen to match things that will go (open).
 - **D. One program for every layout and stack.** 5.2 one set of step functions for ragged and uniform (open); 5.4
   terms generic over the stack groups (open); 5.3 sites scanned or vectorized (reopened); 5.5 association order
   inside a term (to confirm); 5.6 the dtype rule (open). The cases the order-0 assessment did not cover are here.
@@ -591,7 +592,7 @@ Notes:
 | 3.1 | The primitives of a variable's name are a letter for the side contracted (`mu`, `nu`, `xi`, `eta`), the basis of the cut edge where it is not the usual one, and a grade (plain, dot, tilde, tilde-dot) | Decided | 9.6 |
 | 3.2 | `nu_L` (`gamma` until 2026-11-15, 23:23) stays, as an ordinary variable. It is computed only when `Kp` is wanted, or when the value goes through `D`. No frame convention removes it | Decided | 4.1 |
 | 3.3 | The tilde names always mean the adjoint sweep of the residual. The adjoint sweep of `Jp` has no names in a call that also holds the residual's; its variables are reached by a call with `Jp` given as the residual | Decided | 6.5 |
-| 3.4 | What is a sampling kind in the target, and can a user define one? | Reopened | 1.1 |
+| 3.4 | In the sampling layer a kind is closed: a small description (what goes in at a mode edge, what comes out, the order), not a class a user subclasses. The open extension point is in the fitting layer: a protocol for an objective, which the built-in objectives implement by calling the engine | Decided | 1.1 |
 | 3.5 | The output is `z` for every kind | Decided | |
 | 3.6 | The engine takes the data `y` and an optional `weight` (ones by default). The weight acts on `f`, `g`, `JtJp` and `Kp` alike, through one public helper that turns a jet into a dual jet. The bare transpose takes a seed and no weight. The engine has no other notion of a loss | Decided | 1.1 |
 | 3.7 | What happens to the sample stack `W` on each output. Kept: `z`, `r`, `Jp` and every edge variable. Summed by default, kept on request: the outputs shaped like cores, `g`, `JtJp`, `Kp`. Always summed: `f`, `r_block_sumsq`, `Jp_sumsq` | Decided | 3.6 |
@@ -614,7 +615,26 @@ Notes:
   while the value and the curvature term need it through `L`.
 - **3.3.** Decided on 2026-11-14: only the copies seeded by the residual, because those depend on the point and
   the data only.
-- **3.4.** Decision 8 left the `SamplingKind` protocol unchanged so that user-written kinds keep working. That is a
+- **3.4, decided** (2026-11-16, 02:22). The maintainer: "Agree with split. I have been wanting to do something
+  like this for some time."
+  - **What a kind is after the decisions so far.** The three kinds share every sweep. They differ in what goes
+    in at a mode edge (a vector for probe and apply, an index for entries) and in what comes out (one output per
+    mode with that mode left open, for probe; one number, for apply and entries). The weight and the data are
+    arguments of the engine (3.6), the chunk size left the kind (7.8), and the order is a number (2.8).
+  - **The library's own open question** (`dev/OPEN_QUESTION_extension_surface.md`, opened 2026-08-21) gives the
+    purpose of the open surface in the maintainer's words: "the point of the open surface is to allow the user
+    to use our machinery to fit tensors with their custom objective function." Its four wanted extensions land
+    as follows: several data sources in one fit, above the engine (one call per source, the results add);
+    weights that change every iteration, solved by 3.6 (the weight is an argument, not part of an identity that
+    is compiled in); a general linear functional with its own forward and transpose, above the engine (it has
+    no sweeps to share); a new sampling operator (forward-only probing, contraction with another T3), inside
+    the engine as new step functions.
+  - **Decided: the split by layer.** In the sampling layer a kind is closed, and a new sampling operator is an
+    addition to the library. The open extension point is in the fitting layer: a protocol for an objective that
+    says what the optimizers need from it. What the protocol contains is 8.2 and 8.3.
+  - **For when the refactor lands:** this answers the library's standing open question, which by the
+    repository's rule is not archived until it is resolved. That file is to be given its resolution then.
+- **3.4, the earlier record.** Decision 8 left the `SamplingKind` protocol unchanged so that user-written kinds keep working. That is a
   compatibility reason. This question is also the library's standing open question on its extension surface,
   which the target can answer instead of deferring.
 - **3.6, decided** (2026-11-16, 00:56 to 01:04).

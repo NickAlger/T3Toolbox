@@ -1438,3 +1438,12 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
 - **Counts.** 31 rows decided, 21 remain. Groups A and B are finished. Next by the suggested order: group C,
   what a kind is and the public surface (3.4, 8.2, 6.2, 6.3, 6.4, 6.5, 9.2).
 
+## 70. 3.4 decided: a kind is closed in the sampling layer; the open extension point is an objective protocol in the fitting layer (2026-11-16, 02:22)
+
+- **The maintainer:** "Agree with split. I have been wanting to do something like this for some time."
+- **Decided** as in the note to 3.4 of `TARGET_DECISIONS.md`. Read for it: the library's
+  `dev/OPEN_QUESTION_extension_surface.md`, whose four wanted extensions each have a place under the split.
+- **Counts.** 32 rows decided, 20 remain. Group C has six left: 8.2, 6.2, 6.3, 6.4, 6.5, 9.2.
+- **Raised next by Claude:** forward-only probing, which that file says T3Polynomial needs, as the probe kind
+  with only some modes left open: a parameter of the built-in kind.
+
