@@ -1609,3 +1609,19 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   through the model; not through the protocol.
 - **Added at his word** (14:07): the default draw keeps the drawn indices on the minibatch oracle.
 - **Counts.** Unchanged: 41 rows decided, 11 remain. 8.3 stays open for part 3.
+
+## 85. 8.3, part 3: what is compiled as one program; 8.3 decided (2026-11-16, 14:10 to 14:30)
+
+- **Decided:** five phases are the units (build, gradient, CG solve, trial, stochastic step), each a module-level
+  function of pytrees, with the outer loop and its decisions on the host. Which phases are compiled by default
+  is left to the performance discussion (7.2).
+- **A correction by the maintainer:** Claude argued that eager scans recompile on every call. He asked whether
+  the scan bodies are closures; they are not (`docs/contributor/scan_body_principles.md`), so an eager scan
+  compiles once per shape and compiling the build, gradient and trial is a choice, not a necessity.
+- **Decided:** in safe mode a compiled program's preconditions are checked on the host, on its concrete
+  arguments, before it is called.
+- **MC-SGD over several steps in one program:** wanted eventually, not in this arc. Checked at his request:
+  T3Toolbox compiles one step per program, and T3Polynomial has no compiled MC-SGD loop. Decided now so that it
+  stays an addition: `take(indices)` on the least-squares oracle is traceable with a static batch size.
+- **The maintainer** (14:30): "Confirmed".
+- **Counts.** 42 rows decided, 10 remain (6 open, 3 reopened, 1 to confirm).

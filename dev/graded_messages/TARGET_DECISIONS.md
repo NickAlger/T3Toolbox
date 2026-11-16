@@ -51,6 +51,8 @@ The maintainer paused the session at 04:46 on 2026-11-16, to pick up the next da
   `docs/contributor/precompute_and_caching.md` amended where it says the carrying cost of a held object is not
   memory (note to 8.3).
 - **The Claude doc** is in step with this folder at this pause.
+- **Since the pause** (resumed on 2026-11-16 at 13:03): 8.3, the optimizers' contract, was decided in three parts
+  (13:51, 14:07, 14:30). 42 rows are decided and 10 remain. The next questions are 8.4 and 9.3.
 
 ## Where this stood at the earlier pause (2026-11-15, 05:53)
 
@@ -75,7 +77,7 @@ The maintainer paused the session at 04:46 on 2026-11-16, to pick up the next da
 
 ## What remains, in groups (2026-11-15, 15:34)
 
-Of the 56 rows in sections 1 to 9, 41 are decided, 3 are guidance and 1 is parked. The other 11 are below, in
+Of the 56 rows in sections 1 to 9, 42 are decided, 3 are guidance and 1 is parked. The other 10 are below, in
 seven groups that cut across the sections. The grouping and the suggested order are Claude's, made at the
 maintainer's request; they decide nothing.
 
@@ -86,9 +88,9 @@ maintainer's request; they decide nothing.
 | C. What a kind is, and the public surface | 0 | | | | |
 | D. One program for every layout and stack | 3 | 2 | 1 | | |
 | E. Plans, memory and scale | 5 | 3 | 2 | | |
-| F. The fitting layer above | 2 | 1 | | 1 | |
+| F. The fitting layer above | 1 | | | 1 | |
 | G. What defines correct | 1 | 1 | | | |
-| Total | 11 | 7 | 3 | 1 | |
+| Total | 10 | 6 | 3 | 1 | |
 
 - **A. Jets and the misfit.** (Decided on the afternoon of 2026-11-15: 2.4, what a tilde jet is; 2.5, the misfit;
   2.3, the derivative-mode adapter; and, at 19:32, 2.9, how a term is carried out over the orders.)
@@ -112,14 +114,13 @@ maintainer's request; they decide nothing.
   jets is proposed); 5.3 sites scanned or vectorized (reopened; with
   the performance discussion). The maintainer gave rules for how the functions are written on 2026-11-15, 19:50
   (notes to section 5).
-- **E. Plans, memory and scale.** 7.3 where the plan lives (reopened); 7.2 the defaults (reopened); 7.5 inert
+- **E. Plans, memory and scale.** 7.3 where the plan lives (reopened); 7.2 the defaults (reopened; with them,
+  from 8.3, which phases are compiled by default and which minibatch draws the library ships); 7.5 inert
   padded samples for entries (open); 7.6 automatic sizing, with the names of the sizing functions and of the pad-and-reshape helpers (open); 7.7
   sharding and device placement (open). The maintainer wants the sizing names taken up "in the broader context
   of performance optimization hooks and defaults" (02:56).
-- **F. The fitting layer above.** (Decided on 2026-11-16 at 04:46: 8.1, what `LocalModel` is.) 8.3 the optimizers'
-  contract with a model (open: part 1, the contract and how `held` passes, was decided on 2026-11-16 at 13:51,
-  and part 2, a minibatch is an oracle, at 14:07; part 3, what is compiled as one program, remains); 8.4 what
-  the display and diagnostics read (to confirm).
+- **F. The fitting layer above.** (Decided on 2026-11-16: at 04:46, 8.1, what `LocalModel` is; from 13:51 to
+  14:30, 8.3, the optimizers' contract, in three parts.) 8.4 what the display and diagnostics read (to confirm).
 - **G. What defines correct.** 9.3 the reference when old behaviour is not it (open).
 
 **How the groups depend on each other.** A stands alone and continues the morning's work. B feeds C: 6.2 and 6.4
@@ -1450,7 +1451,7 @@ By 1.1 this section is in scope.
 | --- | --- | --- | --- |
 | 8.1 | `LocalModel` is the geometry, the oracle and the regularizer put together at one frame, and the holder of the local information at that point. Its own `gn_quadratic` and `hvp` are built on the fused `Jp_norm_sq` and `JtJp`. `residual` and `jacobian(p)` stay on it, as optional outputs of an oracle. It stores only what the plan's `hold` keeps; the rest is reachable through `model.oracle`, `model.frame` and `model.held` | Decided | 1.1, 6.1, 8.2 |
 | 8.2 | The fitting layer's open extension point is a frozen record with one operation: at a frame, return the wanted ones of `f`, `g`, `JtJp`, `Jp_norm_sq` (required) and `Kp`, `Jp`, `r` (optional), the blocks before projection, in the engine's vocabulary. The built-in one is least squares, implemented by one call of `sampling_variables`. It is called an oracle (`Oracle`) | Decided | 3.4 |
-| 8.3 | The optimizers' contract. Part 1, decided: an optimizer touches a `Geometry`, an `Oracle`, a `Regularizer` and the `LocalModel` built from them; the oracle's one operation takes `want` and `held` and returns the values and `held`; a model is built once and never changes. Part 2, decided: a minibatch is an oracle, scaled so that it estimates the full one; the default draw keeps the drawn indices on it. Open: what is compiled as one program (part 3) | Open | 1.1, 8.1, 8.2 |
+| 8.3 | The optimizers' contract. An optimizer touches a `Geometry`, an `Oracle`, a `Regularizer` and the `LocalModel` built from them; the oracle's one operation takes `want` and `held` and returns the values and `held`; a model is built once and never changes. A minibatch is an oracle, scaled so that it estimates the full one; the default draw keeps the drawn indices on it. The units of compilation are five phases (build, gradient, CG solve, trial, stochastic step), with the outer loop on the host; a compiled program's preconditions are checked on the host in safe mode. Which phases are compiled by default is left to 7.2 | Decided | 1.1, 8.1, 8.2, 7.2 |
 | 8.4 | What do the display and the diagnostics read? | To confirm | 3.7 |
 | 8.5 | Shared sample vectors: in the target or not? | Parked | |
 
@@ -1677,6 +1678,60 @@ Notes:
   - **Sharding.** A draw of random indices across all samples moves data between devices. Since a draw is any
     function returning an oracle, a shard-local or a block draw fits the contract unchanged. Which draws the
     library ships is left to the performance discussion.
+
+- **8.3, part 3, decided: what is compiled as one program** (2026-11-16, 14:10 to 14:30). With it 8.3 is decided.
+  - **Today, under `use_jit`.** MC-SGD and Adam compile one step per program (`_mc_sgd_step`: gradient, Cauchy
+    length, retraction), and a host loop calls it with `draw(rng)` and does the full-batch check every
+    `check_every` steps. `newton_cg` compiles only the CG solve; the model build, the gradient and the trial
+    objective run eagerly. `gradient_descent` has no `use_jit`.
+  - **Decided: the phases are the units, and the outer loop is on the host.** Five phases, each a module-level
+    function of pytrees:
+
+    | Phase | Takes | Returns |
+    | --- | --- | --- |
+    | build | problem, frame and centers | the model (`f`, `held`) |
+    | gradient | model | the projected gradient |
+    | CG solve | model, right-hand side, tolerance, cap, radius | the step and the loop state, as today |
+    | trial | model, step | policy a: `f`; policies b and c: the model at the trial |
+    | stochastic step | problem with the minibatch oracle, point, moments | the next point, as today |
+
+    Everything sized by the samples is inside one of them. The host keeps the decisions: accept or reject,
+    stopping, callbacks, display, timing, history. `use_jit=False` runs the same functions eagerly, on numpy or
+    jax, as today. The compile key is the statics and the shapes: the geometry, the oracle's kind, order and
+    plan, the regularizer, the Hessian mode, the literal `want`. Not in the key: the weight, the minibatch and
+    its scale, the tolerance, cap and radius, the learning rate. A rank change recompiles, as today.
+  - **Left to the performance discussion:** which of the phases are compiled by default. Claude first argued
+    that the build, the gradient and the trial have to be compiled because an eager scan recompiles on every
+    call. The maintainer (14:24): "For the scans, are the scan bodies closures? I think we did a lot of work to
+    make the scan bodies module level functions in the current codebase for this reason. Can you check?" He was
+    right: `docs/contributor/scan_body_principles.md` records the problem (measured 2026-08-20, 19 compilations
+    per Newton iteration) and the fix, and every `xscan`, `xmap` and `xwhile` body found in `backend/` is a
+    module-level function or comes from a memoized factory. So an eager scan compiles once per shape, and
+    compiling those phases is a choice. What remains for it: a phase that runs across devices with its sums
+    reduced over them has to be one function; and eagerly every scan is its own small program with the rest
+    dispatched operation by operation. Against it: more and larger programs to compile at each rank level,
+    which the consumer's notes already complain of.
+  - **Decided: safe mode.** Checks are skipped inside a trace. Today the build is eager, so its preconditions
+    are checked there even under `use_jit`. Rule: in safe mode a compiled program's preconditions are checked on
+    the host, on its concrete arguments, before it is called.
+  - **MC-SGD compiled over several steps: wanted later, not in this arc.** The maintainer (14:24): "I thought we
+    already supported compiling the whole MCSGD loop, in which case this is a regression in performance compared
+    to what we already have. Though maybe this is in another experimental codebase not this one and I’m getting
+    it mixed up; can you check how MCSGD is currently compiled here? Eventually we want to support compiling
+    multiple steps of MCSGD." Checked: T3Toolbox compiles one step per program, so there is no regression;
+    T3Polynomial has no compiled MC-SGD loop either (its `ot.py` compiles whole Newton and Sinkhorn loops for
+    optimal transport, and its upstream notes record "Fully jitting the Newton loop: evaluated, deferred").
+    Recorded as a requirement on the contract: nothing decided now may block it. Two properties keep it an
+    addition: the step is a pure module-level function of the problem, the point and the minibatch oracle, so
+    it can be a scan body as it stands; and the default draw goes through indices, so the host can draw the
+    index sets of many steps at once and one program scans the step over them, with the host `rng` kept. The
+    natural size is `check_every` steps per program. A user's draw would need the same split, a host part
+    giving arrays and a traceable part giving the oracle.
+  - **Decided now, for that:** `take(indices)` on the least-squares oracle can be traced with a static batch
+    size.
+  - **Not proposed:** the whole Newton iteration as one program.
+  - The maintainer, on the three points (the phases with the default left to the performance discussion; the
+    safe-mode rule; traceable `take` now and multi-step MC-SGD later), at 14:30: "Confirmed".
 
 - **8.2, decided, the name apart** (2026-11-16, 02:45). The maintainer: "I agree with this data structure.
   However, I would like to find another word than objective. When the user hears "objective", they may think
