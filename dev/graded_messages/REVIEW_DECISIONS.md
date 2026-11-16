@@ -1338,3 +1338,12 @@ The maintainer answered four of the six open points of `SAMPLE_VARIABLES.md` sec
   shape of cores, `g`, `JtJp`, `Kp`. Always summed, because they are numbers and not arrays over the samples:
   `f`, `r_block_sumsq`, `Jp_sumsq`. 3.7 asks only whether that last list is right.
 
+## 62. 3.7 decided: what happens to the sample stack on each output (2026-11-16, 01:32)
+
+- **The maintainer**, on the table of entry 61: "I understand now. Confirmed. The table with columns "What
+  happens to W" and "Outputs" in your message is what I want."
+- **Decided.** `W` is kept on `z`, `r`, `Jp` and every edge variable; summed by default and kept on request on
+  `g`, `JtJp`, `Kp`; always summed on `f`, `r_block_sumsq`, `Jp_sumsq`. The table and the details are in the
+  note to 3.7 of `TARGET_DECISIONS.md`.
+- **Counts.** 24 rows decided, 28 remain. Group A has one left: 3.3.
+

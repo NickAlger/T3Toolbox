@@ -30,26 +30,25 @@ planned only after the target is settled.
 
 ## What remains, in groups (2026-11-15, 15:34)
 
-Of the 56 rows in sections 1 to 9, 23 are decided, 3 are guidance and 1 is parked. The other 29 are below, in
+Of the 56 rows in sections 1 to 9, 24 are decided, 3 are guidance and 1 is parked. The other 28 are below, in
 seven groups that cut across the sections. The grouping and the suggested order are Claude's, made at the
 maintainer's request; they decide nothing.
 
 | Group | Rows | Open | Reopened | To confirm | Held |
 | --- | --- | --- | --- | --- | --- |
-| A. Jets and the misfit | 2 | | | 2 | |
+| A. Jets and the misfit | 1 | | | 1 | |
 | B. The frame and the value | 6 | | 4 | 2 | |
 | C. What a kind is, and the public surface | 7 | 4 | 2 | 1 | |
 | D. One program for every layout and stack | 5 | 3 | 1 | 1 | |
 | E. Plans, memory and scale | 5 | 3 | 2 | | |
 | F. The fitting layer above | 3 | 1 | | 2 | |
 | G. What defines correct | 1 | 1 | | | |
-| Total | 29 | 12 | 9 | 8 | |
+| Total | 28 | 12 | 9 | 7 | |
 
 - **A. Jets and the misfit.** (Decided on the afternoon of 2026-11-15: 2.4, what a tilde jet is; 2.5, the misfit;
   2.3, the derivative-mode adapter; and, at 19:32, 2.9, how a term is carried out over the orders.)
-  (And on 2026-11-16 at 01:04: 3.6, the weight inside the engine.)
-  3.7 which reductions over the samples are
-  sampling variables (to confirm); 3.3 which seeded tilde copies are public (to confirm). The type catalog bears
+  (And on 2026-11-16: at 01:04, 3.6, the weight inside the engine; at 01:32, 3.7, what happens to the sample
+  stack on each output.) 3.3 which seeded tilde copies are public (to confirm). The type catalog bears
   on all three.
 - **B. The frame and the value.** 4.1 what a frame is (reopened); 4.2 frame consistency (reopened); 4.3 the route
   to the value (reopened); 4.4 tails and boundaries (reopened); 3.2 whether `gamma` (now `nu_L`) is first-class
@@ -74,7 +73,7 @@ maintainer's request; they decide nothing.
 wait on 4.1 and 4.5. C feeds F: 8.1 and 8.3 need the public surface. D and E are each mostly self-contained; E's
 7.3 is tied to F's 8.1. G bears on how every other answer is checked.
 
-**The eight rows marked to confirm** are earlier decisions that were not taken for reasons of compatibility.
+**The seven rows marked to confirm** are earlier decisions that were not taken for reasons of compatibility.
 They may go quickly, several at a time.
 
 **Outside the list:** 8.5 shared sample vectors (parked); weights on internal edges as inner products (parked for
@@ -595,7 +594,7 @@ Notes:
 | 3.4 | What is a sampling kind in the target, and can a user define one? | Reopened | 1.1 |
 | 3.5 | The output is `z` for every kind | Decided | |
 | 3.6 | The engine takes the data `y` and an optional `weight` (ones by default). The weight acts on `f`, `g`, `JtJp` and `Kp` alike, through one public helper that turns a jet into a dual jet. The bare transpose takes a seed and no weight. The engine has no other notion of a loss | Decided | 1.1 |
-| 3.7 | Which reductions over the samples are sampling variables? | To confirm | 3.6 |
+| 3.7 | What happens to the sample stack `W` on each output. Kept: `z`, `r`, `Jp` and every edge variable. Summed by default, kept on request: the outputs shaped like cores, `g`, `JtJp`, `Kp`. Always summed: `f`, `r_block_sumsq`, `Jp_sumsq` | Decided | 3.6 |
 
 Notes:
 
@@ -640,6 +639,28 @@ Notes:
     coefficients, the `t!` factors being the adapter's; at order 0 it is the multiplication alone. The names of
     the two helpers are open (6.3).
   - **Considered and not taken:** a loss function passed by the caller and applied inside the pass.
+- **3.7, decided** (2026-11-16, 01:32). Put first as "which reductions over the samples are sampling
+  variables", the question confused the maintainer (01:26). Put as a table of what happens to `W` on each
+  output, he confirmed it: "I understand now. Confirmed. The table with columns "What happens to W" and
+  "Outputs" in your message is what I want."
+
+  | What happens to `W` | Outputs |
+  | --- | --- |
+  | Kept | `z`, `r`, `Jp`, and every edge variable |
+  | Summed by default, kept on request | The outputs shaped like cores: `g`, `JtJp`, `Kp` |
+  | Always summed | `f`, `r_block_sumsq`, `Jp_sumsq` |
+
+  - The third row holds numbers, not arrays over the samples. They are formed inside the pass, because under a
+    chunked plan `r` and `Jp` are dropped chunk by chunk.
+  - `f = 1/2 <r, omega^2 r>` is the objective. `r_block_sumsq` is the sum of squares of `r` for each mode and
+    order, unweighted, in the shape of the weight; the display's table of relative errors reads it.
+    `Jp_sumsq = <Jp, omega^2 Jp>` is the Gauss-Newton quadratic: the same number as `p` paired with `JtJp`, with
+    no adjoint sweep.
+  - **Said with the question and not spoken of in his answer** (Claude's, to be corrected if wrong): `f` keeps
+    `C`, `Jp_sumsq` keeps `K + C`, and `r_block_sumsq` keeps `C` (the library's `block_sumsq` sums `C` away
+    today); and an unsummed `W` on a transpose becomes the tangent stack of the result in the order
+    `W + K + C`, as in the library today.
+  - The block sums of squares of the data are not sampling variables: they depend on the data alone (6.7).
 - **The sample stack on the outputs** (the maintainer, 2026-11-16, 01:26; it bears on 3.7, 5.4, 6.2 and 8.1).
   - **The residual.** "The residual is f(x)-y or z-y, where y is the data, and z=f(x) is the model prediction of
     the sampling map. The data y will typically be stacked over the W axis group ..., while the model prediction
