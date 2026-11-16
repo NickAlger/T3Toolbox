@@ -47,7 +47,9 @@ The maintainer paused the session at 04:46 on 2026-11-16, to pick up the next da
   - which inputs count for the dtype rule and where the casting is done (5.6).
 - **For the branch, when code is written:** `is_consistent` and `fv_frame_consistency_residual` rewritten without
   dense tensors; every function the refactor touches supports arbitrary tails; the library's own open question
-  `dev/OPEN_QUESTION_extension_surface.md` given its resolution; the paper-to-code notation map rewritten.
+  `dev/OPEN_QUESTION_extension_surface.md` given its resolution; the paper-to-code notation map rewritten;
+  `docs/contributor/precompute_and_caching.md` amended where it says the carrying cost of a held object is not
+  memory (note to 8.3).
 - **The Claude doc** is in step with this folder at this pause.
 
 ## Where this stood at the earlier pause (2026-11-15, 05:53)
@@ -115,8 +117,9 @@ maintainer's request; they decide nothing.
   sharding and device placement (open). The maintainer wants the sizing names taken up "in the broader context
   of performance optimization hooks and defaults" (02:56).
 - **F. The fitting layer above.** (Decided on 2026-11-16 at 04:46: 8.1, what `LocalModel` is.) 8.3 the optimizers'
-  contract with a model and what is compiled as one program (open); 8.4 what the display and diagnostics read (to
-  confirm).
+  contract with a model (open: part 1, the contract and how `held` passes, was decided on 2026-11-16 at 13:51;
+  part 2, how a minibatch is given, and part 3, what is compiled as one program, remain); 8.4 what the display
+  and diagnostics read (to confirm).
 - **G. What defines correct.** 9.3 the reference when old behaviour is not it (open).
 
 **How the groups depend on each other.** A stands alone and continues the morning's work. B feeds C: 6.2 and 6.4
@@ -1447,7 +1450,7 @@ By 1.1 this section is in scope.
 | --- | --- | --- | --- |
 | 8.1 | `LocalModel` is the geometry, the oracle and the regularizer put together at one frame, and the holder of the local information at that point. Its own `gn_quadratic` and `hvp` are built on the fused `Jp_norm_sq` and `JtJp`. `residual` and `jacobian(p)` stay on it, as optional outputs of an oracle. It stores only what the plan's `hold` keeps; the rest is reachable through `model.oracle`, `model.frame` and `model.held` | Decided | 1.1, 6.1, 8.2 |
 | 8.2 | The fitting layer's open extension point is a frozen record with one operation: at a frame, return the wanted ones of `f`, `g`, `JtJp`, `Jp_norm_sq` (required) and `Kp`, `Jp`, `r` (optional), the blocks before projection, in the engine's vocabulary. The built-in one is least squares, implemented by one call of `sampling_variables`. It is called an oracle (`Oracle`) | Decided | 3.4 |
-| 8.3 | What is the optimizers' contract with a model, and what is compiled as one program? | Open | 1.1 |
+| 8.3 | The optimizers' contract. Part 1, decided: an optimizer touches a `Geometry`, an `Oracle`, a `Regularizer` and the `LocalModel` built from them; the oracle's one operation takes `want` and `held` and returns the values and `held`; a model is built once and never changes. Open: how a minibatch is given (part 2) and what is compiled as one program (part 3) | Open | 1.1, 8.1, 8.2 |
 | 8.4 | What do the display and the diagnostics read? | To confirm | 3.7 |
 | 8.5 | Shared sample vectors: in the target or not? | Parked | |
 
@@ -1465,7 +1468,9 @@ Notes:
     as its own fields, reachable as `model.oracle`.
   - **What each method asks the oracle for:** `misfit` and `objective`, `f`; `gradient`, `g`, then the
     projection; `gn_quadratic(p)`, `Jp_norm_sq` at the projected `p`; `hvp(p)`, `JtJp` at the projected `p`, and
-    in exact mode `JtJp` and `Kp` in one request so that they can share the dotted sweep, with the geometry's
+    in exact mode `JtJp` and `Kp` in one request so that they can share the dotted sweep (corrected on
+    2026-11-16, 13:35: what they share is `nu_L_dot` and `eta_D_dot`, two of the sixteen variables such a
+    product computes, and only without curvature damping; note to 8.3), with the geometry's
     lift, tangential curvature and lift transpose around `Kp`; `retract(p)`, nothing. The regularizer adds its
     terms as it does today.
   - **The model's own methods do not form arrays over the samples.** `gn_quadratic` and `hvp` no longer call
@@ -1533,6 +1538,108 @@ Notes:
       term between different orders. The jet structure enters only in the pairing of a jet with a dual jet
       (order `t` with order `top - t`, 2.4), which the adjoint sweep uses inside; the helper of 3.6 (the weight,
       then the turn of the order leg) is what takes one to the other.
+
+- **8.3, part 1, decided: the contract, and how `held` passes** (2026-11-16, 13:03 to 13:51). Claude split 8.3
+  into three parts: the contract itself, with how `held` passes; how a minibatch is given; what is compiled as
+  one program. This note is the first.
+  - **The proposal** (13:03), which is what was decided:
+    - An optimizer touches a `Geometry`, an `Oracle`, a `Regularizer`, and the `LocalModel` built from them.
+      `Problem` bundles the first three. No kind, sample, data, sweep or residual appears in an optimizer.
+    - The oracle's one operation takes `held` and returns it. A sketch; the names are not final:
+
+      ```python
+      values, held = oracle.evaluate(
+          frame,                # (D, U, L, R)
+          want,                 # names among f, g, JtJp, Jp_norm_sq, Kp, Jp, r
+          Vc=None,              # centers, when the geometry returned them
+          direction=None,       # (V, H): for JtJp, Jp_norm_sq, Jp
+          core_direction=None,  # (D_dot, L_dot): for Kp
+          held=None,            # what an earlier call at this frame returned
+      )
+      ```
+
+    - What goes into `held` is the oracle's business; for the least-squares oracle it is the named variables
+      its plan says to hold, so `model.held` can be inspected. A call never computes a variable only to hold
+      it: it keeps what it computed anyway and its plan lists.
+    - A model is built once and never changes. Building is one oracle call at a frame, wanting `f`, and `g` too
+      in exact mode, as today; the model keeps those and `held`. Every later method passes `held` in and keeps
+      nothing new, so inside CG the model is fixed loop state, as today. Keeping more means building a new
+      model at the same frame, given the old one's `held`.
+    - Trial points, following 4.3. Policy a: `f` at the trial's raw cores, nothing held; if accepted,
+      orthogonalize and build a model. Policy b, the default: retract-and-orthogonalize, then build a model
+      wanting `f`; if accepted, that model is the next model and its gradient is one adjoint pass. Policy c:
+      the same, the model wanting `f` and `g`.
+    - `problem.objective(x)` on raw cores stays, for policy a and for the full-batch stop checks of MC-SGD and
+      Adam. It is the oracle's `f` at the corewise frame `(B, G, G, G)`, so it depends on the open detail of
+      how the engine is told that a frame is corewise.
+    - The geometry's `frame(x)` and its retract-and-orthogonalize function both return the frame with its
+      centers (already implied by 4.1).
+  - **The maintainer's first question** (13:22): "As structured, it seems like the oracle is a thin wrapper over
+    the sample variables engine, whose purpose is to close over the data. Is it doing anything else? Second, it
+    continues the pattern started in the sampling variables engine of having program path depend on magic words
+    (f, g, JtJp, Jp_norm_sq, Kp, Jp, r) which the user has to read documentation to find, and which are harder
+    though not impossible to analyze statically. For the engine, we have weighed the pros and cons of this
+    approach and deemed it worthwhile because of the complexity. Here I'm wondering if the value proposition is
+    still there. The other approach I see is to add named methods, such as oracle.f, oracle.g, and so on. Can
+    you walk me through the reasoning for designing it as proposed, then assess alternatives and list pros and
+    cons?"
+  - **Claude's answer** (13:35).
+    - The least-squares oracle is a thin wrapper, by the library's rule that a backend class binds parameters
+      and names a role. Its purpose is to be the seam: the optimizers stop knowing about sampling; its statics
+      are the compile key and its arrays are leaves; and it is where a user puts something that is not one
+      engine call.
+    - Of the reasons for `want`, only fusion is real, and it buys two things. `f` with `g` saves one forward
+      pass per accepted point, and only when the plan holds nothing. `JtJp` with `Kp` share `nu_L_dot` and
+      `eta_D_dot`, two of the sixteen variables an exact Hessian product computes, and only without curvature
+      damping (`SAMPLE_VARIABLES.md`, section 5.2, "One dot"); the library does not fuse them today. This
+      corrects the phrase "share the dotted sweep" in the note to 8.1.
+    - The alternatives put: A, one operation with `want` (any combination in one pass; against it, magic
+      words, string dispatch in every user's oracle, an optional output found missing at run time, harder
+      static reading, unlike the library's other protocols); B, named methods `f`, `g`, `JtJp`, `Jp_norm_sq`,
+      `Kp`, `Jp`, `r` with `precompute(frame)` for what is held, the pattern of `Geometry.precompute` and
+      `geom_aux` (against it, outputs share work only through `held`); C, B with named fused methods. Claude
+      leaned to B.
+  - **The maintainer's second question** (13:41): "It seems like the problem is that we are trying very hard to
+    avoid state (a worthy goal) for an operation that is fundamentally about state (holding variables for
+    performance reasons). If we allow state to enter the oracle, do things simplify, and if so are there any
+    risks? If we are unwilling to let go of the performance gains from holding, then the state has to be held
+    somewhere, and we should make a principled decision about where. I want you to think through the design of
+    the oracle and things that use it, with a new eye on where state *should* be held. Then think of potential
+    problems that may arise, e.g., if the optimization is done in parallel over many gpus sharded"
+  - **Claude's answer** (13:48), from the library's own record `docs/contributor/precompute_and_caching.md`
+    (the audit of 2026-08-20).
+    - State inside the oracle would simplify the call sites. Its risks are those the record names for a hidden
+      cache on a data object: staleness ("same point" is a numerical question, and with policy b two points are
+      alive at once); tracing (CG is one compiled program); compile keys (the oracle is value-hashed). The
+      record admits hidden state only when it is correctness-neutral, harmless when lost and never traced; held
+      variables are none of the three.
+    - Where the state goes, by the record's rule (an explicit value, at the widest scope whose invalidation
+      is structural, through a channel the loop already threads): the sample, data, weight, kind, order and
+      plan are fields of the oracle and die when the problem changes; the held variables, the frame, the
+      centers, the geometry's companion, `f` and `g` are leaves of `LocalModel` and die when the iterate
+      moves; the dots and the tilde variables of `Jp` are not kept; the current model, the trial model, the
+      radius, the moments and the rng are the optimizer loop's variables. The oracle is stateless, `LocalModel`
+      is the holder for a point, and the optimizer's host loop is the only place where anything is replaced.
+      `held=None` recomputes, so a standalone call is always correct. No object is moved to a new point, so
+      nothing can be stale.
+    - At scale, six points. (1) Memory is now a carrying cost, which the record says it is not: the plan's
+      `hold` decides what is carried, and under policy b a trial's held variables and the current point's are
+      alive together. (2) Sharded held variables must be arguments of the compiled programs; reached through a
+      closure or a hidden field they would be expected to become constants of the program, not sharded, with a
+      recompile at every point (expected, not run). (3) Sums over the samples cross devices, so `g`, `JtJp`
+      and `f` agree across device counts only to rounding, and a near tie in a line search can go differently
+      (bears on tests and on 9.3). (4) Every host decision is a synchronization of all devices: a few per
+      Newton iteration are fine, one per MC-SGD step may not be (part 3). (5) Minibatch draws must not move
+      samples between devices (part 2). (6) With several hosts every process runs the same loop, and explicit
+      values keep them in step.
+  - **The decision** (13:51): "Having thought through all of this, I have a greater appreciation for your
+    original design with oracle.evaluate. Let’s go with that". So alternative A, as proposed at 13:03: one
+    operation with `want`, `held` going in and coming out. The placement of state above is Claude's and was
+    put before the decision; under A it is unchanged, since `held` is still an explicit value kept by the
+    model.
+  - **Carried forward under A,** from the list of what counts against it: how an oracle says which outputs it
+    supplies, so that a missing optional one (`Kp` in exact mode) is found before any work, as the library
+    checks `corewise_hessian` today; and that `want` is a literal at every call site in the library.
 
 - **8.2, decided, the name apart** (2026-11-16, 02:45). The maintainer: "I agree with this data structure.
   However, I would like to find another word than objective. When the user hears "objective", they may think

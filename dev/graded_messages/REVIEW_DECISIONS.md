@@ -1577,3 +1577,22 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
 - **Counts.** 41 rows decided, 11 remain (7 open, 3 reopened, 1 to confirm).
 - **The pause.** The state is in "Where this stands" at the top of `TARGET_DECISIONS.md`, in the status list of
   the folder's `README.md`, and in `dev/HANDOFF.md` on the branch `graded-messages`.
+
+## 83. 8.3, part 1: the optimizers' contract; `oracle.evaluate` with `want` and `held` (2026-11-16, 13:03 to 13:51)
+
+- **Resumed** at 13:03 with 8.3, split by Claude into three parts: the contract and how `held` passes; how a
+  minibatch is given; what is compiled as one program.
+- **Proposed** (13:03): an optimizer touches a `Geometry`, an `Oracle`, a `Regularizer` and the `LocalModel` built
+  from them; the oracle's one operation takes `want` and `held` and returns the values and `held`; a model is
+  built once and never changes; trial points as in 4.3.
+- **The maintainer questioned it twice.** At 13:22: whether the oracle is more than a thin wrapper, and whether
+  "magic words" are still worth it here, against named methods. At 13:41: "we are trying very hard to avoid state
+  (a worthy goal) for an operation that is fundamentally about state"; where state should be held, and what
+  goes wrong when the optimization is sharded over many GPUs.
+- **Claude's answers:** the alternatives A (`want`), B (named methods with `precompute`), C (B with fused
+  methods), with a lean to B; then the placement of state by lifetime, from the library's
+  `docs/contributor/precompute_and_caching.md`, and six points at scale. A correction on the way: `JtJp` and `Kp`
+  share only `nu_L_dot` and `eta_D_dot`, not "the dotted sweep".
+- **Decided** (13:51): "Having thought through all of this, I have a greater appreciation for your original
+  design with oracle.evaluate. Let’s go with that". Alternative A, as first proposed.
+- **Counts.** Unchanged: 41 rows decided, 11 remain. 8.3 stays open for parts 2 and 3.
