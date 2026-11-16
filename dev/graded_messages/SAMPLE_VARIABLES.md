@@ -124,6 +124,12 @@ Tucker edge) and `b` (its right bond); a Tucker core has the legs `i` and `o` (i
 
 Each variable is defined twice: by a recurrence, and as a subnetwork. The check confirms that the two agree.
 
+**Step functions.** One step of a recurrence is a step function. A step function is named by letter and grade
+only, and serves both bases: the basis of what it returns follows from the cores it is given. `nu_step` given `R`
+cores returns `nu`, and given `L` cores returns `nu_L`. `mu_dot_step` given `(R, U, H)` returns `mu_R_dot`, and
+given `(L, L, G_dot)` returns `mu_dot`. The maintainer (2026-11-16, 00:23): "There is no need for extra step
+functions if they literally do the exact same things with different arguments."
+
 ### 5.1 Plain
 
 | Variable | Recurrence | As a subnetwork |
@@ -390,15 +396,15 @@ functions.
   frame's coordinates. `Kp`, the curvature term of the exact Hessian, takes the same direction after the lift:
   one array of the shape of each core of the base point. This page writes it `(B_dot, G_dot)`. In the library it
   is the first argument of the kind's `corewise_hessian`, called `core_directions`. What the engine
-  (`sampling_variables`) calls that argument is not decided.
-- **A call on the corewise frame** (section 9). Under discussion. The maintainer's principle (2026-11-16, 00:03):
+  (`sampling_variables`) calls that argument is not decided. On paper the maintainer writes it `q = (V', H')`.
+- **A call on the corewise frame** (section 9). The maintainer considered this principle (2026-11-16, 00:03):
   "The engine is designed for the manifold setting. When corewise operations are required, this is done by having
   the caller of the engine put in the B and G cores, and it is their responsibility to track the altered meaning
-  of the variables. The engine remains manifold-focused."
-- **Two step functions for one variable.** The maintainer (00:03): "I would prefer to have separate step
-  functions. It is ok to have lots of small functions." So each variable has its own step function (target
-  decision 5.1). `nu_L_dot` and `eta_D_dot` each have two recurrences, the frame's form and the raw form
-  (section 5.2); what the two functions are called is open, and depends on the previous point.
+  of the variables. The engine remains manifold-focused." After the pros and cons he set it aside (00:23): "The
+  against is more convincing, particularly the extra sweep cost. This will be a real performance hit and is
+  unacceptable." The cost meant: with `(B, G, G, G)` put in, the engine does not know that `nu` and `nu_L` are
+  one array, and sweeps twice when both `z` and `g` are wanted. So a call on a corewise frame must not sweep
+  twice. How the engine is told, and which spellings such a call accepts, are open.
 - **Which application of the transpose a tilde name refers to**, when one call computes both `g` and `JtJp`
   (target decision 3.3; section 5.3).
 - What the dots that `Kp` reads are when the curvature damping is above zero (section 5.2).
