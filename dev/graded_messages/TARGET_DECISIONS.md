@@ -483,20 +483,39 @@ Notes:
   pseudocode of representative contractions, loop vs scan, showing how the scan doubles the contractions?" The
   parts of 2.9 confirmed as stated stand. How a full operand is taken is open again, so the row is marked to
   confirm.
-- **2.9, three forms compared** (`scripts/review/order_scan_check.py`), for a product of two full jets
-  `c[t] = sum over i + r = t of contract(a[i], b[r])` with `P = order + 1`. Claude's work; not decided.
+- **2.9, how the library does it today** (2026-11-15, 19:22). The maintainer: "How does this compare with how the
+  code currently implements the analogous operation for convolution of jets?" Read in
+  `backend/sampling_derivatives.py` at 2026.5.0 (the note "The jet kernels" and `_eta_jets_order_step`,
+  `_adj_src_order_step`, `_mu_jets_step`, `_adj_prop`):
+  - **An affine operand:** the two shifted copies of the full jet are stacked on a pair axis and contracted
+    against the two coefficients in ONE contraction. No scan.
+  - **Two full jets:** a scan over the order `r` of one factor. Each step contracts that one order slice with the
+    core, then contracts the result against ALL slots of the other jet, which rides the carry and is shifted one
+    slot per step. The truncation comes from the zeros the shift brings in. No traced shift, no mask, no dynamic
+    slice. The binomial weights come from the same shift; for Taylor coefficients they are gone.
+  - **It is a real scan only on the uniform layout** (`jax.lax.scan`); on the ragged layout it is a Python loop,
+    which unrolls under jit.
+  - **The reason the code gives is memory**, not the size of the program: only one order slice of the spatial
+    product is live at a time. Its docstring records a measured 14 to 28 times smaller peak than the vectorized
+    dense form, constant in the order, and says: "The order loop being a real scan is what forces this -- an
+    unrolled loop does not."
+- **2.9, a correction to Claude's comparison.** The first table counted "pairs of orders" as if every contraction
+  cost the same. Two contractions are involved. The expensive one is the core with one coefficient
+  (`W ra n rb` multiplications); the cheap one pairs that product with one coefficient of the other jet
+  (`W ra rb`, a factor `n` fewer). Counted properly (`scripts/review/order_scan_check.py`):
 
-  | Form | Pairs of orders contracted | Traced program | What it needs |
-  | --- | --- | --- | --- |
-  | Loop over `r`, with slices `a[:P-r]` | the triangle, `P(P+1)/2` | grows with the order: 143 lines at order 4, 491 at order 16 | nothing else |
-  | Scan over `r`, all of `a` each time, then a shift and a mask | the square, `P^2`: up to twice the triangle | 77 lines at every order | a shift along the order axis and a mask |
-  | Scan over a static table of the needed pairs, `P` at a time | the triangle, plus padding of fewer than `P` pairs | 74 lines at every order | two gathers and one scatter-add in each iteration |
+  | Form | Multiplications | Traced program |
+  | --- | --- | --- |
+  | Loop over `r`, with slices | `P E + P(P+1)/2 c` | grows with the order: 143 lines at order 4, 491 at order 16 |
+  | Scan over `r` with the other jet carried and shifted one slot per step (the library's scheme, in Taylor form) | `P E + P^2 c` | 34 lines at every order |
+  | Scan over a table of the needed pairs | about `P(P+1)/2 (E + c)` | 74 lines at every order |
 
-  All three give the explicit sum to rounding under jit, at orders 1 to 16. Why the second doubles the work: a
-  scan body must have the same shapes at every iteration, so it contracts all `P` slots of `a` with each `b[r]`,
-  and the `r` slots that would land above the top order are computed and then masked away. The third form lists
-  the pairs the product needs in a table built from `P` alone, and each iteration contracts `P` of them, so
-  nothing is thrown away and the body still has fixed shapes. None of the three was timed.
+  So the scan costs more than the loop only in the cheap contraction: 6 percent in all at order 4 with bonds of
+  64 and a mode rank of 32, 20 percent at order 16; 29 percent at order 4 when every rank is 4. "The scan doubles
+  the contractions" was true of the cheap ones only. The pair table repeats the EXPENSIVE contraction for every
+  pair and costs 2 to 7 times the loop: Claude's recommendation of it is withdrawn. The scan with a shift and a
+  mask that Claude wrote first is the library's scheme done less well (a traced shift and a mask where a carried
+  shift needs neither). All three forms give the explicit sum under jit. Nothing was timed.
 
 ## 3. Variables and kinds
 

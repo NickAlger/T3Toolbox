@@ -254,15 +254,26 @@ Case 2: 200 samples.  The order-0 data determine the tensor alone.
 the doctest of the adapter draft: 14 examples, 0 failures
 
 === order_scan_check.py
-Pairs of orders contracted, for the product of two full jets.  The truncated product needs the triangle.
-order  triangle   | loop, slices                 | scan, shift and mask         | scan over the pair table    
-                  | pairs   program   correct    | pairs   program   correct    | pairs   program   correct   
-1      3          | 3       56        yes        | 4       77        yes        | 4       74        yes       
-2      6          | 6       85        yes        | 9       77        yes        | 6       74        yes       
-3      10         | 10      114       yes        | 16      77        yes        | 12      74        yes       
-4      15         | 15      143       yes        | 25      77        yes        | 15      74        yes       
-8      45         | 45      259       yes        | 81      77        yes        | 45      74        yes       
-16     153        | 153     491       yes        | 289     77        yes        | 153     74        yes       
-(program = lines of the traced program, scan body included.  correct = relative difference from the explicit
- sum below 1e-13, under jit.)
+1. Each form against the explicit sum, under jit, and the lines of its traced program (scan body included)
+   order  loop                   carried shift          pair table            
+   1      correct, 56 lines      correct, 34 lines      correct, 74 lines     
+   2      correct, 85 lines      correct, 34 lines      correct, 74 lines     
+   4      correct, 143 lines     correct, 34 lines      correct, 74 lines     
+   8      correct, 259 lines     correct, 34 lines      correct, 74 lines     
+   16     correct, 491 lines     correct, 34 lines      correct, 74 lines     
+2. Multiplications, relative to the loop
+   W = 1000, bonds 64, mode rank 32
+   order  carried shift    pair table      
+   1      1.01             1.97            
+   2      1.03             1.94            
+   4      1.06             2.83            
+   8      1.11             4.46            
+   16     1.20             7.24            
+   W = 1000, bonds 4, mode rank 4
+   order  carried shift    pair table      
+   1      1.09             1.82            
+   2      1.17             1.67            
+   4      1.29             2.14            
+   8      1.44             2.78            
+   16     1.62             3.46            
 

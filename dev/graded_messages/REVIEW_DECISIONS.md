@@ -1022,3 +1022,19 @@ axes. How do we tell whether an axis is part of the batch, or a derivative order
   the triangle plus fewer than `P` pairs of padding; it needs two gathers and a scatter-add in each iteration.
   The comparison is in `scripts/review/order_scan_check.py`. Nothing was timed.
 
+## 47. How the library carries out a product of jets today; a correction (2026-11-15, 19:22)
+
+- **The maintainer.** "How does this compare with how the code currently implements the analogous operation for
+  convolution of jets?"
+- **Read in the library** (`backend/sampling_derivatives.py`, 2026.5.0). An affine operand: one contraction against
+  a stacked pair of shifted copies. Two full jets: a scan over the order of one factor; each step contracts one
+  order slice with the core and then with all slots of the other jet, which is carried and shifted one slot per
+  step. A real scan only on the uniform layout. The stated reason is peak memory, with a measured 14 to 28 times
+  smaller peak; "an unrolled loop does not" give it.
+- **Correction.** Claude's table of entry 46 counted pairs of orders as if all contractions cost alike. Separating
+  the expensive contraction (core with one coefficient) from the cheap one (pairing with the other jet), the
+  library's scheme costs 6 percent more than the loop at order 4 with realistic ranks, and the pair-table scan
+  Claude recommended costs 2 to 7 times the loop. The recommendation is withdrawn. The library's scheme in Taylor
+  form is now a form of its own in `scripts/review/order_scan_check.py`: correct under jit, 34 lines of traced
+  program at every order.
+
