@@ -30,7 +30,7 @@ planned only after the target is settled.
 
 ## What remains, in groups (2026-11-15, 15:34)
 
-Of the 56 rows in sections 1 to 9, 38 are decided, 3 are guidance and 1 is parked. The other 14 are below, in
+Of the 56 rows in sections 1 to 9, 39 are decided, 3 are guidance and 1 is parked. The other 13 are below, in
 seven groups that cut across the sections. The grouping and the suggested order are Claude's, made at the
 maintainer's request; they decide nothing.
 
@@ -39,11 +39,11 @@ maintainer's request; they decide nothing.
 | A. Jets and the misfit | 0 | | | | |
 | B. The frame and the value | 0 | | | | |
 | C. What a kind is, and the public surface | 0 | | | | |
-| D. One program for every layout and stack | 5 | 3 | 1 | 1 | |
+| D. One program for every layout and stack | 4 | 2 | 1 | 1 | |
 | E. Plans, memory and scale | 5 | 3 | 2 | | |
 | F. The fitting layer above | 3 | 1 | | 2 | |
 | G. What defines correct | 1 | 1 | | | |
-| Total | 14 | 8 | 3 | 3 | |
+| Total | 13 | 7 | 3 | 3 | |
 
 - **A. Jets and the misfit.** (Decided on the afternoon of 2026-11-15: 2.4, what a tilde jet is; 2.5, the misfit;
   2.3, the derivative-mode adapter; and, at 19:32, 2.9, how a term is carried out over the orders.)
@@ -60,7 +60,8 @@ maintainer's request; they decide nothing.
   tested against the declared graph; at 02:40, 6.3, the public functions of the sampling layer; at 02:45 and
   02:52, 8.2, the oracle; at 02:56, 9.2, the kind strings and the unit name `'sweep'`, with the sizing function
   names moved to 7.6.
-- **D. One program for every layout and stack.** 5.2 one set of step functions for ragged and uniform (open); 5.4
+- **D. One program for every layout and stack.** (Decided on 2026-11-16 at 03:11: 5.2, one set of step
+  functions for both layouts.) 5.4
   terms generic over the stack groups (open); 5.3 sites scanned or vectorized (reopened); 5.5 association order
   inside a term (to confirm); 5.6 the dtype rule (open). The cases the order-0 assessment did not cover are here.
   The maintainer gave rules for how the functions are written on 2026-11-15, 19:50 (notes to section 5).
@@ -858,7 +859,7 @@ Notes:
 | # | Question | Status | Depends on |
 | --- | --- | --- | --- |
 | 5.1 | One function per variable with explicit arguments, seven terms, no graded containers | Decided | |
-| 5.2 | Is there one set of step functions for the ragged and the uniform layout, and how does the uniform layout's static data (shapes, masks) reach them? | Open | 1.2 |
+| 5.2 | One set of step functions for the ragged and the uniform layout. The layout is detected from the structure of the inputs, as low as reasonably possible. Sweeps go through `xscan` on both layouts. Masks never reach a step: the uniform cores are masked once on entry. Shapes are read from the operands | Decided | 1.2 |
 | 5.3 | For each variable, are sites scanned or vectorized, what is the default, and which variables admit which? | Reopened | 5.2 |
 | 5.4 | How are the terms generic over the stack groups: several `W` axes, `K`, `C`, and the order? | Open | 2.7 |
 | 5.5 | Is there any choice of association order inside a term? | To confirm | |
@@ -877,6 +878,27 @@ Notes:
   functions if they literally do the exact same things with different arguments." So a step function is named by
   letter and grade only and serves both bases: `nu_step` given `L` cores returns `nu_L`, and `mu_dot_step` given
   `(R, U, H)` returns `mu_R_dot`. The prototype's 22 step functions stand.
+- **5.2, decided** (2026-11-16, 03:11). Claude put the rules of 19:50 (below) to the maintainer as four points:
+  one set of step functions for both layouts, the layout deduced from the input types; a sweep along the chain
+  written once through `xscan`; masks never reaching a step, the uniform cores being masked once on entry;
+  shapes read from the operands, and a static value that no operand carries reaching a scan body through a step
+  variant and never a closure. His answer:
+  "Yes, out the outer level each step function takes in inputs. If the behavior depends on whether the cores
+  are ragged or uniform, this is detected from the structure of the inputs themselves, and then they are
+  dispatched accordingly. The detection is done as low as reasonably possible. Generally sweeps (e.g., through
+  TT cores) work the through the xscan abstraction whether ragged or uniform. For operations which are applied
+  simultaneously to all sites (edge variables can be computed all at once; one does not depend on a previous
+  one, like Tucker core edge variable contractions and assemblies), the ragged continues through xscan (which
+  becomes a loop under the hood), while uniform operates chunked, through the new Plan concept. The chunk sizes
+  are decided outside: the user reshapes W batches and tells the engine which batches to chunk over for which
+  operations through the Plan. We provide helper functions to the user to reshape and pad their arrays to
+  desired chunk sizes. The user can achieve an unchunked scan by reshaping so the effective chunk size is 1."
+  - **What this adds beyond 5.2.** For the operations done at all sites at once (the Tucker contractions and
+    the assemblies): on ragged cores, a loop over the sites; on uniform cores, all sites at once, chunked over
+    the sample axes as the plan says, per operation. Chunk sizes are array shapes the user sets by reshaping,
+    with helpers for padding and reshaping (7.4), and a chunk size of 1 gives a scan sample by sample. This
+    bears on 5.3 and on group E, which the maintainer wants discussed together as the performance hooks and
+    defaults.
 - **Rules for how the functions are written** (the maintainer, 2026-11-15, 19:50, said while settling 2.9):
   "The implementation is through the xscan abstraction, which dispatches to a jax scan if jax is used and the
   layer is uniform, and a loop if pure numpy or ragged. In general, things should respect the numpy vs jax dispatch

@@ -1500,3 +1500,11 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
 - **Counts.** 38 rows decided, 14 remain: group D (5.2, 5.3, 5.4, 5.5, 5.6), group E (7.2, 7.3, 7.5, 7.6, 7.7),
   group F (8.1, 8.3, 8.4) and group G (9.3). Groups A, B and C are finished.
 
+## 77. 5.2 decided: one set of step functions for both layouts (2026-11-16, 03:11)
+
+- **The maintainer** confirmed the four points and restated them in his own words, which are in the note to 5.2
+  of `TARGET_DECISIONS.md`. He added how the operations done at all sites at once behave: a loop on ragged
+  cores; on uniform cores all sites at once, chunked over the sample axes through the plan, with chunk sizes set
+  by the user's reshaping.
+- **Counts.** 39 rows decided, 13 remain.
+
