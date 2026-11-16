@@ -1,6 +1,6 @@
-# Doc sync: four tabs to the folder at bebe1e8
+# Doc sync: four tabs to the folder at 229da9d
 
-- Source: `git diff 2ee26ff bebe1e8` on the four files named below.
+- Source: `git diff 9f6ac57 229da9d` on the four files named below.
 - Only these four tabs were edited. The one repository file written is this report.
 - Every whole-block replace was guarded (ifHash plus the rev of the read). Nothing was refused. No `anchors_affected`, no `allowDetach`, no suggestions.
 - No email address appears anywhere.

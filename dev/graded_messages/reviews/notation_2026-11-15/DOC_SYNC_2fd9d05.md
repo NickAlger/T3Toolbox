@@ -1,7 +1,7 @@
-# Doc sync: "Target decisions" tab to TARGET_DECISIONS.md at dd6be86
+# Doc sync: "Target decisions" tab to TARGET_DECISIONS.md at 2fd9d05
 
 - Tab: body node a85e3927-c6f2, project b99f9eba-1b65-429e-8ace-9354c1587be8.
-- Source: `git diff 24af742 dd6be86 -- dev/graded_messages/TARGET_DECISIONS.md`.
+- Source: `git diff 1065955 2fd9d05 -- dev/graded_messages/TARGET_DECISIONS.md`.
 - Revision: **170 before, 176 after.** No other tab and no repository file other than this report was touched.
 - Every whole-block replace and the one block delete were guarded (ifHash plus rev 170). Nothing was refused. No `anchors_affected`, no `allowDetach`, no suggestions.
 - No email address appears anywhere.
@@ -62,4 +62,4 @@ Nothing from the diff. The blank lines between notes in the file, and the empty 
   between two commits of the file, so a difference older than the first of those commits was never seen. The
   editor agent has been asked to compare the order and placement of every note with the file and to bring the 6.7
   notes in step. Until a whole-tab comparison is done, "in step" is established only for what changed since
-  commit `7268d54`.
+  commit `235a045`.

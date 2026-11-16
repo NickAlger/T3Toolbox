@@ -1,6 +1,6 @@
 # Part 1 of the graded-messages refactor: implementation plan
 
-**Status.** Draft r1, 2026-11-16, for review. Written against the branch `graded-messages` at `b1d8c00`. The names
+**Status.** Draft r1, 2026-11-16, for review. Written against the branch `graded-messages` at `4d38df7`. The names
 in this plan are proposals until the maintainer settles the table of names (section 3). Every statement about the
 library was checked against the code at that commit; counts were recounted there.
 

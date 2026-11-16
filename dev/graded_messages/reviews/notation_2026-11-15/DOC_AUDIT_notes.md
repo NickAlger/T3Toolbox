@@ -1,4 +1,4 @@
-# Audit of note placement: "Target decisions" tab against TARGET_DECISIONS.md (dd6be86)
+# Audit of note placement: "Target decisions" tab against TARGET_DECISIONS.md (2fd9d05)
 
 - Tab: body node a85e3927-c6f2, project b99f9eba-1b65-429e-8ace-9354c1587be8.
 - Revision: **176 before, 180 after.** No other tab, and no repository file except this report, was touched.
@@ -31,7 +31,7 @@ These sections agree with the file in membership and order:
 
 **Present in the tab but not in the file, left in place:**
 - **"2.4, since the catalog"**, a tab-only summary that pointed to the Type catalog tab instead of the five notes above. It was kept as tab-only condensation in phase B. It now stands after the five inserted notes and duplicates them. I suggest deleting it; I did not, because it is not a misplacement or a missing note.
-- **"2.9, three forms compared"**, after "2.9, the scan reconsidered". The file removed this note in 4377301, which replaced it with "2.9, how the library does it today" and the corrected comparison. Stale in the tab; I suggest deleting it.
+- **"2.9, three forms compared"**, after "2.9, the scan reconsidered". The file removed this note in ff98fd4, which replaced it with "2.9, how the library does it today" and the corrected comparison. Stale in the tab; I suggest deleting it.
 - **"T3Toolbox 2026.5.0 (17:10)"**, a one-line item that sat among the old 6.7 notes. It is not in any version of the file I checked. Left where it was, now among the section 2 notes.
 
 **Lead-in or form differs (reported, not changed):**
@@ -80,6 +80,6 @@ The method was insert first, verify, then delete:
 - Not fixed: six notes that are in the tab and not in the file; three differences of shape; and older wording
   in notes that no pass has touched, in section 2 above all. The audit compared lead-ins and order, not the body
   of every note, so the full extent of the older wording is not known.
-- Conclusion: the tab is a faithful copy of the file for everything recorded since commit `7268d54` and for the
+- Conclusion: the tab is a faithful copy of the file for everything recorded since commit `235a045` and for the
   notes named above, and not for the older notes. The remedy is to rebuild the tab from the file, section by
   section, at a pause. Until then the file is the text to trust.

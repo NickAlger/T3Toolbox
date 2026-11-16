@@ -1,9 +1,9 @@
-# Doc edit report (phase B): the Claude doc brought in step with the folder at `c8ded56`
+# Doc edit report (phase B): the Claude doc brought in step with the folder at `f67b1dc`
 
 Editor's running record. Doc: <https://claude.ai/artifact/PvTCvDZBKaPKqRTnntH42s>, project
 `b99f9eba-1b65-429e-8ace-9354c1587be8`. All edits are written directly, not as suggestions. Every whole-block
 replace or delete is guarded with `ifHash` and `ifRev`. No `allowDetach` and no `force` were used. The markdown
-sent comes from the files at `c8ded56`, with wrapped lines joined
+sent comes from the files at `f67b1dc`, with wrapped lines joined
 (`/home/claude/scratch/notation/tools/unwrap.py`). A link to another file of the folder becomes a mention chip
 for its tab, as the tabs already do (for example `Design after review`).
 
@@ -15,7 +15,7 @@ for its tab, as the tabs already do (for example `Design after review`).
   - The birth carried the title, the banner, the contents and section 1 (rev 1).
   - Four `insert`s at the root's end, in file order: sections 2 and 3 (rev 2), sections 4 and 5 (rev 3),
     section 6 (rev 4), and section 7 (rev 5).
-- **Content.** It is `NOTATION_HISTORY.md` at `c8ded56`, whole. One change of whitespace: the moved TARGET
+- **Content.** It is `NOTATION_HISTORY.md` at `f67b1dc`, whole. One change of whitespace: the moved TARGET
   sub-bullets that open sections 4, 5 and 6 are sent as top-level list items (the file indents them two spaces,
   under a parent bullet that is in section 3.2). Within section 3.2 the nesting is as in the file: the head
   bullet, its three sub-bullets, and the table inside the first sub-bullet (checked by a `view` of list
@@ -57,7 +57,7 @@ for its tab, as the tabs already do (for example `Design after review`).
 
 ## Design after review (body `87438a19-079c`)
 
-- **Revs.** Rev 10 -> 12. The file diff `9a08850^`..`c8ded56` has 15 hunks; all are applied.
+- **Revs.** Rev 10 -> 12. The file diff `d8a2b62^`..`f67b1dc` has 15 hunks; all are applied.
 - **Rev 11: one call, all guarded @ 10, every guard accepted.**
   - Update note `.35141`: now `.35791`, with all four items (the 19:32 item was missing from the tab). The tab's
     wording "this tab" and the chip to Target decisions are kept.
@@ -86,7 +86,7 @@ for its tab, as the tabs already do (for example `Design after review`).
 
 ## Type catalog (body `afad8585-4577`)
 
-- **Revs.** Rev 20 -> 22. The file diff `005b954`..`c8ded56` is applied in full.
+- **Revs.** Rev 20 -> 22. The file diff `a4340be`..`f67b1dc` is applied in full.
 - **Rev 21: one call, all guarded @ 20, every guard accepted.**
   - Inserted the status paragraph "Names updated" (`.38116`) after `.577`.
   - Section 2, the table: the cells `.1755`, `.1882`, `.1915`, `.1948`, `.1983`, `.2230`, `.2426`, `.2481`, and
@@ -111,8 +111,8 @@ for its tab, as the tabs already do (for example `Design after review`).
 
 ## Target decisions (body `a85e3927-c6f2`)
 
-Rev 128 -> 138. Applied: the file diff `9a08850`..`c8ded56` (11 hunks, including your 3.6 decision of 01:04,
-commit `02d5a05`). The tab already held the content of `9a08850` itself: the 20:00 library-patterns table is
+Rev 128 -> 138. Applied: the file diff `d8a2b62`..`f67b1dc` (11 hunks, including your 3.6 decision of 01:04,
+commit `da42eb2`). The tab already held the content of `d8a2b62` itself: the 20:00 library-patterns table is
 `.77626`.
 
 - **Top** (rev 128 -> 134):
@@ -162,8 +162,8 @@ commit `02d5a05`). The tab already held the content of `9a08850` itself: the 20:
 ## Sample variables (tab 73afb9f0-92de; verify only)
 
 - Rev 7 before and after: no edit made.
-- Checked: exported the tab as markdown (rev 7, 30,527 bytes) and compared it with `SAMPLE_VARIABLES.md` at c8ded56 with the wrapped lines joined (30,528 bytes; the one extra byte is the file's final blank line). The sizes agree to that byte. Spot checks of the decoded export:
-  - the §10 paragraph "**The raw core direction** was `(B_dot, G_dot)` in this folder until 2026-11-16 (00:30) ..." (commit 8f6d697), word for word;
+- Checked: exported the tab as markdown (rev 7, 30,527 bytes) and compared it with `SAMPLE_VARIABLES.md` at f67b1dc with the wrapped lines joined (30,528 bytes; the one extra byte is the file's final blank line). The sizes agree to that byte. Spot checks of the decoded export:
+  - the §10 paragraph "**The raw core direction** was `(B_dot, G_dot)` in this folder until 2026-11-16 (00:30) ..." (commit edc584b), word for word;
   - the §11 "Settled since this page was first written ..." sentence, and the §5 step-function paragraph with the 00:23 quotation.
 - This was not a line-by-line diff. The export arrives as base64 and cannot be piped into a shell, so the check rests on the byte count plus these spot checks. A difference of equal length somewhere else would not have been caught.
 - Blocks replaced, inserted or deleted: none. Nothing was refused.
@@ -175,7 +175,7 @@ commit `02d5a05`). The tab already held the content of `9a08850` itself: the 20:
 - Target decisions: the 04:57/05:26 glosses had no place in the tab's condensed notes, so they were not added.
 - No guard was refused, and no `anchors_affected` came up in any tab.
 
-## Follow-up: the decisions after c8ded56 (files at 2c356cc)
+## Follow-up: the decisions after f67b1dc (files at 0d23d99)
 
 **Target decisions** (a85e3927-c6f2), rev 138 -> 145.
 - Counts paragraph .38200: 25 decided, the other 27 (by quoted words).
@@ -200,7 +200,7 @@ commit `02d5a05`). The tab already held the content of `9a08850` itself: the 20:
 - §11 bullet .38239 ("Which application of the transpose ...") deleted (guarded, ifHash cc0b5cc2, ifRev 7).
 - Checked at rev 11: §5.3 now ends "... linear in its seed." and is followed by the new paragraph. §11 reads as the file does, with three bullets left. Nothing was refused.
 
-## Follow-up 2: the decisions after 2c356cc (files at 7268d54)
+## Follow-up 2: the decisions after 0d23d99 (files at 235a045)
 
 **Target decisions** (a85e3927-c6f2), rev 145 -> 146, one call.
 - Guarded replaces (ifRev 145):

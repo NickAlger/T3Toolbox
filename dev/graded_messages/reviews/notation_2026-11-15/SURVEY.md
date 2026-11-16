@@ -1,12 +1,12 @@
 # Survey: where the folder and the Claude doc must change for the notation of 2026-11-15 (23:23)
 
 Survey only. Nothing in the folder or in the doc was changed. The reference is `SAMPLE_VARIABLES.md` (read in
-full). Folder state: branch `graded-messages`, head `cad5cbb` (23:35), with one uncommitted change in the working
+full). Folder state: branch `graded-messages`, head `5d15a47` (23:35), with one uncommitted change in the working
 tree: `scripts/variable_diagrams_gen.py` (21 further diagram rows "added 2026-11-16", i.e. step 2 of the
 maintainer's plan is in progress). Doc read at: Tab 1 rev 29, Target decisions rev 128, Sample variables rev 1,
 Type catalog rev 20, Variable diagrams rev 5, Design after review rev 10, Worked example rev 7, Evaluator rev 33.
 
-Line numbers are those of the files at `cad5cbb`. "frame's form" = direction `(V, H)` at the frame; "raw form" =
+Line numbers are those of the files at `5d15a47`. "frame's form" = direction `(V, H)` at the frame; "raw form" =
 direction `(B_dot, G_dot)` at the base point.
 
 ---

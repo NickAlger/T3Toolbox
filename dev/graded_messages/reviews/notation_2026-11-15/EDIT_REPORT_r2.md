@@ -1,9 +1,9 @@
 # Edit report, round 2
 
-Editor's round 2, on the working tree over `f183e46` (round 1 is `27fb13a`). Committed by the supervisor as
-`dbe35d6`, parent `8f6d697`. The Claude doc
+Editor's round 2, on the working tree over `6700db5` (round 1 is `78b4016`). Committed by the supervisor as
+`f478555`, parent `edc584b`. The Claude doc
 was not touched. Inputs: `REVIEW_r1.md`, the supervisor's rulings of round 2, and `SAMPLE_VARIABLES.md` at
-`f183e46` (sections 1, 5 and 11 re-read).
+`6700db5` (sections 1, 5 and 11 re-read).
 
 ## 1. The reviewer's findings
 
@@ -26,7 +26,7 @@ was not touched. Inputs: `REVIEW_r1.md`, the supervisor's rulings of round 2, an
 | N12 | Entry 8 lead rewrapped. `git diff --word-diff` shows no word changed |
 | N13 | `DESIGN_AFTER_REVIEW.md` 4.1: "At the base point of a manifold frame the raw form calls them with `(L, L, L_dot)` and `D_dot`." The corewise sentence is unchanged |
 | N14 | `NOTATION_HISTORY.md` section 1: timeline entries for 00:23 and 00:30, and a row for the raw direction in the three-period table |
-| N15 | `EDIT_REPORT_r1.md` header corrected: the work is commit `27fb13a`, parent `e1213c7` |
+| N15 | `EDIT_REPORT_r1.md` header corrected: the work is commit `78b4016`, parent `38a6bd8` |
 | N16 | `EVALUATOR.md` and `PROPOSAL.md` notices: "carries a basis in its name" in place of "carries the other basis" |
 | O3 | README contents: a row for `scripts/variable_diagrams_gen.py`, with its usage line |
 
@@ -107,7 +107,7 @@ No clause was left out.
 
 ## 4. Recorded output and checks
 
-- `scripts/review/expected_review_output_3dc15d9.txt` was recorded again. Against the version in `f183e46`, only
+- `scripts/review/expected_review_output_3dc15d9.txt` was recorded again. Against the version in `6700db5`, only
   two lines differ, both labels:
 
 ```
