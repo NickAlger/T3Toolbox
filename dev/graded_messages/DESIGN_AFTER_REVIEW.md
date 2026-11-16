@@ -6,7 +6,9 @@ choice. `TARGET_DECISIONS.md` lists every decision of the target in dependency o
 decisions below are reopened. Two things in this document are already overtaken: Taylor coefficients replace
 derivatives everywhere, with derivative mode as one adapter at the outer level of fitting (section 4.7 kept
 derivatives at the boundary); and the two stages of section 6 are sequencing, set aside until the target is
-settled.
+settled. A third, since 2026-11-15, 19:32: section 4.7's "No option for orders" is overtaken. The plan of section
+5 gains a setting for how a product of two full jets is taken over the orders, a scan (the default) or a loop
+with slices (target decision 2.9); the dense form stays out.
 
 This document states the design as it stands after two reviewer reports were walked through with the maintainer
 on 2026-11-14. It is organized by topic. The same decisions in the order they were taken, with the evidence for

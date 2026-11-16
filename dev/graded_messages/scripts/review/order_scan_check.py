@@ -16,8 +16,8 @@ HOW THE SCAN IS WRITTEN (the maintainer, 2026-11-15, 19:50): through the library
 a Python loop on numpy or on the ragged layout.  numpy or jax is inferred from the inputs (`tree_contains_jax`),
 at the lowest level.  The layout is deduced from the input types by the caller and handed down, because one
 core's arrays look the same in both layouts (the library does the same: `_eta_jets_step_uniform` and
-`_eta_jets_step_ragged` both call `_eta_jets_core(data, is_uniform)`).  The body is closure-free: the core rides
-the carry.  The contractions go through the grouped interpreter `contract`, so the `W` and `C` stacks ride along.
+`_eta_jets_step_ragged` both call `_eta_jets_core(data, is_uniform)`).  The body is a module-level function that
+closes over nothing: the core rides the carry.  The contractions go through the grouped interpreter `contract`, so the `W` and `C` stacks ride along.
 
 Two different contractions are involved, and they do not cost the same:
   E, the expensive one: the core with one coefficient of b.   W * ra * n * rb multiplications.
@@ -53,14 +53,28 @@ import jax.numpy as jnp
 jax.config.update('jax_enable_x64', True)
 
 
+# The library's dispatch functions.  Bound by `load_library` (the checkout's path is an argument of the script);
+# in the library these are ordinary module-level imports, as in backend/probing.py.
+get_backend = tree_contains_jax = contract = None
+
+
 def load_library(repo):
+    global get_backend, tree_contains_jax, contract
     sys.path.insert(0, repo)
     from t3toolbox.backend import common
     from t3toolbox.backend import contractions
-    return common, contractions
+    get_backend, tree_contains_jax, contract = common.get_backend, common.tree_contains_jax, contractions.contract
+    return common
 
 
 # ---- the two forms of the target, written as the library writes its kernels --------------------------------
+# What is as in the library: every body is a module-level function that closes over nothing (the core rides the
+# carry; `xnp` is re-derived from the body's own arguments); numpy or jax comes from `tree_contains_jax`; the scan
+# comes from `get_backend`; the stacks are groups of `contract`.   docs/contributor/scan_body_principles.md
+# What is prototype only: the names `a`, `G`, `b`; one `W` axis, no `K`, no `C` in the test; and the setting as
+# an argument of `product_of_full_jets`.  In the library a static that no operand carries reaches a body through
+# step variants or a memoized factory keyed on hashable statics (`_eta_jets_step_uniform` / `_ragged`,
+# `_tt_variation_jets_step(n_probe, sum_over_probes, is_uniform)`), not through an argument of the body.
 def _shift_one_slot(
         x_jet,  # elm_shape=(order+1,)+...
         xnp,
@@ -68,55 +82,53 @@ def _shift_one_slot(
     return xnp.concatenate([xnp.zeros_like(x_jet[:1]), x_jet[:-1]], axis=0)
 
 
-def make_forms(common, contractions):
-    get_backend, tree_contains_jax, contract = common.get_backend, common.tree_contains_jax, contractions.contract
+def _product_order_step(
+        carry,  # (c, a shifted r slots, G): (order+1,)+W+C+(rb,) ; (order+1,)+W+C+(ra,) ; C+(ra,n,rb)
+        xs,     # (b[r],): W+C+(n,)
+):              # (next carry, ())
+    '''One coefficient r of b: c += (G . b[r]) . a_shifted, then shift the carried jet.  Closure-free scan body.'''
+    c, a_shifted, G = carry
+    (b_r,) = xs
+    xnp, _, _ = get_backend(True, tree_contains_jax((carry, xs)))              # only xnp
+    Gb_WCab = contract('Caib,WCi->WCab', G, b_r)                               # E: once per coefficient of b
+    c = c + contract('tWCa,WCab->tWCb', a_shifted, Gb_WCab)                    # c: against every slot carried
+    return (c, _shift_one_slot(a_shifted, xnp), G), ()
 
-    def _product_order_step(
-            carry,  # (c, a shifted r slots, G): (order+1,)+W+C+(rb,) ; (order+1,)+W+C+(ra,) ; C+(ra,n,rb)
-            xs,     # (b[r],): W+C+(n,)
-    ):              # (next carry, ())
-        '''One coefficient r of b: c += (G . b[r]) . a_shifted, then shift the carried jet.  Closure-free.'''
-        c, a_shifted, G = carry
-        (b_r,) = xs
-        xnp, _, _ = get_backend(True, tree_contains_jax((carry, xs)))              # only xnp
-        Gb_WCab = contract('Caib,WCi->WCab', G, b_r)                               # E: once per coefficient of b
-        c = c + contract('tWCa,WCab->tWCb', a_shifted, Gb_WCab)                    # c: against every slot carried
-        return (c, _shift_one_slot(a_shifted, xnp), G), ()
 
-    def product_by_carried_shift(
-            a,           # shape=(order+1,)+W+C+(ra,)
-            G,           # shape=C+(ra,n,rb)
-            b,           # shape=(order+1,)+W+C+(n,)
-            is_uniform,  # bool.  The layout of the caller: decides what xscan is
-    ):                   # c, shape=(order+1,)+W+C+(rb,)
-        xnp, _, xscan = get_backend(is_uniform, tree_contains_jax((a, G, b)))
-        c0 = xnp.zeros(a.shape[:-1] + (G.shape[-1],), xnp.result_type(a, G, b))
-        (c, _, _), _ = xscan(_product_order_step, (c0, a, G), (b,))
-        return c
+def product_by_carried_shift(
+        a,           # shape=(order+1,)+W+C+(ra,)
+        G,           # shape=C+(ra,n,rb)
+        b,           # shape=(order+1,)+W+C+(n,)
+        is_uniform,  # bool.  The layout of the caller: decides what xscan is
+):                   # c, shape=(order+1,)+W+C+(rb,)
+    xnp, _, xscan = get_backend(is_uniform, tree_contains_jax((a, G, b)))
+    c0 = xnp.zeros(a.shape[:-1] + (G.shape[-1],), xnp.result_type(a, G, b))
+    (c, _, _), _ = xscan(_product_order_step, (c0, a, G), (b,))
+    return c
 
-    def product_by_loop(
-            a,  # shape=(order+1,)+W+C+(ra,)
-            G,  # shape=C+(ra,n,rb)
-            b,  # shape=(order+1,)+W+C+(n,)
-    ):          # c, shape=(order+1,)+W+C+(rb,)
-        xnp, _, _ = get_backend(True, tree_contains_jax((a, G, b)))                # only xnp
-        P = a.shape[0]
-        c = xnp.zeros(a.shape[:-1] + (G.shape[-1],), xnp.result_type(a, G, b))
-        for r in range(P):
-            Gb_WCab = contract('Caib,WCi->WCab', G, b[r])                          # E
-            part = contract('tWCa,WCab->tWCb', a[:P - r], Gb_WCab)                 # c: only the P - r slots in range
-            c = c + xnp.concatenate([xnp.zeros_like(c[:r]), part], axis=0)         # into slots r .. P-1
-        return c
 
-    def product_of_full_jets(a, G, b, is_uniform, over_orders='scan'):
-        """The option of 2.9, set by the plan.  The spelling of the setting is a placeholder."""
-        if over_orders == 'scan':
-            return product_by_carried_shift(a, G, b, is_uniform)
-        if over_orders == 'loop':
-            return product_by_loop(a, G, b)
-        raise ValueError("over_orders must be 'scan' or 'loop', got %r" % (over_orders,))
+def product_by_loop(
+        a,  # shape=(order+1,)+W+C+(ra,)
+        G,  # shape=C+(ra,n,rb)
+        b,  # shape=(order+1,)+W+C+(n,)
+):          # c, shape=(order+1,)+W+C+(rb,)
+    xnp, _, _ = get_backend(True, tree_contains_jax((a, G, b)))                # only xnp
+    P = a.shape[0]
+    c = xnp.zeros(a.shape[:-1] + (G.shape[-1],), xnp.result_type(a, G, b))
+    for r in range(P):
+        Gb_WCab = contract('Caib,WCi->WCab', G, b[r])                          # E
+        part = contract('tWCa,WCab->tWCb', a[:P - r], Gb_WCab)                 # c: only the P - r slots in range
+        c = c + xnp.concatenate([xnp.zeros_like(c[:r]), part], axis=0)         # into slots r .. P-1
+    return c
 
-    return product_by_carried_shift, product_by_loop, product_of_full_jets
+
+def product_of_full_jets(a, G, b, is_uniform, over_orders='scan'):
+    """The option of 2.9, set by the plan.  The spelling of the setting is a placeholder."""
+    if over_orders == 'scan':
+        return product_by_carried_shift(a, G, b, is_uniform)
+    if over_orders == 'loop':
+        return product_by_loop(a, G, b)
+    raise ValueError("over_orders must be 'scan' or 'loop', got %r" % (over_orders,))
 
 
 # ---- the withdrawn third form, jax only, kept as the record of the comparison ------------------------------
@@ -156,8 +168,8 @@ def counts(P, W, ra, n, rb):                  # multiplications of each form, by
 
 
 def main(repo):
-    common, contractions = load_library(repo)
-    by_shift, by_loop, product_of_full_jets = make_forms(common, contractions)
+    common = load_library(repo)
+    by_shift, by_loop = product_by_carried_shift, product_by_loop
     rng = np.random.default_rng(0)
     W, ra, n, rb = 5, 3, 4, 2
     G = rng.standard_normal((ra, n, rb))

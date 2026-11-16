@@ -1081,3 +1081,30 @@ axes. How do we tell whether an axis is part of the batch, or a derivative order
 - **Claude's observation, for 7.2.** Where `xscan` is a Python loop the `'scan'` setting keeps the square of the
   cheap contractions without the scan's two properties, so `'loop'` does less work there and gives up nothing.
 
+## 50. The library read again, not the prototypes (2026-11-15, 20:00)
+
+- **The maintainer.** "I get the impression that after the conversation compacted you forgot some things, and are
+  now going to the prototype to get context. However, the prototype is just that; the way the code is written
+  there may be what we are going for, or it may be something that was done for expediency and not intended for
+  the actual refactor. To address this, please read through backend/probing.py and backend/sampling_derivatives.py
+  to get a feel for how the library currently works, and also review the proposal documents for our new execution
+  plan feature."
+- **Read.** `backend/probing.py` and `backend/sampling_derivatives.py` in full; the scans and maps of
+  `backend/common.py`; the head of `backend/ut3_sampling.py`; `docs/contributor/scan_body_principles.md`,
+  `docs/contributor/uniform_polymorphism.md`, `docs/chunking.md` (first half), the scanned-kernel item of
+  `docs/contributor/deferred_and_rejected.md`; and this folder's `EXECUTION_PLANS.md`, `DESIGN_AFTER_REVIEW.md` and
+  entries 1 to 8 of this log.
+- **Recorded** in the notes to section 5 of `TARGET_DECISIONS.md`: a table of what each kind of loop is on each
+  layout in the library today; how dispatch, masks, bodies and dtypes are handled; and that the two contributor
+  notes, not the prototypes, are the reference for the form of the code.
+- **What it changes in the records.** The rules of entry 49 were restated from the maintainer's message alone;
+  they are now tied to the library's own notes. Decision 4 (no option for orders) is marked superseded by 2.9 in
+  `TARGET_DECISIONS.md` and at the top of `DESIGN_AFTER_REVIEW.md`.
+- **Found, not decided.** The site option is a choice only on the uniform layout with jax. The settings for
+  orders and for sites combine there. Whether a scan over sample chunks is real on ragged cores with jax is a
+  question for group E. The explicit prototypes form every tilde variable at every order, where the library
+  forms only the two rows of `dxi_tilde` that are read; that bears on 3.3 and 6.4.
+- **Prototype.** In `order_scan_check.py` the scan body was defined inside a factory function. It is now a
+  module-level function, as the scan-body principles require, and the script says which of its features are the
+  library's pattern and which are the prototype's only. Its output is unchanged.
+

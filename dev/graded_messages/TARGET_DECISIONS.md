@@ -530,7 +530,9 @@ Notes:
     nothing is promised about peak memory (the library's own note on its scan: "an unrolled loop does not" bound
     it).
   - This replaces "No user option" in the row. "No dense order-by-order form" stands: neither option is that
-    form. It is one more of the performance options the framework hands to the user, and like the others it
+    form. It also supersedes decision 4 of 2026-11-14 ("no option for orders; drop `Plan.orders`") and section
+    4.7 of `DESIGN_AFTER_REVIEW.md`: the option that decision removed was scan against the dense form, and the
+    dense form stays out. The `SamplePlan` of that document's section 5 gains one field. It is one more of the performance options the framework hands to the user, and like the others it
     changes how the computation is carried out and never what is computed.
   - **Claude's readings, not said by the maintainer:**
     - The setting is one field of the plan and applies to every product of two full jets in the call, not term
@@ -669,6 +671,58 @@ Notes:
   - The existing `backend/probing.py` is the example to follow.
   These bear on 5.2 (one set of step functions), 5.3 (sites scanned or vectorized) and 5.6 (the dtype rule).
   The rows are not marked decided by this; they are to be taken up in group D with these rules as given.
+- **The same rules as the library has them** (read on 2026-11-15, 20:00, at the maintainer's request: "the
+  prototype is just that; the way the code is written there may be what we are going for, or it may be something
+  that was done for expediency"). Read in full: `backend/probing.py`, `backend/sampling_derivatives.py`,
+  `backend/common.py` (the scans and maps), `backend/ut3_sampling.py` (its head), and the notes they cite. The
+  rules above are already written down in the library: `docs/contributor/uniform_polymorphism.md` (which loops
+  are shared between the layouts, and masking once) and `docs/contributor/scan_body_principles.md` (how a scan or
+  map body is written). Those two notes, not this folder's prototypes, are the reference for the form of the code.
+
+  | Loop | Ragged layout | Uniform layout | Example in the library |
+  | --- | --- | --- | --- |
+  | A sweep along the chain | `xscan`: a Python loop | `xscan`: `jax.lax.scan` with jax | `compute_mu`, `compute_sigma`, `_adj_sweep_scanned` |
+  | A per-site map in the plain kernels, and every lift | `xmap`: a Python loop | no map: one contraction with a leading `d` | `compute_eta`, `assemble_z`, `assemble_z_jets` |
+  | A per-site map whose step has a product of two full jets | `xmap`: a Python loop | `xmap`: `jax.lax.map`, one site at a time | `compute_eta_jets`, `compute_deta_jets`, `compute_dxi_tilde_jets`, the TT assembly |
+  | The scan over the orders inside one site | a Python loop | `jax.lax.scan` with jax | `_eta_jets_core(data, is_uniform)` |
+  | Chunks of samples | none: the unchunked assembly | dynamic slices inside `jax.lax.scan`, with jax, in two assemblies only | `_wchunked_sum` |
+
+  - **Dispatch.** Every function begins `use_jax = tree_contains_jax((its inputs))`, `is_uniform = is_ndarray(a
+    core argument)`, `xnp, xmap, xscan = get_backend(is_uniform, use_jax)`. A body re-derives `xnp` from all of
+    its own arguments.
+  - **Masks.** The kernels have no mask logic. The wrappers in `backend/ut3_sampling.py` mask the supercores
+    once, pack the vectors, call the shared kernel, and re-mask a core-shaped output. This is the library's
+    present answer to the second half of 5.2.
+  - **Bodies.** Module-level functions that close over nothing; statics are read off shapes; operands that do
+    not change ride the carry. A static that no operand carries reaches a body through two step variants
+    (`_eta_jets_step_uniform`, `_eta_jets_step_ragged`) or a memoized factory keyed on hashable scalars
+    (`_tt_variation_jets_step(n_probe, sum_over_probes, is_uniform)`). A setting of the plan would reach a body
+    the same way, which is why the plan has to be hashable.
+  - **Dtype.** A start value is built in `xnp.result_type` of the sweep's operands in the jet kernels and the
+    two-hole; the plain sweeps (`compute_mu`, `compute_sigma`, `compute_tau_tilde`) use the default dtype.
+
+  What the reading bears on. Claude's observations, none a decision:
+  - **5.3.** The site option is a choice only where `xmap` is a real map: on the uniform layout with jax. The
+    library today has both behaviours there: vectorized over the sites in the plain kernels and the lifts,
+    one site at a time where a step has a product of two full jets.
+  - **2.9 with 5.3.** On the uniform layout the setting for the orders and the setting for the sites combine.
+    The lever the library's own record names for the small-problem latency of the scanned kernels
+    (`docs/contributor/deferred_and_rejected.md`) is one of the combinations: one scan over the orders whose
+    body is vectorized over the sites. `scripts/eta_axes.py` timed four combinations for the eta combine, but
+    its "vectorized over orders" is the dense form, not the loop with slices.
+  - **A question for group E.** By the rule as stated, a scan is real only with jax on the uniform layout. Is a
+    scan over chunks of samples (7.1) real on ragged cores with jax? The sample axis has the same length at
+    every mode on both layouts. Decision 1 of 2026-11-14 kept a host loop "only for numpy and for streamed
+    data", and `levels_jax_check.py` ran chunk scans on ragged cores under jit. The library's present chunking
+    engages on the uniform layout with jax only.
+  - **What the explicit prototypes are.** `jet_steps_check.py` and its relatives are ragged, numpy, with Python
+    loops and one `W` axis. They establish the algebra and the names. They are not the form of the code.
+  - **One difference that matters for the target.** The prototype forms every tilde variable at every order and
+    takes the top coefficient of full blocks at the end. The library forms only what is read: `dxi_tilde` (the
+    target's `eta_tilde`) in its two read rows only, because it is paired with the affine input `(w, p)` and
+    nothing else, and each gradient block directly, summed over the orders. The row of 2.9 covers the block
+    readouts. The two rows of `eta_tilde` are not recorded anywhere, and they bear on 3.3 and 6.4: if
+    `eta_tilde` is public, the question is whether it is those two rows or all of them.
 
 ## 6. The interface
 
