@@ -126,8 +126,16 @@ the stochastic step, as today, and makes `take` traceable).
   option of Part 2 is tested against.
 - **The cost.** Part 1 has no chunking of samples, and the frontend's `chunk_size` goes. Today's library chunks
   two assemblies on the uniform layout with jax. So Part 1 alone is a step back in memory for large jetted fits
-  until Part 2. T3Polynomial runs with chunking off today: its fitting module defaults to `chunk_size=None`
-  (`t3polynomial/fitting.py`), and so do its scripts, the GPU benchmark included.
+  until Part 2. T3Polynomial's scripts run with chunking off today, the GPU benchmark included: they pass
+  `chunk_size=None`. (Corrected on 2026-11-16, 18:00, after the plan's review: this said that the fitting module
+  itself defaults to `chunk_size=None`. It does not. With no extra options it passes none, so the library's
+  `'auto'` applies; its docstring recommends passing `None`.)
+- **A correction to the 5.3 line of the table above** (2026-11-16, 18:00, found by the plan's reviewer and
+  checked by Claude). "At all sites at once on the uniform one" is how today's plain kernels do it. Today's
+  jetted kernels do not: on the uniform layout with jax they map one site at a time (`get_backend` gives
+  `jax_map`, which is `jax.lax.map`; `sampling_derivatives.py` calls it 16 times). Since Part 1 computes order 0
+  and jets through one path, "as today" does not pick one. All sites at once makes the jetted intermediates `d`
+  times larger; one site at a time is the plain kernels slower. **Open, for the maintainer** (the plan's O-19).
 - **Next** (the maintainer, 16:45): the small planning items Part 1 still needs from him; then "a focused
   implementation plan document for part 1, which includes not just what we want to do, but also how we will do
   it", with "more details about what will be done, and less details about the historical path we took to get to
