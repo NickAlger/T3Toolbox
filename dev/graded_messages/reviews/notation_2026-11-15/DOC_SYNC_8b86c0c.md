@@ -84,4 +84,4 @@ Nothing. The blank line in the file after "8.1, the discussion" has nothing to c
   and Type catalog tabs were found by search.
 - One correction made afterwards, in the file and in the tab alike: the note "8.1, the discussion" pointed to the
   decided note as "next note", but that note stands above it. Both places now say "the note above". The Target
-  decisions tab is at revision 165.
+  decisions tab is at revision 166.
