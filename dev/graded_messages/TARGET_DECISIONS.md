@@ -115,8 +115,9 @@ maintainer's request; they decide nothing.
   02:52, 8.2, the oracle; at 02:56, 9.2, the kind strings and the unit name `'sweep'`, with the sizing function
   names moved to 7.6.
 - **D. One program for every layout and stack.** (Decided on 2026-11-16: at 03:11, 5.2, one set of step
-  functions for both layouts; at 03:32, 5.6, the dtype rule.) 5.4 terms generic over the stack groups (open; the prototype of 2026-11-16 shows one contraction string per
-  term serving every stack and every placement of the direction; a choice is put to the maintainer); 5.5 the contraction order inside a term (open: it goes into the plan; its granularity, the
+  functions for both layouts; at 03:32, 5.6, the dtype rule.) 5.4 terms generic over the stack groups (open; prototyped on 2026-11-16; decided at 16:24: a literal
+  contraction string for each place the direction sits; where the strings stand and which lengths every call
+  passes are still open); 5.5 the contraction order inside a term (open: it goes into the plan; its granularity, the
   form of the field and the helpers are held for the performance discussion of group E; how an order reads with
   jets is proposed); 5.3 sites scanned or vectorized (reopened; with
   the performance discussion). The maintainer gave rules for how the functions are written on 2026-11-15, 19:50
@@ -1049,6 +1050,26 @@ Notes:
     rule).
   - **To decide:** the one string per term with the direction found from the ranks, or a literal string per
     placement; and whether `xi_term` and `V_term` are told what they are given.
+
+- **5.4, the form of the strings: decided, option A** (2026-11-16, 16:18 to 16:24). The maintainer asked to see
+  an example call to `contract` for each option, on a contraction the code really uses. Shown on the dotted left
+  step (`_sigma_step` in `backend/probing.py`), with every call run and the two options equal bit for bit:
+  option A, `contract('TWCa,KCaib,WCi->TWKCb', mu, H, xi, len_C=len_C)` and its two siblings with `K` on the
+  carry and on the leaf; option B, the one string `'T W X C a, Y C a i b, W Z C i -> T W X Y Z C b'` for all
+  three, with `len_T`, `len_W` and `len_C`.
+  - **The maintainer** (16:24): "Option A. The reason is actually so the code is more self-documenting. The
+    reader of B has a harder time figuring out what contractions are being done, because they need to infer Y."
+  - **So:** a literal contraction string for each place the direction sits, as the library writes them today,
+    with the order group added. The one-string form of the prototype is not taken; the prototype stands as the
+    check that the terms are generic over the stacks, and is to be rewritten in the decided form.
+  - **A correction made by Claude before the decision.** It had said the literal form is stricter. Tested with
+    a stray axis of length 1 on `mu`: with the lengths as minimal as the library passes them today
+    (`len_C` alone on the middle term) a stray axis in front of `W` is absorbed into `T` and accepted; with
+    both `len_T` and `len_C` given at every call, every stray axis raises. Option B accepts a stray axis
+    between `W` and `C` as a direction stack. So option A is strict only when every call passes both lengths.
+  - **Open:** whether every call passes `len_T` and `len_C` for that reason; and where the literal strings
+    stand: at the call sites in the step functions, or in a table inside a term function that takes the
+    direction's place as an argument.
 
 - **5.4, how the library does it today** (asked by the maintainer at 03:32; read in `backend/probing.py`). Each
   term of a step is its own `contract` call with its own string, and the string places `K` on the operand that

@@ -1689,3 +1689,15 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   the wrong `V_term` this gave.
 - **Not decided:** one string per term, or the library's literal string per placement; and whether `xi_term` and
   `V_term` are told whether they are given an input or a seed. 5.4 stays open.
+
+## 91. 5.4: a literal contraction string for each place the direction sits (2026-11-16, 16:24)
+
+- **The maintainer**, shown both options on the dotted left step: "Option A. The reason is actually so the code is
+  more self-documenting. The reader of B has a harder time figuring out what contractions are being done, because
+  they need to infer Y."
+- **Decided:** literal strings per placement, as the library writes them today, with the order group added. The
+  prototype's one-string form is not taken.
+- **Corrected by Claude on the way:** the literal form is strict against a wrong rank only when every call passes
+  both `len_T` and `len_C`.
+- **Open in 5.4:** which lengths every call passes; whether the strings stand at the call sites or in a table
+  inside a term function. The row stays open.
