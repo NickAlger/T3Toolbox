@@ -376,3 +376,53 @@ precisions he agreed to:
 Every tilde variable is stored turned, including those a user holds, and pairs with a jet by the top coefficient
 of the product. In the words of section 5: map 1 and map 3 are applied together, once, at the seed.
 
+## 13. The letters by edge, and the variables without names (2026-11-15, 22:11)
+
+The maintainer accepted `zeta` for the down variable through the base point's cores ("zeta is great!"), and asked
+of the two ways to name the dots of `xi` and `mu` along the raw core direction (target decisions, notes to
+section 6): "How do these options sit within the naming concepts we explored in the type catalog document?"
+Claude's analysis. Not a decision.
+
+**The catalog has three coordinates, and its two rules use two of them.** A variable's type is an edge (`AL`,
+`AR`, `XD`, `XU`, `N`), a direction on that edge (vector or covector), and an order factor. Rule 1 says the letter
+fixes the direction. Rule 2 says the grade fixes the order factor. Nothing in a name fixes the edge. Grouping the
+checked catalog of `type_catalog_check.py` by edge and direction:
+
+| Edge | Vector | Covector |
+| --- | --- | --- |
+| `AL`, an `L` bond | `mu`, `mu_tilde`, `mu_tilde_dot`, and the dot of `mu` along the raw core direction | `gamma`, `gamma_tilde`, `gamma_dot`, `gamma_tilde_dot`, and the frame's `nu_dot` |
+| `XD`, a `D` edge | `xi`, `xi_tilde`, `xi_tilde_dot`, and the dot of `xi` along the raw core direction | `zeta` in every grade, and the frame's `eta_dot` |
+| `AR`, an `R` bond | the frame's `mu_dot`, and nothing else | `nu`, `nu_tilde` |
+| `XU`, a `U` edge | the frame's `xi_dot`, and nothing else | `eta`, `eta_tilde` |
+
+**What the table says about the collision.**
+
+- The two rules do not see it: both dots of `mu` are vectors and jets.
+- It is a difference of edge. The dot of `mu` along the raw core direction is on the edge of `mu`, so it has the
+  type of what was differentiated, and `mu + mu_dot` is well typed. The frame's `mu_dot` is on an `R` bond; the
+  checker of section 9 rejects `mu + mu_dot` for it. The same holds for `xi`.
+- The catalog already has this situation once: `nu` and `gamma` travel the same way on different edges, and they
+  were given different letters. `eta` and `zeta` are the second case.
+- Two slots of the table have no letter of their own: the vector on an `R` bond and the vector on a `U` edge.
+  They are the partners of `nu` and of `eta`, and only the frame's tangent variables live there.
+- The frame's `nu_dot` and `eta_dot` have exactly the types of `gamma` and `zeta`.
+
+**The two options in these terms.**
+
+- **A, a mark for the raw direction.** "Which direction a variable is linear in" is not one of the catalog's
+  coordinates. The mark would record that, and leave the difference of edge, which is one, unspoken.
+- **B, letters for the frame's tangent variables.** A different edge getting a different letter is the catalog's
+  own precedent. Carried through, the frame's four tangent variables each get a letter: on the `R` bond, vector
+  (the proposal's frame `mu_dot`; the `sigma` of today's code); on the `L` bond, covector (frame `nu_dot`;
+  today's `tau`); on the `U` edge, vector (frame `xi_dot`); on the `D` edge, covector (frame `eta_dot`). The
+  first and third are the two slots without a letter. The second and fourth share the types of `gamma` and
+  `zeta` and differ from `gamma_dot` and `zeta_dot` only in the direction they are linear in; a letter for a role
+  where the type is shared also has a precedent, `z` and `Jp`.
+- **What B gives.** Rule 1 becomes stronger: a letter fixes the edge and the direction, in every grade. Today it
+  cannot say that, because `xi` is on `XD` and `xi_dot` on `XU`. The grades `dot` and `tilde-dot` then exist at
+  the base point only, along the raw core direction, and `_dot` has one meaning.
+- **The multiplier pairings of section 11 under B.** The tilde of a letter is the multiplier of the tangent
+  variable on the same edge, travelling the other way: `nu_tilde` of the `R`-bond tangent variable, `mu_tilde`
+  of the `L`-bond one, `eta_tilde` of the `U`-edge one, `xi_tilde` of the `D`-edge one.
+- **What B leaves to settle.** Two more letters. And which spelling a call on the corewise frame accepts, since
+  there the edges merge and each tangent variable equals a dot: the question already open for `nu` and `gamma`.

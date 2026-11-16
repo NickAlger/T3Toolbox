@@ -1143,3 +1143,14 @@ axes. How do we tell whether an axis is part of the batch, or a derivative order
   letter (the partner of `gamma`); two are the dots of `xi` and `mu` along the raw core direction, which collide
   with the frame's dots. The raw core direction has no name as an argument either.
 - **Found while listing.** The prototype's `eta_tilde_dot` is the tilde-dot of the missing letter, not of `eta`.
+
+## 54. `zeta` decided; the collision in the terms of the type catalog (2026-11-15, 22:11)
+
+- **Decided.** `zeta` is the down variable through the base point's cores: "zeta is great!"
+- **Asked.** How the two options for the dots of `xi` and `mu` along the raw core direction sit within the type
+  catalog's naming concepts.
+- **Answered** in section 13 of `TYPE_CATALOG.md`, from the checked catalog grouped by edge and direction. The two
+  rules of the catalog do not see the collision; it is a difference of edge. Two slots have no letter, the
+  vector on an `R` bond and the vector on a `U` edge, and only the frame's tangent variables live there. Option B
+  follows the precedent of `nu` and `gamma`; option A marks something that is not a coordinate of the catalog.
+  Not decided.

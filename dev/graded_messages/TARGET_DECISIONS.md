@@ -838,7 +838,17 @@ Notes:
     only.
   - **Also without a name:** the raw core direction itself, as an argument (`(B_dot, G_dot)` in the prototype,
     `core_directions` in the library; the design document notes it as unnamed).
-  - **Suggestions** are in the conversation of 21:59 and are recorded once the maintainer has chosen.
+  - **`zeta`, decided** (2026-11-15, 22:11). The maintainer: "zeta is great!" The down variable through the
+    base point's cores is `zeta`, with the grades `zeta_dot`, `zeta_tilde`, `zeta_tilde_dot`; `z = D . zeta`. The
+    base point has the four letters `xi`, `mu`, `gamma`, `zeta`. The prototype's `eta_tilde_dot` is
+    `zeta_tilde_dot`.
+  - **Rows 5 and 6, two options, not decided.** A: a mark for the raw direction on the base point's dots. B:
+    letters for the frame's tangent variables (`sigma` and `tau` for its two environments, as in today's code),
+    so that `_dot` means the raw core direction only. The maintainer asked how these sit within the type
+    catalog. The answer is section 13 of `TYPE_CATALOG.md`: the collision is a difference of edge; a different
+    edge getting a different letter is the catalog's precedent (`nu` and `gamma`); B carried through needs a
+    letter for each of the frame's four tangent variables, and makes a letter fix the edge and the direction in
+    every grade.
 - **6.3.** The review kept the old kernels as public adapters and the new names as a second vocabulary. That was
   compatibility. With one vocabulary, the near miss between the new `xi_tilde` and today's `dxi_tilde` exists
   only during migration.
