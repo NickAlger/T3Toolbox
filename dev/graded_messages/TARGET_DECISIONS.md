@@ -30,7 +30,7 @@ planned only after the target is settled.
 
 ## What remains, in groups (2026-11-15, 15:34)
 
-Of the 56 rows in sections 1 to 9, 35 are decided, 3 are guidance and 1 is parked. The other 17 are below, in
+Of the 56 rows in sections 1 to 9, 36 are decided, 3 are guidance and 1 is parked. The other 16 are below, in
 seven groups that cut across the sections. The grouping and the suggested order are Claude's, made at the
 maintainer's request; they decide nothing.
 
@@ -38,12 +38,12 @@ maintainer's request; they decide nothing.
 | --- | --- | --- | --- | --- | --- |
 | A. Jets and the misfit | 0 | | | | |
 | B. The frame and the value | 0 | | | | |
-| C. What a kind is, and the public surface | 3 | 2 | 1 | | |
+| C. What a kind is, and the public surface | 2 | 2 | | | |
 | D. One program for every layout and stack | 5 | 3 | 1 | 1 | |
 | E. Plans, memory and scale | 5 | 3 | 2 | | |
 | F. The fitting layer above | 3 | 1 | | 2 | |
 | G. What defines correct | 1 | 1 | | | |
-| Total | 17 | 10 | 4 | 3 | |
+| Total | 16 | 10 | 3 | 3 | |
 
 - **A. Jets and the misfit.** (Decided on the afternoon of 2026-11-15: 2.4, what a tilde jet is; 2.5, the misfit;
   2.3, the derivative-mode adapter; and, at 19:32, 2.9, how a term is carried out over the orders.)
@@ -57,9 +57,9 @@ maintainer's request; they decide nothing.
   3.1, letters and grades as the primitives; on 2026-11-16 at 02:22, 3.4, a kind is closed in the sampling layer
   and the open extension point is an objective protocol in the fitting layer; at 02:31, 6.5, a held variable
   is trusted and only its shape is checked; at 02:34, 6.2, the arguments of `sampling_variables`, up to three
-  names; at 02:37, 6.4, the table of variables written out and tested against the declared graph.) 8.2 the
-  fitting layer's kind object, now the objective protocol (open); 6.3 the other public functions (reopened);
-  9.2 names chosen to match things that will go (open).
+  names; at 02:37, 6.4, the table of variables written out and tested against the declared graph; at 02:40,
+  6.3, the public functions of the sampling layer.) 8.2 the fitting layer's kind object, now the objective
+  protocol (open); 9.2 names chosen to match things that will go (open).
 - **D. One program for every layout and stack.** 5.2 one set of step functions for ragged and uniform (open); 5.4
   terms generic over the stack groups (open); 5.3 sites scanned or vectorized (reopened); 5.5 association order
   inside a term (to confirm); 5.6 the dtype rule (open). The cases the order-0 assessment did not cover are here.
@@ -959,7 +959,7 @@ Notes:
 | --- | --- | --- | --- |
 | 6.1 | `sampling_variables` is a public backend function. It returns a tuple aligned with `want`, and held variables are keyword arguments | Decided | |
 | 6.2 | The arguments of `sampling_variables`: `kind`, `frame`, `sample`, `want`, then `order`, `plan`, `y`, `weight`, the direction `(V, H)`, the lifted direction `(D_dot, L_dot)`, `Vc`, whether `g`, `JtJp`, `Kp` are summed over the samples, and the held variables by name. Decided up to the names of three keywords | Decided | 2.8, 3.4, 4.5 |
-| 6.3 | What other public functions does the sampling layer have, and do any of the existing public kernel names remain? | Reopened | 1.1 |
+| 6.3 | The public functions of the sampling layer: the engine; the jet-to-dual-jet helper and its inverse; the data preparation functions; and one function behind each frontend method, calling the engine. Every per-variable kernel, every `*_derivatives` function and the sweep functions go. The step and term functions are private | Decided | 1.1 |
 | 6.4 | Every variable of a kind's graph, at every grade, can be wanted and held. The table of variables (name, shape, what it reads, which arguments it needs) is written out in the docstring and the documentation, the engine declares its graph as data, and a test checks that the two agree exactly | Decided | 3.1 to 3.4 |
 | 6.5 | The engine trusts a held variable and checks only its shape, the order included. Whoever holds it vouches for it. The caller may give the engine whatever they want, modified variables included | Decided | |
 | 6.6 | The plain and the jetted sampling function are one function: `probe(ww, pp=None, order=0)`, returning `T + W + C + (Ni,)`. This holds for the frontend methods of the flagship classes and for the backend function behind each, which uses the engine | Decided | 2.6, 2.7 |
@@ -1111,7 +1111,27 @@ Notes:
     section 5.
   - 22:24 to 22:41: the naming was rethought from first principles; the result is 9.6 (`SAMPLE_VARIABLES.md`
     section 2). `NOTATION_HISTORY.md` section 6.
-- **6.3.** The review kept the old kernels as public adapters and the new names as a second vocabulary. That was
+- **6.3, decided** (2026-11-16, 02:40). The maintainer: "Confirmed. Exactly what I intend." The list, for the
+  probe kind; apply and entries follow the same pattern.
+
+  | | Functions | Why |
+  | --- | --- | --- |
+  | New | `sampling_variables` | The engine (6.1) |
+  | New | The helper that turns a jet into a dual jet, and its inverse | 3.6 |
+  | New | The five data preparation functions | 6.7 |
+  | Stay, each now calling the engine, with the merged signature of 6.6 | `t3_probe`, `tv_probe`, `tv_probe_transpose`, `t3_probe_corewise_transpose`, `t3_probe_corewise_hessian` | One backend function behind each frontend method |
+  | Stay as they are | `t3_probe_ambient_transpose`, `dense_probe` | They do not sweep over a frame |
+  | Go | Every `compute_*` and `assemble_*` | The engine returns the variable by name |
+  | Go | Every `*_derivatives` function | Merged into the plain ones by 6.6 |
+  | Go | `tv_precompute_probe_frame_sweep` and the `*_from_sweep` functions | A "sweep" is now a set of held variables |
+  | Private | The step and term functions | They are the engine's implementation |
+
+  - A user who wants to run the sweeps on their own arrays does it through held variables (6.5), not by
+    calling a step.
+  - The old kernels are not kept as adapters: that was for compatibility.
+  - **Not settled by this:** which module each function lives in, the names of the new helpers, and the uniform
+    twins (group D).
+- **6.3, the earlier record.** The review kept the old kernels as public adapters and the new names as a second vocabulary. That was
   compatibility. With one vocabulary, the near miss between the new `xi_tilde` and today's `dxi_tilde` exists
   only during migration.
 - **6.6.** Raised by the maintainer on 2026-11-15. It was a goal of his when he first tried to merge the jetted

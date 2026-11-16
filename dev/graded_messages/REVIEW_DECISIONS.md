@@ -1473,3 +1473,11 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
 - **Decided** as in the note to 6.4 of `TARGET_DECISIONS.md`.
 - **Counts.** 35 rows decided, 17 remain. Group C has three left: 8.2, 6.3, 9.2.
 
+## 74. 6.3 decided: the public functions of the sampling layer (2026-11-16, 02:40)
+
+- **The maintainer:** "Confirmed. Exactly what I intend."
+- **Decided** as in the table of the note to 6.3 of `TARGET_DECISIONS.md`: the engine, the jet-to-dual-jet
+  helper pair, the preparation functions and one function behind each frontend method stay or are new; every
+  per-variable kernel, every `*_derivatives` function and the sweep functions go; steps and terms are private.
+- **Counts.** 36 rows decided, 16 remain. Group C has two left: 8.2 and 9.2.
+
