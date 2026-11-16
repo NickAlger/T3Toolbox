@@ -1317,3 +1317,24 @@ The maintainer answered four of the six open points of `SAMPLE_VARIABLES.md` sec
   (weighted), `r_block_sumsq` (unweighted, in the shape of the weight) and `Jp_sumsq` (weighted) as the three
   reductions over the samples that are sampling variables.
 
+## 61. The sample stack on the outputs; the transposes sum by default (2026-11-16, 01:26)
+
+- **The maintainer**, asked 3.7 (which reductions over the samples are sampling variables): "I am getting
+  confused and am not sure exactly what is being asked." He then set out his picture, which is recorded word for
+  word in the notes to section 3 of `TARGET_DECISIONS.md`:
+  - the residual is `z - y`, with the data `y` on the sample stack `W` and broadcast over the base-point stack
+    `C` of `z`;
+  - **decided:** a transpose that returns cores sums the sample stack by default; the option not to sum stays,
+    and then `W` goes into the stacks of the result, never in front of the site index. Today's default is the
+    other way round;
+  - **decided:** the sampling layer must support the `C` and `K` stacks; the optimization and fitting layers
+    may assume there are none.
+- **A letter clash he pointed out.** Claude had written the Riesz operator of the weight as `W` in the summary
+  of 3.6. `W` is the sample stack. The note to 3.6 now writes `omega^2`.
+- **Read in the library at his suggestion:** `docs/batching_and_stacking.md` (the three stacks; section 11 on
+  transposes and `sum_over_probes`) and the transposes of `backend/probing.py`.
+- **3.7 put again in his terms** (Claude, 01:35): by what happens to `W`, the engine's outputs are of three
+  kinds. Kept: `z`, `r`, `Jp` and every edge variable. Summed by default, kept on request: the outputs with the
+  shape of cores, `g`, `JtJp`, `Kp`. Always summed, because they are numbers and not arrays over the samples:
+  `f`, `r_block_sumsq`, `Jp_sumsq`. 3.7 asks only whether that last list is right.
+

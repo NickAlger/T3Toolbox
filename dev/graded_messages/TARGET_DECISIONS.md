@@ -629,15 +629,33 @@ Notes:
     are derivatives of each other without extra work. It should be optional on all of these, defaulting to ones.
     The transpose does not need weight. Really, JtJp is "JtWJP" where W is the Riesz operator (inverse mass
     matrix), and Jt is the unweighted transpose. We keep the name JtJp, because the weight is seen as optional."
-  - **So:** `f = 1/2 <r, W r>`, `g = Jt W r`, `JtJp = Jt W J p`, and `Kp` uses the seed `W r`, with one optional
-    `weight` of the shape of 2.5. The bare transpose takes a seed and no weight. `W` is applied in one place, the
-    public helper. The regularizer, the derivative-mode adapter (2.3) and the data preparation (6.7) stay above
+  - **So:** with `omega` the weight and `omega^2` its Riesz operator, `f = 1/2 <r, omega^2 r>`,
+    `g = Jt omega^2 r`, `JtJp = Jt omega^2 J p`, and `Kp` uses the seed `omega^2 r`, with one optional `weight`
+    of the shape of 2.5. The bare transpose takes a seed and no weight. The operator is applied in one place, the
+    public helper. (The operator is not written `W` here: `W` is the sample stack. The maintainer pointed out
+    the clash at 01:26.) The regularizer, the derivative-mode adapter (2.3) and the data preparation (6.7) stay above
     the engine. Another loss is built above it from `z` and the bare transpose, at the cost of a second pass.
   - **Details noted by Claude, not answered:** the inverse helper divides by the weight squared, so it does not
     exist where a weight is zero (6.7 lets a weight be zero to mask a block); the helper works in Taylor
     coefficients, the `t!` factors being the adapter's; at order 0 it is the multiplication alone. The names of
     the two helpers are open (6.3).
   - **Considered and not taken:** a loss function passed by the caller and applied inside the pass.
+- **The sample stack on the outputs** (the maintainer, 2026-11-16, 01:26; it bears on 3.7, 5.4, 6.2 and 8.1).
+  - **The residual.** "The residual is f(x)-y or z-y, where y is the data, and z=f(x) is the model prediction of
+    the sampling map. The data y will typically be stacked over the W axis group ..., while the model prediction
+    z can be further batched over the base point batch axis group C, because the T3 itself can have a C batch.
+    Then, in the formula z-y, the data y is broadcast over C."
+  - **The transposes sum the samples by default.** "When it comes to the transposes which output cores, the
+    W-axes from the sample data gets incorporated into their C or K stacks (forget the details of which), unless
+    the option is given to sum the samples, in which case the W stack is summed. This is important since stacking
+    the W results at the front (as simple jax autodiff approaches do) would put it before the site index which
+    must come first, and necessitate a transpose and hence memory reordering. Right now, the default is to *not*
+    sum the W stack on transposes. For this refactor I would like to change the default so that it does sum the
+    stack, but keep the option to not sum it." (In the library today the flag is `sum_over_probes=False`, and an
+    unsummed `W` becomes the tangent stack `K` of the result, in the order `W + K + C`:
+    `docs/batching_and_stacking.md` section 11.)
+  - **Which layer supports the stacks.** "The optimization and fitting layers can assume that there is no C or K
+    stacks, but the sampling layer must support C and K stacking."
 - **3.6, the earlier record.** Decided on 2026-11-14 as inside, because computing `f` and `g` in one pass needs the residual formed
   inside the chunk scan. A reviewer argued for outside.
 
