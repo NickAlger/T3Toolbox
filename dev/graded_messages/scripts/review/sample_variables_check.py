@@ -13,6 +13,8 @@ This is the program of SAMPLE_VARIABLES.md, written out with the names of that p
      `nu_tilde`, `eta_tilde` against `compute_deta_tilde`, `compute_tau_tilde`, `compute_sigma_tilde`,
      `compute_dxi_tilde` of `backend/probing.py`.  There is one array per variable; it combines the residuals of
      every mode on its side.
+  E. THE VALUE READ OFF THE FRAME with the center cores `Vc` and `Hc` that the library's orthogonalization
+     returns, against the value through the base point's cores (target decision 4.1).
 
 A name is  <letter>[_<basis>][_tilde][_dot].  The letter is the side that is contracted: mu the left of a bond,
 nu the right of a bond, xi the leaf below a Tucker edge, eta the trunk above it.  The basis is written only where
@@ -312,6 +314,32 @@ def main(repo):
                 ok = ok and e < 1e-12
                 print('D. order 0, %s  %.0e   one array per site or bond, of shape %s'
                       % (name, e, ' '.join(str(tuple(a.shape)) for a in theirs)))
+
+    # ================= E. the value read off the frame, with the center cores (target decision 4.1) =======
+    # On a frame the library built from a point, with the centers its orthogonalization returns:
+    #   z[i] = z_term(eta[i], Vc[i])                              (the Tucker center, in place of D under U)
+    #   z[i] = z_term(eta_term(mu[i], Hc[i], nu[i+1]), D[i])      (the TT center, in place of U over D)
+    # and both equal the value through the base point's cores, z_term(eta_D[i], D[i]).
+    import t3toolbox.tucker_tensor_train as t3
+    import t3toolbox.backend.fv_conversions as fvc
+    np.random.seed(0)
+    x = t3.TuckerTensorTrain.randn(Ns, (3, 4, 2, 3), (1, 3, 2, 4, 1))
+    (D, U, L, R), (Vc, Hc) = fvc.t3_orthogonal_representations(x.data)
+    P = 3
+    w = [J.input_jet(P, ww[i], pp[i]) for i in range(d)]
+    xi = [xi_term(D[i], w[i]) for i in range(d)]
+    mu, nu, nu_L = [J.ones_start(P, W, 1)], [None] * d + [J.ones_start(P, W, 1)], [None] * d + [J.ones_start(P, W, 1)]
+    for i in range(d):
+        mu.append(mu_term(mu[i], L[i], xi[i]))
+    for i in reversed(range(d)):
+        nu[i] = nu_term(R[i], xi[i], nu[i + 1])
+        nu_L[i] = nu_term(L[i], xi[i], nu_L[i + 1])
+    z_through_D = [z_term(eta_term(mu[i], L[i], nu_L[i + 1]), D[i]) for i in range(d)]
+    z_Vc = [z_term(eta_term(mu[i], U[i], nu[i + 1]), Vc[i]) for i in range(d)]
+    z_Hc = [z_term(eta_term(mu[i], Hc[i], nu[i + 1]), D[i]) for i in range(d)]
+    e_V, e_H = err(z_Vc, z_through_D), err(z_Hc, z_through_D)
+    ok = ok and max(e_V, e_H) < 1e-12
+    print('E. order 2, the value off the frame against the value through D:  with Vc %.0e   with Hc %.0e' % (e_V, e_H))
 
     print('all checks passed' if ok else 'SOME CHECK FAILED')
 

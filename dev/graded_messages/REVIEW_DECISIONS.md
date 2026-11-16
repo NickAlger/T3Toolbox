@@ -1394,4 +1394,7 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   stays four stores; the centers are supplied beside it.
 - **Counts.** 26 rows decided, 26 remain.
 - **Open with it:** the name of the centers; the second half of 4.3; the rest of 4.2.
+- **01:54, the name.** The Tucker centers are `Vc` and the TT centers `Hc` (the maintainer: "Agree with Vc,
+  Hc."). `SAMPLE_VARIABLES.md` sections 1 and 6 now have them, and its check compares the three routes to the
+  value on the library's own frame.
 

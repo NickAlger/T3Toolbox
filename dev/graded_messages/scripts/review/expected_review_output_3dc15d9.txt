@@ -202,6 +202,7 @@ D. order 0, eta_tilde = dxi_tildes    3e-16   one array per site or bond, of sha
 A. order 2, the recurrences against the library:  z 3e-16   g 2e-16   Jp 3e-16   JtJp 4e-16   Kp 3e-16
 B. order 2, 14 variables as sums over where the direction and the seed are put:  equal (worst 5e-16)
 C. order 2, the direction at the 9 cut edges, as one side dotted against the other plain:  equal (worst 2e-16)
+E. order 2, the value off the frame against the value through D:  with Vc 6e-16   with Hc 4e-16
 all checks passed
 
 === arrow_type_check.py

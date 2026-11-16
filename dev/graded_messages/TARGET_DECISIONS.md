@@ -733,9 +733,13 @@ Notes:
     - the optimizers the library controls supply them;
     - centers that do not agree with `(D, L)` are an error in safe mode. (The check is core-sized. Claude
       believes it needs an orthogonal frame; not written.)
+  - **The name** (01:54). The maintainer: plain "tucker_centers" is unambiguous but long. Claude suggested
+    `Vc` for the Tucker centers and `Hc` for the TT centers: each has the shape of the direction core it sits in
+    place of, `V[i]` and `H[i]`, and `c` is for center. The maintainer: "Agree with Vc, Hc." The engine's
+    keyword is `Vc=`. Checked on the library's own frame and centers, with jets
+    (`scripts/review/sample_variables_check.py`, part E): the value with `Vc`, with `Hc`, and through `D` agree.
   - **Not decided by this:** what a trial point in a line search does (the second half of 4.3); whether the
-    four stores' agreement among themselves is also a precondition (the rest of 4.2); the name of the centers
-    as an argument (the maintainer: plain "tucker_centers" is unambiguous but long).
+    four stores' agreement among themselves is also a precondition (the rest of 4.2).
   - This reverses decision 7 of 2026-11-14 in part: reading the value off the frame is no longer parked. Its
     three objections were the missing guard (now the safe-mode check), the missing channel in the geometry
     protocol (now provided), and the library's caching audit (a fact about the present structure).

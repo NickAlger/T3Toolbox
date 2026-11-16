@@ -10,7 +10,8 @@ the ideas that led here are kept in `NOTATION_HISTORY.md`, marked as deprecated.
 
 **Checked** by `scripts/review/sample_variables_check.py`: the recurrences of section 5 against the library, and
 every definition "as a subnetwork" against its recurrence. Covered: the probe kind, ragged cores, numpy, one
-sample axis, orders 0 and 2. Not covered: apply and entries, the uniform layout, the `K` and `C` stacks.
+sample axis, orders 0 and 2. It also checks the tilde variables against the library's adjoint variables, and the
+value read off the frame with the center cores. Not covered: apply and entries, the uniform layout, the `K` and `C` stacks.
 
 ## 1. The network
 
@@ -45,6 +46,11 @@ A Tucker tensor train with `d` sites, numbered `0` to `d-1`, sampled at input ve
 - **A raw core direction at the base point** is `(D_dot, L_dot)`: `D_dot[i]` has the shape of `D[i]` and
   `L_dot[i]` the shape of `L[i]`. It is the direction the cores of the base point move in. On the corewise frame
   `(B, G, G, G)` the same thing is `(B_dot, G_dot)`.
+- **The center cores** `(Vc, Hc)` are the base point written into the frame's hole. `Vc[i]`, the Tucker center,
+  has the shape of `V[i]`; `Hc[i]`, the TT center, has the shape of `H[i]`. The network with `Vc[i]` under `U[i]`
+  at one site, or with `Hc[i]` over `D[i]` at one site, and `L` cores to the left and `R` cores to the right, is
+  the base point. The orthogonalization that builds the frame returns them. They are optional beside the frame
+  (target decision 4.1); where they are given and do not agree with `(D, L)`, that is an error in safe mode.
 - **The corewise frame** `(B, G, G, G)` has one basis on each edge. See section 9.
 
 **Two bases on each cut edge.** A manifold frame writes each bond in two bases, the `L` basis (size `rL_i`) and
@@ -242,7 +248,7 @@ Their names did not change. They are written here with the new names of what the
 
 | Name | Definition | What it is |
 | --- | --- | --- |
-| `z[i]` | `z_term(eta_D[i], D[i])` | the value: the whole network at the base point, with mode edge `i` open |
+| `z[i]` | `z_term(eta_D[i], D[i])`; or, where the Tucker centers are given, `z_term(eta[i], Vc[i])` | the value: the whole network at the base point, with mode edge `i` open. The two forms are equal; the second needs no sweep through the base point's cores |
 | `Jp[i]` | `z_term(eta_D_dot[i], D[i]) + z_term(eta[i], V[i])` | the direction's output: the whole network with the direction at one site and mode edge `i` open |
 | `V_tilde[i]` | top coefficient of `V_term(eta_tilde[i], w[i]) + V_term(eta[i], w_tilde[i])` | a block with the shape of `V[i]`: the whole network with the leaf core under `U[i]` taken out, and the seed in place of one input, which may be input `i` |
 | `H_tilde[i]` | top coefficient of `H_term(mu_tilde[i], xi[i], nu[i+1]) + H_term(mu[i], xi_tilde[i], nu[i+1]) + H_term(mu[i], xi[i], nu_tilde[i+1])` | a block with the shape of `H[i]`: the whole network with the TT core of site `i` taken out (`L` cores to its left, `R` cores to its right), and the seed in place of one input |
@@ -263,7 +269,7 @@ Their names did not change. They are written here with the new names of what the
 
 | Output | Reads |
 | --- | --- |
-| `z` | `xi`, `mu`, `nu_L`, `eta_D` |
+| `z` | `xi`, `mu`, `nu_L`, `eta_D`; or, with `Vc` given, `xi`, `mu`, `nu`, `eta` |
 | `g`, `JtJp` | `xi`, `mu`, `nu`, `eta`, and `xi_tilde`, `mu_tilde`, `nu_tilde`, `eta_tilde` |
 | `Jp` | `xi`, `mu`, `nu`, `eta`, and `xi_U_dot`, `mu_R_dot`, `nu_L_dot`, `eta_D_dot` |
 | `Kp` | `xi`, `mu`, `nu_L`; `xi_tilde`, `mu_tilde`, `nu_L_tilde`; `xi_dot`, `mu_dot`, `nu_L_dot`, `eta_D_dot`; `xi_tilde_dot`, `mu_tilde_dot`, `nu_L_tilde_dot`, `eta_D_tilde_dot` |
@@ -403,7 +409,8 @@ in the library. At the base point of a manifold frame it is now `(D_dot, L_dot)`
 Settled since this page was first written: the raw core direction is `(D_dot, L_dot)` (the maintainer,
 2026-11-16, 00:30; it had been `(B_dot, G_dot)` here, and is `core_directions` in the library, the first argument
 of the kind's `corewise_hessian`); step functions are named by letter and grade (section 5); and the tilde names
-always mean the residual's application of the transpose (section 5.3).
+always mean the residual's application of the transpose (section 5.3). The center cores are `Vc` and `Hc`
+(2026-11-16, 01:54), and the value may be read off the frame with `Vc` (sections 1 and 6).
 
 - **A call on the corewise frame** (section 9). The maintainer considered this principle (2026-11-16, 00:03):
   "The engine is designed for the manifold setting. When corewise operations are required, this is done by having
