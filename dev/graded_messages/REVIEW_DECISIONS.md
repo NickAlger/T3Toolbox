@@ -1547,3 +1547,19 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   the plan's field.
 - **Still to be confirmed:** how an order reads where the operands are jets (the proposal in the note to 5.5).
 - **Counts.** Unchanged: 40 rows decided, 12 remain.
+
+## 81. 8.1 under discussion: what `LocalModel` keeps; the weighted quadratic (2026-11-16, 04:08 to 04:41)
+
+- **Claude proposed** that `LocalModel` be the geometry, the oracle and the regularizer at one frame, with
+  `kind`, `sample`, `sweep` and `residual` no longer fields and `jacobian(p)` gone.
+- **The maintainer objected** (04:24): the model "serves as a holder for local information at a point, which may
+  be used by the user for their own optimizers or their own other purposes. Having access to the residual can be
+  useful for many purposes"; and MC-SGD needs Jacobian-vector products for the Cauchy step.
+- **Revised:** `residual` and `jacobian(p)` stay on the model as optional outputs of an oracle; the model's own
+  `gn_quadratic` and `hvp` use the fused quantities; nothing is stored that the plan's `hold` does not keep. He
+  agreed that `residual` and the sweep are not always-stored fields (04:41). The whole is still to be confirmed.
+- **The fused quadratic** (04:41): he asked whether it carries the weights (yes: `<Jp, omega^2 Jp>`, now checked
+  against `p` paired with `JtJp` with a random weight per mode and order), objected to the name `Jp_sumsq`
+  (open; `Jp_norm_sq` suggested), and asked how jets meet the inner product (diagonal, one weight per mode and
+  order by 2.5). Full record in the note to 8.1 of `TARGET_DECISIONS.md`.
+- **Counts.** Unchanged: 40 rows decided, 12 remain.

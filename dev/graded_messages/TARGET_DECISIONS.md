@@ -1410,6 +1410,52 @@ By 1.1 this section is in scope.
 
 Notes:
 
+- **8.1, under discussion** (2026-11-16, 04:08 to 04:41). Not decided.
+  - **Claude's first proposal** (04:08): `LocalModel` is the geometry, the oracle and the regularizer put together
+    at one frame. It holds `geom`, `oracle`, the frame with its centers, an opaque `held`, the regularizer, the
+    geometry's companion and the curvature state. `kind`, `sample`, `n_w`, `sweep` and `residual` stop being
+    fields, and `jacobian(p)` leaves the model.
+  - **The maintainer** (04:24): "I am concerned about getting rid of things from LocalModel. It serves as a holder
+    for local information at a point, which may be used by the user for their own optimizers or their own other
+    purposes. Having access to the residual can be useful for many purposes. Another concern is MC-SGD: we need
+    Jacobian vector products for setting the Cauchy step length. That said, the local model contains the oracle
+    within it, so these things would still remain accessible. Can you explain more the reasoning behind your
+    proposal?"
+  - **The reasoning, as Claude then put it, with the maintainer's answers of 04:41:**
+    1. The model's own methods are not to be built on arrays over the samples: `gn_quadratic` and `hvp` ask for
+       the fused quantities (`<Jp, omega^2 Jp>` and `JtJp`), formed chunk by chunk, and do not call `jacobian`.
+       MC-SGD's Cauchy step is `|g|^2 / gn_quadratic(g)` today and stays that. His answer raised three points
+       about the fused quadratic, taken below.
+    2. `residual` and the sweep are not always-stored fields, because the plan's `hold` decides what is kept;
+       `residual` becomes something the model returns on request, read from the held variables if `r` is held
+       and computed otherwise. "Agree."
+    3. "A general oracle has no sample space" was too strong and is withdrawn: an oracle that gives `JtJp` has a
+       `J`. What is true is that the model cannot know the shape of `Jp` and `r` for a user's oracle, and it does
+       not need to. "Ok understood".
+  - **The revised proposal** (04:24, Claude's): `residual` and `jacobian(p)` stay on `LocalModel`; both are
+    optional outputs of an oracle, like `Kp` (the least-squares oracle supplies them; without them those two
+    raise and the rest works); `gn_quadratic` and `hvp` use the fused quantities; `model.oracle`, `model.frame`
+    and `model.held` keep the rest of the local information reachable. This would amend 8.2: `f`, `g`, `JtJp`
+    and the weighted quadratic required; `Kp`, `Jp`, `r` optional. To be confirmed as a whole.
+  - **The fused quadratic, his three points** (04:41): "Does Jp_sumsq incorporate weights properly? Since we are
+    leaning heavily on weights now, this must work. Also, I do not like the name Jp_sumsq since the desired
+    quantity is ||Jp||=<Jp,Jp> under weighted norm/inner product. Another thing I am unsure of is how the jetting
+    is supposed to interact with the norm/inner product. I think we just "sumsq with weights" on the non-jet axes
+    and sumsq regular on the jet axes, though I'm not sure."
+    - **Weights.** By 3.6 and 3.7 the quantity is `<Jp, omega^2 Jp>`, the same number as `p` paired with `JtJp`.
+      Checked (`scripts/review/jet_steps_check.py`, the line added on 2026-11-16): with a random weight for every
+      mode and order, at orders 0, 2 and 4, the two agree to rounding, and each agrees with the library's own
+      weighted kind. Not covered there: apply and entries, the `K` and `C` stacks, the uniform layout.
+    - **The name.** Open. Claude's suggestion: `Jp_norm_sq`, with `sumsq` kept for the plain sum of squares
+      (`r_block_sumsq`, which is unweighted) and `norm_sq` meaning the squared norm in the weighted inner
+      product; the library has `point_norm_sq`. The other candidate: `pJtJp`.
+    - **Jets and the inner product.** By 2.5 the weight has one entry for each mode and order (`(d,) + T` for
+      probe, `T` for apply and entries), so the order axis is weighted too, one weight per order; the samples
+      and the free mode index are summed plainly. The inner product is diagonal: order `t` with order `t`, no
+      term between different orders. The jet structure enters only in the pairing of a jet with a dual jet
+      (order `t` with order `top - t`, 2.4), which the adjoint sweep uses inside; the helper of 3.6 (the weight,
+      then the turn of the order leg) is what takes one to the other.
+
 - **8.2, decided, the name apart** (2026-11-16, 02:45). The maintainer: "I agree with this data structure.
   However, I would like to find another word than objective. When the user hears "objective", they may think
   just "f", and not all of the other things that come bundled with it."

@@ -287,6 +287,10 @@ def main(repo):
                  abs(Jp_sumsq - float(kind.sumsq(Jp_ref, n_w))) / float(kind.sumsq(Jp_ref, n_w)),
                  err(JtJp_V + JtJp_H, list(JtJp_ref[0]) + list(JtJp_ref[1])),
                  err(Kp_V + Kp_H, list(Kp_ref[0]) + list(Kp_ref[1]))))
+        # the weighted quadratic two ways: <Jp, omega^2 Jp> with no adjoint sweep, and p paired with JtJp
+        p_JtJp = sum(float(np.sum(a * b)) for a, b in zip(list(V) + list(H), JtJp_V + JtJp_H))
+        print('          <Jp, omega^2 Jp> against <p, JtJp>, random weight per mode and order   %.1e'
+              % (abs(Jp_sumsq - p_JtJp) / abs(p_JtJp)))
 
     import inspect
     import re
