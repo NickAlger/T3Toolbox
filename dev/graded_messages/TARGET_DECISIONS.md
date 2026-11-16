@@ -30,20 +30,20 @@ planned only after the target is settled.
 
 ## What remains, in groups (2026-11-15, 15:34)
 
-Of the 56 rows in sections 1 to 9, 28 are decided, 3 are guidance and 1 is parked. The other 24 are below, in
+Of the 56 rows in sections 1 to 9, 29 are decided, 3 are guidance and 1 is parked. The other 23 are below, in
 seven groups that cut across the sections. The grouping and the suggested order are Claude's, made at the
 maintainer's request; they decide nothing.
 
 | Group | Rows | Open | Reopened | To confirm | Held |
 | --- | --- | --- | --- | --- | --- |
 | A. Jets and the misfit | 0 | | | | |
-| B. The frame and the value | 3 | | 1 | 2 | |
+| B. The frame and the value | 2 | | | 2 | |
 | C. What a kind is, and the public surface | 7 | 4 | 2 | 1 | |
 | D. One program for every layout and stack | 5 | 3 | 1 | 1 | |
 | E. Plans, memory and scale | 5 | 3 | 2 | | |
 | F. The fitting layer above | 3 | 1 | | 2 | |
 | G. What defines correct | 1 | 1 | | | |
-| Total | 24 | 12 | 6 | 6 | |
+| Total | 23 | 12 | 5 | 6 | |
 
 - **A. Jets and the misfit.** (Decided on the afternoon of 2026-11-15: 2.4, what a tilde jet is; 2.5, the misfit;
   2.3, the derivative-mode adapter; and, at 19:32, 2.9, how a term is carried out over the orders.)
@@ -51,7 +51,7 @@ maintainer's request; they decide nothing.
   stack on each output; at 01:36, 3.3, which adjoint sweep a tilde name refers to.) Group A is finished.
 - **B. The frame and the value.** (Decided on 2026-11-16: at 01:52, 4.1, what a frame is, with the centers' part
   of 4.2; at 01:59, 4.3, the route to the value at a trial point; at 02:07, the rest of 4.2, frame
-  consistency.) 4.4 tails and boundaries (reopened); 3.2 whether `gamma` (now `nu_L`) is
+  consistency; at 02:12, 4.4, tails and boundaries.) 3.2 whether `gamma` (now `nu_L`) is
   first-class (to confirm, depends on 4.1); 4.5 where the projection, the lift and the Hessian assembly live (to
   confirm).
 - **C. What a kind is, and the public surface.** 3.4 what a sampling kind is and whether a user can define one
@@ -702,7 +702,7 @@ Notes:
 | 4.1 | A frame is the four stores `(D, U, L, R)`, and `(D, L)` is the base point. The Tucker center cores may be supplied beside it. With them the value is read off the frame, `z[i]` being `eta[i]` through the center; without them it goes through `D` | Decided | 1.1, 1.2 |
 | 4.2 | Frame consistency (the four stores describe one tensor; given centers agree with it) is a precondition, checked in safe mode at the moment a function that requires it is called, and never otherwise. No runtime safety check goes through a dense tensor | Decided | 4.1 |
 | 4.3 | At an accepted point the value is read off the frame with `Vc` (4.1). At a trial point the optimizers offer three policies: the trial's raw cores; a frame at every trial, with its plain variables held for the accepted one (the default); a frame at every trial with the gradient computed with the value | Decided | 4.1 |
-| 4.4 | Tails and boundaries: are default frames squashed, what are the boundary vectors, and what is the contract at the ends of the frame? | Reopened | 4.1 |
+| 4.4 | Frames support arbitrary tails, and nothing checks for them. The boundary vector is ones, sized by the end bond of the cores passed. A function that requires squashed tails is to be looked at with suspicion | Decided | 4.1 |
 | 4.5 | Where do the gauge projection, the lift, and the assembly of the exact Hessian product live? | To confirm | 1.1 |
 
 Notes:
@@ -789,7 +789,25 @@ Notes:
   frame. Two of the reasons were that the geometry protocol has no channel for the center cores and that the
   library's caching audit had declined it. Those are facts about the present structure. The counts of sample
   sweeps per outer iteration (`t + 2` today, `t + 1`, or `t` with a frame per trial) do not depend on them.
-- **4.4.** Adopted on 2026-11-14 "as the library does it".
+- **4.4, decided** (2026-11-16, 02:12). The maintainer: "Frames must support arbitrary tails. Allow and do not
+  check. Functions which require squashed tails should be looked at with suspicion."
+  - **Background.** A TT whose end bonds are larger than 1 (tails) stands for the tensor with those two end
+    indices summed, that is, contracted with a vector of ones. Squashing sums the end index into the end core.
+  - **Put with the question, and not objected to:** the boundary vector is ones, sized by the end bond of
+    whatever cores are passed, so tails work everywhere in the engine with nothing special-cased (a requirement
+    with a test); and each sweep's start value follows from its grade: ones for plain (with jets, ones at order
+    0 and zero above), zeros for dot, tilde-dot and the probe kind's tilde, and the seed times the ones vector
+    at the right end for the tilde of apply and entries.
+  - **Noted by Claude with the choice:** on a frame with tails, variations of an end core that sum to zero over
+    the tail index change nothing, so the tangent coordinates are not unique there. That is the caller's
+    business.
+  - **Not spoken of:** that the frames the library builds are squashed by default (`squash_tails=True` today).
+  - **For the branch, from his last sentence:** an audit of the library's functions that squash or assume
+    squashed tails. First candidates from a search for "squash": the default of
+    `t3_orthogonal_representations` and its uniform twins; `geometry.point_norm_sq`, which squashes before it
+    reads the norm off the last core; the uniform `+`, stack sum and SVD paths, which squash; and a comment in
+    `backend/fv_operations.py` that reasons "on the usual squashed frame". Not examined.
+- **4.4, the earlier record.** Adopted on 2026-11-14 "as the library does it".
 - **4.3, after the geometry boundary.** A new function that retracts and builds the frame together may be added.
   The existing retraction and frame construction keep their signatures and behaviour.
 - **4.5, what is and is not proposed.** Nothing is proposed for the projection or the lift. The suggestion to

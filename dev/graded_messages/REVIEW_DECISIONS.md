@@ -1418,3 +1418,12 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   `U`.
 - **Counts.** 28 rows decided, 24 remain. Group B has three left: 4.4, 3.2, 4.5.
 
+## 68. 4.4 decided: frames support arbitrary tails, unchecked (2026-11-16, 02:12)
+
+- **The maintainer:** "Frames must support arbitrary tails. Allow and do not check. Functions which require
+  squashed tails should be looked at with suspicion."
+- **Decided,** with the boundary vector of ones sized by the cores passed, and the start values by grade (note
+  to 4.4 of `TARGET_DECISIONS.md`). An audit of the functions that squash or assume squashed tails is noted for
+  the branch.
+- **Counts.** 29 rows decided, 23 remain. Group B has two left, both to confirm: 3.2 and 4.5.
+
