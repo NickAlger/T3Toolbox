@@ -174,3 +174,28 @@ commit `5ca2030`). The tab already held the content of `ee23f44` itself: the 20:
 - Evaluator: the drawings were not inspected.
 - Target decisions: the 04:57/05:26 glosses had no place in the tab's condensed notes, so they were not added.
 - No guard was refused, and no `anchors_affected` came up in any tab.
+
+## Follow-up: the decisions after 9b89f0d (files at 24e5174)
+
+**Target decisions** (a85e3927-c6f2), rev 138 -> 145.
+- Counts paragraph .38200: 25 decided, the other 27 (by quoted words).
+- Group table: A Rows 2 -> 0 (.38534), A To confirm 2 -> blank (char deleted), Total 29 -> 27 (.38836), To confirm 8 -> 6 (.38847). The tab-only "Held" texts in the table were left alone.
+- "The six rows marked to confirm" (.41263, by quoted words).
+- Group-A bullet .38855: the 3.7/3.3 tail replaced in the tab's own condensed style, "(3.7, what happens to the sample stack on each output, was decided at 01:32; 3.3, which adjoint sweep a tilde name refers to, at 01:36.) Group A is finished." This is not the file's wording.
+- Row 3.3: question cell .5467, status .5523 Decided, depends .5535 "6.5". Row 3.7: question cell .5792, status .5851 Decided.
+- Row 2.3 depends cell .3367: "2.2, 1.1" -> "2.2, 6.7".
+- 3.6 note, "So:" sub-bullet .84514 replaced (omega / omega^2, and the note on `W`).
+- Inserted after the 3.6-decided item .82996: "3.3, decided" (.97512), "3.7, decided" with its three-row table (.98726), and "The sample stack on the outputs" (.100169). The maintainer's quotations were pasted from the file word for word.
+- All whole-block replaces were guarded (ifHash + ifRev 138). Nothing was refused.
+- Checked by search and view at rev 145:
+  - "23 are", "2.2, 1.1" and "seeded tilde copies" no longer occur;
+  - the new items, the table and the 3.6 sub-bullet read as the file does;
+  - the order matches the file (3.6 decided, 3.3, 3.7, sample stack, 3.6 earlier record).
+- Still behind the file, left alone:
+  - The §6 note "The seeds (3.3)" (.91378) still says "which seeded copies are public". That text was not in this diff, so it was left alone.
+
+**Sample variables** (7ac6b36f-4b0a), rev 7 -> 11.
+- §5.3 paragraph .11941: the closing two sentences ("Target decision 3.3 is only about names ...") deleted by quoted words. The new paragraph "The tilde names always mean the residual's application ..." was inserted after it (.38855).
+- §11 "Settled since ..." .36962: extended by quoted words.
+- §11 bullet .38239 ("Which application of the transpose ...") deleted (guarded, ifHash cc0b5cc2, ifRev 7).
+- Checked at rev 11: §5.3 now ends "... linear in its seed." and is followed by the new paragraph. §11 reads as the file does, with three bullets left. Nothing was refused.
