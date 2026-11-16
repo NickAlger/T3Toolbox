@@ -1427,3 +1427,14 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   the branch.
 - **Counts.** 29 rows decided, 23 remain. Group B has two left, both to confirm: 3.2 and 4.5.
 
+## 69. Group B finished: 3.2 and 4.5 decided; the tails discipline limited to what the refactor touches (2026-11-16, 02:16)
+
+- **The maintainer:** "This refactor arc is already too big to add a broader squash tails drift audit on top.
+  Keep the squash tails discipline to the functions we touch here and we can deal with other ones at a later
+  time." And: "3.2: Agree with proposal." "4.5: Agree with proposal."
+- **3.2:** `nu_L` stays as an ordinary variable; only `Kp`, and the value through `D`, read it.
+- **4.5:** the projection, the lift and the assembly of the exact Hessian product stay in the geometry; the
+  engine returns blocks before projection and takes the lifted direction `(D_dot, L_dot)`.
+- **Counts.** 31 rows decided, 21 remain. Groups A and B are finished. Next by the suggested order: group C,
+  what a kind is and the public surface (3.4, 8.2, 6.2, 6.3, 6.4, 6.5, 9.2).
+

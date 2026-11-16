@@ -30,30 +30,29 @@ planned only after the target is settled.
 
 ## What remains, in groups (2026-11-15, 15:34)
 
-Of the 56 rows in sections 1 to 9, 29 are decided, 3 are guidance and 1 is parked. The other 23 are below, in
+Of the 56 rows in sections 1 to 9, 31 are decided, 3 are guidance and 1 is parked. The other 21 are below, in
 seven groups that cut across the sections. The grouping and the suggested order are Claude's, made at the
 maintainer's request; they decide nothing.
 
 | Group | Rows | Open | Reopened | To confirm | Held |
 | --- | --- | --- | --- | --- | --- |
 | A. Jets and the misfit | 0 | | | | |
-| B. The frame and the value | 2 | | | 2 | |
+| B. The frame and the value | 0 | | | | |
 | C. What a kind is, and the public surface | 7 | 4 | 2 | 1 | |
 | D. One program for every layout and stack | 5 | 3 | 1 | 1 | |
 | E. Plans, memory and scale | 5 | 3 | 2 | | |
 | F. The fitting layer above | 3 | 1 | | 2 | |
 | G. What defines correct | 1 | 1 | | | |
-| Total | 23 | 12 | 5 | 6 | |
+| Total | 21 | 12 | 5 | 4 | |
 
 - **A. Jets and the misfit.** (Decided on the afternoon of 2026-11-15: 2.4, what a tilde jet is; 2.5, the misfit;
   2.3, the derivative-mode adapter; and, at 19:32, 2.9, how a term is carried out over the orders.)
   (And on 2026-11-16: at 01:04, 3.6, the weight inside the engine; at 01:32, 3.7, what happens to the sample
   stack on each output; at 01:36, 3.3, which adjoint sweep a tilde name refers to.) Group A is finished.
-- **B. The frame and the value.** (Decided on 2026-11-16: at 01:52, 4.1, what a frame is, with the centers' part
-  of 4.2; at 01:59, 4.3, the route to the value at a trial point; at 02:07, the rest of 4.2, frame
-  consistency; at 02:12, 4.4, tails and boundaries.) 3.2 whether `gamma` (now `nu_L`) is
-  first-class (to confirm, depends on 4.1); 4.5 where the projection, the lift and the Hessian assembly live (to
-  confirm).
+- **B. The frame and the value.** Finished on 2026-11-16: at 01:52, 4.1, what a frame is, with the centers' part
+  of 4.2; at 01:59, 4.3, the route to the value at a trial point; at 02:07, the rest of 4.2, frame consistency;
+  at 02:12, 4.4, tails and boundaries; at 02:16, 3.2, `nu_L` stays, and 4.5, the projection, the lift and the
+  Hessian assembly stay in the geometry.
 - **C. What a kind is, and the public surface.** 3.4 what a sampling kind is and whether a user can define one
   (reopened); 8.2 the fitting layer's kind object (open); 6.2 the remaining arguments of `sampling_variables`
   (open; the sample and the direction are decided); 6.3 the other public functions (reopened); 6.4 which
@@ -74,7 +73,7 @@ maintainer's request; they decide nothing.
 wait on 4.1 and 4.5. C feeds F: 8.1 and 8.3 need the public surface. D and E are each mostly self-contained; E's
 7.3 is tied to F's 8.1. G bears on how every other answer is checked.
 
-**The six rows marked to confirm** are earlier decisions that were not taken for reasons of compatibility.
+**The four rows marked to confirm** are earlier decisions that were not taken for reasons of compatibility.
 They may go quickly, several at a time.
 
 **Outside the list:** 8.5 shared sample vectors (parked); weights on internal edges as inner products (parked for
@@ -590,7 +589,7 @@ Notes:
 | # | Question | Status | Depends on |
 | --- | --- | --- | --- |
 | 3.1 | The primitives of a variable's name are a letter for the side contracted (`mu`, `nu`, `xi`, `eta`), the basis of the cut edge where it is not the usual one, and a grade (plain, dot, tilde, tilde-dot) | Decided | 9.6 |
-| 3.2 | Is `gamma` (now `nu_L`) a first-class variable, or does a different frame convention remove the need for it? | To confirm | 4.1 |
+| 3.2 | `nu_L` (`gamma` until 2026-11-15, 23:23) stays, as an ordinary variable. It is computed only when `Kp` is wanted, or when the value goes through `D`. No frame convention removes it | Decided | 4.1 |
 | 3.3 | The tilde names always mean the adjoint sweep of the residual. The adjoint sweep of `Jp` has no names in a call that also holds the residual's; its variables are reached by a call with `Jp` given as the residual | Decided | 6.5 |
 | 3.4 | What is a sampling kind in the target, and can a user define one? | Reopened | 1.1 |
 | 3.5 | The output is `z` for every kind | Decided | |
@@ -602,6 +601,11 @@ Notes:
 - **3.1, decided with the notation** (2026-11-15, 23:23; see 9.6). The question was whether letters and grades
   are the right primitives. The notation the maintainer locked in has three: the letter, the basis and the
   grade. That this closes 3.1 is Claude's reading of his decision, to be corrected if wrong.
+- **3.2, decided** (2026-11-16, 02:16). The maintainer: "3.2: Agree with proposal." With `Vc` the value no
+  longer reads `nu_L`. `Kp` still does: the curvature term is taken at the base point in its own cores, so the
+  right of every bond has to be in the `L` basis there, and with slack ranks `nu_L` cannot be recovered from
+  `nu`. So `nu_L` stays, a variable like every other, computed only when `Kp` is wanted or when the value goes
+  through `D`.
 - **3.2, what the notation changes.** The variable is now `nu_L`: the right of a bond in the `L` basis. The
   letter `gamma` is retired. It can be wanted and held like every variable (confirmed at 21:57). What stays to
   confirm is the second half of the question, which waits on 4.1: whether a different frame convention removes
@@ -703,7 +707,7 @@ Notes:
 | 4.2 | Frame consistency (the four stores describe one tensor; given centers agree with it) is a precondition, checked in safe mode at the moment a function that requires it is called, and never otherwise. No runtime safety check goes through a dense tensor | Decided | 4.1 |
 | 4.3 | At an accepted point the value is read off the frame with `Vc` (4.1). At a trial point the optimizers offer three policies: the trial's raw cores; a frame at every trial, with its plain variables held for the accepted one (the default); a frame at every trial with the gradient computed with the value | Decided | 4.1 |
 | 4.4 | Frames support arbitrary tails, and nothing checks for them. The boundary vector is ones, sized by the end bond of the cores passed. A function that requires squashed tails is to be looked at with suspicion | Decided | 4.1 |
-| 4.5 | Where do the gauge projection, the lift, and the assembly of the exact Hessian product live? | To confirm | 1.1 |
+| 4.5 | The gauge projection, the lift and the assembly of the exact Hessian product live in the geometry and are called by the fitting layer. The sampling layer never knows the geometry: it returns blocks before projection and takes the lifted direction `(D_dot, L_dot)` for `Kp` | Decided | 1.1 |
 
 Notes:
 
@@ -802,14 +806,19 @@ Notes:
     the tail index change nothing, so the tangent coordinates are not unique there. That is the caller's
     business.
   - **Not spoken of:** that the frames the library builds are squashed by default (`squash_tails=True` today).
-  - **For the branch, from his last sentence:** an audit of the library's functions that squash or assume
-    squashed tails. First candidates from a search for "squash": the default of
-    `t3_orthogonal_representations` and its uniform twins; `geometry.point_norm_sq`, which squashes before it
-    reads the norm off the last core; the uniform `+`, stack sum and SVD paths, which squash; and a comment in
-    `backend/fv_operations.py` that reasons "on the usual squashed frame". Not examined.
+  - **The reach of his last sentence** (02:16). Claude had noted a library-wide audit of the functions that
+    squash or assume squashed tails. The maintainer: "This refactor arc is already too big to add a broader
+    squash tails drift audit on top. Keep the squash tails discipline to the functions we touch here and we can
+    deal with other ones at a later time." So: every function this refactor writes or touches supports arbitrary
+    tails; the rest of the library is left for later.
 - **4.4, the earlier record.** Adopted on 2026-11-14 "as the library does it".
 - **4.3, after the geometry boundary.** A new function that retracts and builds the frame together may be added.
   The existing retraction and frame construction keep their signatures and behaviour.
+- **4.5, decided** (2026-11-16, 02:16). The maintainer: "4.5: Agree with proposal." The projection, the lift
+  and the assembly of the exact Hessian product stay in the geometry and are called by the fitting layer. The
+  engine returns `g` and `JtJp` as blocks before any projection, takes the direction as `(V, H)` for `Jp` and,
+  already lifted, as `(D_dot, L_dot)` for `Kp`. This is what lets tied Tucker factors stay a wrapper around a
+  geometry.
 - **4.5, what is and is not proposed.** Nothing is proposed for the projection or the lift. The suggestion to
   confirm is that they stay where they are: the geometry owns them and the fitting layer calls them, so the
   sampling layer returns the blocks before projection, takes the already-lifted direction for the curvature term,
