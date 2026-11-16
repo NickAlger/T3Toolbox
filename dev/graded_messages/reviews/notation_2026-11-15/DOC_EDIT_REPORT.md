@@ -199,3 +199,26 @@ commit `5ca2030`). The tab already held the content of `ee23f44` itself: the 20:
 - §11 "Settled since ..." .36962: extended by quoted words.
 - §11 bullet .38239 ("Which application of the transpose ...") deleted (guarded, ifHash cc0b5cc2, ifRev 7).
 - Checked at rev 11: §5.3 now ends "... linear in its seed." and is followed by the new paragraph. §11 reads as the file does, with three bullets left. Nothing was refused.
+
+## Follow-up 2: the decisions after 24e5174 (files at df17105)
+
+**Target decisions** (a85e3927-c6f2), rev 145 -> 146, one call.
+- Guarded replaces (ifRev 145):
+  - counts paragraph .38200 (26 decided, the other 26);
+  - group B cells .38577 Rows 5 and .38582 Reopened 3;
+  - Total cells .38836 26 and .38844 Reopened 8;
+  - group-B bullet .39303, from the file's wording;
+  - row 4.1 question cell .6650 and status cell .6798 Decided.
+- Inserted the note "4.1, the first half of 4.3, and the centers' part of 4.2, decided" (.101695) before "4.1 to 4.3." (.7332). It has seven sub-bullets, with the four-item "Decided" list nested. The quotations were pasted from the file.
+- Checked at rev 146 by viewing the note in full and the changed cells.
+
+**Sample variables** (7ac6b36f-4b0a), rev 11 -> 14.
+- Guarded replaces:
+  - the "Checked" paragraph .643;
+  - the `z[i]` row cells .35417 and .35441;
+  - the `z` "Reads" cell .15139.
+- Inserted the bullet "The center cores (Vc, Hc) ..." (.39502) before the corewise-frame bullet .2659.
+- Extended "Settled since ..." .36962. My first edit, by quoted words, left `Vc`/`Hc` without code marks. A second guarded replace (h fbbd8a33, ifRev 13, from a fresh read) restored them.
+- Checked at rev 14 by search: the order in section 1 and the four passages match the file.
+
+No guard was refused.
