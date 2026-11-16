@@ -78,7 +78,9 @@ wait on 4.1 and 4.5. C feeds F: 8.1 and 8.3 need the public surface. D and E are
 They may go quickly, several at a time.
 
 **Outside the list:** 8.5 shared sample vectors (parked); weights on internal edges as inner products (parked for
-another arc); review finding F17 (never discussed; listed under "After the target").
+another arc); review finding F17 (never discussed; listed under "After the target"); forward-only probing as a
+setting of the probe kind (left off this arc on 2026-11-16, 02:28); a library-wide audit of functions that
+require squashed tails (left for later on 2026-11-16, 02:16).
 
 ## How to read the status column
 
@@ -632,6 +634,11 @@ Notes:
   - **Decided: the split by layer.** In the sampling layer a kind is closed, and a new sampling operator is an
     addition to the library. The open extension point is in the fitting layer: a protocol for an objective that
     says what the optimizers need from it. What the protocol contains is 8.2 and 8.3.
+  - **Forward-only probing, left off this arc** (02:28). Claude raised it as the probe kind with only some
+    modes left open: a field of the kind's description, "all modes" by default, which lets the engine skip about
+    half the sweeps where a zero weight could not (a weight is data; a set of open modes is structure). Not
+    prototyped. The maintainer: "Leave it off this arc. Nice to have not need to have." So the probe kind of
+    this arc has every mode open and no such field.
   - **For when the refactor lands:** this answers the library's standing open question, which by the
     repository's rule is not archived until it is resolved. That file is to be given its resolution then.
 - **3.4, the earlier record.** Decision 8 left the `SamplingKind` protocol unchanged so that user-written kinds keep working. That is a

@@ -1446,4 +1446,6 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
 - **Counts.** 32 rows decided, 20 remain. Group C has six left: 8.2, 6.2, 6.3, 6.4, 6.5, 9.2.
 - **Raised next by Claude:** forward-only probing, which that file says T3Polynomial needs, as the probe kind
   with only some modes left open: a parameter of the built-in kind.
+- **02:28, forward-only probing.** The maintainer: "Leave it off this arc. Nice to have not need to have." It
+  is listed among the things outside the list in `TARGET_DECISIONS.md`.
 
