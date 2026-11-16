@@ -215,9 +215,13 @@ along the chain in one sweep (the library's `_tau_tilde_step`: the carry through
 **The transpose is applied twice in a Newton step, to two different seeds.** With the weighted residual as the
 seed it gives the gradient `g`. With the weighted `Jp` as the seed it gives `JtJp`. These are two applications of
 one map, as in the library today, where the kind's `transpose` is called once with the residual and once with
-`Jp`. Each application has its own tilde variables while it runs, and each is linear in its seed. Target
-decision 3.3 is only about names: when one call computes both `g` and `JtJp`, which of the two applications does
-the name `mu_tilde` refer to. It is not a question about the algorithm.
+`Jp`. Each application has its own tilde variables while it runs, and each is linear in its seed.
+
+**The tilde names always mean the residual's application** (target decision 3.3, decided 2026-11-16, 01:36).
+When one call computes `JtJp` and `Kp` together, both applications run in that pass. The names `xi_tilde`,
+`mu_tilde` and the rest refer to the one seeded by the residual: `Kp` reads those, and they change only when the
+point or the data change. The application seeded by `Jp` has no names in that call. Its variables are reached by
+a call with `Jp` given as the residual, where they carry the ordinary names.
 
 ### 5.4 Tilde-dot: both
 
@@ -398,7 +402,8 @@ in the library. At the base point of a manifold frame it is now `(D_dot, L_dot)`
 
 Settled since this page was first written: the raw core direction is `(D_dot, L_dot)` (the maintainer,
 2026-11-16, 00:30; it had been `(B_dot, G_dot)` here, and is `core_directions` in the library, the first argument
-of the kind's `corewise_hessian`); and step functions are named by letter and grade (section 5).
+of the kind's `corewise_hessian`); step functions are named by letter and grade (section 5); and the tilde names
+always mean the residual's application of the transpose (section 5.3).
 
 - **A call on the corewise frame** (section 9). The maintainer considered this principle (2026-11-16, 00:03):
   "The engine is designed for the manifold setting. When corewise operations are required, this is done by having
@@ -408,8 +413,6 @@ of the kind's `corewise_hessian`); and step functions are named by letter and gr
   unacceptable." The cost meant: with `(B, G, G, G)` put in, the engine does not know that `nu` and `nu_L` are
   one array, and sweeps twice when both `z` and `g` are wanted. So a call on a corewise frame must not sweep
   twice. How the engine is told, and which spellings such a call accepts, are open.
-- **Which application of the transpose a tilde name refers to**, when one call computes both `g` and `JtJp`
-  (target decision 3.3; section 5.3).
 - What the dots that `Kp` reads are when the curvature damping is above zero (section 5.2).
 - In a formula the index is written as a subscript after the basis, as in `L,3`. This is how the drawings were
   made and shown; the maintainer asked for the basis as a subscript and did not speak of the index.

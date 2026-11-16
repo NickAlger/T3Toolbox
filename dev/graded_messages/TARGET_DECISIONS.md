@@ -30,26 +30,25 @@ planned only after the target is settled.
 
 ## What remains, in groups (2026-11-15, 15:34)
 
-Of the 56 rows in sections 1 to 9, 24 are decided, 3 are guidance and 1 is parked. The other 28 are below, in
+Of the 56 rows in sections 1 to 9, 25 are decided, 3 are guidance and 1 is parked. The other 27 are below, in
 seven groups that cut across the sections. The grouping and the suggested order are Claude's, made at the
 maintainer's request; they decide nothing.
 
 | Group | Rows | Open | Reopened | To confirm | Held |
 | --- | --- | --- | --- | --- | --- |
-| A. Jets and the misfit | 1 | | | 1 | |
+| A. Jets and the misfit | 0 | | | | |
 | B. The frame and the value | 6 | | 4 | 2 | |
 | C. What a kind is, and the public surface | 7 | 4 | 2 | 1 | |
 | D. One program for every layout and stack | 5 | 3 | 1 | 1 | |
 | E. Plans, memory and scale | 5 | 3 | 2 | | |
 | F. The fitting layer above | 3 | 1 | | 2 | |
 | G. What defines correct | 1 | 1 | | | |
-| Total | 28 | 12 | 9 | 7 | |
+| Total | 27 | 12 | 9 | 6 | |
 
 - **A. Jets and the misfit.** (Decided on the afternoon of 2026-11-15: 2.4, what a tilde jet is; 2.5, the misfit;
   2.3, the derivative-mode adapter; and, at 19:32, 2.9, how a term is carried out over the orders.)
   (And on 2026-11-16: at 01:04, 3.6, the weight inside the engine; at 01:32, 3.7, what happens to the sample
-  stack on each output.) 3.3 which seeded tilde copies are public (to confirm). The type catalog bears
-  on all three.
+  stack on each output; at 01:36, 3.3, which adjoint sweep a tilde name refers to.) Group A is finished.
 - **B. The frame and the value.** 4.1 what a frame is (reopened); 4.2 frame consistency (reopened); 4.3 the route
   to the value (reopened); 4.4 tails and boundaries (reopened); 3.2 whether `gamma` (now `nu_L`) is first-class
   (to confirm, depends on 4.1); 4.5 where the projection, the lift and the Hessian assembly live (to confirm).
@@ -73,7 +72,7 @@ maintainer's request; they decide nothing.
 wait on 4.1 and 4.5. C feeds F: 8.1 and 8.3 need the public surface. D and E are each mostly self-contained; E's
 7.3 is tied to F's 8.1. G bears on how every other answer is checked.
 
-**The seven rows marked to confirm** are earlier decisions that were not taken for reasons of compatibility.
+**The six rows marked to confirm** are earlier decisions that were not taken for reasons of compatibility.
 They may go quickly, several at a time.
 
 **Outside the list:** 8.5 shared sample vectors (parked); weights on internal edges as inner products (parked for
@@ -590,7 +589,7 @@ Notes:
 | --- | --- | --- | --- |
 | 3.1 | The primitives of a variable's name are a letter for the side contracted (`mu`, `nu`, `xi`, `eta`), the basis of the cut edge where it is not the usual one, and a grade (plain, dot, tilde, tilde-dot) | Decided | 9.6 |
 | 3.2 | Is `gamma` (now `nu_L`) a first-class variable, or does a different frame convention remove the need for it? | To confirm | 4.1 |
-| 3.3 | Which seeded copies of the tilde variables are public? | To confirm | |
+| 3.3 | The tilde names always mean the adjoint sweep of the residual. The adjoint sweep of `Jp` has no names in a call that also holds the residual's; its variables are reached by a call with `Jp` given as the residual | Decided | 6.5 |
 | 3.4 | What is a sampling kind in the target, and can a user define one? | Reopened | 1.1 |
 | 3.5 | The output is `z` for every kind | Decided | |
 | 3.6 | The engine takes the data `y` and an optional `weight` (ones by default). The weight acts on `f`, `g`, `JtJp` and `Kp` alike, through one public helper that turns a jet into a dual jet. The bare transpose takes a seed and no weight. The engine has no other notion of a loss | Decided | 1.1 |
@@ -639,6 +638,20 @@ Notes:
     coefficients, the `t!` factors being the adapter's; at order 0 it is the multiplication alone. The names of
     the two helpers are open (6.3).
   - **Considered and not taken:** a loss function passed by the caller and applied inside the pass.
+- **3.3, decided** (2026-11-16, 01:36). The maintainer: "Proposal confirmed."
+  - **The question, as put to him.** In one Newton step the adjoint sweep runs for two inputs. The residual's:
+    the seed is made from `r`; it gives `g`, and `Kp` reads its variables; it changes only when the point or the
+    data change. The direction's: the seed is made from `Jp`; it gives `JtJp`; it changes every CG iteration.
+    When one call asks for `JtJp` and `Kp` together, both sweeps run in that pass, and a name like `mu_tilde`
+    can mean only one of them.
+  - **Decided.** The tilde names always mean the residual's sweep: those are the ones worth asking for and
+    holding. The direction's sweep has no names in that call; its variables live inside `JtJp`. Nothing is
+    unreachable: a call with `Jp` given as the residual has them under the ordinary names. That last part rests
+    on 6.5 (who vouches for a held variable), which is open.
+  - **Not taken:** a second set of names for the direction's sweep.
+  - This is the decision of 2026-11-14 confirmed, with the route for the direction's variables added. The row
+    used to read "Which seeded copies of the tilde variables are public?"; "public" has since come to mean every
+    variable (6.4), so the row is stated as what a name refers to.
 - **3.7, decided** (2026-11-16, 01:32). Put first as "which reductions over the samples are sampling
   variables", the question confused the maintainer (01:26). Put as a table of what happens to `W` on each
   output, he confirmed it: "I understand now. Confirmed. The table with columns "What happens to W" and

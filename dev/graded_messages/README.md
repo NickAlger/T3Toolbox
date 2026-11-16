@@ -41,7 +41,7 @@ documents and some of the proposal.
   at the outer level of fitting; order 0 is the one-coefficient case of the same functions, with the order axis
   an optional axis `T` that is absent at order 0; input jets are always a point and one direction; and the plain
   and jetted sampling functions are one function, `probe(ww, pp=None, order=0)`, with three fitting kinds that
-  take an `order` in place of six (`REVIEW_DECISIONS.md` entries 12 to 62).
+  take an `order` in place of six (`REVIEW_DECISIONS.md` entries 12 to 64).
 - **Paused on 2026-11-15 at 05:53, to resume the next day.** Decided that morning: one function for the plain and
   the jetted computation (6.6), three kinds with an `order` (2.8), how the direction `pp` is passed (part of 6.2),
   and the convention for arrows on the edges (9.5). Held: what a tilde jet is (2.4); the material for it is
@@ -138,13 +138,15 @@ documents and some of the proposal.
 | `scripts/review/expected_review_output_3dc15d9.txt` | Recorded output of `run_review_checks.sh` at commit `3dc15d9`, with jax 0.12. Recorded again on 2026-11-16 after the scripts were renamed to the notation of `SAMPLE_VARIABLES.md`: labels only, every number the same |
 | `scripts/timings_2core_cpu_3dc15d9.txt` | Recorded output of `run_timings.sh` on a 2-core CPU. Not a basis for defaults |
 
-The proposal also exists as a Claude doc with eleven tabs: the main proposal, "Target decisions" (the content of
+The proposal also exists as a Claude doc with twelve tabs: the main proposal, "Target decisions" (the content of
 `TARGET_DECISIONS.md`), "Sample variables" (`SAMPLE_VARIABLES.md`), "Type catalog" (`TYPE_CATALOG.md`), "Variable
 diagrams" (28 rows, one drawing per variable, output and block, with no file of its own; the drawings are generated
 by `scripts/variable_diagrams_gen.py`), "Scaling survey" (`T3POLYNOMIAL_SCALING_SURVEY.md`), "Design after review"
 (`DESIGN_AFTER_REVIEW.md`), API impact, Worked example, Execution plans and Evaluator, the older tabs with the same
-status notes as the files here (the notation notices added to the status notes on 2026-11-16 are not yet in the
-tabs): <https://claude.ai/artifact/PvTCvDZBKaPKqRTnntH42s>. The decisions log and the review reports are only in
+status notes as the files here, and "Notation history" (`NOTATION_HISTORY.md`), last:
+<https://claude.ai/artifact/PvTCvDZBKaPKqRTnntH42s>. The tabs were brought in step with the files on 2026-11-16
+and checked against them (`reviews/notation_2026-11-15/DOC_REVIEW_r1.md`); the notes of the "Target decisions"
+tab are shorter than the file's in places. The decisions log and the review reports are only in
 this package. The markdown files here are the durable copy.
 
 ## Pinned state

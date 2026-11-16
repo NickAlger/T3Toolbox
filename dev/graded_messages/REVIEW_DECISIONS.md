@@ -1347,3 +1347,37 @@ The maintainer answered four of the six open points of `SAMPLE_VARIABLES.md` sec
   note to 3.7 of `TARGET_DECISIONS.md`.
 - **Counts.** 24 rows decided, 28 remain. Group A has one left: 3.3.
 
+## 63. The notation carried through the folder and the doc: steps 2 to 4 done (2026-11-16, 00:12 to 01:40)
+
+The maintainer's four steps of entry 57. The records are in `reviews/notation_2026-11-15/`.
+
+- **Step 2** (`DIAGRAM_TEST.md`). An agent given only the page drew the other 21 rows; all are right; the page
+  was clarified at the 17 places it found unclear.
+- **Step 3** (`SURVEY.md`). 103 findings in the folder and the doc.
+- **Step 4, the folder.** An editor agent and a reviewer agent, both Opus, in two rounds
+  (`EDIT_REPORT_r1.md`, `REVIEW_r1.md`, `EDIT_REPORT_r2.md`, `REVIEW_r2.md`). Round 1: the reviewer found
+  every rename in the right basis, every moved passage word for word and no quotation altered, and was not
+  satisfied on three statements that were wrong (two in the type catalog's section on the arrows, one pointer
+  in the design document) and sixteen smaller points. Round 2: all fixed, `(D_dot, L_dot)` applied, and the
+  reviewer satisfied. Claude ran both check runners afterwards: they reproduce their records.
+- **What was done to the folder.** The live documents (`TARGET_DECISIONS.md`, `TYPE_CATALOG.md`,
+  `DESIGN_AFTER_REVIEW.md`, `README.md`) and the live prototype scripts use the names of
+  `SAMPLE_VARIABLES.md`. The naming ideas that the decision overtook are in the new `NOTATION_HISTORY.md`,
+  marked deprecated, word for word, with a pointer where each stood. This log, the reviewer reports and the
+  documents from before the review keep their words; each has a notice that maps its names.
+- **Step 4, the doc** (`DOC_EDIT_REPORT.md`, `DOC_REVIEW_r1.md`). The editor brought every tab that mirrors a
+  file in step and added the tab "Notation history"; the reviewer compared each tab with its file word for
+  word and was satisfied at the first round. No edit of the maintainer's was overwritten.
+- **Known and left:** the notes of the "Target decisions" tab are shorter than the file's in places, from
+  before this work.
+
+## 64. 3.3 decided: the tilde names mean the residual's adjoint sweep (2026-11-16, 01:36)
+
+- **The maintainer:** "Proposal confirmed."
+- **Decided.** In a call that runs both adjoint sweeps (`JtJp` and `Kp` together), the tilde names refer to the
+  sweep seeded by the residual. The sweep seeded by `Jp` has no names there; its variables are reached by a call
+  with `Jp` given as the residual. This rests on 6.5, which is open. The details are in the note to 3.3 of
+  `TARGET_DECISIONS.md` and in section 5.3 of `SAMPLE_VARIABLES.md`.
+- **Counts.** 25 rows decided, 27 remain. Group A (jets and the misfit) is finished. Next by the suggested
+  order: group B, the frame and the value (4.1 to 4.5, 3.2).
+
