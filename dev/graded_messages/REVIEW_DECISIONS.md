@@ -1131,3 +1131,15 @@ axes. How do we tell whether an axis is part of the batch, or a derivative order
   name per tilde variable covers every seed. On shapes: `T` carries it; the affine variables have a two-slot
   group of their own, the tilde grades have a turned order leg, and only plain jets are nested in the order.
 - **Recorded** in the notes to section 6 of `TARGET_DECISIONS.md`. No row changes status.
+
+## 53. Public: confirmed. The variables without names (2026-11-15, 21:57 and 21:59)
+
+- **Confirmed by the maintainer.** Every variable of the graph can be wanted and held, and wanting never changes
+  a value. The affine variables carry a two-slot group in place of `T`.
+- **Asked.** A list of the variables that still need names, with suggestions; perhaps recycling freed names such
+  as `sigma` and `tau`. And: consistency with the T4S paper's notation is not to be attempted.
+- **The list** is in the notes to section 6 of `TARGET_DECISIONS.md`: six variables, all of them variables of the
+  corewise frame at the base point seen from a call on a manifold frame. Four are the grades of one missing
+  letter (the partner of `gamma`); two are the dots of `xi` and `mu` along the raw core direction, which collide
+  with the frame's dots. The raw core direction has no name as an argument either.
+- **Found while listing.** The prototype's `eta_tilde_dot` is the tilde-dot of the missing letter, not of `eta`.

@@ -805,6 +805,40 @@ Notes:
       the orientation; the shape does not show it.
     - **A plain jet cut at a lower order is the jet of that order; a tilde jet is not** (catalog, point 4).
       This bears on what a held variable is valid for (6.5), not on the shape.
+- **Public, two points confirmed** (2026-11-15, 21:57). The maintainer: "Confirmed on both counts."
+  - Every variable of a kind's graph, at every grade, can be wanted and held. Wanting a variable never changes
+    any value; not wanting it lets the engine skip work.
+  - The affine variables (the input `w + s p`, `xi`, `xi_dot`) carry a two-slot group of their own in place of
+    `T`: two slots at every order above 0, absent at order 0.
+  - This settles the first half of 6.4 (which variables are public: all of them) and the test of 21:35 is
+    reduced to its first two parts. The rest of 6.4 (the table generated from the graph), 3.3 (one name per
+    tilde variable, the seed being whatever `r` is) and 6.5 are not confirmed by this.
+- **The variables that still have no name** (2026-11-15, 21:57). The maintainer: "Can you please list the
+  variables that still need names, and some suggestions? One possible idea is to recycle names that are in use
+  in the current codebase but will be freed up, such as sigma and tau which form a nice pair". And at 21:59:
+  "Trying to keep consistency with the t4s paper's notation through this refactor is an impossible task. We do
+  not need to attempt it." Listed by Claude; nothing decided.
+  - **What they are.** Every one is a variable of the corewise frame `(B, G, G, G)` at the base point, seen
+    from inside a call on a manifold frame. In a call on the corewise frame itself they have the ordinary names.
+    `gamma` is the first of this kind: it is the corewise frame's `nu`.
+
+    | # | The variable | In a corewise call it is | Read by | Stand-in in `jet_steps_check.py` |
+    | --- | --- | --- | --- | --- |
+    | 1 | the down variable through the base point's cores, `eta_term(mu, L, gamma)` | `eta` | `z` | written inline in `z_step` |
+    | 2 | its dot along the raw core direction | `eta_dot` | `Kp`, Tucker block | `c_eta_dot` |
+    | 3 | its tilde | `eta_tilde` | nothing on a manifold frame; the corewise gradient | none |
+    | 4 | its tilde-dot | `eta_tilde_dot` | `Kp`, Tucker block | `eta_tilde_dot`, which is a misnomer there |
+    | 5 | the dot of `xi` along the raw core direction | `xi_dot` | `Kp` | `c_xi_dot` |
+    | 6 | the dot of `mu` along the raw core direction | `mu_dot` | `Kp` | `c_mu_dot` |
+
+  - **Rows 1 to 4 are one missing letter**, the partner of `gamma`. **Rows 5 and 6 are a collision**: `xi` and
+    `mu` are shared by the two frames, but their dots are not, because the two frames have different
+    directions: the tangent direction `(V, H)` in the frame's coordinates, and a raw core direction at the base
+    point. `gamma_dot` and the four tilde-dot variables have no collision, since they exist at the base point
+    only.
+  - **Also without a name:** the raw core direction itself, as an argument (`(B_dot, G_dot)` in the prototype,
+    `core_directions` in the library; the design document notes it as unnamed).
+  - **Suggestions** are in the conversation of 21:59 and are recorded once the maintainer has chosen.
 - **6.3.** The review kept the old kernels as public adapters and the new names as a second vocabulary. That was
   compatibility. With one vocabulary, the near miss between the new `xi_tilde` and today's `dxi_tilde` exists
   only during migration.
@@ -994,6 +1028,10 @@ Notes:
 
 Notes:
 
+- **Names and the T4S paper** (the maintainer, 2026-11-15, 21:59). "Trying to keep consistency with the t4s
+  paper's notation through this refactor is an impossible task. We do not need to attempt it." So a name is
+  chosen for the target alone; `sigma`, `tau` and the other letters the refactor frees may be given new
+  meanings. The library's notation map from the paper to the code will need rewriting when the names land.
 - **9.4.** The maintainer's concern: a batching axis means a bunch of the same thing bundled together, and it has
   fewer restrictions. The order axis is neither. The words the library already has: the contraction engine's
   "group" (an uppercase letter standing for zero or more axes), which is structural and says nothing about
