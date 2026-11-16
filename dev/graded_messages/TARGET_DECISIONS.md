@@ -921,7 +921,7 @@ Notes:
 | 5.1 | One function per variable with explicit arguments, seven terms, no graded containers | Decided | |
 | 5.2 | One set of step functions for the ragged and the uniform layout. The layout is detected from the structure of the inputs, as low as reasonably possible. Sweeps go through `xscan` on both layouts. Masks never reach a step: the uniform cores are masked once on entry. Shapes are read from the operands | Decided | 1.2 |
 | 5.3 | For each variable, are sites scanned or vectorized, what is the default, and which variables admit which? | Reopened | 5.2 |
-| 5.4 | The terms are generic over the stack groups through the groups of the contraction engine: a variable is `[S] + T + W + [K] + C + (size,)`, with `T` and `A` the optional order axes of a full and of an affine jet. Each place a term is used has its own literal contraction string, with `K` on the operand that carries the direction, at the call site in the step function. The call is `jet_contract`: `contract` with the order groups multiplying as truncated polynomials, and exactly `contract` at order 0. Every call passes `len_T` and `len_C`. The seven terms are seven families of strings | Decided | 2.7, 2.9 |
+| 5.4 | The terms are generic over the stack groups through the groups of the contraction engine: a variable is `[S] + T + W + [K] + C + (size,)`, with `T` and `A` the optional order axes of a full and of an affine jet. Each place a term is used has its own literal contraction string, with `K` on the operand that carries the direction, at the call site in the step function. The call is `jet_contract`: `contract` with the order groups multiplying as truncated polynomials, and exactly `contract` at order 0. Every call passes one record of the axis counts of `S`, `T`, `W`, `K` and `C`, so that an operand of the wrong rank raises. The seven terms are seven families of strings | Decided | 2.7, 2.9 |
 | 5.5 | The contraction order inside a term is in the plan: the user can specify it and tune it on their problem, and the library provides helpers that choose good orders. Held for the performance discussion (group E): the granularity (per term function, or per place a term is used), the form of the plan's field, and the helpers. Proposed, to be confirmed: how an order reads where the operands are jets | Open | 7.6 |
 | 5.6 | The dtype rule is absorbing: jax takes precedence over numpy, and lower precision over higher. The engine creates no array with a default dtype | Decided | |
 
@@ -1089,9 +1089,12 @@ Notes:
     put. One case is not closed by those two: where `W` and `K` stand together on the only operand that has
     them (a seed that carries `K`, in `xi_term`), a stray axis is read as one more axis of `W` or of `K`. It
     raises once `len_W` and `len_K` are passed as well.
-  - **Open detail, put to the maintainer:** passing all the lengths at every call as one record (the axis counts
-    of `S`, `T`, `W`, `K` and `C`, five static integers of the engine's call) in place of the two keywords. It
-    would close the case above and shorten every call.
+  - **Decided: one record of all the lengths at every call** (16:35). Claude suggested passing the axis counts of
+    `S`, `T`, `W`, `K` and `C`, five static integers of the engine's call, as one record `lens` in place of the
+    two keywords: `jet_contract('TWCa,KCaib,AWCi->TWKCb', mu, H, xi, lens, over_orders)`. It closes the case
+    above and shortens every call; a call no longer shows which lengths it uses. The maintainer: "I'm
+    ambivalent regarding lens. Let's go with it." The prototype still has the two keywords; it is to be changed
+    with the rest when the code is written.
   - **Not covered:** the scan written through `xscan` with a module-level body; the plan's contraction order
     (5.5); masks; the readouts with the samples kept (3.7), which is one more string each.
 - **5.4, the form of the strings: decided, option A** (2026-11-16, 16:18 to 16:24). The maintainer asked to see

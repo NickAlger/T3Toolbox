@@ -1712,3 +1712,11 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
 - **Measured:** with the two lengths a stray axis on `mu` raises; on a seed that carries `K`, where `W` and `K`
   stand together, it raises only when `len_W` and `len_K` are passed as well.
 - **Counts.** 46 of 57 rows decided, 7 remain (4 open, 3 reopened): 5.3, 5.5, 7.2, 7.3, 7.5, 7.6, 7.7.
+
+## 93. 5.4: the lengths go to every call as one record (2026-11-16, 16:35)
+
+- **The maintainer:** "I'm ambivalent regarding lens. Let's go with it." Every `jet_contract` call passes one
+  record of the axis counts of `S`, `T`, `W`, `K` and `C`, in place of the keywords `len_T` and `len_C`. This
+  closes the one case the two keywords left open (a stray axis where `W` and `K` stand together).
+- **Then** he asked for a clean split of the refactor into two parts: one that can go forward without much more
+  planning, and one that comes later.
