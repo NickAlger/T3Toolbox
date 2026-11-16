@@ -30,7 +30,7 @@ planned only after the target is settled.
 
 ## What remains, in groups (2026-11-15, 15:34)
 
-Of the 56 rows in sections 1 to 9, 36 are decided, 3 are guidance and 1 is parked. The other 16 are below, in
+Of the 56 rows in sections 1 to 9, 37 are decided, 3 are guidance and 1 is parked. The other 15 are below, in
 seven groups that cut across the sections. The grouping and the suggested order are Claude's, made at the
 maintainer's request; they decide nothing.
 
@@ -38,12 +38,12 @@ maintainer's request; they decide nothing.
 | --- | --- | --- | --- | --- | --- |
 | A. Jets and the misfit | 0 | | | | |
 | B. The frame and the value | 0 | | | | |
-| C. What a kind is, and the public surface | 2 | 2 | | | |
+| C. What a kind is, and the public surface | 1 | 1 | | | |
 | D. One program for every layout and stack | 5 | 3 | 1 | 1 | |
 | E. Plans, memory and scale | 5 | 3 | 2 | | |
 | F. The fitting layer above | 3 | 1 | | 2 | |
 | G. What defines correct | 1 | 1 | | | |
-| Total | 16 | 10 | 3 | 3 | |
+| Total | 15 | 9 | 3 | 3 | |
 
 - **A. Jets and the misfit.** (Decided on the afternoon of 2026-11-15: 2.4, what a tilde jet is; 2.5, the misfit;
   2.3, the derivative-mode adapter; and, at 19:32, 2.9, how a term is carried out over the orders.)
@@ -58,8 +58,8 @@ maintainer's request; they decide nothing.
   and the open extension point is an objective protocol in the fitting layer; at 02:31, 6.5, a held variable
   is trusted and only its shape is checked; at 02:34, 6.2, the arguments of `sampling_variables`, up to three
   names; at 02:37, 6.4, the table of variables written out and tested against the declared graph; at 02:40,
-  6.3, the public functions of the sampling layer.) 8.2 the fitting layer's kind object, now the objective
-  protocol (open); 9.2 names chosen to match things that will go (open).
+  6.3, the public functions of the sampling layer; at 02:45, 8.2, the protocol of the fitting layer's open
+  extension point, its name still to be found.) 9.2 names chosen to match things that will go (open).
 - **D. One program for every layout and stack.** 5.2 one set of step functions for ragged and uniform (open); 5.4
   terms generic over the stack groups (open); 5.3 sites scanned or vectorized (reopened); 5.5 association order
   inside a term (to confirm); 5.6 the dtype rule (open). The cases the order-0 assessment did not cover are here.
@@ -1298,12 +1298,33 @@ By 1.1 this section is in scope.
 | # | Question | Status | Depends on |
 | --- | --- | --- | --- |
 | 8.1 | What is `LocalModel` in the target, and what does it ask the sampling layer for? | To confirm | 1.1, 6.1 |
-| 8.2 | What is the fitting layer's kind object, beside the kind in the sampling layer? | Open | 3.4 |
+| 8.2 | The fitting layer's open extension point is a frozen record with one operation: at a frame, return the wanted ones of `f`, `g`, `JtJp`, `Jp_sumsq`, `Kp`, as blocks before projection, in the engine's vocabulary. The built-in one is least squares, implemented by one call of `sampling_variables`. Its name is open | Decided | 3.4 |
 | 8.3 | What is the optimizers' contract with a model, and what is compiled as one program? | Open | 1.1 |
 | 8.4 | What do the display and the diagnostics read? | To confirm | 3.7 |
 | 8.5 | Shared sample vectors: in the target or not? | Parked | |
 
 Notes:
+
+- **8.2, decided, the name apart** (2026-11-16, 02:45). The maintainer: "I agree with this data structure.
+  However, I would like to find another word than objective. When the user hears "objective", they may think
+  just "f", and not all of the other things that come bundled with it."
+  - **What the optimizers need.** Read from `backend/optimizers.py`: a local model asks its kind for a forward,
+    a transpose, sums of squares and the curvature term, and wraps each in the geometry's projection and lift.
+    With the geometry's parts left in the geometry (4.5), what remains is a list of quantities at a frame: `f`
+    (the value, at trial and accepted points), `g` (the gradient before projection), `JtJp` (for a direction
+    `(V, H)`), `Jp_sumsq` (the Gauss-Newton quadratic), `Kp` (for a lifted direction `(D_dot, L_dot)`, exact
+    Hessian only), and `r_block_sumsq` for the display. That is the engine's own output vocabulary.
+  - **Decided: the data structure.** A frozen record with one operation: at this frame, give these of `f`, `g`,
+    `JtJp`, `Jp_sumsq`, `Kp`, with the directions passed when needed; blocks before any projection, in the
+    engine's shapes. Its parameters are fields, so it has value identity. The built-in one is least squares: it
+    holds the kind, the sample, the data, the weight and the order, and implements the operation with one call
+    of `sampling_variables`. A user's implements the same operation however it likes: several data sources add
+    the results of their parts; a general linear functional never calls the engine; a different loss calls the
+    engine for `z` and the bare transpose. One that cannot supply `Kp` still works with the Gauss-Newton
+    Hessian. The regularizer stays its own protocol.
+  - **Open:** the name ("objective" was Claude's word and is not to be used); and, for group F, how held
+    variables pass between calls of the operation (8.1), what is compiled as one program (8.3), and what the
+    display reads from a user's implementation (8.4).
 
 - **8.5.** Parked by the maintainer on 2026-11-14 as low priority. T3Polynomial's main fit has the same sample
   vectors at every input mode.

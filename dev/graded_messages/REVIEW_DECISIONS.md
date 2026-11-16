@@ -1481,3 +1481,11 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   per-variable kernel, every `*_derivatives` function and the sweep functions go; steps and terms are private.
 - **Counts.** 36 rows decided, 16 remain. Group C has two left: 8.2 and 9.2.
 
+## 75. 8.2 decided, the name apart: the fitting layer's extension point is one operation in the engine's vocabulary (2026-11-16, 02:45)
+
+- **The maintainer:** "I agree with this data structure. However, I would like to find another word than
+  objective. When the user hears "objective", they may think just "f", and not all of the other things that come
+  bundled with it. Any other ideas for the name?"
+- **Decided:** the data structure, as in the note to 8.2 of `TARGET_DECISIONS.md`. **Open:** its name.
+- **Counts.** 37 rows decided, 15 remain. Group C has one left: 9.2.
+
