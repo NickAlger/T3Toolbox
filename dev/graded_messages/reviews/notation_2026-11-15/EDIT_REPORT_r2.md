@@ -1,6 +1,7 @@
 # Edit report, round 2
 
-Editor's round 2, on the working tree over `621b9a1` (round 1 is `1dd65d6`). Nothing committed. The Claude doc
+Editor's round 2, on the working tree over `621b9a1` (round 1 is `1dd65d6`). Committed by the supervisor as
+`e073074`, parent `ed574ac`. The Claude doc
 was not touched. Inputs: `REVIEW_r1.md`, the supervisor's rulings of round 2, and `SAMPLE_VARIABLES.md` at
 `621b9a1` (sections 1, 5 and 11 re-read).
 

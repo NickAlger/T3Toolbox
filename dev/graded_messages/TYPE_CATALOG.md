@@ -238,8 +238,8 @@ So what flows against the arrows is exactly what carries a basis in its name, an
 everything else flows with them, the raw form's `xi_dot` and `mu_dot` and their tilde-dots included. (Until
 2026-11-16 this paragraph said that what flows with the arrows has not yet met a hole, and what flows against them
 has passed a hole or is on its way out; the raw form's `xi_dot`, `mu_dot`, `xi_tilde_dot` and `mu_tilde_dot` have
-passed a hole and flow with the arrows, so they are the exception to that.) Each block of `g`, `V_tilde` and
-`H_tilde`, is the outer product of variables that flow with the arrows into a hole. The `Kp` blocks also read
+passed a hole and flow with the arrows, so they are the exception to that.) Each block of `g` (`V_tilde` and
+`H_tilde`) is the outer product of variables that flow with the arrows into a hole. The `Kp` blocks also read
 variables that flow against them (`nu_L` and its grades, and `eta_D_dot`, `eta_D_tilde_dot`). Every block's legs
 are the legs of the hole's direction with every sign flipped: `V_tilde` fits `V`, `H_tilde` fits `H`, and the
 `Kp` blocks fit the raw core directions `D_dot` and `L_dot`.

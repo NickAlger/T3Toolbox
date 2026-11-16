@@ -234,7 +234,7 @@ given `R`, `U`, `H` (and the frame's `xi_U_dot`).
 
 A public backend function. The sketch below is not a final signature. The lifted direction is `(D_dot, L_dot)`
 (decided 2026-11-16, 00:30); the keyword of `sampling_variables` that takes it was suggested as `core_direction`
-with it, and is not confirmed.
+(`REVIEW_DECISIONS.md` entry 59) and is not confirmed.
 
 ```python
 f, g, xi = sampling_variables('probe', frame, sample, plan, want=('f', 'g', 'xi'), y=y, weight=omega)
@@ -597,7 +597,7 @@ Claude's, not the maintainer's.
 
 - The two API cases of phase 1 (adapters, or removing the redundant layer), and with them the two vocabularies.
 - The keyword of `sampling_variables` that takes the lifted direction. The direction is `(D_dot, L_dot)` (decided
-  2026-11-16, 00:30); `core_direction` was suggested with it and is not confirmed.
+  2026-11-16, 00:30); `core_direction` was suggested (`REVIEW_DECISIONS.md` entry 59) and is not confirmed.
 - Where the `W` axes sit in each held variable on each layout (F10).
 - Whether a `have`-validity check exists, and what identifies a point.
 - The acceptance list in section 7.
