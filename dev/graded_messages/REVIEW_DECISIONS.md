@@ -1676,3 +1676,16 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
 - **Decided:** the definitions are shipped as a public reference module, one slow dense function per variable.
 - **Added by the maintainer:** the dependency structure is documented, as a table and as diagrams.
 - **Counts.** A row was added: 45 of 57 rows decided, 8 remain (5 open, 3 reopened), all in groups D and E.
+
+## 90. 5.4: the prototype of the terms over all the stacks (2026-11-16, 16:05 to 16:50)
+
+- **Asked for by the maintainer** (16:05): "Go ahead with the 5.4 prototype".
+- **`scripts/review/term_stacks_check.py`** (added to the runner, 23 scripts). The seven terms written once. One
+  contraction string per term serves the site group, the order axis, any number of sample axes, the stack of
+  directions on whichever operand carries it, and the stack of base points; the direction's place is solved from
+  the operands' ranks, so a call site is the formula alone. Checked on 3912 calls against a reference that uses
+  neither `contract` nor the helpers, to 9.5e-16; under jit in float32 as well.
+- **Found:** an input and a seed have the same rank when `C` is empty and there is no `K`; the reference caught
+  the wrong `V_term` this gave.
+- **Not decided:** one string per term, or the library's literal string per placement; and whether `xi_term` and
+  `V_term` are told whether they are given an input or a seed. 5.4 stays open.

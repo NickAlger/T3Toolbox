@@ -115,8 +115,8 @@ maintainer's request; they decide nothing.
   02:52, 8.2, the oracle; at 02:56, 9.2, the kind strings and the unit name `'sweep'`, with the sizing function
   names moved to 7.6.
 - **D. One program for every layout and stack.** (Decided on 2026-11-16: at 03:11, 5.2, one set of step
-  functions for both layouts; at 03:32, 5.6, the dtype rule.) 5.4 terms generic over the stack groups (open; a
-  prototype is owed); 5.5 the contraction order inside a term (open: it goes into the plan; its granularity, the
+  functions for both layouts; at 03:32, 5.6, the dtype rule.) 5.4 terms generic over the stack groups (open; the prototype of 2026-11-16 shows one contraction string per
+  term serving every stack and every placement of the direction; a choice is put to the maintainer); 5.5 the contraction order inside a term (open: it goes into the plan; its granularity, the
   form of the field and the helpers are held for the performance discussion of group E; how an order reads with
   jets is proposed); 5.3 sites scanned or vectorized (reopened; with
   the performance discussion). The maintainer gave rules for how the functions are written on 2026-11-15, 19:50
@@ -1003,6 +1003,53 @@ Notes:
     and float64 gives float32.
   - Open detail: which inputs count (the cores, the sample, the data, the weight, the directions, the held
     variables; not an integer index), and where the casting is done.
+- **5.4, the prototype** (2026-11-16, 16:05 to 16:50; `scripts/review/term_stacks_check.py`). Not decided.
+  - **The shapes it has to serve** (`SAMPLE_VARIABLES.md`, section 7): a variable is `[S] + T + W + [K] + C +
+    (size,)`. `S` is the site group, `(d,)` when a map-type operation is done at all sites at once on the
+    uniform layout (5.2), else empty. `T` is the optional order axis, `A` the same for an affine variable. `W`
+    is any number of sample axes. `K` is the stack of directions, on one operand of a term, a different one
+    from term to term. `C` is on every core and every variable, and not on the input `w`.
+  - **One contraction string per term serves every placement of the direction.** For `mu_term`:
+    `'S T W X C a, S Y C a i b, S W Z C i -> S T W X Y Z C b'`. `X`, `Y`, `Z` are the direction stack as
+    carried by the first, second and third operand. Their lengths are not given: each is solved from the rank of
+    its own operand, the other groups being known from four static integers of the call (how many axes `S`,
+    `T`, `W` and `C` have). So a call site is the formula and nothing else: `mu_term(mu_dot, R, xi, lens) +
+    mu_term(mu, H, xi, lens) + mu_term(mu, U, xi_dot, lens)`. A term checks that at most one operand carries a
+    direction stack, and raises otherwise. No reshape is made; the library's `contract` does all of it.
+  - **The order.** Over the orders a term is the truncated product of its operands' jets (2.9). One operand
+    carries the order axis through the contraction as the riding group `T`; the other is taken one coefficient
+    at a time. One helper does that for an affine partner (two contractions) and for a full one (`'loop'` or
+    `'scan'`); at order 0 it is one contraction and no order axis exists anywhere. `xi_term` and `z_term` have
+    no product over the orders: the axis rides. The block readouts `V_term` and `H_term` contract the order axis
+    itself (the top coefficient of the product) and sum the samples.
+  - **Checked.** Against a reference that uses neither `contract` nor the helpers (every operand expanded to all
+    the stacks, each stack flattened to one axis, the truncated products as explicit loops over `np.einsum`):
+    all seven terms, the direction on every operand that can carry it and on none, an affine and a full partner,
+    both forms over the orders, at orders 0, 1 and 3, with `S` empty or `(2,)`, `W` empty, `(3,)` or `(2, 2)`,
+    `K` `(2,)` or `(2, 2)`, `C` empty or `(2,)`: 3912 calls, largest relative error 9.5e-16. A perturbation of
+    1e-6 in a term is caught. A dotted step at order 0 makes 3 contractions for its 3 terms. The one string
+    gives the result of the four literal strings of the library's style, to the last bit. Under `jax.jit`, in
+    float32, three of the terms agree with numpy to rounding and keep the dtype.
+  - **Found on the way.** An input `w` (`A + W + (N,)`, no `C`) and a seed `w_tilde` (`T + W + [K] + C + (N,)`)
+    cannot be told apart by rank when `C` is empty and there is no `K`. `xi_term` and `V_term` take either. The
+    prototype tells them apart by the length of the order axis (2 for an input), which is safe because at
+    order 1 the two formulas coincide. A first version without that test gave a wrong `V_term`, and the
+    reference caught it. In the engine the caller knows which it has, so two named functions or a flag would be
+    more explicit than a test on the shape.
+  - **The alternative, the library's present style:** a literal string for each place the direction can sit,
+    chosen at the call site (`mu_term(mu, H, xi, direction_on=1)`). It is stricter: a wrong rank raises inside
+    `contract`. It needs about three times the strings, and every call site states a placement that its
+    operands' names already say. With the one string, an operand of a wrong rank is read as carrying the
+    direction; the guard catches two such operands, and the engine's check of held shapes (6.5) catches a
+    wrong one coming from outside.
+  - **Not covered:** the scan written through `xscan` with a module-level body (the prototype's `'scan'` is the
+    same carried shift as a Python loop; `order_scan_check.py` has the `xscan` form for `W` and `C`); the plan's
+    contraction order (5.5); masks; the readouts with the samples kept (3.7), which is one more output string
+    each; how the four static integers reach a scan body (a memoized factory keyed on them, by the library's
+    rule).
+  - **To decide:** the one string per term with the direction found from the ranks, or a literal string per
+    placement; and whether `xi_term` and `V_term` are told what they are given.
+
 - **5.4, how the library does it today** (asked by the maintainer at 03:32; read in `backend/probing.py`). Each
   term of a step is its own `contract` call with its own string, and the string places `K` on the operand that
   carries it. In `_sigma_step`, the dotted left sweep: `'WKCa,Caib,WCi->WKCb'` (`K` on the carry),

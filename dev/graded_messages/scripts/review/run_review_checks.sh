@@ -39,3 +39,4 @@ else
   echo "=== order_scan_check.py: skipped (jax is not installed)"
 fi
 run contraction_order_check "$HERE/contraction_order_check.py"
+run term_stacks_check    "$HERE/term_stacks_check.py" "$REPO"
