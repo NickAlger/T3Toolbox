@@ -1171,3 +1171,5 @@ axes. How do we tell whether an axis is part of the batch, or a derivative order
 - **Two schemes offered.** Eight letters (with `sigma` and `tau` for the two variables that exist only as dots),
   or four letters for the four sides with the store of the basis as a suffix where it is not the usual one.
   Not decided.
+- **22:41.** The maintainer asked for the second scheme written out as a table against every current variable
+  and the unnamed ones. It is at the end of section 14 of `TYPE_CATALOG.md`, with the library's present names.

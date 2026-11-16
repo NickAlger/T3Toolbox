@@ -503,3 +503,46 @@ situation of `nu` and `gamma` again: one side, two bases.
   What this buys: a name can be read without a table; a term function's name agrees with what it returns
   (`nu_step` through `L` returns `nu_L`); and a call on the corewise frame, which has one basis, uses the four
   letters with no suffix, so the question of two spellings for one array there does not arise.
+
+**The second scheme written out** (asked for by the maintainer at 22:41). Every variable, with its name so far
+in this folder and the name of the array in the library's kernels today (`backend/probing.py`; the jetted
+kernels add `_jets`). Not decided.
+
+| Four letters and a basis | Side, basis | Name so far in this folder | In the library today |
+| --- | --- | --- | --- |
+| `mu` | left of a bond, `L` | `mu` | `mus` |
+| `mu_dot` | left of a bond, `L` | none (row 6; the prototype's `c_mu_dot`) | `mus_dot`, in the two-hole kernel |
+| `mu_tilde` | left of a bond, `L` | `mu_tilde` | `tau_tildes` |
+| `mu_tilde_dot` | left of a bond, `L` | `mu_tilde_dot` | `tau_tildes_dot` |
+| `mu_R_dot` | left of a bond, `R` | the frame's `mu_dot` | `sigmas` |
+| `nu` | right of a bond, `R` | `nu` | `nus` |
+| `nu_tilde` | right of a bond, `R` | `nu_tilde` | `sigma_tildes` |
+| `nu_L` | right of a bond, `L` | `gamma` | `nus`, re-swept through the point's cores in the two-hole kernel |
+| `nu_L_dot` | right of a bond, `L` | `gamma_dot`, and the frame's `nu_dot` | `nus_dot` in the two-hole kernel, and `taus` |
+| `nu_L_tilde` | right of a bond, `L` | `gamma_tilde` | `sigma_tildes`, in the two-hole kernel |
+| `nu_L_tilde_dot` | right of a bond, `L` | `gamma_tilde_dot` | `sigma_tildes_dot` |
+| `xi` | leaf, `D` | `xi` | `xis` |
+| `xi_dot` | leaf, `D` | none (row 5; the prototype's `c_xi_dot`) | `xis_dot`, in the two-hole kernel |
+| `xi_tilde` | leaf, `D` | `xi_tilde` | `deta_tildes` |
+| `xi_tilde_dot` | leaf, `D` | `xi_tilde_dot` | `deta_tildes_dot` |
+| `xi_U_dot` | leaf, `U` | the frame's `xi_dot` | `dxis` |
+| `eta` | trunk, `U` | `eta` | `etas` |
+| `eta_tilde` | trunk, `U` | `eta_tilde` | `dxi_tildes` |
+| `eta_D` | trunk, `D` | `zeta` (row 1) | `etas`, when `t3_probe` runs on the point's own cores |
+| `eta_D_dot` | trunk, `D` | `zeta_dot` (row 2), and the frame's `eta_dot` | `etas_dot` in the two-hole kernel, and `detas` |
+| `eta_D_tilde` | trunk, `D` | `zeta_tilde` (row 3) | `dxi_tildes`, in the corewise transpose |
+| `eta_D_tilde_dot` | trunk, `D` | `zeta_tilde_dot` (row 4; the prototype's `eta_tilde_dot`) | `dxi_tildes_dot` |
+
+- **Unchanged:** `w`, `w_tilde`, `z`, `r`, `Jp`, `f`, `g`, `JtJp`, `Kp`, and the blocks `V_tilde`, `H_tilde`,
+  `V_tilde_dot`, `H_tilde_dot`.
+- **Two names change their meaning.** `mu_dot` and `xi_dot` meant the frame's variables in this folder. Here
+  they are the base point's, and the frame's become `mu_R_dot` and `xi_U_dot`.
+- **Two pairs of names become one.** The frame's `nu_dot` and `gamma_dot` are `nu_L_dot`; the frame's `eta_dot`
+  and `zeta_dot` are `eta_D_dot`. They are the same arrays along the lifted direction with no damping.
+- **The multiplier pairings.** The tilde of a variable is the multiplier of the dot of the other side of the
+  same edge, in the same basis: `mu_tilde` of `nu_L_dot`, `nu_tilde` of `mu_R_dot`, `xi_tilde` of `eta_D_dot`,
+  `eta_tilde` of `xi_U_dot`. This is section 11's list with the names of this table.
+- **On the corewise frame** there is one basis, so the names are the four letters and their grades with no
+  suffix; `nu` there is this table's `nu_L`.
+- The library today uses one name for two variables in several rows (`nus`, `sigma_tildes`, `etas`,
+  `dxi_tildes`), telling them apart by which cores were passed.
