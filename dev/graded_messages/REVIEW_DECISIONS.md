@@ -1011,3 +1011,14 @@ axes. How do we tell whether an axis is part of the batch, or a derivative order
   the unrolled loop grows about ninefold from order 1 to 16; it does up to twice the contractions of the
   triangle (1.67 times at order 4). 31 rows remain; group A has three, all marked to confirm.
 
+## 46. The scan reconsidered (2026-11-15, 19:14)
+
+- **The maintainer.** "Oh hold on. We need to think more about the scan. Performance is important. Can you show me
+  pseudocode of representative contractions, loop vs scan, showing how the scan doubles the contractions?"
+- **Status.** The scan part of 2.9 is open again; the row is marked to confirm. The rest of 2.9 stands.
+- **Shown.** Pseudocode of the loop and of the scan with a shift and a mask, and why the second contracts the
+  square where the first contracts the triangle. A third form was found and checked: a scan over a static table
+  of the needed pairs of orders, `P` at a time. It has a traced program of one size at every order and contracts
+  the triangle plus fewer than `P` pairs of padding; it needs two gathers and a scatter-add in each iteration.
+  The comparison is in `scripts/review/order_scan_check.py`. Nothing was timed.
+

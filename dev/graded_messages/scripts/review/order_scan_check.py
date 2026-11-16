@@ -10,11 +10,12 @@ A scan body must have the same shapes at every iteration, so the triangular trun
     c[t] = sum_r a[t - r] * b[r]      ->      for each r:  contract ALL of a with b[r], shift the result by r
                                               along the order axis, and zero the r slots that wrapped round.
 
-This script checks, for the term 'Wa,aib,Wi->Wb' (mu_term) with two full jets:
-  1. the scan gives the truncated product of jet_steps_check.py, to rounding;
-  2. the size of the traced program is the same at every order, where the unrolled loop grows;
-  3. it runs under jit.
-It also counts the scalar multiplications each form does, since the mask throws part of the scan's work away.
+The mask throws away the pairs of orders that wrapped round: about half of them.  A third form avoids that: the
+pairs of orders the product needs are listed in a static table, and the scan takes them P at a time.
+
+This script compares the three forms for the term 'Wa,aib,Wi->Wb' (mu_term) with two full jets: the pairs of
+orders each contracts, the size of its traced program, and whether it gives the truncated product of
+jet_steps_check.py under jit.
 
 Needs jax.  Reads nothing from T3Toolbox.   Usage:  python3 -I order_scan_check.py
 """
@@ -58,6 +59,31 @@ def product_by_loop(a, G, b):
     return c
 
 
+def pair_table(P):
+    """The pairs of orders (i of a, r of b) that a truncated product needs, in chunks of P, as static numpy tables."""
+    pairs = [(i, r, i + r) for r in range(P) for i in range(P - r)]
+    n_chunks = -(-len(pairs) // P)
+    pad = n_chunks * P - len(pairs)
+    table = np.array(pairs + [(0, 0, 0)] * pad).reshape((n_chunks, P, 3))
+    valid = np.array([True] * len(pairs) + [False] * pad).reshape((n_chunks, P))
+    return table[..., 0], table[..., 1], table[..., 2], valid, len(pairs), pad
+
+
+def product_by_pair_scan(a, G, b):
+    """The same product as a scan over the table of needed pairs, P pairs at a time: nothing is thrown away."""
+    P = a.shape[0]
+    i_of_a, r_of_b, t_out, valid, _, _ = pair_table(P)
+
+    def body(c, chunk):
+        i, r, t, ok = chunk
+        vals = jnp.einsum('pWa,aib,pWi->pWb', a[i], G, b[r])            # p runs over the P pairs of this chunk
+        return c.at[t].add(jnp.where(ok[:, None, None], vals, 0.0)), None
+
+    c0 = jnp.zeros((P, a.shape[1], G.shape[2]), a.dtype)
+    c, _ = jax.lax.scan(body, c0, (jnp.asarray(i_of_a), jnp.asarray(r_of_b), jnp.asarray(t_out), jnp.asarray(valid)))
+    return c
+
+
 def program_size(f, *args):                     # lines of the traced program, the scan body included
     return len(str(jax.make_jaxpr(f)(*args)).splitlines())
 
@@ -66,21 +92,25 @@ def main():
     rng = np.random.default_rng(0)
     W, ra, n, rb = 5, 3, 4, 2
     G = rng.standard_normal((ra, n, rb))
-    print('%-6s %-22s %-22s %-18s %-18s %s' % ('order', 'scan against twin', 'loop against twin', 'program: scan',
-                                               'program: loop', 'multiplications: scan / loop'))
-    for order in (1, 2, 4, 8, 16):
+    forms = (('loop, slices', product_by_loop), ('scan, shift and mask', product_by_scan),
+             ('scan over the pair table', product_by_pair_scan))
+    print('Pairs of orders contracted, for the product of two full jets.  The truncated product needs the triangle.')
+    print('%-6s %-10s | %-28s | %-28s | %-28s' % (('order', 'triangle') + tuple(name for name, _ in forms)))
+    print('%-6s %-10s | %-28s | %-28s | %-28s' % (('', '') + ('pairs   program   correct',) * 3))
+    for order in (1, 2, 3, 4, 8, 16):
         P = order + 1
         a, b = rng.standard_normal((P, W, ra)), rng.standard_normal((P, W, n))
         twin = J.mu_term(a, G, b)                                       # numpy, explicit sum over the orders
-        by_scan = np.asarray(jax.jit(product_by_scan)(a, G, b))
-        by_loop = np.asarray(jax.jit(product_by_loop)(a, G, b))
-        rel = lambda x: np.linalg.norm(x - twin) / np.linalg.norm(twin)
-        print('%-6d %-22s %-22s %-18d %-18d %d / %d = %.2f'
-              % (order, 'ok' if rel(by_scan) < 1e-13 else 'DIFFERS %.0e' % rel(by_scan),
-                 'ok' if rel(by_loop) < 1e-13 else 'DIFFERS %.0e' % rel(by_loop),
-                 program_size(product_by_scan, a, G, b), program_size(product_by_loop, a, G, b),
-                 P * P, P * (P + 1) // 2, (P * P) / (P * (P + 1) / 2)))
-    print('("ok" = relative difference below 1e-13.  A multiplication here is one contraction for one pair of orders.)')
+        triangle = P * (P + 1) // 2
+        pairs = (triangle, P * P, triangle + pair_table(P)[5])
+        cells = []
+        for (name, f), n_pairs in zip(forms, pairs):
+            out = np.asarray(jax.jit(f)(a, G, b))
+            ok = np.linalg.norm(out - twin) / np.linalg.norm(twin) < 1e-13
+            cells.append('%-7d %-9d %s' % (n_pairs, program_size(f, a, G, b), 'yes' if ok else 'NO'))
+        print('%-6d %-10d | %-28s | %-28s | %-28s' % ((order, triangle) + tuple(cells)))
+    print('(program = lines of the traced program, scan body included.  correct = relative difference from the explicit')
+    print(' sum below 1e-13, under jit.)')
 
 
 if __name__ == '__main__':

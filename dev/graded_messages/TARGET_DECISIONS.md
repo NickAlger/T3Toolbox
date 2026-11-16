@@ -30,26 +30,27 @@ planned only after the target is settled.
 
 ## What remains, in groups (2026-11-15, 15:34)
 
-Of the 55 rows in sections 1 to 9, 20 are decided, 3 are guidance and 1 is parked. The other 31 are below, in
+Of the 55 rows in sections 1 to 9, 19 are decided, 3 are guidance and 1 is parked. The other 32 are below, in
 seven groups that cut across the sections. The grouping and the suggested order are Claude's, made at the
 maintainer's request; they decide nothing.
 
 | Group | Rows | Open | Reopened | To confirm | Held |
 | --- | --- | --- | --- | --- | --- |
-| A. Jets and the misfit | 3 | | | 3 | |
+| A. Jets and the misfit | 4 | | | 4 | |
 | B. The frame and the value | 6 | | 4 | 2 | |
 | C. What a kind is, and the public surface | 8 | 4 | 2 | 2 | |
 | D. One program for every layout and stack | 5 | 3 | 1 | 1 | |
 | E. Plans, memory and scale | 5 | 3 | 2 | | |
 | F. The fitting layer above | 3 | 1 | | 2 | |
 | G. What defines correct | 1 | 1 | | | |
-| Total | 31 | 12 | 9 | 10 | |
+| Total | 32 | 12 | 9 | 11 | |
 
 - **A. Jets and the misfit.** (Decided on the afternoon of 2026-11-15: 2.4, what a tilde jet is; 2.5, the misfit;
-  2.3, the derivative-mode adapter; 2.9, how a term is carried out over the orders.)
+  2.3, the derivative-mode adapter.) 2.9 how a term is carried out over the orders (confirmed at 19:08 except
+  for loop or scan, which is being reconsidered);
   3.6 whether the loss is inside the sampling layer (to confirm); 3.7 which reductions over the samples are
   sampling variables (to confirm); 3.3 which seeded tilde copies are public (to confirm). The type catalog bears
-  on all three.
+  on all four.
 - **B. The frame and the value.** 4.1 what a frame is (reopened); 4.2 frame consistency (reopened); 4.3 the route
   to the value (reopened); 4.4 tails and boundaries (reopened); 3.2 whether `gamma` is first-class (to confirm,
   depends on 4.1); 4.5 where the projection, the lift and the Hessian assembly live (to confirm).
@@ -166,7 +167,7 @@ attempts failed.
 | 2.6 | Is an input jet always affine (`w + s p`), or can it be general? This decides whether the two-term banded form is part of the structure | Decided | |
 | 2.7 | Is order 0 the one-coefficient case of the same functions, with no order axis ever created? | Decided | 2.1, 2.6 |
 | 2.8 | There are three sampling kinds, `probe`, `apply` and `entries`, each with an `order` (0 for the plain computation), in place of six. The fitting layer has the same shape as the frontend methods of 6.6 | Decided | 2.7, 6.6 |
-| 2.9 | A term over the orders is the truncated product of its operands' jets. One operand carries the order axis `T` through the contraction; the other is taken one coefficient at a time: two contractions when it is affine, a scan over its coefficients when it is a full jet. No dense order-by-order form. No user option. The block readouts compute only the terms whose orders sum to the top | Decided | 2.4, 2.6 |
+| 2.9 | A term over the orders is the truncated product of its operands' jets. One operand carries the order axis `T` through the contraction; the other is taken one coefficient at a time: two contractions when it is affine. No dense order-by-order form. No user option. The block readouts compute only the terms whose orders sum to the top. **Being reconsidered:** how a full jet operand is taken, by a loop or by a scan, and by which scan | To confirm | 2.4, 2.6 |
 
 Notes:
 
@@ -477,6 +478,25 @@ Notes:
     same size at every order (77 lines), where the unrolled loop grows from 56 lines at order 1 to 491 at order
     16. The mask throws work away: the scan does `(order+1)^2` contractions of one pair of orders where the
     triangle has `(order+1)(order+2)/2`, a factor 1.67 at order 4 that tends to 2.
+- **2.9, the scan reconsidered** (2026-11-15, 19:14). The maintainer, on seeing that the scan does up to twice the
+  contractions: "Oh hold on. We need to think more about the scan. Performance is important. Can you show me
+  pseudocode of representative contractions, loop vs scan, showing how the scan doubles the contractions?" The
+  parts of 2.9 confirmed as stated stand. How a full operand is taken is open again, so the row is marked to
+  confirm.
+- **2.9, three forms compared** (`scripts/review/order_scan_check.py`), for a product of two full jets
+  `c[t] = sum over i + r = t of contract(a[i], b[r])` with `P = order + 1`. Claude's work; not decided.
+
+  | Form | Pairs of orders contracted | Traced program | What it needs |
+  | --- | --- | --- | --- |
+  | Loop over `r`, with slices `a[:P-r]` | the triangle, `P(P+1)/2` | grows with the order: 143 lines at order 4, 491 at order 16 | nothing else |
+  | Scan over `r`, all of `a` each time, then a shift and a mask | the square, `P^2`: up to twice the triangle | 77 lines at every order | a shift along the order axis and a mask |
+  | Scan over a static table of the needed pairs, `P` at a time | the triangle, plus padding of fewer than `P` pairs | 74 lines at every order | two gathers and one scatter-add in each iteration |
+
+  All three give the explicit sum to rounding under jit, at orders 1 to 16. Why the second doubles the work: a
+  scan body must have the same shapes at every iteration, so it contracts all `P` slots of `a` with each `b[r]`,
+  and the `r` slots that would land above the top order are computed and then masked away. The third form lists
+  the pairs the product needs in a table built from `P` alone, and each iteration contracts `P` of them, so
+  nothing is thrown away and the body still has fixed shapes. None of the three was timed.
 
 ## 3. Variables and kinds
 

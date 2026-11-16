@@ -41,7 +41,7 @@ documents and some of the proposal.
   at the outer level of fitting; order 0 is the one-coefficient case of the same functions, with the order axis
   an optional axis `T` that is absent at order 0; input jets are always a point and one direction; and the plain
   and jetted sampling functions are one function, `probe(ww, pp=None, order=0)`, with three fitting kinds that
-  take an `order` in place of six (`REVIEW_DECISIONS.md` entries 12 to 45).
+  take an `order` in place of six (`REVIEW_DECISIONS.md` entries 12 to 46).
 - **Paused on 2026-11-15 at 05:53, to resume the next day.** Decided that morning: one function for the plain and
   the jetted computation (6.6), three kinds with an `order` (2.8), how the direction `pp` is passed (part of 6.2),
   and the convention for arrows on the edges (9.5). Held: what a tilde jet is (2.4); the material for it is
@@ -122,7 +122,7 @@ documents and some of the proposal.
 | `scripts/review/tilde_multiplier_check.py` | With jets: each tilde variable is the multiplier of the dot of its partner, under the top-coefficient pairing; the slot-by-slot pairing is wrong. numpy only |
 | `scripts/review/bad_scaling_example.py` | Prototype of the example required by 6.7: badly scaled data, a bad fit as given, a good fit after the standalone preparation functions. Two cases, few samples and many. Uses the library's Newton solver; add `--numbers` to print each error and time |
 | `scripts/review/adapter_doctest_draft.py` | Draft of the doctest required by 2.3: what the derivative-mode keyword does to the data and the weight, in three cases. The three conversions are prototyped so that it runs. numpy only |
-| `scripts/review/order_scan_check.py` | For 2.9: the product of two full jets as a scan over the coefficients of one operand, with a shift and a mask. Correctness against the explicit sum, the size of the traced program against the unrolled loop, and the work the mask throws away. Needs jax |
+| `scripts/review/order_scan_check.py` | For 2.9: the product of two full jets in three forms: a loop with slices, a scan with a shift and a mask, and a scan over a table of the needed pairs of orders. For each: the pairs of orders contracted, the size of the traced program, and correctness against the explicit sum. Needs jax |
 | `scripts/review/run_review_checks.sh` | Runs the nineteen review scripts. The four jax ones are skipped without jax |
 | `scripts/review/expected_review_output_3dc15d9.txt` | Recorded output of `run_review_checks.sh` at commit `3dc15d9`, with jax 0.12 |
 | `scripts/timings_2core_cpu_3dc15d9.txt` | Recorded output of `run_timings.sh` on a 2-core CPU. Not a basis for defaults |
