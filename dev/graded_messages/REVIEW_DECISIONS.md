@@ -1449,3 +1449,12 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
 - **02:28, forward-only probing.** The maintainer: "Leave it off this arc. Nice to have not need to have." It
   is listed among the things outside the list in `TARGET_DECISIONS.md`.
 
+## 71. 6.5 decided: held variables are trusted, shapes are checked (2026-11-16, 02:31)
+
+- **The maintainer:** "Agree with proposal. Check shapes, trust values. Also, I want to leave it open to the user
+  to apply the algorithm to whatever they want. There may be situations where applying the sweeping algorithms to
+  modified variables could be useful."
+- **Decided** as in the note to 6.5 of `TARGET_DECISIONS.md`. Decisions 6.4 (every variable can be held) and 3.3
+  (the adjoint variables of `Jp` are reached by giving `Jp` as the residual) rested on this.
+- **Counts.** 33 rows decided, 19 remain. Group C has five left: 8.2, 6.2, 6.3, 6.4, 9.2.
+

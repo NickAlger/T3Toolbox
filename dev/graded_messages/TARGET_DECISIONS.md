@@ -30,7 +30,7 @@ planned only after the target is settled.
 
 ## What remains, in groups (2026-11-15, 15:34)
 
-Of the 56 rows in sections 1 to 9, 32 are decided, 3 are guidance and 1 is parked. The other 20 are below, in
+Of the 56 rows in sections 1 to 9, 33 are decided, 3 are guidance and 1 is parked. The other 19 are below, in
 seven groups that cut across the sections. The grouping and the suggested order are Claude's, made at the
 maintainer's request; they decide nothing.
 
@@ -38,12 +38,12 @@ maintainer's request; they decide nothing.
 | --- | --- | --- | --- | --- | --- |
 | A. Jets and the misfit | 0 | | | | |
 | B. The frame and the value | 0 | | | | |
-| C. What a kind is, and the public surface | 6 | 4 | 1 | 1 | |
+| C. What a kind is, and the public surface | 5 | 3 | 1 | 1 | |
 | D. One program for every layout and stack | 5 | 3 | 1 | 1 | |
 | E. Plans, memory and scale | 5 | 3 | 2 | | |
 | F. The fitting layer above | 3 | 1 | | 2 | |
 | G. What defines correct | 1 | 1 | | | |
-| Total | 20 | 12 | 4 | 4 | |
+| Total | 19 | 11 | 4 | 4 | |
 
 - **A. Jets and the misfit.** (Decided on the afternoon of 2026-11-15: 2.4, what a tilde jet is; 2.5, the misfit;
   2.3, the derivative-mode adapter; and, at 19:32, 2.9, how a term is carried out over the orders.)
@@ -55,11 +55,12 @@ maintainer's request; they decide nothing.
   Hessian assembly stay in the geometry.
 - **C. What a kind is, and the public surface.** (Decided: on 2026-11-15 at 23:23, with the notation of 9.6,
   3.1, letters and grades as the primitives; on 2026-11-16 at 02:22, 3.4, a kind is closed in the sampling layer
-  and the open extension point is an objective protocol in the fitting layer.) 8.2 the fitting layer's kind
+  and the open extension point is an objective protocol in the fitting layer; at 02:31, 6.5, a held variable
+  is trusted and only its shape is checked.) 8.2 the fitting layer's kind
   object, now the objective protocol (open); 6.2 the remaining arguments of `sampling_variables` (open; the
   sample, the direction, the data and the weight are decided); 6.3 the other public functions (reopened); 6.4
-  the table of variables generated from the graph (to confirm; that every variable is public is decided); 6.5
-  who guarantees a held variable is valid (open); 9.2 names chosen to match things that will go (open).
+  the table of variables generated from the graph (to confirm; that every variable is public is decided); 9.2
+  names chosen to match things that will go (open).
 - **D. One program for every layout and stack.** 5.2 one set of step functions for ragged and uniform (open); 5.4
   terms generic over the stack groups (open); 5.3 sites scanned or vectorized (reopened); 5.5 association order
   inside a term (to confirm); 5.6 the dtype rule (open). The cases the order-0 assessment did not cover are here.
@@ -593,7 +594,7 @@ Notes:
 | --- | --- | --- | --- |
 | 3.1 | The primitives of a variable's name are a letter for the side contracted (`mu`, `nu`, `xi`, `eta`), the basis of the cut edge where it is not the usual one, and a grade (plain, dot, tilde, tilde-dot) | Decided | 9.6 |
 | 3.2 | `nu_L` (`gamma` until 2026-11-15, 23:23) stays, as an ordinary variable. It is computed only when `Kp` is wanted, or when the value goes through `D`. No frame convention removes it | Decided | 4.1 |
-| 3.3 | The tilde names always mean the adjoint sweep of the residual. The adjoint sweep of `Jp` has no names in a call that also holds the residual's; its variables are reached by a call with `Jp` given as the residual | Decided | 6.5 |
+| 3.3 | The tilde names always mean the adjoint sweep of the residual. The adjoint sweep of `Jp` has no names in a call that also holds the residual's; its variables are reached by a call with `Jp` given as the residual | Decided | 6.5 | The engine trusts a held variable and checks only its shape, the order included. Whoever holds it vouches for it. The caller may give the engine whatever they want, modified variables included | Decided | |
 | 3.4 | In the sampling layer a kind is closed: a small description (what goes in at a mode edge, what comes out, the order), not a class a user subclasses. The open extension point is in the fitting layer: a protocol for an objective, which the built-in objectives implement by calling the engine | Decided | 1.1 |
 | 3.5 | The output is `z` for every kind | Decided | |
 | 3.6 | The engine takes the data `y` and an optional `weight` (ones by default). The weight acts on `f`, `g`, `JtJp` and `Kp` alike, through one public helper that turns a jet into a dual jet. The bare transpose takes a seed and no weight. The engine has no other notion of a loss | Decided | 1.1 |
@@ -967,6 +968,18 @@ Notes:
 
 Notes:
 
+- **6.5, decided** (2026-11-16, 02:31). The maintainer: "Agree with proposal. Check shapes, trust values. Also,
+  I want to leave it open to the user to apply the algorithm to whatever they want. There may be situations where
+  applying the sweeping algorithms to modified variables could be useful."
+  - A held variable is right only for the point, the samples, the data and the order it was made with, and
+    the engine could check its values only by computing them again. So a held variable is an input with a
+    meaning, like the frame or the sample. Shapes are checked always, and a wrong number of coefficients for
+    the order is a structural error. There is no numerical check, in safe mode or otherwise.
+  - In the fitting layer the local model that computed the variables holds them with its frame, sample and
+    data, so a user of that layer cannot mix them up. Someone calling the engine directly vouches for what they
+    pass, and by the maintainer's second sentence that freedom is intended: held variables are also the way to
+    run the sweeps on variables the caller has modified.
+  - Not taken: a spot check in safe mode that recomputes a held variable for one sample.
 - **What "public" means for a variable, under discussion** (2026-11-15, 21:35). Not decided. It bears on 3.3,
   6.3, 6.4, 6.5 and 3.4.
   - **The maintainer's take.** "In the current codebase, there are handcoded functions that implement the
