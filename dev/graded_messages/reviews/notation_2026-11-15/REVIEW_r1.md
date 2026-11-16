@@ -1,4 +1,4 @@
-# Review of editor round 1 (commit `1dd65d6`, parent `70073af`)
+# Review of editor round 1 (commit `27fb13a`, parent `e1213c7`)
 
 Reviewer's report. The only file the reviewer wrote is this one. Nothing else in the repository or the Claude doc
 was changed.
@@ -150,8 +150,8 @@ base point is `(D_dot, L_dot)`; `(B_dot, G_dot)` remains on the corewise frame).
 to the three-period table: decided `(D_dot, L_dot)` | `(B_dot, G_dot)` in the prototype, `core_directions` in the
 library | phase 1: the `_t` cores at the corewise frame.
 
-N15. **`reviews/notation_2026-11-15/EDIT_REPORT_r1.md`, header:** "Base: ... head `e2e8fc6`. Nothing committed."
-The work is commit `1dd65d6`, whose parent is `70073af`. (`e05a0dc` and `70073af` came in between. I checked that
+N15. **`reviews/notation_2026-11-15/EDIT_REPORT_r1.md`, header:** "Base: ... head `8222abe`. Nothing committed."
+The work is commit `27fb13a`, whose parent is `e1213c7`. (`ab77fab` and `e1213c7` came in between. I checked that
 neither touches a file the editor changed, so nothing was lost.) Correct the header so that the record is right.
 
 N16. **`EVALUATOR.md` status note:** "a dot in the frame's form carries the other basis". This is right only if
@@ -164,7 +164,7 @@ Clearer: "a dot in the frame's form carries a basis in its name: `xi_t`, `mu_t`,
 ## Round 2: every place where `B_dot`, `G_dot`, `(B_dot, G_dot)` (or `B`, `G` for the base point) stand for the raw direction at the base point of a manifold frame
 
 The maintainer decided at 00:30 that this is `(D_dot, L_dot)`; on the corewise frame it stays `(B_dot, G_dot)`.
-The `SAMPLE_VARIABLES.md` at `621b9a1` already says so (sections 1, 5, 5.2, 5.4, 6, 11). The generic parameters
+The `SAMPLE_VARIABLES.md` at `f183e46` already says so (sections 1, 5, 5.2, 5.4, 6, 11). The generic parameters
 `B`, `G`, `B_dot`, `G_dot` of the term and step functions are NOT listed. Only main-level variables, program
 parameters, labels and text are listed.
 
@@ -227,20 +227,20 @@ before orthogonalization, corewise); `TYPE_CATALOG.md` section 1 "On the corewis
    one sentence pointing to the page, not unchecked rows (N6).
 
 The editor also listed the README reading order (N10: fix it) and the `variable_diagrams_gen.py` docstring. The
-supervisor has since updated that docstring at `621b9a1`, and it now says 28 rows and the page's notation.
+supervisor has since updated that docstring at `f183e46`, and it now says 28 rows and the page's notation.
 
 ---
 
 ## What I checked and how
 
-**Context read in full:** `SAMPLE_VARIABLES.md` (as at `1dd65d6` and then as at `621b9a1`, the supervisor's
+**Context read in full:** `SAMPLE_VARIABLES.md` (as at `27fb13a` and then as at `f183e46`, the supervisor's
 commit made during this review), `SURVEY.md`, `EDIT_REPORT_r1.md`, the whole diff
-(`git diff 70073af 1dd65d6 -- dev/graded_messages`, 2293 lines), `NOTATION_HISTORY.md`, `TYPE_CATALOG.md`, and
+(`git diff e1213c7 27fb13a -- dev/graded_messages`, 2293 lines), `NOTATION_HISTORY.md`, `TYPE_CATALOG.md`, and
 the changed regions of `DESIGN_AFTER_REVIEW.md`, `README.md` (status, contents, how to resume, established
 facts), `TARGET_DECISIONS.md`, `WORKED_EXAMPLE.md` (with its code, to check the notice's mapping through `V`,
 `R`, `U`, `H`), and `PROPOSAL.md` (its name table, to check the notice and the phase-1 column of the history
-table). I also checked that the intervening commits `e05a0dc` and `70073af` touch only `SAMPLE_VARIABLES.md` and
-`variable_diagrams_gen.py` (`git diff --stat e2e8fc6 70073af`), so the editor's base `e2e8fc6` lost nothing.
+table). I also checked that the intervening commits `ab77fab` and `e1213c7` touch only `SAMPLE_VARIABLES.md` and
+`variable_diagrams_gen.py` (`git diff --stat 8222abe e1213c7`), so the editor's base `8222abe` lost nothing.
 
 **1. Completeness.** Every survey id (R1-R10, S1-S3, T1-T15, C0-C17, D0-D17, L1-L5, P1-P5, W1-W3, E1-E6, A1,
 scripts (a)-(j), F1-F5) was traced to the diff. All are handled as ruled. The departures (R3 no change, R8
@@ -281,7 +281,7 @@ the scripts: correct); the gloss on entry 54 of `REVIEW_DECISIONS.md` ("neither 
 9.6 marks the frame's dots by basis, which is neither A's mark on the raw dots nor B's new letters); and the
 `WORKED_EXAMPLE.md` sentence on step 2 (consistent with page section 9).
 
-**4. Fidelity of what moved.** A script extracted each block from `git show 70073af:...` (DESIGN 3.5 whole, DESIGN
+**4. Fidelity of what moved.** A script extracted each block from `git show e1213c7:...` (DESIGN 3.5 whole, DESIGN
 4.3 list, the TARGET note from "The variables that still have no name" to before "6.3.", TYPE_CATALOG sections 13
 and 14 to the end of the file). It normalised whitespace and heading levels, then tested containment in
 `NOTATION_HISTORY.md`. All five blocks are present word for word. The TARGET note is split in four, and each of
@@ -304,7 +304,7 @@ and in the moved 21:57/21:59/22:11/22:24/22:27 passages were also read by eye: u
   `expected_output_3dc15d9.txt`: identical. That file is not in the commit.
 - `./review/run_review_checks.sh > /home/claude/scratch/notation/rev_review.txt 2>&1`, then `diff` against the
   re-recorded `review/expected_review_output_3dc15d9.txt`: identical, byte for byte (jax 0.12.0.1, numpy 2.5.3).
-- The old record (`git show 70073af:...`) against the new one, `diff`: only lines 166-169, 184-185, 187, 189-191,
+- The old record (`git show e1213c7:...`) against the new one, `diff`: only lines 166-169, 184-185, 187, 189-191,
   212-213, 224, 226 and 238-241 changed. A script compared the numeric tokens of all 315 lines, and the counts of
   "equal", "REJECTED", "differ": 0 differences. Every new label agrees with the page: the four type lists; "nu_L_dot,
   frame and raw form equal"; "mu_R_dot (R) and mu_dot (L)"; "xi_dot (D) and xi_U_dot (U)"; "nu (R) and nu_L (L)";
@@ -329,14 +329,14 @@ Otherwise the shapes, the reads of each output, the pairings and the rule for th
 **Not checked.** I did not open the Claude doc, so the "28 rows" of N11 is unverified. I did not run the jax-only
 review scripts by hand outside the runner; the runner ran them, with jax installed. I did not check the
 pre-existing content of the snapshot bodies beyond the places the notices map. I did not recheck the
-supervisor's commit `621b9a1` beyond reading its diff of `SAMPLE_VARIABLES.md`, `README.md` and
+supervisor's commit `f183e46` beyond reading its diff of `SAMPLE_VARIABLES.md`, `README.md` and
 `TARGET_DECISIONS.md`.
 
 ---
 
 ## Out-of-bounds files: for the supervisor
 
-O1. **`SAMPLE_VARIABLES.md` section 10** (at `621b9a1`). The old-to-new table and its "Unchanged" list do not
+O1. **`SAMPLE_VARIABLES.md` section 10** (at `f183e46`). The old-to-new table and its "Unchanged" list do not
 mention the raw direction, which changed name at 00:30 (`(B_dot, G_dot)` -> `(D_dot, L_dot)`; section 11 records
 it). Add one line under "Four things to watch" or after "Unchanged". Otherwise an older text's `(B_dot, G_dot)` at
 a manifold frame has no entry in the map.
@@ -349,4 +349,4 @@ O3. **`scripts/variable_diagrams_gen.py`** has no row in the README contents tab
 paragraph on the doc. Minor.
 
 O4. Nothing wrong found in `sample_variables_check.py` (it passes) or in the `variable_diagrams_gen.py` docstring
-at `621b9a1`.
+at `f183e46`.

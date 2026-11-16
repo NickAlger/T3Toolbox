@@ -92,7 +92,7 @@ direction `(V, H)`; "raw form" is a dot along a raw core direction at the base p
 
 ## 2. `gamma`: "an auxiliary variable, not a `nu`"
 
-**Moved from `DESIGN_AFTER_REVIEW.md`, section 3.5**, as it stood on 2026-11-14 (commit `e2e8fc6`), on
+**Moved from `DESIGN_AFTER_REVIEW.md`, section 3.5**, as it stood on 2026-11-14 (commit `8222abe`), on
 2026-11-16. Superseded on 2026-11-15 at 23:23 by target decision 9.6: the right of a bond in the `L` basis is
 `nu_L`, the same side as `nu` in the base point's basis. The facts of the section (who reads it, the library's
 `nu_c`, that it coincides with `nu` at a trial point) stay in `DESIGN_AFTER_REVIEW.md` section 3.5 under the new
@@ -115,7 +115,7 @@ an auxiliary variable, not a `nu`. Its residual-grade companion is `gamma_tilde`
 
 ### 3.1 "Variables with no public name" (`DESIGN_AFTER_REVIEW.md`, section 4.3)
 
-**Moved from `DESIGN_AFTER_REVIEW.md`, section 4.3**, as it stood on 2026-11-14 (commit `e2e8fc6`), on
+**Moved from `DESIGN_AFTER_REVIEW.md`, section 4.3**, as it stood on 2026-11-14 (commit `8222abe`), on
 2026-11-16. Superseded: every variable can be wanted and held (target decision 6.4, confirmed on 2026-11-15 at
 21:57), and every variable has a name (target decision 9.6, 2026-11-15, 23:23). Which application of the
 transpose a tilde name refers to is target decision 3.3.
@@ -129,7 +129,7 @@ Variables with no public name:
 
 ### 3.2 "The variables that still have no name" (`TARGET_DECISIONS.md`, notes to section 6, 21:57)
 
-**Moved from `TARGET_DECISIONS.md`, notes to section 6** (commit `e2e8fc6`), on 2026-11-16. The note was
+**Moved from `TARGET_DECISIONS.md`, notes to section 6** (commit `8222abe`), on 2026-11-16. The note was
 written at 21:57 and 21:59 on 2026-11-15; its sub-bullets were added at 22:11 and 22:24 to 22:41. It is split
 here by topic, in its own order: this section has its head and its first three sub-bullets; sections 4, 5 and
 6 have the rest. All six variables were named at 23:23 (target decision 9.6): rows 1 to 4 are `eta_D`,
@@ -164,7 +164,7 @@ named `(D_dot, L_dot)` on 2026-11-16 at 00:30 (`SAMPLE_VARIABLES.md` sections 1 
 
 ## 4. `zeta` (2026-11-15, 22:11)
 
-**Moved from `TARGET_DECISIONS.md`, notes to section 6** (commit `e2e8fc6`), on 2026-11-16: the sub-bullet of
+**Moved from `TARGET_DECISIONS.md`, notes to section 6** (commit `8222abe`), on 2026-11-16: the sub-bullet of
 22:11 of the note in section 3.2 above. Superseded at 23:23 (target decision 9.6): `zeta` is retired, and the
 down variable through the base point's cores is `eta_D`, the trunk above a Tucker edge in the `D` basis.
 
@@ -182,7 +182,7 @@ frame's `xi_dot`" is `xi_U_dot`, "the frame's `nu_dot`" and `gamma_dot` are `nu_
 `zeta_dot` are `eta_D_dot`, `gamma` is `nu_L` and `zeta` is `eta_D`; a bare `mu_dot` or `xi_dot` (as in "`mu +
 mu_dot` is well typed") already means the raw form. Read with the table of section 1.
 
-**From `TARGET_DECISIONS.md`, notes to section 6** (commit `e2e8fc6`), moved on 2026-11-16: the sub-bullet that
+**From `TARGET_DECISIONS.md`, notes to section 6** (commit `8222abe`), moved on 2026-11-16: the sub-bullet that
 follows section 4 above.
 
   - **Rows 5 and 6, two options, not decided.** A: a mark for the raw direction on the base point's dots. B:
@@ -193,7 +193,7 @@ follows section 4 above.
     letter for each of the frame's four tangent variables, and makes a letter fix the edge and the direction in
     every grade.
 
-**From `TYPE_CATALOG.md`, section 13** (commit `e2e8fc6`), moved whole on 2026-11-16. Claude's analysis of
+**From `TYPE_CATALOG.md`, section 13** (commit `8222abe`), moved whole on 2026-11-16. Claude's analysis of
 2026-11-15, 22:11.
 
 ### 13. The letters by edge, and the variables without names (2026-11-15, 22:11)
@@ -257,7 +257,7 @@ not taken. In the passages below "the frame's `mu_dot`" is `mu_R_dot`, "the fram
 "the frame's `nu_dot`" and `gamma_dot` are `nu_L_dot`, "the frame's `eta_dot`" and `zeta_dot` are `eta_D_dot`,
 `gamma` is `nu_L` and `zeta` is `eta_D`; a bare `mu_dot` or `xi_dot` in section 14 already means the raw form.
 
-**From `TARGET_DECISIONS.md`, notes to section 6** (commit `e2e8fc6`), moved on 2026-11-16: the last sub-bullet
+**From `TARGET_DECISIONS.md`, notes to section 6** (commit `8222abe`), moved on 2026-11-16: the last sub-bullet
 of the note in section 3.2 above.
 
   - **The naming problem widened** (2026-11-15, 22:24 and 22:27). The maintainer asked for the minimal
@@ -271,7 +271,7 @@ of the note in section 3.2 above.
     `eta_dot` is `zeta_dot`, on the arrays. So rows 5 and 6 are one side in two bases, as `nu` and `gamma` are,
     and not two directions. Two schemes follow (eight letters; or four letters and a basis). Not decided.
 
-**From `TYPE_CATALOG.md`, section 14** (commit `e2e8fc6`), moved whole on 2026-11-16, with the table written out
+**From `TYPE_CATALOG.md`, section 14** (commit `8222abe`), moved whole on 2026-11-16, with the table written out
 at 22:41. Claude's analysis of 2026-11-15, 22:24 to 22:41. Its "Not decided" was true until 23:23.
 
 ### 14. A variable is a contracted subnetwork in a basis; one dot (2026-11-15, 22:24 to 22:27)

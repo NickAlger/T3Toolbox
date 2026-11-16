@@ -1,4 +1,4 @@
-# Review of editor round 2 (commit `e073074`, parent `ed574ac`)
+# Review of editor round 2 (commit `dbe35d6`, parent `8f6d697`)
 
 Reviewer's report. The only file the reviewer wrote is this one.
 
@@ -7,7 +7,7 @@ Reviewer's report. The only file the reviewer wrote is this one.
 Every finding of round 1 is fixed. Each fix is true, and each reads acceptably. The `(D_dot, L_dot)` change is
 complete. No computation, number, quotation, moved passage, out-of-bounds file or count was altered. I see no
 remaining conflict between the folder (outside the Claude doc, which is phase B) and `SAMPLE_VARIABLES.md` as it
-is at `e073074`. Three small wording points are left below. None blocks.
+is at `dbe35d6`. Three small wording points are left below. None blocks.
 
 ## The findings of round 1
 
@@ -59,8 +59,8 @@ as `core_direction` with it, and is not confirmed." "with it" is unclear. Correc
 confirmed." The same applies to 10.3, "`core_direction` was suggested with it", where it should be "was
 suggested". The substance matches the ruling and entry 59.
 
-R2-3. **`reviews/notation_2026-11-15/EDIT_REPORT_r2.md`, header.** The words: "on the working tree over `621b9a1`
-... Nothing committed." The work is commit `e073074`, parent `ed574ac`. This is the slip N15 corrected for round 1.
+R2-3. **`reviews/notation_2026-11-15/EDIT_REPORT_r2.md`, header.** The words: "on the working tree over `f183e46`
+... Nothing committed." The work is commit `dbe35d6`, parent `8f6d697`. This is the slip N15 corrected for round 1.
 A record, so trivial.
 
 ## The `(D_dot, L_dot)` change
@@ -90,26 +90,26 @@ The aliases were removed without changing any computation:
 
 ## What I checked and how
 
-- **Diff:** `git diff ed574ac e073074 -- dev/graded_messages` (856 lines), read in full, with `EDIT_REPORT_r2.md`.
+- **Diff:** `git diff 8f6d697 dbe35d6 -- dev/graded_messages` (856 lines), read in full, with `EDIT_REPORT_r2.md`.
 - **Scripts:**
   - `./run_all.sh` against `expected_output_3dc15d9.txt`: identical. That file is not in the commit.
   - `./review/run_review_checks.sh` against the re-recorded `review/expected_review_output_3dc15d9.txt`:
     identical, byte for byte.
-  - The record against its `ed574ac` version: only the two "fits ..." lines differ. Since the whole run reproduces
+  - The record against its `8f6d697` version: only the two "fits ..." lines differ. Since the whole run reproduces
     the new record exactly, every number is identical.
   - `python3 -I review/sample_variables_check.py /home/claude/t3toolbox`: "all checks passed".
   - The script diffs: renames and comments only.
-- **Quotations:** the round-1 script was re-run on `ed574ac` -> `e073074` for every changed `.md` file. All 406
+- **Quotations:** the round-1 script was re-run on `8f6d697` -> `dbe35d6` for every changed `.md` file. All 406
   quoted spans survive (in the file or in `NOTATION_HISTORY.md`).
-- **Moved passages:** the round-1 script was re-run against `70073af`. All eight blocks (DESIGN 3.5, DESIGN 4.3,
+- **Moved passages:** the round-1 script was re-run against `e1213c7`. All eight blocks (DESIGN 3.5, DESIGN 4.3,
   TYPE_CATALOG 13 and 14, and the four parts of the TARGET note) are still word for word in `NOTATION_HISTORY.md`.
-- **Out of bounds:** `git diff --stat ed574ac e073074` on `SAMPLE_VARIABLES.md`, `sample_variables_check.py`,
+- **Out of bounds:** `git diff --stat 8f6d697 dbe35d6` on `SAMPLE_VARIABLES.md`, `sample_variables_check.py`,
   `variable_diagrams_gen.py`, `SURVEY.md` and `DIAGRAM_TEST.md` is empty. The TARGET diff does not touch the count
   paragraph.
 - **Reflows:** only paragraphs that were changed were rewrapped: the TARGET 05:26 and 21:44 notes, README step 2,
   and entry 8 (N12).
 - **Newcomer read:** I read the changed passages of `TYPE_CATALOG.md`, `DESIGN_AFTER_REVIEW.md`,
-  `TARGET_DECISIONS.md`, `README.md` and `NOTATION_HISTORY.md` against the page at `e073074` (sections 1, 5, 6, 7,
+  `TARGET_DECISIONS.md`, `README.md` and `NOTATION_HISTORY.md` against the page at `dbe35d6` (sections 1, 5, 6, 7,
   8, 10, 11). I found nothing that contradicts the page beyond R2-1 and R2-2.
 - **Not checked:** the Claude doc (phase B). The counts after the supervisor's later 3.6 record. The jax-only
   scripts outside the runner (the runner ran them, with jax).

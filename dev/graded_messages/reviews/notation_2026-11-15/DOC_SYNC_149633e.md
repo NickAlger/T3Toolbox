@@ -1,7 +1,7 @@
-# Doc sync: "Target decisions" tab to TARGET_DECISIONS.md at ef1828f
+# Doc sync: "Target decisions" tab to TARGET_DECISIONS.md at 149633e
 
 - Tab: body node a85e3927-c6f2, project b99f9eba-1b65-429e-8ace-9354c1587be8.
-- Source: `git diff df17105 ef1828f -- dev/graded_messages/TARGET_DECISIONS.md` (17 commits, 355 insertions, 42 deletions).
+- Source: `git diff 7268d54 149633e -- dev/graded_messages/TARGET_DECISIONS.md` (17 commits, 355 insertions, 42 deletions).
 - Revision: **146 before, 160 after**. No other tab was touched, and no repository file other than this report.
 - Every whole-block replace was guarded (ifHash plus the rev of the read that showed it). Nothing was refused. No `anchors_affected`, no `allowDetach`, no suggestions.
 - No email address appears in the file or in anything sent to the tab.
@@ -61,13 +61,13 @@ The maintainer's quotations were pasted from the file word for word, typos inclu
 
 Nothing in the diff was left out. The one blank line inside the file's 8.2 note list (before the 8.5 note) has nothing to correspond to in the doc.
 
-## Checked, and carried on to 2b609bd (Claude, 2026-11-16, 04:2x)
+## Checked, and carried on to 2ee26ff (Claude, 2026-11-16, 04:2x)
 
 - The editor's edits were read back as the tab's changes since revision 146 and compared with the file: the counts,
-  the group table, the bullets, the rows and the inserted notes agree with the file at `ef1828f`.
+  the group table, the bullets, the rows and the inserted notes agree with the file at `149633e`.
 - One difference of form, left as it is: the last sentence of "Claude's proposal" under 5.5 ("Checked on small
   arrays ...") sits inside the third nested bullet in the tab. The file has no blank line before it, so markdown
   reads it the same way.
-- The two commits made after `ef1828f` (`2b609bd`: the granularity of the contraction order moves to the
+- The two commits made after `149633e` (`2ee26ff`: the granularity of the contraction order moves to the
   performance discussion) were carried to the tab by Claude in three edits: the D bullet, the row 5.5, and the
-  granularity sub-bullet. The tab is at revision 162 and in step with the file at `2b609bd`.
+  granularity sub-bullet. The tab is at revision 162 and in step with the file at `2ee26ff`.

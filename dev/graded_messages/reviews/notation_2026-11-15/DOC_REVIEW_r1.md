@@ -1,7 +1,7 @@
 # Review of the Claude doc (phase B), round 1
 
 Reviewer's report. I only read the doc: I made no update, create, batch, delete or comment. This file is the only
-file I wrote. The standard is the files at `9b89f0d`. The tabs were read at these revs: Target decisions 138,
+file I wrote. The standard is the files at `c8ded56`. The tabs were read at these revs: Target decisions 138,
 Type catalog 22, Design after review 12, Notation history 5, Sample variables 7, Evaluator 34, Tab 1 30, Worked
 example 8, API impact 9, Variable diagrams 34.
 
@@ -78,7 +78,7 @@ and compared them with `difflib`. Results:
   Target decisions", "File names in this tab refer to the handoff package", the 10.4 list). Everything else is
   identical: the update note (all four items, including the 19:32 one), 3.1, 3.2 with both dot rows and the
   multiplier note, 3.3, 3.5, 4.1 (code, sentence, `(L, L, L_dot)` bullet), 4.2 (`core_direction` wording as fixed
-  at `9b89f0d`), 4.3 (tables and pointer), 4.4, 4.5, 10.1, 10.3 and the D13 row.
+  at `c8ded56`), 4.3 (tables and pointer), 4.4, 4.5, 10.1, 10.3 and the D13 row.
 - **Target decisions:** the notation passages are word for word as in the file, apart from chips. These are: the
   counts "56 rows ... 23 are decided ... The other 29", "The eight rows marked to confirm" (status "To confirm"
   appears the same number of times as in the file), group B's gloss, group C's 3.1, rows 3.1, 3.2, 3.6 and 9.6,
@@ -109,13 +109,13 @@ and compared them with `difflib`. Results:
 
 **4. Notation history.**
 - **Placement:** order `a6`, after every other tab (`a0` to `a5`).
-- **Text:** the word comparison with `NOTATION_HISTORY.md` at `9b89f0d` gives 0 differences over the whole file.
+- **Text:** the word comparison with `NOTATION_HISTORY.md` at `c8ded56` gives 0 differences over the whole file.
   That covers the banner, the timeline (including 00:23 and 00:30), the three-period table with the
   raw-direction row, the moved passages with every maintainer quotation (21:57, 21:59, 22:11 "zeta is great!",
   22:24, 22:27), the written-out scheme table and the section 7 identifier table.
 - **Structure:** headings equal (13), table rows equal (82), bold equal (53), and the banner is a blockquote.
 
-**5. Sample variables.** The word comparison with `SAMPLE_VARIABLES.md` at `9b89f0d` gives 0 differences.
+**5. Sample variables.** The word comparison with `SAMPLE_VARIABLES.md` at `c8ded56` gives 0 differences.
 Headings (16), table rows (122), bold (39) and code blocks (1) are all equal. This covers sections 1 to 11:
 section 5's step-function paragraph with `(L, L, L_dot)`, 5.2, 5.3, 5.4, section 6's table, section 7, section
 10's paragraph on the raw core direction, and section 11's "Settled since ...".
@@ -128,7 +128,7 @@ page, and the Sample variables tab is the page.
 
 ## For the supervisor: the Target decisions tab and its file differ outside the notation
 
-These are older than this phase; the editor applied only `ee23f44..9b89f0d`. I list them because the brief asked
+These are older than this phase; the editor applied only `9a08850..c8ded56`. I list them because the brief asked
 for anything in a tab that is behind its file. I did not judge which of them are meant to be tab-only.
 - **Row 2.3, column "Depends on":** the file has "2.2, 6.7"; the tab has "2.2, 1.1".
 - **The intro to "What the assessment did not cover":** the file's sentence "The maintainer gave rules for how
@@ -145,14 +145,14 @@ for anything in a tab that is behind its file. I did not judge which of them are
 - **The 2.4 notes:** condensed in the tab (known, left by design). The file's 04:57 and 05:26 glosses therefore
   have no counterpart.
 
-The 3.6 note's `omega^2` sub-bullet and the new note "The sample stack on the outputs" (`d17b68c`) are not in
+The 3.6 note's `omega^2` sub-bullet and the new note "The sample stack on the outputs" (`271f278`) are not in
 the tab, as expected, and not reported.
 
 ## How I checked, and what I did not
 
 - **Exports:** `mcp__Claude_Docs__export` of each tab, decoded from the saved results to
   `/home/claude/scratch/notation/docrev/`. I compared them with
-  `git show 9b89f0d:dev/graded_messages/<file>` using two scripts:
+  `git show c8ded56:dev/graded_messages/<file>` using two scripts:
   - `cmp.py` normalises both sides to words (markup, code ticks and table pipes removed; html unescaped) and
     runs `difflib` over the word sequences.
   - `struct.py` counts headings, table rows, bold and code blocks.

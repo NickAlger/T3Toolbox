@@ -1000,7 +1000,7 @@ axes. How do we tell whether an axis is part of the batch, or a derivative order
   derivative residuals. Required: documentation with a doctest of the three cases.
 - **A draft of that doctest** runs in `scripts/review/adapter_doctest_draft.py` (14 examples). 32 rows remain;
   group A has four, all marked to confirm: 2.9, 3.6, 3.7 and 3.3.
-- **A slip in the record.** The commit `be509da` carried only the draft and the runner; an edit script had failed
+- **A slip in the record.** The commit `d8e2da9` carried only the draft and the runner; an edit script had failed
   before it wrote the documents, and the commit message said more than the commit held. The documents followed
   in the next commit.
 

@@ -1,8 +1,8 @@
 # Edit report, round 1 (phase A: the folder)
 
 Editor's report on bringing `dev/graded_messages/` into line with the notation of 2026-11-15, 23:23. Branch
-`graded-messages`. The edits were made on a working tree based on `e2e8fc6`, and committed by the supervisor as
-`1dd65d6` (parent `70073af`; the commits `e05a0dc` and `70073af` in between touch none of the files edited here).
+`graded-messages`. The edits were made on a working tree based on `8222abe`, and committed by the supervisor as
+`27fb13a` (parent `e1213c7`; the commits `ab77fab` and `e1213c7` in between touch none of the files edited here).
 The Claude doc was not touched (phase B). (Header corrected in round 2.)
 
 **Rulings applied.** The supervisor's rulings Q1-Q10, then the change of 2026-11-16, 00:23 (the maintainer: "There
@@ -149,10 +149,10 @@ Each changes a statement, not only a name.
 
 ## 3. What moved to `NOTATION_HISTORY.md`
 
-All passages are taken programmatically from `git show e2e8fc6`, and checked to appear verbatim in the new file.
+All passages are taken programmatically from `git show 8222abe`, and checked to appear verbatim in the new file.
 The only alteration: headings inside a moved passage are one `#` lower (stated in the file's banner).
 
-| From | Lines at `e2e8fc6` | To | Pointer left |
+| From | Lines at `8222abe` | To | Pointer left |
 | --- | --- | --- | --- |
 | `DESIGN_AFTER_REVIEW.md` 3.5 `gamma` (whole section, as it stood) | 141-152 | section 2 | parenthesis in the new 3.5 |
 | `DESIGN_AFTER_REVIEW.md` 4.3 "Variables with no public name" | 265-270 | section 3.1 | two sentences in 4.3 |
@@ -198,7 +198,7 @@ TARGET (3.2, 4, 5, 6), TYPE_CATALOG 13 (5) and 14 (6), PROPOSAL (1). All exist.
 after the edits the diff is label lines only, below; `scripts/review/expected_review_output_3dc15d9.txt` was
 replaced by the new output (old copy at `/home/claude/scratch/notation/old_expected_review_output.txt`). A
 mechanical comparison of every numeric token of the 316 lines found no difference. Line numbers are 4 higher than
-the survey's (the file grew at `e2e8fc6`). `python3 -I scripts/review/sample_variables_check.py
+the survey's (the file grew at `8222abe`). `python3 -I scripts/review/sample_variables_check.py
 /home/claude/t3toolbox`: "all checks passed". The count line "22 step functions, 60 terms" is unchanged.
 
 ```
