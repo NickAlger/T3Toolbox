@@ -999,3 +999,15 @@ axes. How do we tell whether an axis is part of the batch, or a derivative order
   before it wrote the documents, and the commit message said more than the commit held. The documents followed
   in the next commit.
 
+## 45. How a term is carried out over the orders: a scan (2026-11-15, 19:08)
+
+- **The maintainer.** "I confirm 2.9 as stated. However, I want to implement with a scan rather than a loop.
+  Although the 4th order polynomial is my target, there can be other users with different problems who want
+  higher order polynomials; for example to get higher accuracy on smaller problems."
+- **Target decision 2.9, decided.** As stated, with the scan: the coefficients of a full jet operand are taken by a
+  scan. Claude had proposed leaving loop or scan to group D.
+- **Checked** in `scripts/review/order_scan_check.py`: the scan needs a shift and a mask in place of slicing; it
+  matches the explicit sum at orders 1 to 16 under jit; its traced program has one size at every order, where
+  the unrolled loop grows about ninefold from order 1 to 16; it does up to twice the contractions of the
+  triangle (1.67 times at order 4). 31 rows remain; group A has three, all marked to confirm.
+

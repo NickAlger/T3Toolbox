@@ -30,26 +30,26 @@ planned only after the target is settled.
 
 ## What remains, in groups (2026-11-15, 15:34)
 
-Of the 55 rows in sections 1 to 9, 19 are decided, 3 are guidance and 1 is parked. The other 32 are below, in
+Of the 55 rows in sections 1 to 9, 20 are decided, 3 are guidance and 1 is parked. The other 31 are below, in
 seven groups that cut across the sections. The grouping and the suggested order are Claude's, made at the
 maintainer's request; they decide nothing.
 
 | Group | Rows | Open | Reopened | To confirm | Held |
 | --- | --- | --- | --- | --- | --- |
-| A. Jets and the misfit | 4 | | | 4 | |
+| A. Jets and the misfit | 3 | | | 3 | |
 | B. The frame and the value | 6 | | 4 | 2 | |
 | C. What a kind is, and the public surface | 8 | 4 | 2 | 2 | |
 | D. One program for every layout and stack | 5 | 3 | 1 | 1 | |
 | E. Plans, memory and scale | 5 | 3 | 2 | | |
 | F. The fitting layer above | 3 | 1 | | 2 | |
 | G. What defines correct | 1 | 1 | | | |
-| Total | 32 | 12 | 9 | 11 | |
+| Total | 31 | 12 | 9 | 10 | |
 
 - **A. Jets and the misfit.** (Decided on the afternoon of 2026-11-15: 2.4, what a tilde jet is; 2.5, the misfit;
-  2.3, the derivative-mode adapter.) 2.9 how a term is carried out over the orders (to confirm);
+  2.3, the derivative-mode adapter; 2.9, how a term is carried out over the orders.)
   3.6 whether the loss is inside the sampling layer (to confirm); 3.7 which reductions over the samples are
   sampling variables (to confirm); 3.3 which seeded tilde copies are public (to confirm). The type catalog bears
-  on all four.
+  on all three.
 - **B. The frame and the value.** 4.1 what a frame is (reopened); 4.2 frame consistency (reopened); 4.3 the route
   to the value (reopened); 4.4 tails and boundaries (reopened); 3.2 whether `gamma` is first-class (to confirm,
   depends on 4.1); 4.5 where the projection, the lift and the Hessian assembly live (to confirm).
@@ -166,7 +166,7 @@ attempts failed.
 | 2.6 | Is an input jet always affine (`w + s p`), or can it be general? This decides whether the two-term banded form is part of the structure | Decided | |
 | 2.7 | Is order 0 the one-coefficient case of the same functions, with no order axis ever created? | Decided | 2.1, 2.6 |
 | 2.8 | There are three sampling kinds, `probe`, `apply` and `entries`, each with an `order` (0 for the plain computation), in place of six. The fitting layer has the same shape as the frontend methods of 6.6 | Decided | 2.7, 6.6 |
-| 2.9 | How is each term carried out over the orders, restated in Taylor form, and is any of it the user's choice? | To confirm | 2.4, 2.6 |
+| 2.9 | A term over the orders is the truncated product of its operands' jets. One operand carries the order axis `T` through the contraction; the other is taken one coefficient at a time: two contractions when it is affine, a scan over its coefficients when it is a full jet. No dense order-by-order form. No user option. The block readouts compute only the terms whose orders sum to the top | Decided | 2.4, 2.6 |
 
 Notes:
 
@@ -460,6 +460,23 @@ Notes:
     a weight; derivative data with no weight).
   - Not decided: the names of the functions and the spelling of the keyword (`jet_form='derivatives'` in the
     draft), and what the display shows in derivative mode (8.4).
+- **2.9, decided** (2026-11-15, 19:08). The maintainer: "I confirm 2.9 as stated. However, I want to implement with
+  a scan rather than a loop. Although the 4th order polynomial is my target, there can be other users with
+  different problems who want higher order polynomials; for example to get higher accuracy on smaller problems."
+  - Confirmed as stated: every term over the orders is the truncated product; one operand carries `T` through the
+    contraction and the other is taken one coefficient at a time; no dense order-by-order form; no user option;
+    the block readouts compute only the terms whose orders sum to the top.
+  - His addition: where the second operand is a full jet, its coefficients are taken by a scan, not an unrolled
+    loop, so that the compiled program does not grow with the order. Claude had proposed leaving that to group D.
+  - Where a scan is needed: the products of two full jets, which are in the tilde and tilde-dot steps and their
+    readouts. A product with an affine operand (`xi`, `w`, `xi_dot`) is two contractions and needs none. At order
+    0 there is no order axis and no scan (2.7).
+  - What a scan costs (`scripts/review/order_scan_check.py`). The body must have the same shapes at every
+    iteration, so the truncation cannot be done by slicing; it is done by a shift along the order axis and a
+    mask. The scan matches the explicit sum to rounding at orders 1 to 16, under jit. The traced program has the
+    same size at every order (77 lines), where the unrolled loop grows from 56 lines at order 1 to 491 at order
+    16. The mask throws work away: the scan does `(order+1)^2` contractions of one pair of orders where the
+    triangle has `(order+1)(order+2)/2`, a factor 1.67 at order 4 that tends to 2.
 
 ## 3. Variables and kinds
 

@@ -253,3 +253,12 @@ Case 2: 200 samples.  The order-0 data determine the tensor alone.
 === adapter_doctest_draft.py
 the doctest of the adapter draft: 14 examples, 0 failures
 
+=== order_scan_check.py
+order  scan against twin      loop against twin      program: scan      program: loop      multiplications: scan / loop
+1      ok                     ok                     77                 56                 4 / 3 = 1.33
+2      ok                     ok                     77                 85                 9 / 6 = 1.50
+4      ok                     ok                     77                 143                25 / 15 = 1.67
+8      ok                     ok                     77                 259                81 / 45 = 1.80
+16     ok                     ok                     77                 491                289 / 153 = 1.89
+("ok" = relative difference below 1e-13.  A multiplication here is one contraction for one pair of orders.)
+

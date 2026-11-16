@@ -31,3 +31,8 @@ run gauge_arrow_check      "$HERE/gauge_arrow_check.py" "$REPO"
 run tilde_multiplier_check "$HERE/tilde_multiplier_check.py"
 run bad_scaling_example    "$HERE/bad_scaling_example.py" "$REPO"
 run adapter_doctest_draft  "$HERE/adapter_doctest_draft.py"
+if python3 -I -c 'import jax' 2>/dev/null; then
+  run order_scan_check    "$HERE/order_scan_check.py"
+else
+  echo "=== order_scan_check.py: skipped (jax is not installed)"
+fi
