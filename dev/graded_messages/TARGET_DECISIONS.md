@@ -62,8 +62,9 @@ maintainer's request; they decide nothing.
   names moved to 7.6.
 - **D. One program for every layout and stack.** (Decided on 2026-11-16: at 03:11, 5.2, one set of step
   functions for both layouts; at 03:32, 5.6, the dtype rule.) 5.4 terms generic over the stack groups (open; a
-  prototype is owed); 5.5 the contraction order inside a term (open: it goes into the plan, one order per term
-  function; the helpers are a design phase of their own, with 7.6; how an order reads with jets is proposed); 5.3 sites scanned or vectorized (reopened; with
+  prototype is owed); 5.5 the contraction order inside a term (open: it goes into the plan; its granularity, the
+  form of the field and the helpers are held for the performance discussion of group E; how an order reads with
+  jets is proposed); 5.3 sites scanned or vectorized (reopened; with
   the performance discussion). The maintainer gave rules for how the functions are written on 2026-11-15, 19:50
   (notes to section 5).
 - **E. Plans, memory and scale.** 7.3 where the plan lives (reopened); 7.2 the defaults (reopened); 7.5 inert
@@ -863,7 +864,7 @@ Notes:
 | 5.2 | One set of step functions for the ragged and the uniform layout. The layout is detected from the structure of the inputs, as low as reasonably possible. Sweeps go through `xscan` on both layouts. Masks never reach a step: the uniform cores are masked once on entry. Shapes are read from the operands | Decided | 1.2 |
 | 5.3 | For each variable, are sites scanned or vectorized, what is the default, and which variables admit which? | Reopened | 5.2 |
 | 5.4 | How are the terms generic over the stack groups: several `W` axes, `K`, `C`, and the order? | Open | 2.7 |
-| 5.5 | The contraction order inside a term is in the plan: one order per term function. The user can specify it and tune it on their problem, and the library provides helpers that choose good orders. Open: the form of the plan's field, the helpers (a design phase of their own; measuring test contractions is the ideal), and how an order reads where the operands are jets | Open | 7.6 |
+| 5.5 | The contraction order inside a term is in the plan: the user can specify it and tune it on their problem, and the library provides helpers that choose good orders. Held for the performance discussion (group E): the granularity (per term function, or per place a term is used), the form of the plan's field, and the helpers. Proposed, to be confirmed: how an order reads where the operands are jets | Open | 7.6 |
 | 5.6 | The dtype rule is absorbing: jax takes precedence over numpy, and lower precision over higher. The engine creates no array with a default dtype | Decided | |
 
 Notes:
@@ -897,10 +898,11 @@ Notes:
   reflect real world performance. Limiting memory of intermediates is a good one. I think the ideal is to actually
   do some test contractions and measure them. This relates to the "measure" mode we discussed before, for
   automatic performance tuning. Jets: What is the question here?"
-  - **Granularity: decided, per term.** Claude reads this as per term function: the plan carries one order for each
-    term function that has a choice (`mu_term`, `nu_term`, `eta_term`, `H_term`), and every use of that function
-    in the call takes it, wherever `K` or a dot sits. The other reading, one order for every place a term is used,
-    was the alternative Claude had put; the reading is to be confirmed.
+  - **Granularity: not decided; moved to the performance discussion** (04:08). Claude read "per term" as per term
+    function (one order for each of `mu_term`, `nu_term`, `eta_term`, `H_term`, taken by every use of that
+    function in the call) and asked whether one order for every place a term is used was meant. The maintainer:
+    "I'm a bit unclear on granularity actually. Let's move that decision to the performance phase". So neither
+    reading is decided, and the granularity is taken up with group E.
   - **Helpers: not decided; a design phase of their own.** There can be several. Flop counts are the standard but
     he does not trust them to reflect real performance. A bound on the memory of the intermediates is a good
     criterion. The ideal is to run test contractions and measure them, as one of the candidates of the `measure`

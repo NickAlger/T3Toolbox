@@ -1538,3 +1538,12 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   the bare list of pairs), so `contract` has to spell the plan's path for its backend. New script
   `scripts/review/contraction_order_check.py`, added to the runner (22 scripts).
 - **Counts.** Unchanged: 40 rows decided, 12 remain. 5.5 stays open.
+
+## 80. 5.5: the granularity of the contraction order moves to the performance discussion (2026-11-16, 04:08)
+
+- **The maintainer**, asked whether "per term" meant per term function or per place a term is used: "I'm a bit
+  unclear on granularity actually. Let's move that decision to the performance phase". The reading recorded in
+  entry 79 is withdrawn; the granularity is undecided and goes with group E, beside the helpers and the form of
+  the plan's field.
+- **Still to be confirmed:** how an order reads where the operands are jets (the proposal in the note to 5.5).
+- **Counts.** Unchanged: 40 rows decided, 12 remain.
