@@ -9,6 +9,11 @@ and the evidence. The same content organized by topic is in `DESIGN_AFTER_REVIEW
   (`SampleScan`), "block" became "chunk", "component" became "sampling variable", `evaluate` became
   `sampling_variables`, `Plan` became `SamplePlan`, "keep" became "hold", and the grade suffixes `_t`, `_z` became
   `_dot`, `_tilde`. Entry 8 has the names.
+- **On 2026-11-15 (23:23, entry 57) the names were fixed again:** `gamma` is `nu_L`, `zeta` (entry 54) is `eta_D`,
+  the frame's `mu_dot`, `xi_dot`, `nu_dot`, `eta_dot` (this log's `_dot` of entry 8) are `mu_R_dot`, `xi_U_dot`,
+  `nu_L_dot`, `eta_D_dot`, and the bare `mu_dot`, `xi_dot` now mean the base point's. Entries before 57 use the
+  words of their time; `SAMPLE_VARIABLES.md` section 10 has the table, and `NOTATION_HISTORY.md` the earlier names
+  and ideas.
 - **The log ends with a pause** called by the maintainer (last entry). The proposal documents and the mockup had
   not been rewritten to these decisions when it was called.
 
@@ -303,8 +308,8 @@ The maintainer chose to settle the names now, one at a time (2026-11-14).
 - **Docstring table of `have` for each `want`** (the maintainer's idea, 2026-11-14): `sampling_variables` documents,
   for every variable, what it reads and which of those are worth holding. To be generated from the declared
   graph and checked by a test, so it cannot drift. Blocked for `Kp` and `Hp` on the gauge part of D13 (below).
-- **The gauge part of D13: `gamma`.** The right edge variable swept through `L` (the base point's own cores) is
-  not `nu`. The maintainer's view: it is an auxiliary variable, and since the curvature term reads it too it gets
+- **The gauge part of D13: `gamma` (now `nu_L`).** The right edge variable swept through `L` (the base point's own
+  cores) is not `nu`. The maintainer's view: it is an auxiliary variable, and since the curvature term reads it too it gets
   its own letter, `gamma`. `nu` means the frame's right edge variable, swept through `R`, and nothing else.
   - `gamma` is read by `z` (the value, decision 7) and by `Kp`. The library's notation for it is `nu_c`, with
     `nu_c = T nu` at a manifold frame (`docs/contributor/curvature_internals.md`); the proposal's `S` for that
@@ -1134,6 +1139,8 @@ axes. How do we tell whether an axis is part of the batch, or a derivative order
 
 ## 53. Public: confirmed. The variables without names (2026-11-15, 21:57 and 21:59)
 
+(Its naming is superseded by entry 57.)
+
 - **Confirmed by the maintainer.** Every variable of the graph can be wanted and held, and wanting never changes
   a value. The affine variables carry a two-slot group in place of `T`.
 - **Asked.** A list of the variables that still need names, with suggestions; perhaps recycling freed names such
@@ -1145,6 +1152,8 @@ axes. How do we tell whether an axis is part of the batch, or a derivative order
 - **Found while listing.** The prototype's `eta_tilde_dot` is the tilde-dot of the missing letter, not of `eta`.
 
 ## 54. `zeta` decided; the collision in the terms of the type catalog (2026-11-15, 22:11)
+
+(Superseded by entry 57: `zeta` is `eta_D`, and neither option was taken.)
 
 - **Decided.** `zeta` is the down variable through the base point's cores: "zeta is great!"
 - **Asked.** How the two options for the dots of `xi` and `mu` along the raw core direction sit within the type

@@ -7,20 +7,23 @@ the trunk above it.  A manifold frame gives each cut edge two bases: the base po
 and the frame's other one (the stores R and U).  The script checks two consequences, with the explicit step
 functions of jet_steps_check.py and the library's own frame, gauge projection and lift (undamped):
 
-  A. ONE DOT.  The frame's tangent variables along (V, H), and the base point's dots along the LIFTED raw core
+  A. ONE DOT.  The dots of the frame's form, along (V, H), and the dots of the raw form, along the LIFTED raw core
      direction, are the same tangent vector.  Where the two are on the same edge they are the same array:
-       the right of a bond in the L basis:      the frame's `nu_dot`   ==  `gamma_dot`
-       the trunk above a Tucker edge, D basis:  the frame's `eta_dot`  ==  `zeta_dot`
+       the right of a bond in the L basis:      `nu_L_dot`, the frame's form  ==  the raw form
+       the trunk above a Tucker edge, D basis:  `eta_D_dot`, the frame's form ==  the raw form
   B. TWINS.  Where they are on different edges, they are one subnetwork in two bases, and the lift's own
      factors are the change of basis:
-       the left of a bond:   the frame's `mu_dot` (R basis)  ==  `mu_dot` (L basis) through the bond matrix T
-       the leaf:             `xi_dot` (D basis)  ==  the frame's `xi_dot` (U basis) through the Tucker factor
+       the left of a bond:   `mu_R_dot` (R basis)  ==  `mu_dot` (L basis) through the bond matrix T
+       the leaf:             `xi_dot` (D basis)    ==  `xi_U_dot` (U basis) through the Tucker factor
      and the same factors, used the other way, join the plain twins:
-       the right of a bond:  `nu`  (R basis)     ==  the bond factor applied to `gamma` (L basis)
-       the trunk:            `eta` (U basis)     ==  the Tucker factor applied to `zeta` (D basis)
+       the right of a bond:  `nu`  (R basis)     ==  the bond factor applied to `nu_L` (L basis)
+       the trunk:            `eta` (U basis)     ==  the Tucker factor applied to `eta_D` (D basis)
      Each is stated in the direction that holds on any frame the library builds.  This frame has slack at its
      last bond (4 in the L basis, 3 in the R basis), and there the first relation does NOT hold the other way
      round: the L basis has a dimension the right side annihilates, and `mu_dot` is free in it.
+
+The names are those of SAMPLE_VARIABLES.md (2026-11-15, 23:23).  The raw form's `nu_L_dot` and `eta_D_dot` are
+spelled `raw_nu_L_dot` and `raw_eta_D_dot` below: a local spelling of this script, not notation.
 
 Covered: the probe kind, ragged cores, numpy, one sample axis, order 3, a frame the library built, no damping, no
 shared factors.   Usage:  python3 -I subtree_gauge_check.py /path/to/T3Toolbox
@@ -64,45 +67,46 @@ def main(repo):
     # plain: the base point's four, and the frame's two twins
     xi = J.each_site(J.xi_step, d, D, w)
     mu = J.left_to_right(J.mu_step, J.ones_start(P, W, 1), d, L, xi)
-    gamma = J.right_to_left(J.nu_step, J.ones_start(P, W, 1), d, L, xi)
-    zeta = [J.eta_term(mu[i], L[i], gamma[i + 1]) for i in range(d)]
+    nu_L = J.right_to_left(J.nu_step, J.ones_start(P, W, 1), d, L, xi)
+    eta_D = [J.eta_term(mu[i], L[i], nu_L[i + 1]) for i in range(d)]
     nu = J.right_to_left(J.nu_step, J.ones_start(P, W, 1), d, R, xi)
     eta = J.each_site(J.eta_step, d, mu, U, nu[1:])
 
-    # the frame's tangent variables, along (V, H)
-    f_xi_dot = J.each_site(J.xi_dot_step, d, V, w)
-    f_mu_dot = J.left_to_right(J.mu_dot_step, J.zeros_start(P, W, 1), d, mu, xi, f_xi_dot, R, U, H)
-    f_nu_dot = J.right_to_left(J.nu_dot_step, J.zeros_start(P, W, 1), d, nu[1:], xi, f_xi_dot, L, U, H)
-    f_eta_dot = J.each_site(J.eta_dot_step, d, f_mu_dot, mu, f_nu_dot[1:], nu[1:], L, R, H)
-    Jp_frame = J.each_site(J.Jp_step, d, f_eta_dot, eta, D, V)
+    # the dots of the frame's form, along (V, H)
+    xi_U_dot = J.each_site(J.xi_dot_step, d, V, w)
+    mu_R_dot = J.left_to_right(J.mu_dot_step, J.zeros_start(P, W, 1), d, mu, xi, xi_U_dot, R, U, H)
+    nu_L_dot = J.right_to_left(J.nu_dot_step, J.zeros_start(P, W, 1), d, nu[1:], xi, xi_U_dot, L, U, H)
+    eta_D_dot = J.each_site(J.eta_dot_step, d, mu_R_dot, mu, nu_L_dot[1:], nu[1:], L, R, H)
+    Jp_frame = J.each_site(J.Jp_step, d, eta_D_dot, eta, D, V)
 
-    # the base point's dots, along the lifted raw core direction, through G = L
+    # the dots of the raw form, along the lifted raw core direction, through G = L
+    # (raw_nu_L_dot, raw_eta_D_dot: a local spelling of this script for the raw form's nu_L_dot, eta_D_dot)
     xi_dot = J.each_site(J.xi_dot_step, d, B_dot, w)
     mu_dot = J.left_to_right(J.mu_dot_step, J.zeros_start(P, W, 1), d, mu, xi, xi_dot, L, L, G_dot)
-    gamma_dot = J.right_to_left(J.nu_dot_step, J.zeros_start(P, W, 1), d, gamma[1:], xi, xi_dot, L, L, G_dot)
-    zeta_dot = J.each_site(J.eta_dot_step, d, mu_dot, mu, gamma_dot[1:], gamma[1:], L, L, G_dot)
-    Jp_base = [J.z_term(zeta_dot[i], D[i]) + J.z_term(zeta[i], B_dot[i]) for i in range(d)]
+    raw_nu_L_dot = J.right_to_left(J.nu_dot_step, J.zeros_start(P, W, 1), d, nu_L[1:], xi, xi_dot, L, L, G_dot)
+    raw_eta_D_dot = J.each_site(J.eta_dot_step, d, mu_dot, mu, raw_nu_L_dot[1:], nu_L[1:], L, L, G_dot)
+    Jp_base = [J.z_term(raw_eta_D_dot[i], D[i]) + J.z_term(eta_D[i], B_dot[i]) for i in range(d)]
 
     print('A. One dot: the frame along (V, H) against the base point along the lifted direction')
     print('   Jp                                                        %s' % same(Jp_frame, Jp_base))
-    print("   right of a bond, L basis:   frame nu_dot   and gamma_dot   %s" % same(f_nu_dot[:d], gamma_dot[:d]))
-    print("   trunk, D basis:             frame eta_dot  and zeta_dot    %s" % same(f_eta_dot, zeta_dot))
+    print("   right of a bond, L basis:   nu_L_dot,  frame and raw form  %s" % same(nu_L_dot[:d], raw_nu_L_dot[:d]))
+    print("   trunk, D basis:             eta_D_dot, frame and raw form  %s" % same(eta_D_dot, raw_eta_D_dot))
 
     bonds = range(1, d)                                                   # the interior bonds 1 .. d-1
     print('B. Twins: one subnetwork in two bases, joined by the lift\'s own factors')
     T = [np.linalg.pinv(m) for m in bond_factor]                          # [i]: (rL(i+1), rR(i+1)), L basis -> R basis
-    print("   left of a bond:   frame mu_dot (R)  and mu_dot (L)         %s"
-          % same([f_mu_dot[j] for j in bonds], [np.einsum('tWc,cb->tWb', mu_dot[j], T[j - 1]) for j in bonds]))
+    print("   left of a bond:   mu_R_dot (R)  and mu_dot (L)             %s"
+          % same([mu_R_dot[j] for j in bonds], [np.einsum('tWc,cb->tWb', mu_dot[j], T[j - 1]) for j in bonds]))
     print("      the other way round, through the bond factor         %s"
-          % ('equal' if same([mu_dot[j] for j in bonds], [np.einsum('tWb,bc->tWc', f_mu_dot[j], bond_factor[j - 1])
+          % ('equal' if same([mu_dot[j] for j in bonds], [np.einsum('tWb,bc->tWc', mu_R_dot[j], bond_factor[j - 1])
                                                          for j in bonds]) == 'equal' else 'different: the bond has slack'))
-    print("   leaf:             xi_dot (D)  and frame xi_dot (U)         %s"
-          % same(xi_dot, [np.einsum('ux,tWx->tWu', tucker_factor[i], f_xi_dot[i]) for i in range(d)]))
-    print("   right of a bond:  nu (R)      and gamma (L)                %s"
-          % same([nu[j] for j in bonds], [np.einsum('bc,tWc->tWb', bond_factor[j - 1], gamma[j]) for j in bonds]))
-    print("   trunk:            eta (U)     and zeta (D)                 %s"
-          % same(eta, [np.einsum('ux,tWu->tWx', tucker_factor[i], zeta[i]) for i in range(d)]))
-    print('   bond sizes, L basis %s, R basis %s' % ([m.shape[-1] for m in mu_dot[1:d]], [m.shape[-1] for m in f_mu_dot[1:d]]))
+    print("   leaf:             xi_dot (D)    and xi_U_dot (U)           %s"
+          % same(xi_dot, [np.einsum('ux,tWx->tWu', tucker_factor[i], xi_U_dot[i]) for i in range(d)]))
+    print("   right of a bond:  nu (R)        and nu_L (L)               %s"
+          % same([nu[j] for j in bonds], [np.einsum('bc,tWc->tWb', bond_factor[j - 1], nu_L[j]) for j in bonds]))
+    print("   trunk:            eta (U)       and eta_D (D)              %s"
+          % same(eta, [np.einsum('ux,tWu->tWx', tucker_factor[i], eta_D[i]) for i in range(d)]))
+    print('   bond sizes, L basis %s, R basis %s' % ([m.shape[-1] for m in mu_dot[1:d]], [m.shape[-1] for m in mu_R_dot[1:d]]))
 
 
 if __name__ == '__main__':

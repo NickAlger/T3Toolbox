@@ -9,6 +9,9 @@ decision. It bears on target decisions 2.4 (what a tilde jet is), 2.5 (the misfi
 **Checked** by `scripts/review/type_catalog_check.py`; see section 7. Covered: the probe kind, ragged cores, one
 sample axis, order 2. Not covered: apply and entries, the uniform layout, the `K` and `C` stacks.
 
+**Names updated** to `SAMPLE_VARIABLES.md` (the notation decided on 2026-11-15, 23:23) on 2026-11-16. Sections 13
+and 14 moved to `NOTATION_HISTORY.md`. Section 7 of `SAMPLE_VARIABLES.md` is the reference for types and shapes.
+
 ## 1. The spaces
 
 Every variable is an element of (a space of the network) tensor (a space of the order).
@@ -35,45 +38,48 @@ inside a term joins a vector with a covector slot.
 | plain | `xi` | vector of `XD` | jet |
 | plain | `mu` | vector of `AL` | jet |
 | plain | `nu` | covector of `AR` | jet |
-| plain | `gamma` | covector of `AL` | jet |
+| plain | `nu_L` | covector of `AL` | jet |
 | plain | `eta` | covector of `XU` | jet |
 | plain | `z`, the data `y`, the residual `r` | covector of `N` | jet |
-| dot | `xi_dot` | vector of `XU` | jet |
-| dot | `mu_dot` | vector of `AR` | jet |
-| dot | `nu_dot` | covector of `AL` | jet |
-| dot | `eta_dot` | covector of `XD` | jet |
+| dot | `xi_U_dot` | vector of `XU` | jet |
+| dot | `mu_R_dot` | vector of `AR` | jet |
+| dot | `nu_L_dot` | covector of `AL` | jet |
+| dot | `eta_D_dot` | covector of `XD` | jet |
 | dot | `Jp` | covector of `N` | jet |
 | tilde | `w_tilde` (the seed) | vector of `N` | dual jet |
 | tilde | `xi_tilde` | vector of `XD` | dual jet |
 | tilde | `mu_tilde` | vector of `AL` | dual jet |
 | tilde | `nu_tilde` | covector of `AR` | dual jet |
-| tilde | `gamma_tilde` | covector of `AL` | dual jet |
+| tilde | `nu_L_tilde` | covector of `AL` | dual jet |
 | tilde | `eta_tilde` | covector of `XU` | dual jet |
 | tilde-dot | `xi_tilde_dot` | vector of `XD` | dual jet |
 | tilde-dot | `mu_tilde_dot` | vector of `AL` | dual jet |
-| tilde-dot | `gamma_tilde_dot` | covector of `AL` | dual jet |
-| tilde-dot | `eta_tilde_dot` | covector of `XD` | dual jet |
+| tilde-dot | `nu_L_tilde_dot` | covector of `AL` | dual jet |
+| tilde-dot | `eta_D_tilde_dot` | covector of `XD` | dual jet |
 | blocks | `V_tilde`, `H_tilde` | covector on the space of `V`, of `H` | none: real |
 | blocks | `V_tilde_dot`, `H_tilde_dot` (`Kp`) | covector on the space of `B`, of `G` | none: real |
 
 The dot rows are for the manifold frame with the direction `(V, H)`. The tilde-dot rows are for the base point
-with the raw core direction, as `Kp` is computed; there the dot variables are `xi_dot` in `XD`, `mu_dot` in `AL`,
-`gamma_dot` a covector of `AL`, and `eta_dot` a covector of `XD`.
+with the raw core direction, as `Kp` is computed; there the dot variables are `xi_dot` in `XD`, `mu_dot` in `AL`
+(these two names meant the frame's dots until 2026-11-15, 23:23), `nu_L_dot` a covector of `AL`, and `eta_D_dot` a
+covector of `XD`.
 
 Two rules summarise the table.
 
-- **The letter fixes the network factor's variance, in every grade.** `w`, `xi` and `mu` are vectors. `eta`,
-  `nu`, `gamma` and `z` are covectors.
+- **The letter fixes the network factor's variance, in every grade.** `w`, `xi` and `mu` are vectors. `eta` and
+  `nu`, in either basis, and `z` are covectors.
 - **The grade fixes the order factor.** Plain and dot are jets. Tilde and tilde-dot are dual jets.
 
 So the tilde changes the order factor and nothing else.
 
 **Why, and where the reversal comes from.** A tilde variable is a multiplier of the constraint that defines its
-partner. The multiplier of a variable in `S (x) R` lives in the dual, `S* (x) R*`. On every edge the two partners
-are in dual network spaces: `xi` and `eta`, `mu` and `gamma`, `w` and `z`. So `S*` is the letter's own kind of
-space, and the network factor needs no identification at all. In the order factor there is no such partner: both
-partners are jets, so the multiplier is a dual jet. The duality of the network is absorbed by the partner rule.
-The duality of the order has nothing to absorb it. That leftover dual is the reversal.
+partner. The multiplier of a variable in `S (x) R` lives in the dual, `S* (x) R*`. On every edge the two partners,
+in the same basis, are in dual network spaces: `xi` and `eta_D`, `mu` and `nu_L` in the base point's bases;
+`xi_U_dot` and `eta`, `mu_R_dot` and `nu` in the frame's other bases (`SAMPLE_VARIABLES.md` section 8); `w` and
+`z`. So `S*` is the letter's own kind of space, and the network factor needs no identification at all. In the order
+factor there is no such partner: both partners are jets, so the multiplier is a dual jet. The duality of the
+network is absorbed by the partner rule. The duality of the order has nothing to absorb it. That leftover dual is
+the reversal.
 
 ## 3. What happens to the order factor
 
@@ -133,9 +139,9 @@ transformation, so it can be tested.
 
 - **Part A, the network factor.** Every space `N`, `XD`, `XU`, `AL`, `AR` gets an arbitrary invertible change of
   basis, with condition numbers up to 4. The frame, the directions, the input and the seed are transformed
-  according to their types. Each of the 30 variables then agrees with the catalog's rule applied to the original
-  (worst relative difference 1e-15, in every grade). This passes only if no inner product of a network space is
-  used.
+  according to their types. Each of the 30 arrays of the program then agrees with the catalog's rule applied to the
+  original (worst relative difference 1e-15, in every grade). This passes only if no inner product of a network
+  space is used.
 - **Part B, the one inner product.** With an arbitrary change of basis of `N`, copying `omega^2 r` into the seed
   is wrong by 7e-01, and the misfit changes by 2e-01. With an orthogonal one, both agree to 1e-15.
 - **Part C, the order factor.** Under `s -> c s`, slot `t` of every jet is multiplied by `c^t` (4e-16). A
@@ -159,7 +165,9 @@ Claude's reading of it against this catalog. Not a decision.
 
 - **It corrects section 2 in one respect.** The words "vector" and "covector" on an internal edge are a choice of
   orientation, not a fact. What is a fact is that the two directions on an edge are dual to each other. The
-  catalog's first rule is better said as: the letter fixes the direction of the arrow.
+  catalog's first rule is better said as: the letter fixes the direction in which a variable travels along its
+  edge. Whether that is with the arrow of the edge or against it is fixed by the basis, once the cores carry
+  arrows (section 9).
 - **The order index is one more leg on every edge.** Its "core" is the product of the ring: the tensor that is 1
   when `t = i + j`. As the term functions use it, two jets point in and one points out. A residual in forward
   order points out on that leg. The reversal turns it round.
@@ -219,16 +227,18 @@ thing: a variable flows with the arrow of its edge or against it.
 
 | Flows | Variables |
 | --- | --- |
-| With the arrows | `w`, `xi`, `mu`, `nu`, `eta`, and the tilde of each: `w_tilde`, `xi_tilde`, `mu_tilde`, `nu_tilde`, `eta_tilde` |
-| Against the arrows | `gamma`, `z`; the dot variables `xi_dot`, `mu_dot`, `nu_dot`, `eta_dot`, `Jp`; `gamma_tilde` |
+| With the arrows | `w`, `xi`, `mu`, `nu`, `eta`, and the tilde of each: `w_tilde`, `xi_tilde`, `mu_tilde`, `nu_tilde`, `eta_tilde`; the raw form's dots `xi_dot`, `mu_dot`, and `xi_tilde_dot`, `mu_tilde_dot` |
+| Against the arrows | `nu_L`, `z`; the frame's form's dots `xi_U_dot`, `mu_R_dot`, `nu_L_dot`, `eta_D_dot`, and `Jp`; `nu_L_tilde`; the raw form's `nu_L_dot`, `eta_D_dot`, and `nu_L_tilde_dot`, `eta_D_tilde_dot` |
 
-So what flows with the arrows has not yet met a hole. What flows against them has passed a hole (the dot grade)
-or is on its way out (`gamma`, `z`). Each block is the outer product of variables that flow with the arrows into
-a hole, and its legs are the legs of the hole's direction with every sign flipped: `V_tilde` fits `V`, `H_tilde`
-fits `H`, and the `Kp` blocks fit the raw core directions.
+So what flows against the arrows is exactly what carries a basis in its name, and the outputs `z` and `Jp`;
+everything else flows with them, the raw form's dots included. (Until 2026-11-16 this paragraph said that what
+flows with the arrows has not yet met a hole, and what flows against them has passed a hole or is on its way out;
+the raw form's dots, which flow with the arrows, are the exception to that.) Each block is the outer product of
+variables that flow with the arrows into a hole, and its legs are the legs of the hole's direction with every sign
+flipped: `V_tilde` fits `V`, `H_tilde` fits `H`, and the `Kp` blocks fit the raw core directions.
 
 **One change to the first statement of the picture.** "Arrows can only be contracted into a core if they point
-towards it" describes the flow. With fixed arrows on the cores it does not hold as a typing rule: `gamma` enters
+towards it" describes the flow. With fixed arrows on the cores it does not hold as a typing rule: `nu_L` enters
 `L` through the leg where `L`'s arrow leaves. The typing rule is the two ends of one arrow.
 
 **What the checker rejects.**
@@ -239,9 +249,9 @@ towards it" describes the flow. With fixed arrows on the cores it does not hold 
 | Weights applied but the order not reversed | The order leg is `out`: it cannot enter the product |
 | `mu` swept through an `R` core | Two different edges, an `L` bond and an `R` bond |
 | `nu` swept through an `L` core | Two different edges |
-| `gamma` where `nu` is wanted, in `eta_term(mu, U, gamma)` | Two different edges |
+| `nu_L` where `nu` is wanted, in `eta_term(mu, U, nu_L)` | Two different edges |
 | A bond variable from the neighbouring bond | Two different edges |
-| `mu + mu_dot` | A sum of unlike types |
+| `mu + mu_R_dot` | A sum of unlike types |
 
 The first two rows are the maintainer's statement of 05:20: `r` points the wrong way and must be converted, by
 the weights and, for jets, by the reversal.
@@ -321,11 +331,12 @@ points the opposite way on its edge. Are there any more subtleties here I'm not 
    its letter: it is opposite to its partner, whose multiplier it is. On the order leg both partners are jets, so
    the multiplier points against them there. That is the reversal.
 2. **Which Lagrangian.** On the manifold frame the tilde sweeps are the adjoint of the linear program
-   `(V, H) -> Jp`, whose variables are the dot variables. So the tilde of a letter is the multiplier of the dot
-   of its partner: `xi_tilde` of `eta_dot`, `eta_tilde` of `xi_dot`, `mu_tilde` of `nu_dot`, `nu_tilde` of
-   `mu_dot`. The library's present names say the same (`deta_tilde`, `dxi_tilde`). Section 9 shows it as
-   arrows: the tilde variables flow with the arrows and the dot variables against them. On the corewise frame,
-   for the gradient of the value, the partner is the plain variable (`mu_tilde` of `gamma`), which is what
+   `(V, H) -> Jp`, whose variables are the dot variables of the frame's form. So the tilde of a letter is the
+   multiplier of the dot of its partner: `xi_tilde` of `eta_D_dot`, `eta_tilde` of `xi_U_dot`, `mu_tilde` of
+   `nu_L_dot`, `nu_tilde` of `mu_R_dot`. The library's present names say the same (`deta_tilde`, `dxi_tilde`).
+   Section 9 shows it as arrows: the tilde variables flow with the arrows and the dot variables of the frame's
+   form against them. On the corewise frame, for the gradient of the value, the partner is the plain variable
+   (`mu_tilde` of `nu_L`, which a call on the corewise frame itself calls `nu`), which is what
    `tilde_adjoint_check.py` checked at order 0. Checked now with jets in
    `scripts/review/tilde_multiplier_check.py` at order 3: perturbing each dot variable changes
    `F = <phi, Jp>` by the top-coefficient pairing with its tilde variable (relative error from 5e-15 to 1e-11).
@@ -378,171 +389,11 @@ of the product. In the words of section 5: map 1 and map 3 are applied together,
 
 ## 13. The letters by edge, and the variables without names (2026-11-15, 22:11)
 
-The maintainer accepted `zeta` for the down variable through the base point's cores ("zeta is great!"), and asked
-of the two ways to name the dots of `xi` and `mu` along the raw core direction (target decisions, notes to
-section 6): "How do these options sit within the naming concepts we explored in the type catalog document?"
-Claude's analysis. Not a decision.
-
-**The catalog has three coordinates, and its two rules use two of them.** A variable's type is an edge (`AL`,
-`AR`, `XD`, `XU`, `N`), a direction on that edge (vector or covector), and an order factor. Rule 1 says the letter
-fixes the direction. Rule 2 says the grade fixes the order factor. Nothing in a name fixes the edge. Grouping the
-checked catalog of `type_catalog_check.py` by edge and direction:
-
-| Edge | Vector | Covector |
-| --- | --- | --- |
-| `AL`, an `L` bond | `mu`, `mu_tilde`, `mu_tilde_dot`, and the dot of `mu` along the raw core direction | `gamma`, `gamma_tilde`, `gamma_dot`, `gamma_tilde_dot`, and the frame's `nu_dot` |
-| `XD`, a `D` edge | `xi`, `xi_tilde`, `xi_tilde_dot`, and the dot of `xi` along the raw core direction | `zeta` in every grade, and the frame's `eta_dot` |
-| `AR`, an `R` bond | the frame's `mu_dot`, and nothing else | `nu`, `nu_tilde` |
-| `XU`, a `U` edge | the frame's `xi_dot`, and nothing else | `eta`, `eta_tilde` |
-
-**What the table says about the collision.**
-
-- The two rules do not see it: both dots of `mu` are vectors and jets.
-- It is a difference of edge. The dot of `mu` along the raw core direction is on the edge of `mu`, so it has the
-  type of what was differentiated, and `mu + mu_dot` is well typed. The frame's `mu_dot` is on an `R` bond; the
-  checker of section 9 rejects `mu + mu_dot` for it. The same holds for `xi`.
-- The catalog already has this situation once: `nu` and `gamma` travel the same way on different edges, and they
-  were given different letters. `eta` and `zeta` are the second case.
-- Two slots of the table have no letter of their own: the vector on an `R` bond and the vector on a `U` edge.
-  They are the partners of `nu` and of `eta`, and only the frame's tangent variables live there.
-- The frame's `nu_dot` and `eta_dot` have exactly the types of `gamma` and `zeta`.
-
-**The two options in these terms.**
-
-- **A, a mark for the raw direction.** "Which direction a variable is linear in" is not one of the catalog's
-  coordinates. The mark would record that, and leave the difference of edge, which is one, unspoken.
-- **B, letters for the frame's tangent variables.** A different edge getting a different letter is the catalog's
-  own precedent. Carried through, the frame's four tangent variables each get a letter: on the `R` bond, vector
-  (the proposal's frame `mu_dot`; the `sigma` of today's code); on the `L` bond, covector (frame `nu_dot`;
-  today's `tau`); on the `U` edge, vector (frame `xi_dot`); on the `D` edge, covector (frame `eta_dot`). The
-  first and third are the two slots without a letter. The second and fourth share the types of `gamma` and
-  `zeta` and differ from `gamma_dot` and `zeta_dot` only in the direction they are linear in; a letter for a role
-  where the type is shared also has a precedent, `z` and `Jp`.
-- **What B gives.** Rule 1 becomes stronger: a letter fixes the edge and the direction, in every grade. Today it
-  cannot say that, because `xi` is on `XD` and `xi_dot` on `XU`. The grades `dot` and `tilde-dot` then exist at
-  the base point only, along the raw core direction, and `_dot` has one meaning.
-- **The multiplier pairings of section 11 under B.** The tilde of a letter is the multiplier of the tangent
-  variable on the same edge, travelling the other way: `nu_tilde` of the `R`-bond tangent variable, `mu_tilde`
-  of the `L`-bond one, `eta_tilde` of the `U`-edge one, `xi_tilde` of the `D`-edge one.
-- **What B leaves to settle.** Two more letters. And which spelling a call on the corewise frame accepts, since
-  there the edges merge and each tangent variable equals a dot: the question already open for `nu` and `gamma`.
+Deprecated. Claude's analysis of options A and B for the dots of `xi` and `mu` along the raw core direction stood
+here. Superseded on 2026-11-15 at 23:23 by target decision 9.6; the section is now `NOTATION_HISTORY.md` section 5.
 
 ## 14. A variable is a contracted subnetwork in a basis; one dot (2026-11-15, 22:24 to 22:27)
 
-The maintainer: "Let's allow ourselves the freedom to explore broader concepts for the naming scheme. This is all
-still in the planning stage, so there is no precedent to worry about. What is the minimal amount of information
-that is required to identify a variable? Can they be identified by which core they come out of, which direction
-they go, and whether they are tilde or not? For example, in this case mu would become L2 since it comes out of
-index 2 (L_aib, a is index zero, i is index 1, b is index 2) of the L core." And at 22:27: "One idea is to
-consider the edge variables as being as corresponding to fully contracted subnetworks on one side of the edge."
-Claude's analysis. Not a decision. Checked by `scripts/review/subtree_gauge_check.py`.
-
-**Three things identify a variable.**
-
-1. **Which side of which edge is contracted.** The network is a tree, so a cut edge has two sides. There are four
-   kinds: the left of a bond, the right of a bond, the leaf below a Tucker edge, the trunk above it. (At a mode
-   edge the leaf is the input `w` and the trunk is the output `z`.) This is a property of the tensor and of the
-   samples. It does not depend on a gauge.
-2. **Which basis the cut edge is written in.** A manifold frame gives each cut edge two: the base point's own
-   (the stores `L` and `D`) and the frame's other one (the stores `R` and `U`). The corewise frame has one.
-3. **What was differentiated:** the cores along the direction (dot), the inputs along the seed (tilde), or both.
-
-That is 4 x 2 x 2 x 2 = 32 possibilities, of which 22 occur:
-
-| Side contracted | In the base point's basis (`L`, `D`) | In the frame's other basis (`R`, `U`) |
-| --- | --- | --- |
-| The left of a bond | `mu`: plain, dot, tilde, tilde-dot | the frame's `mu_dot`: dot only |
-| The right of a bond | `gamma`: plain, dot, tilde, tilde-dot | `nu`: plain, tilde |
-| The leaf below a Tucker edge | `xi`: plain, dot, tilde, tilde-dot | the frame's `xi_dot`: dot only |
-| The trunk above a Tucker edge | `zeta`: plain, dot, tilde, tilde-dot | `eta`: plain, tilde |
-
-The first column is the base point's complete family: four sides in four grades. The second column is what the
-orthogonal frame adds. This is the table of section 13 with its rows explained: an edge of section 13 is a basis
-here, and a direction of travel is a side.
-
-**One dot.** Sections 2 and 13 treated the frame's dot variables (along the tangent direction `(V, H)`) and the
-base point's dots (along a raw core direction) as two families. Along the lifted direction they are one tangent
-vector, and the check shows it on the arrays, with the library's own frame, gauge projection and undamped lift:
-
-- Where both are in the same basis they are the same array: the frame's `nu_dot` is `gamma_dot`, and the
-  frame's `eta_dot` is `zeta_dot`.
-- Where they are in different bases they are one subnetwork in two bases, joined by the lift's own factors:
-  the frame's `mu_dot` and `mu_dot`; the frame's `xi_dot` and `xi_dot`. The same factors join the plain pairs
-  `nu` and `gamma`, `eta` and `zeta`.
-
-So the collision of rows 5 and 6 (target decisions, notes to section 6) is not between two directions. It is the
-situation of `nu` and `gamma` again: one side, two bases.
-
-**Two limits of that statement.**
-
-- With slack ranks a twin relation holds in one direction only. On the checked frame the last bond has 4
-  dimensions in the `L` basis and 3 in the `R` basis; the frame's `mu_dot` is the image of `mu_dot`, but not the
-  other way round, because `mu_dot` is free in the dimension that the right side annihilates.
-- With curvature damping above zero the lifted direction is not exactly the tangent, so the dots that `Kp` uses
-  are then along a slightly different direction. Not examined.
-
-**The maintainer's naming by the core and the leg a variable comes out of.**
-
-- For the plain variables it is exact and unique: `mu` comes out of leg `b` of `L`, `gamma` out of leg `a` of
-  `L`, `zeta` out of leg `i` of `L`, `nu` out of leg `a` of `R`, `eta` out of leg `i` of `U`, `xi` out of leg `i`
-  of `D`, and `z` out of leg `o` of `D`. It explains at once why `gamma` is not `nu`.
-- For a dotted variable it is not unique: the frame's `mu_dot` is a sum of terms that come out of `R`, of `H`
-  and of `U`. What stays unique is the side and the basis.
-- So the core and leg are the right definition of a plain variable, to be given in the table of variables. As
-  the name itself, a digit after a store letter also reads as a site number.
-
-**Two schemes that follow from the table.** Neither is decided.
-
-- **Eight letters: a letter for each side in each basis.** `mu`, `gamma`, `xi`, `zeta` for the base point's
-  column and `nu`, `eta` and two new letters for the frame's column. The two new ones are exactly the variables
-  that exist only as dots, the twins of `mu` and `xi`: `sigma` and `tau` fit there as a pair.
-- **Four letters and a basis: a letter for each side, and the store of the basis where it is not the usual
-  one.** `mu`, `nu`, `xi`, `eta` name the four sides, as they did at the start. The usual basis of each is the
-  store it travels away from: `L` for `mu`, `R` for `nu`, `D` for `xi`, `U` for `eta`. The other four are
-  `nu_L` (today's `gamma`), `eta_D` (`zeta`), `mu_R` (the frame's `mu_dot`) and `xi_U` (the frame's `xi_dot`).
-  What this buys: a name can be read without a table; a term function's name agrees with what it returns
-  (`nu_step` through `L` returns `nu_L`); and a call on the corewise frame, which has one basis, uses the four
-  letters with no suffix, so the question of two spellings for one array there does not arise.
-
-**The second scheme written out** (asked for by the maintainer at 22:41). Every variable, with its name so far
-in this folder and the name of the array in the library's kernels today (`backend/probing.py`; the jetted
-kernels add `_jets`). Not decided.
-
-| Four letters and a basis | Side, basis | Name so far in this folder | In the library today |
-| --- | --- | --- | --- |
-| `mu` | left of a bond, `L` | `mu` | `mus` |
-| `mu_dot` | left of a bond, `L` | none (row 6; the prototype's `c_mu_dot`) | `mus_dot`, in the two-hole kernel |
-| `mu_tilde` | left of a bond, `L` | `mu_tilde` | `tau_tildes` |
-| `mu_tilde_dot` | left of a bond, `L` | `mu_tilde_dot` | `tau_tildes_dot` |
-| `mu_R_dot` | left of a bond, `R` | the frame's `mu_dot` | `sigmas` |
-| `nu` | right of a bond, `R` | `nu` | `nus` |
-| `nu_tilde` | right of a bond, `R` | `nu_tilde` | `sigma_tildes` |
-| `nu_L` | right of a bond, `L` | `gamma` | `nus`, re-swept through the point's cores in the two-hole kernel |
-| `nu_L_dot` | right of a bond, `L` | `gamma_dot`, and the frame's `nu_dot` | `nus_dot` in the two-hole kernel, and `taus` |
-| `nu_L_tilde` | right of a bond, `L` | `gamma_tilde` | `sigma_tildes`, in the two-hole kernel |
-| `nu_L_tilde_dot` | right of a bond, `L` | `gamma_tilde_dot` | `sigma_tildes_dot` |
-| `xi` | leaf, `D` | `xi` | `xis` |
-| `xi_dot` | leaf, `D` | none (row 5; the prototype's `c_xi_dot`) | `xis_dot`, in the two-hole kernel |
-| `xi_tilde` | leaf, `D` | `xi_tilde` | `deta_tildes` |
-| `xi_tilde_dot` | leaf, `D` | `xi_tilde_dot` | `deta_tildes_dot` |
-| `xi_U_dot` | leaf, `U` | the frame's `xi_dot` | `dxis` |
-| `eta` | trunk, `U` | `eta` | `etas` |
-| `eta_tilde` | trunk, `U` | `eta_tilde` | `dxi_tildes` |
-| `eta_D` | trunk, `D` | `zeta` (row 1) | `etas`, when `t3_probe` runs on the point's own cores |
-| `eta_D_dot` | trunk, `D` | `zeta_dot` (row 2), and the frame's `eta_dot` | `etas_dot` in the two-hole kernel, and `detas` |
-| `eta_D_tilde` | trunk, `D` | `zeta_tilde` (row 3) | `dxi_tildes`, in the corewise transpose |
-| `eta_D_tilde_dot` | trunk, `D` | `zeta_tilde_dot` (row 4; the prototype's `eta_tilde_dot`) | `dxi_tildes_dot` |
-
-- **Unchanged:** `w`, `w_tilde`, `z`, `r`, `Jp`, `f`, `g`, `JtJp`, `Kp`, and the blocks `V_tilde`, `H_tilde`,
-  `V_tilde_dot`, `H_tilde_dot`.
-- **Two names change their meaning.** `mu_dot` and `xi_dot` meant the frame's variables in this folder. Here
-  they are the base point's, and the frame's become `mu_R_dot` and `xi_U_dot`.
-- **Two pairs of names become one.** The frame's `nu_dot` and `gamma_dot` are `nu_L_dot`; the frame's `eta_dot`
-  and `zeta_dot` are `eta_D_dot`. They are the same arrays along the lifted direction with no damping.
-- **The multiplier pairings.** The tilde of a variable is the multiplier of the dot of the other side of the
-  same edge, in the same basis: `mu_tilde` of `nu_L_dot`, `nu_tilde` of `mu_R_dot`, `xi_tilde` of `eta_D_dot`,
-  `eta_tilde` of `xi_U_dot`. This is section 11's list with the names of this table.
-- **On the corewise frame** there is one basis, so the names are the four letters and their grades with no
-  suffix; `nu` there is this table's `nu_L`.
-- The library today uses one name for two variables in several rows (`nus`, `sigma_tildes`, `etas`,
-  `dxi_tildes`), telling them apart by which cores were passed.
+Deprecated. Claude's analysis of the naming from first principles, with the second scheme written out at 22:41,
+stood here. Superseded on 2026-11-15 at 23:23 by target decision 9.6, which took that scheme; the parts adopted are
+in `SAMPLE_VARIABLES.md`. The section is now `NOTATION_HISTORY.md` section 6.

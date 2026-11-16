@@ -20,7 +20,8 @@ only, so an operand's order leg is either 'in' (it may enter a product) or 'out'
 in forward order).
 
 The program is the explicit one of jet_steps_check.py.  Its seven term functions are replaced by typed ones that
-check the legs, then call the original on the numbers.  The 22 step functions are not touched.
+check the legs, then call the original on the numbers.  The 22 step functions are not touched.  The names of the
+variables are those of SAMPLE_VARIABLES.md (2026-11-15, 23:23).
 
 Usage:  python3 -I arrow_type_check.py
 """
@@ -114,11 +115,11 @@ def typed_program(frame, V, H, B_dot, G_dot, w, w_tilde, d, P, W):
     starts = iter([                         # in the order in which program() asks for them
         ('ones', ('AL', 0, '-')),           # mu      : left to right through L, with the arrows
         ('ones', ('AR', d, '-')),           # nu      : right to left through R, with the arrows
-        ('ones', ('AL', d, '+')),           # gamma   : right to left through L, against the arrows
+        ('ones', ('AL', d, '+')),           # nu_L    : right to left through L, against the arrows
     ])
     zero_legs = {'mu_dot_step': ('AR', 0, '+'), 'nu_dot_step': ('AL', d, '+'), 'mu_tilde_step': ('AL', 0, '-'),
                  'nu_tilde_step': ('AR', d, '-'), 'mu_tilde_dot_step': ('AL', 0, '-'),
-                 'gamma_tilde_dot_step': ('AL', d, '+')}
+                 'nu_tilde_dot_step': ('AL', d, '+')}
     seen = {'nu_tilde_step': 0, 'mu_dot_step': 0, 'nu_dot_step': 0}
     real_ones, real_l2r, real_r2l = J.ones_start, J.left_to_right, J.right_to_left
 
@@ -226,9 +227,9 @@ def main():
         ('weights applied, order not reversed:     xi_term(D, omega^2 r)', lambda: xi_term(D[1], weighted_only[1])),
         ('mu swept through an R core:              mu_term(mu, R, xi)', lambda: mu_term(v['mu'][1], R[1], v['xi'][1])),
         ('nu swept through an L core:              nu_term(L, xi, nu)', lambda: nu_term(L[1], v['xi'][1], v['nu'][2])),
-        ('gamma used where nu is wanted:           eta_term(mu, U, gamma)', lambda: eta_term(v['mu'][1], typed['U'][1], v['gamma'][2])),
+        ('nu_L used where nu is wanted:            eta_term(mu, U, nu_L)', lambda: eta_term(v['mu'][1], typed['U'][1], v['nu_L'][2])),
         ('a bond variable from the wrong bond:     mu_term(mu[2], L[1], xi[1])', lambda: mu_term(v['mu'][2], L[1], v['xi'][1])),
-        ('a sum of mu and mu_dot:                  mu + mu_dot', lambda: v['mu'][1] + v['mu_dot'][1]),
+        ('a sum of mu and mu_R_dot:                mu + mu_R_dot', lambda: v['mu'][1] + v['mu_R_dot'][1]),
     )
     for label, call in cases:
         try:

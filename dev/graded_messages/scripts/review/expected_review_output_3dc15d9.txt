@@ -163,10 +163,10 @@ order n = 4
 === type_catalog_check.py
 Part A. Arbitrary invertible changes of basis in N, X^D, X^U, A^L, A^R (condition numbers up to 4).
         Each variable in the new bases against the catalog's rule applied to the old one:
-        plain     ( 7 variables: w, xi, mu, nu, eta, gamma, z)  worst relative difference 1e-15
-        dot       ( 9 variables: xi_dot, mu_dot, nu_dot, eta_dot, Jp, c_xi_dot, c_mu_dot, gamma_dot, c_eta_dot)  worst relative difference 1e-15
-        tilde     ( 8 variables: w_tilde, xi_tilde, mu_tilde, nu_tilde, eta_tilde, gamma_tilde, V_tilde, H_tilde)  worst relative difference 1e-15
-        tilde-dot ( 6 variables: xi_tilde_dot, mu_tilde_dot, gamma_tilde_dot, eta_tilde_dot, V_tilde_dot, H_tilde_dot)  worst relative difference 1e-15
+        plain     ( 7 variables: w, xi, mu, nu, eta, nu_L, z)  worst relative difference 1e-15
+        dot       ( 9 variables: xi_U_dot, mu_R_dot, nu_L_dot, eta_D_dot, Jp, xi_dot, mu_dot, raw_nu_L_dot, raw_eta_D_dot)  worst relative difference 1e-15
+        tilde     ( 8 variables: w_tilde, xi_tilde, mu_tilde, nu_tilde, eta_tilde, nu_L_tilde, V_tilde, H_tilde)  worst relative difference 1e-15
+        tilde-dot ( 6 variables: xi_tilde_dot, mu_tilde_dot, nu_L_tilde_dot, eta_D_tilde_dot, V_tilde_dot, H_tilde_dot)  worst relative difference 1e-15
         the blocks are covectors on the cores: <V_tilde, V> + <H_tilde, H> is unchanged: 7e-16;  the same for Kp: 2e-15
 Part B. The one inner product: residual -> seed.  The residual is a covector of N; the seed is a vector of N.
         N changed by an arbitrary invertible  matrix:  omega^2 r copied into the seed is off by 7e-01;  the misfit changes by 2e-01
@@ -181,14 +181,14 @@ Part C. The order factor, under s -> c s with c = 1.7 (the direction p becomes c
 === subtree_gauge_check.py
 A. One dot: the frame along (V, H) against the base point along the lifted direction
    Jp                                                        equal
-   right of a bond, L basis:   frame nu_dot   and gamma_dot   equal
-   trunk, D basis:             frame eta_dot  and zeta_dot    equal
+   right of a bond, L basis:   nu_L_dot,  frame and raw form  equal
+   trunk, D basis:             eta_D_dot, frame and raw form  equal
 B. Twins: one subnetwork in two bases, joined by the lift's own factors
-   left of a bond:   frame mu_dot (R)  and mu_dot (L)         equal
+   left of a bond:   mu_R_dot (R)  and mu_dot (L)             equal
       the other way round, through the bond factor         different: the bond has slack
-   leaf:             xi_dot (D)  and frame xi_dot (U)         equal
-   right of a bond:  nu (R)      and gamma (L)                equal
-   trunk:            eta (U)     and zeta (D)                 equal
+   leaf:             xi_dot (D)    and xi_U_dot (U)           equal
+   right of a bond:  nu (R)        and nu_L (L)               equal
+   trunk:            eta (U)       and eta_D (D)              equal
    bond sizes, L basis [3, 2, 4], R basis [3, 2, 3]
 
 === sample_variables_check.py
@@ -209,8 +209,8 @@ all checks passed
    176 sums, in the 22 step functions, at order 2 with d = 4.  No error.
    The numbers are those of the untyped program: largest difference 0e+00.
 2. Which way each variable flows (its leg at site or bond 1; "-" = the arrow leaves it = it flows WITH the arrow):
-   with the arrows:    w, xi, mu, nu, eta, w_tilde, xi_tilde, mu_tilde, nu_tilde, eta_tilde, c_xi_dot, c_mu_dot, xi_tilde_dot, mu_tilde_dot
-   against the arrows: gamma, z, xi_dot, mu_dot, nu_dot, eta_dot, Jp, gamma_tilde, gamma_dot, c_eta_dot, gamma_tilde_dot, eta_tilde_dot
+   with the arrows:    w, xi, mu, nu, eta, w_tilde, xi_tilde, mu_tilde, nu_tilde, eta_tilde, xi_dot, mu_dot, xi_tilde_dot, mu_tilde_dot
+   against the arrows: nu_L, z, xi_U_dot, mu_R_dot, nu_L_dot, eta_D_dot, Jp, nu_L_tilde, raw_nu_L_dot, raw_eta_D_dot, nu_L_tilde_dot, eta_D_tilde_dot
    each block fits its hole (the legs of the block are the legs of the direction, every sign flipped):
       V_tilde      (XU1-, N1-; order real)          fits V      True
       H_tilde      (AL1-, XD1-, AR2-; order real)   fits H      True
@@ -221,9 +221,9 @@ all checks passed
    weights applied, order not reversed:     xi_term(D, omega^2 r)       REJECTED: xi_term: an operand's order leg is 'out': it cannot enter the product
    mu swept through an R core:              mu_term(mu, R, xi)          REJECTED: mu_term: contraction across two different edges, AL1 and AR1
    nu swept through an L core:              nu_term(L, xi, nu)          REJECTED: nu_term: contraction across two different edges, AR2 and AL2
-   gamma used where nu is wanted:           eta_term(mu, U, gamma)      REJECTED: eta_term: contraction across two different edges, AL2 and AR2
+   nu_L used where nu is wanted:            eta_term(mu, U, nu_L)       REJECTED: eta_term: contraction across two different edges, AL2 and AR2
    a bond variable from the wrong bond:     mu_term(mu[2], L[1], xi[1]) REJECTED: mu_term: contraction across two different edges, AL2 and AL1
-   a sum of mu and mu_dot:                  mu + mu_dot                 REJECTED: sum of unlike types: (AL1-; order in) and (AR1+; order in)
+   a sum of mu and mu_R_dot:                mu + mu_R_dot               REJECTED: sum of unlike types: (AL1-; order in) and (AR1+; order in)
 
 === gauge_arrow_check.py
 D  down_orthogonalize_tucker_cores  sum over o       : 9e-16
@@ -235,10 +235,10 @@ U  up_orthogonalize_tt_cores        sum over a, b    : 7e-16
 === tilde_multiplier_check.py
 order n = 3.  dF when the dot variable is perturbed, against the pairing with the tilde variable
    perturbed  multiplier top coefficient        slot by slot (wrong)  
-   eta_dot    xi_tilde   relative error 1e-11   relative error 3e+01  
-   xi_dot     eta_tilde  relative error 5e-15   relative error 7e-01  
-   nu_dot     mu_tilde   relative error 3e-13   relative error 2e+00  
-   mu_dot     nu_tilde   relative error 6e-13   relative error 2e-01  
+   eta_D_dot  xi_tilde   relative error 1e-11   relative error 3e+01  
+   xi_U_dot   eta_tilde  relative error 5e-15   relative error 7e-01  
+   nu_L_dot   mu_tilde   relative error 3e-13   relative error 2e+00  
+   mu_R_dot   nu_tilde   relative error 6e-13   relative error 2e-01  
 
 === bad_scaling_example.py
 The fit: Newton from the zero tensor, default settings.  Test error = relative error of the tensor applied

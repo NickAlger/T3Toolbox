@@ -8,7 +8,10 @@ derivatives everywhere, with derivative mode as one adapter at the outer level o
 derivatives at the boundary); and the two stages of section 6 are sequencing, set aside until the target is
 settled. A third, since 2026-11-15, 19:32: section 4.7's "No option for orders" is overtaken. The plan of section
 5 gains a setting for how a product of two full jets is taken over the orders, a scan (the default) or a loop
-with slices (target decision 2.9); the dense form stays out.
+with slices (target decision 2.9); the dense form stays out. A fourth, since 2026-11-15, 23:23: the names of the
+sampling variables (section 3 and below) follow `SAMPLE_VARIABLES.md`; `gamma` is `nu_L`, and the dot variables
+carry a basis in the frame's form. They were brought into line on 2026-11-16; the parts of sections 3.5 and 4.3
+whose subject was a retired name are in `NOTATION_HISTORY.md`.
 
 This document states the design as it stands after two reviewer reports were walked through with the maintainer
 on 2026-11-14. It is organized by topic. The same decisions in the order they were taken, with the evidence for
@@ -55,7 +58,8 @@ name to new name), checked by script against the glossary's symbol table, as the
 
 - **`sampling_variables`** replaces `evaluate`. One function serves every sampling operation.
 - **"Sampling variables"** replaces "components". The glossary's "edge variables" (`xi`, `mu`, `nu`, `eta` at every
-  grade, and `gamma`) are the per-edge subset. The outputs (`z`, `r`, `f`, `g`, ...) are the rest.
+  grade, in either basis: `nu_L`, `eta_D`, `mu_R_dot`, `xi_U_dot`) are the per-edge subset. The outputs (`z`, `r`,
+  `f`, `g`, ...) are the rest.
 
 ### 3.2 Grades
 
@@ -83,7 +87,8 @@ two-hole variables are already "tilde then dot" (`tau_tildes_dot`: 114 uses).
 | `mu_tilde` | `tau_tilde` | `nu` |
 | `nu_tilde` | `sigma_tilde`, `sigma_hat` | `mu` |
 | `w_tilde` (the seed on the sample legs) | `ztildes` | `z` |
-| `xi_dot`, `mu_dot`, `nu_dot`, `eta_dot` | `dxi` / `xi_dot`, `sigma` / `mu_dot`, `tau` / `nu_dot`, `deta` / `eta_dot` | |
+| `xi_U_dot`, `mu_R_dot`, `nu_L_dot`, `eta_D_dot` (the frame's form, along `(V, H)`) | `dxi`, `sigma`, `tau`, `deta` | |
+| `xi_dot`, `mu_dot`, `nu_L_dot`, `eta_D_dot` (the raw form, along a raw core direction) | `xi_dot`, `mu_dot`, `nu_dot`, `eta_dot` (the two-hole kernel) | |
 
 The near miss to warn about: the new `xi_tilde` against today's `dxi_tilde`. They differ by one letter and are
 different variables.
@@ -102,7 +107,7 @@ The seven site rules are named after the variable they produce, with no directio
 | --- | --- | --- |
 | `UP` | `xi_term` | the `xi` family |
 | `RIGHT` | `mu_term` | the `mu` family |
-| `LEFT` | `nu_term` | the `nu` family, and `gamma` |
+| `LEFT` | `nu_term` | the `nu` family, in either basis (`nu`, `nu_L`) |
 | `DOWN` | `eta_term` | the `eta` family |
 | `OUT` | `z_term` | the probe output |
 | `GRAD_G` | `H_term` | the TT-core gradient block |
@@ -138,18 +143,18 @@ The seven site rules are named after the variable they produce, with no directio
   one spelling per variable.
 - `phi` (the apply value) is gone: the output is `z` for every kind.
 
-### 3.5 `gamma`
+### 3.5 `nu_L` (`gamma` until 2026-11-15, 23:23)
 
-`nu` means the frame's right edge variable, swept through `R`, and nothing else. The right edge variable swept
-through `L`, the base point's own cores, is a different variable: **`gamma`**. The maintainer's view is that it is
-an auxiliary variable, not a `nu`. Its residual-grade companion is `gamma_tilde`.
+`nu` is the right of a bond in the frame's `R` basis, swept through `R`. The right of a bond in the `L` basis,
+swept through the base point's own cores, is `nu_L`: the same side as `nu`, written in the base point's basis. Its
+residual-grade companion is `nu_L_tilde`. (The view of 2026-11-14, that it is a different, auxiliary variable and
+not a `nu`, and the note on whether the letter `gamma` was free, were superseded on 2026-11-15 at 23:23 by target
+decision 9.6; they are in `NOTATION_HISTORY.md` section 2.)
 
-- `gamma` is read by `z` and by `Kp`. `gamma_tilde` is read by `Kp`. Both are public: they can be wanted and held.
-- The library writes `gamma` as `nu_c`, with `nu_c = T nu` at a manifold frame (`curvature_internals.md`). The
+- `nu_L` is read by `z` and by `Kp`. `nu_L_tilde` is read by `Kp`. Both are public: they can be wanted and held.
+- The library writes `nu_L` as `nu_c`, with `nu_c = T nu` at a manifold frame (`curvature_internals.md`). The
   proposal's matrix `S` in that identity becomes `T`.
-- At a trial point the call uses the point's own cores as the frame, so `gamma` and `nu` coincide there.
-- The name is free in code. In the docs, lowercase gamma is a scalar in one example of `padded_frame_cone.tex`, and
-  capital `Gamma_i` is the mode Gram matrix in the sharing documents.
+- At a trial point the call uses the point's own cores as the frame, so `nu_L` and `nu` coincide there.
 
 ### 3.6 The plan
 
@@ -204,8 +209,11 @@ def mu_tilde_step(mu_tilde, mu, xi, xi_tilde, L):
     return mu_term(mu_tilde, L, xi) + mu_term(mu, L, xi_tilde)
 
 # a call site names everything it passes, including the start value
-mu_dot = left_to_right(mu_dot_step, zeros, d, mu, xi, xi_dot, R, U, H)
+mu_R_dot = left_to_right(mu_dot_step, zeros, d, mu, xi, xi_U_dot, R, U, H)
 ```
+
+A step is named by letter and grade, and serves both bases: here `mu_dot_step` returns `mu_R_dot` because it is
+given `R`, `U`, `H` (and the frame's `xi_U_dot`).
 
 - There is no pointed-core object. Each term names the frame core it uses, so the gauge choice is visible.
 - The corewise frame calls the same functions with `G, G, G`.
@@ -246,33 +254,32 @@ For the probe kind, among public variables. "Worth holding" depends on what a va
 
 | Depends on | Variables | Valid for |
 | --- | --- | --- |
-| The point and the samples | `xi`, `mu`, `nu`, `eta`, `gamma`, `z` | every call at this point |
-| Also the data | `r`, `f`, `r_block_sumsq`, `xi_tilde`, `mu_tilde`, `nu_tilde`, `eta_tilde`, `gamma_tilde`, `g` | every call at this point with this data |
+| The point and the samples | `xi`, `mu`, `nu`, `eta`, `nu_L`, `eta_D`, `z` | every call at this point |
+| Also the data | `r`, `f`, `r_block_sumsq`, `xi_tilde`, `mu_tilde`, `nu_tilde`, `eta_tilde`, `nu_L_tilde`, `g` | every call at this point with this data |
 | Also the direction | the dot variables, `Jp`, `Jp_sumsq`, `JtJp`, `Kp` | one product |
 
 | Want | Reads directly | Ideal to have |
 | --- | --- | --- |
-| `z` | `xi`, `mu`, `gamma` | all three |
+| `z` | `xi`, `mu`, `nu_L` (through `eta_D`) | all three |
 | `f` | `r` | `r`, if it was carried from the accepted trial |
 | `g` | `xi`, `mu`, `nu`, `eta`, `r`, and the four frame tilde variables | `r`; plus `xi`, `mu`, `nu`, `eta` if products follow |
-| `Jp` | `eta`, `eta_dot` | `xi`, `mu`, `nu`, `eta` |
+| `Jp` | `eta`, `eta_D_dot` | `xi`, `mu`, `nu`, `eta` |
 | `JtJp` | `xi`, `mu`, `nu`, `eta`, `Jp` | `xi`, `mu`, `nu`, `eta` |
-| `Kp` | `xi`, `mu`, `gamma`, `r`, `xi_tilde`, `mu_tilde`, `gamma_tilde` | all seven |
+| `Kp` | `xi`, `mu`, `nu_L`, `r`, `xi_tilde`, `mu_tilde`, `nu_L_tilde` | all seven |
 
 These rows were derived by hand from the argument lists and are a draft. Held variables are valid for the same
 point, samples, data and order.
 
-Variables with no public name:
-
-- The tilde variables seeded by `Jp`. They change with every product and stay internal to `JtJp`. The tilde
-  variables that can be wanted or held are always the ones seeded by the residual.
-- The `eta`-like variable through `L` that only `z` reads.
-- The dot variables of `Kp`, which belong to the lifted direction.
+Since 2026-11-15 every variable is public (target decision 6.4, confirmed at 21:57) and named
+(`SAMPLE_VARIABLES.md`); which application of the transpose a tilde name refers to is target decision 3.3. The
+list of "variables with no public name" that stood here (2026-11-14) was superseded on 2026-11-15 at 23:23 by
+target decision 9.6; it is in `NOTATION_HISTORY.md` section 3.1.
 
 ### 4.4 The value
 
 - **One route:** through the base point's own cores, `(D, L)` for a frame and `(B, G)` for a trial point. For a
-  frame it reads `xi`, `mu` and `gamma`. No frame is built for a trial point, as in the library today.
+  frame it reads `xi`, `mu` and `nu_L` (through `eta_D`). No frame is built for a trial point, as in the library
+  today.
 - **The route through the orthogonal frame is parked.** The identity `z[i] = OUT(eta[i], Vc[i])` holds to 1.7e-15,
   but it needs the Tucker center cores. They are unguarded (scaling them by 1.001 changes `f` by 2e-3 with no
   error), have no channel in the geometry protocol, and were examined and left alone in the library's caching
@@ -300,7 +307,7 @@ own variable's value on the boundary bond, and these differ (read from the libra
 
 | Sweep | Starts from | In the library |
 | --- | --- | --- |
-| Plain: `mu`, `nu`, `gamma` | ones | `compute_mu` |
+| Plain: `mu`, `nu`, `nu_L` | ones | `compute_mu` |
 | Dot | zeros | `compute_sigma` |
 | Tilde, probe | zeros | `compute_tau_tilde` |
 | Tilde, apply and entries | the seed times the ones vector, at the right boundary | the `sigma_hat` sweep |
@@ -561,7 +568,7 @@ Claude's, not the maintainer's.
 5. **Weighted least squares inside the sampling layer.** Decided against a reviewer's finding (D22) in one
    exchange. It fixes the loss at this layer.
 6. **Automatic sizing.** The adopted rule has the compile cost the consumer already avoids.
-7. **`gamma` and `gamma_tilde` as public variables.** Sound as far as checked, but the docstring rows for `Kp` are
+7. **`nu_L` and `nu_L_tilde` as public variables.** Sound as far as checked, but the docstring rows for `Kp` are
    hand-derived.
 8. **The kind as a string,** against the frontend's six strings and the `SamplingKind` objects.
 9. **The site option.** Decided on an accounting argument; its representation and scope are not worked out.
@@ -614,7 +621,7 @@ to `REVIEW_DECISIONS.md`.
 | D9, D10 | Adopted: the sizing contract of section 5.6, with its caveat |
 | D11, D17, F3 | Decisions 1, 2, 3: scans in the compiled program; `LocalModel` carries the plan |
 | D12 | Adopted: validation, and unread inputs are errors |
-| D13 | Decision 8: seeds (only residual-seeded tilde variables are public) and gauge (`gamma`) |
+| D13 | Decision 8: seeds (only residual-seeded tilde variables are public) and gauge (`nu_L`) |
 | D14 | The reference cycle in the mockup's `run`: to fix |
 | D15 | Adopted: carriers are read against a zero carry. The other two points fall away with the generic program moving to the tests |
 | D18, F2 | Decision 6: explicit functions; the declared per-kind graph is the only layer |

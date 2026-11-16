@@ -16,8 +16,8 @@ planned only after the target is settled.
   (6.6). How the direction is passed: the fitting functions take a bundled sample, the frontend methods take `pp`
   as its own argument, and `order` decides, never the type (part of 6.2). The convention for arrows on the edges,
   and the words for their direction (9.5).
-- **Since the pause:** 2.4 was decided on the afternoon of 2026-11-15 (see its row). What follows describes the
-  state at the pause.
+- **Since the pause:** 2.4 was decided on the afternoon of 2026-11-15 (see its row), and 9.6, the notation of the
+  sampling variables, at 23:23 (`SAMPLE_VARIABLES.md`). What follows describes the state at the pause.
 - **Held by the maintainer at the pause:** what a tilde jet is (2.4). His lean is the residual in forward order at the API
   seam. The material is `TYPE_CATALOG.md`: the types of every variable, his picture of arrows on the edges, and a
   type checker for every contraction. In its terms the remaining choice is between turning the order leg once at
@@ -51,8 +51,8 @@ maintainer's request; they decide nothing.
   sampling variables (to confirm); 3.3 which seeded tilde copies are public (to confirm). The type catalog bears
   on all three.
 - **B. The frame and the value.** 4.1 what a frame is (reopened); 4.2 frame consistency (reopened); 4.3 the route
-  to the value (reopened); 4.4 tails and boundaries (reopened); 3.2 whether `gamma` is first-class (to confirm,
-  depends on 4.1); 4.5 where the projection, the lift and the Hessian assembly live (to confirm).
+  to the value (reopened); 4.4 tails and boundaries (reopened); 3.2 whether `gamma` (now `nu_L`) is first-class
+  (to confirm, depends on 4.1); 4.5 where the projection, the lift and the Hessian assembly live (to confirm).
 - **C. What a kind is, and the public surface.** 3.4 what a sampling kind is and whether a user can define one
   (reopened); 8.2 the fitting layer's kind object (open); 6.2 the remaining arguments of `sampling_variables`
   (open; the sample and the direction are decided); 6.3 the other public functions (reopened); 6.4 which
@@ -294,8 +294,8 @@ Notes:
 - **2.4, the type catalog** (2026-11-15, 04:57). The maintainer: "Let's catalog the types for all edge variables
   (jet vs dual jet), where are inner products vs dual pairings, and where any Riesz maps are occurring." It is in
   `TYPE_CATALOG.md`, checked by `scripts/review/type_catalog_check.py`. Its findings, none of them a decision:
-  - The letter fixes the network factor (`w`, `xi`, `mu` vectors; `eta`, `nu`, `gamma`, `z` covectors) in every
-    grade. The grade fixes the order factor: plain and dot are jets, tilde and tilde-dot are dual jets.
+  - The letter fixes the network factor (`w`, `xi`, `mu` vectors; `eta`, `nu`, `gamma` (now `nu_L`), `z` covectors)
+    in every grade. The grade fixes the order factor: plain and dot are jets, tilde and tilde-dot are dual jets.
   - The multiplier of a variable lives in the dual of that variable's space. In the network the dual is the
     partner's own space, so the partner rule absorbs it. In the order both partners are jets, so nothing absorbs
     it. That leftover dual is the reversal.
@@ -315,14 +315,16 @@ Notes:
   reversal turns it round; the weights are the misfit's part of the map and the reversal is the network's part;
   and the choice in 2.4 is the choice between turning the arrow once at the seed and giving the order leg its
   second orientation (the correlation), as a bond has `nu_term` beside `mu_term`. 2.4 stays held.
-- **2.4, arrows on the cores** (2026-11-15, 05:26). The maintainer: give the frame cores orientations too, `L`
-  with left-to-right arrows on `a` and `b` and an up arrow on `i`, `R` with right-to-left arrows; "Then every
+- **2.4, arrows on the cores** (2026-11-15, 05:26). The maintainer: give the frame cores orientations too, `L` with
+  left-to-right arrows on `a` and `b` and an up arrow on `i`, `R` with right-to-left arrows; "Then every
   contraction can be type checked." Done in `scripts/review/arrow_type_check.py` and written up in section 9 of
-  `TYPE_CATALOG.md`. The whole explicit program type checks (424 contractions, 176 sums). The plain and tilde
-  frame variables flow with the arrows; `gamma`, `z` and the dot variables flow against them; each block fits its
-  hole. The checker rejects the residual put back as it is, and the weighted residual with the order not
-  reversed. The arrows coincide with the frame's orthogonality conditions. A naming hazard is noted there: the
-  library's names say where a store sits, and its arrow points the other way. Not a decision.
+  `TYPE_CATALOG.md`. The whole explicit program type checks (424 contractions, 176 sums). The plain and tilde frame
+  variables flow with the arrows; `gamma`, `z` and the dot variables flow against them (now: `nu_L`, `z`, and the
+  frame's dots `mu_R_dot`, `xi_U_dot`, `nu_L_dot`, `eta_D_dot`; in the new names, what flows against the arrows is
+  what carries a basis in its name, and the outputs); each block fits its hole. The checker rejects the residual
+  put back as it is, and the weighted residual with the order not reversed. The arrows coincide with the frame's
+  orthogonality conditions. A naming hazard is noted there: the library's names say where a store sits, and its
+  arrow points the other way. Not a decision.
 - **2.4, the convention for the arrows** (2026-11-15, 05:39). Agreed by the maintainer: the typing rule is the
   two ends of one arrow ("I agree with the first rule change, this is right"). His lean for the one convention:
   an arrow entering a core marks a dual index ("contracting puts a vector 'in'"), an arrow leaving marks a plain
@@ -471,8 +473,8 @@ Notes:
   - His addition: where the second operand is a full jet, its coefficients are taken by a scan, not an unrolled
     loop, so that the compiled program does not grow with the order. Claude had proposed leaving that to group D.
   - Where a scan is needed: the products of two full jets, which are in the tilde and tilde-dot steps and their
-    readouts. A product with an affine operand (`xi`, `w`, `xi_dot`) is two contractions and needs none. At order
-    0 there is no order axis and no scan (2.7).
+    readouts. A product with an affine operand (`xi`, `w`, `xi_dot` (now `xi_U_dot`; the raw `xi_dot` is affine
+    too)) is two contractions and needs none. At order 0 there is no order axis and no scan (2.7).
   - What a scan costs (`scripts/review/order_scan_check.py`). The body must have the same shapes at every
     iteration, so the truncation cannot be done by slicing; it is done by a shift along the order axis and a
     mask. The scan matches the explicit sum to rounding at orders 1 to 16, under jit. The traced program has the
@@ -587,7 +589,7 @@ Notes:
 | # | Question | Status | Depends on |
 | --- | --- | --- | --- |
 | 3.1 | The primitives of a variable's name are a letter for the side contracted (`mu`, `nu`, `xi`, `eta`), the basis of the cut edge where it is not the usual one, and a grade (plain, dot, tilde, tilde-dot) | Decided | 9.6 |
-| 3.2 | Is `gamma` a first-class variable, or does a different frame convention remove the need for it? | To confirm | 4.1 |
+| 3.2 | Is `gamma` (now `nu_L`) a first-class variable, or does a different frame convention remove the need for it? | To confirm | 4.1 |
 | 3.3 | Which seeded copies of the tilde variables are public? | To confirm | |
 | 3.4 | What is a sampling kind in the target, and can a user define one? | Reopened | 1.1 |
 | 3.5 | The output is `z` for every kind | Decided | |
@@ -806,14 +808,15 @@ Notes:
       variable is enough: the copy seeded by `Jp` is the same name in a call with `Jp` held as `r`. Then "which
       seeded copies are public" has the answer "all, under one name". This rests on 6.5.
     - **Still without a name:** the `eta`-like variable through `L` that `z` reads, and the dot variables of
-      `Kp`, which belong to the lifted direction. To be named or given a route at 6.4. Not checked.
+      `Kp`, which belong to the lifted direction. To be named or given a route at 6.4. Not checked. (Named at
+      23:23: `eta_D`; `mu_dot`, `xi_dot`, `nu_L_dot`, `eta_D_dot`.)
   - **Claude's answer to the second: the optional group `T` carries it, with three things the table has to
     say.** Every variable has the shape `[d] + T + W + [K] + C + (leg,)`, with `T = (order+1,) if order else ()`,
     so at order 0 it is today's plain variable, and the rank is declared by `order`, never read off an array.
-    - **Affine variables do not have `T`.** The input `w + s p`, `xi` and `xi_dot` have two coefficients at
-      every order above 0 (catalog, point 6; 2.6; 2.9). Their order group is a second optional group, two slots
-      or absent. The library stores `xi_jets` this way. The prototype pads them to `T` with zeros, which is
-      expediency. Claude's reading; not said by the maintainer.
+    - **Affine variables do not have `T`.** The input `w + s p`, `xi` and `xi_dot` (`xi_dot`: now `xi_U_dot`; the
+      raw `xi_dot` too) have two coefficients at every order above 0 (catalog, point 6; 2.6; 2.9). Their order
+      group is a second optional group, two slots or absent. The library stores `xi_jets` this way. The prototype
+      pads them to `T` with zeros, which is expediency. Claude's reading; not said by the maintainer.
     - **The tilde grades have the same `T` with the order leg turned** (2.4), so the table needs a column for
       the orientation; the shape does not show it.
     - **A plain jet cut at a lower order is the jet of that order; a tilde jet is not** (catalog, point 4).
@@ -821,57 +824,23 @@ Notes:
 - **Public, two points confirmed** (2026-11-15, 21:57). The maintainer: "Confirmed on both counts."
   - Every variable of a kind's graph, at every grade, can be wanted and held. Wanting a variable never changes
     any value; not wanting it lets the engine skip work.
-  - The affine variables (the input `w + s p`, `xi`, `xi_dot`) carry a two-slot group of their own in place of
-    `T`: two slots at every order above 0, absent at order 0.
+  - The affine variables (the input `w + s p`, `xi`, `xi_dot`; now `w`, `xi`, `xi_dot`, `xi_U_dot`:
+    `SAMPLE_VARIABLES.md` section 7) carry a two-slot group of their own in place of `T`: two slots at every order
+    above 0, absent at order 0.
   - This settles the first half of 6.4 (which variables are public: all of them) and the test of 21:35 is
     reduced to its first two parts. The rest of 6.4 (the table generated from the graph), 3.3 (one name per
     tilde variable, the seed being whatever `r` is) and 6.5 are not confirmed by this.
-- **The variables that still have no name** (2026-11-15, 21:57). The maintainer: "Can you please list the
-  variables that still need names, and some suggestions? One possible idea is to recycle names that are in use
-  in the current codebase but will be freed up, such as sigma and tau which form a nice pair". And at 21:59:
-  "Trying to keep consistency with the t4s paper's notation through this refactor is an impossible task. We do
-  not need to attempt it." Listed by Claude; nothing decided.
-  - **What they are.** Every one is a variable of the corewise frame `(B, G, G, G)` at the base point, seen
-    from inside a call on a manifold frame. In a call on the corewise frame itself they have the ordinary names.
-    `gamma` is the first of this kind: it is the corewise frame's `nu`.
-
-    | # | The variable | In a corewise call it is | Read by | Stand-in in `jet_steps_check.py` |
-    | --- | --- | --- | --- | --- |
-    | 1 | the down variable through the base point's cores, `eta_term(mu, L, gamma)` | `eta` | `z` | written inline in `z_step` |
-    | 2 | its dot along the raw core direction | `eta_dot` | `Kp`, Tucker block | `c_eta_dot` |
-    | 3 | its tilde | `eta_tilde` | nothing on a manifold frame; the corewise gradient | none |
-    | 4 | its tilde-dot | `eta_tilde_dot` | `Kp`, Tucker block | `eta_tilde_dot`, which is a misnomer there |
-    | 5 | the dot of `xi` along the raw core direction | `xi_dot` | `Kp` | `c_xi_dot` |
-    | 6 | the dot of `mu` along the raw core direction | `mu_dot` | `Kp` | `c_mu_dot` |
-
-  - **Rows 1 to 4 are one missing letter**, the partner of `gamma`. **Rows 5 and 6 are a collision**: `xi` and
-    `mu` are shared by the two frames, but their dots are not, because the two frames have different
-    directions: the tangent direction `(V, H)` in the frame's coordinates, and a raw core direction at the base
-    point. `gamma_dot` and the four tilde-dot variables have no collision, since they exist at the base point
-    only.
-  - **Also without a name:** the raw core direction itself, as an argument (`(B_dot, G_dot)` in the prototype,
-    `core_directions` in the library; the design document notes it as unnamed).
-  - **`zeta`, decided** (2026-11-15, 22:11). The maintainer: "zeta is great!" The down variable through the
-    base point's cores is `zeta`, with the grades `zeta_dot`, `zeta_tilde`, `zeta_tilde_dot`; `z = D . zeta`. The
-    base point has the four letters `xi`, `mu`, `gamma`, `zeta`. The prototype's `eta_tilde_dot` is
-    `zeta_tilde_dot`.
-  - **Rows 5 and 6, two options, not decided.** A: a mark for the raw direction on the base point's dots. B:
-    letters for the frame's tangent variables (`sigma` and `tau` for its two environments, as in today's code),
-    so that `_dot` means the raw core direction only. The maintainer asked how these sit within the type
-    catalog. The answer is section 13 of `TYPE_CATALOG.md`: the collision is a difference of edge; a different
-    edge getting a different letter is the catalog's precedent (`nu` and `gamma`); B carried through needs a
-    letter for each of the frame's four tangent variables, and makes a letter fix the edge and the direction in
-    every grade.
-  - **The naming problem widened** (2026-11-15, 22:24 and 22:27). The maintainer asked for the minimal
-    information that identifies a variable, proposed naming by the core and leg a variable comes out of
-    (`mu` as `L2`), and suggested seeing an edge variable as the fully contracted subnetwork on one side of an
-    edge. He set precedent aside: "This is all still in the planning stage, so there is no precedent to worry
-    about." Claude's analysis is section 14 of `TYPE_CATALOG.md`, checked by
-    `scripts/review/subtree_gauge_check.py`. A variable is identified by the side contracted (four kinds), the
-    basis of the cut edge (two on a manifold frame), and what was differentiated. Along the lifted direction the
-    frame's dots and the base point's dots are one tangent vector: the frame's `nu_dot` is `gamma_dot` and its
-    `eta_dot` is `zeta_dot`, on the arrays. So rows 5 and 6 are one side in two bases, as `nu` and `gamma` are,
-    and not two directions. Two schemes follow (eight letters; or four letters and a basis). Not decided.
+- **The variables that still had no name, and the naming that followed** (2026-11-15, 21:57 to 22:41).
+  Deprecated: superseded on 2026-11-15 at 23:23 by target decision 9.6. The note that stood here is in
+  `NOTATION_HISTORY.md`, split by topic:
+  - 21:57: Claude listed six variables without a name (the maintainer's words of 21:57 and 21:59 with it); all
+    were named at 23:23. `NOTATION_HISTORY.md` section 3.2.
+  - 22:11: `zeta` for the down variable through the base point's cores; it became `eta_D` at 23:23.
+    `NOTATION_HISTORY.md` section 4.
+  - 22:11: options A and B for the dots of `xi` and `mu` along the raw core direction. `NOTATION_HISTORY.md`
+    section 5.
+  - 22:24 to 22:41: the naming was rethought from first principles; the result is 9.6 (`SAMPLE_VARIABLES.md`
+    section 2). `NOTATION_HISTORY.md` section 6.
 - **6.3.** The review kept the old kernels as public adapters and the new names as a second vocabulary. That was
   compatibility. With one vocabulary, the near miss between the new `xi_tilde` and today's `dxi_tilde` exists
   only during migration.
@@ -1062,10 +1031,10 @@ Notes:
 
 Notes:
 
-- **Names and the T4S paper** (the maintainer, 2026-11-15, 21:59). "Trying to keep consistency with the t4s
-  paper's notation through this refactor is an impossible task. We do not need to attempt it." So a name is
-  chosen for the target alone; `sigma`, `tau` and the other letters the refactor frees may be given new
-  meanings. The library's notation map from the paper to the code will need rewriting when the names land.
+- **Names and the T4S paper** (the maintainer, 2026-11-15, 21:59). "Trying to keep consistency with the t4s paper's
+  notation through this refactor is an impossible task. We do not need to attempt it." So a name is chosen for the
+  target alone; `sigma`, `tau` and the other letters the refactor frees may be given new meanings. (The notation of
+  9.6 uses neither.) The library's notation map from the paper to the code will need rewriting when the names land.
 - **9.6, decided** (2026-11-15, 23:23). The maintainer, on the seven drawings in formula style: "This is excellent
   and further confirms that this notation is the right one. I want to lock in this new notation." At 23:02 he
   had called the scheme "the best so far", with "great potential for confusion", and asked for the drawings to

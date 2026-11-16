@@ -48,17 +48,17 @@ def main(repo):
     for kind, sample, lib in (('apply', w, apply), ('entries', index, entries)):
         if kind == 'apply':
             xi = each_site(xi_step, d, D, sample)
-            xi_dot = each_site(xi_dot_step, d, V, sample)
+            xi_U_dot = each_site(xi_dot_step, d, V, sample)
             leaf = sample                                           # what the Tucker gradient block pairs with
         else:
             xi = each_site(xi_step_entries, d, D, sample)
-            xi_dot = each_site(xi_step_entries, d, V, sample)
+            xi_U_dot = each_site(xi_step_entries, d, V, sample)
             leaf = [np.eye(N)[sample[i]] for i, N in enumerate(Ns)]
         mu = left_to_right(mu_step, one, d, L, xi)
         z = mu[d][:, 0]                                             # the readout: the right boundary
 
-        mu_dot = left_to_right(mu_dot_step, zero, d, mu, xi, xi_dot, R, U, H)
-        Jp = mu_dot[d][:, 0]
+        mu_R_dot = left_to_right(mu_dot_step, zero, d, mu, xi, xi_U_dot, R, U, H)
+        Jp = mu_R_dot[d][:, 0]
 
         nu_tilde = right_to_left(nu_step, c[:, None], d, R, xi)     # the plain step, started from the seed
         eta_tilde = each_site(eta_step, d, mu, U, nu_tilde[1:])
