@@ -440,6 +440,15 @@ Notes:
   the user broadcasts a per-order or per-mode weight themselves. Claude's question whether a mode dimension of 1
   is still accepted and broadcast was not answered; the simpler reading, the exact shape only, is taken, to be
   corrected if wrong. The architecture and the rule for keywords are recorded as 6.7.
+- **2.3, a proposal and an example** (2026-11-15, 17:04 to 18:32). Claude's proposal for the adapter, in the
+  terms of 6.7: standalone conversions between Taylor coefficients and derivatives (slot `t` times or divided by
+  `t!`), for anything of the type of `z`; a separate conversion for the weight, which goes the opposite way
+  because it is a dual object; one opt-in keyword on the fitting functions that converts the data, the validation
+  data and the weight on the way in and nothing on the way out; no such keyword on the sampling methods; the
+  backend Taylor only. The maintainer asked to see a minimal example of it in use; it was shown in the
+  conversation. A point the example raises: with the keyword and no weight, the weight has to be `t!` per order,
+  so that the objective is the plain sum of squares of the derivative residuals. Checked on numbers: the
+  conversions reproduce the derivative-mode objective exactly, with a weight and without. Not decided.
 
 ## 3. Variables and kinds
 
@@ -648,6 +657,12 @@ Notes:
   to the power `t`. The maintainer asked: "What is the step rescaling? Is this the newton step length or something
   else?" It is not the Newton step. The word also collides with the step functions of 5.1. It is replaced by
   "direction" throughout, and the prototype's function is `rescale_direction`.
+- **6.7, two more functions decided** (2026-11-15, 18:32). The maintainer: "Coordinate rescaling and direction
+  rescaling become library functions." So the standalone preparation functions decided so far are five: the block
+  norms; the filtered inverse of the norms; the rescaling of the direction `p` (loss-only); the rescaling of a
+  mode's coordinates, which changes the unknowns and, for probe, the loss; and its inverse on the fitted tensor.
+  Not decided: the two estimates the prototype reads off the data (a length for the directions from the block
+  norms, a coordinate scale from the samples), the names, and where the functions live (6.3).
 
 ## 7. Memory and execution
 

@@ -33,7 +33,8 @@ intentionally so. Nick's ruling: design from FIRST PRINCIPLES; never preserve ex
 behaviour is one candidate, never the default; decide the TARGET before any sequencing; go slow.
 
 **Where it lives.** `dev/graded_messages/` (tracked since 2026-11-15, 18:04; it was the untracked handoff package
-`dev/graded_messages_handoff/` before, and any such copy on a machine is superseded). `main` holds the snapshot of that
+`dev/graded_messages_handoff/` before, and any such copy on a machine is superseded: Nick confirmed this for the
+laptop copy on 2026-11-15). `main` holds the snapshot of that
 moment. **From then on the work, that folder included, continues on the branch `graded-messages`** (Nick, 2026-11-15:
 "future commits will be on a branch. The reason for using a branch is the fact that this refactor will be major and
 severely breaking"); it is merged when it is done. Look on the branch for the live state. No library code has been
@@ -55,7 +56,7 @@ default weight is ones, with the weight shaped `(d,) + T`; preparation of data a
 functions with opt-in keywords. All of this is USER-VISIBLE and overrides the first proposal's "no user-visible
 convention has to change".
 
-**Planned after the target is settled** (from the handoff written at the release; not re-confirmed since): an agent
+**Planned after the target is settled** (from the handoff written at the release; confirmed by Nick on 2026-11-15, 18:32): an agent
 re-running the folder's checks against the tag and scouts reading the library's own records -> a writer/critic in-depth
 plan (two stages; token map + gates reusing the rename machinery; exact-equality test cleanup as a pre-slice; a
 performance gate on the Darcy ladders before any hand kernel is deleted) -> sample-edit batches -> implementer/reviewer

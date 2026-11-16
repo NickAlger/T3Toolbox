@@ -974,3 +974,14 @@ axes. How do we tell whether an axis is part of the batch, or a derivative order
 - **Done.** This folder was committed to `main` as `dev/graded_messages/`, with the library's `dev/HANDOFF.md`
   updated to point at it. The work continues on the branch `graded-messages`.
 
+## 43. Confirmations; two more preparation functions; the adapter example (2026-11-15, 18:32)
+
+- **The maintainer.** "Agree plan after target is settled. Agree local dev copy on my laptop is old and superseded
+  by our work here. Coordinate rescaling and direction rescaling become library functions. For the form of the
+  derivative mode adapter: can you show me a minimal example of it being used here in chat?"
+- **Recorded.** The plan for after the target is settled, as written in `dev/HANDOFF.md`, is confirmed. The laptop
+  copy of the old handoff directory is superseded. The rescaling of the direction and the rescaling of a mode's
+  coordinates (with its inverse) are library functions, beside the block norms and the filtered inverse (6.7).
+- **2.3.** A minimal example of the adapter was shown in the conversation: the standalone conversions used by hand,
+  and the keyword doing the same inside a fit. Not decided.
+
