@@ -1458,3 +1458,12 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   (the adjoint variables of `Jp` are reached by giving `Jp` as the residual) rested on this.
 - **Counts.** 33 rows decided, 19 remain. Group C has five left: 8.2, 6.2, 6.3, 6.4, 9.2.
 
+## 72. 6.2 decided up to three names: the arguments of `sampling_variables` (2026-11-16, 02:34)
+
+- **The maintainer**, on the signature assembled from the earlier decisions: "Perfect. sketch looks good".
+- **Decided.** The sketch is in the note to 6.2 of `TARGET_DECISIONS.md`. Open inside it: three keyword names,
+  the kind strings (9.2), and whether the plan is an argument here (7.3).
+- **A slip corrected.** The edit that recorded 6.5 (entry 71) first replaced the tail of row 3.3 and left row
+  6.5 open; found on the next read and fixed in the following commit.
+- **Counts.** 34 rows decided, 18 remain. Group C has four left: 8.2, 6.3, 6.4, 9.2.
+

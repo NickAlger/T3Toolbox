@@ -30,7 +30,7 @@ planned only after the target is settled.
 
 ## What remains, in groups (2026-11-15, 15:34)
 
-Of the 56 rows in sections 1 to 9, 33 are decided, 3 are guidance and 1 is parked. The other 19 are below, in
+Of the 56 rows in sections 1 to 9, 34 are decided, 3 are guidance and 1 is parked. The other 18 are below, in
 seven groups that cut across the sections. The grouping and the suggested order are Claude's, made at the
 maintainer's request; they decide nothing.
 
@@ -38,12 +38,12 @@ maintainer's request; they decide nothing.
 | --- | --- | --- | --- | --- | --- |
 | A. Jets and the misfit | 0 | | | | |
 | B. The frame and the value | 0 | | | | |
-| C. What a kind is, and the public surface | 5 | 3 | 1 | 1 | |
+| C. What a kind is, and the public surface | 4 | 2 | 1 | 1 | |
 | D. One program for every layout and stack | 5 | 3 | 1 | 1 | |
 | E. Plans, memory and scale | 5 | 3 | 2 | | |
 | F. The fitting layer above | 3 | 1 | | 2 | |
 | G. What defines correct | 1 | 1 | | | |
-| Total | 19 | 11 | 4 | 4 | |
+| Total | 18 | 10 | 4 | 4 | |
 
 - **A. Jets and the misfit.** (Decided on the afternoon of 2026-11-15: 2.4, what a tilde jet is; 2.5, the misfit;
   2.3, the derivative-mode adapter; and, at 19:32, 2.9, how a term is carried out over the orders.)
@@ -56,9 +56,9 @@ maintainer's request; they decide nothing.
 - **C. What a kind is, and the public surface.** (Decided: on 2026-11-15 at 23:23, with the notation of 9.6,
   3.1, letters and grades as the primitives; on 2026-11-16 at 02:22, 3.4, a kind is closed in the sampling layer
   and the open extension point is an objective protocol in the fitting layer; at 02:31, 6.5, a held variable
-  is trusted and only its shape is checked.) 8.2 the fitting layer's kind
-  object, now the objective protocol (open); 6.2 the remaining arguments of `sampling_variables` (open; the
-  sample, the direction, the data and the weight are decided); 6.3 the other public functions (reopened); 6.4
+  is trusted and only its shape is checked; at 02:34, 6.2, the arguments of `sampling_variables`, up to three
+  names.) 8.2 the fitting layer's kind
+  object, now the objective protocol (open); 6.3 the other public functions (reopened); 6.4
   the table of variables generated from the graph (to confirm; that every variable is public is decided); 9.2
   names chosen to match things that will go (open).
 - **D. One program for every layout and stack.** 5.2 one set of step functions for ragged and uniform (open); 5.4
@@ -959,7 +959,7 @@ Notes:
 | # | Question | Status | Depends on |
 | --- | --- | --- | --- |
 | 6.1 | `sampling_variables` is a public backend function. It returns a tuple aligned with `want`, and held variables are keyword arguments | Decided | |
-| 6.2 | What are its remaining arguments: the kind and the order, the directions, the data and the weight? | Open | 2.8, 3.4, 4.5 |
+| 6.2 | The arguments of `sampling_variables`: `kind`, `frame`, `sample`, `want`, then `order`, `plan`, `y`, `weight`, the direction `(V, H)`, the lifted direction `(D_dot, L_dot)`, `Vc`, whether `g`, `JtJp`, `Kp` are summed over the samples, and the held variables by name. Decided up to the names of three keywords | Decided | 2.8, 3.4, 4.5 |
 | 6.3 | What other public functions does the sampling layer have, and do any of the existing public kernel names remain? | Reopened | 1.1 |
 | 6.4 | Which variables are public for each kind, and is the docstring table of reads generated from the declared graph? | To confirm | 3.1 to 3.4 |
 | 6.5 | The engine trusts a held variable and checks only its shape, the order included. Whoever holds it vouches for it. The caller may give the engine whatever they want, modified variables included | Decided | |
@@ -968,6 +968,35 @@ Notes:
 
 Notes:
 
+- **6.2, decided up to three names** (2026-11-16, 02:34). The maintainer, on the sketch below: "Perfect. sketch
+  looks good". It is assembled from the decisions taken piece by piece; it is a sketch and not final spelling.
+
+  ```python
+  def sampling_variables(
+          kind,                 # 'probe' | 'apply' | 'entries'
+          frame,                # (D, U, L, R)
+          sample,               # ww if order == 0 else (ww, pp); the index for entries
+          want,                 # names; the return is a tuple aligned with it
+          order=0,              # highest Taylor order.  T=(order+1,) if order else ()
+          plan=None,            # how the pass is carried out
+          y=None,               # the data; needed for r and what reads it
+          weight=None,          # ones if None; acts on f, g, JtJp, Kp, Jp_sumsq
+          direction=None,       # (V, H); needed for the dot grade
+          core_direction=None,  # (D_dot, L_dot); needed for Kp
+          Vc=None,              # Tucker centers; the value is read off the frame if given
+          sum_samples=True,     # on g, JtJp, Kp
+          **held,               # held variables, by name
+  ):
+  ```
+
+  - Where each line comes from: `want`, the return and the held variables, 6.1 and 6.5; the bundled `sample`
+    and `order` deciding, never the type, the part of 6.2 decided on 2026-11-15 (04:22) and 6.6; `y` and
+    `weight`, 3.6; `Vc`, 4.1; `sum_samples`, 3.7; the two directions, 4.5.
+  - **Open inside it:** the names `direction`, `core_direction` and `sum_samples`, which are Claude's
+    placeholders (the library's flag today is `sum_over_probes`); `kind` as a string (9.2); `plan` as an
+    argument here (7.3).
+  - A missing argument is a structural error: `Kp` wanted without the lifted direction, or `r` wanted without
+    `y` and without a held `r`.
 - **6.5, decided** (2026-11-16, 02:31). The maintainer: "Agree with proposal. Check shapes, trust values. Also,
   I want to leave it open to the user to apply the algorithm to whatever they want. There may be situations where
   applying the sweeping algorithms to modified variables could be useful."
