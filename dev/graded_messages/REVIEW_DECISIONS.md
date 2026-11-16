@@ -1195,3 +1195,25 @@ axes. How do we tell whether an axis is part of the batch, or a derivative order
   and the inputs have their site as a subscript; the seed is `w` with a tilde. The left column and the sentence
   above each drawing keep the code spelling. Claude's choice, to be corrected if wrong: the site is a subscript
   after the basis, as in `nu` with the subscript `L,3`.
+
+## 57. The notation is decided: four letters and a basis (2026-11-15, 23:23)
+
+- **The maintainer**, on the seven drawings in formula style: "This is excellent and further confirms that this
+  notation is the right one. I want to lock in this new notation. We will have to make a lot of changes to this
+  proposal and the dev/graded_messages directory."
+- **Decided** (target decision 9.6, and with it 3.1). `mu`, `nu`, `xi`, `eta` name the four sides of a cut edge;
+  the store of the basis follows the letter where the basis is not the usual one; then the grade. `gamma` is
+  `nu_L`, `zeta` is `eta_D`, the frame's `mu_dot` and `xi_dot` are `mu_R_dot` and `xi_U_dot`, and the frame's
+  `nu_dot` and `eta_dot` are `nu_L_dot` and `eta_D_dot`.
+- **His four steps for bringing the folder and the doc into line.** (1) A page that catalogs the complete
+  taxonomy of the sampling variables and their definitions, with a table from the old names to the new. (2) An
+  agent reads that page and draws the remaining diagrams, and Claude checks them: "did the opus agent understand
+  the notation correctly from what is written in the sample variables page?" (3) An agent surveys the doc and
+  this folder and flags where updates are needed. (4) Two agents, one editing and one reviewing, iterate until
+  the reviewer is satisfied; old notation ideas and concepts are kept, marked as deprecated, and moved to the
+  bottom of the documents or to an archive document.
+- **Step 1, done.** `SAMPLE_VARIABLES.md`, and the tab "Sample variables" of the Claude doc. Every definition is
+  given as a recurrence and as a subnetwork, and `scripts/review/sample_variables_check.py` checks the
+  recurrences against the library (`z`, `g`, `Jp`, `JtJp`, `Kp`) and each subnetwork against its recurrence
+  (14 variables, as sums over where the direction and the seed are put).
+

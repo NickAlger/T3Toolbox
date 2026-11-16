@@ -191,6 +191,15 @@ B. Twins: one subnetwork in two bases, joined by the lift's own factors
    trunk:            eta (U)     and zeta (D)                 equal
    bond sizes, L basis [3, 2, 4], R basis [3, 2, 3]
 
+=== sample_variables_check.py
+A. order 0, the recurrences against the library:  z 2e-16   g 3e-16   Jp 3e-16   JtJp 4e-16   Kp 2e-16
+B. order 0, 14 variables as sums over where the direction and the seed are put:  equal (worst 1e-15)
+C. order 0, the direction at the 9 cut edges, as one side dotted against the other plain:  equal (worst 6e-16)
+A. order 2, the recurrences against the library:  z 3e-16   g 2e-16   Jp 3e-16   JtJp 4e-16   Kp 3e-16
+B. order 2, 14 variables as sums over where the direction and the seed are put:  equal (worst 5e-16)
+C. order 2, the direction at the 9 cut edges, as one side dotted against the other plain:  equal (worst 2e-16)
+all checks passed
+
 === arrow_type_check.py
 1. The whole program type checks with the maintainer's arrows: 424 contractions over network indices and
    176 sums, in the 22 step functions, at order 2 with d = 4.  No error.

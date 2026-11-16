@@ -30,7 +30,7 @@ planned only after the target is settled.
 
 ## What remains, in groups (2026-11-15, 15:34)
 
-Of the 55 rows in sections 1 to 9, 20 are decided, 3 are guidance and 1 is parked. The other 31 are below, in
+Of the 56 rows in sections 1 to 9, 22 are decided, 3 are guidance and 1 is parked. The other 30 are below, in
 seven groups that cut across the sections. The grouping and the suggested order are Claude's, made at the
 maintainer's request; they decide nothing.
 
@@ -38,12 +38,12 @@ maintainer's request; they decide nothing.
 | --- | --- | --- | --- | --- | --- |
 | A. Jets and the misfit | 3 | | | 3 | |
 | B. The frame and the value | 6 | | 4 | 2 | |
-| C. What a kind is, and the public surface | 8 | 4 | 2 | 2 | |
+| C. What a kind is, and the public surface | 7 | 4 | 2 | 1 | |
 | D. One program for every layout and stack | 5 | 3 | 1 | 1 | |
 | E. Plans, memory and scale | 5 | 3 | 2 | | |
 | F. The fitting layer above | 3 | 1 | | 2 | |
 | G. What defines correct | 1 | 1 | | | |
-| Total | 31 | 12 | 9 | 10 | |
+| Total | 30 | 12 | 9 | 9 | |
 
 - **A. Jets and the misfit.** (Decided on the afternoon of 2026-11-15: 2.4, what a tilde jet is; 2.5, the misfit;
   2.3, the derivative-mode adapter; and, at 19:32, 2.9, how a term is carried out over the orders.)
@@ -56,8 +56,9 @@ maintainer's request; they decide nothing.
 - **C. What a kind is, and the public surface.** 3.4 what a sampling kind is and whether a user can define one
   (reopened); 8.2 the fitting layer's kind object (open); 6.2 the remaining arguments of `sampling_variables`
   (open; the sample and the direction are decided); 6.3 the other public functions (reopened); 6.4 which
-  variables are public for each kind (to confirm); 6.5 who guarantees a held variable is valid (open); 3.1
-  letters and grades as the primitives (to confirm); 9.2 names chosen to match things that will go (open).
+  variables are public for each kind (to confirm); 6.5 who guarantees a held variable is valid (open); 9.2
+  names chosen to match things that will go (open). (Decided on 2026-11-15 at 23:23, with the notation of 9.6:
+  3.1, letters and grades as the primitives.)
 - **D. One program for every layout and stack.** 5.2 one set of step functions for ragged and uniform (open); 5.4
   terms generic over the stack groups (open); 5.3 sites scanned or vectorized (reopened); 5.5 association order
   inside a term (to confirm); 5.6 the dtype rule (open). The cases the order-0 assessment did not cover are here.
@@ -72,7 +73,7 @@ maintainer's request; they decide nothing.
 wait on 4.1 and 4.5. C feeds F: 8.1 and 8.3 need the public surface. D and E are each mostly self-contained; E's
 7.3 is tied to F's 8.1. G bears on how every other answer is checked.
 
-**The ten rows marked to confirm** are earlier decisions that were not taken for reasons of compatibility.
+**The nine rows marked to confirm** are earlier decisions that were not taken for reasons of compatibility.
 They may go quickly, several at a time.
 
 **Outside the list:** 8.5 shared sample vectors (parked); weights on internal edges as inner products (parked for
@@ -585,7 +586,7 @@ Notes:
 
 | # | Question | Status | Depends on |
 | --- | --- | --- | --- |
-| 3.1 | Are letters and grades the right primitives: the letters `xi`, `mu`, `nu`, `eta`, and the grades plain, dot, tilde, tilde-dot? | To confirm | |
+| 3.1 | The primitives of a variable's name are a letter for the side contracted (`mu`, `nu`, `xi`, `eta`), the basis of the cut edge where it is not the usual one, and a grade (plain, dot, tilde, tilde-dot) | Decided | 9.6 |
 | 3.2 | Is `gamma` a first-class variable, or does a different frame convention remove the need for it? | To confirm | 4.1 |
 | 3.3 | Which seeded copies of the tilde variables are public? | To confirm | |
 | 3.4 | What is a sampling kind in the target, and can a user define one? | Reopened | 1.1 |
@@ -595,6 +596,13 @@ Notes:
 
 Notes:
 
+- **3.1, decided with the notation** (2026-11-15, 23:23; see 9.6). The question was whether letters and grades
+  are the right primitives. The notation the maintainer locked in has three: the letter, the basis and the
+  grade. That this closes 3.1 is Claude's reading of his decision, to be corrected if wrong.
+- **3.2, what the notation changes.** The variable is now `nu_L`: the right of a bond in the `L` basis. The
+  letter `gamma` is retired. It can be wanted and held like every variable (confirmed at 21:57). What stays to
+  confirm is the second half of the question, which waits on 4.1: whether a different frame convention removes
+  the need for a second basis.
 - **3.2.** Decided on 2026-11-14 as public. It exists because the frame's right variable is swept through `R`
   while the value and the curvature term need it through `L`.
 - **3.3.** Decided on 2026-11-14: only the copies seeded by the residual, because those depend on the point and
@@ -1045,6 +1053,7 @@ Notes:
 | 9.3 | What defines correct when old behaviour is not the reference: the generic twin, adjoint identities, finite differences? | Open | |
 | 9.4 | What is the order axis called as a group, so that it is not taken for a batching axis, and what letter does it have in contraction strings? | Decided | 2.7 |
 | 9.5 | The convention for arrows on the edges. An arrow shows the way a vector travels: where it leaves an array the index is plain, where it enters the index is dual. A contraction joins the two ends of one arrow. Every arrow of a frame points away from its store, towards the hole. Arrows are described by the way they point in the diagram: left-to-right, right-to-left, bottom-to-top, top-to-bottom | Decided | |
+| 9.6 | The notation for the sampling variables: four letters and a basis. `mu`, `nu`, `xi`, `eta` name the four sides of a cut edge that can be contracted; the store of the basis follows the letter where the basis is not the usual one (`nu_L`, `eta_D`, `mu_R`, `xi_U`); then the grade. The reference is `SAMPLE_VARIABLES.md` | Decided | |
 
 Notes:
 
@@ -1052,6 +1061,24 @@ Notes:
   paper's notation through this refactor is an impossible task. We do not need to attempt it." So a name is
   chosen for the target alone; `sigma`, `tau` and the other letters the refactor frees may be given new
   meanings. The library's notation map from the paper to the code will need rewriting when the names land.
+- **9.6, decided** (2026-11-15, 23:23). The maintainer, on the seven drawings in formula style: "This is excellent
+  and further confirms that this notation is the right one. I want to lock in this new notation." At 23:02 he
+  had called the scheme "the best so far", with "great potential for confusion", and asked for the drawings to
+  meet that.
+  - **What is decided.** A variable is named by the side of the cut edge that is contracted (`mu` the left of a
+    bond, `nu` the right of a bond, `xi` the leaf below a Tucker edge, `eta` the trunk above it), by the basis
+    of the cut edge where it is not the letter's usual one (`L` for `mu`, `R` for `nu`, `D` for `xi`, `U` for
+    `eta`), and by its grade. In formulas and drawings: the Greek letter, a tilde or a dot above it, the basis
+    as a subscript.
+  - **What it replaces.** `gamma` is `nu_L` and `zeta` is `eta_D` (both letters are retired; `zeta` had been
+    decided at 22:11). The frame's `mu_dot` and `xi_dot` are `mu_R_dot` and `xi_U_dot`, and the bare `mu_dot`
+    and `xi_dot` now mean the base point's. The frame's `nu_dot` and `eta_dot` are `nu_L_dot` and `eta_D_dot`,
+    the same names as the base point's, because they are the same arrays. The six variables that had no name
+    (notes to section 6) all have one.
+  - **The reference** is `SAMPLE_VARIABLES.md`: the taxonomy, every definition as a recurrence and as a
+    subnetwork, the types and shapes, and the map from the old names and from the library's. Checked by
+    `scripts/review/sample_variables_check.py`. The earlier names and schemes are in `NOTATION_HISTORY.md`.
+  - **Not decided by this:** see section 11 of `SAMPLE_VARIABLES.md`.
 - **9.4.** The maintainer's concern: a batching axis means a bunch of the same thing bundled together, and it has
   fewer restrictions. The order axis is neither. The words the library already has: the contraction engine's
   "group" (an uppercase letter standing for zero or more axes), which is structural and says nothing about

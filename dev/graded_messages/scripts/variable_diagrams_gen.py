@@ -9,7 +9,10 @@ xi, eta, mu_R_dot, mu_tilde, in the names of the four-letters-and-a-basis scheme
 Inside a drawing a variable is written as in a formula (the maintainer, 23:10): the Greek letter, a tilde or a
 dot drawn above it, and the basis and the site as subscripts. The left column and the title keep the code spelling.
 
-Every text in a module is a literal with its own id, as the doc requires.   Usage:  python3 variable_diagrams_gen.py out.json
+Every text in a module is a literal with its own id, as the doc requires.
+
+Usage:  python3 variable_diagrams_gen.py out.json [preview_folder]
+With a preview folder, each drawing is also written there as a plain SVG, and as a PNG if rsvg-convert is installed.
 """
 import json, sys
 
@@ -176,8 +179,58 @@ SPECS = [
          shape='T + W + C + (rL2,)', shape_notes=['rL2: bond 2, L basis', 'dual jet, order turned']),
 ]
 
+# ---- a local preview: the same module as a plain SVG file, and a PNG if rsvg-convert is installed -------
+COLOURS = dict(edge='#8a8a86', grid='#d9d8d3', accent='#2f6fd0', ink='#1f1f1e', quiet='#6b6a66')
+KEBAB = dict(textAnchor='text-anchor', fontSize='font-size', fontWeight='font-weight', fontStyle='font-style',
+             strokeWidth='stroke-width', strokeDasharray='stroke-dasharray', strokeOpacity='stroke-opacity',
+             fillOpacity='fill-opacity', markerEnd='marker-end')
+
+
+def preview_svg(code):
+    """Translate a module into a standalone SVG.  Only for looking at a drawing locally; the doc renders the module."""
+    import re
+    assert code.startswith(HEAD) and code.endswith('; };')
+    body = code[len(HEAD):-len('; };')]
+    assert body.startswith('return ')
+    body = body[len('return '):]
+    c = COLOURS
+
+    def core(m):
+        cx, cy, w, h, kind = int(m[1]), int(m[2]), int(m[3]), int(m[4]), m[5]
+        hot, ghost = kind == 'hot', kind == 'ghost'
+        return ("<rect x='%g' y='%g' width='%d' height='%d' rx='6' fill='%s' fill-opacity='%s' stroke='%s' stroke-width='%s'%s/>"
+                % (cx - w / 2, cy - h / 2, w, h, c['accent'] if hot else 'none', 0.12 if hot else 1, c['accent'] if hot else c['edge'],
+                   2 if hot else 1.25, " stroke-dasharray='4 4' stroke-opacity='0.55'" if ghost else ''))
+
+    def dot(m):
+        hot = m[3] == 'true'
+        return ("<circle cx='%s' cy='%s' r='13' fill='%s' fill-opacity='%s' stroke='%s' stroke-width='%s'/>"
+                % (m[1], m[2], c['accent'] if hot else 'none', 0.12 if hot else 1, c['accent'] if hot else c['edge'], 2 if hot else 1.25))
+
+    body = re.sub(r"\{core\((\d+), (\d+), (\d+), (\d+), '(\w+)'\)\}", core, body)
+    body = re.sub(r"\{dot\((\d+), (\d+), (true|false)\)\}", dot, body)
+    body = re.sub(r"\{wire\((\d+), (\d+), (\d+), (\d+)\)\}",
+                  lambda m: "<line x1='%s' y1='%s' x2='%s' y2='%s' stroke='%s' stroke-width='1.25'/>" % (m[1], m[2], m[3], m[4], c['edge']), body)
+    for name, colour in c.items():
+        body = body.replace('={%s}' % name, "='%s'" % colour)
+    for camel, kebab in KEBAB.items():
+        body = body.replace(' %s=' % camel, ' %s=' % kebab)
+    assert '{' not in body, body[body.index('{') - 60:body.index('{') + 60]       # a helper this translator does not know
+    view = re.search(r"viewBox='0 0 (\d+) (\d+)'", body)
+    return body.replace("<svg ", "<svg xmlns='http://www.w3.org/2000/svg' font-family='Helvetica, Arial, sans-serif' ", 1).replace(
+        '>', "><rect width='%s' height='%s' fill='white'/>" % (view[1], view[2]), 1)
+
+
 if __name__ == '__main__':
     mods = {s['slug']: module(s) for s in SPECS}
     json.dump(mods, open(sys.argv[1], 'w'), ensure_ascii=False)
     for k, v in mods.items():
         print(k, len(v))
+    if len(sys.argv) > 2:                      # a folder for the previews
+        import os, shutil, subprocess
+        os.makedirs(sys.argv[2], exist_ok=True)
+        for k, v in mods.items():
+            path = os.path.join(sys.argv[2], k + '.svg')
+            open(path, 'w').write(preview_svg(v))
+            if shutil.which('rsvg-convert'):
+                subprocess.run(['rsvg-convert', '-z', '1.5', path, '-o', path[:-4] + '.png'], check=True)
