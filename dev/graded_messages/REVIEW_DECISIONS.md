@@ -1173,3 +1173,18 @@ axes. How do we tell whether an axis is part of the batch, or a derivative order
   Not decided.
 - **22:41.** The maintainer asked for the second scheme written out as a table against every current variable
   and the unnamed ones. It is at the end of section 14 of `TYPE_CATALOG.md`, with the library's present names.
+
+## 56. A table of diagrams, one row per variable: prototype (2026-11-15, 23:02)
+
+- **The maintainer**, on the four-letters-and-a-basis scheme: "I think this is the best so far. However, there is
+  still great potential for confusion." His proposal: a battery of tensor network diagrams showing the definition
+  of each variable, as a subnetwork, for one representative edge in the middle of the network, formatted as a
+  table that also shows the shape, such as `mu | mu2: diagram of L0(D0(w0))L1(D1(w1)) | mu's shape`. He asked for a
+  new tab with a few of these to look at.
+- **Done.** The tab "Variable diagrams" of the Claude doc, with seven rows: `mu`, `nu`, `nu_L`, `xi`, `eta`, and two
+  that show one term of a sum, `mu_R_dot` (a direction at one site) and `mu_tilde` (a seed at one input). Each row
+  is a drawing with three columns: the name with its side and basis, the subnetwork on five sites with the open
+  edge as an arrow, and the shape. The tab also has a key to the drawing and to the letters of the shapes.
+- **How it is made.** `scripts/variable_diagrams_gen.py` generates the drawings. Each row is its own drawing at the
+  full width of the page, because a drawing inside a table cell would be scaled down below a readable size.
+- **Not decided.** The scheme, and the form of the rows; the other fifteen variables are not drawn.
