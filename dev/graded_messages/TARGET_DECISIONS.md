@@ -62,8 +62,8 @@ maintainer's request; they decide nothing.
   names moved to 7.6.
 - **D. One program for every layout and stack.** (Decided on 2026-11-16: at 03:11, 5.2, one set of step
   functions for both layouts; at 03:32, 5.6, the dtype rule.) 5.4 terms generic over the stack groups (open; a
-  prototype is owed); 5.5 the contraction order inside a term (open: it goes into the plan, by the maintainer's
-  ruling of 03:32, and how it is specified is under discussion); 5.3 sites scanned or vectorized (reopened; with
+  prototype is owed); 5.5 the contraction order inside a term (open: it goes into the plan, one order per term
+  function; the helpers are a design phase of their own, with 7.6; how an order reads with jets is proposed); 5.3 sites scanned or vectorized (reopened; with
   the performance discussion). The maintainer gave rules for how the functions are written on 2026-11-15, 19:50
   (notes to section 5).
 - **E. Plans, memory and scale.** 7.3 where the plan lives (reopened); 7.2 the defaults (reopened); 7.5 inert
@@ -863,7 +863,7 @@ Notes:
 | 5.2 | One set of step functions for the ragged and the uniform layout. The layout is detected from the structure of the inputs, as low as reasonably possible. Sweeps go through `xscan` on both layouts. Masks never reach a step: the uniform cores are masked once on entry. Shapes are read from the operands | Decided | 1.2 |
 | 5.3 | For each variable, are sites scanned or vectorized, what is the default, and which variables admit which? | Reopened | 5.2 |
 | 5.4 | How are the terms generic over the stack groups: several `W` axes, `K`, `C`, and the order? | Open | 2.7 |
-| 5.5 | The contraction order inside a term is in the plan: the user can specify it and tune it on their problem, and the library provides helpers that choose good orders. How it is specified and passed through the contraction engine is open | Open | |
+| 5.5 | The contraction order inside a term is in the plan: one order per term function. The user can specify it and tune it on their problem, and the library provides helpers that choose good orders. Open: the form of the plan's field, the helpers (a design phase of their own; measuring test contractions is the ideal), and how an order reads where the operands are jets | Open | 7.6 |
 | 5.6 | The dtype rule is absorbing: jax takes precedence over numpy, and lower precision over higher. The engine creates no array with a default dtype | Decided | |
 
 Notes:
@@ -891,6 +891,43 @@ Notes:
     string for that reason.
   - **Open:** the form of the plan's field, its granularity (per term function, or per place a term is used),
     and what the helpers optimize (flops, or the largest intermediate).
+- **5.5, granularity and helpers** (2026-11-16, 03:59). Asked for the granularity, what a helper optimizes, and how
+  an order reads with jets, the maintainer: "Granularity: per term. Helper: unsure. Needs a design phase. We can do
+  several. Flops is the standard (e.g., numpy's optimize_path), but I do not like it because flops often don't
+  reflect real world performance. Limiting memory of intermediates is a good one. I think the ideal is to actually
+  do some test contractions and measure them. This relates to the "measure" mode we discussed before, for
+  automatic performance tuning. Jets: What is the question here?"
+  - **Granularity: decided, per term.** Claude reads this as per term function: the plan carries one order for each
+    term function that has a choice (`mu_term`, `nu_term`, `eta_term`, `H_term`), and every use of that function
+    in the call takes it, wherever `K` or a dot sits. The other reading, one order for every place a term is used,
+    was the alternative Claude had put; the reading is to be confirmed.
+  - **Helpers: not decided; a design phase of their own.** There can be several. Flop counts are the standard but
+    he does not trust them to reflect real performance. A bound on the memory of the intermediates is a good
+    criterion. The ideal is to run test contractions and measure them, as one of the candidates of the `measure`
+    policy (`EXECUTION_PLANS.md`, "Policies": time the few discrete candidates on one small block and pick the
+    fastest that fits). So the helpers belong with 7.6 and the performance discussion of group E.
+  - **A fact found while checking** (`scripts/review/contraction_order_check.py`, part 1). The two backends spell
+    an explicit path differently: numpy takes a list that begins with `'einsum_path'`, and jax (through
+    `opt_einsum`) takes the bare list of pairs and rejects the prefix. So the plan holds a plain tuple of pairs
+    of operand positions, and `contract` spells it for the backend it dispatches to.
+  - **The question about jets, restated.** An order says which two of a term's three operands are contracted
+    first. Decision 2.9 already says part of that for a product of two full jets: one jet is taken one
+    coefficient at a time and contracted with the core, and the result is paired with every slot of the other
+    jet. So the form fixes "the core first", and what is left free is which of the two jets goes with the core.
+    The question was whether that is the same setting as the order in the plan, and what an order that pairs
+    the two jets first means above order 0.
+  - **Claude's proposal, to be confirmed.** One reading covers every case: an order ranks the pairwise products,
+    and a pairwise product of two operands that both carry the order axis is their truncated product, carried
+    out as 2.9 says (the scan or the loop). Then:
+    - the operand paired with the core first is the one taken one coefficient at a time, so "which jet is
+      scanned" is not a setting of its own;
+    - an affine operand, order 0 and the block readouts need no rule of their own;
+    - the order that pairs the two jets first is defined too. It forms their truncated product, an array over
+      the orders, the samples and both bonds, and then contracts it with the core. It gives the same values and
+      does the expensive contraction the same number of times, but nothing in it is one order slice at a time,
+      so the memory property of the scan holds only for the two orders that take the core first.
+    Checked on small arrays (the same script, part 2): the three orders of `eta_term(mu, G, nu)` with two full
+    jets, read this way, each give the explicit sum.
 - **5.5, the earlier record.** Decision 4 left association out, on the library's own measurement that one
   contraction per term is right on jax.
 - **5.6, decided** (2026-11-16, 03:32). Claude proposed that the engine never create an array with a default

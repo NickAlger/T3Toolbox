@@ -314,3 +314,18 @@ the doctest of the adapter draft: 14 examples, 0 failures
    jax float64      uniform    scan           to rounding          jax float64     
    jax float32      uniform    scan           to rounding          jax float32     
 
+=== contraction_order_check.py
+Part 1.  mu_term(mu, G, xi) with two sample axes: one string, three paths
+  numpy  (0, 1) first: equal to the single einsum True;  largest intermediate 5.040e+02 elements
+  numpy  (1, 2) first: equal to the single einsum True;  largest intermediate 4.200e+02 elements
+  numpy  (0, 2) first: equal to the single einsum True;  largest intermediate 3.600e+02 elements
+  jax    (0, 1) first: equal to the single einsum True
+  jax    (1, 2) first: equal to the single einsum True
+  jax    (0, 2) first: equal to the single einsum True
+Part 2.  eta_term(mu, G, nu) with mu and nu full jets: the three orders as pairwise truncated products
+  (G, nu) first, then mu: equal to the explicit sum True;  intermediate W a n = 84 per order slice
+  (mu, G) first, then nu: equal to the explicit sum True;  intermediate W n b = 168 per order slice
+  (mu, nu) first, then G: equal to the explicit sum True;  intermediate P W a b = 630, all orders at once
+  each order contracts the core with one coefficient P times; they differ in the intermediate and in
+  which operand is taken one coefficient at a time
+

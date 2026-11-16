@@ -1523,3 +1523,18 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   per term at the place it is used, with `K` on the operand that carries it (note to 5.4).
 - **Counts.** 40 rows decided, 12 remain.
 
+## 79. 5.5: one contraction order per term function; the helpers are a design phase; how an order reads with jets (2026-11-16, 03:59)
+
+- **Granularity.** The maintainer: "per term." Read by Claude as per term function (one order each for
+  `mu_term`, `nu_term`, `eta_term`, `H_term`); the reading is to be confirmed.
+- **Helpers.** Not decided: "Needs a design phase. We can do several." He does not trust flop counts ("flops
+  often don't reflect real world performance"), counts a bound on the memory of the intermediates as a good
+  criterion, and holds measuring test contractions to be the ideal, tied to the `measure` policy for automatic
+  tuning. The helpers go with 7.6 and group E.
+- **Jets.** He asked what the question was. Restated, with a proposal, in the note to 5.5 of
+  `TARGET_DECISIONS.md`: an order ranks the pairwise products, and a pairwise product of two operands that both
+  carry the order axis is their truncated product, carried out as 2.9 says. To be confirmed.
+- **Found while checking.** numpy and jax spell an explicit einsum path differently (`'einsum_path'` first, or
+  the bare list of pairs), so `contract` has to spell the plan's path for its backend. New script
+  `scripts/review/contraction_order_check.py`, added to the runner (22 scripts).
+- **Counts.** Unchanged: 40 rows decided, 12 remain. 5.5 stays open.
