@@ -59,7 +59,7 @@ maintainer's request; they decide nothing.
   is trusted and only its shape is checked; at 02:34, 6.2, the arguments of `sampling_variables`, up to three
   names; at 02:37, 6.4, the table of variables written out and tested against the declared graph; at 02:40,
   6.3, the public functions of the sampling layer; at 02:45, 8.2, the protocol of the fitting layer's open
-  extension point, its name still to be found.) 9.2 names chosen to match things that will go (open).
+  extension point, named `Oracle` at 02:52.) 9.2 names chosen to match things that will go (open).
 - **D. One program for every layout and stack.** 5.2 one set of step functions for ragged and uniform (open); 5.4
   terms generic over the stack groups (open); 5.3 sites scanned or vectorized (reopened); 5.5 association order
   inside a term (to confirm); 5.6 the dtype rule (open). The cases the order-0 assessment did not cover are here.
@@ -1298,7 +1298,7 @@ By 1.1 this section is in scope.
 | # | Question | Status | Depends on |
 | --- | --- | --- | --- |
 | 8.1 | What is `LocalModel` in the target, and what does it ask the sampling layer for? | To confirm | 1.1, 6.1 |
-| 8.2 | The fitting layer's open extension point is a frozen record with one operation: at a frame, return the wanted ones of `f`, `g`, `JtJp`, `Jp_sumsq`, `Kp`, as blocks before projection, in the engine's vocabulary. The built-in one is least squares, implemented by one call of `sampling_variables`. Its name is open | Decided | 3.4 |
+| 8.2 | The fitting layer's open extension point is a frozen record with one operation: at a frame, return the wanted ones of `f`, `g`, `JtJp`, `Jp_sumsq`, `Kp`, as blocks before projection, in the engine's vocabulary. The built-in one is least squares, implemented by one call of `sampling_variables`. It is called an oracle (`Oracle`) | Decided | 3.4 |
 | 8.3 | What is the optimizers' contract with a model, and what is compiled as one program? | Open | 1.1 |
 | 8.4 | What do the display and the diagnostics read? | To confirm | 3.7 |
 | 8.5 | Shared sample vectors: in the target or not? | Parked | |
@@ -1322,9 +1322,15 @@ Notes:
     the results of their parts; a general linear functional never calls the engine; a different loss calls the
     engine for `z` and the bare transpose. One that cannot supply `Kp` still works with the Gauss-Newton
     Hessian. The regularizer stays its own protocol.
-  - **Open:** the name ("objective" was Claude's word and is not to be used); and, for group F, how held
+  - **The name: `Oracle`** (02:52). Claude's suggestion: in optimization an oracle is the thing an algorithm
+    queries at a point for the value, the gradient and Hessian products, so the word leads a user to expect
+    several things from it; against it, it is jargon. The alternatives offered were `Misfit` (the library's
+    word for the data term, pairing with `Regularizer`, but still sounding like the one number), `DataSource`
+    and `Evaluator`. The maintainer: "Oracle is ok, let's go with it. I see your point about jargon, but I have
+    not thought of anything better". The built-in one is the least-squares oracle.
+  - **Open,** for group F: how held
     variables pass between calls of the operation (8.1), what is compiled as one program (8.3), and what the
-    display reads from a user's implementation (8.4).
+    display reads from a user's oracle (8.4).
 
 - **8.5.** Parked by the maintainer on 2026-11-14 as low priority. T3Polynomial's main fit has the same sample
   vectors at every input mode.

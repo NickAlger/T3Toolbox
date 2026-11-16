@@ -1488,4 +1488,6 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   bundled with it. Any other ideas for the name?"
 - **Decided:** the data structure, as in the note to 8.2 of `TARGET_DECISIONS.md`. **Open:** its name.
 - **Counts.** 37 rows decided, 15 remain. Group C has one left: 9.2.
+- **02:52, the name.** `Oracle`. The maintainer: "Oracle is ok, let's go with it. I see your point about jargon,
+  but I have not thought of anything better".
 
