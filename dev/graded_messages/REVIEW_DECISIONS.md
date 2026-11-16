@@ -1667,3 +1667,12 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   question of how the variables are documented as a whole.
 - **Counts.** 44 rows decided, 8 remain (5 open, 3 reopened), all in groups D and E. Groups A, B, C, F and G are
   finished.
+
+## 89. 9.7 added and decided: how the sampling variables are documented (2026-11-16, 15:58 to 16:03)
+
+- **Decided:** four layers, each kind of fact with one source. The engine's docstring is the index; one page in
+  `docs/`, whose code CI runs, is the home, with an entry per variable; one example file is the tour; a `.tex`
+  note is the derivation.
+- **Decided:** the definitions are shipped as a public reference module, one slow dense function per variable.
+- **Added by the maintainer:** the dependency structure is documented, as a table and as diagrams.
+- **Counts.** A row was added: 45 of 57 rows decided, 8 remain (5 open, 3 reopened), all in groups D and E.

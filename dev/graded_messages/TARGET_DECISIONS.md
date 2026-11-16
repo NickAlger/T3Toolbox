@@ -57,7 +57,8 @@ The maintainer paused the session at 04:46 on 2026-11-16, to pick up the next da
   `newton_cg(geom, oracle, batch, x0, regularizer=None, ...)`, which rewords 8.1 to 8.4; and the equalizing
   weight became an explicit call with no keyword (6.7 amended). 43 rows are decided and 9 remain. The next
   question was 9.3, decided at 15:58: 44 rows are decided and 8 remain, all of them in groups D and E (5.3,
-  5.4, 5.5, 7.2, 7.3, 7.5, 7.6, 7.7). How the sampling variables are documented is under discussion.
+  5.4, 5.5, 7.2, 7.3, 7.5, 7.6, 7.7). At 16:03 a row was added and decided, 9.7, how the sampling variables are
+  documented: 45 of 57 rows are decided.
   `DESIGN_AFTER_REVIEW.md` and `dev/HANDOFF.md` do not yet carry the decisions made since the pause.
 
 ## Where this stood at the earlier pause (2026-11-15, 05:53)
@@ -83,7 +84,7 @@ The maintainer paused the session at 04:46 on 2026-11-16, to pick up the next da
 
 ## What remains, in groups (2026-11-15, 15:34)
 
-Of the 56 rows in sections 1 to 9, 44 are decided, 3 are guidance and 1 is parked. The other 8 are below, in
+Of the 57 rows in sections 1 to 9 (9.7 was added on 2026-11-16), 45 are decided, 3 are guidance and 1 is parked. The other 8 are below, in
 seven groups that cut across the sections. The grouping and the suggested order are Claude's, made at the
 maintainer's request; they decide nothing.
 
@@ -1955,9 +1956,54 @@ Notes:
 | 9.4 | What is the order axis called as a group, so that it is not taken for a batching axis, and what letter does it have in contraction strings? | Decided | 2.7 |
 | 9.5 | The convention for arrows on the edges. An arrow shows the way a vector travels: where it leaves an array the index is plain, where it enters the index is dual. A contraction joins the two ends of one arrow. Every arrow of a frame points away from its store, towards the hole. Arrows are described by the way they point in the diagram: left-to-right, right-to-left, bottom-to-top, top-to-bottom | Decided | |
 | 9.6 | The notation for the sampling variables: four letters and a basis. `mu`, `nu`, `xi`, `eta` name the four sides of a cut edge that can be contracted; the store of the basis follows the letter where the basis is not the usual one (`nu_L`, `eta_D`, `mu_R`, `xi_U`); then the grade. The reference is `SAMPLE_VARIABLES.md` | Decided | |
+| 9.7 | The sampling variables are documented in layers, each kind of fact with one source and every other place generated from it or tested against it. The engine's docstring is the index (the table of 6.4). One page in `docs/`, whose code CI runs, is the home: the naming scheme; an entry per variable with its diagram, definition, recurrence, shape and a doctest; the identities; the dependency structure, as a table and as diagrams; how to use them. One example file is the tour. A `.tex` note is the derivation. The definitions are shipped as a public reference module: one slow, dense function per variable, called by the tests, the page, the example and users | Decided | 6.4, 9.3 |
 
 Notes:
 
+- **9.7, added and decided** (2026-11-16, 15:58 to 16:03). The maintainer opened it with his agreement to 9.3:
+  "Let's think more broadly about documenting these variables. As I see it, we have: The definitions; The tensor
+  diagrams; The identities; Code that tests the definitions and identities; There may be more I'm not
+  remembering. I am wondering how we can organize all of this coherently, so that the user can easily find and
+  understand the variables when they need them." His ideas, "not mutually exclusive": a monolithic and
+  exhaustive document, organized in separate sections or by variable; the engine's docstring; a `.tex` and
+  `.pdf` mathematical paper; one or more example `.py` files that show the definitions being checked. "The goal
+  is to help the user of the code understand what they are, what properties they satisfy, and how to use them."
+  - **The readers, as Claude put them:** someone holding a name, who asks what it is, what shape, what it costs
+    to keep; someone with a purpose (a custom oracle, an optimizer of their own), who asks which variable they
+    need and what they can rely on; someone who must trust or extend it, who asks why and where it is checked.
+  - **The rule:** each kind of fact has one source, and every other place is generated from it or tested against
+    it. Which variables exist, their shapes and what reads what: the engine's declared graph (6.4), with the
+    docstring table and the page tested against it. What a variable is: its definition as code, a dense
+    contraction, kept honest by the definition tests of 9.3. The picture: the diagram specs, with a test that
+    every variable has a diagram. What it satisfies: the identities, stated once, with the identity tests of
+    9.3. Why: the mathematical note, whose notation is the code's names.
+  - **The four layers** (the maintainer, 16:03: "1. Yes, this is exactly right."):
+    1. The engine's docstring is the index: the table of 6.4 and a pointer to the page. Nothing longer.
+    2. One page in `docs/` is the home. It grows out of `SAMPLE_VARIABLES.md`, and CI runs its code as it does
+       for every `docs/*.md` page. It opens with the naming scheme in half a page (four letters, a basis, two
+       marks), so that a reader can decode any name; then a section per grade (plain, dot, tilde, tilde-dot,
+       outputs) with an entry per variable: diagram, definition, recurrence, shape, and a doctest that checks
+       it against its definition; then the identities, each with a doctest; then how to use them (holding, a
+       custom oracle, modified variables). Entries are by variable, because the reader arrives with a name.
+    3. One example file is the tour: a small problem, a handful of variables computed and checked, the
+       identities, a held variable reused. A selected subset; the exhaustive checks are the tests.
+    4. A `.tex` note is the derivation: why the recurrences equal the subnetworks, the jets, the adjoint
+       variables, the arrows. It would become a section of the toolbox paper.
+  - **The definitions are shipped as a public reference module** (16:03: "2. Yes, good idea. Let's ship the
+    definitions as a public reference module."). One slow, dense function per variable that computes it from
+    its definition. The tests, the page's doctests, the example and a user checking a modification of their own
+    all call the same code. The library ships `dense_probe` in the same spirit. Its name and place are open.
+  - **The dependency structure is documented too** (16:03: "On top of these, we also need to document the
+    dependency structure: The table of dependencies, and the diagrams showing it visually"). Its source is the
+    declared graph of 6.4. `scripts/component_graphs.py` already derives, for every case, what each component
+    reads and which cores it goes through, from the generic program; it is the check on the declared reads.
+    How the diagrams are drawn is open (suggested: generated from the declared graph, as one layered picture
+    per grade and one per output showing everything that output needs).
+  - **Also belonging on the page,** from Claude's list: sizes, since what a variable costs to hold decides the
+    `hold` list; recipes for use; and, once, in the release notes, the map from old names to new.
+  - **Not examined:** drawing a variable's picture and building its dense contraction from one spec, so that
+    the picture cannot disagree with the definition. The diagram specs already say which core sits at which
+    site.
 - **9.3, decided** (2026-11-16, 15:50 to 15:58). The maintainer: "I agree wholeheartedly with the proposal about
   how the definitions are checked, and that the identities listed get tests. On top of that, the definition
   checks and identity tests can also serve as a form of documentation, illustrating to the user what the things
