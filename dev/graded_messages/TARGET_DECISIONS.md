@@ -30,26 +30,27 @@ planned only after the target is settled.
 
 ## What remains, in groups (2026-11-15, 15:34)
 
-Of the 56 rows in sections 1 to 9, 25 are decided, 3 are guidance and 1 is parked. The other 27 are below, in
+Of the 56 rows in sections 1 to 9, 26 are decided, 3 are guidance and 1 is parked. The other 26 are below, in
 seven groups that cut across the sections. The grouping and the suggested order are Claude's, made at the
 maintainer's request; they decide nothing.
 
 | Group | Rows | Open | Reopened | To confirm | Held |
 | --- | --- | --- | --- | --- | --- |
 | A. Jets and the misfit | 0 | | | | |
-| B. The frame and the value | 6 | | 4 | 2 | |
+| B. The frame and the value | 5 | | 3 | 2 | |
 | C. What a kind is, and the public surface | 7 | 4 | 2 | 1 | |
 | D. One program for every layout and stack | 5 | 3 | 1 | 1 | |
 | E. Plans, memory and scale | 5 | 3 | 2 | | |
 | F. The fitting layer above | 3 | 1 | | 2 | |
 | G. What defines correct | 1 | 1 | | | |
-| Total | 27 | 12 | 9 | 6 | |
+| Total | 26 | 12 | 8 | 6 | |
 
 - **A. Jets and the misfit.** (Decided on the afternoon of 2026-11-15: 2.4, what a tilde jet is; 2.5, the misfit;
   2.3, the derivative-mode adapter; and, at 19:32, 2.9, how a term is carried out over the orders.)
   (And on 2026-11-16: at 01:04, 3.6, the weight inside the engine; at 01:32, 3.7, what happens to the sample
   stack on each output; at 01:36, 3.3, which adjoint sweep a tilde name refers to.) Group A is finished.
-- **B. The frame and the value.** 4.1 what a frame is (reopened); 4.2 frame consistency (reopened); 4.3 the route
+- **B. The frame and the value.** (Decided on 2026-11-16 at 01:52: 4.1, what a frame is, with the first half
+  of 4.3 and the part of 4.2 about the centers.) 4.2 frame consistency (reopened); 4.3 the route
   to the value (reopened); 4.4 tails and boundaries (reopened); 3.2 whether `gamma` (now `nu_L`) is first-class
   (to confirm, depends on 4.1); 4.5 where the projection, the lift and the Hessian assembly live (to confirm).
 - **C. What a kind is, and the public surface.** 3.4 what a sampling kind is and whether a user can define one
@@ -697,7 +698,7 @@ Notes:
 
 | # | Question | Status | Depends on |
 | --- | --- | --- | --- |
-| 4.1 | What is a frame: which core families it holds, which is authoritative for the base point, and whether it carries what is needed to read the value? | Reopened | 1.1, 1.2 |
+| 4.1 | A frame is the four stores `(D, U, L, R)`, and `(D, L)` is the base point. The Tucker center cores may be supplied beside it. With them the value is read off the frame, `z[i]` being `eta[i]` through the center; without them it goes through `D` | Decided | 1.1, 1.2 |
 | 4.2 | Is frame consistency a precondition or a diagnostic? | Reopened | 4.1 |
 | 4.3 | By what route is the value computed, at a trial point and at an accepted point, and is building the frame part of evaluating a trial point? | Reopened | 4.1 |
 | 4.4 | Tails and boundaries: are default frames squashed, what are the boundary vectors, and what is the contract at the ends of the frame? | Reopened | 4.1 |
@@ -705,6 +706,39 @@ Notes:
 
 Notes:
 
+- **4.1, the first half of 4.3, and the centers' part of 4.2, decided** (2026-11-16, 01:49 to 01:52).
+  - **The two routes to the value at a point that has a frame.** Through the base point's cores:
+    `z[i] = z_term(eta_D[i], D[i])`, which costs one more right sweep (`nu_L`) and one more trunk per site
+    (`eta_D`) beyond what `g` needs. Read off the frame: `z[i] = z_term(eta[i], center[i])`, with the Tucker
+    center core of site `i`, which has the shape of `V[i]`; no extra sweep. The identity is checked
+    (`scripts/reuse_check.py`, 1.7e-15).
+  - **The maintainer** (01:49): "Can we make both options available? If the user supplies the Tucker centers, we
+    use them. If not, we go through D. In the optimization routines that we control, we would supply the Tucker
+    centers. Are there any downsides of supporting both? Also, currently I believe the orthogonalization creates
+    the TT and the Tucker centers, can you check this? With the planned retract-and-orthogonalize function, we
+    should make sure it can return the centers too."
+  - **Checked in the library.** `t3_orthogonal_representations` (`backend/fv_conversions.py`) returns the frame
+    and, as a second result, the TT centers (from the right-to-left sweep) and the Tucker centers (from the
+    up-orthogonalization of those). The manifold geometry's `frame` keeps the first result only
+    (`frame, _ = t3_orthogonal_representations(x_cores)`). So the centers cost nothing new.
+  - **Downsides named by Claude.** A supplied center can be wrong or stale, and then `f` is silently wrong;
+    two routes to one number have to be tested against each other; wrong shapes are a structural error. Only
+    the probe kind gains: for apply and entries the value through `D` is `mu` at the last bond, which the left
+    sweep already gives. `Kp` reads `nu_L` and its family on either route.
+  - **Decided** (01:52: "Agree with proposal for 4.1 and first half of 4.3. Also, agree that wrong centers
+    should error in safe mode."):
+    - the engine takes optional Tucker centers; with them `z[i]` is `eta[i]` through the center, without them
+      it goes through `D`;
+    - the frame construction and the retract-and-orthogonalize function return the centers;
+    - the optimizers the library controls supply them;
+    - centers that do not agree with `(D, L)` are an error in safe mode. (The check is core-sized. Claude
+      believes it needs an orthogonal frame; not written.)
+  - **Not decided by this:** what a trial point in a line search does (the second half of 4.3); whether the
+    four stores' agreement among themselves is also a precondition (the rest of 4.2); the name of the centers
+    as an argument (the maintainer: plain "tucker_centers" is unambiguous but long).
+  - This reverses decision 7 of 2026-11-14 in part: reading the value off the frame is no longer parked. Its
+    three objections were the missing guard (now the safe-mode check), the missing channel in the geometry
+    protocol (now provided), and the library's caching audit (a fact about the present structure).
 - **4.1 to 4.3.** Decision 7 chose the value through the base point's own cores and parked reading it off the
   frame. Two of the reasons were that the geometry protocol has no channel for the center cores and that the
   library's caching audit had declined it. Those are facts about the present structure. The counts of sample

@@ -1381,3 +1381,17 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
 - **Counts.** 25 rows decided, 27 remain. Group A (jets and the misfit) is finished. Next by the suggested
   order: group B, the frame and the value (4.1 to 4.5, 3.2).
 
+## 65. The frame and the value: both routes, with optional Tucker centers (2026-11-16, 01:49 to 01:52)
+
+- **The question** put by Claude at 01:40, the root of group B: at an accepted point, is the value read off the
+  frame, with the frame carrying the Tucker center cores? Claude's lean was yes, with the centers as a fifth
+  member of the frame.
+- **The maintainer** asked instead for both routes: the centers used if supplied, the route through `D` if
+  not; the library's own optimizers supply them; the retract-and-orthogonalize function returns them. He asked
+  whether the orthogonalization already creates the TT and the Tucker centers.
+- **Checked:** it does, and the geometry discards them today (note to 4.1 of `TARGET_DECISIONS.md`).
+- **Decided at 01:52:** 4.1, the first half of 4.3, and that wrong centers are an error in safe mode. The frame
+  stays four stores; the centers are supplied beside it.
+- **Counts.** 26 rows decided, 26 remain.
+- **Open with it:** the name of the centers; the second half of 4.3; the rest of 4.2.
+
