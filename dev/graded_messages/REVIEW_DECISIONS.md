@@ -1216,4 +1216,11 @@ axes. How do we tell whether an axis is part of the batch, or a derivative order
   given as a recurrence and as a subnetwork, and `scripts/review/sample_variables_check.py` checks the
   recurrences against the library (`z`, `g`, `Jp`, `JtJp`, `Kp`) and each subnetwork against its recurrence
   (14 variables, as sums over where the direction and the seed are put).
+- **Step 2, done** (2026-11-16, 00:30). An Opus agent, given the page as its only source, drew the other 21 rows
+  (fifteen variables, `z`, `Jp` and the four blocks). Claude checked each against the page: all 21 are right.
+  The agent listed 17 places where the page was unclear; the page was clarified at each
+  (`reviews/notation_2026-11-15/DIAGRAM_TEST.md`). The tab "Variable diagrams" now has 28 rows, grouped by the
+  side contracted.
+- **Step 3, done** (2026-11-16, 00:45). An Opus agent surveyed the folder and the doc:
+  `reviews/notation_2026-11-15/SURVEY.md`, 103 findings.
 

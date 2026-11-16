@@ -78,8 +78,12 @@ The usual basis of a letter is the store it travels away from.
 
 **In a formula or a drawing** the same name is written with the Greek letter, a tilde or a dot above it, and the
 basis and the index as subscripts: `nu_L_dot[3]` is the letter ν with a dot above it and the subscript `L,3`;
-`mu_tilde[2]` is μ with a tilde above it and the subscript `2`. Code and plain text keep the spelling with
+`mu_tilde[2]` is μ with a tilde above it and the subscript `2`. Where a name has both, the tilde is next to the
+letter and the dot is above the tilde. The outputs and the blocks are written the same way: `z[2]` is z with the
+subscript `2`, and `H_tilde[2]` is H with a tilde above it. Code and plain text keep the spelling with
 underscores.
+
+A mode edge has one basis, so `w`, `w_tilde`, `z` and `Jp` never have a basis in their names.
 
 ## 3. The taxonomy
 
@@ -141,7 +145,8 @@ A dotted variable is a sum of terms. In each term the direction sits at one site
 sum is over that site. The direction is one tangent vector, and it can be given in two forms.
 
 **The frame's form: the direction is `(V, H)`.** At the site where it sits, the direction is either `H` over the
-`D` core, or `U` over `V` in place of the `D` core. The TT cores before that site (to its left) are `L` cores,
+`D` core, or `U` over `V` in place of the `D` core. (The direction's own core is `H` in the first case and `V` in
+the second.) The TT cores before that site (to its left) are `L` cores,
 and the TT cores after it are `R` cores.
 
 | Variable | Recurrence | As a subnetwork |
@@ -149,7 +154,7 @@ and the TT cores after it are `R` cores.
 | `xi_U_dot[i]` | `xi_term(V[i], w[i])` | `V[i]` applied to the input `w[i]` |
 | `mu_R_dot[i+1]` | `mu_term(mu_R_dot[i], R[i], xi[i]) + mu_term(mu[i], H[i], xi[i]) + mu_term(mu[i], U[i], xi_U_dot[i])`, from `0` | the left of bond `i+1` with the direction at one of the sites `0 .. i` |
 | `nu_L_dot[i]` | `nu_term(L[i], xi[i], nu_L_dot[i+1]) + nu_term(H[i], xi[i], nu[i+1]) + nu_term(U[i], xi_U_dot[i], nu[i+1])`, from `0` | the right of bond `i` with the direction at one of the sites `i .. d-1` |
-| `eta_D_dot[i]` | `eta_term(mu_R_dot[i], R[i], nu[i+1]) + eta_term(mu[i], H[i], nu[i+1]) + eta_term(mu[i], L[i], nu_L_dot[i+1])` | the trunk above Tucker edge `i` with the direction at one site. At site `i` itself it can only be `H[i]`; at any other site it is `H`, or `U` over `V` |
+| `eta_D_dot[i]` | `eta_term(mu_R_dot[i], R[i], nu[i+1]) + eta_term(mu[i], H[i], nu[i+1]) + eta_term(mu[i], L[i], nu_L_dot[i+1])` | the trunk above Tucker edge `i` with the direction at one site. At site `i` itself it can only be `H[i]`; at any other site it is `H`, or `U` over `V`. When the direction is at another site, the TT core of site `i` is `R[i]` if the direction is to its left and `L[i]` if it is to its right |
 
 Why the bases come out as they do: a bond to the right of the direction is in the `R` basis, because the cores
 after the direction are `R` cores; a bond to its left is in the `L` basis. So the left of a bond that contains
@@ -215,17 +220,20 @@ Their names did not change. They are written here with the new names of what the
 | --- | --- | --- |
 | `z[i]` | `z_term(eta_D[i], D[i])` | the value: the whole network at the base point, with mode edge `i` open |
 | `Jp[i]` | `z_term(eta_D_dot[i], D[i]) + z_term(eta[i], V[i])` | the direction's output: the whole network with the direction at one site and mode edge `i` open |
-| `V_tilde[i]` | top coefficient of `V_term(eta_tilde[i], w[i]) + V_term(eta[i], w_tilde[i])` | a block with the shape of `V[i]`: the whole network with the leaf core under `U[i]` taken out, and the seed in place of one input |
-| `H_tilde[i]` | top coefficient of `H_term(mu_tilde[i], xi[i], nu[i+1]) + H_term(mu[i], xi_tilde[i], nu[i+1]) + H_term(mu[i], xi[i], nu_tilde[i+1])` | a block with the shape of `H[i]`: the whole network with the TT core of site `i` taken out, and the seed in place of one input |
-| `V_tilde_dot[i]` | top coefficient of `V_term(eta_D_tilde_dot[i], w[i]) + V_term(eta_D_dot[i], w_tilde[i])` | a block with the shape of `D[i]`, at the base point, with the direction and the seed |
-| `H_tilde_dot[i]` | top coefficient of nine `H_term`s of `mu`, `xi`, `nu_L` at site `i`, each with one tilde and one dot | a block with the shape of `L[i]`, at the base point, with the direction and the seed |
+| `V_tilde[i]` | top coefficient of `V_term(eta_tilde[i], w[i]) + V_term(eta[i], w_tilde[i])` | a block with the shape of `V[i]`: the whole network with the leaf core under `U[i]` taken out, and the seed in place of one input, which may be input `i` |
+| `H_tilde[i]` | top coefficient of `H_term(mu_tilde[i], xi[i], nu[i+1]) + H_term(mu[i], xi_tilde[i], nu[i+1]) + H_term(mu[i], xi[i], nu_tilde[i+1])` | a block with the shape of `H[i]`: the whole network with the TT core of site `i` taken out (`L` cores to its left, `R` cores to its right), and the seed in place of one input |
+| `V_tilde_dot[i]` | top coefficient of `V_term(eta_D_tilde_dot[i], w[i]) + V_term(eta_D_dot[i], w_tilde[i])` | a block with the shape of `D[i]`: the network at the base point with `D[i]` taken out, the direction at one site and the seed in place of one input, which may be input `i`. At site `i` the direction can only be `G_dot[i]` |
+| `H_tilde_dot[i]` | top coefficient of nine `H_term`s of `mu[i]`, `xi[i]`, `nu_L[i+1]`: the tilde on one of the three and the dot on one of the three. Three terms have both on the same variable (its tilde-dot); six have them on two different ones | a block with the shape of `L[i]`: the network at the base point with `L[i]` taken out, the direction at one site and the seed in place of one input. At site `i` the direction can only be `B_dot[i]` |
 
 - `g = (V_tilde, H_tilde)` with the seed made from the weighted residual `r = z - y`.
 - `JtJp` is the same pair of blocks with the seed made from the weighted `Jp`.
-- `Kp = (V_tilde_dot, H_tilde_dot)`, at the base point, with the raw form of the direction.
+- `Kp = (V_tilde_dot, H_tilde_dot)`, at the base point, with the raw form of the direction. The two blocks keep
+  the letters `V` and `H` for "the Tucker block" and "the TT block", although the cores taken out are `D[i]` and
+  `L[i]`.
 - A block is summed over the samples. "Top coefficient" is the readout of a tilde jet (target decision 2.4).
 - On the corewise frame the gradient is `V_term(eta_D_tilde, w) + V_term(eta_D, w_tilde)` and the three
-  `H_term`s with `nu_L`: the same formulas in the base point's basis.
+  `H_term`s with `nu_L`: the same formulas in the base point's basis. (These are the names as seen from a call on
+  a manifold frame. In a call on the corewise frame itself they have no basis: section 9.)
 
 **What each output reads.**
 
@@ -236,7 +244,7 @@ Their names did not change. They are written here with the new names of what the
 | `Jp` | `xi`, `mu`, `nu`, `eta`, and `xi_U_dot`, `mu_R_dot`, `nu_L_dot`, `eta_D_dot` |
 | `Kp` | `xi`, `mu`, `nu_L`; `xi_tilde`, `mu_tilde`, `nu_L_tilde`; `xi_dot`, `mu_dot`, `nu_L_dot`, `eta_D_dot`; `xi_tilde_dot`, `mu_tilde_dot`, `nu_L_tilde_dot`, `eta_D_tilde_dot` |
 
-`eta_D_tilde` is read only by the gradient on the corewise frame.
+`eta_D_tilde` is read only by the gradient on the corewise frame, where it is spelled `eta_tilde`.
 
 ## 7. Types and shapes
 
@@ -248,13 +256,17 @@ Their names did not change. They are written here with the new names of what the
 - **The grade gives the order factor.** Plain and dot are jets. Tilde and tilde-dot are dual jets, stored with
   the order turned (target decision 2.4).
 
+**The arrows** (target decision 9.5; `scripts/review/arrow_type_check.py`). A variable whose name has no basis
+travels with the arrows of the frame: it is in the basis of the store it travels away from. A variable whose name
+carries a basis travels against them, and so do the outputs `z` and `Jp`.
+
 **The shape** of a variable at index `i` is `T + W + [K] + C + (size,)` on the ragged layout, with a leading
 `(d,)` on the uniform layout.
 
 | Group | Meaning |
 | --- | --- |
 | `T` | the order group: `(order+1,)`, or `()` at order 0 |
-| `A` | the order group of an affine variable, in place of `T`: `(2,)`, or `()` at order 0. The affine variables are the input `w` and the leaves `xi`, `xi_dot`, `xi_U_dot` |
+| `A` | the order group of an affine variable, in place of `T`: `(2,)`, or `()` at order 0. The affine variables are the input `w` and the leaves `xi`, `xi_dot`, `xi_U_dot`. The seed is a full dual jet, so `xi_tilde` and `xi_tilde_dot` carry `T` |
 | `W` | the sample stack |
 | `K` | the stack of directions. Present on every variable that depends on the direction: the dot and tilde-dot grades, `Jp`, and a tilde variable whose seed was made from `Jp` |
 | `C` | the stack of base points |
@@ -285,9 +297,13 @@ Their names did not change. They are written here with the new names of what the
 | `eta_D_tilde` | Tucker edge `i` | `D`, `nD_i` | covector | dual jet | `T + W + C + (nD_i,)` |
 | `eta_D_tilde_dot` | Tucker edge `i` | `D`, `nD_i` | covector | dual jet | `T + W + K + C + (nD_i,)` |
 
-The input `w[i]` is `A + W + (N_i,)` and the seed `w_tilde[i]` is `T + W + C + (N_i,)`. The outputs: `z[i]` is
+The input `w[i]` is `A + W + (N_i,)` and the seed `w_tilde[i]` is `T + W + [K] + C + (N_i,)`, with `K` when it
+was made from `Jp`. The outputs: `z[i]` is
 `T + W + C + (N_i,)` and `Jp[i]` is `T + W + K + C + (N_i,)`. A block has the shape of the core it stands for,
-with `K` in front where it depends on the direction, and no `T` and no `W`.
+the stack `C` included: `V_tilde[i]` is `C + (nU_i, N_i)` and `H_tilde[i]` is `C + (rL_i, nD_i, rR_(i+1))`. It has
+`K` in front where it depends on the direction: always for `V_tilde_dot` and `H_tilde_dot`, and for `V_tilde` and
+`H_tilde` when the seed was made from `Jp`. It has no `T` and no `W`: a block is summed over the samples and read
+at the top coefficient.
 
 ## 8. The multiplier pairings
 
