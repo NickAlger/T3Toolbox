@@ -30,29 +30,30 @@ planned only after the target is settled.
 
 ## What remains, in groups (2026-11-15, 15:34)
 
-Of the 56 rows in sections 1 to 9, 26 are decided, 3 are guidance and 1 is parked. The other 26 are below, in
+Of the 56 rows in sections 1 to 9, 27 are decided, 3 are guidance and 1 is parked. The other 25 are below, in
 seven groups that cut across the sections. The grouping and the suggested order are Claude's, made at the
 maintainer's request; they decide nothing.
 
 | Group | Rows | Open | Reopened | To confirm | Held |
 | --- | --- | --- | --- | --- | --- |
 | A. Jets and the misfit | 0 | | | | |
-| B. The frame and the value | 5 | | 3 | 2 | |
+| B. The frame and the value | 4 | | 2 | 2 | |
 | C. What a kind is, and the public surface | 7 | 4 | 2 | 1 | |
 | D. One program for every layout and stack | 5 | 3 | 1 | 1 | |
 | E. Plans, memory and scale | 5 | 3 | 2 | | |
 | F. The fitting layer above | 3 | 1 | | 2 | |
 | G. What defines correct | 1 | 1 | | | |
-| Total | 26 | 12 | 8 | 6 | |
+| Total | 25 | 12 | 7 | 6 | |
 
 - **A. Jets and the misfit.** (Decided on the afternoon of 2026-11-15: 2.4, what a tilde jet is; 2.5, the misfit;
   2.3, the derivative-mode adapter; and, at 19:32, 2.9, how a term is carried out over the orders.)
   (And on 2026-11-16: at 01:04, 3.6, the weight inside the engine; at 01:32, 3.7, what happens to the sample
   stack on each output; at 01:36, 3.3, which adjoint sweep a tilde name refers to.) Group A is finished.
-- **B. The frame and the value.** (Decided on 2026-11-16 at 01:52: 4.1, what a frame is, with the first half
-  of 4.3 and the part of 4.2 about the centers.) 4.2 frame consistency (reopened); 4.3 the route
-  to the value (reopened); 4.4 tails and boundaries (reopened); 3.2 whether `gamma` (now `nu_L`) is first-class
-  (to confirm, depends on 4.1); 4.5 where the projection, the lift and the Hessian assembly live (to confirm).
+- **B. The frame and the value.** (Decided on 2026-11-16: at 01:52, 4.1, what a frame is, with the centers' part
+  of 4.2; at 01:59, 4.3, the route to the value at a trial point.) 4.2 frame consistency, for the four stores
+  among themselves (reopened); 4.4 tails and boundaries (reopened); 3.2 whether `gamma` (now `nu_L`) is
+  first-class (to confirm, depends on 4.1); 4.5 where the projection, the lift and the Hessian assembly live (to
+  confirm).
 - **C. What a kind is, and the public surface.** 3.4 what a sampling kind is and whether a user can define one
   (reopened); 8.2 the fitting layer's kind object (open); 6.2 the remaining arguments of `sampling_variables`
   (open; the sample and the direction are decided); 6.3 the other public functions (reopened); 6.4 which
@@ -700,7 +701,7 @@ Notes:
 | --- | --- | --- | --- |
 | 4.1 | A frame is the four stores `(D, U, L, R)`, and `(D, L)` is the base point. The Tucker center cores may be supplied beside it. With them the value is read off the frame, `z[i]` being `eta[i]` through the center; without them it goes through `D` | Decided | 1.1, 1.2 |
 | 4.2 | Is frame consistency a precondition or a diagnostic? | Reopened | 4.1 |
-| 4.3 | By what route is the value computed, at a trial point and at an accepted point, and is building the frame part of evaluating a trial point? | Reopened | 4.1 |
+| 4.3 | At an accepted point the value is read off the frame with `Vc` (4.1). At a trial point the optimizers offer three policies: the trial's raw cores; a frame at every trial, with its plain variables held for the accepted one (the default); a frame at every trial with the gradient computed with the value | Decided | 4.1 |
 | 4.4 | Tails and boundaries: are default frames squashed, what are the boundary vectors, and what is the contract at the ends of the frame? | Reopened | 4.1 |
 | 4.5 | Where do the gauge projection, the lift, and the assembly of the exact Hessian product live? | To confirm | 1.1 |
 
@@ -743,6 +744,25 @@ Notes:
   - This reverses decision 7 of 2026-11-14 in part: reading the value off the frame is no longer parked. Its
     three objections were the missing guard (now the safe-mode check), the missing channel in the geometry
     protocol (now provided), and the library's caching audit (a fact about the present structure).
+- **4.3, the trial point, decided** (2026-11-16, 01:59). The maintainer: "Add all three as options, default to
+  (b)".
+  - The engine does not care: a trial's value is `f` on whatever frame it is given. The policy belongs to the
+    optimizers. With F one forward pass over the samples (the plain sweeps and `z`), A one adjoint pass, and `t`
+    trials in an outer iteration:
+
+    | Policy | At each trial | On acceptance | Sample work | Needs |
+    | --- | --- | --- | --- | --- |
+    | a. Raw cores at the trial (today) | F through the trial's own cores | Orthogonalize, then F and A at the new frame | `t F + F + A` | Nothing |
+    | b. A frame at every trial (the default) | Retract-and-orthogonalize, then F through its frame with `Vc` | A only: the trial's plain variables are the frame's | `t F + A` | The plain variables of one trial held until it is accepted; `t` orthogonalizations |
+    | c. A frame at every trial, the gradient with it | Retract-and-orthogonalize, then F and A together | Nothing | `t (F + A)` | `t` orthogonalizations; nothing held |
+
+  - b saves one forward pass per outer iteration over a, for core-sized work per rejected trial and the memory
+    of one trial's plain variables. Under a plan that holds nothing, b saves nothing; c is the one that works
+    with nothing held, equal to b when the first trial is accepted and worse than a from the third trial on.
+    That A costs about as much as F is Claude's estimate, not a measurement.
+  - "Carrying `r` from an accepted trial" (decision 7, point 3) is overtaken: with `Vc`, forming `r` again at
+    the frame costs one `z_term` per site.
+  - Open: the name of the option and of its three values.
 - **4.1 to 4.3.** Decision 7 chose the value through the base point's own cores and parked reading it off the
   frame. Two of the reasons were that the geometry protocol has no channel for the center cores and that the
   library's caching audit had declined it. Those are facts about the present structure. The counts of sample

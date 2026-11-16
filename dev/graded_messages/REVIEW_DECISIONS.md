@@ -1398,3 +1398,13 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   Hc."). `SAMPLE_VARIABLES.md` sections 1 and 6 now have them, and its check compares the three routes to the
   value on the library's own frame.
 
+## 66. 4.3 decided: three policies for a trial point, a frame at every trial by default (2026-11-16, 01:59)
+
+- **The maintainer:** "Add all three as options, default to (b)".
+- **Decided.** The optimizers offer three policies for a trial point of a line search or a trust region: (a) the
+  value through the trial's raw cores, the frame built on acceptance only, as today; (b) retract-and-orthogonalize
+  at every trial and the value read off its frame with `Vc`, the trial's plain variables held so that an accepted
+  trial needs only the adjoint pass; (c) the same with the gradient computed in the trial's pass, for a plan that
+  holds nothing. (b) is the default. The table is in the note to 4.3 of `TARGET_DECISIONS.md`.
+- **Counts.** 27 rows decided, 25 remain. Group B has four left: the rest of 4.2, 4.4, 3.2, 4.5.
+
