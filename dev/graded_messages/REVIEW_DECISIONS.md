@@ -1701,3 +1701,14 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   both `len_T` and `len_C`.
 - **Open in 5.4:** which lengths every call passes; whether the strings stand at the call sites or in a table
   inside a term function. The row stays open.
+
+## 92. 5.4 decided: literal strings at the call sites, through `jet_contract` (2026-11-16, 16:26; prototype rewritten)
+
+- **The maintainer** ("Yes, this is good"): the strings stand at the call sites in the step functions, through a
+  `jet_contract` that is `contract` with the order groups multiplying as truncated polynomials; and every call
+  passes both `len_T` and `len_C`.
+- **The prototype is rewritten in that form** and checked the same way: 41 literal strings in seven families,
+  2760 calls against the independent reference, to 4.1e-16.
+- **Measured:** with the two lengths a stray axis on `mu` raises; on a seed that carries `K`, where `W` and `K`
+  stand together, it raises only when `len_W` and `len_K` are passed as well.
+- **Counts.** 46 of 57 rows decided, 7 remain (4 open, 3 reopened): 5.3, 5.5, 7.2, 7.3, 7.5, 7.6, 7.7.

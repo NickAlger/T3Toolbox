@@ -333,21 +333,24 @@ Part 2.  eta_term(mu, G, nu) with mu and nu full jets: the three orders as pairw
   which operand is taken one coefficient at a time
 
 === term_stacks_check.py
-1. Every term against the explicit reference: all places of the direction, both kinds of partner,
-   both forms over the orders, on every combination of stacks.
-   xi_term   largest relative error 0.0e+00
-   z_term    largest relative error 0.0e+00
-   mu_term   largest relative error 3.4e-16
-   nu_term   largest relative error 9.5e-16
-   eta_term  largest relative error 3.1e-16
-   V_term    largest relative error 2.4e-16
-   H_term    largest relative error 2.4e-16
-   3912 calls checked: orders 0, 1, 3; S in (), (2,); W in (), (3,), (2, 2); K in (2,), (2, 2); C in (), (2,)
-2. Order 0, the guard, and the literal strings.
-   a dotted step at order 0: 3 contractions for its 3 terms; result W + K + C + (rR,) = (2, 3, 4, 2, 4); no order axis
-   the direction on two operands of one term raises: True
-   the one string against the four literal strings of the library's style (order axis riding): 0.0e+00
+1. Every string of every family against the explicit reference, on every combination of stacks.
+   xi    5 strings, largest relative error 0.0e+00
+   z     3 strings, largest relative error 0.0e+00
+   mu    8 strings, largest relative error 3.4e-16
+   nu    8 strings, largest relative error 4.1e-16
+   eta   4 strings, largest relative error 2.8e-16
+   V     5 strings, largest relative error 2.2e-16
+   H     8 strings, largest relative error 2.7e-16
+   2760 calls checked: orders 0, 1, 3; S in (), (2,); W in (), (3,), (2, 2); K in (2,), (2, 2); C in (), (2,)
+2. The two step functions, order 0, and an operand of the wrong rank.
+   mu_dot_step at order 0: 3 contractions for its 3 terms, result (2, 3, 4, 2, 4), relative error 1.6e-16
+   mu_dot_step at order 3: 6 contractions for its 3 terms, result (4, 2, 3, 4, 2, 4), relative error 1.7e-16
+   V_tilde_step at order 3, all sites at once: result (2, 2, 3, 5), relative error 1.5e-16
+   a stray axis on mu, with len_T and len_C passed.  in front of W: raises;  between W and C: raises
+   a stray axis on a seed that carries K: W and K stand together on the only operand that has them, so
+   the stray axis is read as one more axis of W or of K unless both lengths are given.
+   len_T and len_C: ACCEPTED;  with len_W as well: ACCEPTED;  with len_W and len_K: raises
 3. jax.
-   mu_term, eta_term and H_term under jit, the direction on the core or on nu, float32 in and out,
-   against the same functions on numpy: agree to rounding (below 1e-5)
+   a product with an affine leaf, a product of two full jets and a block readout, under jit, float32 in
+   and out, against the same calls on numpy: agree to rounding (below 1e-5)
 

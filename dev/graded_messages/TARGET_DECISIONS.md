@@ -58,7 +58,8 @@ The maintainer paused the session at 04:46 on 2026-11-16, to pick up the next da
   weight became an explicit call with no keyword (6.7 amended). 43 rows are decided and 9 remain. The next
   question was 9.3, decided at 15:58: 44 rows are decided and 8 remain, all of them in groups D and E (5.3,
   5.4, 5.5, 7.2, 7.3, 7.5, 7.6, 7.7). At 16:03 a row was added and decided, 9.7, how the sampling variables are
-  documented: 45 of 57 rows are decided.
+  documented; and at 16:26, 5.4, the terms over the stacks: 46 of 57 rows are decided and 7 remain (5.3, 5.5,
+  7.2, 7.3, 7.5, 7.6, 7.7).
   `DESIGN_AFTER_REVIEW.md` and `dev/HANDOFF.md` do not yet carry the decisions made since the pause.
 
 ## Where this stood at the earlier pause (2026-11-15, 05:53)
@@ -84,7 +85,7 @@ The maintainer paused the session at 04:46 on 2026-11-16, to pick up the next da
 
 ## What remains, in groups (2026-11-15, 15:34)
 
-Of the 57 rows in sections 1 to 9 (9.7 was added on 2026-11-16), 45 are decided, 3 are guidance and 1 is parked. The other 8 are below, in
+Of the 57 rows in sections 1 to 9 (9.7 was added on 2026-11-16), 46 are decided, 3 are guidance and 1 is parked. The other 7 are below, in
 seven groups that cut across the sections. The grouping and the suggested order are Claude's, made at the
 maintainer's request; they decide nothing.
 
@@ -93,11 +94,11 @@ maintainer's request; they decide nothing.
 | A. Jets and the misfit | 0 | | | | |
 | B. The frame and the value | 0 | | | | |
 | C. What a kind is, and the public surface | 0 | | | | |
-| D. One program for every layout and stack | 3 | 2 | 1 | | |
+| D. One program for every layout and stack | 2 | 1 | 1 | | |
 | E. Plans, memory and scale | 5 | 3 | 2 | | |
 | F. The fitting layer above | 0 | | | | |
 | G. What defines correct | 0 | | | | |
-| Total | 8 | 5 | 3 | | |
+| Total | 7 | 4 | 3 | | |
 
 - **A. Jets and the misfit.** (Decided on the afternoon of 2026-11-15: 2.4, what a tilde jet is; 2.5, the misfit;
   2.3, the derivative-mode adapter; and, at 19:32, 2.9, how a term is carried out over the orders.)
@@ -115,12 +116,11 @@ maintainer's request; they decide nothing.
   02:52, 8.2, the oracle; at 02:56, 9.2, the kind strings and the unit name `'sweep'`, with the sizing function
   names moved to 7.6.
 - **D. One program for every layout and stack.** (Decided on 2026-11-16: at 03:11, 5.2, one set of step
-  functions for both layouts; at 03:32, 5.6, the dtype rule.) 5.4 terms generic over the stack groups (open; prototyped on 2026-11-16; decided at 16:24: a literal
-  contraction string for each place the direction sits; where the strings stand and which lengths every call
-  passes are still open); 5.5 the contraction order inside a term (open: it goes into the plan; its granularity, the
-  form of the field and the helpers are held for the performance discussion of group E; how an order reads with
-  jets is proposed); 5.3 sites scanned or vectorized (reopened; with
-  the performance discussion). The maintainer gave rules for how the functions are written on 2026-11-15, 19:50
+  functions for both layouts; at 03:32, 5.6, the dtype rule; at 16:26, 5.4, a literal contraction string at
+  every call site, through `jet_contract`.) 5.5 the contraction order inside a term (open: it goes into the
+  plan; its granularity, the form of the field and the helpers are held for the performance discussion of
+  group E; how an order reads with jets is proposed); 5.3 sites scanned or vectorized (reopened; with the
+  performance discussion). The maintainer gave rules for how the functions are written on 2026-11-15, 19:50
   (notes to section 5).
 - **E. Plans, memory and scale.** 7.3 where the plan lives (reopened); 7.2 the defaults (reopened; with them,
   from 8.3, which phases are compiled by default and which minibatch draws the library ships); 7.5 inert
@@ -921,7 +921,7 @@ Notes:
 | 5.1 | One function per variable with explicit arguments, seven terms, no graded containers | Decided | |
 | 5.2 | One set of step functions for the ragged and the uniform layout. The layout is detected from the structure of the inputs, as low as reasonably possible. Sweeps go through `xscan` on both layouts. Masks never reach a step: the uniform cores are masked once on entry. Shapes are read from the operands | Decided | 1.2 |
 | 5.3 | For each variable, are sites scanned or vectorized, what is the default, and which variables admit which? | Reopened | 5.2 |
-| 5.4 | How are the terms generic over the stack groups: several `W` axes, `K`, `C`, and the order? | Open | 2.7 |
+| 5.4 | The terms are generic over the stack groups through the groups of the contraction engine: a variable is `[S] + T + W + [K] + C + (size,)`, with `T` and `A` the optional order axes of a full and of an affine jet. Each place a term is used has its own literal contraction string, with `K` on the operand that carries the direction, at the call site in the step function. The call is `jet_contract`: `contract` with the order groups multiplying as truncated polynomials, and exactly `contract` at order 0. Every call passes `len_T` and `len_C`. The seven terms are seven families of strings | Decided | 2.7, 2.9 |
 | 5.5 | The contraction order inside a term is in the plan: the user can specify it and tune it on their problem, and the library provides helpers that choose good orders. Held for the performance discussion (group E): the granularity (per term function, or per place a term is used), the form of the plan's field, and the helpers. Proposed, to be confirmed: how an order reads where the operands are jets | Open | 7.6 |
 | 5.6 | The dtype rule is absorbing: jax takes precedence over numpy, and lower precision over higher. The engine creates no array with a default dtype | Decided | |
 
@@ -1051,6 +1051,49 @@ Notes:
   - **To decide:** the one string per term with the direction found from the ranks, or a literal string per
     placement; and whether `xi_term` and `V_term` are told what they are given.
 
+- **5.4, decided** (2026-11-16, 16:24 to 16:26, the prototype rewritten by 16:45). After choosing a literal string
+  for each placement, the maintainer was asked two things and answered both with "Yes, this is good".
+  - **The strings stand at the call sites in the step functions, through `jet_contract`.** A table inside a term
+    function that takes the direction's place as an argument would put the string somewhere else again, against
+    his reason for the choice. `jet_contract` is `contract` with one more rule: the order groups `T` (a full
+    jet) and `A` (an affine variable) multiply as truncated polynomials. One operand with an order group, and
+    the output with it: the axis rides, one contraction. Two operands with one, and `T` in the output: the
+    truncated product of 2.9, two contractions for an affine partner, `'loop'` or `'scan'` for a full one. No
+    order group in the output: the top coefficient of the product, which is what the block readouts are. At
+    order 0 both groups are empty and it is exactly one `contract` call.
+
+    ```python
+    def mu_dot_step(mu_dot, mu, xi, xi_dot, R, U, H, len_T, len_C, over_orders):
+        t1 = jet_contract('TWKCa,Caib,AWCi->TWKCb', mu_dot, R, xi,     len_T=len_T, len_C=len_C, over_orders=over_orders)
+        t2 = jet_contract('TWCa,KCaib,AWCi->TWKCb', mu,     H, xi,     len_T=len_T, len_C=len_C, over_orders=over_orders)
+        t3 = jet_contract('TWCa,Caib,AWKCi->TWKCb', mu,     U, xi_dot, len_T=len_T, len_C=len_C, over_orders=over_orders)
+        return t1 + t2 + t3
+    ```
+
+  - **Every call passes both `len_T` and `len_C`,** and not only the one it strictly needs, so that an operand
+    of the wrong rank raises.
+  - **What follows.** The seven terms are seven families of strings, not seven functions; this is how the
+    "seven terms" of 5.1 are to be read. Every operand's whole shape is in its string, so the reader sees that
+    `xi` is affine in a term (`A`) and full in another (`T`). `xi_term` and `V_term` need no flag: a string for
+    an input has `A` and no `C` on that operand, a string for a seed has `T` and `C`. The site group `S` is on
+    the strings of the map-type operations (xi, z, eta and the readouts) and not on those of the sweeps.
+  - **The prototype in this form** (`scripts/review/term_stacks_check.py`, rewritten). The 41 strings of the
+    seven families are written out as they would stand at their call sites, and each is checked against the
+    reference that uses neither `contract` nor `jet_contract`: orders 0, 1 and 3; `S` empty or `(2,)`; `W`
+    empty, `(3,)` or `(2, 2)`; `K` `(2,)` or `(2, 2)`; `C` empty or `(2,)`; both forms over the orders where two
+    full jets meet: 2760 calls, largest relative error 4.1e-16, and a perturbation of 1e-6 in any family is
+    caught. `mu_dot_step` makes 3 contractions at order 0 and 6 at order 3. `V_tilde_step` runs at all sites at
+    once. Under `jax.jit` in float32, a product with an affine leaf, a product of two full jets and a block
+    readout agree with numpy and keep the dtype.
+  - **Strictness, as measured.** With `len_T` and `len_C` passed, a stray axis on `mu` raises wherever it is
+    put. One case is not closed by those two: where `W` and `K` stand together on the only operand that has
+    them (a seed that carries `K`, in `xi_term`), a stray axis is read as one more axis of `W` or of `K`. It
+    raises once `len_W` and `len_K` are passed as well.
+  - **Open detail, put to the maintainer:** passing all the lengths at every call as one record (the axis counts
+    of `S`, `T`, `W`, `K` and `C`, five static integers of the engine's call) in place of the two keywords. It
+    would close the case above and shorten every call.
+  - **Not covered:** the scan written through `xscan` with a module-level body; the plan's contraction order
+    (5.5); masks; the readouts with the samples kept (3.7), which is one more string each.
 - **5.4, the form of the strings: decided, option A** (2026-11-16, 16:18 to 16:24). The maintainer asked to see
   an example call to `contract` for each option, on a contraction the code really uses. Shown on the dotted left
   step (`_sigma_step` in `backend/probing.py`), with every call run and the two options equal bit for bit:
