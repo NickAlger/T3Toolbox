@@ -250,3 +250,6 @@ Case 2: 200 samples.  The order-0 data determine the tensor alone.
    coordinates, then equalizing weight                good  (test error below 1e-6)
    Blocks after the full preparation: largest / smallest 1.6.
 
+=== adapter_doctest_draft.py
+the doctest of the adapter draft: 14 examples, 0 failures
+
