@@ -309,8 +309,8 @@ The maintainer chose to settle the names now, one at a time (2026-11-14).
   for every variable, what it reads and which of those are worth holding. To be generated from the declared
   graph and checked by a test, so it cannot drift. Blocked for `Kp` and `Hp` on the gauge part of D13 (below).
 - **The gauge part of D13: `gamma` (now `nu_L`).** The right edge variable swept through `L` (the base point's own
-  cores) is not `nu`. The maintainer's view: it is an auxiliary variable, and since the curvature term reads it too it gets
-  its own letter, `gamma`. `nu` means the frame's right edge variable, swept through `R`, and nothing else.
+  cores) is not `nu`. The maintainer's view: it is an auxiliary variable, and since the curvature term reads it too
+  it gets its own letter, `gamma`. `nu` means the frame's right edge variable, swept through `R`, and nothing else.
   - `gamma` is read by `z` (the value, decision 7) and by `Kp`. The library's notation for it is `nu_c`, with
     `nu_c = T nu` at a manifold frame (`docs/contributor/curvature_internals.md`); the proposal's `S` for that
     matrix becomes `T`.

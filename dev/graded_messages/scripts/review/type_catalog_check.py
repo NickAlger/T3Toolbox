@@ -29,7 +29,7 @@ import jet_steps_check as J
 
 
 # ---- the program: every variable of every grade, on the manifold frame and (for Kp) at the base point ----
-def program(frame, V, H, B_dot, G_dot, w, w_tilde, d, P, W):
+def program(frame, V, H, D_dot, L_dot, w, w_tilde, d, P, W):
     D, U, L, R = frame
     v = {}
     v['w'] = w
@@ -55,25 +55,24 @@ def program(frame, V, H, B_dot, G_dot, w, w_tilde, d, P, W):
     v['V_tilde'] = J.top(J.each_site(J.V_tilde_step, d, v['eta_tilde'], v['eta'], w, w_tilde))
     v['H_tilde'] = J.top(J.each_site(J.H_tilde_step, d, v['mu_tilde'], v['mu'], v['xi_tilde'], v['xi'],
                                      v['nu_tilde'][1:], v['nu'][1:]))
-    # tilde-dot, at the base point (B, G) = (D, L), with the raw core direction (B_dot, G_dot).  raw_nu_L_dot and
+    # tilde-dot, at the base point (D, L), with the raw core direction (D_dot, L_dot).  raw_nu_L_dot and
     # raw_eta_D_dot are a local spelling of this script, not notation: the raw form's nu_L_dot and eta_D_dot, which
-    # differ from the frame's above because (B_dot, G_dot) is not the lift of (V, H).
-    G = L
-    v['nu_L_tilde'] = J.right_to_left(J.nu_tilde_step, zeros, d, v['nu_L'][1:], v['xi'], v['xi_tilde'], G)
-    v['xi_dot'] = J.each_site(J.xi_dot_step, d, B_dot, w)
-    v['mu_dot'] = J.left_to_right(J.mu_dot_step, zeros, d, v['mu'], v['xi'], v['xi_dot'], G, G, G_dot)
-    v['raw_nu_L_dot'] = J.right_to_left(J.nu_dot_step, zeros, d, v['nu_L'][1:], v['xi'], v['xi_dot'], G, G, G_dot)
+    # differ from the frame's above because (D_dot, L_dot) is not the lift of (V, H).
+    v['nu_L_tilde'] = J.right_to_left(J.nu_tilde_step, zeros, d, v['nu_L'][1:], v['xi'], v['xi_tilde'], L)
+    v['xi_dot'] = J.each_site(J.xi_dot_step, d, D_dot, w)
+    v['mu_dot'] = J.left_to_right(J.mu_dot_step, zeros, d, v['mu'], v['xi'], v['xi_dot'], L, L, L_dot)
+    v['raw_nu_L_dot'] = J.right_to_left(J.nu_dot_step, zeros, d, v['nu_L'][1:], v['xi'], v['xi_dot'], L, L, L_dot)
     v['raw_eta_D_dot'] = J.each_site(J.eta_dot_step, d, v['mu_dot'], v['mu'], v['raw_nu_L_dot'][1:], v['nu_L'][1:],
-                                     G, G, G_dot)
-    v['xi_tilde_dot'] = J.each_site(J.xi_tilde_dot_step, d, B_dot, w_tilde)
+                                     L, L, L_dot)
+    v['xi_tilde_dot'] = J.each_site(J.xi_tilde_dot_step, d, D_dot, w_tilde)
     v['mu_tilde_dot'] = J.left_to_right(J.mu_tilde_dot_step, zeros, d, v['mu_dot'], v['mu_tilde'], v['mu'],
-                                        v['xi_tilde_dot'], v['xi_dot'], v['xi_tilde'], v['xi'], G, G_dot)
+                                        v['xi_tilde_dot'], v['xi_dot'], v['xi_tilde'], v['xi'], L, L_dot)
     v['nu_L_tilde_dot'] = J.right_to_left(J.nu_tilde_dot_step, zeros, d, v['raw_nu_L_dot'][1:], v['nu_L_tilde'][1:],
                                           v['nu_L'][1:], v['xi_tilde_dot'], v['xi_dot'], v['xi_tilde'], v['xi'],
-                                          G, G_dot)
+                                          L, L_dot)
     v['eta_D_tilde_dot'] = J.each_site(J.eta_tilde_dot_step, d, v['mu_tilde_dot'], v['mu_dot'], v['mu_tilde'],
                                        v['mu'], v['nu_L_tilde_dot'][1:], v['raw_nu_L_dot'][1:], v['nu_L_tilde'][1:],
-                                       v['nu_L'][1:], G, G_dot)
+                                       v['nu_L'][1:], L, L_dot)
     v['V_tilde_dot'] = J.top(J.each_site(J.V_tilde_dot_step, d, v['eta_D_tilde_dot'], v['raw_eta_D_dot'], w, w_tilde))
     v['H_tilde_dot'] = J.top(J.each_site(J.H_tilde_dot_step, d, v['mu_tilde_dot'], v['mu_dot'], v['mu_tilde'],
                                          v['mu'], v['xi_tilde_dot'], v['xi_dot'], v['xi_tilde'], v['xi'],
@@ -114,8 +113,8 @@ CATALOG = (                      # name, where, ((variance, space), ...) for its
     ('eta_D_tilde_dot', SITE, (('cov', 'XD'),),                             'dual jet'),
     ('V_tilde',         SITE, (('cov', 'XU'), ('vec', 'N')),                'real'),      # dual of the space of V
     ('H_tilde',         SITE, (('vec', 'AL'), ('vec', 'XD'), ('cov', 'AR+')), 'real'),    # dual of the space of H
-    ('V_tilde_dot',     SITE, (('cov', 'XD'), ('vec', 'N')),                'real'),      # dual of the space of B
-    ('H_tilde_dot',     SITE, (('vec', 'AL'), ('vec', 'XD'), ('cov', 'AL+')), 'real'),    # dual of the space of G
+    ('V_tilde_dot',     SITE, (('cov', 'XD'), ('vec', 'N')),                'real'),      # dual of the space of D
+    ('H_tilde_dot',     SITE, (('vec', 'AL'), ('vec', 'XD'), ('cov', 'AL+')), 'real'),    # dual of the space of L
 )
 GRADE = lambda name: ('tilde-dot' if 'tilde_dot' in name else 'tilde' if 'tilde' in name
                       else 'dot' if ('dot' in name or name == 'Jp') else 'plain')
@@ -147,7 +146,7 @@ def main():
     R = [rn((rR[i], nD[i], rR[i + 1])) for i in range(d)]
     V = [rn((nU[i], Ns[i])) for i in range(d)]
     H = [rn((rL[i], nD[i], rR[i + 1])) for i in range(d)]
-    B_dot, G_dot = [rn(b.shape) for b in D], [rn(g.shape) for g in L]
+    D_dot, L_dot = [rn(b.shape) for b in D], [rn(g.shape) for g in L]
     ww, pp = [rn((W, N)) for N in Ns], [rn((W, N)) for N in Ns]
     w = [J.input_jet(P, ww[i], pp[i]) for i in range(d)]
     w_tilde = [rn((P, W, N)) for N in Ns]
@@ -166,15 +165,15 @@ def main():
         return ([tucker(D[i], i, 'XD') for i in range(d)], [core(U[i], i, 'AL', 'XU', 'AR') for i in range(d)],
                 [core(L[i], i, 'AL', 'XD', 'AL') for i in range(d)], [core(R[i], i, 'AR', 'XD', 'AR') for i in range(d)],
                 [tucker(V[i], i, 'XU') for i in range(d)], [core(H[i], i, 'AL', 'XD', 'AR') for i in range(d)],
-                [tucker(B_dot[i], i, 'XD') for i in range(d)], [core(G_dot[i], i, 'AL', 'XD', 'AL') for i in range(d)])
+                [tucker(D_dot[i], i, 'XD') for i in range(d)], [core(L_dot[i], i, 'AL', 'XD', 'AL') for i in range(d)])
 
-    base = program((D, U, L, R), V, H, B_dot, G_dot, w, w_tilde, d, P, W)
+    base = program((D, U, L, R), V, H, D_dot, L_dot, w, w_tilde, d, P, W)
 
     # ---- Part A --------------------------------------------------------------------------------------------
     S = {'N': [invertible(N) for N in Ns], 'XD': [invertible(n) for n in nD], 'XU': [invertible(n) for n in nU],
          'AL': [invertible(r) for r in rL], 'AR': [invertible(r) for r in rR]}
-    D2, U2, L2, R2, V2, H2, B_dot2, G_dot2 = change(S)
-    new = program((D2, U2, L2, R2), V2, H2, B_dot2, G_dot2,
+    D2, U2, L2, R2, V2, H2, D_dot2, L_dot2 = change(S)
+    new = program((D2, U2, L2, R2), V2, H2, D_dot2, L_dot2,
                   [move(w[i], (('vec', 'N'),), S, i) for i in range(d)],
                   [move(w_tilde[i], (('vec', 'N'),), S, i) for i in range(d)], d, P, W)
     print('Part A. Arbitrary invertible changes of basis in N, X^D, X^U, A^L, A^R (condition numbers up to %.0f).'
@@ -191,9 +190,9 @@ def main():
     print('        the blocks are covectors on the cores: <V_tilde, V> + <H_tilde, H> is unchanged: %.0e;  the same for Kp: %.0e'
           % (abs(pair(new['V_tilde'], V2) + pair(new['H_tilde'], H2) - pair(base['V_tilde'], V) - pair(base['H_tilde'], H))
              / abs(pair(base['V_tilde'], V) + pair(base['H_tilde'], H)),
-             abs(pair(new['V_tilde_dot'], B_dot2) + pair(new['H_tilde_dot'], G_dot2)
-                 - pair(base['V_tilde_dot'], B_dot) - pair(base['H_tilde_dot'], G_dot))
-             / abs(pair(base['V_tilde_dot'], B_dot) + pair(base['H_tilde_dot'], G_dot))))
+             abs(pair(new['V_tilde_dot'], D_dot2) + pair(new['H_tilde_dot'], L_dot2)
+                 - pair(base['V_tilde_dot'], D_dot) - pair(base['H_tilde_dot'], L_dot))
+             / abs(pair(base['V_tilde_dot'], D_dot) + pair(base['H_tilde_dot'], L_dot))))
 
     # ---- Part B --------------------------------------------------------------------------------------------
     print('Part B. The one inner product: residual -> seed.  The residual is a covector of N; the seed is a vector of N.')
@@ -205,8 +204,8 @@ def main():
     r = [base['z'][i] - y[i] for i in range(d)]
     for label, SN in (('arbitrary invertible', S['N']), ('orthogonal', [np.linalg.qr(rn((N, N)))[0] for N in Ns])):
         S2 = dict(S, N=SN)
-        D3, U3, L3, R3, V3, H3, B_dot3, G_dot3 = change(S2)
-        v3 = program((D3, U3, L3, R3), V3, H3, B_dot3, G_dot3,
+        D3, U3, L3, R3, V3, H3, D_dot3, L_dot3 = change(S2)
+        v3 = program((D3, U3, L3, R3), V3, H3, D_dot3, L_dot3,
                      [move(w[i], (('vec', 'N'),), S2, i) for i in range(d)],
                      [move(w_tilde[i], (('vec', 'N'),), S2, i) for i in range(d)], d, P, W)
         y3 = [move(y[i], (('cov', 'N'),), S2, i) for i in range(d)]             # data is of the type of z
@@ -222,9 +221,9 @@ def main():
     powers = lambda sign, x: (c ** (sign * np.arange(P))).reshape((P,) + (1,) * (x.ndim - 1)) * x
     phi = [rn((P, W, N)) for N in Ns]                                            # a functional on z, in forward order
     seed = [f[::-1] for f in phi]                                                # its representing jet
-    old = program((D, U, L, R), V, H, B_dot, G_dot, w, seed, d, P, W)
+    old = program((D, U, L, R), V, H, D_dot, L_dot, w, seed, d, P, W)
     phi2 = [powers(-1, f) for f in phi]                                          # the same functional after s -> c s
-    new = program((D, U, L, R), V, H, B_dot, G_dot, [J.input_jet(P, ww[i], c * pp[i]) for i in range(d)],
+    new = program((D, U, L, R), V, H, D_dot, L_dot, [J.input_jet(P, ww[i], c * pp[i]) for i in range(d)],
                   [f[::-1] for f in phi2], d, P, W)
     jets = [n for n, _, _, kind in CATALOG if kind == 'jet']
     duals = [n for n, _, _, kind in CATALOG if kind == 'dual jet']

@@ -1,7 +1,9 @@
 # Edit report, round 1 (phase A: the folder)
 
-Editor's report on bringing `dev/graded_messages/` into line with the notation of 2026-11-15, 23:23. Base: branch
-`graded-messages`, head `e2e8fc6`. Nothing committed. The Claude doc was not touched (phase B).
+Editor's report on bringing `dev/graded_messages/` into line with the notation of 2026-11-15, 23:23. Branch
+`graded-messages`. The edits were made on a working tree based on `e2e8fc6`, and committed by the supervisor as
+`1dd65d6` (parent `70073af`; the commits `e05a0dc` and `70073af` in between touch none of the files edited here).
+The Claude doc was not touched (phase B). (Header corrected in round 2.)
 
 **Rulings applied.** The supervisor's rulings Q1-Q10, then the change of 2026-11-16, 00:23 (the maintainer: "There
 is no need for extra step functions if they literally do the exact same things with different arguments."). After

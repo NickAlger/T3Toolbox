@@ -57,12 +57,16 @@ inside a term joins a vector with a covector slot.
 | tilde-dot | `nu_L_tilde_dot` | covector of `AL` | dual jet |
 | tilde-dot | `eta_D_tilde_dot` | covector of `XD` | dual jet |
 | blocks | `V_tilde`, `H_tilde` | covector on the space of `V`, of `H` | none: real |
-| blocks | `V_tilde_dot`, `H_tilde_dot` (`Kp`) | covector on the space of `B`, of `G` | none: real |
+| blocks | `V_tilde_dot`, `H_tilde_dot` (`Kp`) | covector on the space of `D`, of `L` (of `D_dot`, `L_dot`) | none: real |
 
 The dot rows are for the manifold frame with the direction `(V, H)`. The tilde-dot rows are for the base point
-with the raw core direction, as `Kp` is computed; there the dot variables are `xi_dot` in `XD`, `mu_dot` in `AL`
-(these two names meant the frame's dots until 2026-11-15, 23:23), `nu_L_dot` a covector of `AL`, and `eta_D_dot` a
-covector of `XD`.
+with the raw core direction `(D_dot, L_dot)`, as `Kp` is computed; there the dot variables are `xi_dot` in `XD`,
+`mu_dot` in `AL` (these two names meant the frame's dots until 2026-11-15, 23:23), `nu_L_dot` a covector of `AL`,
+and `eta_D_dot` a covector of `XD`.
+
+The table, with the paragraph above, covers the arrays of the checked program. `eta_D` and `eta_D_tilde` are not
+among them: the program forms `eta_D` inside `z_step`, and `eta_D_tilde` not at all. The type of every variable is
+in `SAMPLE_VARIABLES.md` section 7.
 
 Two rules summarise the table.
 
@@ -167,7 +171,7 @@ Claude's reading of it against this catalog. Not a decision.
   orientation, not a fact. What is a fact is that the two directions on an edge are dual to each other. The
   catalog's first rule is better said as: the letter fixes the direction in which a variable travels along its
   edge. Whether that is with the arrow of the edge or against it is fixed by the basis, once the cores carry
-  arrows (section 9).
+  arrows (section 9); on the mode edge, which has one basis, by the letter: `w` with, `z` and `Jp` against.
 - **The order index is one more leg on every edge.** Its "core" is the product of the ring: the tensor that is 1
   when `t = i + j`. As the term functions use it, two jets point in and one points out. A residual in forward
   order points out on that leg. The reversal turns it round.
@@ -231,11 +235,14 @@ thing: a variable flows with the arrow of its edge or against it.
 | Against the arrows | `nu_L`, `z`; the frame's form's dots `xi_U_dot`, `mu_R_dot`, `nu_L_dot`, `eta_D_dot`, and `Jp`; `nu_L_tilde`; the raw form's `nu_L_dot`, `eta_D_dot`, and `nu_L_tilde_dot`, `eta_D_tilde_dot` |
 
 So what flows against the arrows is exactly what carries a basis in its name, and the outputs `z` and `Jp`;
-everything else flows with them, the raw form's dots included. (Until 2026-11-16 this paragraph said that what
-flows with the arrows has not yet met a hole, and what flows against them has passed a hole or is on its way out;
-the raw form's dots, which flow with the arrows, are the exception to that.) Each block is the outer product of
-variables that flow with the arrows into a hole, and its legs are the legs of the hole's direction with every sign
-flipped: `V_tilde` fits `V`, `H_tilde` fits `H`, and the `Kp` blocks fit the raw core directions.
+everything else flows with them, the raw form's `xi_dot` and `mu_dot` and their tilde-dots included. (Until
+2026-11-16 this paragraph said that what flows with the arrows has not yet met a hole, and what flows against them
+has passed a hole or is on its way out; the raw form's `xi_dot`, `mu_dot`, `xi_tilde_dot` and `mu_tilde_dot` have
+passed a hole and flow with the arrows, so they are the exception to that.) Each block of `g`, `V_tilde` and
+`H_tilde`, is the outer product of variables that flow with the arrows into a hole. The `Kp` blocks also read
+variables that flow against them (`nu_L` and its grades, and `eta_D_dot`, `eta_D_tilde_dot`). Every block's legs
+are the legs of the hole's direction with every sign flipped: `V_tilde` fits `V`, `H_tilde` fits `H`, and the
+`Kp` blocks fit the raw core directions `D_dot` and `L_dot`.
 
 **One change to the first statement of the picture.** "Arrows can only be contracted into a core if they point
 towards it" describes the flow. With fixed arrows on the cores it does not hold as a typing rule: `nu_L` enters
@@ -360,7 +367,7 @@ inward pointing like H."
 Claude's view: the gauge convention, bottom-to-top and left-to-right.
 
 - It is the rows for `D` and `L` in section 9: the base point is `(D, L)`. The checker of section 9 already types
-  the raw core directions this way, and the whole `Kp` family type checks with it.
+  the raw core directions `(D_dot, L_dot)` this way, and the whole `Kp` family type checks with it.
 - The other choice, a hidden form on every edge, is the picture for the weighted networks that are parked.
 - **Typing and gauge correctness are two things.** The last `L` core and the first `R` core are typed like every
   other `L` and `R` core. What fails for them is `M M^T = I`: they carry the norm. Checked in

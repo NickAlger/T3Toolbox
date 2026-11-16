@@ -214,8 +214,8 @@ all checks passed
    each block fits its hole (the legs of the block are the legs of the direction, every sign flipped):
       V_tilde      (XU1-, N1-; order real)          fits V      True
       H_tilde      (AL1-, XD1-, AR2-; order real)   fits H      True
-      V_tilde_dot  (XD1+, N1-; order real)          fits B_dot  True
-      H_tilde_dot  (AL1-, XD1-, AL2+; order real)   fits G_dot  True
+      V_tilde_dot  (XD1+, N1-; order real)          fits D_dot  True
+      H_tilde_dot  (AL1-, XD1-, AL2+; order real)   fits L_dot  True
 3. What the checker rejects
    the residual put back as it is:          xi_term(D, r)               REJECTED: xi_term: on edge N1 both legs have sign +: the arrow points the wrong way
    weights applied, order not reversed:     xi_term(D, omega^2 r)       REJECTED: xi_term: an operand's order leg is 'out': it cannot enter the product

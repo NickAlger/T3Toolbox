@@ -110,7 +110,7 @@ TYPED = dict(xi_term=xi_term, z_term=z_term, mu_term=mu_term, nu_term=nu_term, e
              H_term=H_term, V_term=V_term)
 
 
-def typed_program(frame, V, H, B_dot, G_dot, w, w_tilde, d, P, W):
+def typed_program(frame, V, H, D_dot, L_dot, w, w_tilde, d, P, W):
     """type_catalog_check.program, with the start vectors labelled.  Returns every variable, typed."""
     starts = iter([                         # in the order in which program() asks for them
         ('ones', ('AL', 0, '-')),           # mu      : left to right through L, with the arrows
@@ -149,7 +149,7 @@ def typed_program(frame, V, H, B_dot, G_dot, w, w_tilde, d, P, W):
         for k, f in TYPED.items():
             setattr(J, k, f)
         J.ones_start, J.left_to_right, J.right_to_left = ones_start, left_to_right, right_to_left
-        return T.program(frame, V, H, B_dot, G_dot, w, w_tilde, d, P, W)
+        return T.program(frame, V, H, D_dot, L_dot, w, w_tilde, d, P, W)
     finally:
         for k, f in saved.items():
             setattr(J, k, f)
@@ -165,8 +165,8 @@ def main():
     raw = dict(D=[rn((nD[i], Ns[i])) for i in range(d)], U=[rn((rL[i], nU[i], rR[i + 1])) for i in range(d)],
                L=[rn((rL[i], nD[i], rL[i + 1])) for i in range(d)], R=[rn((rR[i], nD[i], rR[i + 1])) for i in range(d)],
                V=[rn((nU[i], Ns[i])) for i in range(d)], H=[rn((rL[i], nD[i], rR[i + 1])) for i in range(d)])
-    raw['B_dot'] = [rn(b.shape) for b in raw['D']]
-    raw['G_dot'] = [rn(g.shape) for g in raw['L']]
+    raw['D_dot'] = [rn(b.shape) for b in raw['D']]
+    raw['L_dot'] = [rn(g.shape) for g in raw['L']]
     arrows = dict(                                           # the maintainer's orientation of the frame
         D=lambda i: (('XD', i, '-'), ('N', i, '+')),
         L=lambda i: (('AL', i, '+'), ('XD', i, '+'), ('AL', i + 1, '-')),
@@ -174,8 +174,8 @@ def main():
         U=lambda i: (('AL', i, '+'), ('XU', i, '-'), ('AR', i + 1, '+')),
         H=lambda i: (('AL', i, '+'), ('XD', i, '+'), ('AR', i + 1, '+')),
         V=lambda i: (('XU', i, '+'), ('N', i, '+')),
-        B_dot=lambda i: (('XD', i, '-'), ('N', i, '+')),     # a direction of D: the type of D
-        G_dot=lambda i: (('AL', i, '+'), ('XD', i, '+'), ('AL', i + 1, '-')))   # a direction of L: the type of L
+        D_dot=lambda i: (('XD', i, '-'), ('N', i, '+')),     # a direction of D: the type of D
+        L_dot=lambda i: (('AL', i, '+'), ('XD', i, '+'), ('AL', i + 1, '-')))   # a direction of L: the type of L
     typed = {k: [A(x, arrows[k](i), 'real') for i, x in enumerate(xs)] for k, xs in raw.items()}
     ww, pp = [rn((W, N)) for N in Ns], [rn((W, N)) for N in Ns]
     w_raw = [J.input_jet(P, ww[i], pp[i]) for i in range(d)]
@@ -185,7 +185,7 @@ def main():
 
     def run(seed):
         return typed_program((typed['D'], typed['U'], typed['L'], typed['R']), typed['V'], typed['H'],
-                             typed['B_dot'], typed['G_dot'], w, seed, d, P, W)
+                             typed['D_dot'], typed['L_dot'], w, seed, d, P, W)
 
     def exterior(z):                        # an output, read at the exterior in forward order
         return [A(a.x, a.legs, 'out') for a in z]
@@ -202,7 +202,7 @@ def main():
     print('1. The whole program type checks with the maintainer\'s arrows: %d contractions over network indices and'
           % COUNT['contractions'])
     print('   %d sums, in the 22 step functions, at order %d with d = %d.  No error.' % (COUNT['sums'], order, d))
-    untyped = T.program((raw['D'], raw['U'], raw['L'], raw['R']), raw['V'], raw['H'], raw['B_dot'], raw['G_dot'],
+    untyped = T.program((raw['D'], raw['U'], raw['L'], raw['R']), raw['V'], raw['H'], raw['D_dot'], raw['L_dot'],
                         w_raw, [a.x for a in riesz(r)], d, P, W)
     worst = max(np.max(np.abs(a.x - b)) for name in untyped for a, b in zip(v[name], untyped[name]))
     print('   The numbers are those of the untyped program: largest difference %.0e.' % worst)
@@ -214,7 +214,7 @@ def main():
     print('   against the arrows: ' + ', '.join(against))
     neg = lambda legs: tuple((s, k, FLIP[sign]) for s, k, sign in legs)
     print('   each block fits its hole (the legs of the block are the legs of the direction, every sign flipped):')
-    for block, hole in (('V_tilde', 'V'), ('H_tilde', 'H'), ('V_tilde_dot', 'B_dot'), ('H_tilde_dot', 'G_dot')):
+    for block, hole in (('V_tilde', 'V'), ('H_tilde', 'H'), ('V_tilde_dot', 'D_dot'), ('H_tilde_dot', 'L_dot')):
         print('      %-12s %-32s fits %-6s %s' % (block, show(v[block][1]), hole,
                                                   all(v[block][i].legs == neg(arrows[hole](i)) for i in range(d))))
 

@@ -54,7 +54,7 @@ def main(repo):
     v = tvo.tv_orthogonal_gauge_projection(frame, fvo.fv_variations_randn(fvo.fv_variation_shapes(frame), ()))
     V, H = (list(c) for c in v)
     factors = fvo.fv_lift_factors(frame, 0.0)                             # undamped
-    B_dot, G_dot = (list(c) for c in tvo.tv_corewise_lift(frame, v, factors))
+    D_dot, L_dot = (list(c) for c in tvo.tv_corewise_lift(frame, v, factors))
     tucker_factor = [np.asarray(m) for m in factors.tucker_pinvs]         # [i]: (nDi, nUi), U basis -> D basis
     bond_factor = [np.asarray(m) for m in factors.bond_pinvs]             # [i]: (rR(i+1), rL(i+1)), R basis -> L basis
     ww, pp = [rng.standard_normal((W, N)) for N in Ns], [rng.standard_normal((W, N)) for N in Ns]
@@ -79,13 +79,13 @@ def main(repo):
     eta_D_dot = J.each_site(J.eta_dot_step, d, mu_R_dot, mu, nu_L_dot[1:], nu[1:], L, R, H)
     Jp_frame = J.each_site(J.Jp_step, d, eta_D_dot, eta, D, V)
 
-    # the dots of the raw form, along the lifted raw core direction, through G = L
+    # the dots of the raw form, along the lifted raw core direction (D_dot, L_dot), through L
     # (raw_nu_L_dot, raw_eta_D_dot: a local spelling of this script for the raw form's nu_L_dot, eta_D_dot)
-    xi_dot = J.each_site(J.xi_dot_step, d, B_dot, w)
-    mu_dot = J.left_to_right(J.mu_dot_step, J.zeros_start(P, W, 1), d, mu, xi, xi_dot, L, L, G_dot)
-    raw_nu_L_dot = J.right_to_left(J.nu_dot_step, J.zeros_start(P, W, 1), d, nu_L[1:], xi, xi_dot, L, L, G_dot)
-    raw_eta_D_dot = J.each_site(J.eta_dot_step, d, mu_dot, mu, raw_nu_L_dot[1:], nu_L[1:], L, L, G_dot)
-    Jp_base = [J.z_term(raw_eta_D_dot[i], D[i]) + J.z_term(eta_D[i], B_dot[i]) for i in range(d)]
+    xi_dot = J.each_site(J.xi_dot_step, d, D_dot, w)
+    mu_dot = J.left_to_right(J.mu_dot_step, J.zeros_start(P, W, 1), d, mu, xi, xi_dot, L, L, L_dot)
+    raw_nu_L_dot = J.right_to_left(J.nu_dot_step, J.zeros_start(P, W, 1), d, nu_L[1:], xi, xi_dot, L, L, L_dot)
+    raw_eta_D_dot = J.each_site(J.eta_dot_step, d, mu_dot, mu, raw_nu_L_dot[1:], nu_L[1:], L, L, L_dot)
+    Jp_base = [J.z_term(raw_eta_D_dot[i], D[i]) + J.z_term(eta_D[i], D_dot[i]) for i in range(d)]
 
     print('A. One dot: the frame along (V, H) against the base point along the lifted direction')
     print('   Jp                                                        %s' % same(Jp_frame, Jp_base))

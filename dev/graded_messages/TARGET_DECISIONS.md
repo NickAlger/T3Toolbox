@@ -321,10 +321,10 @@ Notes:
   `TYPE_CATALOG.md`. The whole explicit program type checks (424 contractions, 176 sums). The plain and tilde frame
   variables flow with the arrows; `gamma`, `z` and the dot variables flow against them (now: `nu_L`, `z`, and the
   frame's dots `mu_R_dot`, `xi_U_dot`, `nu_L_dot`, `eta_D_dot`; in the new names, what flows against the arrows is
-  what carries a basis in its name, and the outputs); each block fits its hole. The checker rejects the residual
-  put back as it is, and the weighted residual with the order not reversed. The arrows coincide with the frame's
-  orthogonality conditions. A naming hazard is noted there: the library's names say where a store sits, and its
-  arrow points the other way. Not a decision.
+  what carries a basis in its name, and the outputs `z` and `Jp`); each block fits its hole. The checker rejects
+  the residual put back as it is, and the weighted residual with the order not reversed. The arrows coincide with
+  the frame's orthogonality conditions. A naming hazard is noted there: the library's names say where a store sits,
+  and its arrow points the other way. Not a decision.
 - **2.4, the convention for the arrows** (2026-11-15, 05:39). Agreed by the maintainer: the typing rule is the
   two ends of one arrow ("I agree with the first rule change, this is right"). His lean for the one convention:
   an arrow entering a core marks a dual index ("contracting puts a vector 'in'"), an arrow leaving marks a plain
@@ -809,9 +809,9 @@ Notes:
     - **The seeds (3.3).** A tilde variable is linear in its seed. If `r` can be held, one name per tilde
       variable is enough: the copy seeded by `Jp` is the same name in a call with `Jp` held as `r`. Then "which
       seeded copies are public" has the answer "all, under one name". This rests on 6.5.
-    - **Still without a name:** the `eta`-like variable through `L` that `z` reads, and the dot variables of
-      `Kp`, which belong to the lifted direction. To be named or given a route at 6.4. Not checked. (Named at
-      23:23: `eta_D`; `mu_dot`, `xi_dot`, `nu_L_dot`, `eta_D_dot`.)
+    - **Still without a name:** the `eta`-like variable through `L` that `z` reads, and the dot variables of `Kp`,
+      which belong to the lifted direction. To be named or given a route at 6.4. Not checked. (Named at 23:23:
+      `eta_D`; `mu_dot`, `xi_dot`, `nu_L_dot`, `eta_D_dot`, and `eta_D_tilde_dot`.)
   - **Claude's answer to the second: the optional group `T` carries it, with three things the table has to
     say.** Every variable has the shape `[d] + T + W + [K] + C + (leg,)`, with `T = (order+1,) if order else ()`,
     so at order 0 it is today's plain variable, and the rank is declared by `order`, never read off an array.
@@ -839,7 +839,8 @@ Notes:
     were named at 23:23. `NOTATION_HISTORY.md` section 3.2.
   - 22:11: `zeta` for the down variable through the base point's cores; it became `eta_D` at 23:23.
     `NOTATION_HISTORY.md` section 4.
-  - 22:11: options A and B for the dots of `xi` and `mu` along the raw core direction. `NOTATION_HISTORY.md`
+  - 22:11: options A and B for the dots of `xi` and `mu` along the raw core direction; neither was taken: the
+    dots are `xi_dot`/`mu_dot` (raw form) and `xi_U_dot`/`mu_R_dot` (frame's form). `NOTATION_HISTORY.md`
     section 5.
   - 22:24 to 22:41: the naming was rethought from first principles; the result is 9.6 (`SAMPLE_VARIABLES.md`
     section 2). `NOTATION_HISTORY.md` section 6.

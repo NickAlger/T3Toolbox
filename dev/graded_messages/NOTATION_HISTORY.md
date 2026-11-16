@@ -50,6 +50,10 @@ Written for this file on 2026-11-16 (the editor's summary, not a moved passage).
   56).
 - **23:23, decided** (target decision 9.6; `REVIEW_DECISIONS.md` entry 57): four letters and a basis.
   `SAMPLE_VARIABLES.md` is the reference.
+- **2026-11-16, 00:23.** Step functions are named by letter and grade and serve both bases; the basis of what a
+  step returns follows from the cores it is given (section 7; `SAMPLE_VARIABLES.md` section 5).
+- **2026-11-16, 00:30.** The raw core direction at the base point `(D, L)` of a manifold frame is `(D_dot, L_dot)`;
+  on the corewise frame `(B, G, G, G)` it stays `(B_dot, G_dot)` (`SAMPLE_VARIABLES.md` sections 1 and 11).
 - **2026-11-16.** The folder was brought into line; this file was made; the live prototypes were renamed
   (section 7).
 
@@ -83,6 +87,7 @@ direction `(V, H)`; "raw form" is a dot along a raw core direction at the base p
 | `eta_D_tilde` | `zeta_tilde` | `eta_z`, at the corewise frame |
 | `eta_D_tilde_dot` | `zeta_tilde_dot`; the prototype's `eta_tilde_dot` | `eta_tz` (corewise only) |
 | `w`, `w_tilde`, `z`, `Jp` | the same | `w`, `w_z`, `z` (and `phi` for apply and entries), `z_t` (and `phi_t`) |
+| the raw core direction `(D_dot, L_dot)` (decided 2026-11-16, 00:30; `(B_dot, G_dot)` on the corewise frame) | `(B_dot, G_dot)` in the prototype; `core_directions` in the library | the `_t` cores at the corewise frame |
 | `V_tilde`, `H_tilde`, `V_tilde_dot`, `H_tilde_dot` | the same | `dB_z`, `dG_z`, `dB_tz`, `dG_tz` |
 
 ## 2. `gamma`: "an auxiliary variable, not a `nu`"
@@ -128,8 +133,8 @@ Variables with no public name:
 written at 21:57 and 21:59 on 2026-11-15; its sub-bullets were added at 22:11 and 22:24 to 22:41. It is split
 here by topic, in its own order: this section has its head and its first three sub-bullets; sections 4, 5 and
 6 have the rest. All six variables were named at 23:23 (target decision 9.6): rows 1 to 4 are `eta_D`,
-`eta_D_dot`, `eta_D_tilde`, `eta_D_tilde_dot`; rows 5 and 6 are `xi_dot` and `mu_dot`. The argument that carries
-the raw core direction is still without a name (`SAMPLE_VARIABLES.md` section 11).
+`eta_D_dot`, `eta_D_tilde`, `eta_D_tilde_dot`; rows 5 and 6 are `xi_dot` and `mu_dot`. The raw core direction was
+named `(D_dot, L_dot)` on 2026-11-16 at 00:30 (`SAMPLE_VARIABLES.md` sections 1 and 11).
 
 - **The variables that still have no name** (2026-11-15, 21:57). The maintainer: "Can you please list the
   variables that still need names, and some suggestions? One possible idea is to recycle names that are in use
@@ -172,7 +177,10 @@ down variable through the base point's cores is `eta_D`, the trunk above a Tucke
 
 Superseded at 23:23 by target decision 9.6. Neither option was taken: the two dots of `mu` are one side in two
 bases, `mu_dot` (the `L` basis, raw form) and `mu_R_dot` (the `R` basis, frame's form), and likewise `xi_dot` and
-`xi_U_dot`. `sigma` and `tau` are not used.
+`xi_U_dot`. `sigma` and `tau` are not used. In the passages below "the frame's `mu_dot`" is `mu_R_dot`, "the
+frame's `xi_dot`" is `xi_U_dot`, "the frame's `nu_dot`" and `gamma_dot` are `nu_L_dot`, "the frame's `eta_dot`" and
+`zeta_dot` are `eta_D_dot`, `gamma` is `nu_L` and `zeta` is `eta_D`; a bare `mu_dot` or `xi_dot` (as in "`mu +
+mu_dot` is well typed") already means the raw form. Read with the table of section 1.
 
 **From `TARGET_DECISIONS.md`, notes to section 6** (commit `e2e8fc6`), moved on 2026-11-16: the sub-bullet that
 follows section 4 above.
@@ -395,7 +403,7 @@ number is the same. The dated records among the scripts (listed in `README.md`) 
 | Script | Old identifier | New identifier |
 | --- | --- | --- |
 | `jet_steps_check.py` (and the string key in `arrow_type_check.py`) | the step function `gamma_tilde_dot_step` | `nu_tilde_dot_step` |
-| `jet_steps_check.py` | the parameters `gamma_tilde_dot`, `gamma_dot`, `gamma_tilde`, `gamma` of `gamma_tilde_dot_step`, `eta_tilde_dot_step` and `H_tilde_dot_step`, and `gamma` of `z_step` | `nu_tilde_dot`, `nu_dot`, `nu_tilde`, `nu` (a step function's parameters carry no basis) |
+| `jet_steps_check.py` | the parameters `gamma_tilde_dot`, `gamma_dot`, `gamma_tilde`, `gamma` of `gamma_tilde_dot_step`, `eta_tilde_dot_step` and `H_tilde_dot_step`, and `gamma` of `z_step` | `nu_tilde_dot`, `nu_dot`, `nu_tilde`, `nu` (a step function's variable parameters carry no basis) |
 | `jet_steps_check.py`, `type_catalog_check.py`, `subtree_gauge_check.py`, `order0_assessment.py` | `gamma` | `nu_L` |
 | `jet_steps_check.py`, `type_catalog_check.py` | `gamma_tilde`, `gamma_tilde_dot` | `nu_L_tilde`, `nu_L_tilde_dot` |
 | `jet_steps_check.py`, `type_catalog_check.py` | the variable `eta_tilde_dot` (a misnomer: it was the trunk in the `D` basis) | `eta_D_tilde_dot` |
@@ -407,13 +415,16 @@ number is the same. The dated records among the scripts (listed in `README.md`) 
 | `subtree_gauge_check.py` | `f_xi_dot`, `f_mu_dot`, `f_nu_dot`, `f_eta_dot` | `xi_U_dot`, `mu_R_dot`, `nu_L_dot`, `eta_D_dot` |
 | `kind_readout_check.py` | `xi_dot`, `mu_dot` (the frame's form) | `xi_U_dot`, `mu_R_dot` |
 | `arrow_type_check.py` | the reject row "`gamma` used where `nu` is wanted", "a sum of `mu` and `mu_dot`" | "`nu_L` used where `nu` is wanted", "a sum of `mu` and `mu_R_dot`" |
+| `jet_steps_check.py`, `type_catalog_check.py`, `arrow_type_check.py`, `subtree_gauge_check.py` (second pass, 2026-11-16) | the raw core direction at `(D, L)`: `B_dot`, `G_dot` (variables, the parameters of `program` and `typed_program`, dict keys), and the aliases `B, G = D, L`, `G = L` | `D_dot`, `L_dot`; `D`, `L` used directly. The generic parameters `B`, `G`, `B_dot`, `G_dot` of the term and step functions stay |
+| `arrow_type_check.py` (second pass) | the printed holes "fits B_dot", "fits G_dot" | "fits D_dot", "fits L_dot" |
 
 `raw_nu_L_dot` and `raw_eta_D_dot` are a local spelling of the scripts, not notation: the raw form's `nu_L_dot`
 and `eta_D_dot` where a program also holds the frame's.
 
 The step functions keep their names, apart from `gamma_tilde_dot_step`, and every one of them is named by letter
-and grade, with basis-free parameters. A step function serves both bases: the basis of what it returns follows
+and grade, with basis-free variable parameters (the core parameters are placeholders named after one set of
+cores they are called with). A step function serves both bases: the basis of what it returns follows
 from the cores it is given (`nu_step` given `L` cores returns `nu_L`; `mu_dot_step` given `(R, U, H)` and the
-frame's `xi_U_dot` returns `mu_R_dot`, given `(L, L, G_dot)` and the raw `xi_dot` it returns `mu_dot`). Decided by
+frame's `xi_U_dot` returns `mu_R_dot`, given `(L, L, L_dot)` and the raw `xi_dot` it returns `mu_dot`). Decided by
 the maintainer on 2026-11-16 at 00:23: "There is no need for extra step functions if they literally do the exact
 same things with different arguments."

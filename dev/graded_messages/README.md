@@ -133,6 +133,7 @@ documents and some of the proposal.
 | `scripts/review/order_scan_check.py` | For 2.9: the product of two full jets in three forms: a loop with slices, the library's present scheme in Taylor form (a scan with the other jet carried and shifted one slot per step), and a scan over a table of the needed pairs of orders. For each: correctness against the explicit sum, the size of the traced program, and a count of multiplications that separates the expensive contraction from the cheap one. The two forms of the target are written in the library's pattern (`get_backend`, `tree_contains_jax`, `xscan`, `contract`) and offered as one function with a setting (`product_of_full_jets`); the setting is checked on the four backends (numpy or jax, ragged or uniform) in float64 and float32. Needs jax and the path of a T3Toolbox checkout |
 | `scripts/review/subtree_gauge_check.py` | For the naming of the variables (type catalog, section 14, now `NOTATION_HISTORY.md` section 6): an edge variable is the contraction of the subnetwork on one side of an edge, in a basis. Checks that the frame's form (`xi_U_dot`, `mu_R_dot`, `nu_L_dot`, `eta_D_dot`) and the raw form along the lifted direction (`xi_dot`, `mu_dot`, `nu_L_dot`, `eta_D_dot`) are one tangent vector, and that the lift's factors join the twins in the two bases. numpy only; needs the path of a T3Toolbox checkout |
 | `scripts/review/sample_variables_check.py` | **The program in the decided notation** (`SAMPLE_VARIABLES.md`): the recurrences of every variable with the names of 2026-11-15, 23:23, against the library's own kind; each variable as a sum of subnetworks, term by term, against its recurrence; and the direction's network at every cut edge. numpy only; needs the path of a T3Toolbox checkout |
+| `scripts/variable_diagrams_gen.py` | Generates the 28 drawings of the "Variable diagrams" tab of the Claude doc from the definitions of `SAMPLE_VARIABLES.md`: `python3 variable_diagrams_gen.py out.json [preview_folder]` |
 | `scripts/review/run_review_checks.sh` | Runs the twenty-one review scripts. The four jax ones are skipped without jax |
 | `scripts/review/expected_review_output_3dc15d9.txt` | Recorded output of `run_review_checks.sh` at commit `3dc15d9`, with jax 0.12. Recorded again on 2026-11-16 after the scripts were renamed to the notation of `SAMPLE_VARIABLES.md`: labels only, every number the same |
 | `scripts/timings_2core_cpu_3dc15d9.txt` | Recorded output of `run_timings.sh` on a 2-core CPU. Not a basis for defaults |
@@ -142,8 +143,9 @@ The proposal also exists as a Claude doc with eleven tabs: the main proposal, "T
 diagrams" (28 rows, one drawing per variable, output and block, with no file of its own; the drawings are generated
 by `scripts/variable_diagrams_gen.py`), "Scaling survey" (`T3POLYNOMIAL_SCALING_SURVEY.md`), "Design after review"
 (`DESIGN_AFTER_REVIEW.md`), API impact, Worked example, Execution plans and Evaluator, the older tabs with the same
-status notes as the files here: <https://claude.ai/artifact/PvTCvDZBKaPKqRTnntH42s>. The decisions log and the
-review reports are only in this package. The markdown files here are the durable copy.
+status notes as the files here (the notation notices added to the status notes on 2026-11-16 are not yet in the
+tabs): <https://claude.ai/artifact/PvTCvDZBKaPKqRTnntH42s>. The decisions log and the review reports are only in
+this package. The markdown files here are the durable copy.
 
 ## Pinned state
 
@@ -190,10 +192,11 @@ review reports are only in this package. The markdown files here are the durable
    recorded numbers exactly, check out the pinned commit. Do not run `run_timings.sh` as a check; it is an
    experiment, and its recorded numbers are from a small machine.
 2. **Read** `TARGET_DECISIONS.md` first (its section "Where this stands" is the state at the last pause), then
+   `SAMPLE_VARIABLES.md` (the reference for every name; `NOTATION_HISTORY.md` when an older text is read), then
    `TYPE_CATALOG.md`, `DESIGN_AFTER_REVIEW.md` and `REVIEW_DECISIONS.md` (its entries 12 and 13 are the
-   redirection, 19 to 29 the morning of 2026-11-15). Then `PROPOSAL.md`, `WORKED_EXAMPLE.md` and
-   `API_IMPACT.md`, minding the status note at the top of each. Read `EVALUATOR.md` and `EXECUTION_PLANS.md` last
-   and as history: their evidence and measurements still stand, their interface does not.
+   redirection, 19 to 29 the morning of 2026-11-15). Then `PROPOSAL.md`, `WORKED_EXAMPLE.md` and `API_IMPACT.md`,
+   minding the status note at the top of each. Read `EVALUATOR.md` and `EXECUTION_PLANS.md` last and as history:
+   their evidence and measurements still stand, their interface does not.
 3. **Read the library's own records before proposing anything.** The reviewers found that several ideas here had
    already been measured, decided or named there. At least: `docs/glossary.md`, `docs/naming_conventions.md`,
    `docs/contributor/precompute_and_caching.md`, `docs/contributor/curvature_internals.md`,

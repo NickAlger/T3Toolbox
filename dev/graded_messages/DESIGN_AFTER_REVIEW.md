@@ -9,9 +9,10 @@ derivatives at the boundary); and the two stages of section 6 are sequencing, se
 settled. A third, since 2026-11-15, 19:32: section 4.7's "No option for orders" is overtaken. The plan of section
 5 gains a setting for how a product of two full jets is taken over the orders, a scan (the default) or a loop
 with slices (target decision 2.9); the dense form stays out. A fourth, since 2026-11-15, 23:23: the names of the
-sampling variables (section 3 and below) follow `SAMPLE_VARIABLES.md`; `gamma` is `nu_L`, and the dot variables
-carry a basis in the frame's form. They were brought into line on 2026-11-16; the parts of sections 3.5 and 4.3
-whose subject was a retired name are in `NOTATION_HISTORY.md`.
+sampling variables (section 3 and below) follow `SAMPLE_VARIABLES.md`; `gamma` is `nu_L`, the dot variables
+carry a basis in the frame's form, and the bare `mu_dot` and `xi_dot` now mean the raw form's (the base point's).
+They were brought into line on 2026-11-16; the parts of sections 3.5 and 4.3 whose subject was a retired name or
+an overtaken decision are in `NOTATION_HISTORY.md`.
 
 This document states the design as it stands after two reviewer reports were walked through with the maintainer
 on 2026-11-14. It is organized by topic. The same decisions in the order they were taken, with the evidence for
@@ -88,7 +89,11 @@ two-hole variables are already "tilde then dot" (`tau_tildes_dot`: 114 uses).
 | `nu_tilde` | `sigma_tilde`, `sigma_hat` | `mu` |
 | `w_tilde` (the seed on the sample legs) | `ztildes` | `z` |
 | `xi_U_dot`, `mu_R_dot`, `nu_L_dot`, `eta_D_dot` (the frame's form, along `(V, H)`) | `dxi`, `sigma`, `tau`, `deta` | |
-| `xi_dot`, `mu_dot`, `nu_L_dot`, `eta_D_dot` (the raw form, along a raw core direction) | `xi_dot`, `mu_dot`, `nu_dot`, `eta_dot` (the two-hole kernel) | |
+| `xi_dot`, `mu_dot`, `nu_L_dot`, `eta_D_dot` (the raw form, along the raw core direction `(D_dot, L_dot)`) | `xi_dot`, `mu_dot`, `nu_dot`, `eta_dot` (the two-hole kernel) | |
+
+The column "Is the multiplier of" is for the corewise frame, where it was checked. On a manifold frame the
+partners are the dots of `SAMPLE_VARIABLES.md` section 8: `xi_tilde` of `eta_D_dot`, `eta_tilde` of `xi_U_dot`,
+`mu_tilde` of `nu_L_dot`, `nu_tilde` of `mu_R_dot`.
 
 The near miss to warn about: the new `xi_tilde` against today's `dxi_tilde`. They differ by one letter and are
 different variables.
@@ -216,7 +221,8 @@ A step is named by letter and grade, and serves both bases: here `mu_dot_step` r
 given `R`, `U`, `H` (and the frame's `xi_U_dot`).
 
 - There is no pointed-core object. Each term names the frame core it uses, so the gauge choice is visible.
-- The corewise frame calls the same functions with `G, G, G`.
+- The corewise frame calls the same functions with `G, G, G`. At the base point of a manifold frame the raw form
+  calls them with `(L, L, L_dot)` and `D_dot`.
 - For the probe kind this is 22 step functions with 60 terms on 7 term functions (`scripts/review/jet_steps_check.py`).
 - The subscript strings are literals again, so the library's test suites that scan the source for them can see
   them. This closes most of F1; keeping the literals inside `contract(...)` calls and pinning them in the
@@ -226,8 +232,9 @@ given `R`, `U`, `H` (and the frame's `xi_U_dot`).
 
 ### 4.2 `sampling_variables`
 
-A public backend function. The sketch below is not a final signature: the argument for the lifted direction has
-no name yet.
+A public backend function. The sketch below is not a final signature. The lifted direction is `(D_dot, L_dot)`
+(decided 2026-11-16, 00:30); the keyword of `sampling_variables` that takes it was suggested as `core_direction`
+with it, and is not confirmed.
 
 ```python
 f, g, xi = sampling_variables('probe', frame, sample, plan, want=('f', 'g', 'xi'), y=y, weight=omega)
@@ -270,10 +277,10 @@ For the probe kind, among public variables. "Worth holding" depends on what a va
 These rows were derived by hand from the argument lists and are a draft. Held variables are valid for the same
 point, samples, data and order.
 
-Since 2026-11-15 every variable is public (target decision 6.4, confirmed at 21:57) and named
-(`SAMPLE_VARIABLES.md`); which application of the transpose a tilde name refers to is target decision 3.3. The
-list of "variables with no public name" that stood here (2026-11-14) was superseded on 2026-11-15 at 23:23 by
-target decision 9.6; it is in `NOTATION_HISTORY.md` section 3.1.
+The list of "variables with no public name" that stood here (2026-11-14) was superseded on 2026-11-15: every
+variable of a kind's graph can be wanted and held (target decision 6.4, confirmed at 21:57), and every variable is
+named (9.6, 23:23); how the `Jp`-seeded tilde copies are reached is target decision 3.3, to confirm. The list is in
+`NOTATION_HISTORY.md` section 3.1.
 
 ### 4.4 The value
 
@@ -589,7 +596,8 @@ Claude's, not the maintainer's.
 ### 10.3 Undecided
 
 - The two API cases of phase 1 (adapters, or removing the redundant layer), and with them the two vocabularies.
-- The name of the lifted-direction argument of `sampling_variables`.
+- The keyword of `sampling_variables` that takes the lifted direction. The direction is `(D_dot, L_dot)` (decided
+  2026-11-16, 00:30); `core_direction` was suggested with it and is not confirmed.
 - Where the `W` axes sit in each held variable on each layout (F10).
 - Whether a `have`-validity check exists, and what identifies a point.
 - The acceptance list in section 7.
@@ -621,7 +629,7 @@ to `REVIEW_DECISIONS.md`.
 | D9, D10 | Adopted: the sizing contract of section 5.6, with its caveat |
 | D11, D17, F3 | Decisions 1, 2, 3: scans in the compiled program; `LocalModel` carries the plan |
 | D12 | Adopted: validation, and unread inputs are errors |
-| D13 | Decision 8: seeds (only residual-seeded tilde variables are public) and gauge (`nu_L`) |
+| D13 | Decision 8: seeds (only residual-seeded tilde variables are public) and gauge (`nu_L`) (item 1 superseded by 6.4; see 4.3) |
 | D14 | The reference cycle in the mockup's `run`: to fix |
 | D15 | Adopted: carriers are read against a zero carry. The other two points fall away with the generic program moving to the tests |
 | D18, F2 | Decision 6: explicit functions; the declared per-kind graph is the only layer |
