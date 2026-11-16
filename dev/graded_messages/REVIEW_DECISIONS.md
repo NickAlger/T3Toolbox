@@ -1508,3 +1508,18 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   by the user's reshaping.
 - **Counts.** 39 rows decided, 13 remain.
 
+## 78. 5.6 decided (the absorbing dtype rule); 5.5 reversed (the contraction order goes into the plan); 5.4 as the library does it (2026-11-16, 03:32)
+
+- **5.6.** The maintainer accepted that the engine creates no array with a default dtype, and added the rule
+  for mixed inputs: "jax takes precedence over numpy and low precision takes precedence over high prececision
+  ... Lower precision taking priority is because the output will not be more precise than its inputs."
+- **5.5.** Claude proposed confirming "no option for the contraction order". The maintainer reversed it: "This
+  should be in the plan. The user must be able to specify the contraction ordering and tune it on their problem.
+  We should also provide helper functions to choose good contraction orderings." He asked how far the
+  contraction engine supports einsum paths and how they interact with grouped indices. Read and run for the
+  answer: `contract` has no path argument today; numpy and jax einsum both accept one; a path names operands by
+  position, so groups do not interact with it (note to 5.5 of `TARGET_DECISIONS.md`).
+- **5.4.** He asked how the library handles the stacks in a term today. It writes one literal contraction string
+  per term at the place it is used, with `K` on the operand that carries it (note to 5.4).
+- **Counts.** 40 rows decided, 12 remain.
+

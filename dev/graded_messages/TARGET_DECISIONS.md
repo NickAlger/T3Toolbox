@@ -30,7 +30,7 @@ planned only after the target is settled.
 
 ## What remains, in groups (2026-11-15, 15:34)
 
-Of the 56 rows in sections 1 to 9, 39 are decided, 3 are guidance and 1 is parked. The other 13 are below, in
+Of the 56 rows in sections 1 to 9, 40 are decided, 3 are guidance and 1 is parked. The other 12 are below, in
 seven groups that cut across the sections. The grouping and the suggested order are Claude's, made at the
 maintainer's request; they decide nothing.
 
@@ -39,11 +39,11 @@ maintainer's request; they decide nothing.
 | A. Jets and the misfit | 0 | | | | |
 | B. The frame and the value | 0 | | | | |
 | C. What a kind is, and the public surface | 0 | | | | |
-| D. One program for every layout and stack | 4 | 2 | 1 | 1 | |
+| D. One program for every layout and stack | 3 | 2 | 1 | | |
 | E. Plans, memory and scale | 5 | 3 | 2 | | |
 | F. The fitting layer above | 3 | 1 | | 2 | |
 | G. What defines correct | 1 | 1 | | | |
-| Total | 13 | 7 | 3 | 3 | |
+| Total | 12 | 7 | 3 | 2 | |
 
 - **A. Jets and the misfit.** (Decided on the afternoon of 2026-11-15: 2.4, what a tilde jet is; 2.5, the misfit;
   2.3, the derivative-mode adapter; and, at 19:32, 2.9, how a term is carried out over the orders.)
@@ -60,11 +60,12 @@ maintainer's request; they decide nothing.
   tested against the declared graph; at 02:40, 6.3, the public functions of the sampling layer; at 02:45 and
   02:52, 8.2, the oracle; at 02:56, 9.2, the kind strings and the unit name `'sweep'`, with the sizing function
   names moved to 7.6.
-- **D. One program for every layout and stack.** (Decided on 2026-11-16 at 03:11: 5.2, one set of step
-  functions for both layouts.) 5.4
-  terms generic over the stack groups (open); 5.3 sites scanned or vectorized (reopened); 5.5 association order
-  inside a term (to confirm); 5.6 the dtype rule (open). The cases the order-0 assessment did not cover are here.
-  The maintainer gave rules for how the functions are written on 2026-11-15, 19:50 (notes to section 5).
+- **D. One program for every layout and stack.** (Decided on 2026-11-16: at 03:11, 5.2, one set of step
+  functions for both layouts; at 03:32, 5.6, the dtype rule.) 5.4 terms generic over the stack groups (open; a
+  prototype is owed); 5.5 the contraction order inside a term (open: it goes into the plan, by the maintainer's
+  ruling of 03:32, and how it is specified is under discussion); 5.3 sites scanned or vectorized (reopened; with
+  the performance discussion). The maintainer gave rules for how the functions are written on 2026-11-15, 19:50
+  (notes to section 5).
 - **E. Plans, memory and scale.** 7.3 where the plan lives (reopened); 7.2 the defaults (reopened); 7.5 inert
   padded samples for entries (open); 7.6 automatic sizing, with the names of the sizing functions and of the pad-and-reshape helpers (open); 7.7
   sharding and device placement (open). The maintainer wants the sizing names taken up "in the broader context
@@ -77,7 +78,7 @@ maintainer's request; they decide nothing.
 wait on 4.1 and 4.5. C feeds F: 8.1 and 8.3 need the public surface. D and E are each mostly self-contained; E's
 7.3 is tied to F's 8.1. G bears on how every other answer is checked.
 
-**The three rows marked to confirm** are earlier decisions that were not taken for reasons of compatibility.
+**The two rows marked to confirm** are earlier decisions that were not taken for reasons of compatibility.
 They may go quickly, several at a time.
 
 **Outside the list:** 8.5 shared sample vectors (parked); weights on internal edges as inner products (parked for
@@ -862,15 +863,56 @@ Notes:
 | 5.2 | One set of step functions for the ragged and the uniform layout. The layout is detected from the structure of the inputs, as low as reasonably possible. Sweeps go through `xscan` on both layouts. Masks never reach a step: the uniform cores are masked once on entry. Shapes are read from the operands | Decided | 1.2 |
 | 5.3 | For each variable, are sites scanned or vectorized, what is the default, and which variables admit which? | Reopened | 5.2 |
 | 5.4 | How are the terms generic over the stack groups: several `W` axes, `K`, `C`, and the order? | Open | 2.7 |
-| 5.5 | Is there any choice of association order inside a term? | To confirm | |
-| 5.6 | What is the dtype rule, so that a float32 problem stays float32? | Open | |
+| 5.5 | The contraction order inside a term is in the plan: the user can specify it and tune it on their problem, and the library provides helpers that choose good orders. How it is specified and passed through the contraction engine is open | Open | |
+| 5.6 | The dtype rule is absorbing: jax takes precedence over numpy, and lower precision over higher. The engine creates no array with a default dtype | Decided | |
 
 Notes:
 
 - **5.3.** Decision 4 made the site choice per variable, which stands on an accounting argument. Its default,
   "what each kernel does today", is a reason from history.
-- **5.5.** Decision 4 left association out, on the library's own measurement that one contraction per term is
-  right on jax.
+- **5.5, reversed** (2026-11-16, 03:32). Claude proposed confirming "no option". The maintainer: "This should be
+  in the plan. The user must be able to specify the contraction ordering and tune it on their problem. We should
+  also provide helper functions to choose good contraction orderings. What is uncertain is how the contraction
+  ordering is specified by the user and passed down through the contractions engine. I do not know the degree to
+  which the contractions engine supports einsum paths, or how this interacts with grouped indices. Talk more about
+  this."
+  - **What the engine does today** (read in `backend/contractions.py`). `contract` solves the group lengths,
+    expands each group into single letters, and runs one einsum on the operands as given. On numpy it forces a
+    greedy pairwise path, computed on the grouped string and cached, because numpy's own optimizer runs a
+    multi-operand contraction with tied flop counts as one loop that skips BLAS. On jax it passes no path, and
+    jax's own optimizer chooses. `contract` has no argument for a path.
+  - **Checked by running** (jax 0.12, numpy 2.5): `np.einsum` and `jnp.einsum` both accept an explicit path.
+    The three orders of `mu_term` give equal values on both. In jax each path lowers to a different pair of
+    `dot_general` operations with a different intermediate: `(mu, G)` first keeps an array over the Tucker
+    edge, the right bond and the samples; `(G, xi)` first keeps one over the samples and both bonds; `(mu, xi)`
+    first is an outer product over the samples, the Tucker edge and the left bond.
+  - **Groups do not interact with a path.** A path names operands by position, not by letter, so the same path
+    serves the grouped string and its expansion. The library already computes its numpy path on the grouped
+    string for that reason.
+  - **Open:** the form of the plan's field, its granularity (per term function, or per place a term is used),
+    and what the helpers optimize (flops, or the largest intermediate).
+- **5.5, the earlier record.** Decision 4 left association out, on the library's own measurement that one
+  contraction per term is right on jax.
+- **5.6, decided** (2026-11-16, 03:32). Claude proposed that the engine never create an array with a default
+  dtype, every array it makes taking the result dtype of the operands of its sweep, and that mixed inputs
+  follow the usual promotion. The maintainer: "Hmm. This is ok. The one thing I'm thinking about is what dtype to
+  choose if the user supplies arrays of mixed dtypes, which is something the library is supposed to support. In
+  this case, I think we can use the absorbing rule where jax takes precedence over numpy and low precision takes
+  precedence over high prececision. The jax priority is the numpy vs jax dispatch rule. Lower precision taking
+  priority is because the output will not be more precise than its inputs."
+  - **So:** with mixed inputs, the result is jax if any input is jax, and has the lowest precision among the
+    floating inputs. This is the opposite of numpy's promotion, which goes to the highest. The engine creates no
+    array with a default dtype; constants are Python scalars.
+  - **The test:** for every output, on all four backends, float32 in gives float32 out, and a mix of float32
+    and float64 gives float32.
+  - Open detail: which inputs count (the cores, the sample, the data, the weight, the directions, the held
+    variables; not an integer index), and where the casting is done.
+- **5.4, how the library does it today** (asked by the maintainer at 03:32; read in `backend/probing.py`). Each
+  term of a step is its own `contract` call with its own string, and the string places `K` on the operand that
+  carries it. In `_sigma_step`, the dotted left sweep: `'WKCa,Caib,WCi->WKCb'` (`K` on the carry),
+  `'WCa,KCaib,WCi->WKCb'` with `len_C` given (`K` on the variation core, where the string alone cannot pin the
+  split), and `'WCa,Caib,WKCi->WKCb'` (`K` on the dotted leaf). Each reduces to the two-group result when `K` is
+  empty. So the library has no term functions: a term is a literal string at the place it is used.
 - **5.1, step functions and the basis** (the maintainer, 2026-11-16, 00:03 and 00:23). Asked whether a step
   function is named by letter and grade alone, with the basis following from the cores it is given, he first
   said: "I would prefer to have separate step functions. It is ok to have lots of small functions." Shown that
