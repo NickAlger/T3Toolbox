@@ -738,6 +738,41 @@ Notes:
 
 Notes:
 
+- **What "public" means for a variable, under discussion** (2026-11-15, 21:35). Not decided. It bears on 3.3,
+  6.3, 6.4, 6.5 and 3.4.
+  - **The maintainer's take.** "In the current codebase, there are handcoded functions that implement the
+    computation of every edge variable, in addition to functions that do higher level operations like probing T3s
+    and tangent vectors, or applying the transpose of the probing map. In the new codebase, the computation of
+    edge variables is done through the sample variable engine, where you ask for what variables you want and
+    supply what variables you have. In this sense, there is no need for individualized functions for computing
+    each edge variable, since the engine does it better and more generally. This is my take; how do you see it?"
+  - **Claude's answer: agreed, and it gives the word one meaning.** A variable is public when the engine accepts
+    its name, in `want` and as a held keyword. It is not public by having a function of its own. The public
+    functions of the sampling backend are then the engine and the operations of 6.6 that call it. The step and
+    term functions are the engine's private implementation.
+  - **Reasons, from the design and not from today's code.** (1) A function per variable makes the caller walk
+    the dependency graph, which is the engine's knowledge. (2) Functions composed by the caller cannot follow the
+    plan: each returns its variable for every sample, and the plan's memory bound comes from forming a chain
+    inside one chunk and dropping it. So the composable route and the fast route would be different routes.
+    (3) The count: today 46 of the 111 public names in `probing`, `sampling_derivatives`, `apply` and `entries`
+    are per-variable functions (`compute_*`, `assemble_*`, `build_*`), plain and jetted. (4) The library's razor
+    for the backend is met by the engine: a user of raw `.data` finds one function and asks it for `mu`.
+  - **What a name promises, proposed as the test for a name being public.** A meaning that does not depend on the
+    route the engine took (so a held value may come from anywhere); one shape; and a use outside: it is an output,
+    or it is read by an output and is worth holding from one call to the next. By this test the residual-seeded
+    tilde variables that `Kp` reads are public, and `eta_tilde` is not (only `g` reads it, once), which leaves the
+    engine free to form its two read rows only. The tilde variables seeded by `Jp` and the dot variables of `Kp`
+    stay internal, as in the review.
+  - **Costs and conditions.** The shape contract of each variable has no signature to sit on, because the return
+    is a tuple aligned with `want`: the table of variables in the docstring (6.4) becomes the contract and has to
+    be generated and tested. Asking for one variable must compile to the program a hand-written chain would give.
+    The engine has not been prototyped; only the step functions have.
+  - **What it moves to 3.4.** With no function per variable, a user cannot assemble a new quantity by hand. If
+    users may define kinds, the terms and steps are building blocks for the author of a kind, which is a second
+    meaning of public, for a second audience.
+  - **A consequence for 6.5, noted.** If `r` can be held, the transpose applied to any array of the type of `z`
+    is `want=('g',)` with that array held as `r`. A held variable is then an input with a meaning, and its
+    validity is the caller's.
 - **6.3.** The review kept the old kernels as public adapters and the new names as a second vocabulary. That was
   compatibility. With one vocabulary, the near miss between the new `xi_tilde` and today's `dxi_tilde` exists
   only during migration.

@@ -1108,3 +1108,14 @@ axes. How do we tell whether an axis is part of the batch, or a derivative order
   module-level function, as the scan-body principles require, and the script says which of its features are the
   library's pattern and which are the prototype's only. Its output is unchanged.
 
+
+## 51. What "public" means for a variable (2026-11-15, 21:35). Under discussion
+
+- **The maintainer's take.** Edge variables are computed through the engine, by asking for what is wanted and
+  supplying what is held, so there is no need for an individual function for each of them. He asked how Claude
+  sees it.
+- **Claude's answer.** Agreed. Public then means that the engine accepts the name, in `want` and as a held
+  keyword; the public functions are the engine and the operations of 6.6. A test for a name being public was
+  proposed (a route-independent meaning, one shape, a use outside), with its consequences for `eta_tilde`, for the
+  docstring table as the shape contract, and for 3.4 and 6.5. The engine itself has not been prototyped.
+- **Recorded** in the notes to section 6 of `TARGET_DECISIONS.md`. No row changes status.
