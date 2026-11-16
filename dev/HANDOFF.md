@@ -1,6 +1,7 @@
 # T3Toolbox — current handoff
 
-_Updated 2026-11-15, at the 2026.5.0 release._ The previous handoff (the store rename R1–R6, phase timing P1–P3, the
+_Updated 2026-11-15, at the 2026.5.0 release; "The next arc" updated the same evening, when the design work moved into
+`dev/graded_messages/`._ The previous handoff (the store rename R1–R6, phase timing P1–P3, the
 switch W1–W4, the glossary/docs pass, the hand fixes, and the 2026.4.0 arc's state blocks) is archived verbatim at
 `dev/archive/handoff_2026-11-15_pre-2026.5.0.md`; older ones are `handoff_2026-10-29_pre-2026.3.0.md`,
 `handoff_2026-08-21_optimization_layer.md`, `handoff_2026-08-20_pre-2026.1.0.md` and
@@ -27,19 +28,39 @@ The GitHub Release body is `release_notes_2026.5.0.md` (untracked). Records: `de
 
 ## The next arc
 
-**NEXT ARC AFTER THE 2026.5.0 TAG (Nick, 2026-11-15): the "graded messages" refactor of the whole sampling layer** — design
-handoff in `dev/graded_messages_handoff/` (untracked and to STAY untracked for now — Nick, 2026-11-15: he is still workshopping it with Claude online and will
-place an updated version there; do not commit or move it, and re-read it before relying on it): read its
-README.md, then DESIGN_AFTER_REVIEW.md (§10 open items), then REVIEW_DECISIONS.md. Major, BREAKING, intentionally so: one
-backend function `sampling_variables`, `SamplePlan`/`SampleScan` hooks, bond-indexed edge variables on d+1 bonds, jets as
-Taylor coefficients with reversed residual jets — SETTLED 2026-11-15 as USER-VISIBLE (API_IMPACT case 2, the redundant layer
-removed), overriding the design doc's "no user-visible convention has to change". Nick's ruling: design from FIRST
-PRINCIPLES; never preserve existing behaviour as a crutch; today's behaviour is one candidate, never the default; go slow.
-Order: tag 2026.5.0 -> settle the open items one topic per exchange (§10.1 second looks, F17, §10.3) with an agent re-running
-the handoff's checks against the tag and three scouts reading the library's own records -> writer/critic in-depth plan (two
-stages; token map + gates reusing the rename machinery; exact-equality test cleanup as a pre-slice; a performance gate on
-the Darcy ladders before any hand kernel is deleted) -> sample-edit batches -> implementer/reviewer slices. Open with Nick:
-stage 1 (plan wiring, no kernel change) as its own release?
+**THE ARC IN PROGRESS (Nick, 2026-11-15): the "graded messages" refactor of the whole sampling layer.** Major, BREAKING,
+intentionally so. Nick's ruling: design from FIRST PRINCIPLES; never preserve existing behaviour as a crutch; today's
+behaviour is one candidate, never the default; decide the TARGET before any sequencing; go slow.
+
+**Where it lives.** `dev/graded_messages/` (tracked since 2026-11-15, 18:04; it was the untracked handoff package
+`dev/graded_messages_handoff/` before, and any such copy on a machine is superseded). `main` holds the snapshot of that
+moment. **From then on the work, that folder included, continues on the branch `graded-messages`** (Nick, 2026-11-15:
+"future commits will be on a branch. The reason for using a branch is the fact that this refactor will be major and
+severely breaking"); it is merged when it is done. Look on the branch for the live state. No library code has been
+changed yet.
+
+**Read, in this order:** its `README.md`; `TARGET_DECISIONS.md`, the working agenda (its sections "Where this stands"
+and "What remains, in groups" are the state: 18 of 55 rows decided, 33 open in seven groups, being settled one at a time
+with Nick, group A "jets and the misfit" under way); `TYPE_CATALOG.md` (the types of every sampling variable, arrows on
+the edges, a type checker for every contraction); then `DESIGN_AFTER_REVIEW.md` and `REVIEW_DECISIONS.md` (the log).
+The older documents there carry status notes and are history.
+
+**Settled so far, in brief** (the rows of `TARGET_DECISIONS.md` are authoritative): one public backend function
+`sampling_variables`, with `SamplePlan`/`SampleScan` hooks and explicit per-variable functions; jets are Taylor
+coefficients everywhere, with derivative mode as one adapter at the outer level of fitting; order 0 is the same functions
+with the order axis absent (an optional axis `T`); the plain and the jetted sampling function are ONE function,
+`probe(ww, pp=None, order=0)`, and the fitting layer has three kinds with an `order` in place of six; data and residuals
+are of the type of the output, in forward order, and the tilde variables are stored turned (reversed) inside; the misfit's
+default weight is ones, with the weight shaped `(d,) + T`; preparation of data and weights is done by standalone
+functions with opt-in keywords. All of this is USER-VISIBLE and overrides the first proposal's "no user-visible
+convention has to change".
+
+**Planned after the target is settled** (from the handoff written at the release; not re-confirmed since): an agent
+re-running the folder's checks against the tag and scouts reading the library's own records -> a writer/critic in-depth
+plan (two stages; token map + gates reusing the rename machinery; exact-equality test cleanup as a pre-slice; a
+performance gate on the Darcy ladders before any hand kernel is deleted) -> sample-edit batches -> implementer/reviewer
+slices. Open with Nick: stage 1 (plan wiring, no kernel change) as its own release? The folder's check suites
+(`scripts/run_all.sh`, `scripts/review/run_review_checks.sh`) give their recorded output against 2026.5.0.
 
 ## Where we are
 
@@ -148,8 +169,8 @@ As run for 2026.5.0 (the archived prep's §5 has the exact commands):
   available): the suite, the docs build, the floor-env suite, the examples and any battery run one after another. This
   binds the session and every agent.
 - **Commits:** stage by name, never `-a`. Never stage `release_notes_*.md`, `*.npz`,
-  `dev/check_t3svd_retraction_second_order.py`, or `dev/graded_messages_handoff/` before the next arc commits it as
-  `dev/graded_messages/`. End each message with the `Co-Authored-By:` line of the model that did the work and the
+  `dev/check_t3svd_retraction_second_order.py`, or a leftover `dev/graded_messages_handoff/` (superseded by the tracked
+  `dev/graded_messages/`; commits to that folder go on the branch `graded-messages`). End each message with the `Co-Authored-By:` line of the model that did the work and the
   `Claude-Session:` line. Check `gh run list` after each push.
 
 ## Next up — the backlog (open since 2026.3.0)
