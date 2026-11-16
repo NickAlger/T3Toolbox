@@ -1641,3 +1641,18 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
 - **Not included:** the equalizing-weight keyword of 6.7, which he sees as a tunable of the Taylor problem and
   wants thought through separately.
 - **Counts.** 43 rows decided, 9 remain (6 open, 3 reopened). Groups A, B, C and F are finished.
+
+## 87. The oracle is a description and the data are an argument; no keyword for the equalizing weight (2026-11-16, 15:12 to 15:44)
+
+- **The maintainer's concern** (15:32), on seeing a prototype signature: "I am concerned about how the data is
+  bundled with other things at such a high level and so early in the program." At 15:38: "The API:
+  newton_cg(geom, oracle, batch, x0, regularizer=None, ...) is ideal if we can make it work without substantially
+  complicating the rest of the code or forcing unwanted performance tradeoffs."
+- **Decided** (15:44, "Confirmed both"):
+  1. The oracle is a hashable description with no arrays (for least squares: the kind and the order). The sample,
+     `y` and the weight are a batch of arrays, passed as an argument through the optimizers to the oracle's
+     operation. A minibatch and a validation set are batches given to the same oracle. There is no `Problem` at
+     the seam. Rows 8.1 to 8.4 are reworded; the trace found no performance lost.
+  2. The equalizing weight is an explicit call when the batch is made, with no keyword in the fitting functions
+     (6.7 amended). It is done once and no layer below can tell.
+- **Counts.** Unchanged: 43 rows decided, 9 remain.

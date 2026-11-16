@@ -53,8 +53,11 @@ The maintainer paused the session at 04:46 on 2026-11-16, to pick up the next da
 - **The Claude doc** is in step with this folder at this pause.
 - **Since the pause** (resumed on 2026-11-16 at 13:03): 8.3, the optimizers' contract, was decided in three parts
   (13:51, 14:07, 14:30), and 8.4 at 15:12, with derivative mode moved out of the fitting layer (2.2 and 2.3
-  amended). 43 rows are decided and 9 remain. The next question is 9.3; the equalizing-weight keyword of 6.7 is
-  under discussion.
+  amended). At 15:44 the oracle became a description with the data as an argument,
+  `newton_cg(geom, oracle, batch, x0, regularizer=None, ...)`, which rewords 8.1 to 8.4; and the equalizing
+  weight became an explicit call with no keyword (6.7 amended). 43 rows are decided and 9 remain. The next
+  question is 9.3. `DESIGN_AFTER_REVIEW.md` and `dev/HANDOFF.md` do not yet carry the decisions made since the
+  pause.
 
 ## Where this stood at the earlier pause (2026-11-15, 05:53)
 
@@ -123,7 +126,8 @@ maintainer's request; they decide nothing.
   of performance optimization hooks and defaults" (02:56).
 - **F. The fitting layer above.** Finished on 2026-11-16: at 04:46, 8.1, what `LocalModel` is; from 13:51 to
   14:30, 8.3, the optimizers' contract, in three parts; at 15:12, 8.4, what the display and the diagnostics
-  read, with derivative mode moved out of the fitting layer (2.2 and 2.3 amended).
+  read, with derivative mode moved out of the fitting layer (2.2 and 2.3 amended); at 15:44, the oracle as a
+  description with the data as an argument, which rewords 8.1 to 8.4.
 - **G. What defines correct.** 9.3 the reference when old behaviour is not it (open).
 
 **How the groups depend on each other.** A stands alone and continues the morning's work. B feeds C: 6.2 and 6.4
@@ -1119,7 +1123,7 @@ Notes:
 | 6.4 | Every variable of a kind's graph, at every grade, can be wanted and held. The table of variables (name, shape, what it reads, which arguments it needs) is written out in the docstring and the documentation, the engine declares its graph as data, and a test checks that the two agree exactly | Decided | 3.1 to 3.4 |
 | 6.5 | The engine trusts a held variable and checks only its shape, the order included. Whoever holds it vouches for it. The caller may give the engine whatever they want, modified variables included | Decided | |
 | 6.6 | The plain and the jetted sampling function are one function: `probe(ww, pp=None, order=0)`, returning `T + W + C + (Ni,)`. This holds for the frontend methods of the flagship classes and for the backend function behind each, which uses the engine | Decided | 2.6, 2.7 |
-| 6.7 | Preparing the data and creating weights is done by standalone functions that the user calls before the fitting functions. The fitting functions have opt-in keywords that call those functions. A keyword inside a fit does only preparation that changes the loss alone; anything that changes the unknowns or belongs to the problem stays standalone | Decided | 2.5 |
+| 6.7 | Preparing the data and creating weights is done by standalone functions that the user calls before fitting, when the batch is made. The fitting functions have no keyword for it: not for derivative data (2.3) and not for the equalizing weight (amended on 2026-11-16; opt-in keywords had been allowed). Should such a keyword be added later, it may do only preparation that changes the loss alone; anything that changes the unknowns or belongs to the problem stays standalone | Decided | 2.5 |
 
 Notes:
 
@@ -1342,6 +1346,8 @@ Notes:
   `T=(order+1)` is wrong at order 0. The form now in the prototype is a conditional written as Python, on the
   `order` line, with the return line using `T` like any stack letter:
   `order: int = 0,  # highest Taylor order.  T=(order+1,) if order else ()`. Approved at 04:26.
+- **6.7, amended on 2026-11-16 (15:12 and 15:44): the fitting functions have no preparation keywords; see the
+  note "The oracle is a description and the data are an argument" in section 8.**
 - **6.7, decided** (2026-11-15, 16:33 to 17:00). The maintainer's lean of 16:33, confirmed at 17:00 together with
   Claude's rule for what a keyword may do. The three classes of preparation are under 2.5. With the default of
   2.5 doing nothing, every such keyword is opt-in. Which standalone functions exist is part of 6.3.
@@ -1453,13 +1459,91 @@ By 1.1 this section is in scope.
 
 | # | Question | Status | Depends on |
 | --- | --- | --- | --- |
-| 8.1 | `LocalModel` is the geometry, the oracle and the regularizer put together at one frame, and the holder of the local information at that point. Its own `gn_quadratic` and `hvp` are built on the fused `Jp_norm_sq` and `JtJp`. `residual` and `jacobian(p)` stay on it, as optional outputs of an oracle. It stores only what the plan's `hold` keeps; the rest is reachable through `model.oracle`, `model.frame` and `model.held` | Decided | 1.1, 6.1, 8.2 |
-| 8.2 | The fitting layer's open extension point is a frozen record with one operation: at a frame, return the wanted ones of `f`, `g`, `JtJp`, `Jp_norm_sq` (required) and `Kp`, `Jp`, `r` (optional), the blocks before projection, in the engine's vocabulary. The built-in one is least squares, implemented by one call of `sampling_variables`. It is called an oracle (`Oracle`) | Decided | 3.4 |
-| 8.3 | The optimizers' contract. An optimizer touches a `Geometry`, an `Oracle`, a `Regularizer` and the `LocalModel` built from them; the oracle's one operation takes `want` and `held` and returns the values and `held`; a model is built once and never changes. A minibatch is an oracle, scaled so that it estimates the full one; the default draw keeps the drawn indices on it. The units of compilation are five phases (build, gradient, CG solve, trial, stochastic step), with the outer loop on the host; a compiled program's preconditions are checked on the host in safe mode. Which phases are compiled by default is left to 7.2 | Decided | 1.1, 8.1, 8.2, 7.2 |
-| 8.4 | The display and the diagnostics read from oracles. `r_block_sumsq` (at the model's frame) and `y_block_sumsq` (independent of the frame) are optional oracle outputs in the shape of the weight; nothing is reduced over modes or orders, in the display or in the stored record. A validation set is an oracle. The trust-region floor is the optional output `f_resolution`, and `eps |f|` without it. An oracle without block sums gets the header line and no table. Nothing is converted for the display | Decided | 3.7, 8.2 |
+| 8.1 | `LocalModel` is the geometry, the oracle, the batch and the regularizer put together at one frame, and the holder of the local information at that point. Its own `gn_quadratic` and `hvp` are built on the fused `Jp_norm_sq` and `JtJp`. `residual` and `jacobian(p)` stay on it, as optional outputs of an oracle. It stores only what the plan's `hold` keeps; the rest is reachable through `model.oracle`, `model.batch`, `model.frame` and `model.held` | Decided | 1.1, 6.1, 8.2 |
+| 8.2 | The fitting layer's open extension point is an oracle (`Oracle`): a frozen description with no arrays, and one operation. At a frame and for a batch it returns the wanted ones of `f`, `g`, `JtJp`, `Jp_norm_sq` (required) and `Kp`, `Jp`, `r` (optional), the blocks before projection, in the engine's vocabulary. The data are an argument: a batch of arrays. The built-in oracle is least squares: it holds the kind and the order, its batch is the sample, `y` and the weight, and its operation is one call of `sampling_variables` | Decided | 3.4 |
+| 8.3 | The optimizers' contract: `newton_cg(geom, oracle, batch, x0, regularizer=None, ...)`. An optimizer touches a `Geometry`, an `Oracle`, a `Regularizer`, a batch it never looks inside, and the `LocalModel` built from them; there is no `Problem` at the seam. The oracle's one operation takes the batch, `want` and `held` and returns the values and `held`; a model is built once and never changes. A minibatch is a batch, scaled so that the misfit on it estimates the full one; the default draw keeps the drawn indices in it. The units of compilation are five phases (build, gradient, CG solve, trial, stochastic step), with the outer loop on the host; a compiled program's preconditions are checked on the host in safe mode. Which phases are compiled by default is left to 7.2 | Decided | 1.1, 8.1, 8.2, 7.2 |
+| 8.4 | The display and the diagnostics read from the oracle and a batch. `r_block_sumsq` (at the model's frame) and `y_block_sumsq` (independent of the frame, computed once by the display) are optional oracle outputs in the shape of the weight; nothing is reduced over modes or orders, in the display or in the stored record. A validation set is a batch given to the same oracle. The trust-region floor is the optional output `f_resolution`, and `eps |f|` without it. An oracle without block sums gets the header line and no table. Nothing is converted for the display | Decided | 3.7, 8.2 |
 | 8.5 | Shared sample vectors: in the target or not? | Parked | |
 
 Notes:
+
+- **The oracle is a description and the data are an argument** (2026-11-16, 15:26 to 15:44). This rewords 8.1 to
+  8.4 and amends 6.7. **The notes that follow in this section were written before it:** where they say that the
+  oracle holds the sample, the data or the weight, that a minibatch or a validation set "is an oracle", or that
+  `Problem` bundles the geometry, the oracle and the regularizer, read them as reworded here.
+  - **How it arose.** Asked whether the equalizing weight should be a keyword, the maintainer asked for a
+    prototype signature (15:26): "Can you show me a prototype function signature for the newton_cg optimization
+    function? I am getting confused about what is getting passed in at the seam, vs what is created inside."
+    Claude showed the oracle made by the caller with the data in it, `Problem(geom, oracle, regularizer)`, and
+    `newton_cg(problem, x0, ...)`, and asked which shape the frontend should have. The maintainer (15:32): "I am
+    concerned about how the data is bundled with other things at such a high level and so early in the program."
+    Claude put the concern back as: the oracle binds a description (kind, order) and arrays (sample, data,
+    weight) into one object, so that new data force a new oracle, and it binds again what the engine takes as
+    arguments on purpose (3.6); and offered the split. The maintainer (15:38): "Yes, this is the concern. The API:
+    newton_cg(geom, oracle, batch, x0, regularizer=None, ...) is ideal if we can make it work without
+    substantially complicating the rest of the code or forcing unwanted performance tradeoffs. Can you trace
+    through the implications of oracle-as-description and data as argument, and see how that changes the plan?"
+    After the trace (15:44): "Confirmed both".
+  - **The split.** Every argument of the engine has one of three homes. Static: the kind and the order (and the
+    plan, if 7.3 puts it there) are the oracle, a hashable description with no arrays. Arrays of the data: the
+    sample, `y` and the weight are the batch, arrays only. Per call: the frame, the centers, `want`, the
+    directions and `held` are arguments of the operation.
+
+    ```python
+    newton_cg(geom, oracle, batch, x0, regularizer=None, ...)
+
+    values, held = oracle.evaluate(frame, batch, want, Vc=None, direction=None,
+                                   core_direction=None, held=None)
+    ```
+
+    The least-squares oracle is the engine with its static arguments fixed. This is today's split between
+    `kind` and `(sample, data)`, with the kind generalized to an oracle.
+  - **What changes in each decision.**
+
+    | Decision | As recorded before | With the split |
+    | --- | --- | --- |
+    | 8.2, the oracle | holds kind, order, sample, data, weight | holds the kind and the order only |
+    | 8.1, the model | reaches the data as `model.oracle.sample` | holds the batch as a leaf: `model.batch` |
+    | 8.3, the contract | an optimizer touches geometry, oracle, regularizer, model | the same, and a batch it never looks inside |
+    | 8.3, `Problem` | bundles geometry, oracle, regularizer | not at the seam; `local_model(geom, oracle, batch, x, ...)` is a function |
+    | 8.3, a minibatch | "is an oracle" | is a batch; `draw(rng)` returns one |
+    | 8.3, the scale and the drawn indices | fields of the minibatch oracle | fields of the drawn batch |
+    | 8.3, `n_measurements` and `take` | methods of the least-squares oracle | the same, taking the batch: `take(batch, indices)` |
+    | 8.3, the compile key | the statics and the shapes | the oracle is all static, the batch is all leaves |
+    | 8.4, a validation set | "is an oracle" | is a batch: `make_newton_display(oracle, batch, val_batch=None)` |
+    | 8.4, `y_block_sumsq` | computed when the oracle is made | computed once by the display, from the batch |
+    | 8.4, `f_resolution` | an optional output | the same; the norm of `y` comes out of the build pass, which reads `y` anyway |
+
+    Unchanged: `want` and `held`, a model that never changes, the trial policies, the five phases, the
+    safe-mode rule, the traceable `take`.
+  - **Performance, as traced.** Nothing the bound oracle could cache is lost: packing and padding the sample is
+    done once, when the batch is made, by the helpers of 5.2; arrays move to the device once at the optimizer's
+    entry, as today; the reductions over the data ride in a pass that reads `y` anyway or are done once by the
+    display; trial models hold a reference to the same batch; and sharding is helped, the arrays being
+    top-level arguments of every compiled program. One cost: the display's one pass over `y` for the data's
+    block sums. Traced on paper, not run.
+  - **What it complicates.** One more argument on the optimizers, the operation, `local_model`, the display and
+    the draw helpers. The batch needs a stated form for least squares: `sample`, `y`, `weight`, and for a drawn
+    batch `scale` and `indices`; suggested, a small record of arrays with defaults, so that the sample and `y`
+    alone are enough. The plan and the batch must agree (the plan names axes of the sample stack, the user
+    reshapes the arrays); a mismatch is a structural error at the first call; for the performance discussion.
+    `mc_sgd`'s argument `batch`, the size, becomes `batch_size`. A user's oracle with no data of its own takes
+    `None` as its batch.
+  - **Settled on the way.** Weights that change every iteration need nothing: pass a new batch. The oracle has
+    no arrays, so one object serves the frontend and the backend, and the frontend's signature is the one above.
+    The equalizing weight has no keyword (next sub-bullet).
+  - **The equalizing weight: an explicit call, no keyword** (amends 6.7; the second thing confirmed at 15:44).
+    The maintainer had asked (15:12) whether equalizing is done once at the outset or causes branching deeper.
+    Claude's answer (15:20): once; the equalizing weight is a function of the data alone, its result is an
+    ordinary weight, and no layer below can tell it happened; unlike derivative mode it transforms nothing, so
+    nothing is in another form. With the split there is no place where an oracle is made with the data in hand,
+    so a keyword would have to sit on every optimizer. Decided: the user writes the weight when the batch is
+    made, `weight = filtered_inverse(block_norms(kind, order, y))` (placeholder names), and "no weight means
+    ones" holds everywhere. With derivative data out as well (2.3), none of the preparation keywords that were
+    discussed remains in the fitting functions; the rule of 6.7 for what such a keyword may do stands for any
+    later one, such as in the `fit(...)` facade.
+  - **Open details:** the name and the fields of the batch record; whether a record of the three static things
+    remains inside the library; the name `batch` beside `batch_size`.
 
 - **8.1, decided** (2026-11-16, 04:46). Asked for the name and whether he confirmed the revised proposal as a
   whole, the maintainer: "1. Go with Jp_norm_sq. 2. confirmed."
