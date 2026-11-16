@@ -71,7 +71,7 @@ def main(repo):
     R = [rn((rR[i], nD[i], rR[i + 1])) for i in range(d)]      # R[i]: (rR_i, nD_i, rR_(i+1))
     V = [rn((nU[i], Ns[i])) for i in range(d)]                 # the direction at the frame: (V, H)
     H = [rn((rL[i], nD[i], rR[i + 1])) for i in range(d)]
-    B_dot, G_dot = [rn(b.shape) for b in D], [rn(g.shape) for g in L]     # a raw core direction at (D, L)
+    D_dot, L_dot = [rn(b.shape) for b in D], [rn(g.shape) for g in L]     # a raw core direction at (D, L)
     frame = (D, U, L, R)
     ww, pp = [rn((W, N)) for N in Ns], [rn((W, N)) for N in Ns]
     flat = lambda blocks: np.concatenate([np.ravel(np.asarray(b)) for b in blocks])
@@ -140,35 +140,35 @@ def main(repo):
         xi_tilde, mu_tilde, nu_tilde, nu_L_tilde, eta_tilde, eta_D_tilde, V_tilde, H_tilde = tilde_family(w_tilde)
         JtJp = tilde_family([J.seed_jet(c) for c in weigh([J.derivatives(a) for a in Jp])])[6:]
 
-        # ---- dot, the raw form: the direction is (B_dot, G_dot) at the base point (D, L)
-        xi_dot = [xi_term(B_dot[i], w[i]) for i in range(d)]
+        # ---- dot, the raw form: the direction is (D_dot, L_dot) at the base point (D, L)
+        xi_dot = [xi_term(D_dot[i], w[i]) for i in range(d)]
         mu_dot, raw_nu_L_dot = [zero(1)], [None] * d + [zero(1)]
         for i in range(d):
-            mu_dot.append(mu_term(mu_dot[i], L[i], xi[i]) + mu_term(mu[i], G_dot[i], xi[i])
+            mu_dot.append(mu_term(mu_dot[i], L[i], xi[i]) + mu_term(mu[i], L_dot[i], xi[i])
                           + mu_term(mu[i], L[i], xi_dot[i]))
         for i in reversed(range(d)):
-            raw_nu_L_dot[i] = (nu_term(L[i], xi[i], raw_nu_L_dot[i + 1]) + nu_term(G_dot[i], xi[i], nu_L[i + 1])
+            raw_nu_L_dot[i] = (nu_term(L[i], xi[i], raw_nu_L_dot[i + 1]) + nu_term(L_dot[i], xi[i], nu_L[i + 1])
                                + nu_term(L[i], xi_dot[i], nu_L[i + 1]))
-        raw_eta_D_dot = [eta_term(mu_dot[i], L[i], nu_L[i + 1]) + eta_term(mu[i], G_dot[i], nu_L[i + 1])
+        raw_eta_D_dot = [eta_term(mu_dot[i], L[i], nu_L[i + 1]) + eta_term(mu[i], L_dot[i], nu_L[i + 1])
                          + eta_term(mu[i], L[i], raw_nu_L_dot[i + 1]) for i in range(d)]
 
         # ---- tilde-dot: both, at the base point, raw form
-        xi_tilde_dot = [xi_term(B_dot[i], w_tilde[i]) for i in range(d)]
+        xi_tilde_dot = [xi_term(D_dot[i], w_tilde[i]) for i in range(d)]
         mu_tilde_dot, nu_L_tilde_dot = [zero(1)], [None] * d + [zero(1)]
         for i in range(d):
             mu_tilde_dot.append(
                 mu_term(mu_tilde_dot[i], L[i], xi[i]) + mu_term(mu_dot[i], L[i], xi_tilde[i])
                 + mu_term(mu_tilde[i], L[i], xi_dot[i]) + mu_term(mu[i], L[i], xi_tilde_dot[i])
-                + mu_term(mu_tilde[i], G_dot[i], xi[i]) + mu_term(mu[i], G_dot[i], xi_tilde[i]))
+                + mu_term(mu_tilde[i], L_dot[i], xi[i]) + mu_term(mu[i], L_dot[i], xi_tilde[i]))
         for i in reversed(range(d)):
             nu_L_tilde_dot[i] = (
                 nu_term(L[i], xi[i], nu_L_tilde_dot[i + 1]) + nu_term(L[i], xi_tilde[i], raw_nu_L_dot[i + 1])
                 + nu_term(L[i], xi_dot[i], nu_L_tilde[i + 1]) + nu_term(L[i], xi_tilde_dot[i], nu_L[i + 1])
-                + nu_term(G_dot[i], xi[i], nu_L_tilde[i + 1]) + nu_term(G_dot[i], xi_tilde[i], nu_L[i + 1]))
+                + nu_term(L_dot[i], xi[i], nu_L_tilde[i + 1]) + nu_term(L_dot[i], xi_tilde[i], nu_L[i + 1]))
         eta_D_tilde_dot = [
             eta_term(mu_tilde_dot[i], L[i], nu_L[i + 1]) + eta_term(mu_dot[i], L[i], nu_L_tilde[i + 1])
             + eta_term(mu_tilde[i], L[i], raw_nu_L_dot[i + 1]) + eta_term(mu[i], L[i], nu_L_tilde_dot[i + 1])
-            + eta_term(mu_tilde[i], G_dot[i], nu_L[i + 1]) + eta_term(mu[i], G_dot[i], nu_L_tilde[i + 1])
+            + eta_term(mu_tilde[i], L_dot[i], nu_L[i + 1]) + eta_term(mu[i], L_dot[i], nu_L_tilde[i + 1])
             for i in range(d)]
         V_tilde_dot = top([V_term(eta_D_tilde_dot[i], w[i]) + V_term(raw_eta_D_dot[i], w_tilde[i]) for i in range(d)])
         H_tilde_dot = top([
@@ -185,7 +185,7 @@ def main(repo):
         g_ref = kind.transpose(r_ref, sample, frame, sweep)
         Jp_ref = kind.forward((V, H), sample, frame, sweep)
         JtJp_ref = kind.transpose(Jp_ref, sample, frame, sweep)
-        Kp_ref = kind.corewise_hessian((B_dot, G_dot), r_ref, sample, frame, sweep, (D, L))
+        Kp_ref = kind.corewise_hessian((D_dot, L_dot), r_ref, sample, frame, sweep, (D, L))
         errs = dict(z=err([J.derivatives(a) for a in z], z_ref),
                     g=err(V_tilde + H_tilde, list(g_ref[0]) + list(g_ref[1])),
                     Jp=err([J.derivatives(a) for a in Jp], Jp_ref),
@@ -208,7 +208,7 @@ def main(repo):
         # the frame's form of a direction at site j: cores before it are L, cores after it are R
         frame_H = lambda j: L[:j] + [H[j]] + R[j + 1:]                          # H at site j, over D
         frame_U = lambda j: L[:j] + [U[j]] + R[j + 1:]                          # U at site j, over V
-        raw_G = lambda j: put(L, j, G_dot[j])                                   # the raw form: every other core is L
+        raw_tt = lambda j: put(L, j, L_dot[j])                                   # the raw form: every other core is L
 
         def over_sites(f, idx, tt_of, leaves_of, which):                        # sum over the sites `which(i)`
             return [sum(f(tt_of(j), leaves_of(j), i, P, W) for j in which(i)) for i in idx]
@@ -224,13 +224,13 @@ def main(repo):
         check('eta_D_dot (frame form)', add([over_sites(trunk, sites, frame_H, lambda j: xi, lambda i: range(d)),
                                              over_sites(trunk, sites, frame_U, lambda j: put(xi, j, xi_U_dot[j]), ne)]),
               eta_D_dot)
-        check('mu_dot', add([over_sites(left_side, bonds_l, raw_G, lambda j: xi, lt),
+        check('mu_dot', add([over_sites(left_side, bonds_l, raw_tt, lambda j: xi, lt),
                              over_sites(left_side, bonds_l, lambda j: L, lambda j: put(xi, j, xi_dot[j]), lt)]),
               [mu_dot[i] for i in bonds_l])
-        check('nu_L_dot (raw form)', add([over_sites(right_side, bonds_r, raw_G, lambda j: xi, ge),
+        check('nu_L_dot (raw form)', add([over_sites(right_side, bonds_r, raw_tt, lambda j: xi, ge),
                                           over_sites(right_side, bonds_r, lambda j: L, lambda j: put(xi, j, xi_dot[j]), ge)]),
               [raw_nu_L_dot[i] for i in bonds_r])
-        check('eta_D_dot (raw form)', add([over_sites(trunk, sites, raw_G, lambda j: xi, lambda i: range(d)),
+        check('eta_D_dot (raw form)', add([over_sites(trunk, sites, raw_tt, lambda j: xi, lambda i: range(d)),
                                            over_sites(trunk, sites, lambda j: L, lambda j: put(xi, j, xi_dot[j]), ne)]),
               raw_eta_D_dot)
 
@@ -247,11 +247,11 @@ def main(repo):
             total = 0.0
             for j in js:
                 for k in ks:
-                    total = total + f(raw_G(j), seeded(k), i, P, W)                         # G_dot at j, seed at k
+                    total = total + f(raw_tt(j), seeded(k), i, P, W)                         # L_dot at j, seed at k
                     if k == j:
-                        total = total + f(L, put(xi, j, xi_tilde_dot[j]), i, P, W)          # B_dot at j under the seed
+                        total = total + f(L, put(xi, j, xi_tilde_dot[j]), i, P, W)          # D_dot at j under the seed
                     else:
-                        total = total + f(L, put(seeded(k), j, xi_dot[j]), i, P, W)         # B_dot at j, seed at k
+                        total = total + f(L, put(seeded(k), j, xi_dot[j]), i, P, W)         # D_dot at j, seed at k
             return total
 
         check('mu_tilde_dot', [both(left_side, i, lt(i), lt(i)) for i in bonds_l], [mu_tilde_dot[i] for i in bonds_l])
@@ -261,7 +261,7 @@ def main(repo):
             total = 0.0
             for k in ne(i):
                 for j in range(d):
-                    total = total + trunk(raw_G(j), seeded(k), i, P, W)
+                    total = total + trunk(raw_tt(j), seeded(k), i, P, W)
                     if j == i:
                         continue
                     if k == j:

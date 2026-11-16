@@ -126,7 +126,7 @@ def module(spec):
             out.append("{core(%d, %d, %d, %d, 'ghost')}" % (x, YT, BW, BH))
         else:
             out.append("{core(%d, %d, %d, %d, '%s')}" % (x, YT, BW, BH, s.get('kind', 'plain')))
-            if s.get('tt_mark'):                       # a dotted TT core: the raw direction G_dot
+            if s.get('tt_mark'):                       # a dotted TT core: the raw direction L_dot
                 out.append(core_label('tt-%d' % i, x, YT + 5, s['tt'], s['tt_mark']))
             else:
                 out.append(sub_text('tt-%d' % i, x, YT + 5, s['tt'][0], s['tt'][1:], 14))
@@ -135,7 +135,7 @@ def module(spec):
             if s.get('tt') is not None:
                 out.append("{wire(%d, %d, %d, %d)}" % (x, YT + BH // 2, x, YD - DH // 2))
             out.append("{core(%d, %d, %d, %d, '%s')}" % (x, YD, DW, DH, 'hot' if hot_d else 'plain'))
-            if s.get('leaf_mark'):                     # a dotted Tucker core: the raw direction B_dot
+            if s.get('leaf_mark'):                     # a dotted Tucker core: the raw direction D_dot
                 out.append(core_label('tucker-%d' % i, x, YD + 5, dl, s['leaf_mark']))
             else:
                 out.append(sub_text('tucker-%d' % i, x, YD + 5, dl[0], dl[1:], 14))
@@ -249,7 +249,7 @@ SPECS = [
 
 # ---- the other fifteen variables, and the outputs and blocks (added 2026-11-16, from SAMPLE_VARIABLES.md alone) ----
 # Devices added for these rows (none changes the seven rows above):
-#   tt_mark / leaf_mark = 'dot'   a dot over a core's letter: the raw direction G_dot or B_dot (a hot core, like H and V)
+#   tt_mark / leaf_mark = 'dot'   a dot over a core's letter: the raw direction L_dot or D_dot (a hot core, like H and V)
 #   ghost_input                   a dashed circle where the input of an open mode edge would be (z, Jp)
 #   tt_hole / hole_leaf           a core taken out (a block): a dashed outline in the accent colour, named by the block;
 #                                 'opens' then lists the block's legs, every arrow pointing into the hole
@@ -283,8 +283,8 @@ def open_mode(i):                      # mode edge i, top-to-bottom (an output)
 
 plain = lambda tt, i: dict(tt='%s%d' % (tt, i), leaf=leaf(i))                       # a TT core over its D core and input
 seeded = lambda tt, i: dict(tt='%s%d' % (tt, i), leaf=leaf(i, hot_w=True))          # the same with the seed as input
-g_dot = lambda i: dict(tt='G%d' % i, kind='hot', tt_mark='dot', leaf=leaf(i))       # raw direction G_dot over D
-b_dot = lambda i, hot_w=False: dict(tt='L%d' % i, leaf=leaf(i, hot_w=hot_w, hot_d=True, d='B'), leaf_mark='dot')   # L over B_dot
+l_dot = lambda i: dict(tt='L%d' % i, kind='hot', tt_mark='dot', leaf=leaf(i))       # raw direction L_dot over D
+d_dot = lambda i, hot_w=False: dict(tt='L%d' % i, leaf=leaf(i, hot_w=hot_w, hot_d=True, d='D'), leaf_mark='dot')   # L over D_dot
 v_dir = lambda i: dict(tt='U%d' % i, leaf=leaf(i, hot_d=True, d='V'))               # frame direction: U over V
 ALL_BONDS = [(0, 1), (1, 2), (2, 3), (3, 4)]
 
@@ -292,21 +292,21 @@ SPECS += [
     # -- the left of a bond --
     dict(slug='mu-dot', name='mu_dot', side='left of a bond', basis='L basis',
          title='mu_dot[3] is the left of bond 3 with the raw direction at one site, through L cores',
-         sites={0: plain('L', 0), 1: b_dot(1), 2: plain('L', 2)}, bonds=[(0, 1), (1, 2)],
+         sites={0: plain('L', 0), 1: d_dot(1), 2: plain('L', 2)}, bonds=[(0, 1), (1, 2)],
          open_label=('μ', '3', 'dot'), **open_left_to_right(3),
          **notes_rows('One term of a sum over where the direction sits: site 0,',
-                      '1 or 2, as G_dot over D, or as L with B_dot in place of D.',
+                      '1 or 2, as L_dot over D, or as L with D_dot in place of D.',
                       'Raw form only: every other TT core is L.',
                       'The same side in the R basis, frame form: mu_R_dot.'),
          shape='T + W + K + C + (rL3,)', shape_notes=['rL3: bond 3, L basis', 'a jet', 'K: one per direction']),
     dict(slug='mu-tilde-dot', name='mu_tilde_dot', side='left of a bond', basis='L basis',
          title='mu_tilde_dot[3] is the left of bond 3 with the raw direction at one site and the seed',
-         sites={0: seeded('L', 0), 1: g_dot(1), 2: plain('L', 2)}, bonds=[(0, 1), (1, 2)],
+         sites={0: seeded('L', 0), 1: l_dot(1), 2: plain('L', 2)}, bonds=[(0, 1), (1, 2)],
          open_label=('μ', '3', 'tilde_dot'), **open_left_to_right(3),
          **notes_rows('One term of a sum over where the direction sits (site 0,',
                       '1 or 2) and over which input is the seed (0, 1 or 2).',
-                      'Both may be at one site. Raw form: G_dot over D, or L',
-                      'with B_dot in place of D; every other TT core is L.'),
+                      'Both may be at one site. Raw form: L_dot over D, or L',
+                      'with D_dot in place of D; every other TT core is L.'),
          shape='T + W + K + C + (rL3,)', shape_notes=['rL3: bond 3, L basis', 'dual jet, order turned', 'K: one per direction']),
     # -- the right of a bond --
     dict(slug='nu-tilde', name='nu_tilde', side='right of a bond', basis='R basis',
@@ -337,19 +337,19 @@ SPECS += [
          shape='T + W + C + (rL2,)', shape_notes=['rL2: bond 2, L basis', 'dual jet, order turned']),
     dict(slug='nu-l-tilde-dot', name='nu_L_tilde_dot', side='right of a bond', basis='L basis',
          title='nu_L_tilde_dot[2] is the right of bond 2 with the raw direction at one site and the seed',
-         sites={2: b_dot(2), 3: seeded('L', 3), 4: plain('L', 4)}, bonds=[(2, 3), (3, 4)],
+         sites={2: d_dot(2), 3: seeded('L', 3), 4: plain('L', 4)}, bonds=[(2, 3), (3, 4)],
          open_label=('ν', 'L,2', 'tilde_dot'), **open_right_to_left(2),
          **notes_rows('One term of a sum over where the direction sits (site 2,',
                       '3 or 4) and over which input is the seed (2, 3 or 4).',
-                      'Both may be at one site. Raw form: G_dot over D, or L',
-                      'with B_dot in place of D; every other TT core is L.'),
+                      'Both may be at one site. Raw form: L_dot over D, or L',
+                      'with D_dot in place of D; every other TT core is L.'),
          shape='T + W + K + C + (rL2,)', shape_notes=['rL2: bond 2, L basis', 'dual jet, order turned', 'K: one per direction']),
     # -- the leaf below a Tucker edge --
     dict(slug='xi-dot', name='xi_dot', side='leaf below a Tucker edge', basis='D basis',
-         title='xi_dot[2] is the leaf below Tucker edge 2 with the raw direction B_dot in place of D',
-         sites={2: dict(tt=None, leaf=leaf(2, hot_d=True, d='B'), leaf_mark='dot')}, bonds=[],
+         title='xi_dot[2] is the leaf below Tucker edge 2 with the raw direction D_dot in place of D',
+         sites={2: dict(tt=None, leaf=leaf(2, hot_d=True, d='D'), leaf_mark='dot')}, bonds=[],
          open_label=('ξ', '2', 'dot'), **open_bottom_to_top(2),
-         **notes_rows('Raw form only: B_dot has the shape of D.',
+         **notes_rows('Raw form only: D_dot has the shape of D.',
                       'The same side in the U basis, frame form: xi_U_dot.'),
          shape='A + W + K + C + (nD2,)', shape_notes=['nD2: Tucker edge 2 in D', 'affine: A has two slots', 'K: one per direction']),
     dict(slug='xi-tilde', name='xi_tilde', side='leaf below a Tucker edge', basis='D basis',
@@ -360,8 +360,8 @@ SPECS += [
                       'residual-like vector of mode 2 (the ztilde of the library).'),
          shape='T + W + C + (nD2,)', shape_notes=['nD2: Tucker edge 2 in D', 'dual jet, order turned', 'not affine: T, not A']),
     dict(slug='xi-tilde-dot', name='xi_tilde_dot', side='leaf below a Tucker edge', basis='D basis',
-         title='xi_tilde_dot[2] is the raw direction B_dot applied to the seed',
-         sites={2: dict(tt=None, leaf=leaf(2, hot_w=True, hot_d=True, d='B'), leaf_mark='dot')}, bonds=[],
+         title='xi_tilde_dot[2] is the raw direction D_dot applied to the seed',
+         sites={2: dict(tt=None, leaf=leaf(2, hot_w=True, hot_d=True, d='D'), leaf_mark='dot')}, bonds=[],
          open_label=('ξ', '2', 'tilde_dot'), **open_bottom_to_top(2),
          **notes_rows('A single term. Raw form only.'),
          shape='T + W + K + C + (nD2,)', shape_notes=['nD2: Tucker edge 2 in D', 'dual jet, order turned', 'K: one per direction']),
@@ -407,10 +407,10 @@ SPECS += [
          shape='T + W + C + (nD2,)', shape_notes=['nD2: Tucker edge 2 in D', 'dual jet, order turned']),
     dict(slug='eta-d-tilde-dot', name='eta_D_tilde_dot', side='trunk above a Tucker edge', basis='D basis',
          title='eta_D_tilde_dot[2] is the trunk above Tucker edge 2 with the raw direction and the seed',
-         sites={0: seeded('L', 0), 1: plain('L', 1), 2: dict(tt='L2', ghost_leaf=True), 3: b_dot(3), 4: plain('L', 4)},
+         sites={0: seeded('L', 0), 1: plain('L', 1), 2: dict(tt='L2', ghost_leaf=True), 3: d_dot(3), 4: plain('L', 4)},
          bonds=ALL_BONDS, open_label=('η', 'D,2', 'tilde_dot'), **open_top_to_bottom(2),
          **notes_rows('One term of a sum over where the direction sits (any site;',
-                      'at site 2 only as G_dot2) and over which input is the',
+                      'at site 2 only as L_dot2) and over which input is the',
                       'seed (any but input 2). Both may be at one site.',
                       'Raw form only: every other TT core is L.'),
          shape='T + W + K + C + (nD2,)', shape_notes=['nD2: Tucker edge 2 in D', 'dual jet, order turned', 'K: one per direction']),
@@ -455,11 +455,11 @@ SPECS += [
          shape='C + (rL2, nD2, rR3)', shape_notes=['the shape of H[2]', 'no T, no W', 'JtJp: K in front']),
     dict(slug='v-tilde-dot', name='V_tilde_dot', side='block, shape of D', basis='legs: D basis, mode',
          title='V_tilde_dot[2] is the network at the base point with D2 taken out, the direction and the seed',
-         sites={0: plain('L', 0), 1: g_dot(1), 2: dict(tt='L2', hole_leaf=('V2', 'tilde_dot', 'w2', False)),
+         sites={0: plain('L', 0), 1: l_dot(1), 2: dict(tt='L2', hole_leaf=('V2', 'tilde_dot', 'w2', False)),
                 3: seeded('L', 3), 4: plain('L', 4)},
          bonds=ALL_BONDS, opens=[(XS[2], YT + BH // 2, XS[2], YD - HOLE_DH // 2), (XS[2], YW - RW, XS[2], YD + HOLE_DH // 2)],
          **notes_rows('One term of a sum over where the raw direction sits (any',
-                      'site; at site 2 only as G_dot2) and over which input is the',
+                      'site; at site 2 only as L_dot2) and over which input is the',
                       'seed (any, input 2 too). Every other TT core is L.',
                       'Summed over the samples; the top coefficient.',
                       'Legs: Tucker edge 2 in the D basis, and mode edge 2.'),
@@ -467,11 +467,11 @@ SPECS += [
     dict(slug='h-tilde-dot', name='H_tilde_dot', side='block, shape of L', basis='legs: L, D, L bases',
          title='H_tilde_dot[2] is the network at the base point with L2 taken out, the direction and the seed',
          sites={0: plain('L', 0), 1: plain('L', 1), 2: dict(tt_hole=('H2', 'tilde_dot'), leaf=leaf(2, hot_w=True)),
-                3: plain('L', 3), 4: g_dot(4)},
+                3: plain('L', 3), 4: l_dot(4)},
          bonds=[(0, 1), (3, 4)],
          opens=[(right_of(1), YT, left_of(2), YT), (left_of(3), YT, right_of(2), YT), (XS[2], YD - DH // 2, XS[2], YT + BH // 2)],
          **notes_rows('One term of a sum over where the raw direction sits (any',
-                      'site; at site 2 only as B_dot2) and over which input is the',
+                      'site; at site 2 only as D_dot2) and over which input is the',
                       'seed (any). Every other TT core is L.',
                       'Summed over the samples; the top coefficient.',
                       'Legs: bond 2 in L, Tucker edge 2 in D, bond 3 in L.'),

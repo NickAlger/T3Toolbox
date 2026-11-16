@@ -42,8 +42,9 @@ A Tucker tensor train with `d` sites, numbered `0` to `d-1`, sampled at input ve
 - **A direction at the frame** is `(V, H)`. `V[i]` has the legs of a Tucker core with the Tucker edge in the `U`
   basis, `(nU_i, N_i)`: it sits under `U[i]`, in place of `D[i]`. `H[i]` has the legs of a TT core,
   `(rL_i, nD_i, rR_(i+1))`: it sits over `D[i]`, with `L` cores to its left and `R` cores to its right.
-- **A raw core direction at the base point** is `(B_dot, G_dot)`: `B_dot[i]` has the shape of `D[i]` and
-  `G_dot[i]` the shape of `L[i]`. (The name of this argument is not decided.)
+- **A raw core direction at the base point** is `(D_dot, L_dot)`: `D_dot[i]` has the shape of `D[i]` and
+  `L_dot[i]` the shape of `L[i]`. It is the direction the cores of the base point move in. On the corewise frame
+  `(B, G, G, G)` the same thing is `(B_dot, G_dot)`.
 - **The corewise frame** `(B, G, G, G)` has one basis on each edge. See section 9.
 
 **Two bases on each cut edge.** A manifold frame writes each bond in two bases, the `L` basis (size `rL_i`) and
@@ -127,7 +128,7 @@ Each variable is defined twice: by a recurrence, and as a subnetwork. The check 
 **Step functions.** One step of a recurrence is a step function. A step function is named by letter and grade
 only, and serves both bases: the basis of what it returns follows from the cores it is given. `nu_step` given `R`
 cores returns `nu`, and given `L` cores returns `nu_L`. `mu_dot_step` given `(R, U, H)` returns `mu_R_dot`, and
-given `(L, L, G_dot)` returns `mu_dot`. The maintainer (2026-11-16, 00:23): "There is no need for extra step
+given `(L, L, L_dot)` returns `mu_dot`. The maintainer (2026-11-16, 00:23): "There is no need for extra step
 functions if they literally do the exact same things with different arguments."
 
 ### 5.1 Plain
@@ -168,18 +169,18 @@ the direction ends in the `R` basis (`mu_R_dot`), and the right of a bond that c
 basis (`nu_L_dot`). In `eta_D_dot` the open Tucker leg belongs to `R[i]`, `H[i]` or `L[i]`, all of which carry
 the `D` basis there. In `xi_U_dot` the open leg is that of `V`, which is in the `U` basis.
 
-**The raw form: the direction is `(B_dot, G_dot)` at the base point.** At the site where it sits, the direction
-is either `G_dot` over the `D` core, or `L` over `B_dot` in place of the `D` core. Every other TT core is an `L`
+**The raw form: the direction is `(D_dot, L_dot)` at the base point.** At the site where it sits, the direction
+is either `L_dot` over the `D` core, or `L` over `D_dot` in place of the `D` core. Every other TT core is an `L`
 core.
 
 | Variable | Recurrence | As a subnetwork |
 | --- | --- | --- |
-| `xi_dot[i]` | `xi_term(B_dot[i], w[i])` | `B_dot[i]` applied to the input `w[i]` |
-| `mu_dot[i+1]` | `mu_term(mu_dot[i], L[i], xi[i]) + mu_term(mu[i], G_dot[i], xi[i]) + mu_term(mu[i], L[i], xi_dot[i])`, from `0` | the left of bond `i+1` with the direction at one of the sites `0 .. i` |
-| `nu_L_dot[i]` | `nu_term(L[i], xi[i], nu_L_dot[i+1]) + nu_term(G_dot[i], xi[i], nu_L[i+1]) + nu_term(L[i], xi_dot[i], nu_L[i+1])`, from `0` | the right of bond `i` with the direction at one of the sites `i .. d-1` |
-| `eta_D_dot[i]` | `eta_term(mu_dot[i], L[i], nu_L[i+1]) + eta_term(mu[i], G_dot[i], nu_L[i+1]) + eta_term(mu[i], L[i], nu_L_dot[i+1])` | the trunk above Tucker edge `i` with the direction at one site. At site `i` itself it can only be `G_dot[i]` |
+| `xi_dot[i]` | `xi_term(D_dot[i], w[i])` | `D_dot[i]` applied to the input `w[i]` |
+| `mu_dot[i+1]` | `mu_term(mu_dot[i], L[i], xi[i]) + mu_term(mu[i], L_dot[i], xi[i]) + mu_term(mu[i], L[i], xi_dot[i])`, from `0` | the left of bond `i+1` with the direction at one of the sites `0 .. i` |
+| `nu_L_dot[i]` | `nu_term(L[i], xi[i], nu_L_dot[i+1]) + nu_term(L_dot[i], xi[i], nu_L[i+1]) + nu_term(L[i], xi_dot[i], nu_L[i+1])`, from `0` | the right of bond `i` with the direction at one of the sites `i .. d-1` |
+| `eta_D_dot[i]` | `eta_term(mu_dot[i], L[i], nu_L[i+1]) + eta_term(mu[i], L_dot[i], nu_L[i+1]) + eta_term(mu[i], L[i], nu_L_dot[i+1])` | the trunk above Tucker edge `i` with the direction at one site. At site `i` itself it can only be `L_dot[i]` |
 
-**One dot.** `nu_L_dot` and `eta_D_dot` appear in both tables. They are one variable: when `(B_dot, G_dot)` is
+**One dot.** `nu_L_dot` and `eta_D_dot` appear in both tables. They are one variable: when `(D_dot, L_dot)` is
 the lift of `(V, H)`, with no damping, the two forms give the same arrays (`scripts/review/subtree_gauge_check.py`).
 The other four are one side in two bases: `mu_dot` and `mu_R_dot` are the left of a bond with the direction in
 it, in the `L` and in the `R` basis; `xi_dot` and `xi_U_dot` are the leaf with the direction in it, in the `D`
@@ -221,15 +222,15 @@ the name `mu_tilde` refer to. It is not a question about the algorithm.
 ### 5.4 Tilde-dot: both
 
 At the base point, with the raw form of the direction. Each term has the direction at one site and the seed in
-place of one input, and the sum is over both. The two may be at the same site: `G_dot` over a `D` core that is
-applied to the seed, or `L` over `B_dot` applied to the seed.
+place of one input, and the sum is over both. The two may be at the same site: `L_dot` over a `D` core that is
+applied to the seed, or `L` over `D_dot` applied to the seed.
 
 | Variable | Recurrence | As a subnetwork |
 | --- | --- | --- |
-| `xi_tilde_dot[i]` | `xi_term(B_dot[i], w_tilde[i])` | `B_dot[i]` applied to the seed `w_tilde[i]` |
-| `mu_tilde_dot[i+1]` | six terms: `mu_term` of `(mu_tilde_dot, L, xi)`, `(mu_dot, L, xi_tilde)`, `(mu_tilde, L, xi_dot)`, `(mu, L, xi_tilde_dot)`, `(mu_tilde, G_dot, xi)`, `(mu, G_dot, xi_tilde)` at site `i` | the left of bond `i+1` with the direction at one of the sites `0 .. i` and the seed in place of one of the inputs `0 .. i` |
+| `xi_tilde_dot[i]` | `xi_term(D_dot[i], w_tilde[i])` | `D_dot[i]` applied to the seed `w_tilde[i]` |
+| `mu_tilde_dot[i+1]` | six terms: `mu_term` of `(mu_tilde_dot, L, xi)`, `(mu_dot, L, xi_tilde)`, `(mu_tilde, L, xi_dot)`, `(mu, L, xi_tilde_dot)`, `(mu_tilde, L_dot, xi)`, `(mu, L_dot, xi_tilde)` at site `i` | the left of bond `i+1` with the direction at one of the sites `0 .. i` and the seed in place of one of the inputs `0 .. i` |
 | `nu_L_tilde_dot[i]` | the six mirror terms with `nu_term` and `nu_L` | the right of bond `i`, likewise |
-| `eta_D_tilde_dot[i]` | six terms: `eta_term` of `(mu_tilde_dot, L, nu_L)`, `(mu_dot, L, nu_L_tilde)`, `(mu_tilde, L, nu_L_dot)`, `(mu, L, nu_L_tilde_dot)`, `(mu_tilde, G_dot, nu_L)`, `(mu, G_dot, nu_L_tilde)` | the trunk above Tucker edge `i` with the direction at one site and the seed in place of one input other than input `i` |
+| `eta_D_tilde_dot[i]` | six terms: `eta_term` of `(mu_tilde_dot, L, nu_L)`, `(mu_dot, L, nu_L_tilde)`, `(mu_tilde, L, nu_L_dot)`, `(mu, L, nu_L_tilde_dot)`, `(mu_tilde, L_dot, nu_L)`, `(mu, L_dot, nu_L_tilde)` | the trunk above Tucker edge `i` with the direction at one site and the seed in place of one input other than input `i` |
 
 ## 6. Outputs and blocks
 
@@ -241,8 +242,8 @@ Their names did not change. They are written here with the new names of what the
 | `Jp[i]` | `z_term(eta_D_dot[i], D[i]) + z_term(eta[i], V[i])` | the direction's output: the whole network with the direction at one site and mode edge `i` open |
 | `V_tilde[i]` | top coefficient of `V_term(eta_tilde[i], w[i]) + V_term(eta[i], w_tilde[i])` | a block with the shape of `V[i]`: the whole network with the leaf core under `U[i]` taken out, and the seed in place of one input, which may be input `i` |
 | `H_tilde[i]` | top coefficient of `H_term(mu_tilde[i], xi[i], nu[i+1]) + H_term(mu[i], xi_tilde[i], nu[i+1]) + H_term(mu[i], xi[i], nu_tilde[i+1])` | a block with the shape of `H[i]`: the whole network with the TT core of site `i` taken out (`L` cores to its left, `R` cores to its right), and the seed in place of one input |
-| `V_tilde_dot[i]` | top coefficient of `V_term(eta_D_tilde_dot[i], w[i]) + V_term(eta_D_dot[i], w_tilde[i])` | a block with the shape of `D[i]`: the network at the base point with `D[i]` taken out, the direction at one site and the seed in place of one input, which may be input `i`. At site `i` the direction can only be `G_dot[i]` |
-| `H_tilde_dot[i]` | top coefficient of nine `H_term`s of `mu[i]`, `xi[i]`, `nu_L[i+1]`: the tilde on one of the three and the dot on one of the three. Three terms have both on the same variable (its tilde-dot); six have them on two different ones | a block with the shape of `L[i]`: the network at the base point with `L[i]` taken out, the direction at one site and the seed in place of one input. At site `i` the direction can only be `B_dot[i]` |
+| `V_tilde_dot[i]` | top coefficient of `V_term(eta_D_tilde_dot[i], w[i]) + V_term(eta_D_dot[i], w_tilde[i])` | a block with the shape of `D[i]`: the network at the base point with `D[i]` taken out, the direction at one site and the seed in place of one input, which may be input `i`. At site `i` the direction can only be `L_dot[i]` |
+| `H_tilde_dot[i]` | top coefficient of nine `H_term`s of `mu[i]`, `xi[i]`, `nu_L[i+1]`: the tilde on one of the three and the dot on one of the three. Three terms have both on the same variable (its tilde-dot); six have them on two different ones | a block with the shape of `L[i]`: the network at the base point with `L[i]` taken out, the direction at one site and the seed in place of one input. At site `i` the direction can only be `D_dot[i]` |
 
 - `g = (V_tilde, H_tilde)` with the seed made from the weighted residual `r = z - y`.
 - `JtJp` is the same pair of blocks with the seed made from the weighted `Jp`.
@@ -392,11 +393,10 @@ functions.
 
 ## 11. Not decided
 
-- **The name of the argument that carries the direction of `Kp`.** `Jp` takes the direction as `(V, H)`, in the
-  frame's coordinates. `Kp`, the curvature term of the exact Hessian, takes the same direction after the lift:
-  one array of the shape of each core of the base point. This page writes it `(B_dot, G_dot)`. In the library it
-  is the first argument of the kind's `corewise_hessian`, called `core_directions`. What the engine
-  (`sampling_variables`) calls that argument is not decided. On paper the maintainer writes it `q = (V', H')`.
+Settled since this page was first written: the raw core direction is `(D_dot, L_dot)` (the maintainer,
+2026-11-16, 00:30; it had been `(B_dot, G_dot)` here, and is `core_directions` in the library, the first argument
+of the kind's `corewise_hessian`); and step functions are named by letter and grade (section 5).
+
 - **A call on the corewise frame** (section 9). The maintainer considered this principle (2026-11-16, 00:03):
   "The engine is designed for the manifold setting. When corewise operations are required, this is done by having
   the caller of the engine put in the B and G cores, and it is their responsibility to track the altered meaning

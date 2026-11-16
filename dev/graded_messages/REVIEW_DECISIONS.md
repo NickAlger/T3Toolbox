@@ -1272,3 +1272,26 @@ The maintainer answered four of the six open points of `SAMPLE_VARIABLES.md` sec
   both. The page's section 5.3 and section 11 were rewritten to say this.
 - **Step 4 is held** until the maintainer has seen this, since the page is what the editor would carry through
   the folder.
+
+## 59. Step functions, the corewise principle, and the raw core direction (2026-11-16, 00:12 to 00:30)
+
+- **00:12, on the tilde variables** (entry 58): "Ok, understood. The terminology and looking at the diagram
+  confused me about the tildes. This is right. You can continue while I weight the other points". Step 4 was
+  started. The six plain tilde rows of the "Variable diagrams" tab were reworded: each title now says the
+  variable is one array, the sum over its inputs, and the notes say which modes it combines.
+- **00:23, step functions.** "Oh, I see. There is no need for extra step functions if they literally do the
+  exact same things with different arguments." A step function is named by letter and grade and serves both
+  bases (target decision 5.1; `SAMPLE_VARIABLES.md` section 5). This replaces his answer of 00:03.
+- **00:23, the corewise principle** of entry 58, after the pros and cons: "The against is more convincing,
+  particularly the extra sweep cost. This will be a real performance hit and is unacceptable." The principle is
+  set aside. What stands: a call on a corewise frame must not sweep twice. How the engine is told that two
+  stores are one, and which spellings such a call accepts, are open (`SAMPLE_VARIABLES.md` section 11).
+- **00:23 and 00:30, the raw core direction.** Once the question was explained (the argument that carries the
+  direction of `Kp`): "Ahh understood. Any suggestions? When I write it on paper, I often use q=(V',H'). The
+  primes probably not a good idea in the code." Claude suggested `core_direction = (D_dot, L_dot)`: the base
+  point is `(D, L)`, the argument is the direction those cores move in, and `_dot` already means "varied along
+  the direction", so the recurrences read as the product rule. The maintainer: "Ok with D_dot and L_dot." The
+  components are decided. The argument's name `core_direction` was part of the suggestion and not spoken of;
+  to be corrected if wrong. On the corewise frame `(B, G, G, G)` it is `(B_dot, G_dot)`.
+- **00:30:** "While they are working let's slowly go through outstanding open questions".
+
