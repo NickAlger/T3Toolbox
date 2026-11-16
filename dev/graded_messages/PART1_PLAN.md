@@ -1,6 +1,6 @@
 # Part 1 of the graded-messages refactor: implementation plan
 
-**Status.** Draft r2, 2026-11-16, for review. Written against the branch `graded-messages` at `7df35fe` (the library
+**Status.** Draft r3, 2026-11-16, for review. Written against the branch `graded-messages` at `aa7e58b` (the library
 and `tests/` unchanged since `4d38df7`). The names
 in this plan are proposals until the maintainer settles the table of names (section 3). Every statement about the
 library was checked against the code at that commit; counts were recounted there.
@@ -27,7 +27,7 @@ following ("The two parts"):
 
 | Open row | What Part 1 does |
 | --- | --- |
-| 5.3 sites | Sweeps go through `xscan`. Map-type operations loop over the sites on the ragged layout and run at all sites at once on the uniform one. Today's jet kernels do not do the latter (open point O-19) |
+| 5.3 sites | Sweeps go through `xscan`. Map-type operations loop over the sites on the ragged layout. On the uniform layout today's plain kernels run them at all sites at once and today's jetted kernels one site at a time; since Part 1 has one path for both, which form it takes is open (O-19) |
 | 5.5 contraction order | `contract`'s present default: one einsum on jax, the cached greedy pairwise path on numpy |
 | 7.2 defaults | The model holds the plain sweep variables and the residual |
 | 7.3 where the plan lives | There is no plan, and no signature has a `plan` argument |
@@ -44,9 +44,9 @@ uniform layout with jax uses more memory than today. T3Polynomial's fitting modu
 `_newton_fit`), so the library default `chunk_size='auto'` (`t3toolbox/optimizers.py`) applies on its uniform
 backends. Its benchmark `scripts/b01_backend_bench.py` passes `chunk_size=None`, and so do some of its scripts.
 
-**A second possible step back in memory.** If the jetted map-type operations run at all sites at once on the
-uniform layout (the reading of 5.3 in "The two parts"), their intermediates are `d` times larger than today's,
-which maps them one site at a time with `jax.lax.map` (open point O-19).
+**A second possible step back, either way.** If the map-type operations run at all sites at once on the uniform
+layout, the jetted intermediates are `d` times larger than today's, which maps them one site at a time with
+`jax.lax.map`; if they run one site at a time, the plain ones are slower than today's (open point O-19).
 
 **The seams left for Part 2.** Part 2 adds; it does not change Part 1's interface.
 
@@ -218,7 +218,7 @@ The three placeholder keywords of 6.2 are proposed here as `variations`, `core_d
 6. **The sweeps and the maps.** A sweep along the chain goes through `xscan` with a module-level body
    (`docs/contributor/scan_body_principles.md`). A map-type operation (the `xi`, `eta`, `z` steps and the block
    readouts) is a loop over the sites on the ragged layout and one call with the site group `S` on the uniform
-   layout, as "The two parts" fixes for 5.3 (for the jetted ones see O-19). Boundary vectors are ones sized by the
+   layout, or one site at a time (`xmap`), whichever O-19 settles. Boundary vectors are ones sized by the
    end bond of the cores passed; start values follow the grade (4.4). The engine squashes no tail.
 7. **The seed.** `r = z - y` (the library's sign, 2.4); the seed `w_tilde = jet_to_dual_jet(r, weight)`: the
    weights, then the turn of the order leg. `JtJp` seeds from `Jp` the same way. A held `r` is used as it is.
@@ -449,10 +449,14 @@ def point_objective(
 ```
 
 **Changed.** Each keeps its name and calls the engine; the merged signature of 6.6. Sketches for probe; apply and
-entries follow (an `index` in place of `ww` for entries, a scalar output for both). Today's leading arguments are
-kept and `pp`, `order` added as keywords; `sum_over_samples=True` replaces `sum_over_probes=False` (3.7); the
-residual argument is named `residual` (2.4). The transposes and the corewise Hessian take a residual of the type of
-`z` and no weight, and turn it inside (2.4, 3.6); see O-22.
+entries follow (an `index` in place of `ww` for entries, a scalar output for both). Today's positional arguments are
+kept, in today's order and with today's names (which differ between the functions: `t3_apply(x, vecs)` but
+`t3_probe(ww, x)`; `tv_probe(ww, variation, frame)` but `utv_probe(ww, frame_data, variations_data)`), and `pp`,
+`order` are added as keywords. Two names change: `sum_over_samples=True` replaces `sum_over_probes=False` (3.7), and
+the residual argument (`ztildes` or `c` today) is named `residual` (2.4). The transposes take a residual of the type
+of `z` and no weight and turn it inside: by 6.6 the backend function behind a frontend method has the method's
+signature, and by 2.4 and 3.6 the frontend transposes take a residual and no weight. The corewise Hessian, which has
+no frontend method, is proposed the same way (O-22).
 
 ```python
 def t3_probe(
@@ -477,7 +481,7 @@ def tv_probe_transpose(
 def t3_probe_corewise_hessian(
         residual:         typ.Sequence[NDArray],      # of the type of z: len=d, elm_shape=T+W+C+(Ni,)
         ww:               typ.Sequence[NDArray],      # len=d, elm_shape=W+(Ni,)
-        x:                typ.Tuple,                  # (B, G): the point whose cores the directions vary
+        core_pair:        typ.Tuple,                  # (B, G): the point whose cores the directions vary
         core_directions:  typ.Tuple,                  # (B_dot, G_dot), shapes of B, G with K+C
         pp:               typ.Optional[typ.Sequence[NDArray]] = None,
         order:            int = 0,
@@ -487,9 +491,9 @@ def t3_probe_corewise_hessian(
 ]:
 ```
 
-`tv_probe(ww, frame, variations, pp=None, order=0)` returns `Jp`, `T+W+K+C+(Ni,)`, and
-`t3_probe_corewise_transpose(residual, ww, x, pp=None, order=0, sum_over_samples=True)` is the transpose on a
-corewise call; both follow the layout above. The argument order is a proposal (names table, N16). The uniform twins (`ut3_probe`, `utv_probe`,
+`tv_probe(ww, variation, frame, pp=None, order=0)` returns `Jp`, `T+W+K+C+(Ni,)`, and
+`t3_probe_corewise_transpose(residual, ww, core_pair, pp=None, order=0, sum_over_samples=True)` is the transpose on
+a corewise call; both follow the layout above. Where the new keywords go is a proposal (names table, N16). The uniform twins (`ut3_probe`, `utv_probe`,
 `utv_probe_transpose`, `ut3_probe_corewise_transpose`, `ut3_probe_corewise_hessian`, and apply and entries) take
 the same arguments (open point O-3). In `backend/optimizers.py`: `LocalModel` (section 2.2),
 `newton_cg(geom, oracle, batch, x0, regularizer=None, ...)`, `mc_sgd(geom, oracle, batch, x0, rng, batch_size,
@@ -599,7 +603,7 @@ representation-agnostic infrastructure) and `docs/contributor/naming_rules.md` (
 | N13 | the record of held variables | `HeldVariables` | |
 | N14 | the record of axis counts | `GroupLengths` | `contract` already spells them `len_<G>` |
 | N15 | `jet_contract` | `jet_contract` | Already the decided spelling in 5.4; a placeholder only in the brief |
-| N16 | the argument order of the merged backend functions | `t3_probe(ww, x, pp=None, order=0)` and the sketches of section 2.4 | Keeps today's leading arguments; `pp` and `order` are added as keywords |
+| N16 | the argument order of the merged backend functions | today's positional arguments, in today's order and with today's names, then `pp=None, order=0` as keywords (section 2.4) | No caller's positional call changes |
 | N17 | the reference module; its functions | `backend/sampling_definitions.py`; one function named exactly as the variable (`sampling_definitions.mu`) | The module name says what they are; the function name is the variable |
 | N18 | the engine's module; the steps' module | `backend/sampling_variables.py`; `backend/sampling_steps.py` | The module is named after its function, as `regularization` is |
 | N19 | the residual argument of the transposes (`ztildes` today) | `residual` | 2.4 calls `ztildes` a misnomer |
@@ -624,7 +628,8 @@ These are the library's rules, applied to this arc. Every slice is held to them;
   (5.1 note): `nu_step` given `L` cores returns `nu_L`. The 22 steps of `scripts/review/jet_steps_check.py` stand.
 - **Every term is a literal string at its call site, through `jet_contract`**, with `K` on the operand that carries
   it and the record `GroupLengths` passed whole (5.4). The 41 strings of the seven families are listed in
-  `scripts/review/term_stacks_check.py` (`STRINGS`). The site group `S` appears on the map-type strings only.
+  `scripts/review/term_stacks_check.py` (`STRINGS`). The site group `S` appears on the map-type strings only, and
+  only where they run at all sites at once on the uniform layout (O-19).
 - **Dispatch** at the lowest level: `use_jax = tree_contains_jax(...)` over all inputs, `is_uniform` from the
   structure, `xnp, xmap, xscan = get_backend(is_uniform, use_jax)`. No `use_jax` argument. Uniform masks are host
   numpy and use `np`, never `xnp` (`CLAUDE.md`).
@@ -653,7 +658,7 @@ These are the library's rules, applied to this arc. Every slice is held to them;
 - **Additive first.** Slices P1 to P11 add new modules beside the old ones. The one old thing they change is P4's
   consistency residual, which keeps its signature (`fv_frame_consistency_residual`, `T3Frame.is_consistent`).
   So the suite stays green by construction.
-- **Then switch, one surface at a time.** P12 to P16 move one surface each onto the engine. Each switching slice
+- **Then switch, one surface at a time.** P12, P13, P15 and P16 each move one surface (P14 is additive). Each switching slice
   rewrites the tests, doctests, documentation pages and examples that call the surface it changes, in the same
   commit, because CI runs all of them (`.github/workflows/tests.yaml`: the suite, the module doctests,
   `getting_started.rst`, every `docs/*.md` and `docs/contributor/*.md` page except `doctest_style.md`, and every
@@ -664,7 +669,10 @@ These are the library's rules, applied to this arc. Every slice is held to them;
   file, `tests/bridge/test_old_kernels_bridge.py`, that compares new outputs with old code through the stated
   conversions (`t!` per slot, the turn, the sum flag). It compares only with code that is never rerouted onto the
   engine: the functions of `sampling_derivatives` (at order 0 too), the old `compute_*` and `assemble_*` kernels,
-  and the old kinds. It is deleted with them in P19. Whether "used once" meant a one-off script instead is O-25.
+  and the old kinds, except, from P12 on, the plain kinds' `point_forward` and the `Problem.objective` built on it
+  (they call `t3_probe`, `t3_apply`, `t3_entries`, which P12 routes onto the engine: `backend/fitting.py`, the three
+  `point_forward` methods). It is deleted with the old code in P19. Whether "used once" meant a one-off script
+  instead is O-25.
 - **Each slice's gate**: the full suite, `pytest --doctest-modules t3toolbox`, the page doctests, the examples, and
   `sphinx -W`, run unpiped on a clean tree (`docs/contributor/refactoring_methodology.md`, "Gates").
 - **Per slice**: an inventory first (every inbound reference to what the slice changes, both import forms,
@@ -673,28 +681,31 @@ These are the library's rules, applied to this arc. Every slice is held to them;
 
 ### 5.2 Overview
 
-| Slice | Content | Size |
-| --- | --- | --- |
-| P0 | Baseline: the folder's check suites on the branch head; the inventory | none in the library |
-| P1 | `jet_contract` and `GroupLengths` | small |
-| P2 | The reference module `sampling_definitions` | medium |
-| P3 | `jets` and `data_preparation` | small |
-| P4 | Frame consistency without dense tensors | small |
-| P5 | Engine A: the declared graph, the structural checks, held variables; probe, ragged, the plain grade (`z` both routes, `r`, `f`, `r_block_sumsq`); the center check | medium |
-| P6 | Engine B: the tilde grade and `g`; the bridge; the generic twin | medium |
-| P7 | Engine C: the dot grade of the frame form (`Jp`, `Jp_norm_sq`, `JtJp`) | medium |
-| P8 | Engine D: the raw dots and the tilde-dot grade (`Kp`), the `nu_L` family, the corewise call | medium |
-| P9 | Engine E: apply and entries | medium |
-| P10 | Engine F: the stacks `W`, `K`, `C`; `sum_over_samples=False`; the dtype rule | medium |
-| P11 | Engine G: the uniform layout; sharding over `W` | medium |
-| P12 | The backend sampling functions on the engine (merged signatures); uniform twins | large |
-| P13 | The frontend sampling methods merged; `docs/chunking.md` removed | large |
-| P14 | The oracle, the batch and `HeldVariables` (additive) | medium |
-| P15 | The geometry's `frame(x)` returns the centers, and the consistency member | small |
-| P16 | The switch: the corewise frame, `LocalModel`, `local_model`, the optimizers, the display, the frontend optimizers and the frontend local model | largest |
-| P17 | The dry port of T3Polynomial | small |
-| P18 | Documentation | large |
-| P19 | The gate, then the deletion of the old kernels | medium |
+"Needs" names the open points that must be answered before the slice starts, because the slice builds on their
+proposal.
+
+| Slice | Content | Size | Needs |
+| --- | --- | --- | --- |
+| P0 | Baseline: the folder's check suites on the branch head; the inventory | none in the library | |
+| P1 | `jet_contract` and `GroupLengths` | small | O-10 |
+| P2 | The reference module `sampling_definitions` | medium | |
+| P3 | `jets` and `data_preparation` | small | O-14, O-20 |
+| P4 | Frame consistency without dense tensors | small | O-5 |
+| P5 | Engine A: the declared graph, the structural checks, held variables; probe, ragged, the plain grade (`z` both routes, `r`, `f`, `r_block_sumsq`); the center check | medium | O-6, O-18 |
+| P6 | Engine B: the tilde grade and `g`; the bridge; the generic twin | medium | O-25 |
+| P7 | Engine C: the dot grade of the frame form (`Jp`, `Jp_norm_sq`, `JtJp`) | medium | |
+| P8 | Engine D: the raw dots and the tilde-dot grade (`Kp`), the `nu_L` family, the corewise call | medium | O-12, O-13 |
+| P9 | Engine E: apply and entries | medium | |
+| P10 | Engine F: the stacks `W`, `K`, `C`; `sum_over_samples=False`; the dtype rule | medium | O-11 |
+| P11 | Engine G: the uniform layout; sharding over `W` | medium | O-3, O-19 |
+| P12 | The backend sampling functions on the engine (merged signatures); uniform twins | large | O-3, O-22 |
+| P13 | The frontend sampling methods merged; `docs/chunking.md` removed | large | |
+| P14 | The oracle, the batch and `HeldVariables` (additive) | medium | O-7, O-8, O-21 |
+| P15 | The geometry's `frame(x)` returns the centers, and the consistency member | small | O-4, O-5 |
+| P16 | The switch: the corewise frame, `LocalModel`, `local_model`, the optimizers, the display, the frontend optimizers and the frontend local model | largest | O-9, O-17, O-24 |
+| P17 | The dry port of T3Polynomial | small | |
+| P18 | Documentation | large | O-15, O-16, O-23 |
+| P19 | The gate, then the deletion of the old kernels | medium | O-1, O-2 |
 
 ### 5.3 The slices
 
@@ -704,7 +715,7 @@ frontend sampling methods, the six model factories, `Problem`, `least_squares_pr
 `sum_over_probes` and `ztildes`, in `t3toolbox/` (the package `__init__.py` included), `tests/`, `docs/`,
 `examples/`, `CLAUDE.md`. The inventory is a working note in `dev/` (ephemeral). Gate: none.
 
-**P1. `jet_contract`.** In `backend/contractions.py`: `GroupLengths` and `jet_contract` (section 2.4). The product of
+**P1. `jet_contract`.** *Needs O-10 answered first.* In `backend/contractions.py`: `GroupLengths` and `jet_contract` (section 2.4). The product of
 two full jets is the carried shift through `xscan`, with a module-level body from a factory memoized on
 `(subscripts, lens, layout)`. The prototype's `jet_contract` (`term_stacks_check.py`) is the algebra; its loop
 form and its Python-loop scan are not the code. It passes `contract` only the lengths of the groups each derived
@@ -733,7 +744,7 @@ and C of `scripts/review/sample_variables_check.py`.
   cut edge; `Kp` jax against finite differences where jax is present. Every function has a doctest.
 - Gate: the full gate. Deletes nothing.
 
-**P3. Jets and data preparation.** `backend/jets.py` (N4 to N8, and the two validators of `pp`, copied; the old ones
+**P3. Jets and data preparation.** *Needs O-14, O-20 answered first.* `backend/jets.py` (N4 to N8, and the two validators of `pp`, copied; the old ones
 are deleted in P19) and `backend/data_preparation.py` (N9).
 - Tests: `dual_jet_to_jet(jet_to_dual_jet(x))` equals `x` to tolerance for a nonzero weight; the pairing identity
   `sum_t omega[t]^2 a[t] b[t] = [s^n](jet_to_dual_jet(a) b)`; the derivative functions reproduce the
@@ -745,7 +756,7 @@ are deleted in P19) and `backend/data_preparation.py` (N9).
 - `tests/test_dispatch.py`, `tests/test_jax_absent.py`: the new modules.
 - Gate: the full gate.
 
-**P4. Frame consistency through the cores** (4.2). `fv_operations.fv_frame_consistency_residual` keeps its
+**P4. Frame consistency through the cores** (4.2). *Needs O-5 answered first.* `fv_operations.fv_frame_consistency_residual` keeps its
 signature and its formula, `||T(D, L) - T(D, R)|| / max(1, ||T(D, R)||)`, and computes both norms through the
 cores, never densely. The route is the one `geometry.point_norm_sq` takes today: `t3_operations` (the difference)
 and `t3_orthogonalization` (a left orthogonalization, then the last core's norm). `t3_linalg` is not used: it
@@ -759,7 +770,7 @@ the right, against `T(D, L)`. Which of these the checks require is open (O-5).
   is checked in well under a second.
 - Gate: the full gate.
 
-**P5. Engine A.** `backend/sampling_steps.py` with the steps of the plain grade; `backend/sampling_variables.py` with
+**P5. Engine A.** *Needs O-6, O-18 answered first.* `backend/sampling_steps.py` with the steps of the plain grade; `backend/sampling_variables.py` with
 the probe kind's declared graph and `sampling_variables` for `w`, `xi`, `mu`, `nu`, `eta`, `nu_L`, `eta_D`, `z`
 (through `D`, and with `Vc` read off the frame), `r`, `f`, `r_block_sumsq`. Ragged layout, one sample axis, no `K`
 or `C` yet, numpy and jax. Held variables and the structural checks of section 2.3 step 1. The safe-mode center
@@ -777,7 +788,7 @@ check from P4.
 - `tests/test_dispatch.py`: jit `sampling_variables` for `('f',)`; a stray `np.` on a tracer raises.
 - Gate: the full gate.
 
-**P6. Engine B.** The tilde steps; `w_tilde`, `xi_tilde`, `mu_tilde`, `nu_tilde`, `eta_tilde`, `V_tilde`, `H_tilde`,
+**P6. Engine B.** *Needs O-25 answered first.* The tilde steps; `w_tilde`, `xi_tilde`, `mu_tilde`, `nu_tilde`, `eta_tilde`, `V_tilde`, `H_tilde`,
 `g`.
 - Tests by definition for the new names. Identities, each with a random weight: `g` is the derivative of `f` by
   finite differences; the short form of `eta_tilde` equals a slice of the full one.
@@ -795,7 +806,7 @@ check from P4.
   `ProbeDerivativesKind.forward` and `.transpose`.
 - Gate: the full gate.
 
-**P8. Engine D.** The raw dots and the tilde-dot steps; `xi_dot`, `mu_dot`, `nu_L_tilde`, `eta_D_tilde`, the four
+**P8. Engine D.** *Needs O-12, O-13 answered first.* The raw dots and the tilde-dot steps; `xi_dot`, `mu_dot`, `nu_L_tilde`, `eta_D_tilde`, the four
 tilde-dot variables, `V_tilde_dot`, `H_tilde_dot`, `Kp` from `core_directions`. The corewise call `(B, G)`: one
 basis per edge, each sweep made once (small item 1).
 - Tests by definition, `Kp` included. Identities: on a corewise call at the frame's base point `(D, L)` (not at a
@@ -813,7 +824,7 @@ and `eta_tilde`; the README's "Things learned"), the entries gather, the scalar 
   their kinds.
 - Gate: the full gate.
 
-**P10. Engine F.** Any number of axes in `W`; the direction stack `K` on `variations` and `core_directions`; the
+**P10. Engine F.** *Needs O-11 answered first.* Any number of axes in `W`; the direction stack `K` on `variations` and `core_directions`; the
 base-point stack `C` on every core; `sum_over_samples=False` with the result's stack in the order `W + K + C`; `f`
 keeping `C`, `Jp_norm_sq` keeping `K + C`; the dtype rule.
 - Tests: `W` empty, `(3,)`, `(2, 2)`, crossed with the library's stack matrix (`_CONFIGS`,
@@ -822,10 +833,10 @@ keeping `C`, `Jp_norm_sq` keeping `K + C`; the dtype rule.
   backends (float32 in, float32 out; float32 mixed with float64 gives float32; jax mixed with numpy gives jax).
 - Gate: the full gate.
 
-**P11. Engine G: the uniform layout, and sharding over `W`.** The uniform frame and point structures; mask once on
-entry, each input with the frame's own masks (section 2.3 step 2); re-mask on exit; the site group `S` on the
-map-type strings (O-19 for the jetted ones); the sweeps through `xscan`, a real `jax.lax.scan` with jax; the order
-scan nested inside.
+**P11. Engine G: the uniform layout, and sharding over `W`.** *Needs O-3, O-19 answered first.* The uniform frame and point structures; mask once on
+entry, each input with the frame's own masks (section 2.3 step 2); re-mask on exit; the map-type operations in the
+form O-19 settles (all sites at once with the site group `S` on their strings, or one site at a time through
+`xmap`); the sweeps through `xscan`, a real `jax.lax.scan` with jax; the order scan nested inside.
 - Tests: equivalence with ragged on real parts (`to_uniform -> op -> to_ragged == op_ragged`) for every name, over
   the full `_CONFIGS` matrix of the uniform tests: forced-larger padding and a stack whose ranks vary across `C`
   included; garbage-padded inputs give the same real parts; arbitrary tails on both layouts; exact masks of every
@@ -842,46 +853,80 @@ scan nested inside.
   bodies' identity is stable).
 - Gate: the full gate. This closes the additive phase.
 
-**P12. The backend sampling functions on the engine.** The 30 changed names of section 2.4 call the engine with the
-merged signatures; `sum_over_samples=True` by default; the residual argument renamed. The uniform twins check
-packing and call the engine, which masks and re-masks. The frontend call sites change mechanically to the new
-backend signatures and keep their present behaviour (their own `sum_over_probes=False` default is passed through)
-until P13. The old kinds keep calling the old `*_derivatives`, sweep and `*_from_sweep` functions, which stay.
-- Tests: the tests of the 30 names are rewritten (the ragged and uniform calls in `tests/test_uniform_probing.py`,
-  the sampling parts of `tests/test_tucker_tensor_train.py`, `tests/test_manifold.py`,
-  `tests/test_uniform_manifold.py`, `tests/backend/test_curvature.py` for the corewise Hessians); the uniform twins'
-  exact output masks and garbage-padded inputs, through their public signatures.
+**P12. The backend sampling functions on the engine.** *Needs O-3, O-22 answered first.* The 30 changed names of
+section 2.4 call the engine with the merged signatures; `sum_over_samples=True` by default; the residual argument
+renamed. The uniform twins check packing and call the engine, which masks and re-masks. The old kinds keep calling
+the old `*_derivatives`, sweep and `*_from_sweep` functions, which stay; the plain kinds' `point_forward` now reaches
+the engine through `t3_probe`, `t3_apply` and `t3_entries`, with today's positional calls unchanged
+(`backend/fitting.py`, `backend/uniform_fitting.py`, three calls each).
+
+What breaks, from a search of `t3toolbox/`, `tests/`, `docs/`, `examples/` and every doctest for the 30 names (a
+call with `sum_over_probes=` breaks on the renamed keyword; a call that relies on the default of a transpose
+changes value; positional calls of the other arguments do not break):
+- the frontend call sites, which change mechanically to `sum_over_samples=` and keep passing their own
+  `sum_over_probes=False` default until P13: `t3toolbox/manifold.py` (`tv_{probe,apply,entries}_transpose`),
+  `t3toolbox/tucker_tensor_train.py` (`t3_{probe,apply,entries}_corewise_transpose`), `t3toolbox/uniform_manifold.py`
+  (`utv_*_transpose`), `t3toolbox/uniform_tucker_tensor_train.py` (`ut3_*_corewise_transpose`);
+- tests passing `sum_over_probes=` to a changed name: `tests/backend/test_curvature.py` (four calls of the
+  corewise transposes), `tests/backend/test_from_sweep_reuse.py` (the three `tv_*_transpose`, two places each; it
+  stays until P19 and is updated here), `tests/test_dispatch.py` (the three corewise transposes),
+  `tests/test_manifold.py` (`tv_apply_transpose`, `tv_entries_transpose`), `tests/test_uniform_probing.py` (the
+  three corewise transposes);
+- tests that call a changed name positionally, to be checked for the default flip and the new keywords:
+  `tests/test_uniform_probing.py` (the `utv_*_transpose` and `ut3_*_corewise_transpose`, with the sum flag
+  positional), `tests/backend/test_uniform_curvature.py` (the corewise Hessians, by reference),
+  `tests/test_probe_derivatives.py`, `tests/backend/test_uniform_fitting.py`, `tests/oracle_sweeps/o1_ragged.py`,
+  `o1_uniform.py` (labels only);
+- doctests: only those of the defining modules (`backend/probing.py`, `apply.py`, `entries.py`, `ut3_sampling.py`),
+  rewritten with them. No page doctest calls a changed name; pages that name them in prose
+  (`docs/batching_and_stacking.md`, `docs/entries_apply_probe.md`, `docs/transposes.md`, `docs/glossary.md`,
+  `docs/naming_conventions.md`, `docs/contributor/signature_style.md`, `CLAUDE.md`) are rewritten in P18.
+- Tests added: the uniform twins' exact output masks and garbage-padded inputs, through their public signatures;
+  the default of every transpose sums the samples.
 - `tests/test_dispatch.py`: the rows for these names, by the new signatures.
 - Gate: the full gate. From here `probing.compute_*` and the plain `assemble_*` are called only by the old kinds,
   their tests and the bridge.
 
 **P13. The frontend sampling methods.** The four classes get the merged methods of section 2.5; the 24 methods go;
-the validators come from `jets`. Every caller of a removed method is rewritten in this slice. Where the caller
-still fits with the old frontend optimizers (until P16), it makes the old derivative data from the merged method as
-`taylor_to_derivatives(x.probe(ww, pp, order))`. The callers, from a search of the tree at this commit:
-- tests: `tests/test_tucker_tensor_train.py`, `tests/test_uniform_tucker_tensor_train.py`, `tests/test_manifold.py`,
-  `tests/test_uniform_manifold.py`, `tests/test_uniform_probing.py` (51 calls), `tests/test_probe_derivatives.py`
-  (folded into the frontend sampling tests), `tests/test_fitting.py`, `tests/test_jax_absent.py`,
-  `tests/test_dispatch.py`, `tests/test_optimizers_frontend.py`, `tests/test_oracle_sweep.py`,
+the frontend transposes take `sum_over_samples=True` in place of `sum_over_probes=False`; the validators come from
+`jets`. Where a caller still fits with the old frontend optimizers (until P16), it makes the old derivative data from
+the merged method as `taylor_to_derivatives(x.probe(ww, pp, order), order)`.
+
+What breaks, from a search of `t3toolbox/`, `tests/`, `docs/`, `examples/` and every doctest (the calls, scripts
+inside strings included, of the 24 removed methods; every call of the frontend transposes, which change their
+keyword and their default; and every link to `docs/chunking.md`):
+- removed methods, in tests: `tests/test_tucker_tensor_train.py`, `tests/test_manifold.py`,
+  `tests/test_uniform_probing.py` (52 calls), `tests/test_probe_derivatives.py` (folded into the frontend sampling
+  tests), `tests/test_fitting.py`, `tests/test_dispatch.py`, `tests/test_optimizers_frontend.py`,
+  `tests/test_jax_absent.py` (in its subprocess script, lines 66 and 79), `tests/test_chunk_size_estimator.py`,
   `tests/backend/test_optimizers.py`, `tests/backend/test_padded_start.py`, `tests/backend/test_uniform_fitting.py`,
-  `tests/backend/test_zero_reference.py`, `tests/backend/test_optimizer_display.py`,
-  `tests/oracle_sweeps/o1_ragged.py`, `o1_uniform.py`, `sweep_models.py`, `sweep_exact.py`, `sweep_optimizers.py`,
-  `oracle.py`;
-- `tests/test_chunk_size_estimator.py`: its cases that call the frontend `newton_cg` with `chunk_size` and
-  `probe_derivatives` (`test_newton_cg_exact_across_chunk_size` and its kin) are removed here, as Part 1 drops
-  `chunk_size`; its estimator cases stay until P19;
-- module doctests: `t3toolbox/optimizers.py` (`least_squares_problem`'s and `newton_cg`'s examples),
-  `t3toolbox/fitting.py` (the derivative factories' examples), and the methods' own;
-- pages: `docs/entries_apply_probe.md`, `docs/numerical_contracts.md`, `docs/fitting_and_optimization.md`;
-- `docs/chunking.md`: removed here with its toctree entry in `docs/design_notes.rst` and every link to it, because
-  its doctests call `probe_derivatives_transpose(..., chunk_size=...)` and Part 1 drops the frontend `chunk_size`;
-- the six examples that call a `*_derivatives` name.
-- Tests: the doctests on the merged methods (`order=0` returns today's shapes; `order=2` adds `T` outermost).
+  `tests/backend/test_zero_reference.py`, `tests/oracle_sweeps/o1_ragged.py`, `o1_uniform.py`, `sweep_models.py`;
+- the frontend transposes, in tests (keyword or default): `tests/test_tucker_tensor_train.py`,
+  `tests/test_manifold.py`, `tests/test_uniform_probing.py`, `tests/test_fitting.py`, `tests/test_dispatch.py`,
+  `tests/oracle_sweeps/o1_ragged.py`, `o1_uniform.py`;
+- `tests/test_chunk_size_estimator.py::test_newton_cg_exact_across_chunk_size` keeps testing the frontend
+  `chunk_size`, which lives until P16, with its data made as above; it goes in P16;
+- module doctests: the methods' own in `t3toolbox/tucker_tensor_train.py`, `uniform_tucker_tensor_train.py`,
+  `manifold.py`, `uniform_manifold.py` (the transposes' examples pass `sum_over_probes`); `t3toolbox/optimizers.py`
+  and `t3toolbox/fitting.py` (two calls each of a removed method);
+- page doctests: `docs/fitting_and_optimization.md` (five calls), `docs/numerical_contracts.md` (two);
+- `docs/chunking.md`: removed here with its toctree entry in `docs/design_notes.rst`, because its doctests call
+  `probe_derivatives_transpose(..., chunk_size=...)`. The `:doc:` links to it go in the same commit, or `sphinx -W`
+  fails: `docs/fitting_and_optimization.md` (three), `docs/glossary.md` (three), and the docstrings of
+  `t3toolbox/optimizers.py` (three), `t3toolbox/manifold.py` (one) and `backend/sampling_derivatives.py` (four,
+  though the module stays until P19); plain mentions in `CLAUDE.md` and other docstrings are fixed in P18;
+- examples: the six that call a removed method (`fit_hilbert_from_apply_derivatives.py`, `_flat.py`, `_topt.py`,
+  `fit_hilbert_uniform_probe_derivatives_newton_cg.py`, `fit_probe_display.py`,
+  `fit_shared_factors_jetted_probes.py`). No example calls a frontend transpose.
+- Pages that name the removed methods in prose only (`docs/entries_apply_probe.md`, `docs/naming_conventions.md`,
+  `docs/transposes.md`) are rewritten in P18.
+- Tests added: the doctests on the merged methods (`order=0` returns today's shapes; `order=2` adds `T` outermost).
 - Gate: the full gate.
 
-**P14. The oracle and the batch** (additive). `LeastSquaresOracle`, `LeastSquaresBatch`, `HeldVariables` in
-`backend/fitting.py` beside the old kinds; the `Oracle` protocol as documentation in `backend/optimizers.py`;
-`n_measurements`, `take`, `y_block_sumsq`, `f_resolution`, the minibatch scale.
+**P14. The oracle and the batch** (additive). *Needs O-7, O-8, O-21 answered first.* `LeastSquaresOracle`,
+`LeastSquaresBatch`, `HeldVariables` in `backend/fitting.py` beside the old kinds; the `Oracle` protocol as
+documentation in `backend/optimizers.py`; `n_measurements`, `take`, `y_block_sumsq`, `f_resolution`, the minibatch
+scale.
 - Tests: each output of `query` against the engine and against the reference; `held` holds exactly the names of the
   hold list that the call computed (none computed only to be held); `take` under `jax.jit` with a static size;
   `minibatch_scale` makes the drawn `f` an unbiased estimate of the full `f`, tested exactly on a small `n` by
@@ -889,22 +934,34 @@ still fits with the old frontend optimizers (until P16), it makes the old deriva
   oracle's hash and equality by value; bridge against the old kinds through the conversions.
 - Gate: the full gate.
 
-**P15. The geometry returns the centers.** `frame(x)` returns `(frame, centers)` on the four backend geometries
-(the manifold ones keep the second result of `t3_orthogonal_representations`, which they compute today and discard;
-the corewise ones return `None` as centers, and still the four-store frame `(B, G, G, G)` until P16); the
-consistency member (N21). The old path adapts in place: `_local_model_phases`, the zero reference, the padded start
-and the frontend `t3toolbox/fitting.py` read `frame, _ = geom.frame(x)`. `shared_geometry.SharedGeometry` follows
-where it calls the backend. The form of the result is open in part (O-4).
-- Tests: `tests/backend/test_geometry.py` for the new result; the centers equal the second result of
-  `t3_orthogonal_representations`; the consistency member on library-built and on perturbed frames.
+**P15. The geometry returns the centers.** *Needs O-4, O-5 answered first.* The backend `frame(x)` returns
+`(frame, centers)` on the four backend geometries (the manifold ones keep the second result of
+`t3_orthogonal_representations`, which they compute today and discard; the corewise ones return `None` as centers,
+and still the four-store frame `(B, G, G, G)` until P16); the consistency member (N21). The frontend geometries
+(`manifold.MANIFOLD`, `COREWISE`, the uniform singletons, `shared_geometry.SharedGeometry`) do not call the backend
+`frame` and do not change (O-4).
+
+What breaks, from a search for every call of a backend geometry's `frame` in `t3toolbox/`, `tests/`, `docs/`,
+`examples/` and the doctests (calls on the frontend geometries, which keep their `T3Frame` result, excluded); each
+reads `frame, _ = geom.frame(x)` from here:
+- the library: `backend/optimizers.py` (`_local_model_phases`), `backend/geometry.py` (the aligned padded frame's
+  `old = self.frame(x_old)`, and the uniform manifold geometry's `point_norm_sq`, which calls
+  `self.point_tangent(self.frame(x_sc))`). No module or page doctest calls a backend `frame`;
+- tests: `tests/backend/test_geometry.py` (five calls), `tests/backend/test_curvature.py` (four),
+  `tests/backend/test_uniform_curvature.py` (two), `tests/test_dispatch.py` (four),
+  `tests/backend/test_optimizers.py` (two), `tests/backend/test_padded_start.py` (seven, one in a test subclass's `aligned_padded_frame`),
+  `tests/backend/test_uniform_fitting.py` (one, `_compare_ops`), `tests/backend/test_zero_reference.py` (two, and the
+  wrapper geometry whose `frame` delegates to the base one).
+- Tests added: the centers equal the second result of `t3_orthogonal_representations`; the consistency member on
+  library-built and on perturbed frames.
 - Gate: the full gate.
 
-**P16. The switch.** One commit, reviewed in four parts. It cannot be split further without transitional code: the
-backend optimizers keep their names (`newton_cg` and the rest) and change their arguments, the frontend optimizers
-and the frontend local model call them, and CI runs every example and doctest page. Keeping the old backend model
-alive beside the new one for the frontend model does not work either, because the corewise frame changes in this
-slice and the old kinds read a four-store frame. A split with a temporary translation of the old frontend call form
-is O-24. O-9 (the frontend fitting surface) must be answered before this slice.
+**P16. The switch.** *Needs O-9, O-17, O-24 answered first.* One commit, reviewed in four parts. It cannot be split
+further without transitional code: the backend optimizers keep their names (`newton_cg` and the rest) and change
+their arguments, the frontend optimizers and the frontend local model call them, and CI runs every example and
+doctest page. Keeping the old backend model alive beside the new one for the frontend model does not work either,
+because the corewise frame changes in this slice and the old kinds read a four-store frame. A split with a temporary
+translation of the old frontend call form is O-24.
 1. *Geometry.* The corewise frame is the point `(B, G)` on the ragged and uniform corewise geometries (`frame`,
    `base_point`, `retract`, `point_tangent`, the shared corewise post-pass).
 2. *Backend model and optimizers.* `LocalModel` (section 2.2); `local_model` builds the frame, checks consistency
@@ -915,43 +972,66 @@ is O-24. O-9 (the frontend fitting surface) must be answered before this slice.
    step, as today; a compiled program's preconditions are checked on the host first (8.3). Trial points use policy
    a: `point_objective` at the trial's raw cores. The minibatch is a batch from `draw(rng)`; the regularizer is not
    scaled; MC-SGD and Adam on an oracle without a draw raise (8.3 part 2). The zero reference, the padded start, the
-   cone reference and the switch mode go through `query`.
+   cone reference and the switch mode go through `query`. `Problem`, `least_squares_problem`,
+   `_minibatch_step_problem` and `_ScaledRegularizer` go, and so does `uniform_fitting.uniform_least_squares_problem`
+   with its doctest: it is annotated `-> bopt.Problem` in a module without `from __future__ import annotations`, so
+   it would fail the import of `uniform_fitting` once `Problem` is gone.
 3. *Display and record.* The display reads `r_block_sumsq` at the model's frame through `held`, `y_block_sumsq`
    once, and `f_resolution`; without `f_resolution` the trust-region floor is `eps |f|` with `eps` from the dtype of
    `f` (8.4); an oracle without block sums gets the header line and no table. The stored record (the display's
    records, which the frontend returns as `stats['diagnostics']`) keeps `train_err` and `val_err` at every
-   iteration in the full shape of the weight, nothing reduced over modes or orders (8.4).
+   iteration in the full shape of the weight, nothing reduced over modes or orders (8.4). The timing laps change as
+   O-17 settles.
 4. *Frontend.* `t3toolbox/optimizers.py` takes `(geometry, oracle, batch, x0, ...)`; it maps the geometry to the
    backend one, reduces `x0` to minimal ranks and packs the batch for a uniform `x0` (as `least_squares_problem` does
-   today), and rewraps the result. `t3toolbox/fitting.py` is rebuilt over the backend `LocalModel`, with tangents in
-   and out and the same-frame guard, in the form O-9 settles; the six factories go, with their re-exports from
-   `t3toolbox/__init__.py`. Every example and doctest page that calls an optimizer or a factory is rewritten.
-- Tests rewritten: `tests/backend/test_optimizers.py`, `tests/backend/test_optimizer_display.py`,
+   today), and rewraps the result; `least_squares_problem`, `LeastSquaresSetup`, `_resolve_chunk_size`, the frontend
+   `chunk_size` and `_canonical_weight` (O-18) go. `t3toolbox/fitting.py` is rebuilt over the backend `LocalModel`,
+   with tangents in and out and the same-frame guard, in the form O-9 settles; the six factories go, with their
+   re-exports from `t3toolbox/__init__.py`.
+
+What breaks, from a search of `t3toolbox/`, `tests/`, `docs/`, `examples/` and every doctest for `Problem`,
+`least_squares_problem` (both layers), `LeastSquaresSetup`, the six factories, the four optimizers' calls,
+`flat_draw`, `make_newton_display`, `local_model`, `_resolve_chunk_size`, `_canonical_weight`,
+`_require_exact_capable`, `_minibatch_step_problem`, the kind strings with `_derivatives`, and the backend corewise
+geometries:
+- tests rewritten: `tests/backend/test_optimizers.py`, `tests/backend/test_optimizer_display.py`,
   `tests/backend/test_geometry.py`, `tests/backend/test_zero_reference.py`, `tests/backend/test_padded_start.py`,
   `tests/backend/test_uniform_fitting.py`, the model parts of `tests/backend/test_curvature.py` and
   `tests/backend/test_uniform_curvature.py`, `tests/test_fitting.py`, `tests/test_optimizers_frontend.py`,
-  `tests/test_sharing.py`'s fitting cases, `tests/test_oracle_sweep.py` and `tests/oracle_sweeps/`,
-  `tests/test_jax_absent.py` (its `bopt.least_squares_problem` and `probe_derivatives_model` script),
-  `tests/test_aligned_padded_frame_frontend.py` (`topt.least_squares_problem`), and the fitting rows of
-  `tests/test_dispatch.py` (a model rebuilt each step is one cache key; a new weight or minibatch does not
-  recompile; `want` is a literal). Optimizers are judged by outcomes on problems with known answers and by the
-  model's consistency (`p` paired with `hvp(p)` equals `gn_quadratic(p)` in Gauss-Newton mode), not by old
-  iteration counts (9.3). New: the stored record's shapes at orders 0 and 2 for each kind, with and without a
-  validation batch; the floor `eps |f|` on a user oracle without `f_resolution`; a user oracle without a draw
-  raises in `mc_sgd`.
-- Pages and examples: the 13 examples that call an optimizer or a factory; `docs/fitting_and_optimization.md`,
-  `docs/getting_started.rst`, `docs/sharing.md`, `docs/numerical_contracts.md`, `docs/rank_continuation.md`,
-  `docs/aligned_padded_frame.md` where their doctests call them.
+  `tests/test_manifold.py` (its `fitting.apply_model` call), `tests/test_sharing.py`'s fitting cases,
+  `tests/test_oracle_sweep.py` with `tests/oracle_sweeps/sweep_models.py`, `sweep_exact.py`, `sweep_optimizers.py`
+  and `oracle.py` (the kind strings), `tests/test_jax_absent.py` (its `bopt.least_squares_problem`,
+  `probe_derivatives_model` and `newton_cg` script), `tests/test_aligned_padded_frame_frontend.py`
+  (`topt.least_squares_problem`), `tests/test_chunk_size_estimator.py` (`test_resolver`, which calls
+  `_resolve_chunk_size`, and `test_newton_cg_exact_across_chunk_size` are removed), and the fitting rows of
+  `tests/test_dispatch.py`. Every file rewritten here also drops its uses of the old kinds, so that after P16 only
+  the old kernels' own tests and the bridge reference them;
+- module doctests: `backend/optimizers.py`, `backend/uniform_fitting.py`, `backend/optimizer_display.py` (its
+  `make_newton_display` example, and the `PhaseSeconds` example if O-17 changes the laps), `t3toolbox/fitting.py`,
+  `t3toolbox/optimizers.py`;
+- page doctests: `docs/fitting_and_optimization.md`, `docs/getting_started.rst`, `docs/sharing.md`,
+  `docs/numerical_contracts.md`;
+- examples: the 13 that call an optimizer, a factory or the backend fitting objects (all but
+  `fit_hilbert_from_apply_derivatives_flat.py`).
+- Pages that name the removed objects in prose only (`docs/api_reference.rst`, `docs/user_guide.rst`,
+  `docs/glossary.md`, `docs/naming_conventions.md`, and the contributor pages of section 8) are rewritten in P18
+  (the Sphinx configuration is not nitpicky, so a stale `:py:` reference does not fail `sphinx -W`; a stale `:doc:`
+  link does).
+- Tests added: optimizers judged by outcomes on problems with known answers and by the model's consistency
+  (`p` paired with `hvp(p)` equals `gn_quadratic(p)` in Gauss-Newton mode), not by old iteration counts (9.3); a
+  model rebuilt each step is one cache key; a new weight or minibatch does not recompile; `want` is a literal; the
+  stored record's shapes at orders 0 and 2 for each kind, with and without a validation batch; the floor `eps |f|`
+  on a user oracle without `f_resolution`; a user oracle without a draw raises in `mc_sgd`.
 - The slow tier (`T3TOOLBOX_SLOW_TESTS=1`, serially) is part of this slice's gate.
 - From here nothing in the library calls the old kinds, `Problem`, or the old sampling kernels except their own
   tests and the bridge.
 
 **P17. The dry port.** Section 9.
 
-**P18. Documentation.** Section 8. Two commits: the new material (the page, the example, the note, the dependency
+**P18. Documentation.** *Needs O-15, O-16, O-23 answered first.* Section 8. Two commits: the new material (the page, the example, the note, the dependency
 diagrams, the reference module's docs), then the rewrites and removals of existing pages.
 
-**P19. The gate, then the deletion.** Section 10.
+**P19. The gate, then the deletion.** *Needs O-1, O-2 answered first.* Section 10.
 
 ### 5.4 When each old piece stops being called
 
@@ -992,19 +1072,24 @@ kernels.
 
 **Tolerances.** Numerical comparisons are to a tolerance scaled to the dtype; structural ones are exact (0.8, 9.3).
 
-**Existing tests, sorted.**
+**Existing tests, sorted.** The slice lists of section 5.3 are the full record; this is the summary.
 
 | File | Fate |
 | --- | --- |
-| `tests/test_jet_recurrence.py`, `tests/_jet_trs_twins.py`, `tests/backend/test_from_sweep_reuse.py` | Test old kernels only; deleted in P19 |
-| `tests/test_chunk_size_estimator.py` | Its frontend `newton_cg` cases (with `chunk_size` and `probe_derivatives`) removed in P13; its estimator cases deleted in P19 |
+| `tests/test_jet_recurrence.py`, `tests/_jet_trs_twins.py` | Test old kernels only; deleted in P19 |
+| `tests/backend/test_from_sweep_reuse.py` | Its `sum_over_probes` keyword updated in P12; deleted in P19 |
+| `tests/test_chunk_size_estimator.py` | Its `newton_cg` case fed through the merged `probe` in P13; that case and `test_resolver` removed in P16; its estimator cases deleted in P19 |
 | `tests/test_contractions_sharding.py` | Extended in P1 and P11; its class `TestJetKernelsShardOverW` (imports `sampling_derivatives`) deleted in P19, replaced by P11's |
 | `tests/test_probe_derivatives.py` | Folded into the frontend sampling tests in P13 |
-| `tests/test_uniform_probing.py`; the sampling parts of `test_tucker_tensor_train.py`, `test_manifold.py`, `test_uniform_manifold.py`, `test_uniform_tucker_tensor_train.py` | Rewritten in P12 and P13 |
-| `tests/backend/test_curvature.py`, `tests/backend/_curvature_oracles.py`, `tests/backend/test_uniform_curvature.py` | The sampling half rewritten in P12, the model half in P16; `_curvature_oracles.py`'s dense oracles kept as test helpers |
-| `tests/test_fitting.py`, `tests/backend/test_uniform_fitting.py` | Their `*_derivatives` calls in P13; rewritten in P16 |
-| `tests/backend/test_optimizers.py`, `test_optimizer_display.py`, `test_geometry.py`, `test_zero_reference.py`, `test_padded_start.py`, `tests/test_optimizers_frontend.py`, `tests/test_sharing.py` (fitting), `tests/test_oracle_sweep.py`, `tests/oracle_sweeps/`, `tests/test_jax_absent.py`, `tests/test_aligned_padded_frame_frontend.py` | Their `*_derivatives` calls in P13; rewritten in P16 (`test_geometry.py` also in P15) |
-| `tests/test_dispatch.py` | Rows added from P1; old rows replaced as each surface switches |
+| `tests/test_uniform_probing.py`, `tests/test_manifold.py` | Their calls of the changed backend names in P12, of the frontend methods in P13; `test_manifold.py`'s `fitting.apply_model` call in P16 |
+| `tests/test_tucker_tensor_train.py` | Its frontend sampling calls in P13 |
+| `tests/test_uniform_manifold.py`, `tests/test_uniform_tucker_tensor_train.py` | No call of a changed or removed sampling name (searched); unchanged unless a slice's search finds one |
+| `tests/backend/test_curvature.py`, `tests/backend/test_uniform_curvature.py`, `tests/backend/_curvature_oracles.py` | The changed corewise transposes in P12; the backend `frame` in P15; the model parts in P16; their comparisons with the old two-hole and jet functions removed in P19; `_curvature_oracles.py`'s dense oracles kept as test helpers |
+| `tests/test_fitting.py`, `tests/backend/test_uniform_fitting.py` | Their removed-method calls in P13; the backend `frame` in P15 (`test_uniform_fitting.py`); rewritten in P16 |
+| `tests/backend/test_optimizers.py`, `test_padded_start.py`, `test_zero_reference.py` | Removed-method calls in P13; the backend `frame` in P15; rewritten in P16 |
+| `tests/backend/test_geometry.py` | The backend `frame` in P15; rewritten in P16 |
+| `tests/backend/test_optimizer_display.py`, `tests/test_optimizers_frontend.py`, `tests/test_sharing.py` (fitting), `tests/test_oracle_sweep.py`, `tests/oracle_sweeps/`, `tests/test_jax_absent.py`, `tests/test_aligned_padded_frame_frontend.py` | Removed-method calls in P13 where they have them; rewritten in P16 |
+| `tests/test_dispatch.py` | Rows added from P1; changed calls in P12, P13, P15; fitting rows in P16; old rows removed in P19 |
 | `tests/test_contractions_interpreter.py` | Extended in P1 |
 | `tests/test_import_graph.py`, `tests/test_jax_absent.py` | New modules registered as they land |
 | `tests/test_frame_variations_format.py`, `tests/test_uniform_frame_variations_format.py` | `is_consistent` cases in P4 |
@@ -1030,8 +1115,8 @@ kernels.
 ### 7.2 The ragged against the uniform layout
 
 - One set of step functions; the layout from the structure of the inputs (layout first, then the count); sweeps
-  through `xscan`; map-type operations a loop on ragged and all sites at once (the group `S`) on uniform, as "The
-  two parts" fixes 5.3. For the jetted maps that is not today's behaviour (O-19).
+  through `xscan`; map-type operations a loop on ragged, and on uniform either all sites at once (the group `S`) or
+  one site at a time, as O-19 settles.
 - Mask once on entry, each input with the frame's own masks (`core_directions` with the frame's `D` and `L` masks,
   never the point's, a superset at TT slack); steps mask-free; core-shaped outputs re-masked on exit by the engine.
   The uniform frame `.data` carries host-numpy masks that `partition_static` keeps out of the trace, as today.
@@ -1212,8 +1297,8 @@ the new library (section 10).
 2. The full suite on the jax-0.4.30 / numpy-1.26 floor, as at a release.
 3. The consumer's benchmark, chunking off, new against old: the old is the release `v2026.5.0` with T3Polynomial
    as it is; the new is the branch with the dry port's two replacements. Run by the maintainer on CPU and on a GPU
-   pod. The candidate is `scripts/b01_backend_bench.py`: it drives `fit_rank_continuation_adaptive` at the Darcy
-   sizes on four arms and passes `chunk_size=None` on all of them. Chunking off is not the path T3Polynomial's
+   pod. The candidate is `scripts/b01_backend_bench.py`: it calls `fit_rank_continuation` (its docstring says
+   `fit_rank_continuation_adaptive`) at the Darcy sizes on four arms and passes `chunk_size=None` on all of them. Chunking off is not the path T3Polynomial's
    fitting module takes by default (it inherits `chunk_size='auto'`, section 1). Which benchmark, and what result
    passes, are open (O-1, O-2).
 
@@ -1224,6 +1309,20 @@ the new library (section 10).
   section 2.4 that are not in `sampling_derivatives`.
 - The old kinds and their factories (`backend/fitting.py`, `backend/uniform_fitting.py`).
 - The tests of old kernels (section 6), the bridge test, the class `TestJetKernelsShardOverW`.
+- Every remaining reference to the removed names. A search of the tree at this commit for the 129 removed names
+  (and the module `sampling_derivatives`) finds them, outside the defining modules, in: `t3toolbox/manifold.py`,
+  `tucker_tensor_train.py`, `uniform_manifold.py`, `uniform_tucker_tensor_train.py` (P13 removes them),
+  `t3toolbox/optimizers.py`, `t3toolbox/fitting.py`, `backend/optimizers.py`, `backend/fitting.py`,
+  `backend/uniform_fitting.py` (P16, and the old kinds here); `tests/test_probe_derivatives.py`,
+  `tests/test_tucker_tensor_train.py`, `tests/test_uniform_probing.py` (P13), `tests/test_fitting.py`,
+  `tests/test_optimizers_frontend.py`, `tests/backend/test_optimizers.py`, `tests/backend/test_uniform_fitting.py`,
+  `tests/oracle_sweeps/o1_ragged.py`, `o1_uniform.py` (P13 or P16, when they are rewritten); and, still here at
+  P19, `tests/backend/test_curvature.py`, `tests/backend/_curvature_oracles.py`,
+  `tests/backend/test_uniform_curvature.py` (their comparisons with the old two-hole and jet functions, removed here),
+  `tests/test_dispatch.py` (its old rows), `tests/test_jet_recurrence.py`, `tests/_jet_trs_twins.py`,
+  `tests/backend/test_from_sweep_reuse.py`, `tests/test_chunk_size_estimator.py`,
+  `tests/test_contractions_sharding.py` (deleted or cut here); the pages and the note of section 8 (P18). The grep
+  below confirms none is left.
 - `__all__` lists, `docs/api_reference.rst`, the import-graph pins, the inventory of P0 re-run to zero references.
 
 Its own gate: the full gate, the slow tier, `sphinx -W`, and a grep over `t3toolbox/`, `tests/`, `docs/` and
@@ -1236,14 +1335,12 @@ transposes, which stay as they are (6.3).
 ## 11. Open points for the maintainer
 
 None of these is settled by this plan. Where the plan needs an answer to proceed, it states a proposal and marks
-it.
+it. The column "Needs" of section 5.2, and the head of each slice, say which answers a slice waits for.
 
-- **O-1. Which benchmark is the gate.** The decisions say "the consumer's benchmark". Proposed:
-  `t3polynomial/scripts/b01_backend_bench.py`. It passes `chunk_size=None`; T3Polynomial's fitting module by default
-  does not, so it chunks on its uniform backends today (`chunk_size='auto'`). The gate thus compares chunking-off
-  runs, not the module's default path. ("The cost" in "The two parts" says the fitting module defaults to
-  `chunk_size=None`; the code does not bear that out: `_level_newton_kwargs` returns `{}` for `newton_kwargs=None`,
-  and `_newton_fit` passes no `chunk_size`.)
+- **O-1. Which benchmark is the gate.** The decisions say "the consumer's benchmark", run with chunking off.
+  Proposed: `t3polynomial/scripts/b01_backend_bench.py`, which passes `chunk_size=None` on every arm. T3Polynomial's
+  fitting module passes no `chunk_size` by default, so its own default path chunks today on the uniform backends
+  (`chunk_size='auto'`); the gate compares chunking-off runs, not that path.
 - **O-2. What result passes the gate.** Time and peak memory, new against old: equal within a tolerance, or no worse
   than a stated factor? And the order-0 condition of 2.7 ("only if order 0 loses no performance"): measured how?
 - **O-3. The uniform surface of the engine and the twins.** Proposed: the engine takes the uniform frame `.data`
@@ -1297,14 +1394,13 @@ it.
 - **O-18. Where the weight's shape check lives.** The rule is decided (2.5: the exact shape). Its placement is not:
   today the frontend owns the weight contract (`fitting._canonical_weight`, which accepts bare vectors and
   broadcasts). Proposed: in the engine, so both tiers get it; `_canonical_weight` goes.
-- **O-19. The jetted map-type operations on the uniform layout.** "The two parts" fixes 5.3 for Part 1 as map-type
-  operations "at all sites at once on the uniform one", as the library does today. That is true of today's plain
-  kernels (`compute_eta`, `assemble_z`: one contraction with a leading `d`). It is not true of today's jet kernels:
-  they map one site at a time through `xmap`, which `get_backend(True, True)` makes `jax.lax.map`
-  (`backend/common.py`, `get_backend`; `backend/sampling_derivatives.py` lines 504, 1259, 1440, 1504, 1620 and
-  others). Vectorizing those maps over the sites makes their intermediates `d` times larger on the uniform layout,
-  beside the memory that removing the chunked assemblies costs. Does Part 1 vectorize the jetted maps, or keep
-  `jax.lax.map` for them as today? The plan follows "The two parts" until this is answered.
+- **O-19. The map-type operations on the uniform layout: all sites at once, or one site at a time.** Part 1 computes
+  order 0 and jets through one path. Today the plain kernels run these operations at all sites at once (one
+  contraction with a leading `d`: `compute_eta`, `assemble_z`), and the jetted kernels one site at a time through
+  `xmap`, which `get_backend(True, True)` makes `jax.lax.map` (`backend/common.py`, `get_backend`;
+  `backend/sampling_derivatives.py`, sixteen calls). All sites at once makes the jetted intermediates `d` times
+  larger on the uniform layout, beside the memory that removing the chunked assemblies costs; one site at a time
+  makes the plain ones slower than today. "The two parts" marks this open. Needed before P11.
 - **O-20. `dual_jet_to_jet` where a weight is zero.** It divides by the weight squared (3.6 note, not answered).
   Raise in safe mode (a numerical check, skipped under a trace); return `inf`/`nan`; or document it as the caller's
   business?
@@ -1312,12 +1408,13 @@ it.
   `n/batch` so that `f` estimates the full one. Do `r_block_sumsq` (and so the display's table on a drawn batch),
   `r` and `Jp` get the scale too? The plan scales `f`, `g`, `JtJp`, `Jp_norm_sq`, `Kp` and nothing else until
   answered.
-- **O-22. The seed convention of the backend transposes and of the corewise Hessian.** 2.4 settles that the frontend
-  transposes take a residual of the type of `z` and turn it; 3.6 that the bare transpose takes no weight. Today's
-  backend corewise Hessian takes `ztildes`, documented as "residuals (omega^2 applied)" (`backend/probing.py`,
-  `t3_probe_corewise_hessian`), with the order `(ztildes, ww, core_pair, core_directions)`. Proposed: every backend
-  function behind a transpose and the corewise Hessian take a `residual`, no weight, turn it inside, and keep today's
-  argument order (section 2.4). The alternative is a seed already turned.
+- **O-22. The residual of the backend corewise Hessian.** For the transposes the rows decide it: by 6.6 the backend
+  function behind each frontend method has the method's signature, and by 2.4 and 3.6 the frontend transposes take
+  a residual of the type of `z`, no weight, and turn it inside; section 2.4 carries that out. The corewise Hessian
+  (`t3_probe_corewise_hessian` and its apply, entries and uniform twins) has no frontend method. Today it takes
+  `ztildes`, documented as "residuals (omega^2 applied)" (`backend/probing.py`), in the order
+  `(ztildes, ww, core_pair, core_directions)`. Proposed: the transposes' convention (a `residual`, no weight, turned
+  inside), today's order. The alternative is a seed, already weighted and turned. Needed before P12.
 - **O-23. How the dependency diagrams are drawn** (9.7: "How the diagrams are drawn is open"). Proposed in section 8:
   generated from the declared graph by a script, one layered picture per grade and one per output, committed as
   files, with a test that they match a fresh run. Each shows its arrows (9.5).
