@@ -144,3 +144,9 @@ rounds, what Claude checked, the minor issues Claude decided, and what went to t
     (review r2, finding 18); a 0-dimensional float32 `length` does not lower the dtype (finding 19).
 - **One interruption** during the slice, coinciding with a scheduled check-in; the detached gate run finished and
   the agent was resumed automatically.
+
+## A planned pause after P4 (the maintainer, 2026-11-17, 12:58)
+
+"Let's have a planned pause after P4 is complete." When P4 is signed off, looked over and committed: do NOT start
+P5. Refresh `dev/HANDOFF.md` and the folder's README for the state at the pause, stop the scheduled check-ins, and
+report to the maintainer. P5 starts when he says.
