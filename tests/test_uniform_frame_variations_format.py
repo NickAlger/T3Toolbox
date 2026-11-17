@@ -887,6 +887,72 @@ class TestUT3FrameCheckers(unittest.TestCase):
         self.assertTrue(np.array_equal(frame.is_consistent(), self._oracle(frame, lambda b: b.is_consistent())))
         self.assertTrue(frame.is_consistent().all())
 
+    # ---- is_consistent through the cached consistency_residual and the uniform twin (graded messages, P4) ----
+    def _ragged_residuals(self, frame):  # the ragged residual of every stack element, via to_t3frame
+        tree = frame.to_t3frame()
+        if frame.stack_shape == ():
+            return np.asarray(tree.consistency_residual)
+        return np.array([float(tree[i].consistency_residual) for i in range(frame.stack_shape[0])])
+
+    def _with_right(self, frame, right_sc):
+        return ubv.UT3Frame(frame.down_tucker_supercore, frame.up_tt_supercore, frame.left_tt_supercore,
+                            right_sc, frame.shape, frame.masks)
+
+    def test_consistency_residual_matches_the_ragged_one(self):
+        # hand-made (inconsistent) uniform frames with garbage in the padding, the unstacked and the stacked
+        # layout: the uniform residual is the ragged one of each element's real cores. The numbers are compared,
+        # not the verdicts alone.
+        for ss in [(), (3,)]:
+            with self.subTest(stack=ss):
+                good = self._frame(struct=((4, 5, 6), (2, 3, 2), (1, 2, 3, 1)), ss=ss)
+                frame = ubv.UT3Frame(*[np.random.randn(*sc.shape) for sc in good.supercores], good.shape, good.masks)
+                residual = frame.consistency_residual
+                expected = self._ragged_residuals(frame)
+                self.assertEqual(residual.shape, ss)
+                self.assertTrue(np.all(expected > 1e-3))
+                self.assertLess(float(np.max(np.abs(residual - expected) / expected)), 1e-11)
+                self.assertFalse(frame.is_consistent().any())
+                self.assertLess(float(np.max(good.consistency_residual)), 1e-12)      # the library's own frame
+                self.assertTrue(good.is_consistent(rtol=1e-12).all())
+
+    def test_is_consistent_mixed_stack(self):
+        frame = self._frame(ss=(3,))
+        right_sc = np.array(frame.right_tt_supercore)
+        right_sc[1, 2] *= 1.5                                             # site 1, stack element 2 only
+        bad = self._with_right(frame, right_sc)
+        self.assertTrue(np.array_equal(bad.is_consistent(), np.array([True, True, False])))
+        self.assertTrue(np.array_equal(bad.is_consistent(), self._oracle(bad, lambda b: b.is_consistent())))
+        self.assertTrue(bad.is_consistent(rtol=10.0).all())               # rtol is the threshold
+
+    def test_consistency_residual_is_computed_once(self):
+        # cached like orthogonality_residual, and through the uniform backend twin (no UT3 arithmetic)
+        import unittest.mock as mock
+        import t3toolbox.backend.ufv_operations as ufvo
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        frame = self._frame(ss=(2,))
+        with mock.patch.object(ufvo, 'ufv_frame_consistency_residual',
+                               wraps=ufvo.ufv_frame_consistency_residual) as backend_checker, \
+                mock.patch.object(ut3.UniformTuckerTensorTrain, 'norm') as ut3_norm:
+            self.assertNotIn('consistency_residual', frame.__dict__)
+            self.assertTrue(frame.is_consistent().all())
+            self.assertIn('consistency_residual', frame.__dict__)
+            self.assertTrue(frame.is_consistent(rtol=1e-12).all())
+            self.assertIs(frame.consistency_residual, frame.consistency_residual)
+            self.assertEqual(backend_checker.call_count, 1)
+            self.assertIs(backend_checker.call_args.args[0], frame.data)
+            ut3_norm.assert_not_called()
+
+    def test_is_consistent_forms_no_dense_tensor(self):
+        # d = 12, N = 100: the dense tensor has 1e24 entries and could not be allocated; the check returns.
+        frame = self._frame(struct=((100,) * 12, (5,) * 12, (1,) + (4,) * 11 + (1,)))
+        verdict = frame.is_consistent(rtol=1e-12)
+        self.assertTrue(bool(verdict))
+        right_sc = np.array(frame.right_tt_supercore)
+        right_sc[7] *= 1.01
+        bad = self._with_right(frame, right_sc)
+        self.assertLess(abs(float(bad.consistency_residual) - 0.01 / 1.01), 1e-10)
+        self.assertFalse(bool(bad.is_consistent()))
+
     def test_allclose(self):
         import t3toolbox.tucker_tensor_train as t3
         import t3toolbox.uniform_tucker_tensor_train as ut3

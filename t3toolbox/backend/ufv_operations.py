@@ -43,6 +43,8 @@ __all__ = [
     'ufv_save',
     'ufv_load',
     'ufv_frame_orthogonality_residual',
+    'ufv_frame_consistency_residual',
+    'ufv_centers_consistency_residual',
     'ufv_zero_point_frame',
     'ufv_lift_factors',
     'ufv_tied_lift_factors',
@@ -297,6 +299,139 @@ def ufv_frame_orthogonality_residual(data):  # UT3Frame .data -> max orthogonali
         devs.append(dev(xnp.einsum('...iaj,...iak->...jk', mleft[:-1], mleft[:-1]), lm[1:-1], rL))   # outgoing edges 1..d-1
         devs.append(dev(xnp.einsum('...iaj,...kaj->...ik', mright[1:], mright[1:]), rm[1:-1], rR))   # incoming edges 1..d-1
     return xnp.max(xnp.stack(devs), axis=0)   # max over the four senses, keep stack_shape
+
+
+def _zero_the_padding(
+        apply_masks:  typ.Callable,                # ufv_masking.ufv_apply_frame_masks or ufv_apply_variations_masks
+        supercores:   typ.Sequence[NDArray],       # the supercores of a frame or of variations
+        statics:      typ.Tuple,                   # (shape, masks): the rest of the .data that apply_masks takes
+) -> typ.Tuple[NDArray, ...]:                      # the supercores with every padded slot exactly zero
+    """The supercores with their padding set to zero, whatever it holds. ``apply_masks`` multiplies by the
+    masks, and ``nan * 0`` and ``inf * 0`` are ``nan``; the padding is don't-care (the equivalence contract), so
+    here the real slots are selected (``where``) with the indicator that ``apply_masks`` gives on ones."""
+    xnp, _, _ = get_backend(True, tree_contains_jax(tuple(supercores)))
+    real = apply_masks(tuple(xnp.ones_like(sc) for sc in supercores) + tuple(statics))
+    return tuple(xnp.where(keep != 0, sc, xnp.zeros_like(sc)) for sc, keep in zip(supercores, real))
+
+
+def _masked_frame_as_ragged(
+        data:  typ.Tuple,   # uniform frame .data = (down_sc, up_sc, left_sc, right_sc, shape, masks)
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],   # down.  len=d, elm_shape=C+(nD, N)
+    typ.Tuple[NDArray, ...],   # up.    len=d, elm_shape=C+(rL, nU, rR)
+    typ.Tuple[NDArray, ...],   # left.  len=d, elm_shape=C+(rL, nD, rL)
+    typ.Tuple[NDArray, ...],   # right. len=d, elm_shape=C+(rR, nD, rR)
+]:
+    """The masked frame supercores as four tuples of ``d`` zero-padded cores: a ragged frame of the padded
+    widths that stands for the same tensors, stack element by stack element (a zero slot of a bond or of a
+    Tucker edge contributes nothing to a contraction; a zero column of a Tucker core is a zero slice of the
+    tensor). It is NOT the ragged frame of ``ufv_conversions.ut3frame_to_t3frame`` (which slices to the real
+    ranks and cannot keep a stack whose ranks vary): it serves functions of the tensors a frame stands for
+    that accept any cores, such as the consistency residuals."""
+    d = data[0].shape[0]
+    masked = _zero_the_padding(ufv_masking.ufv_apply_frame_masks, data[:4], data[4:])
+    return tuple(tuple(masked_sc[ii] for ii in range(d)) for masked_sc in masked)
+
+
+def ufv_frame_consistency_residual(
+        data: typ.Tuple[
+            NDArray,             # down_tucker_supercore,  (d,)+C+(nD, N)
+            NDArray,             # up_tt_supercore,        (d,)+C+(rL, nU, rR)
+            NDArray,             # left_tt_supercore,      (d,)+C+(rL, nD, rL)
+            NDArray,             # right_tt_supercore,     (d,)+C+(rR, nD, rR)
+            typ.Sequence[int],   # shape = (N0,...,N(d-1)), static int tuple
+            typ.Tuple[NDArray, NDArray, NDArray, NDArray],   # (down, up, frame_left, frame_right) masks, HOST bool
+        ],
+) -> NDArray:  # shape = stack_shape (per stack element; scalar/0-d when unstacked)
+    """Relative Frobenius mismatch between the left- and right-canonical reconstructions of the base point,
+    ``||T(D, L) - T(D, R)|| / max(1, ||T(D, R)||)``, **per stack element**: the uniform twin of
+    :py:func:`~t3toolbox.backend.fv_operations.fv_frame_consistency_residual`, equal to it on each stack
+    element's real part. A checker: it returns the residual and never raises on its value. No dense tensor is
+    formed; the up store is not read.
+
+    The supercores are masked once, with the frame's own masks, so garbage in the padding does not reach the
+    result, whatever it is (a ``nan`` or an ``inf`` there included); the masked slices then go through the
+    ragged function as zero-padded cores, which stand for the same tensors. The stack's ranks may vary. The boundary bonds' real slots are tails: summed, as in the
+    ragged function.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+    >>> import t3toolbox.backend.ufv_conversions as ufvc
+    >>> import t3toolbox.backend.ufv_operations as ufvo
+    >>> np.random.seed(0)
+    >>> x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((14, 15, 16), (4, 5, 6), (1, 3, 2, 1)))
+    >>> frame_data, _ = ufvc.ut3_orthogonal_representations(x.data)
+    >>> bool(ufvo.ufv_frame_consistency_residual(frame_data) < 1e-12)
+    True
+    >>> down_sc, up_sc, left_sc, right_sc, shape, masks = frame_data
+    >>> bad_right_sc = np.concatenate([2.0 * right_sc[:1], right_sc[1:]])      # the first right core, doubled
+    >>> bool(np.isclose(ufvo.ufv_frame_consistency_residual((down_sc, up_sc, left_sc, bad_right_sc, shape, masks)), 0.5))
+    True
+    """
+    return fv_operations.fv_frame_consistency_residual(_masked_frame_as_ragged(data))
+
+
+def ufv_centers_consistency_residual(
+        data: typ.Tuple[
+            NDArray,             # down_tucker_supercore,  (d,)+C+(nD, N)
+            NDArray,             # up_tt_supercore,        (d,)+C+(rL, nU, rR)
+            NDArray,             # left_tt_supercore,      (d,)+C+(rL, nD, rL)
+            NDArray,             # right_tt_supercore,     (d,)+C+(rR, nD, rR)
+            typ.Sequence[int],   # shape = (N0,...,N(d-1)), static int tuple
+            typ.Tuple[NDArray, NDArray, NDArray, NDArray],   # (down, up, frame_left, frame_right) masks, HOST bool
+        ],
+        centers: typ.Tuple[
+            typ.Optional[NDArray],   # Vc_sc, the Tucker centers' supercore. (d,)+C+(nU, N);      or None
+            typ.Optional[NDArray],   # Hc_sc, the TT centers' supercore.     (d,)+C+(rL, nD, rR); or None
+        ],
+) -> NDArray:  # shape = stack_shape (per stack element; scalar/0-d when unstacked)
+    """How far the center cores ``(Vc, Hc)`` are from the base point ``(D, L)`` of the frame.
+
+    **Per stack element**; the uniform twin of
+    :py:func:`~t3toolbox.backend.fv_operations.fv_centers_consistency_residual` (which states what consistency
+    of the centers means), equal to it on each stack element's real part. A checker: it returns the residual
+    and never raises on its value. No dense tensor is formed. Either family may be ``None``, and is then not
+    checked.
+
+    The centers are two bare supercores of the shapes of the variation supercores
+    (:py:func:`ufv_variation_shapes`): the first two members of the variations ``.data`` that
+    :py:func:`~t3toolbox.backend.ufv_conversions.ut3_orthogonal_representations` returns beside the frame.
+    They are masked with the frame's variation masks
+    (:py:func:`~t3toolbox.backend.ufv_masking.ufv_variation_masks`), and the frame with its own, so garbage in
+    the padding of either does not reach the result.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+    >>> import t3toolbox.backend.ufv_conversions as ufvc
+    >>> import t3toolbox.backend.ufv_operations as ufvo
+    >>> np.random.seed(0)
+    >>> x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((14, 15, 16), (4, 5, 6), (1, 3, 2, 1)))
+    >>> frame_data, (Vc_sc, Hc_sc, _, _) = ufvc.ut3_orthogonal_representations(x.data)
+    >>> bool(ufvo.ufv_centers_consistency_residual(frame_data, (Vc_sc, Hc_sc)) < 1e-12)
+    True
+    >>> bool(np.isclose(ufvo.ufv_centers_consistency_residual(frame_data, (Vc_sc, 1.5 * Hc_sc)), 0.5))
+    True
+    """
+    Vc_sc, Hc_sc = centers
+    if Vc_sc is None and Hc_sc is None:
+        raise ValueError('centers = (None, None): there is nothing to check')
+    xnp, _, _ = get_backend(True, tree_contains_jax((data[:4], centers)))
+    Vc_shape, Hc_shape = ufv_variation_shapes(data)
+    d, shape, frame_masks = Vc_shape[0], data[4], data[5]
+    masked_Vc_sc, masked_Hc_sc = _zero_the_padding(
+        ufv_masking.ufv_apply_variations_masks,
+        (xnp.zeros(Vc_shape) if Vc_sc is None else Vc_sc,      # a family that is not given: a placeholder,
+         xnp.zeros(Hc_shape) if Hc_sc is None else Hc_sc),     # masked with the other and then dropped
+        (shape, ufv_masking.ufv_variation_masks(frame_masks)))
+    Vc = None if Vc_sc is None else tuple(masked_Vc_sc[ii] for ii in range(d))
+    Hc = None if Hc_sc is None else tuple(masked_Hc_sc[ii] for ii in range(d))
+    return fv_operations.fv_centers_consistency_residual(_masked_frame_as_ragged(data), (Vc, Hc))
 
 
 def ufv_zero_point_frame(

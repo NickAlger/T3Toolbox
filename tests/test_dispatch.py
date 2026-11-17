@@ -836,6 +836,32 @@ class TestDispatch(unittest.TestCase):
         # residual / checker backends -> jax scalar (raw-np dispatch fix)
         self.assert_jit_jax(lambda b: fv_operations.fv_frame_orthogonality_residual(b), self.frame.data)
         self.assert_jit_jax(lambda b: fv_operations.fv_frame_consistency_residual(b), self.frame.data)
+        # graded messages P4: the frame checkers go through the cores (two more orthogonalizations, no dense
+        # tensor); the centers' residual beside them, with either family alone; the frontend's cached residual
+        self.assert_jit_jax(lambda b, c: fv_operations.fv_centers_consistency_residual(b, c),
+                            self.frame.data, self.var.data)
+        self.assert_jit_jax(lambda b, vc: fv_operations.fv_centers_consistency_residual(b, (vc, None)),
+                            self.frame.data, self.var.data[0])
+        self.assert_jit_jax(lambda b, hc: fv_operations.fv_centers_consistency_residual(b, (None, hc)),
+                            self.frame.data, self.var.data[1])
+        self.assert_jit_jax(lambda b: b.consistency_residual, self.frame)
+        self.assert_jit_jax(lambda b: b.is_consistent(), self.frame)
+        for fn, args in ((fv_operations.fv_frame_consistency_residual, (self.frame.data,)),
+                         (fv_operations.fv_centers_consistency_residual, (self.frame.data, self.var.data))):
+            eager, jitted = fn(*args), jax.jit(fn)(*args)             # jax in -> jax out, eager and compiled alike
+            self.assertTrue(common.is_jax_ndarray(eager))
+            self.assertEqual(eager.dtype, self.frame.data[0][0].dtype)
+            self.assertLess(float(jitted), 1e-4 if eager.dtype == np.float32 else 1e-11)   # a consistent frame
+            self.assertLess(abs(float(jitted) - float(eager)), 1e-4 if eager.dtype == np.float32 else 1e-11)
+        # a norm whose square is not representable (float32, norm near 1e20) does not turn a residual into 0:
+        # R[0] off by 1e-3 reads 1e-3, eager and compiled
+        scale = lambda cores, factor: (jnp.asarray(factor, dtype=cores[0].dtype) * cores[0],) + tuple(cores[1:])
+        down, up, left, right = self.frame.data
+        large = (down, up, left[:-1] + (jnp.asarray(1e20, dtype=left[-1].dtype) * left[-1],), scale(right, 1.001e20))
+        if down[0].dtype == np.float32:
+            for residual in (fv_operations.fv_frame_consistency_residual(large),
+                             jax.jit(fv_operations.fv_frame_consistency_residual)(large)):
+                self.assertLess(abs(float(residual) - 1e-3), 2e-5)
         self.assert_jit_jax(lambda b, v: tops.tv_gauge_residual(b, v), self.frame.data, self.var.data)
         # S7b: the operand-scaled gauge residual (a traced per-element scale; jax in -> jax out)
         self.assert_jit_jax(lambda b, v, s: tops.tv_gauge_residual(b, v, scale=s),
@@ -3614,6 +3640,21 @@ class TestJitUniformWeighted(unittest.TestCase):
         import t3toolbox.backend.ufv_operations as ubvo
         self.assert_jit_jax(lambda b: b.reverse(), self.frame)
         self.assert_jit_jax(lambda b: ubvo.ufv_frame_orthogonality_residual(b.data), self.frame)
+        # graded messages P4: the uniform twins of the frame checkers (supercores traced, masks host constants)
+        _, centers = self.ubv.ut3_orthogonal_representations(self.ux)
+        Vc_sc, Hc_sc = centers.supercores
+        self.assert_jit_jax(lambda b: ubvo.ufv_frame_consistency_residual(b.data), self.frame)
+        self.assert_jit_jax(lambda b, vc, hc: ubvo.ufv_centers_consistency_residual(b.data, (vc, hc)),
+                            self.frame, Vc_sc, Hc_sc)
+        self.assert_jit_jax(lambda b, vc: ubvo.ufv_centers_consistency_residual(b.data, (vc, None)), self.frame, Vc_sc)
+        self.assert_jit_jax(lambda b, hc: ubvo.ufv_centers_consistency_residual(b.data, (None, hc)), self.frame, Hc_sc)
+        self.assert_jit_jax(lambda b: b.consistency_residual, self.frame)
+        tol = 1e-4 if self.frame.supercores[0].dtype == np.float32 else 1e-11
+        eager = ubvo.ufv_centers_consistency_residual(self.frame.data, (Vc_sc, Hc_sc))
+        jitted = jax.jit(lambda b, vc, hc: ubvo.ufv_centers_consistency_residual(b.data, (vc, hc)))(self.frame, Vc_sc, Hc_sc)
+        self.assertTrue(common.is_jax_ndarray(eager))
+        self.assertLess(float(jitted), tol)                           # the library's own centers are consistent
+        self.assertLess(float(ubvo.ufv_frame_consistency_residual(self.frame.data)), tol)
 
 
 @unittest.skipUnless(HAS_JAX, "jax not available")

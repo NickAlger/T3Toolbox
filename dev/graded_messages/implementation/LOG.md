@@ -183,3 +183,22 @@ For the maintainer at the pause, from the review:
 
 For P16: the frame residual costs six to eight frame constructions (fine once per model build); the enforcement
 must pass `safety.effective_rtol(frame.data)`, since a float32 numpy frame reads 2.5e-7.
+
+### P4, signed off and committed (2026-11-17, 15:20)
+
+- **Rounds:** two. Round 2 (`P4_REVIEW_r2.md`): SIGNED OFF, all nine findings resolved, three minor notes.
+- **What round 1 changed beyond tests and docstrings:** the norm of the last core is taken after dividing by its
+  largest magnitude (no overflow below the dtype's maximum; `nan`, never 0, where a norm is not finite); the Tucker
+  cores are shared (each factored once, its factor absorbed into the TT cores, so every difference is a difference
+  of TTs; the frame residual went from about six frame constructions to about two and a half, the centers' from
+  13.6 s to 4.5 s on the reviewer's frame); the uniform twins select the real slots with `where`; on
+  `LinAlgError` numpy recomputes one stack element at a time.
+- **My look:** read the backend code, the frontend properties and the reviews. One addition of mine, for the
+  reviewer's note 1 (the balancing of `D[i]` against `Vc[i]` was pinned by no test):
+  `test_the_accuracy_does_not_depend_on_the_scale_of_a_down_core` in `tests/backend/test_frame_consistency.py`;
+  it fails in a scratch copy with the balancing removed. Notes 2 and 3 need nothing (a zero stack element reads
+  7e-16 in the centers' residual; a count in the response).
+- **Gate:** the implementer's whole gate on its final tree, all steps PASS (suite 1,631 passed, 5 skipped,
+  1 xfailed; `/tmp/gate_P4_r1`); the slice's quick tests after my test, 167 passed. The suite is at 1,632.
+- **Not run here:** numpy 1.x (finding 7: an unstacked float32 frame's residual dtype). CI's floor leg runs it.
+- **The pause begins.** P5 is not started. The items for the maintainer are under "P4, review round 1" above.

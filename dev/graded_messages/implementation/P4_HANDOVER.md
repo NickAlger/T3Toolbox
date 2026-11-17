@@ -7,15 +7,21 @@ pause). Nothing is committed. No enforcement is added anywhere: that is P16's.
 **Read section 4 first if short of time**: the route the plan names loses accuracy in proportion to the norm of
 the tensor, and what was built is that route with one step added (finding 4.1).
 
+**Brought up to date after review round 1** (`P4_REVIEW_r1.md`; the answers are in `P4_RESPONSE_r1.md`). The public
+surface did not change. Inside: norms that do not overflow, and `nan` (never 0) where a norm is not finite; the
+Tucker cores factored once and shared, so the differences are differences of TTs; `nan` or `inf` in uniform padding
+no longer reaches the result; numpy's SVD failing on overflow is handled one stack element at a time; no Python
+float meets an array; no wall-clock assertion; nine more tests. This file describes the tree after that round.
+
 ## 1. What changed
 
 | File | Change |
 | --- | --- |
-| `t3toolbox/backend/fv_operations.py` | `fv_frame_consistency_residual` rewritten through the cores (same signature, same formula); `fv_centers_consistency_residual` **new**; five private helpers; `__all__`; the import of `t3_conversions` (used only by the dense route) replaced by `t3_orthogonalization`; one clause in the module docstring |
-| `t3toolbox/backend/ufv_operations.py` | `ufv_frame_consistency_residual`, `ufv_centers_consistency_residual` **new**; one private helper; `__all__` |
+| `t3toolbox/backend/fv_operations.py` | `fv_frame_consistency_residual` rewritten through the cores (same signature, same formula); `fv_centers_consistency_residual` **new**; twelve private helpers; `__all__`; the import of `t3_conversions` (used only by the dense route) replaced by `tt_orthogonalization`; one clause in the module docstring |
+| `t3toolbox/backend/ufv_operations.py` | `ufv_frame_consistency_residual`, `ufv_centers_consistency_residual` **new**; two private helpers; `__all__` |
 | `t3toolbox/frame_variations_format.py` | `T3Frame.consistency_residual` **new** (cached property); `T3Frame.is_consistent` through it; its docstring; one sentence of `to_t3`'s docstring that said a check would have to densify |
 | `t3toolbox/uniform_frame_variations_format.py` | `UT3Frame.consistency_residual` **new** (cached property); `UT3Frame.is_consistent` through it, no longer through `UniformTuckerTensorTrain` arithmetic |
-| `tests/backend/test_frame_consistency.py` | **new**, 30 tests |
+| `tests/backend/test_frame_consistency.py` | **new**, 39 tests |
 | `tests/test_frame_variations_format.py` | 5 tests (the `is_consistent` cases) |
 | `tests/test_uniform_frame_variations_format.py` | 4 tests (the `is_consistent` cases) |
 | `tests/test_dispatch.py` | rows in `test_jit_backend` and `test_jit_uniform_frame_helpers` |
@@ -75,43 +81,50 @@ sites.
 
 ### How the code is built
 
-- `_t3_left_orthogonal_form(tucker_cores, tt_cores)`: sums the two tails, then `t3_orthogonalization
-  .t3_left_orthogonalize` (the route of `geometry.point_norm_sq`). `_t3_left_orthogonal_norm`: the norm of the last
-  TT core. `_t3_difference_norm(x, y)`: the difference of two T3s in left-orthogonal form as one T3 (Tucker cores
-  stacked, TT cores block-diagonal by `_t3_core_direct_sum`, the first core of `y` negated), brought to
+- `_tucker_down_factors(D)`: one SVD per Tucker core, `D[i] = R[i]^T Q[i]` with `Q[i]` of orthonormal rows; returns
+  `R`. `_tt_absorb_down_factors` puts `R[i]` on the Tucker edge of a TT core. Since `Q` is orthonormal, a T3 on `D`
+  has the norm of its TT with `R` absorbed, and two T3s on the same `D` differ by the difference of their TTs.
+- `_tt_left_orthogonal_form(tt)`: sums the two tails, then `tt_orthogonalization.tt_left_orthogonalize`.
+  `_tt_left_orthogonal_norm`: the norm of the last core, taken after dividing by its largest magnitude, so it does
+  not overflow below the dtype's maximum. `_tt_difference_norm(x, y)`: the difference of two TTs in left-orthogonal
+  form as one TT (block-diagonal cores by `_tt_core_direct_sum`, the first core of `y` negated), brought to
   left-orthogonal form, its norm read off.
-- `fv_frame_consistency_residual`: `(D, L)` and `(D, R)` each to left-orthogonal form, the norm of their
-  difference, over `max(1, ||T(D, R)||)`. Three orthogonalizations.
-- `fv_centers_consistency_residual`: `(D, L)` to left-orthogonal form once; for each site and each family given,
-  the T3 with the center to left-orthogonal form and the norm of its difference from the base point. At most
-  `4 d + 1` orthogonalizations.
-- `_zero_stack_elements_that_are_not_finite`: see 4.3.
-- The uniform twins mask the frame with its own masks (`ufv_apply_frame_masks`) and the centers with the frame's
-  variation masks (`ufv_apply_variations_masks` with `ufv_variation_masks(frame_masks)`), once, split the masked
+- `fv_frame_consistency_residual`: the factors of `D` once; `L` and `R` with them absorbed, each to
+  left-orthogonal form; the norm of their difference over `max(1, ||T(D, R)||)`.
+- `fv_centers_consistency_residual`: the same factors; for `Hc[i]`, the TT `L[<i], Hc[i], R[>i]` against the base
+  TT; for `Vc[i]`, the two Tucker cores of site `i` (`Vc[i]` and `D[i]`, each first brought to unit scale) are
+  factored together, so `U[i]` and `L[i]` absorb the two halves of one factor and both terms stand on one basis.
+- `_relative_residual(num, den)`: `num / max(1, den)`, `nan` where either norm is not finite.
+- `_zero_stack_elements_that_are_not_finite` and `_per_stack_element_if_the_svd_fails`: see 4.3.
+- The uniform twins zero the padding of the frame (its own masks) and of the centers (the frame's variation masks,
+  `ufv_variation_masks(frame_masks)`) once, by selection (`_zero_the_padding`: `where` on the indicator that the
+  library's masking function gives on ones, so a `nan` or `inf` in the padding does not survive), split the
   supercores along the leading `d` axis into `d` zero-padded cores, and call the ragged function (section 4.2).
   Masks stay host numpy; the supercores go through `xnp`.
 - Dispatch is inferred from the arrays in every function. Nothing in the backend reads a mode or imports `safety`.
-  `t3_linalg` is not imported (the cycle the plan names).
+  `t3_linalg` is not imported (the cycle the plan names). Three helpers repeat a few lines of modules that cannot be
+  imported here; each names its twin in its docstring.
 
 ## 2. The tests, and what each group establishes
 
-`tests/backend/test_frame_consistency.py` (30 tests). The file computes each definition itself from dense
+`tests/backend/test_frame_consistency.py` (39 tests). The file computes each definition itself from dense
 tensors (`t3_to_dense` of each network, a norm over the mode axes); structures with and without tails, `d = 1`,
 a Tucker rank above its mode size; stacks `()`, `(3,)`, `(2, 2)`.
 
 | Group | Establishes |
 | --- | --- |
-| `TestRaggedFrameResidual` (10) | The residual is the dense definition on hand-made frames (random cores: nothing orthogonal, nothing consistent), per stack element, with tails; a library-built frame passes at `1e-12`, at every norm from `4e-6` to `4e14`; a relative perturbation of `1e-9` shows as `1e-9`; float32 in, float32 out at float32 rounding; a perturbed `L` or `R` fails at every site; `U` is not read; one wrong stack element fails alone; a zero frame gives 0 |
+| `TestRaggedFrameResidual` (11) | The residual is the dense definition on hand-made frames (random cores: nothing orthogonal, nothing consistent), per stack element, with tails; below norm one it is the norm of the difference itself (the `1` of `max(1, .)`); a library-built frame passes at `1e-12`, at every norm from `4e-6` to `4e14`; a relative perturbation of `1e-9` shows as `1e-9`; float32 in, float32 out at float32 rounding, stacked and unstacked; a perturbed `L` or `R` fails at every site; `U` is not read; one wrong stack element fails alone; a zero frame gives 0 |
 | `TestRaggedCentersResidual` (9) | The residual is the dense definition (frame and centers hand-made; each family alone; the library's frame with random centers); the library's centers pass at `1e-12`, at every norm; a center taken from another point fails at every site in either family, and the other family alone still passes; a relative error of `1e-8` shows as `1e-8`; the library's centers on a frame with a wrong `R` or `U` fail (`Hc` alone does not read `U`); per stack element; `(None, None)` raises |
-| `TestNoDenseTensor` (2) | `d = 12`, `N = 100` (a dense tensor of `1e24` entries): each of the four checkers returns the right answer in under 0.5 s (measured: 2 ms and 33 ms ragged) |
-| `TestUniformTwins` (5) | Each uniform residual equals the ragged function's on each stack element's real cores, sliced by the test's own indexing, on hand-made uniform frames whose ranks are drawn per stack element, with garbage in the padding, with and without tails, and equals the dense definition; garbage of size `1e3` in every padded slot of the frame and of the centers changes no bit of any residual (the fixture asserts it changed the padding and only the padding); library-built uniform frames pass over the stack matrix (unstacked, stacked, two stack axes, forced-larger padding, ranks varying over the stack), clean and with garbage; a wrong real slot fails only its stack element; `(None, None)` raises |
-| `TestCheckersNotGuarantees` (4) | A checker returns a number on wildly wrong input; a `nan` or `inf` in a core gives `nan` for that stack element and leaves the others, with no error (ragged and uniform); cores whose products overflow give no error; an AST search of `t3toolbox/backend/`: no backend function uses any of the four names, except the two uniform twins calling their ragged functions |
+| `TestNormsThatDoNotOverflow` (4) | float32 frames of norm near `1e20` and `1e37` (the square is not a float32): a consistent one passes with a residual above 0; `R[0]`, `Vc[1]`, `Hc[2]` off by `1e-3` read `1e-3`; a stack element whose norm is beyond the largest float32 reads `nan` and the others keep theirs; the uniform twins at norm `1e20` |
+| `TestNoDenseTensor` (2) | `d = 12`, `N = 100` (a dense tensor of `1e24` entries, which could not be allocated): each of the four checkers returns the right answer. No clock |
+| `TestUniformTwins` (6) | Each uniform residual equals the ragged function's on each stack element's real cores, sliced by the test's own indexing, on hand-made uniform frames whose ranks are drawn per stack element, with garbage in the padding, with and without tails, and equals the dense definition; garbage of size `1e3` in every padded slot of the frame and of the centers changes no bit of any residual (the fixture asserts it changed the padding and only the padding); the same with every padded slot `nan`, `inf` or `-inf`; library-built uniform frames pass over the stack matrix (unstacked, stacked, two stack axes, forced-larger padding, ranks varying over the stack), clean and with garbage; a wrong real slot fails only its stack element; `(None, None)` raises |
+| `TestCheckersNotGuarantees` (7) | A checker returns a number on wildly wrong input; the guard by itself flags and zeroes exactly the stack elements with a core that is not finite; through the checkers a `nan` or `inf` in a core gives `nan` for that stack element and leaves the others (ragged and uniform), under a mock that refuses anything not finite before an SVD, so a broken guard fails and does not hang; cores whose products overflow give `nan` for their element only; the failure path by itself, taking `LinAlgError` and nothing else; `num / max(1, den)` by itself is `nan` where a norm is not finite, never 0; an AST search of `t3toolbox/backend/`: no backend function uses any of the four names, except the two uniform twins calling their ragged functions |
 
 `tests/test_frame_variations_format.py` (5): `T3Frame.consistency_residual` is the dense definition on hand-made
 frames with tails and stacks; `is_consistent` passes a library-built frame, fails a perturbed `L` or `R` at every
 site, and `rtol` is the threshold; per stack element; **computed once** (the backend checker is wrapped by a mock:
 one call for three verdicts and two reads on one frame, the argument is the frame's `.data`, a second frame makes
-its own call); no dense tensor (`d = 12`, `N = 100`, under 0.5 s).
+its own call); no dense tensor (`d = 12`, `N = 100`).
 
 `tests/test_uniform_frame_variations_format.py` (4): `UT3Frame.consistency_residual` equals the ragged frame's
 residual of each element (via `to_t3frame`), numbers compared; a mixed stack; computed once, through the uniform
@@ -120,20 +133,84 @@ twin, and `UniformTuckerTensorTrain.norm` is never called; no dense tensor. The 
 
 `tests/test_dispatch.py`: the three new backend functions and both cached properties under `jax.jit` (each family
 of centers alone too); jax in gives jax out, eager and compiled, in the dtype of the cores; the compiled value
-equals the eager one. `tests/test_jax_absent.py`: all four backend checkers and the frontend properties run with
+equals the eager one; a float32 frame of norm near `1e21` with `R[0]` off by `1e-3` reads `1e-3`, eager and compiled. `tests/test_jax_absent.py`: all four backend checkers and the frontend properties run with
 jax hidden, with the jax-absent warning turned into an error.
 
-**Testing the tests.** 30 mutations of the code in a scratch copy (`python -B`, `PYTHONDONTWRITEBYTECODE=1`), each
-run against the slice's tests: all 30 caught. Among them: the difference taken across the two gauges; a tail not
-summed (each end); `R` to the left of the site, `L` to the right; the first or the last site skipped; the minimum
-over the sites; a family ignored; the frame, `Vc` or `Hc` unmasked on the uniform layout; the centers masked with
-the bond masks unshifted; either property uncached; `rtol` ignored; `UT3Frame` through `UniformTuckerTensorTrain`
-arithmetic. Removing the zeroing of a stack element that is not finite makes numpy's SVD run forever on an `inf`
-(the run was stopped at its time limit, which is why the guard exists).
+**Testing the tests.** Round 0: 30 mutations of the code in a scratch copy (`python -B`,
+`PYTHONDONTWRITEBYTECODE=1`), all caught, one of them only as a hang. The reviewer ran 58 and found one survivor
+(the floor of `max(1, .)`). After round 1, on the final code: 26 mutations, all caught as failures, none as a hang
+(the list is in `P4_RESPONSE_r1.md`).
 
 ## 3. The gate
 
-GATE_PLACEHOLDER
+### After review round 1 (the final tree)
+
+```
+step                result counts                                                      seconds   peak_MB  minavl_MB
+quick               PASS   166 passed, 619 subtests passed                                 4.0       548       7240
+
+suite               PASS   1631 passed, 5 skipped, 1 xfailed, 1 warning, 66233 subtests passed    925.9      3915       3964
+doctest-modules     PASS   310 passed                                                     25.1      1359       6328
+doctest-quickstart  PASS   1 file(s), 0 with failures, 0 failed example(s)                 1.8       230       7394
+doctest-pages       PASS   48 file(s), 0 with failures, 0 failed example(s)               12.2       447       7215
+examples            PASS   14 examples, 0 failed                                           186       361       7304
+sphinx              PASS   0 warning/error line(s)                                       193.2       728       6804
+```
+
+The slice's tests first (`run_gate.sh --detach -n 2 -l /tmp/gate_P4_r1_quick quick` on the new file, the two frame
+test files, `test_import_graph.py`, `test_jax_absent.py`, `tests/backend/test_fv_operations.py`; the two edited
+tests of `test_dispatch.py` were run by hand, 2 passed), then the whole gate
+(`run_gate.sh --detach -n 2 -l /tmp/gate_P4_r1`), on the final tree: no file of the library or the tests changed
+after it started. 1,631 passed = 1,582 before the slice + 49 (39 + 5 + 4 + 1). 5 skipped and 1 xfailed as before;
+the one warning is the baseline's (adam on a manifold geometry). No failure.
+
+### Round 0 (the tree before the review)
+
+All runs through `dev/graded_messages/implementation/run_gate.sh`, one after another, nothing else running.
+
+**The slice's tests first** (`run_gate.sh --detach -n 2 -l /tmp/gate_P4_quick quick` on the new file, the two frame
+test files, `test_import_graph.py`, `test_jax_absent.py`, `tests/backend/test_fv_operations.py`, `test_dispatch.py`,
+`test_manifold.py`, `test_uniform_manifold.py`):
+
+```
+step                result counts                                                      seconds   peak_MB  minavl_MB
+quick               PASS   414 passed, 1591 subtests passed                              645.9      3171       4677
+```
+
+**The whole gate** (`run_gate.sh --detach -n 2 -l /tmp/gate_P4`):
+
+```
+step                result counts                                                      seconds   peak_MB  minavl_MB
+suite               PASS   1622 passed, 5 skipped, 1 xfailed, 1 warning, 66193 subtests passed    870.2      3868       4024
+doctest-modules     PASS   310 passed                                                     23.5      1388       6312
+doctest-quickstart  PASS   1 file(s), 0 with failures, 0 failed example(s)                 1.6       235       7378
+doctest-pages       PASS   48 file(s), 0 with failures, 0 failed example(s)               11.8       462       7210
+examples            PASS   14 examples, 0 failed                                           180       370       7300
+sphinx              FAIL   2 warning/error line(s)                                       186.8       725       6812
+```
+
+- Suite: 1,622 passed = 1,582 before the slice + 40 new tests (30 + 5 + 4 + 1). 5 skipped (the slow tier) and
+  1 xfailed (the Part 2 marker of P1), as before. The one warning is the baseline's (adam on a manifold geometry,
+  `tests/oracle_sweeps/sweep_optimizers.py:102`). No failure, so none new.
+- Module doctests: 310 = 304 + 6 (the four backend checkers, `T3Frame.consistency_residual`,
+  `T3Frame.is_consistent`).
+- **Sphinx failed on this run, on my docstrings**: "Inline strong start-string without end-string" in the
+  autosummary rows of `fv_centers_consistency_residual` and `ufv_centers_consistency_residual`, whose first line
+  ended inside `**per stack element**`. Fixed by ending the first line at a full stop (two docstrings, no code).
+
+**After that fix** (`run_gate.sh --detach -l /tmp/gate_P4_b doctest-modules sphinx`), on the final tree:
+
+```
+step                result counts                                                      seconds   peak_MB  minavl_MB
+doctest-modules     PASS   310 passed                                                     22.7      1091       6584
+sphinx              PASS   0 warning/error line(s)                                       184.0       726       6800
+```
+
+and the slice's five test files once more on the final tree: `155 passed, 571 subtests passed`.
+
+So the suite, the quickstart, the pages and the examples ran on a tree that differs from the final one by the
+first lines of two docstrings; the module doctests and sphinx ran on the final tree. The whole gate was not run a
+second time.
 
 ## 4. Departures from the plan, findings, and the choices it left open
 
@@ -168,14 +245,15 @@ core, where both have scale `||T||`. It is the plan's route with one step before
 does not assume the frame is orthogonal (a hand-made frame is orthogonalized like any other). I did not see this
 as a departure that needs a decision, but it is the main thing to check.
 
-**Accuracy measured, as built.**
+**Accuracy measured, as built** (the numbers of the tree after round 1; the table above is round 0's, whose
+"as built" column the final code reproduces to within `3e-15`).
 
 | Case | Frame residual | Centers residual |
 | --- | --- | --- |
-| float64 numpy, library-built, norms `4e-2` to `4e14` | at most `1.5e-14` | at most `2.1e-14` |
+| float64 numpy, library-built, norms `4e-2` to `4e14` | at most `1.7e-14` | at most `1.9e-14` |
 | float64 numpy, the 72 small cases of the tests (tails, stacks) | at most `1.8e-14` | (same bound) |
 | float32, jax (its default), norms `4e3` to `4e9`, eager and under `jit` | `1.0e-6` to `1.7e-6` | `1.3e-6` to `1.9e-6` |
-| float32 numpy (a float64 frame cast to float32) | `3e-7` to `5e-7` | `3e-7` to `4e-7` |
+| float32 numpy (a float64 frame cast to float32), norms `4e6`, `4e20`, `1.2e37` | `2.4e-7` to `3.0e-7` | `3.1e-7` to `3.5e-7` |
 | against the dense definition on hand-made frames | relative difference at most `6e-15` | |
 | an inconsistency of relative size `1e-9` (frame), `1e-8` (center) | shows as that number to 3 digits | |
 
@@ -201,35 +279,45 @@ makes the residual absolute, as today.
    the T3 with the center at one site to have a different width at that site. Under `jit` the `d` steps are
    unrolled; these are checkers, not inner-loop code. Equality with ragged, robustness to garbage and tails are
    tested; there are no output masks to assert (the output is one number per stack element).
-5. **The difference is formed as a general T3 sum** (Tucker cores stacked, TT cores block-diagonal over all three
-   legs), not by using that the terms share Tucker cores. Simpler, one helper for all three uses, at the cost of
-   doubled Tucker ranks in the difference.
+5. **The Tucker cores are factored once and the differences are differences of TTs** (round 1, finding 4; round 0
+   formed a general T3 sum with doubled Tucker ranks). At a site with a Tucker center the two Tucker cores are
+   factored together, each first brought to unit scale.
 6. **`UT3Frame.is_consistent` now has the ragged formula**, `<= rtol * max(1, ||T(D, R)||)`; before it was
    `<= rtol * ||T(D, R)||`. They differ only where `||T|| < 1`. The plan says it "moves to the twin", and the twin
    has the ragged formula.
-7. **Tests of timing** assert under 0.5 s where 2 ms and 33 ms were measured ("well under a second").
+7. **No test asserts a time** (round 1, finding 8): "checked in well under a second" is established by the check
+   returning on a frame whose dense tensor could not be allocated. Measured: 2 ms and 33 ms at `d = 12`, `N = 100`.
 8. **Where the tests live.** The backend checkers in a new file, `tests/backend/test_frame_consistency.py`; the
    `is_consistent` cases in the two files the plan names.
 
-### 4.3 A checker that does not raise: what it took
+### 4.3 A checker that does not raise, and never reads 0 by accident: what it took
 
-"Each returns a residual and never raises." numpy's SVD raises `LinAlgError` on a matrix with a `nan`, and on a
-Tucker core with an `inf` it did not return at all (a run was stopped after 20 s; today's dense function returned
-`nan` in both cases). So each ragged checker first finds the stack elements with a core that is not finite, among
-the cores it reads; those elements are checked as zeros and get the residual `nan`, which fails every threshold;
-the other elements keep their residual. The same on jax and under `jit` (`xnp.where`). Finite cores whose products
-overflow (`1e200` in every core) still make numpy's SVD raise inside the sweep; that `LinAlgError` is caught and
-the whole stack gets `nan`. This is the only `try` in the slice.
+"Each returns a residual and never raises." Three things stood in the way.
 
-On the uniform layout a `nan` in the **padding** gives `nan`, because the library's masking multiplies
-(`nan * 0 = nan`): existing behaviour of `ufv_apply_frame_masks`, not changed here.
+- **Cores that are not finite.** numpy's SVD raises `LinAlgError` on a matrix with a `nan`, and on a Tucker core
+  with an `inf` it did not return at all (today's dense function returned `nan` in both cases). So each ragged
+  checker first finds the stack elements with a core that is not finite, among the cores it reads
+  (`_zero_stack_elements_that_are_not_finite`); those elements are checked as zeros and get the residual `nan`; the
+  others keep their residual. The same on jax and under `jit` (`where`, no branch on values).
+- **Finite cores whose products overflow** (every core at `1e200`) still make numpy's SVD raise inside the sweep.
+  That `LinAlgError`, and no other error, is caught, and the residual is recomputed one stack element at a time:
+  `nan` for the elements that raise, the residual for the others, which is what jax gives by itself
+  (`_per_stack_element_if_the_svd_fails`). An SVD that does not converge on finite input lands here too and reads
+  `nan`.
+- **A norm that is not representable** would give `inf`, and `num / inf = 0` is a pass. The norm is taken without
+  squaring a large number, and where a norm is still not finite the residual is `nan` (`_relative_residual`).
+
+On the uniform layout the padding may hold anything, `nan` and `inf` included: it is selected away, not
+multiplied away.
 
 ### 4.4 New names
 
 Public: none beyond the plan's (`fv_centers_consistency_residual`, `ufv_frame_consistency_residual`,
 `ufv_centers_consistency_residual`, `T3Frame.consistency_residual`, `UT3Frame.consistency_residual`, section
-11.3). Private, in `fv_operations`: `_t3_left_orthogonal_form`, `_t3_left_orthogonal_norm`, `_t3_core_direct_sum`,
-`_t3_difference_norm`, `_zero_stack_elements_that_are_not_finite`; in `ufv_operations`:
+11.3). Private, in `fv_operations`: `_tucker_down_factors`, `_tt_absorb_down_factors`, `_tt_left_orthogonal_form`,
+`_largest_magnitude`, `_tt_left_orthogonal_norm`, `_tt_core_direct_sum`, `_tt_difference_norm`,
+`_zero_stack_elements_that_are_not_finite`, `_relative_residual`, `_per_stack_element_if_the_svd_fails`,
+`_frame_residual_of`, `_centers_residual_of`; in `ufv_operations`: `_zero_the_padding`,
 `_masked_frame_as_ragged`.
 
 ### 4.5 Not done, on purpose
@@ -244,7 +332,7 @@ Public: none beyond the plan's (`fv_centers_consistency_residual`, `ufv_frame_co
 1. **`(x - y).norm()` of the public T3 arithmetic has the accuracy problem of 4.1.** For the same tensor in two
    gauges (`(D, L)` and `(D, R)` of one frame, norm `4e6`): `(a - b).norm() / b.norm() = 3.7e-10`, where the new
    residual gives `4e-15`. It is why the old `UT3Frame.is_consistent` needed its loose `rtol`. Anyone who measures
-   a small difference of two T3s in different gauges is affected. The private `_t3_difference_norm` is the remedy;
+   a small difference of two T3s in different gauges is affected. The private `_tt_difference_norm` (on TTs in one gauge) is the remedy;
    by the razor it may deserve a public name (in `t3_linalg`, which `fv_operations` cannot import), which is a
    naming decision I did not take.
 2. **`tt_squash_tails` (ragged) promotes float32 numpy cores to float64** (`xnp.ones((r, 1))` in an einsum), so a
@@ -254,3 +342,8 @@ Public: none beyond the plan's (`fv_centers_consistency_residual`, `ufv_frame_co
    other orthogonalization of the library would hang the same way on such input.
 4. `backend/fv_operations.py` no longer imports `t3_conversions` (it was used only by the dense route). Nothing in
    the tree reached `t3_conversions` through `fv_operations`.
+5. **The library's uniform masking multiplies**, so everywhere else a `nan` or `inf` in the padding of a uniform
+   object becomes `nan` (`nan * 0`). The two twins of this slice select instead; `ufv_apply_frame_masks` and its
+   relatives are as they were.
+6. **Cost, for P16.** The frame's residual costs several times the frame's construction (measured 0.36 s against
+   0.16 s at `d = 8`, `N = 2000`, `n = 60`, `r = 40`); the centers' grows like `d**2` and is far more.

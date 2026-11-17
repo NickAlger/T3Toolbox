@@ -202,6 +202,39 @@ with warnings.catch_warnings():
 print('JAX_ABSENT_OK')
 '''
 
+# Graded messages, P4: the checkers of a frame (ragged and uniform, backend and frontend) run with no jax, on numpy
+# arrays, and ask for no jax.
+_FRAME_CHECKERS_SCRIPT = r'''
+import sys, warnings
+sys.modules['jax'] = None            # make `import jax` raise ImportError
+sys.modules['jax.numpy'] = None
+import numpy as np
+import t3toolbox.backend.common as common
+import t3toolbox.backend.fv_operations as fvo
+import t3toolbox.backend.ufv_operations as ufvo
+import t3toolbox.frame_variations_format as bvf
+import t3toolbox.uniform_frame_variations_format as ubv
+import t3toolbox.tucker_tensor_train as t3
+import t3toolbox.uniform_tucker_tensor_train as ut3
+assert not common.jax_available
+
+np.random.seed(0)
+with warnings.catch_warnings():
+    warnings.simplefilter('error')       # nothing here may ask for jax (the jax-absent warning would be an error)
+    x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1), stack_shape=(2,))
+    frame, centers = bvf.t3_orthogonal_representations(x)
+    uframe, ucenters = ubv.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(x))
+    residuals = [fvo.fv_frame_consistency_residual(frame.data),
+                 fvo.fv_centers_consistency_residual(frame.data, centers.data),
+                 ufvo.ufv_frame_consistency_residual(uframe.data),
+                 ufvo.ufv_centers_consistency_residual(uframe.data, tuple(ucenters.supercores)),
+                 frame.consistency_residual, uframe.consistency_residual]
+    for residual in residuals:
+        assert isinstance(residual, np.ndarray) and residual.shape == (2,) and np.all(residual < 1e-12), residual
+    assert frame.is_consistent().all() and uframe.is_consistent().all()
+print('JAX_ABSENT_OK')
+'''
+
 
 class TestJaxAbsentPolicy(unittest.TestCase):
     def test_requests_for_jax_run_on_numpy_with_a_warning(self):
@@ -216,6 +249,11 @@ class TestJaxAbsentPolicy(unittest.TestCase):
 
     def test_jets_the_checkers_and_data_preparation_run_without_jax(self):
         out = subprocess.run([sys.executable, '-c', _JETS_SCRIPT], capture_output=True, text=True,
+                             env={**os.environ, 'PYTHONPATH': os.getcwd()})
+        self.assertIn('JAX_ABSENT_OK', out.stdout, out.stderr[-2000:])
+
+    def test_the_frame_checkers_run_without_jax(self):
+        out = subprocess.run([sys.executable, '-c', _FRAME_CHECKERS_SCRIPT], capture_output=True, text=True,
                              env={**os.environ, 'PYTHONPATH': os.getcwd()})
         self.assertIn('JAX_ABSENT_OK', out.stdout, out.stderr[-2000:])
 
