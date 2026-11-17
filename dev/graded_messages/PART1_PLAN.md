@@ -1,10 +1,9 @@
 # Part 1 of the graded-messages refactor: implementation plan
 
-**Status.** Final draft, agreed by the reviewer in round 4; revised for the maintainer's answers to the open points,
-2026-11-16; to be checked by the reviewer. Written against the branch `graded-messages` at `a9c31b2` (the library
-and `tests/` unchanged since `4d38df7`). The names of section 3 are settled; the names added since are marked
-proposed (section 11). Every statement about the library was checked against the code at that commit; counts were
-recounted there.
+**Status.** The implementation plan of Part 1, complete: every open point is answered and every name approved.
+Agreed by the reviewer; awaiting the maintainer's sign-off. 2026-11-16. Written against the branch
+`graded-messages` at `a9c31b2` (the library and `tests/` unchanged since `4d38df7`); every statement about the
+library was checked against the code at that commit, and counts were recounted there.
 
 **How to read it.** The rows of `TARGET_DECISIONS.md` are the authority, with the maintainer's answers to this
 plan's open points (the note "The plan's open points, as the maintainer answers them" and the notes after it,
@@ -83,7 +82,7 @@ Part 1 is not released on its own. All work stays on `graded-messages` until Par
 | `backend/sampling_steps.py` | The 22 step functions and the start values. Every name private, `__all__ = []` | new |
 | `backend/sampling_definitions.py` | The reference module: one slow, dense function per variable and per output (9.7). Backend only | new |
 | `backend/jets.py` | `jet_to_dual_jet` and `dual_jet_to_jet` (3.6); the four functions for derivative data (2.3); the checkers of a sample, its data and its weight: the two validators of `pp`, moved from `sampling_derivatives`, and three new ones | new |
-| `backend/data_preparation.py` | The five preparation functions (6.7) | new |
+| `backend/data_preparation.py` | The five preparation functions (6.7), and `ut3_unscale_coordinates`, the uniform twin of the last (O-34) | new |
 | `backend/probing.py`, `apply.py`, `entries.py` | One backend function behind each frontend method, each calling the engine, with the merged signature (6.3, 6.6); the ambient transposes in the form of N16, their own code otherwise as it is; the dense functions beside their kinds: `dense_probe` in its new form, `dense_apply` and `dense_entries` new | rewritten |
 | `backend/ut3_sampling.py`, `utv_sampling.py` | The uniform twins of the functions above: check packing, call the engine; `ut3_full_sum` as it is | rewritten |
 | `backend/sampling_derivatives.py` | Deleted in the last slice | removed |
@@ -91,9 +90,9 @@ Part 1 is not released on its own. All work stays on `graded-messages` until Par
 | `backend/uniform_fitting.py` | `pack_sample`, `pack_data` (taking `(kind, order)`), `pack_batch`, `uniform_minimal`. The six uniform kinds and their factories go | rewritten |
 | `backend/optimizers.py` | The `Geometry` and `Oracle` protocols; `LocalModel`; `local_model`; `point_objective`; the five phases; the four optimizers; `flat_draw`. `Problem`, `least_squares_problem` go | rewritten |
 | `backend/optimizer_display.py` | The display, reading from an oracle and a batch | changed |
-| `backend/geometry.py` | `frame(x)` returns the frame with its centers; the corewise geometries' frame is the point; a frame-consistency member (O-31) | changed |
+| `backend/geometry.py` | `frame(x)` returns the frame with its centers; the corewise geometries' frame is the point | changed |
 | `backend/fv_operations.py`, `backend/ufv_operations.py` | The checkers of a frame: `fv_frame_consistency_residual` without dense tensors, the centers' residual beside it, and the uniform twins of both (4.2; O-5, O-6) | changed |
-| `t3toolbox/tucker_tensor_train.py`, `uniform_tucker_tensor_train.py`, `manifold.py`, `uniform_manifold.py` | Merged sampling methods (6.6); `TuckerTensorTrain.unscale_coordinates` | changed |
+| `t3toolbox/tucker_tensor_train.py`, `uniform_tucker_tensor_train.py`, `manifold.py`, `uniform_manifold.py` | Merged sampling methods (6.6); `unscale_coordinates` on `TuckerTensorTrain` and `UniformTuckerTensorTrain` | changed |
 | `t3toolbox/frame_variations_format.py`, `uniform_frame_variations_format.py` | The cached `consistency_residual` of `T3Frame` and `UT3Frame`, and `is_consistent` on it, without dense tensors | changed |
 | `t3toolbox/fitting.py` | The frontend `local_model` over the backend one; the oracle and the batch, the preparation functions and the jet helpers reachable under their backend names; its own `dual_jet_to_jet` | rewritten |
 | `t3toolbox/optimizers.py` | The four optimizers with `(geometry, oracle, batch, x0, ...)` | rewritten |
@@ -155,8 +154,9 @@ is value-hashed (`common.ValueHashedFields`) and rides as `aux_data`. The least-
 `kind` and `order`.
 
 **`held`** is what an oracle keeps at one frame; what goes into it is the oracle's business (8.3), and the
-optimizers pass it back unread. The `Oracle` protocol types it as any object (O-8). The least-squares oracle's is
-a `HeldVariables` (O-8):
+optimizers pass it back unread. The `Oracle` protocol types it as any object (O-8); in a compiled program it must
+be something jax can carry: arrays, tuples, `None` or a registered record (O-30). The least-squares oracle's is a
+`HeldVariables` (O-8):
 
 - a frozen record with one slot per variable that some other variable reads, taken from the declared graph (a test
   checks that the two agree); each slot is `None` when not held, and carries its shape comment;
@@ -179,7 +179,7 @@ local information there (8.1). It never changes after it is built.
 | `batch` | leaves | the batch the model was built on |
 | `frame` | leaves | the frame (`partition_static` keeps uniform shapes and masks static, as today) |
 | `centers` | leaves | `(Vc, Hc)` when the geometry returned them, else `None` |
-| `held` | leaves | what the oracle returned at the build (for the least-squares oracle, the filled slots of `HeldVariables`; O-30) |
+| `held` | leaves | what the oracle returned at the build (for the least-squares oracle, the filled slots of `HeldVariables`) |
 | `f` | leaf | the misfit at the build |
 | `geom_aux` | leaves | `geom.precompute(frame)`, as today |
 | `curvature` | leaves | the `CurvatureState`, exact mode only, as today |
@@ -294,14 +294,14 @@ frontend entry ("I would leave the engine to the backend", the answers of 20:15)
 | `jet_contract`, `GroupLengths` | `contractions` | below |
 | `jet_to_dual_jet`, `dual_jet_to_jet` | `jets` | below |
 | `derivatives_to_taylor`, `taylor_to_derivatives`, `derivative_weight_to_taylor_weight`, `prepare_derivative_data` | `jets` | below; the bodies as in `scripts/review/adapter_doctest_draft.py`, with the probe kind's mode axis |
-| `check_sample`, `check_data`, `check_weight` (proposed names), beside `check_perturbation_vectors` and `check_perturbation_index` | `jets` | below |
-| `data_block_norms`, `equalizing_weight`, `rescale_direction`, `rescale_coordinates`, `t3_unscale_coordinates` | `data_preparation` | below |
+| `check_sample`, `check_data`, `check_weight`, beside `check_perturbation_vectors` and `check_perturbation_index` | `jets` | below |
+| `data_block_norms`, `equalizing_weight`, `rescale_direction`, `rescale_coordinates`, `t3_unscale_coordinates`, `ut3_unscale_coordinates` | `data_preparation` | below |
 | `dense_apply`, `dense_entries` (and `dense_probe` in its new form) | `apply`, `entries` (`probing`) | below |
 | one function per variable and output | `sampling_definitions` | below |
-| the centers' residual, and the uniform twins of both frame residuals (proposed names) | `fv_operations`, `ufv_operations` | below |
+| `fv_centers_consistency_residual`, `ufv_frame_consistency_residual`, `ufv_centers_consistency_residual` | `fv_operations`, `ufv_operations` | below |
 | `Oracle` (protocol) | `optimizers` | below |
 | `LeastSquaresOracle` (with `check_batch`), `LeastSquaresBatch` | `fitting` | below and section 2.2 |
-| `pack_batch` (proposed name) | `uniform_fitting` | below |
+| `pack_batch` | `uniform_fitting` | below |
 | `local_model`, `point_objective` | `optimizers` | below |
 
 ```python
@@ -317,7 +317,7 @@ def jet_contract(
         subscripts:   str,           # a literal grouped string; T a full jet's order group, A an affine one's
         *operands:    NDArray,
         lens:         GroupLengths,  # every call passes the whole record, so a wrong rank raises
-        over_orders:  str,           # 'scan' | 'loop' (proposed values): how two full jets are multiplied (2.9)
+        over_orders:  str,           # 'scan' | 'loop': how two full jets are multiplied (2.9); no default
 ) -> NDArray:                        # contract(), with T and A multiplying as truncated polynomials
 ```
 
@@ -329,8 +329,8 @@ group is not in its string (`contractions._solve_group_lengths`), so `jet_contra
 the groups that each string it hands to `contract` names; the strictness comes from those being all of them.
 
 The two forms over the orders (2.9; O-10), both built and tested in Part 1:
-- `'scan'`: one jet carried and shifted one slot per step, the other contracted against it, through `xscan`: a real
-  `lax.scan` with jax on the uniform layout, a Python loop on numpy or on the ragged layout. Its body is
+- `'scan'`: one jet carried and shifted one slot per step, the other contracted against it, through the `xscan` of
+  `get_backend(True, use_jax)`: a real `lax.scan` when the operands are jax, a Python loop on numpy. Its body is
   module-level, from a factory memoized on `(subscripts, lens)`.
 - `'loop'`: a Python loop over the pairs of orders, with slices.
 
@@ -434,7 +434,7 @@ def rescale_coordinates(
         order:   int,
         sample:  typ.Any,                  # ww | (ww, pp); probe and apply only
         y:       typ.Any,                  # of the type of z
-        scales:  typ.Sequence[NDArray],    # len=d, elm_shape=(Ni,): coordinate j of mode i times scales[i][j] (O-35)
+        scales:  typ.Sequence[NDArray],    # len=d, elm_shape=(Ni,): coordinate j of mode i times scales[i][j]
 ) -> typ.Tuple[
         typ.Any,                           # the sample
         typ.Any,                           # y (for probe, mode i's data divided by scales[i] too: 6.7 note)
@@ -444,7 +444,13 @@ def t3_unscale_coordinates(
         x:       typ.Tuple,                # (tucker_cores, tt_cores) fitted in rescaled coordinates
         scales:  typ.Sequence[NDArray],    # as given to rescale_coordinates
 ) -> typ.Tuple:                            # the same tensor in the original coordinates
+
+def ut3_unscale_coordinates(x, scales)    # the uniform twin: x the uniform cores' .data; the same scales
 ```
+
+`scales` is one scale per coordinate, `len=d`, `elm_shape=(Ni,)` (O-35), as the prototype
+`scripts/review/bad_scaling_example.py` has it: its problem has coordinate scales spread over four decades within a
+mode, which one number per mode cannot undo.
 
 The two estimates the prototype reads off the data (a length for the directions, a coordinate scale) are not
 shipped: the example computes them inline (O-14: "compute inline, do not ship at this time").
@@ -483,11 +489,11 @@ The checkers of a frame (4.2; O-5, O-6). Each returns a residual and never raise
 frontend compares it with a tolerance in safe mode (section 2.5).
 - `fv_frame_consistency_residual(frame)`: today's signature and formula, `||T(D, L) - T(D, R)|| /
   max(1, ||T(D, R)||)`, through the cores (P4).
-- `fv_centers_consistency_residual(frame, centers)` (proposed name): at each site, the tensor with `Vc[i]` under
+- `fv_centers_consistency_residual(frame, centers)`: at each site, the tensor with `Vc[i]` under
   `U[i]` (and with `Hc[i]` over `D[i]`), `L` cores to the left and `R` cores to the right, against `T(D, L)`. No
   frontend function calls it (O-4: no frontend user supplies centers); it is there for raw-data users and the
   tests.
-- `ufv_frame_consistency_residual` and `ufv_centers_consistency_residual` (proposed names), the uniform twins, in
+- `ufv_frame_consistency_residual` and `ufv_centers_consistency_residual`, the uniform twins, in
   `backend/ufv_operations.py` beside `ufv_frame_orthogonality_residual`.
 
 ```python
@@ -503,18 +509,21 @@ class Oracle(typ.Protocol):                # the fitting layer's extension point
             Vc:               typ.Optional[typ.Sequence[NDArray]] = None,
             variations:       typ.Optional[typ.Tuple] = None, # (V, H): JtJp, Jp_norm_sq, Jp
             core_directions:  typ.Optional[typ.Tuple] = None, # (D_dot, L_dot): Kp
-            held:             typ.Any = None,                 # what an earlier call at this frame returned (O-8, O-30)
+            held:             typ.Any = None,                 # what an earlier call at this frame returned (O-8)
     ) -> typ.Tuple[
         typ.Tuple[typ.Any, ...],           # values, aligned with want; blocks before projection
-        typ.Any,                           # held: what to keep at this frame; the optimizers never read it
+        typ.Any,                           # held: any object; in a compiled program one jax can carry (O-30)
     ]: ...
+
+    # optional: check_batch(batch, shape) -> None. The frontend calls it where a batch enters when the oracle has
+    # it, and checks nothing about the batch otherwise (O-29).
 
 @dataclass(frozen=True, eq=False)
 class LeastSquaresOracle(ValueHashedFields):
     kind:   str                            # 'probe' | 'apply' | 'entries'
     order:  int = 0
     # query(...): one call of sampling_variables. Its batch is a LeastSquaresBatch, its held a HeldVariables.
-    # check_batch(batch, shape) -> None: the form of the sample, its sizes against shape, y, the weight (O-18, O-29)
+    # check_batch(batch, shape) -> None: the form of the sample, its sizes against shape, y, the weight (O-18)
     # n_measurements(batch) -> int;  take(batch, indices) -> LeastSquaresBatch (traceable, static len(indices))
 ```
 
@@ -522,8 +531,9 @@ The least-squares oracle's `query` asks the engine for `want` plus the names of 
 graph says the call computes anyway, and returns those as `held`; a call never computes a variable only to hold
 it (8.3). Part 1's hold list is fixed: `xi`, `mu`, `nu`, `eta`, `r` (7.2 "as today"). `y_block_sumsq` needs no
 frame (the display asks once). `f_resolution` is `eps (|omega y| |omega r| + |f|)`, the formula of
-`_objective_resolution` today, with `|omega y|` from the same pass. `n_measurements`, `take` and `check_batch` are
-methods of the least-squares oracle, not of the protocol (8.3 part 2). `check_batch(batch, shape)`, with `shape`
+`_objective_resolution` today, with `|omega y|` from the same pass. `n_measurements` and `take` are methods of the
+least-squares oracle, not of the protocol (8.3 part 2); `check_batch` is an optional member of the protocol (O-29),
+which the least-squares oracle has. `check_batch(batch, shape)`, with `shape`
 the mode sizes, calls `check_sample`, `check_data` and `check_weight`; it is a checker like them: `query` does not
 call it.
 
@@ -535,7 +545,7 @@ plain sums of squares. The identities hold on a drawn batch: `f = 1/2 <r, r>`, `
 `Jp_norm_sq = <Jp, Jp>`.
 
 ```python
-def pack_batch(                            # backend/uniform_fitting.py (proposed name)
+def pack_batch(                            # backend/uniform_fitting.py
         kind:   str,
         order:  int,
         batch:  LeastSquaresBatch,         # ragged
@@ -653,7 +663,8 @@ N30 has it, `regularizer=None` after their positional arguments, today's keyword
 `mc_sgd(geom, oracle, batch, x0, rng, batch_size, regularizer=None, draw=None, ...)`, `adam(...)` likewise,
 `gradient_descent(geom, oracle, batch, x0, regularizer=None, ...)`, `flat_draw(oracle, batch, batch_size)` returning `draw(rng) -> batch`. The
 `Geometry` protocol: `frame(x)` returns `(frame, centers)` with `centers = (Vc, Hc)` or `None`, on the backend
-protocol only (O-4); the corewise geometries' frame is the point `(B, G)`; and a consistency member (N21; O-31). In
+protocol only (O-4); the corewise geometries' frame is the point `(B, G)`. The geometry has no consistency member
+(O-31): a backend user checks a frame with `fv_frame_consistency_residual` or its uniform twin. In
 `optimizer_display.py`:
 `make_newton_display(oracle, batch, val_batch=None, ...)`; `relative_errors` and the table take arrays of the shape
 of the weight. In `uniform_fitting.py`: `pack_sample(kind, order, sample, N)`, `pack_data(kind, order, y, N)` and `pack_batch`
@@ -757,9 +768,10 @@ The merged methods check what they check today, structurally, through the backen
 against `pp` (`check_perturbation_vectors`, `check_perturbation_index`, from `jets`).
 
 `TuckerTensorTrain.unscale_coordinates(scales)` returns the tensor in the original coordinates; it calls
-`t3_unscale_coordinates` (O-16 and the answers of 20:15; the uniform twin is O-34).
+`t3_unscale_coordinates` (O-16 and the answers of 20:15). `UniformTuckerTensorTrain.unscale_coordinates(scales)`
+calls `ut3_unscale_coordinates` (O-34).
 
-**The frames' checkers.** `T3Frame.consistency_residual` and `UT3Frame.consistency_residual` (proposed name) are
+**The frames' checkers.** `T3Frame.consistency_residual` and `UT3Frame.consistency_residual` are
 cached properties, like today's `orthogonality_residual`, calling `fv_frame_consistency_residual` and its uniform
 twin; `is_consistent(rtol)` compares it with `rtol`. A frame used in an inner loop is contracted once.
 
@@ -790,8 +802,8 @@ def newton_cg(
 
 What the frontend optimizers do before calling the backend one, where a batch or a frame comes in from the
 user:
-- `oracle.check_batch(batch, x0.shape)` on the batch and on `val_batch`, once (O-18); a user-written oracle is
-  O-29;
+- `oracle.check_batch(batch, x0.shape)` on the batch and on `val_batch`, once, when the oracle has it (O-18,
+  O-29); nothing about the batch otherwise;
 - the batch packed with `pack_batch` for a uniform `x0`;
 - in safe mode, on a `start_frame` the caller supplied: `L` against `R` through `D`, once, through the cached
   `consistency_residual`, beside today's checks of the same frame (`is_orthogonal`, that it represents `x0`).
@@ -838,9 +850,9 @@ the two users; the frontend optimizers take any oracle object, so they drive a u
 **Settled by the maintainer on 2026-11-16, at 18:13 and 18:18** (`TARGET_DECISIONS.md`, the note "The names of
 Part 1, and the form of the merged sampling functions"): every row as written, `query` for the oracle's operation
 (N12), and N16 as the rule that note decides. N26 is amended by the answer to O-8: `HeldVariables` lives in
-`backend/sampling_variables.py`, beside the engine. Names added since are proposals, listed in section 11. The names
-follow
-`docs/naming_conventions.md` (family prefixes for functions of a representation; none for
+`backend/sampling_variables.py`, beside the engine. N21 is withdrawn by the answer to O-31 (the geometry has no
+consistency member). The names added since were approved on 2026-11-16 at 20:59; section 11.3 records them. The
+names follow `docs/naming_conventions.md` (family prefixes for functions of a representation; none for
 representation-agnostic infrastructure) and `docs/contributor/naming_rules.md` (clarity wins; no generic names).
 
 | # | Placeholder | Name | Why |
@@ -865,7 +877,7 @@ representation-agnostic infrastructure) and `docs/contributor/naming_rules.md` (
 | N18 | the engine's module; the steps' module | `backend/sampling_variables.py`; `backend/sampling_steps.py` | The module is named after its function, as `regularization` is |
 | N19 | the residual argument of the transposes and corewise Hessians (`ztildes` or `c` today) | `residual` | 2.4 calls `ztildes` a misnomer and leaves the name to the naming questions |
 | N20 | the raw-cores objective of policy a | `point_objective` | "f at raw cores" |
-| N21 | the frame-consistency member of a geometry | `frame_consistency_residual(frame, centers)` | Pairs with `fv_frame_consistency_residual` |
+| N21 | the frame-consistency member of a geometry | Withdrawn (O-31, 20:59): the geometry has no such member; a backend user calls `fv_frame_consistency_residual` | |
 | N22 | the page in `docs/` | `docs/sampling_variables.md` | |
 | N23 | the example file | `examples/tour_sampling_variables.py` | |
 | N24 | the `.tex` note | `docs/sampling_variables.tex` | |
@@ -943,33 +955,33 @@ These are the library's rules, applied to this arc. Every slice is held to them;
 
 ### 5.2 Overview
 
-The table of names (section 3) is settled; P1, P3, P5 and P7 to P16 create the names it gives. A name of the table
-"Names added after the table was settled" (section 11) is to be agreed before the slice that creates it, which the
-table gives. "Needs" names the open points of section 11 that must be answered before the slice starts.
+The names are settled: the table of section 3, and the names added after it (section 11.3). Nothing is open, so no
+slice waits on an answer. The order is the order of work; each slice starts when the one before it is committed
+(section 12).
 
-| Slice | Content | Size | Needs |
-| --- | --- | --- | --- |
-| P0 | Baseline: the folder's check suites on the branch head; the inventory | none in the library | |
-| P1 | `jet_contract` with both forms over the orders, and `GroupLengths` | small | |
-| P2 | The reference module `sampling_definitions`; `dense_probe` in its new form, `dense_apply`, `dense_entries` | medium | |
-| P3 | `jets` (with the checkers) and `data_preparation`; their frontend reach | small | O-34, O-35 |
-| P4 | The checkers of a frame, without dense tensors; the frames' cached `consistency_residual` | small | |
-| P5 | Engine A: the declared graph, what the engine needs to run, `HeldVariables`; probe, ragged, the plain grade (`z` both routes, `r`, `f`, `r_block_sumsq`) | medium | |
-| P6 | Engine B: the tilde grade and `g`; the bridge; the generic twin | medium | |
-| P7 | Engine C: the dot grade of the frame form (`Jp`, `Jp_norm_sq`, `JtJp`) | medium | |
-| P8 | Engine D: the raw dots and the tilde-dot grade (`Kp`), the `nu_L` family, the corewise call | medium | |
-| P9 | Engine E: apply and entries | medium | |
-| P10 | Engine F: the stacks `W`, `K`, `C`; `sum_over_samples=False`; the dtype rule | medium | |
-| P11 | Engine G: the uniform layout; sharding over `W` | medium | |
-| P12 | The backend sampling functions on the engine (merged signatures); uniform twins; the corewise Hessian against automatic differentiation | large | |
-| P13 | The frontend sampling methods merged; the examples' dense ground truth; `docs/chunking.md` removed | large | |
-| P14 | The oracle and the batch (additive): `query`, `check_batch`, `pack_batch`, the minibatch scale; reachable from `t3toolbox.fitting` | medium | O-29, O-30 |
-| P15 | The geometry's `frame(x)` returns the centers, and the consistency member | small | O-31 |
-| P16 | The switch, first part: the corewise frame, `LocalModel`, `local_model`, the optimizers, the display, the frontend optimizers (with the translation of the old call form) and the frontend local model; the tests | largest | O-32 |
-| P17 | The switch, second part: the examples and the pages in the new form; the translation deleted | medium | |
-| P18 | The dry port of T3Polynomial | small | |
-| P19 | Documentation | large | O-33 |
-| P20 | The deletion of the old kernels | medium | |
+| Slice | Content | Size |
+| --- | --- | --- |
+| P0 | Baseline: the folder's check suites on the branch head; the inventory | none in the library |
+| P1 | `jet_contract` with both forms over the orders, and `GroupLengths` | small |
+| P2 | The reference module `sampling_definitions`; `dense_probe` in its new form, `dense_apply`, `dense_entries` | medium |
+| P3 | `jets` (with the checkers) and `data_preparation`, with the uniform `ut3_unscale_coordinates`; their frontend reach | small |
+| P4 | The checkers of a frame, without dense tensors; the frames' cached `consistency_residual` | small |
+| P5 | Engine A: the declared graph, what the engine needs to run, `HeldVariables`; probe, ragged, the plain grade (`z` both routes, `r`, `f`, `r_block_sumsq`) | medium |
+| P6 | Engine B: the tilde grade and `g`; the bridge; the generic twin | medium |
+| P7 | Engine C: the dot grade of the frame form (`Jp`, `Jp_norm_sq`, `JtJp`) | medium |
+| P8 | Engine D: the raw dots and the tilde-dot grade (`Kp`), the `nu_L` family, the corewise call | medium |
+| P9 | Engine E: apply and entries | medium |
+| P10 | Engine F: the stacks `W`, `K`, `C`; `sum_over_samples=False`; the dtype rule | medium |
+| P11 | Engine G: the uniform layout; sharding over `W` | medium |
+| P12 | The backend sampling functions on the engine (merged signatures); uniform twins; the corewise Hessian against automatic differentiation | large |
+| P13 | The frontend sampling methods merged; the examples' dense ground truth; `docs/chunking.md` removed | large |
+| P14 | The oracle and the batch (additive): `query`, `check_batch`, `pack_batch`, the minibatch scale; reachable from `t3toolbox.fitting` | medium |
+| P15 | The geometry's `frame(x)` returns the centers | small |
+| P16 | The switch, first part: the corewise frame, `LocalModel`, `local_model`, the optimizers, the display, the frontend optimizers (with the translation of the old call form) and the frontend local model; the tests | largest |
+| P17 | The switch, second part: the examples and the pages in the new form; the translation deleted | medium |
+| P18 | The dry port of T3Polynomial | small |
+| P19 | Documentation | large |
+| P20 | The deletion of the old kernels | medium |
 
 ### 5.3 The slices
 
@@ -1032,10 +1044,11 @@ order (`tests/test_fitting.py`, `tests/backend/test_optimizers.py`, `tests/test_
 
 **P3. Jets, the checkers and data preparation.** `backend/jets.py` (N4 to N8; the two validators of `pp`, copied,
 the old ones deleted in P20; `check_sample`, `check_data`, `check_weight`) and `backend/data_preparation.py` (N9),
-with the per-coordinate `scales` of the prototype (O-35). Their frontend reach (O-16, the answers of 20:15):
+with `scales` one per coordinate (O-35), and `ut3_unscale_coordinates` (O-34). Their frontend reach (O-16, the
+answers of 20:15):
 `t3toolbox/fitting.py` makes the preparation functions and the jet helpers reachable under their backend names,
-with its own `dual_jet_to_jet` (O-20); `TuckerTensorTrain.unscale_coordinates(scales)` (and its uniform twin as O-34
-settles).
+with its own `dual_jet_to_jet` (O-20); `unscale_coordinates(scales)` on `TuckerTensorTrain` and
+`UniformTuckerTensorTrain`.
 - Tests: `dual_jet_to_jet(jet_to_dual_jet(x))` equals `x` to tolerance for a nonzero weight; the backend
   `dual_jet_to_jet` with a zero weight divides by zero and raises nothing; the frontend one raises in safe mode,
   divides in `safety.unsafe()` and under `jax.jit`, and the numbers are the same where both run; the pairing
@@ -1044,7 +1057,7 @@ settles).
   and for probe with its mode axis; `equalizing_weight` on a zero block gives the floor weight; the shape of
   `data_block_norms` is the shape of the weight at orders 0 and above; `rescale_coordinates` then
   `t3_unscale_coordinates` gives back the same probe values in the original coordinates, and the method equals the
-  function; each checker passes a good input and raises on each wrong form (a wrong count of vectors, a wrong mode
+  function; `ut3_unscale_coordinates` equals the ragged one on real parts, with garbage in the padding; each checker passes a good input and raises on each wrong form (a wrong count of vectors, a wrong mode
   size, `pp` unlike `ww`, a wrong `y`, a weight of the old shapes: a bare vector, a mode dimension of 1).
 - Doctests: the doctest of 2.3, from `scripts/review/adapter_doctest_draft.py`, extended with the probe kind.
 - `tests/test_dispatch.py`, `tests/test_jax_absent.py`: the new modules. `tests/test_import_graph.py`: no backend
@@ -1273,12 +1286,18 @@ each of which breaks on the new order; and every link to `docs/chunking.md`):
 - examples: the six that call a removed method (`fit_hilbert_from_apply_derivatives.py`, `_flat.py`, `_topt.py`,
   `fit_hilbert_uniform_probe_derivatives_newton_cg.py`, `fit_probe_display.py`,
   `fit_shared_factors_jetted_probes.py`). No example calls a frontend transpose. Five of them (all but
-  `fit_probe_display.py`) also import `sampling_derivatives` as `pd` for their dense ground truth: eleven calls,
-  `pd.dense_apply_derivatives` three each in `fit_hilbert_from_apply_derivatives.py`, `_flat.py` and `_topt.py`,
-  `pd.dense_probe_derivatives` one each in `fit_hilbert_uniform_probe_derivatives_newton_cg.py` and
-  `fit_shared_factors_jetted_probes.py`. They move here to `dense_apply` and `dense_probe` with `pp` and `order`
-  (P2; O-27), so that P20 can delete the module; where an example still fits derivative data with the old frontend
-  optimizers (until P17), it takes `taylor_to_derivatives(dense_apply(T, ww, pp, order), order)`.
+  `fit_probe_display.py`) also import `sampling_derivatives` as `pd` for their dense ground truth: five calls of the
+  library's functions, each inside a local helper that loops over the samples. `pd.dense_apply_derivatives` is
+  called once in each of `fit_hilbert_from_apply_derivatives.py`, `_flat.py` and `_topt.py`, inside a local helper
+  that is itself named `dense_apply_derivatives` (lines 116, 110 and 74; called twice in each), which is one of the
+  removed names P20's gate greps for. `pd.dense_probe_derivatives` is called once in each of
+  `fit_hilbert_uniform_probe_derivatives_newton_cg.py` (helper `dense_probe_derivative_jets`) and
+  `fit_shared_factors_jetted_probes.py` (helper `dense_jets`). The helpers are replaced here by `dense_apply` and
+  `dense_probe` with `pp` and `order` (P2; O-27), which take the stack `W` themselves, so the loops over the samples
+  go too, and P20 can delete the module. Where an example still fits derivative data with the old frontend
+  optimizers (until P17), it takes `taylor_to_derivatives(dense_apply(T, ww, pp, order), order)`. (Seven
+  examples define their own `dense_apply(A, ww)` or `dense_probe(A, ww)` helpers, local and of no removed name;
+  they may stay.)
   `tests/test_probe_derivatives.py` (nine calls of the three `dense_*_derivatives`) is folded into the frontend
   sampling tests here, on the dense functions.
 - Pages that name the removed methods in prose only (`docs/entries_apply_probe.md`, `docs/naming_conventions.md`,
@@ -1288,7 +1307,8 @@ each of which breaks on the new order; and every link to `docs/chunking.md`):
 
 **P14. The oracle and the batch** (additive). `LeastSquaresOracle` and `LeastSquaresBatch` in `backend/fitting.py`
 beside the old kinds; the `Oracle` protocol as documentation in `backend/optimizers.py`, with `optional_outputs`
-(O-7) and `held` typed as any object (O-8); `query` passing `held` (a `HeldVariables`) to the engine;
+(O-7), `check_batch` as an optional member (O-29), and `held` typed as any object that, in a compiled program, jax
+can carry (O-8, O-30); `query` passing `held` (a `HeldVariables`) to the engine;
 `n_measurements`, `take`, `check_batch`, `y_block_sumsq`, `f_resolution`, the minibatch scale on `f`, `g`, `JtJp`,
 `Jp_norm_sq`, `Kp` and `f_resolution` only (O-21); `pack_batch` in `backend/uniform_fitting.py`. Both classes
 reachable from `t3toolbox.fitting`.
@@ -1304,9 +1324,9 @@ reachable from `t3toolbox.fitting`.
 
 **P15. The geometry returns the centers.** The backend `frame(x)` returns `(frame, centers)` on the four backend
 geometries (the manifold ones keep the second result of `t3_orthogonal_representations`, which they compute today
-and discard; the corewise ones return `None` as centers, and still the four-store frame `(B, G, G, G)` until P16);
-the consistency member (N21), a checker that returns the residual of P4 for the geometry's frame (O-31). The
-frontend geometries (`manifold.MANIFOLD`, `COREWISE`, the uniform singletons, `shared_geometry.SharedGeometry`) do
+and discard; the corewise ones return `None` as centers, and still the four-store frame `(B, G, G, G)` until P16).
+The geometry gets no consistency member (O-31). The frontend geometries (`manifold.MANIFOLD`, `COREWISE`, the
+uniform singletons, `shared_geometry.SharedGeometry`) do
 not call the backend `frame` and do not change (O-4).
 
 What breaks, from a search for every call of a backend geometry's `frame` in `t3toolbox/`, `tests/`, `docs/`,
@@ -1320,8 +1340,8 @@ reads `frame, _ = geom.frame(x)` from here:
   `tests/backend/test_optimizers.py` (two), `tests/backend/test_padded_start.py` (seven, one in a test subclass's `aligned_padded_frame`),
   `tests/backend/test_uniform_fitting.py` (one, `_compare_ops`), `tests/backend/test_zero_reference.py` (two, and the
   wrapper geometry whose `frame` delegates to the base one).
-- Tests added: the centers equal the second result of `t3_orthogonal_representations`; the consistency member on
-  library-built and on perturbed frames.
+- Tests added: the centers equal the second result of `t3_orthogonal_representations`, and
+  `fv_centers_consistency_residual` of the returned frame and centers is at rounding level.
 - Gate: the full gate.
 
 **P16. The switch, first part: the library and the tests** (O-24: "Split. Two commits."). One commit, reviewed in
@@ -1352,14 +1372,17 @@ deletes the translation.
    in place of `sweep` and `residual` (O-17), so `stats['timing']` has the keys `frame`, `oracle`, `companion`,
    `gradient`, `curvature`.
 4. *Frontend.* `t3toolbox/optimizers.py` takes `(geometry, oracle, batch, x0, ...)`; it maps the geometry to the
-   backend one, reduces `x0` to minimal ranks, calls `oracle.check_batch` on the batch and on `val_batch` (O-18),
+   backend one, reduces `x0` to minimal ranks, calls `oracle.check_batch` on the batch and on `val_batch` when the
+   oracle has it (O-18, O-29),
    packs them with `pack_batch` for a uniform `x0`, checks a supplied `start_frame`'s consistency in safe mode
    (O-5), and rewraps the result; `least_squares_problem`, `LeastSquaresSetup`, `_resolve_chunk_size`, `_check_kind`
    and the frontend `chunk_size` go. `t3toolbox/fitting.py` gets the frontend `local_model` of section 2.5 over the
    backend `LocalModel`, with tangents in and out, the same-frame guard and the same checks; the six factories go,
    with their re-exports from `t3toolbox/__init__.py`, and with them `_check_ragged_sample`. The translation (one
-   private function of `t3toolbox/optimizers.py`): a string where the oracle goes marks the old form; the kind
-   string gives the oracle; the old weight goes through `_canonical_weight` (kept until P17 for this) and is
+   private function of `t3toolbox/optimizers.py`): a string where the oracle goes marks the old form; the old
+   positional arguments are then read as the old signature names them (`geometry, kind, sample, data, x0`, and for
+   `mc_sgd` and `adam` `rng, batch`), as in `topt.adam(t3m.COREWISE, 'probe', ww, pdata, x0c, rng, 20, max_iter=50)`
+   (`docs/fitting_and_optimization.md`), and rebuilt into the new form; the kind string gives the oracle; the old weight goes through `_canonical_weight` (kept until P17 for this) and is
    broadcast to the exact shape; derivative data, validation data and weight go through `prepare_derivative_data`;
    `val_sample`/`val_data` become `val_batch`; `batch` (an int, for `mc_sgd` and `adam`) becomes `batch_size`; an
    old custom `draw` returning `(sample, data)` is wrapped to return a batch; `chunk_size` is accepted and dropped.
@@ -1523,9 +1546,9 @@ interfaces, not kernels.
   cached `consistency_residual` (O-5); a zero weight in the frontend `dual_jet_to_jet` (O-20); and today's checks of
   a supplied `start_frame` (orthonormal; represents `x0`). A frame the library built in the same call is not
   checked; centers and `U` are not checked in the frontend.
-- **The compiled phases.** 8.3 has "a compiled program's preconditions are checked on the host in safe mode". With
-  no checks in the backend, the frontend makes its checks once, before it calls the backend optimizer; the backend
-  optimizers check nothing before a compiled phase (O-32).
+- **The compiled phases** (rows 4.2 and 8.3 as amended on 2026-11-16, 19:30; O-32). "Checked on the host" means by
+  the frontend, before it calls the backend optimizer; the backend optimizers check nothing before a compiled
+  phase.
 - **No dense tensor** in any runtime check (4.2): the residuals of P4 go through the cores.
 - **Tests.** For every frontend check: it raises in safe mode; it is silent in `safety.unsafe()` and under
   `jax.jit`; the numbers are identical in both modes; the check forms no ambient-sized array. For every backend
@@ -1570,16 +1593,13 @@ interfaces, not kernels.
 
 ### 7.5 The razor between backend and frontend
 
-- **The rule of the two users** (the maintainer, 2026-11-16, 19:54): "there are two different hypothetical users:
-  the frontend user and the backend user. They each must be able to do all the important operations with tools in
-  their own layer. The backend is purely functional on basic types (with limited exceptions, such as the held
-  variables object we just discussed), and the frontend is OO-based. The frontend is a wrapper over the backend.
-  Any code that contains nontrivial logic should be in a backend function which is called from the corresponding
-  frontend function. This is to be understood *within reason*; exceptions can be made in limited circumstances."
+- **The rule of the two users** (the maintainer, 2026-11-16, 19:54, `TARGET_DECISIONS.md` "The two users"): the
+  frontend user and the backend user "each must be able to do all the important operations with tools in their own
+  layer". Nontrivial logic lives in a backend function that the frontend calls, within reason.
 - **The backend user** has the engine, `HeldVariables`, the oracle and the batch, `pack_batch`, `local_model`, the
   optimizers, the display, the helpers of `jets` and `data_preparation`, the checkers (section 7.1), the dense
   functions and the reference module.
-- **The frontend user** has the merged sampling methods, `TuckerTensorTrain.unscale_coordinates`, and
+- **The frontend user** has the merged sampling methods, `unscale_coordinates` on both tensor classes, and
   `t3toolbox.fitting` and `t3toolbox.optimizers`: the frontend `local_model`, the four optimizers, the oracle and the
   batch, the preparation functions and the jet helpers under their backend names, and its own `dual_jet_to_jet`
   (section 2.5). A frontend user fits from derivative data without importing the backend.
@@ -1640,7 +1660,7 @@ interfaces, not kernels.
 | The reference module | `sampling_definitions`, one doctest per function | The tests of P2 |
 | The dependency table and diagrams | The table of reads, and the diagrams that show it | Their source is the declared graph (9.7). A script (N29) generates, from the graph, one layered picture per grade and one per output, as SVG files committed beside the page, run by hand when the graph changes; a test checks that every name has a diagram and that the committed files match a fresh run (O-23). Every diagram shows its arrows (9.5) |
 | The bad-scaling example | `examples/fit_badly_scaled_data.py`: bad as given, good after the preparation functions (6.7); it computes the two estimates (a length for the directions, a coordinate scale) inline (O-14); a frontend example, with the functions from `t3toolbox.fitting` | From `scripts/review/bad_scaling_example.py`; CI runs it |
-| The paper-to-code map | `docs/paper_to_code.md` (proposed name): T4S's letters and variables against the code's, updated for the new variables, with the differences explained ("the new variables are different, but most of them have some kind of analog in the paper. We explain the differences", O-15). It takes the notation map out of `CLAUDE.md`, which keeps a one-line pointer, and the probing map of `docs/entries_apply_probe.md` section 8, which links to it (O-33) | Its letters are checked against the arXiv version, as the citations in the tree are |
+| The paper-to-code map | `docs/paper_to_code.md`: T4S's letters and variables against the code's, updated for the new variables, with the differences explained ("the new variables are different, but most of them have some kind of analog in the paper. We explain the differences", O-15). It takes the notation map out of `CLAUDE.md`, which keeps a one-line pointer, and the probing map of `docs/entries_apply_probe.md` section 8, which links to it (O-33) | Its letters are checked against the arXiv version, as the citations in the tree are |
 | The derivative-data doctest | In `backend/jets.py` (2.3) | From `scripts/review/adapter_doctest_draft.py` |
 
 **Rewritten.** `docs/entries_apply_probe.md` (its table of the transposes' call forms, section 4) and
@@ -1787,93 +1807,90 @@ none of the 129 removed names, nor `chunk_size`, `sum_over_probes` or `ztildes`.
 
 ## 11. The open points
 
-### 11.1 How the points of earlier drafts were answered
+### 11.1 How they were answered
 
-The maintainer answered O-1 to O-28 on 2026-11-16, 18:35 to 20:35 (`TARGET_DECISIONS.md`, the note "The plan's
-open points, as the maintainer answers them" and the notes after it). The plan states each answer where it uses it.
+The maintainer answered O-1 to O-28 on 2026-11-16, 18:35 to 20:35, and O-29 to O-35 at 20:59 (`TARGET_DECISIONS.md`,
+the note "The plan's open points, as the maintainer answers them" and the notes after it). The plan states each
+answer where it uses it.
 
 | Point | Answer |
 | --- | --- |
 | O-1 | No benchmark gate in Part 1; the benchmark moves to Part 2 (section 10) |
 | O-2 | As O-1: the old kernels are deleted on the tests alone; Part 2 compares with the released 2026.5.0 |
-| O-3 | As proposed: the engine takes the uniform `.data`, masks once on entry, re-masks on exit; the twins are thin wrappers (2.4, P11, P12) |
-| O-4 | As proposed: `(frame, centers)` on the backend protocol only; the frontend geometries and `COREWISE`'s `T3Frame` unchanged (2.4, P15) |
+| O-3 | The engine takes the uniform `.data`, masks once on entry, re-masks on exit; the twins are thin wrappers (2.4, P11, P12) |
+| O-4 | `(frame, centers)` on the backend protocol only; the frontend geometries and `COREWISE`'s `T3Frame` unchanged (2.4, P15) |
 | O-5 | A frame the caller supplied: `L` against `R` through `D`, once, at the build, in the frontend; nothing else (2.5, 7.1) |
 | O-6 | No safe mode in the backend: checkers only; the frontend enforces through a cached `consistency_residual` (2.3, 7.1, P4) |
-| O-7 | As proposed: `optional_outputs` (2.4, P14, P16) |
-| O-8 | `HeldVariables` as a dictionary-like frozen record, in `backend/sampling_variables.py`; the engine takes `held=` (2.2, P5) |
-| O-9 | As proposed: one frontend `fitting.local_model`; the factories, `least_squares_problem`, `LeastSquaresSetup` go (2.5, P16) |
+| O-7 | `optional_outputs` (2.4, P14, P16) |
+| O-8 | `HeldVariables`, a dictionary-like frozen record in `backend/sampling_variables.py`; the engine takes `held=` (2.2, P5) |
+| O-9 | One frontend `fitting.local_model`; the factories, `least_squares_problem`, `LeastSquaresSetup` go (2.5, P16) |
 | O-10 | `jet_contract` takes `over_orders`; the engine passes `'scan'` on uniform, `'loop'` on ragged; both built (2.4, P1) |
 | O-11 | Every floating-point input whose entries could affect the output counts (2.3 step 4, P10) |
-| O-12 | As proposed: the raw form (2.3, P8) |
-| O-13 | As proposed: not accepted (2.2, P8) |
+| O-12 | The raw form (2.3, P8) |
+| O-13 | Not accepted (2.2, P8) |
 | O-14 | Not shipped; computed inline in the example (2.4, 8) |
 | O-15 | The `.tex` note archived; the paper-to-code map updated and moved to a page in `docs/` (8) |
 | O-16 | Both tiers: reachable from `t3toolbox.fitting` (2.5, P3) |
-| O-17 | As proposed: the lap `oracle` (P16) |
+| O-17 | The lap `oracle` (P16) |
 | O-18 | A backend checker for the weight; one checker for a batch; the engine checks only what it needs to run (2.3, 2.4, 7.1) |
 | O-19 | One site at a time through `xmap` on uniform, for every order; to be revisited in Part 2 (1, 2.3, P11) |
 | O-20 | The backend divides; the frontend function raises in safe mode (2.4, 2.5, P3) |
 | O-21 | The scale belongs to the batch's inner product: `f`, `g`, `JtJp`, `Jp_norm_sq`, `Kp`, `f_resolution` (2.4, P14) |
 | O-22 | A vector of the type of `z`, no weight, turned inside; tested against automatic differentiation (2.4, P12) |
-| O-23 | As proposed (8) |
+| O-23 | Diagrams generated from the declared graph, committed, tested against a fresh run (8) |
 | O-24 | Split in two commits, with a translation of the old call form for one slice (P16, P17) |
-| O-25 | The plan's reading: a temporary test file, deleted in the last slice (5.1) |
-| O-26 | As proposed: the scripts stay as records run against `v2026.5.0` (10) |
+| O-25 | A temporary test file, deleted in the last slice (5.1) |
+| O-26 | The prototype scripts stay as records run against `v2026.5.0` (10) |
 | O-27 | `dense_probe`, `dense_apply`, `dense_entries` with `pp` and `order`, backend, used by the reference module, the examples and the tests (2.4, P2, P13) |
 | O-28 | The ambient transposes in N16's order and names, the sum off by default; `dense_probe` as O-27 (2.4) |
+| O-29 | `check_batch` is an optional member of the oracle protocol; the frontend calls it when the oracle has it, and checks nothing about the batch otherwise (2.4, 2.5, P14, P16) |
+| O-30 | `held` is any object; in a compiled program, something jax can carry: arrays, tuples, `None` or a registered record (2.2, 2.4) |
+| O-31 | The geometry has no consistency member; N21 withdrawn; a backend user calls `fv_frame_consistency_residual` (2.4, 3, P15) |
+| O-32 | Settled by the amendments of 19:30 to rows 4.2 and 8.3 (7.1) |
+| O-33 | The page takes the notation paragraph of `CLAUDE.md` and the probing map of `docs/entries_apply_probe.md`; other pages link to it (8) |
+| O-34 | `UniformTuckerTensorTrain.unscale_coordinates`, over `ut3_unscale_coordinates` (2.4, 2.5, P3) |
+| O-35 | One scale per coordinate: `scales` is `len=d`, `elm_shape=(Ni,)` (2.4, P3) |
 
 ### 11.2 Open points
 
-What this revision found that the answers do not settle. Each is stated so it can be answered; the plan follows
-the reading given until then.
-
-- **O-29. `check_batch` and an oracle the user wrote.** `check_batch` is a method of the least-squares oracle, not of
-  the protocol, and the frontend optimizers and `fitting.local_model` call it where a batch enters. A user-written
-  oracle may not have one. The plan's reading: the frontend calls it when the oracle has it, and otherwise checks
-  nothing about the batch. The other reading: an optional member of the protocol, listed like `optional_outputs`.
-  Needed before P14.
-- **O-30. `held` of a user-written oracle under `use_jit=True`.** The protocol types `held` as any object (O-8),
-  and the optimizers never read it. The backend `LocalModel` is a pytree and holds it as leaves, and with
-  `use_jit=True` the model goes into compiled phases, where a leaf that is not an array fails. The plan's reading:
-  the protocol says that `held` is any object, and that it must be a pytree of arrays (or `None`) for `use_jit`.
-  Needed before P14.
-- **O-31. The geometry's consistency member (N21).** It was there for the backend model's safe-mode check. With
-  that check in the frontend through `T3Frame.consistency_residual` (O-5, O-6), nothing in the library calls the
-  member. The plan's reading: it stays, as a checker a raw-data user can call on any geometry's frame, returning the
-  residual of P4. The other reading: it goes, and N21 with it. Needed before P15.
-- **O-32. Rows 4.2 and 8.3 against the answers to O-5 and O-6.** Row 4.2 has frame consistency "checked in safe mode
-  at the moment a function that requires it is called"; row 8.3 has "a compiled program's preconditions are checked
-  on the host in safe mode". After O-5 and O-6 only a frame the caller supplied is checked, once, by the frontend,
-  before it calls the backend optimizer; the backend checks nothing before a compiled phase, and centers are never
-  checked by the frontend. The plan follows O-5 and O-6. Is that the amendment of 4.2 and 8.3 that was meant?
-  Needed before P16.
-- **O-33. Which paper-to-code maps move to the new page.** O-15 names the map in `CLAUDE.md` (the notation
-  paragraph of "The paper"). The probing map with the old kernel names is `docs/entries_apply_probe.md` section 8,
-  and `docs/batching_and_stacking.md` section 8 has a short one. The plan's reading: the page takes the `CLAUDE.md`
-  paragraph and the probing map, updated for the new variables; the other pages link to it. Needed before P19.
-- **O-34. The uniform twin of `unscale_coordinates`.** The answer names `x.unscale_coordinates(scales)`, and the plan
-  gives `TuckerTensorTrain` the method over the ragged `t3_unscale_coordinates`. Does `UniformTuckerTensorTrain`
-  get one too, over a uniform backend twin (the rule of the two users suggests so; nothing in Part 1 needs it)?
-  Needed before P3.
-- **O-35. The shape of the coordinate scales.** The plan's earlier sketch gave `scales` the shape `(d,)`, one number
-  per mode. The prototype (`scripts/review/bad_scaling_example.py`) scales each coordinate: `scale` is `len=d`,
-  `elm_shape=(Ni,)`, and its problem has coordinates whose scales spread over four decades within a mode, which one
-  number per mode cannot undo. The plan now follows the prototype. Confirm. Needed before P3.
+None. Every point is answered, and every name approved.
 
 ### 11.3 Names added after the table was settled
 
-Each is proposed, to be agreed before the slice that creates it.
+Approved by the maintainer on 2026-11-16 at 20:59, with the uniform twin of O-34 named by the library's grammar.
 
 | Name | What | Where | Slice |
 | --- | --- | --- | --- |
-| `over_orders='scan'`, `'loop'` | The values of `jet_contract`'s form over the orders (2.9 called them placeholders); passed at every call, with no default | `backend/contractions.py` | P1 |
-| `dense_apply(T, ww, pp=None, order=0)`, `dense_entries(T, index, pp=None, order=0)`; `dense_probe(T, ww, pp=None, order=0)` | The dense functions (the forms are the answer to O-27; the names follow `dense_probe`) | `backend/apply.py`, `entries.py`, `probing.py` | P2 |
-| `check_sample(kind, order, sample, shape)`, `check_data(kind, order, sample, y)`, `check_weight(kind, order, weight, d)` | The small checkers of a sample, its data and its weight | `backend/jets.py` | P3 |
+| `over_orders='scan'`, `'loop'` | The values of `jet_contract`'s form over the orders; passed at every call, with no default | `backend/contractions.py` | P1 |
+| `dense_apply(T, ww, pp=None, order=0)`, `dense_entries(T, index, pp=None, order=0)`; `dense_probe(T, ww, pp=None, order=0)` | The dense functions | `backend/apply.py`, `entries.py`, `probing.py` | P2 |
+| `check_sample(kind, order, sample, shape)`, `check_data(kind, order, sample, y)`, `check_weight(kind, order, weight, d)` | The checkers of a sample, its data and its weight | `backend/jets.py` | P3 |
+| `ut3_unscale_coordinates(x, scales)`; `UniformTuckerTensorTrain.unscale_coordinates(scales)` | The uniform twin of `t3_unscale_coordinates` and its method (O-34) | `backend/data_preparation.py`; `uniform_tucker_tensor_train.py` | P3 |
 | `fv_centers_consistency_residual`, `ufv_frame_consistency_residual`, `ufv_centers_consistency_residual` | The centers' residual and the uniform twins of both frame residuals | `backend/fv_operations.py`, `backend/ufv_operations.py` | P4 |
 | `T3Frame.consistency_residual`, `UT3Frame.consistency_residual` | The cached residual the frontend checks | `frame_variations_format.py`, `uniform_frame_variations_format.py` | P4 |
 | `HeldVariables.with_values(**values)` | A new record with the given slots filled | `backend/sampling_variables.py` | P5 |
-| `LeastSquaresOracle.check_batch(batch, shape)` | The checker of a whole batch ("name open" in the answer) | `backend/fitting.py` | P14 |
+| `LeastSquaresOracle.check_batch(batch, shape)` | The checker of a whole batch; an optional member of the protocol | `backend/fitting.py` | P14 |
 | `pack_batch(kind, order, batch, N)` | The packing of a batch for the uniform layout | `backend/uniform_fitting.py` | P14 |
-| `fitting.local_model(..., frame=None)` | The keyword through which a caller supplies a frame (O-5 names "a frame given to `fitting.local_model`"; the O-9 signature has no such keyword) | `t3toolbox/fitting.py` | P16 |
-| `docs/paper_to_code.md` | The page of the paper-to-code map (O-15) | `docs/` | P19 |
+| `fitting.local_model(..., frame=None)` | The keyword through which a caller supplies a frame | `t3toolbox/fitting.py` | P16 |
+| `docs/paper_to_code.md` | The page of the paper-to-code map | `docs/` | P19 |
+
+---
+
+## 12. How this plan is carried out
+
+The maintainer set the process on 2026-11-16 at 20:51 (`TARGET_DECISIONS.md`, "How Part 1 is implemented").
+
+- **Sign-off first.** The maintainer reviews this plan and signs it off. Nothing is implemented before.
+- **One slice at a time.** Two new agents, an implementer and a reviewer, take the slices in the order of 5.2. The
+  implementer writes the slice; the reviewer critiques it; they go back and forth until the reviewer signs off on
+  the slice.
+- **Then Claude.** Claude looks over the signed-off slice and commits it on `graded-messages`. The next slice starts
+  only after that commit.
+- **What a slice hands over:** the code; its tests; the results of its gate (section 5.1), run unpiped on a clean
+  tree; and a short note of anything that departed from this plan, with the reason.
+- **The agents:** both Fable 5.2 on medium effort (the maintainer, 20:51).
+- **Memory.** The gate's steps run one after another, never two at once, and the implementer and the reviewer
+  never run tests at the same time (the maintainer, 21:02: running sphinx and a parallel test run together has
+  run a 13 GB machine out of memory). The workspace the agents run in has 2 cores and 7 GB. P0 measures the suite's
+  peak memory and time with one worker and with two before a parallel run is relied on.
+- **Issues.** Major issues go to the maintainer. A departure from a decided row, from a public name, or from the
+  slice order is a major issue. Minor issues Claude decides, and records the decision in the slice's note.
