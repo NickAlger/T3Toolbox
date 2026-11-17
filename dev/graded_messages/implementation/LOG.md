@@ -155,3 +155,31 @@ report to the maintainer. P5 starts when he says.
 of any number of axes; `TARGET_DECISIONS.md`, "One jet group, of any number of axes"): an Opus writer and an Opus
 critic create the new slices and update `PART1_PLAN.md`; the maintainer reviews; then the new slices are
 implemented by the usual pair; then P5. The brief for that plan phase is `reviews/jet_group_plan/BRIEF.md`.
+
+### P4, review round 1 (2026-11-17, 14:35)
+
+The reviewer (agent `ab209a5de9d210d82`): NOT YET on one should-fix finding, eight minor (`P4_REVIEW_r1.md`). Sent
+to the implementer with my rulings:
+
+- (1, should fix) a norm that overflows made an inconsistent frame read 0.0 and pass (float32 from norm 1.8e19):
+  a norm that does not overflow, `nan` where it is not finite, a test, the docstring.
+- (2, 3, 8) tests: pin the `1` of `max(1, ||T||)`; the guard's test must fail and not hang; no wall-clock
+  assertions.
+- (4, 5) docstrings on cost and on padding; sharing `D` in the difference if simple.
+- (6, 7) the `LinAlgError` branch and the dtype of an unstacked float32 frame under numpy 1.x.
+- (9) the duplicated helpers stay, with a comment naming the twin. **A note on the plan:** it names
+  `t3_operations` for the difference; the addition lives in `t3_linalg`.
+
+For the maintainer at the pause, from the review:
+
+- The centers' residual: normalized by `max(1, ||T(D, L)||)` (absolute below norm 1, as the frame residual
+  already was), reduced by the maximum over sites and families; a family that is `None` is skipped and
+  `(None, None)` raises. Its cost grows like `d**2` and it needs no orthogonal frame (row 4.1's note expected a
+  core-sized check).
+- `UT3Frame.is_consistent` changes from `rtol * ||T||` to `rtol * max(1, ||T||)`: looser below norm 1, and more
+  exact (the old subtraction read 3.9e-10 on a consistent frame of norm 3.7e6; the new residual 4e-15). Its only
+  callers are tests. For the changelog in P19.
+- `(x - y).norm()` loses accuracy across gauges; whether `_t3_difference_norm` gets a public name.
+
+For P16: the frame residual costs six to eight frame constructions (fine once per model build); the enforcement
+must pass `safety.effective_rtol(frame.data)`, since a float32 numpy frame reads 2.5e-7.
