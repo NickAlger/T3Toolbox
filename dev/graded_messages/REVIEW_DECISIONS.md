@@ -1861,3 +1861,14 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   tensor first.
 - All 28 open points are answered (entries 100 to 107; the full text in `TARGET_DECISIONS.md`). Next: the plan's
   body is brought in line by its writer and checked by its reviewer.
+
+## 108. How Part 1 will be implemented; the plan revised for the answers (2026-11-16, 20:51)
+
+- **The process** (the maintainer): he reviews the complete plan and signs off; then an implementer and a
+  reviewer, both Fable 5.2 on medium effort, work slice by slice until the reviewer signs off on each; Claude
+  looks over each slice before the next starts; major issues go to the maintainer, minor ones Claude decides.
+- **The plan** was revised by its writer for all 28 answers (`reviews/part1_plan/REVISION_ANSWERS.md`): 21
+  slices, P0 to P20, the switch in two. The pass raised seven further points (O-29 to O-35) and a list of
+  proposed names.
+- **Stale text corrected in `TARGET_DECISIONS.md`:** the 5.3 line of "The two parts", small items 2 and 3, and
+  amendments on rows 4.2 and 8.3, which the answers to O-5 and O-6 narrowed.

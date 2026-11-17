@@ -115,7 +115,7 @@ the stochastic step, as today, and makes `take` traceable).
 
 | Open row | Part 1 |
 | --- | --- |
-| 5.3 sites | sweeps scanned; map-type operations in a loop on the ragged layout and at all sites at once on the uniform one |
+| 5.3 sites | sweeps scanned; map-type operations in a loop on the ragged layout and one site at a time through `xmap` on the uniform one (the maintainer, 2026-11-16, 20:28, for Part 1 only, "must be revisited in Part 2"; this line first said "at all sites at once", which was wrong against today's jetted kernels) |
 | 5.5 the contraction order | `contract`'s present default |
 | 7.2 the defaults | the model holds the plain sweep variables and the residual |
 | 7.3 where the plan lives | there is no plan, and no signature has the argument |
@@ -152,10 +152,14 @@ the stochastic step, as today, and makes `take` traceable).
 2. **Where frame consistency is checked** (4.2). Decided: in safe mode only, once when a `LocalModel` is built,
    and in the engine when centers are given. Otherwise the engine does not check; someone who calls it with four
    hand-made stores vouches for them. The maintainer: "Agree if you mean safe mode only. Unsafe mode should not
-   check."
+   check." **Reworded on 2026-11-16 at 19:30 (O-5, O-6 below):** nothing is checked in the engine or anywhere in
+   the backend, which has no safe mode. The frontend checks, and only a frame the caller supplied, when the model
+   is built.
 3. **The old kernels are deleted as the last step of Part 1,** behind a gate: the tests by definition and the
    identities pass, and the consumer's benchmark is run with chunking off, new against old. The maintainer: "Yes,
-   last step. We will run on CPU, and I will also start a runpod for GPU at that time."
+   last step. We will run on CPU, and I will also start a runpod for GPU at that time." **Changed on 2026-11-16
+   at 19:11 and 19:30 (O-1, O-2 below):** the benchmark moves to Part 2 and compares with the released 2026.5.0;
+   the deletion is gated on the tests alone.
 4. **Part 1 is not released on its own.** The maintainer: "No, both parts are needed for the release. Work
    remains on the separate branch until both parts are complete."
 5. **A port of the consumer is part of "done"** (ground rule 0.4): the plan includes a dry port, a script in this
@@ -375,6 +379,13 @@ t3_probe_corewise_hessian(x, ww, residual, core_directions, pp=None, order=0)
     which has no class for a dense array. This amends 6.3, which kept `dense_probe` "as it is".
   - **Every open point of the plan is now answered.** The plan's body is brought in line in one pass and checked
     by the reviewer.
+
+**How Part 1 is implemented** (the maintainer, 2026-11-16, 20:51). "Once the plan is complete I would like to
+review it. When I sign off, we can begin implementing. You will orchestrate two new agents: the implementer and
+the reviewer. Both implementer and reviewer are Fable 5.2 on medium effort. The implementer writes a slice, then
+the reviewer critiques it, and they go back and forth until the reviewer signs off. Then you look over it. It it
+is good, they can continue and start the next slice. If there are major issues along the way, please consult with
+me. If there are minor issues, I trust you to make good decisions." Nothing is implemented before his sign-off.
 
 ## What remains, in groups (2026-11-15, 15:34)
 
@@ -1087,7 +1098,7 @@ Notes:
 | # | Question | Status | Depends on |
 | --- | --- | --- | --- |
 | 4.1 | A frame is the four stores `(D, U, L, R)`, and `(D, L)` is the base point. The Tucker center cores may be supplied beside it. With them the value is read off the frame, `z[i]` being `eta[i]` through the center; without them it goes through `D` | Decided | 1.1, 1.2 |
-| 4.2 | Frame consistency (the four stores describe one tensor; given centers agree with it) is a precondition, checked in safe mode at the moment a function that requires it is called, and never otherwise. No runtime safety check goes through a dense tensor | Decided | 4.1 |
+| 4.2 | Frame consistency (the four stores describe one tensor; given centers agree with it) is a precondition, checked in safe mode at the moment a function that requires it is called, and never otherwise. No runtime safety check goes through a dense tensor **Amended 2026-11-16, 19:30 (the plan's O-5, O-6):** the check is the frontend's; the backend has checkers and no safe mode; what is checked is a frame the caller supplied, `L` against `R` through `D`, once when the model is built; centers are not checked in the frontend, since no frontend user supplies them | Decided | 4.1 |
 | 4.3 | At an accepted point the value is read off the frame with `Vc` (4.1). At a trial point the optimizers offer three policies: the trial's raw cores; a frame at every trial, with its plain variables held for the accepted one (the default); a frame at every trial with the gradient computed with the value | Decided | 4.1 |
 | 4.4 | Frames support arbitrary tails, and nothing checks for them. The boundary vector is ones, sized by the end bond of the cores passed. A function that requires squashed tails is to be looked at with suspicion | Decided | 4.1 |
 | 4.5 | The gauge projection, the lift and the assembly of the exact Hessian product live in the geometry and are called by the fitting layer. The sampling layer never knows the geometry: it returns blocks before projection and takes the lifted direction `(D_dot, L_dot)` for `Kp` | Decided | 1.1 |
@@ -1870,7 +1881,7 @@ By 1.1 this section is in scope.
 | --- | --- | --- | --- |
 | 8.1 | `LocalModel` is the geometry, the oracle, the batch and the regularizer put together at one frame, and the holder of the local information at that point. Its own `gn_quadratic` and `hvp` are built on the fused `Jp_norm_sq` and `JtJp`. `residual` and `jacobian(p)` stay on it, as optional outputs of an oracle. It stores only what the plan's `hold` keeps; the rest is reachable through `model.oracle`, `model.batch`, `model.frame` and `model.held` | Decided | 1.1, 6.1, 8.2 |
 | 8.2 | The fitting layer's open extension point is an oracle (`Oracle`): a frozen description with no arrays, and one operation. At a frame and for a batch it returns the wanted ones of `f`, `g`, `JtJp`, `Jp_norm_sq` (required) and `Kp`, `Jp`, `r` (optional), the blocks before projection, in the engine's vocabulary. The data are an argument: a batch of arrays. The built-in oracle is least squares: it holds the kind and the order, its batch is the sample, `y` and the weight, and its operation is one call of `sampling_variables` | Decided | 3.4 |
-| 8.3 | The optimizers' contract: `newton_cg(geom, oracle, batch, x0, regularizer=None, ...)`. An optimizer touches a `Geometry`, an `Oracle`, a `Regularizer`, a batch it never looks inside, and the `LocalModel` built from them; there is no `Problem` at the seam. The oracle's one operation takes the batch, `want` and `held` and returns the values and `held`; a model is built once and never changes. A minibatch is a batch, scaled so that the misfit on it estimates the full one; the default draw keeps the drawn indices in it. The units of compilation are five phases (build, gradient, CG solve, trial, stochastic step), with the outer loop on the host; a compiled program's preconditions are checked on the host in safe mode. Which phases are compiled by default is left to 7.2 | Decided | 1.1, 8.1, 8.2, 7.2 |
+| 8.3 | The optimizers' contract: `newton_cg(geom, oracle, batch, x0, regularizer=None, ...)`. An optimizer touches a `Geometry`, an `Oracle`, a `Regularizer`, a batch it never looks inside, and the `LocalModel` built from them; there is no `Problem` at the seam. The oracle's one operation takes the batch, `want` and `held` and returns the values and `held`; a model is built once and never changes. A minibatch is a batch, scaled so that the misfit on it estimates the full one; the default draw keeps the drawn indices in it. The units of compilation are five phases (build, gradient, CG solve, trial, stochastic step), with the outer loop on the host; a compiled program's preconditions are checked on the host in safe mode. Which phases are compiled by default is left to 7.2 **Amended 2026-11-16, 19:30 (the plan's O-6):** "checked on the host" means by the frontend, before it calls the backend; the backend optimizers check nothing | Decided | 1.1, 8.1, 8.2, 7.2 |
 | 8.4 | The display and the diagnostics read from the oracle and a batch. `r_block_sumsq` (at the model's frame) and `y_block_sumsq` (independent of the frame, computed once by the display) are optional oracle outputs in the shape of the weight; nothing is reduced over modes or orders, in the display or in the stored record. A validation set is a batch given to the same oracle. The trust-region floor is the optional output `f_resolution`, and `eps |f|` without it. An oracle without block sums gets the header line and no table. Nothing is converted for the display | Decided | 3.7, 8.2 |
 | 8.5 | Shared sample vectors: in the target or not? | Parked | |
 
