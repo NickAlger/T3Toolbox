@@ -224,3 +224,12 @@ are 15:14 and 15:15, and the headings now say so.
 
 The server process behind the session stopped about three minutes after the writer started; resumed by its id.
 It did not coincide with a check-in.
+
+### The plan phase: the writer's draft and the critic's first round (2026-11-17, 15:36)
+
+- The writer (agent `ade730504190cf063`) reported at 15:33: four slices P4a to P4d (the jet contraction over
+  `J`; the input jets and the dense functions; the reference module in several variables; `jets` and
+  `data_preparation` in the jet order), the rest of the plan brought in line, `ACCOUNT.md`, eight open points
+  O-36 to O-43 and proposed names N31 to N39. Its draft is committed as a69e497, marked as a draft under review.
+- A fresh Opus critic (agent `ad73f7b1794a3f870`) was started at 15:36 on it; it writes
+  `reviews/jet_group_plan/REVIEW_r1.md`. Its findings go back to the writer; rounds until the critic agrees.
