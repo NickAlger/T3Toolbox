@@ -1,6 +1,6 @@
 # Part 1 of the graded-messages refactor: implementation plan
 
-**Status.** Draft r3, 2026-11-16, for review. Written against the branch `graded-messages` at `aa7e58b` (the library
+**Status.** Draft r4, 2026-11-16, for review. Written against the branch `graded-messages` at `a9c31b2` (the library
 and `tests/` unchanged since `4d38df7`). The names
 in this plan are proposals until the maintainer settles the table of names (section 3). Every statement about the
 library was checked against the code at that commit; counts were recounted there.
@@ -450,9 +450,10 @@ def point_objective(
 
 **Changed.** Each keeps its name and calls the engine; the merged signature of 6.6. Sketches for probe; apply and
 entries follow (an `index` in place of `ww` for entries, a scalar output for both). Today's positional arguments are
-kept, in today's order and with today's names (which differ between the functions: `t3_apply(x, vecs)` but
-`t3_probe(ww, x)`; `tv_probe(ww, variation, frame)` but `utv_probe(ww, frame_data, variations_data)`), and `pp`,
-`order` are added as keywords. Two names change: `sum_over_samples=True` replaces `sum_over_probes=False` (3.7), and
+kept, in today's order and with today's names apart from the residual (which differ between the functions:
+`t3_apply(x, vecs)` but `t3_probe(ww, x)`; `tv_probe(ww, variation, frame)` but
+`utv_probe(ww, frame_data, variations_data)`), and `pp`, `order` are added as keywords before the sum flag (N16).
+Two names change: `sum_over_samples=True` replaces `sum_over_probes=False` (3.7), and
 the residual argument (`ztildes` or `c` today) is named `residual` (2.4). The transposes take a residual of the type
 of `z` and no weight and turn it inside: by 6.6 the backend function behind a frontend method has the method's
 signature, and by 2.4 and 3.6 the frontend transposes take a residual and no weight. The corewise Hessian, which has
@@ -496,9 +497,10 @@ def t3_probe_corewise_hessian(
 a corewise call; both follow the layout above. Where the new keywords go is a proposal (names table, N16). The uniform twins (`ut3_probe`, `utv_probe`,
 `utv_probe_transpose`, `ut3_probe_corewise_transpose`, `ut3_probe_corewise_hessian`, and apply and entries) take
 the same arguments (open point O-3). In `backend/optimizers.py`: `LocalModel` (section 2.2),
-`newton_cg(geom, oracle, batch, x0, regularizer=None, ...)`, `mc_sgd(geom, oracle, batch, x0, rng, batch_size,
-draw=None, regularizer=None, ...)`, `adam(...)` likewise, `gradient_descent(geom, oracle, batch, x0,
-regularizer=None, ...)`, `flat_draw(oracle, batch, batch_size)` returning `draw(rng) -> batch`. The
+`newton_cg(geom, oracle, batch, x0, regularizer=None, ...)` (8.3), and the other three with the same head and
+`regularizer=None` after their positional arguments, today's keywords following in today's order:
+`mc_sgd(geom, oracle, batch, x0, rng, batch_size, regularizer=None, draw=None, ...)`, `adam(...)` likewise,
+`gradient_descent(geom, oracle, batch, x0, regularizer=None, ...)`, `flat_draw(oracle, batch, batch_size)` returning `draw(rng) -> batch`. The
 `Geometry` protocol: `frame(x)` returns `(frame, centers)`, the corewise geometries' frame is the point `(B, G)`,
 and a consistency member is added (open point O-4 for the form). In `optimizer_display.py`:
 `make_newton_display(oracle, batch, val_batch=None, ...)`; `relative_errors` and the table take arrays of the shape
@@ -519,7 +521,8 @@ of the weight. In `uniform_fitting.py`: `pack_sample(kind, order, sample, N)` an
 Also removed: in `backend/fitting.py` all 20 names (the nine kind classes, the three singletons, the four kind
 factories, the four `sumsq` helpers); in `backend/uniform_fitting.py` 9 of 12 (the six uniform kinds,
 `uniform_sampling_kind`, `uniform_derivatives_kind`, `uniform_least_squares_problem`); in
-`backend/optimizers.py` `Problem`, `least_squares_problem`, `_minibatch_step_problem`, `_ScaledRegularizer`.
+`backend/optimizers.py` `Problem`, `least_squares_problem`, `_minibatch_step_problem`; in
+`backend/regularization.py` the private `_ScaledRegularizer` (defined there, imported by `optimizers.py`).
 
 ### 2.5 The public surface, frontend
 
@@ -530,32 +533,71 @@ factories, the four `sumsq` helpers); in `backend/uniform_fitting.py` 9 of 12 (t
 | `UniformTuckerTensorTrain` | 12 | 6 | 6 |
 | `UT3Tangent` | 12 | 6 | 6 |
 
-Each merged method returns `T + W + [K] + C + ...` with `T` outermost, Taylor coefficients (6.6). The transposes
-take a `residual` of the type of `z` and sum the samples by default; their keyword is the engine's
-`sum_over_samples` (names table, N25). The sketch for one method and one transpose; the others follow:
+Each merged method returns `T + W + [K] + C + ...` with `T` outermost, Taylor coefficients (6.6). Every merged
+method keeps today's kind (instance or static), today's positional arguments in today's order, and today's names,
+and adds `pp=None, order=0` after them (6.6: "the transposes take the same `pp` and `order`"). Three things change,
+each by a row or by the table of names:
+
+- the residual argument (`ztildes` or `c` today) is named `residual` (N19; 2.4 calls `ztildes` a misnomer and
+  leaves the name to the naming questions);
+- `sum_over_probes=False` becomes `sum_over_samples=True` (3.7 note: the transposes sum by default; the name is N25);
+- the six `*_derivatives` methods of each class go (6.6).
+
+Today's forms, as defined in `t3toolbox/tucker_tensor_train.py`, `manifold.py`, `uniform_tucker_tensor_train.py`
+and `uniform_manifold.py`:
+
+| Class | Instance methods | Static methods |
+| --- | --- | --- |
+| `TuckerTensorTrain` | `entries(index)`, `apply(vecs)`, `probe(ww)`; `probe_corewise_transpose(ztildes, ww, sum_over_probes=False)`, `apply_corewise_transpose(c, ww, ...)`, `entries_corewise_transpose(c, index, ...)` | the three ambient transposes, unchanged (6.3) |
+| `T3Tangent` | `probe(ww)`, `apply(ww)`, `entries(index)` | `probe_transpose(ztildes, ww, frame, sum_over_probes=False)`, `apply_transpose(c, ww, frame, ...)`, `entries_transpose(c, index, frame, ...)` |
+| `UniformTuckerTensorTrain` | as `TuckerTensorTrain`, without ambient transposes | none |
+| `UT3Tangent` | as `T3Tangent` | as `T3Tangent` |
+
+The tangent transposes stay static methods that take the `frame`: their input is a residual, not a tangent, and no
+row changes their kind. The sketches, one instance method, one static transpose, one corewise transpose; the others
+follow the same rule:
 
 ```python
-    def probe(                                        # TuckerTensorTrain
+    def probe(                                        # TuckerTensorTrain (instance method, as today)
             self,
             ww:     typ.Sequence[NDArray],                    # len=d, elm_shape=W+(Ni,)
             pp:     typ.Optional[typ.Sequence[NDArray]] = None,   # len=d, elm_shape=W+(Ni,); given iff order >= 1
             order:  int = 0,                                  # highest Taylor order.  T=(order+1,) if order else ()
     ) -> typ.Tuple[NDArray, ...]:                             # len=d, elm_shape=T+W+C+(Ni,)
 
-    def probe_transpose(                              # T3Tangent
-            self,
+    @staticmethod
+    def probe_transpose(                              # T3Tangent (static method, as today)
             residual:          typ.Sequence[NDArray],         # len=d, elm_shape=T+W+[K]+C+(Ni,)
+            ww:                typ.Sequence[NDArray],         # len=d, elm_shape=W+(Ni,)
+            frame:             'bvf.T3Frame',
+            pp:                typ.Optional[typ.Sequence[NDArray]] = None,
+            order:             int = 0,
+            sum_over_samples:  bool = True,
+    ) -> 'T3Tangent':                                         # at frame; tangent stack [W]+[K], frame stack C
+
+    def probe_corewise_transpose(                     # TuckerTensorTrain (instance method, as today)
+            self,
+            residual:          typ.Sequence[NDArray],         # len=d, elm_shape=T+W+C+(Ni,)
             ww:                typ.Sequence[NDArray],         # len=d, elm_shape=W+(Ni,)
             pp:                typ.Optional[typ.Sequence[NDArray]] = None,
             order:             int = 0,
             sum_over_samples:  bool = True,
-    ) -> 'T3Tangent':                                         # at self.frame; stack [W]+[K]+C
+    ) -> typ.Tuple[
+            typ.Tuple[NDArray, ...],                          # Tucker-core gradients, shapes of self.tucker_cores (with [W])
+            typ.Tuple[NDArray, ...],                          # TT-core gradients, shapes of self.tt_cores (with [W])
+    ]:
 ```
 
-Fitting and optimization (frontend). The four optimizers take `(geometry, oracle, batch, x0, ...)`, with `val_batch`
-in place of `val_sample`/`val_data`, and without `kind`, `sample`, `data`, `order`, `weight`, `chunk_size`.
-`mc_sgd` and `adam` take `batch_size` (8.x note). The oracle is the same object in the frontend and the backend;
-the batch is ragged, and the frontend packs it for a uniform `x0`. The keywords not shown are today's:
+`TuckerTensorTrain.apply` keeps its argument name `vecs` (`apply(vecs, pp=None, order=0)`); `entries` keeps `index`.
+Moving `sum_over_samples` behind `pp` and `order` moves a sum flag passed positionally; no frontend caller passes it
+positionally (searched).
+
+Fitting and optimization (frontend). The four optimizers take `(geometry, oracle, batch, x0, ...)` (8.3), with
+`val_batch` in place of `val_sample`/`val_data` (8.4), and without `kind`, `sample`, `data`, `order`, `weight`
+(8.3, 2.3, 6.7) and `chunk_size` (Part 1 drops it). `mc_sgd` and `adam` take `batch_size` in place of `batch`
+(note to 8.1 to 8.4). `regularizer=None` follows the positional arguments, as 8.3 writes it for `newton_cg`; every
+other keyword keeps today's order. The oracle is the same object in the frontend and the backend; the batch is
+ragged, and the frontend packs it for a uniform `x0`. The keywords not shown are today's:
 
 ```python
 def newton_cg(
@@ -603,10 +645,10 @@ representation-agnostic infrastructure) and `docs/contributor/naming_rules.md` (
 | N13 | the record of held variables | `HeldVariables` | |
 | N14 | the record of axis counts | `GroupLengths` | `contract` already spells them `len_<G>` |
 | N15 | `jet_contract` | `jet_contract` | Already the decided spelling in 5.4; a placeholder only in the brief |
-| N16 | the argument order of the merged backend functions | today's positional arguments, in today's order and with today's names, then `pp=None, order=0` as keywords (section 2.4) | No caller's positional call changes |
+| N16 | the form of the merged functions, backend and frontend | Kept: each function's kind (instance or static), its positional arguments in today's order, and their names. Renamed: the residual argument (`ztildes` or `c`) to `residual` (N19), and `sum_over_probes` to `sum_over_samples` (N3, N25) with its default turned to `True` (3.7 note). Added: `pp=None, order=0` before the sum flag (6.6). Moved: a sum flag passed positionally, which only `tests/test_uniform_probing.py` does (lines 832 to 836 and 906 to 910, the uniform twins; P12) | Today's call form, so that only the calls listed move |
 | N17 | the reference module; its functions | `backend/sampling_definitions.py`; one function named exactly as the variable (`sampling_definitions.mu`) | The module name says what they are; the function name is the variable |
 | N18 | the engine's module; the steps' module | `backend/sampling_variables.py`; `backend/sampling_steps.py` | The module is named after its function, as `regularization` is |
-| N19 | the residual argument of the transposes (`ztildes` today) | `residual` | 2.4 calls `ztildes` a misnomer |
+| N19 | the residual argument of the transposes and corewise Hessians (`ztildes` or `c` today) | `residual` | 2.4 calls `ztildes` a misnomer and leaves the name to the naming questions |
 | N20 | the raw-cores objective of policy a | `point_objective` | "f at raw cores" |
 | N21 | the frame-consistency member of a geometry | `frame_consistency_residual(frame, centers)` | Pairs with `fv_frame_consistency_residual` |
 | N22 | the page in `docs/` | `docs/sampling_variables.md` | |
@@ -682,7 +724,8 @@ These are the library's rules, applied to this arc. Every slice is held to them;
 ### 5.2 Overview
 
 "Needs" names the open points that must be answered before the slice starts, because the slice builds on their
-proposal.
+proposal. Besides these, the table of names (section 3) must be settled before P1: small item 6 settles it when the
+plan is looked over, and P1, P3, P5 and P7 to P16 create the names it proposes.
 
 | Slice | Content | Size | Needs |
 | --- | --- | --- | --- |
@@ -699,13 +742,13 @@ proposal.
 | P10 | Engine F: the stacks `W`, `K`, `C`; `sum_over_samples=False`; the dtype rule | medium | O-11 |
 | P11 | Engine G: the uniform layout; sharding over `W` | medium | O-3, O-19 |
 | P12 | The backend sampling functions on the engine (merged signatures); uniform twins | large | O-3, O-22 |
-| P13 | The frontend sampling methods merged; `docs/chunking.md` removed | large | |
+| P13 | The frontend sampling methods merged; `docs/chunking.md` removed | large | O-27 |
 | P14 | The oracle, the batch and `HeldVariables` (additive) | medium | O-7, O-8, O-21 |
 | P15 | The geometry's `frame(x)` returns the centers, and the consistency member | small | O-4, O-5 |
 | P16 | The switch: the corewise frame, `LocalModel`, `local_model`, the optimizers, the display, the frontend optimizers and the frontend local model | largest | O-9, O-17, O-24 |
 | P17 | The dry port of T3Polynomial | small | |
 | P18 | Documentation | large | O-15, O-16, O-23 |
-| P19 | The gate, then the deletion of the old kernels | medium | O-1, O-2 |
+| P19 | The gate, then the deletion of the old kernels | medium | O-1, O-2, O-26 |
 
 ### 5.3 The slices
 
@@ -887,7 +930,7 @@ changes value; positional calls of the other arguments do not break):
 - Gate: the full gate. From here `probing.compute_*` and the plain `assemble_*` are called only by the old kinds,
   their tests and the bridge.
 
-**P13. The frontend sampling methods.** The four classes get the merged methods of section 2.5; the 24 methods go;
+**P13. The frontend sampling methods.** *Needs O-27 answered first.* The four classes get the merged methods of section 2.5; the 24 methods go;
 the frontend transposes take `sum_over_samples=True` in place of `sum_over_probes=False`; the validators come from
 `jets`. Where a caller still fits with the old frontend optimizers (until P16), it makes the old derivative data from
 the merged method as `taylor_to_derivatives(x.probe(ww, pp, order), order)`.
@@ -917,7 +960,10 @@ keyword and their default; and every link to `docs/chunking.md`):
   though the module stays until P19); plain mentions in `CLAUDE.md` and other docstrings are fixed in P18;
 - examples: the six that call a removed method (`fit_hilbert_from_apply_derivatives.py`, `_flat.py`, `_topt.py`,
   `fit_hilbert_uniform_probe_derivatives_newton_cg.py`, `fit_probe_display.py`,
-  `fit_shared_factors_jetted_probes.py`). No example calls a frontend transpose.
+  `fit_shared_factors_jetted_probes.py`). No example calls a frontend transpose. Five of them (all but
+  `fit_probe_display.py`) also import `sampling_derivatives` as `pd` for their dense ground truth
+  (`pd.dense_apply_derivatives`, `pd.dense_probe_derivatives`); that call moves here too, to the replacement O-27
+  settles, so that P19 can delete the module.
 - Pages that name the removed methods in prose only (`docs/entries_apply_probe.md`, `docs/naming_conventions.md`,
   `docs/transposes.md`) are rewritten in P18.
 - Tests added: the doctests on the merged methods (`order=0` returns today's shapes; `order=2` adds `T` outermost).
@@ -972,8 +1018,9 @@ translation of the old frontend call form is O-24.
    step, as today; a compiled program's preconditions are checked on the host first (8.3). Trial points use policy
    a: `point_objective` at the trial's raw cores. The minibatch is a batch from `draw(rng)`; the regularizer is not
    scaled; MC-SGD and Adam on an oracle without a draw raise (8.3 part 2). The zero reference, the padded start, the
-   cone reference and the switch mode go through `query`. `Problem`, `least_squares_problem`,
-   `_minibatch_step_problem` and `_ScaledRegularizer` go, and so does `uniform_fitting.uniform_least_squares_problem`
+   cone reference and the switch mode go through `query`. `Problem`, `least_squares_problem` and
+   `_minibatch_step_problem` go, with the import of `_ScaledRegularizer` and its definition in
+   `backend/regularization.py` (its mention in `docs/contributor/fitting_internals.md` is P18's), and so does `uniform_fitting.uniform_least_squares_problem`
    with its doctest: it is annotated `-> bopt.Problem` in a module without `from __future__ import annotations`, so
    it would fail the import of `uniform_fitting` once `Problem` is gone.
 3. *Display and record.* The display reads `r_block_sumsq` at the model's frame through `held`, `y_block_sumsq`
@@ -1031,7 +1078,7 @@ geometries:
 **P18. Documentation.** *Needs O-15, O-16, O-23 answered first.* Section 8. Two commits: the new material (the page, the example, the note, the dependency
 diagrams, the reference module's docs), then the rewrites and removals of existing pages.
 
-**P19. The gate, then the deletion.** *Needs O-1, O-2 answered first.* Section 10.
+**P19. The gate, then the deletion.** *Needs O-1, O-2, O-26 answered first.* Section 10.
 
 ### 5.4 When each old piece stops being called
 
@@ -1309,20 +1356,29 @@ the new library (section 10).
   section 2.4 that are not in `sampling_derivatives`.
 - The old kinds and their factories (`backend/fitting.py`, `backend/uniform_fitting.py`).
 - The tests of old kernels (section 6), the bridge test, the class `TestJetKernelsShardOverW`.
-- Every remaining reference to the removed names. A search of the tree at this commit for the 129 removed names
-  (and the module `sampling_derivatives`) finds them, outside the defining modules, in: `t3toolbox/manifold.py`,
-  `tucker_tensor_train.py`, `uniform_manifold.py`, `uniform_tucker_tensor_train.py` (P13 removes them),
-  `t3toolbox/optimizers.py`, `t3toolbox/fitting.py`, `backend/optimizers.py`, `backend/fitting.py`,
-  `backend/uniform_fitting.py` (P16, and the old kinds here); `tests/test_probe_derivatives.py`,
-  `tests/test_tucker_tensor_train.py`, `tests/test_uniform_probing.py` (P13), `tests/test_fitting.py`,
-  `tests/test_optimizers_frontend.py`, `tests/backend/test_optimizers.py`, `tests/backend/test_uniform_fitting.py`,
-  `tests/oracle_sweeps/o1_ragged.py`, `o1_uniform.py` (P13 or P16, when they are rewritten); and, still here at
-  P19, `tests/backend/test_curvature.py`, `tests/backend/_curvature_oracles.py`,
-  `tests/backend/test_uniform_curvature.py` (their comparisons with the old two-hole and jet functions, removed here),
-  `tests/test_dispatch.py` (its old rows), `tests/test_jet_recurrence.py`, `tests/_jet_trs_twins.py`,
-  `tests/backend/test_from_sweep_reuse.py`, `tests/test_chunk_size_estimator.py`,
-  `tests/test_contractions_sharding.py` (deleted or cut here); the pages and the note of section 8 (P18). The grep
-  below confirms none is left.
+- Every remaining reference to what P19 deletes: the module `sampling_derivatives`, the removed names of the five
+  other sampling modules, and the old kinds of `backend/fitting.py` and `backend/uniform_fitting.py`. The search reads
+  imports under any alias (`import t3toolbox.backend.sampling_derivatives as pd`, `from t3toolbox.backend import
+  fitting as bfit`) and then every attribute of that alias, in code and in every module and page doctest; a grep
+  adds string references (`mock.patch.object(sd, 'estimate_chunk_size')`). At this commit it finds, outside the
+  defining modules:
+
+  | Where | What | Removed in |
+  | --- | --- | --- |
+  | `t3toolbox/tucker_tensor_train.py`, `manifold.py`, `uniform_tucker_tensor_train.py`, `uniform_manifold.py` | the `*_derivatives` backend functions and the `pp` validators | P13 |
+  | `t3toolbox/fitting.py`, `t3toolbox/optimizers.py` (with its lazy import of `sampling_derivatives` in `_bfit_pd`), `backend/optimizers.py` (a doctest calls `sd.t3_probe_derivatives`) | the old kinds, `uniform_sampling_kind`, `uniform_least_squares_problem`, the chunk estimator | P16 |
+  | `examples/fit_hilbert_from_apply_derivatives.py`, `_flat.py`, `_topt.py`, `fit_hilbert_uniform_probe_derivatives_newton_cg.py`, `fit_shared_factors_jetted_probes.py` | `pd.dense_apply_derivatives` or `pd.dense_probe_derivatives`, for the dense ground truth | P13, with the replacement O-27 settles |
+  | `tests/test_probe_derivatives.py`, `test_tucker_tensor_train.py`, `test_uniform_probing.py` | the `*_derivatives` functions as comparisons | P13 |
+  | `tests/test_fitting.py`, `tests/test_optimizers_frontend.py` (also by `mock.patch` strings), `tests/backend/test_optimizers.py`, `test_optimizer_display.py`, `test_padded_start.py`, `test_zero_reference.py`, `test_uniform_fitting.py` | the old kinds, the `*_derivatives` data makers, the chunk estimator | P16 |
+  | `tests/backend/test_curvature.py`, `_curvature_oracles.py`, `test_uniform_curvature.py` | comparisons with the old two-holes, sweeps and jet functions; the old kinds | the kinds in P16; the rest here |
+  | `tests/test_dispatch.py` | rows for old functions and old kinds | the fitting rows in P16; the rest here |
+  | `tests/test_jet_recurrence.py`, `tests/_jet_trs_twins.py`, `tests/backend/test_from_sweep_reuse.py`, `tests/test_chunk_size_estimator.py`, `tests/test_contractions_sharding.py` (`TestJetKernelsShardOverW`) | old kernels only | here |
+  | `docs/chunking.md` | the chunk estimators | P13 |
+  | the pages and the note of section 8 | names in prose | P18 |
+  | `dev/graded_messages/scripts/` (14 scripts, among them `graded_messages_prototype.py`, `correspondence_check.py`, `review/levels_jax_check.py`, `review/sample_variables_check.py`) | old kernels and old kinds, as the reference the prototypes were checked against | not by this plan: O-26 |
+
+  `CLAUDE.md` names none of them in code. The grep below confirms none is left in the library, the tests, the docs
+  and the examples.
 - `__all__` lists, `docs/api_reference.rst`, the import-graph pins, the inventory of P0 re-run to zero references.
 
 Its own gate: the full gate, the slow tier, `sphinx -W`, and a grep over `t3toolbox/`, `tests/`, `docs/` and
@@ -1425,3 +1481,17 @@ it. The column "Needs" of section 5.2, and the head of each slice, say which ans
 - **O-25. The reading of "the old library is a bridge used once during the port"** (9.3). The plan reads it as a
   temporary test file compared against code never rerouted onto the engine, run in CI from P6 and deleted in P19.
   The other reading is a one-off script run once per surface, never in CI.
+- **O-26. The folder's prototype scripts after P19.** Fourteen scripts in `dev/graded_messages/scripts/` call old
+  kernels or old kinds (for example `graded_messages_prototype.py`, `correspondence_check.py`,
+  `review/sample_variables_check.py`, `review/levels_jax_check.py`), as the reference the prototypes were checked
+  against. CI never runs them, so no gate breaks. Proposed: they stay as records, run against the release
+  `v2026.5.0` (the folder's README already pins commits for its recorded outputs), and P19 says so in the folder's
+  README. The alternative is porting the ones still worth running to the engine.
+- **O-27. Dense ground truth for jets of a dense tensor.** Five examples and `tests/test_probe_derivatives.py` make
+  their data with `dense_apply_derivatives` or `dense_probe_derivatives` (in `sampling_derivatives`), on a dense
+  tensor. 6.3 removes every `*_derivatives` function and keeps `dense_probe` "as it is" (order 0 only); 9.7 makes the
+  reference module the dense definitions "called by the tests, the page, the example and users", but its functions,
+  as section 2.4 sketches them, take cores, not a dense tensor. No row says what computes the jets of a dense
+  tensor. Proposed: the reference module's `z` also accepts a dense tensor in place of the cores. The alternatives
+  are `dense_probe` with `pp` and `order` (the pattern of 6.6) and new dense twins for apply and entries (the library
+  has no `dense_apply` or `dense_entries` today), or the examples building the dense jets themselves. Needed before P13.
