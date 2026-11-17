@@ -619,13 +619,25 @@ Open with him: the structure below, and the letter.
 - **O-46, the entries oracle:** "accept order=() for entries." One class, one rule for every kind: `order` is
   required, and for `'entries'` it must be `()`. No sentinel default.
 - **O-47:** the dual-jet and derivative functions accept `'entries'` at `()` and return the data unchanged.
-- **O-45, the jet axes on the uniform layout: not answered yet.** He was unsure what was asked, and gave his view
-  of uniform data: "The user will supply a raw array of the appropriate shape, and it is on them to ensure that they
-  didn't put nonzeros in the padded locations. If they put nonzeros there, they will have no effect on the output
-  because the operations will mask the cores before the data is passed through. We also provide helper functions
-  that can convert ragged data to uniform data by padding appropriately." Claude is to explain the question: the
-  slots in question are along a jet axis, which no mask of the cores covers.
-- The proposed names of section 11.4 (N32, N33, N35 to N41) are not yet answered.
+- **O-45, the jet axes on the uniform layout** (16:26, after the question was put again): "Agree with proposal.
+  Every slot along a jet axis is data." His picture of uniform data stands for the padding of the mode sizes (the
+  user supplies a raw array; nonzeros in the padded places have no effect, because the cores are masked; helpers
+  pad ragged data). The slots of a jet axis are another thing: one packed array gives every mode the same jet
+  sizes, so a mode whose input has fewer slots gets more, and no mask of the cores covers them. Those slots are
+  coefficients. A zero there, written by the packing helper, is the coefficient; a nonzero is another valid input.
+  No mask on the jet axes and no checker. The uniform equivalence contract gets a sentence saying so.
+- **The names** (16:26): "Agree with proposed names." So, from section 11.4 of the plan: `GroupLengths.J`; `order`
+  as the argument of `jet_contract` for the output's jet shape; `affine_jet(ww, *directions)`;
+  `index_to_one_hot(index, shape)`, both in `backend/jets.py`; the marker `PART 2 (row 5.4, jets in several
+  variables)`; `F` for the full jet sizes in shape comments; the terms "jet shape" (the tuple of maximum orders named
+  `order`) and "jet sizes" (the sizes of an array's jet axes); `len_J=0` on `pack_vectors` and `pack_if_ragged`.
+  Claude reads the same answer as covering `error_table=True`, the keyword proposed to him in the same message for
+  turning the display's table off (beside `verbose` on `newton_cg`, and on `make_newton_display`); to be confirmed
+  when he reviews the plan.
+- **What happens next** (16:26): "Once the plan is complete, please commit it, update the handoff, and pause before
+  implementation. ... We will resume in a couple days ... Also, this will give me time to review the updated plan
+  more carefully." So the plan change is complete as a text but not signed off as a whole; P4a does not start
+  until he says so.
 
 ## Carried to Part 2 from the implementation of Part 1
 

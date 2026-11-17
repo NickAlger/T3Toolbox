@@ -2006,3 +2006,12 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   (O-46); the dual-jet and derivative functions accept `'entries'` at `()` (O-47).
 - O-45 (the jet axes on the uniform layout) is not answered: the question was not clear to him. O-39 had been
   withdrawn as already decided. The proposed names are not yet answered. Recorded in `TARGET_DECISIONS.md`.
+
+## 122. O-45 and the names answered; a pause before the new slices are implemented (2026-11-17, 16:26)
+
+- O-45: "Every slot along a jet axis is data." No mask on the jet axes of the uniform layout.
+- "Agree with proposed names" (section 11.4 of the plan; Claude reads it as covering `error_table` too, to be
+  confirmed).
+- The maintainer asked for the plan to be completed and committed, the handoff updated, and a pause before
+  implementation, of a couple of days; he will review the updated plan in that time. Nothing is implemented until
+  he says so.
