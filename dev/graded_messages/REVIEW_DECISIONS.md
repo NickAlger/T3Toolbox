@@ -1775,3 +1775,14 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   `pp` and `order` go).
 - Times in entry 96 and in the correction notes of "The two parts" were first written from memory and were wrong
   by up to an hour; they now give the commit times.
+
+## 98. The form of the merged sampling functions decided; `query` confirmed (2026-11-16, 18:18)
+
+- **N16:** the object the function is evaluated at comes first, then the sample, then what is applied; then the
+  keywords `pp=None, order=0` and `sum_over_samples=True`; one name for one thing on both layouts. So
+  `t3_probe(x, ww, ...)`, `tv_probe(frame, variations, ww, ...)`, `tv_probe_transpose(frame, ww, residual, ...)`,
+  `t3_probe_corewise_hessian(x, ww, residual, core_directions, ...)`. The plan had proposed to keep today's forms;
+  the maintainer wanted "a first principles decision", and today's forms disagree with each other. The full note
+  is in `TARGET_DECISIONS.md`, after the small items of Part 1.
+- **The oracle's operation is `query`:** "query is better than evaluate in my opinion".
+- Open: whether the three ambient transposes follow the same rule.

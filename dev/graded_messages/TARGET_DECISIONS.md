@@ -171,6 +171,42 @@ been tricky in the past": safe mode against unsafe mode; the ragged against the 
 between numpy and jax; shared Tucker factors; the razor between backend and frontend; sharding; compiling with
 jit.
 
+**The names of Part 1, and the form of the merged sampling functions** (2026-11-16, 18:13 and 18:18). The plan's
+table of names (`PART1_PLAN.md`, section 3) is settled: the maintainer agreed with every row but one at 18:13, and
+of the oracle's operation he said at 18:18 "query is better than evaluate in my opinion" (the notes of 8.3 wrote
+`evaluate` as a placeholder). The one row held back was N16, the form of the merged sampling functions, which the
+plan had proposed to keep as today "so that only the calls listed move". His concern: "that it should be thought
+through and a first principles decision should be made". Today's forms disagree with each other (`t3_probe(ww, x)`
+against `t3_apply(x, vecs)`; `tv_probe(ww, variation, frame)` against `utv_probe(ww, frame_data,
+variations_data)`), and no note of the library records that as deliberate. Decided ("I like your proposal, let's
+go with it"):
+
+- **One rule: the object the function is evaluated at comes first, then the sample, then what is applied.** It
+  is the order the engine and the oracle already have (`sampling_variables(kind, frame, sample, ...)`,
+  `oracle.query(frame, batch, ...)`).
+- **The keywords follow:** `pp=None, order=0`, then `sum_over_samples=True` where there is a sum. `pp` stays a
+  keyword, as 6.6 has it, so a call at order 0 does not pass `None`.
+- **One name for one thing:** `x` for a Tucker tensor train's cores, `frame`, `variations`, `ww` (or `index`),
+  `residual`, `core_directions`, on both layouts.
+
+```python
+t3_probe(x, ww, pp=None, order=0)
+t3_apply(x, ww, pp=None, order=0)
+t3_entries(x, index, pp=None, order=0)
+tv_probe(frame, variations, ww, pp=None, order=0)
+tv_probe_transpose(frame, ww, residual, pp=None, order=0, sum_over_samples=True)
+t3_probe_corewise_transpose(x, ww, residual, pp=None, order=0, sum_over_samples=True)
+t3_probe_corewise_hessian(x, ww, residual, core_directions, pp=None, order=0)
+```
+
+- The uniform twins take the same lists. The frontend's instance methods follow the rule with `self` as the
+  object (`x.probe_corewise_transpose(ww, residual, ...)`). The frontend's tangent transposes stay static methods
+  with the frame first (`T3Tangent.probe_transpose(frame, ww, residual, ...)`): their input is a residual and
+  their output a tangent, so they are constructors, like `T3Tangent.zeros(frame)`.
+- Every caller of these functions changes; the slice that merges them already visits every caller.
+- Not settled by this: whether the three ambient transposes, which the plan leaves as they are, take the rule's
+  order and names too.
+
 ## What remains, in groups (2026-11-15, 15:34)
 
 Of the 57 rows in sections 1 to 9 (9.7 was added on 2026-11-16), 46 are decided, 3 are guidance and 1 is parked. The other 7 are below, in
