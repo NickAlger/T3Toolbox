@@ -1852,3 +1852,12 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   divides; the frontend raises in safe mode. O-23 and O-26: as proposed. O-24: the switch is two commits. O-25:
   the bridge is a temporary test in CI.
 - Left: O-21 (the maintainer's view stated, Claude to answer), O-22, O-27 with O-28.
+
+## 107. The last open points of the plan answered (2026-11-16, 20:35)
+
+- O-21: the minibatch scale belongs to the batch's inner product; it multiplies `f`, `g`, `JtJp`, `Jp_norm_sq`,
+  `Kp`, `f_resolution` and nothing else. O-22: the corewise Hessian exists and takes a vector of the type of `z`,
+  as the transposes do. O-27, O-28: `dense_probe`, `dense_apply`, `dense_entries` with `pp` and `order`, the
+  tensor first.
+- All 28 open points are answered (entries 100 to 107; the full text in `TARGET_DECISIONS.md`). Next: the plan's
+  body is brought in line by its writer and checked by its reviewer.

@@ -1483,7 +1483,7 @@ none of the 129 removed names, nor `chunk_size`, `sum_over_probes` or `ztildes`.
 None of these is settled by this plan. Where the plan needs an answer to proceed, it states a proposal and marks
 it. The column "Needs" of section 5.2, and the head of each slice, say which answers a slice waits for.
 
-**Answered by the maintainer so far** (2026-11-16, 18:35 and 19:11). The body of the plan still marks these as open
+**Answered by the maintainer** (2026-11-16, 18:35 to 20:35): every point is answered. The body of the plan still marks these as open
 and will be brought in line in one pass when the list is complete.
 
 | Point | Answer |
@@ -1513,6 +1513,9 @@ and will be brought in line in one pass when the list is complete.
 | O-24 | Split into two commits, with the transitional translation of the old call form in the frontend optimizers for one slice |
 | O-25 | The plan's reading: a temporary test file, in CI from P6, deleted in P19 |
 | O-26 | As proposed: the prototype scripts stay as records run against `v2026.5.0` |
+| O-21 | The scale belongs to the batch's inner product: it multiplies `f`, `g`, `JtJp`, `Jp_norm_sq`, `Kp` and `f_resolution`, and nothing else (`r`, `Jp`, `r_block_sumsq`, `y_block_sumsq` are plain) |
+| O-22 | The corewise Hessian exists and takes what the transposes take: a vector of the type of `z`, no weight, turned inside. It is the second derivative of `<c, z(x)>` applied to a direction, tested against automatic differentiation |
+| O-27, O-28 | `dense_probe(T, ww, pp=None, order=0)`, `dense_apply(T, ww, pp=None, order=0)`, `dense_entries(T, index, pp=None, order=0)`, backend, beside their kinds; the reference module calls them for `z`; the examples and tests use them |
 | O-10 | `jet_contract` does not learn the layout. It keeps the argument of the 5.4 call form, `over_orders` (`'scan'` or `'loop'`, 2.9), after `lens`. In Part 1 the engine passes `'scan'` on the uniform layout and `'loop'` on the ragged one; `GroupLengths` keeps five fields; both forms are built and tested |
 
 - **O-1. Which benchmark is the gate.** The decisions say "the consumer's benchmark", run with chunking off.

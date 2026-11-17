@@ -350,6 +350,32 @@ t3_probe_corewise_hessian(x, ww, residual, core_directions, pp=None, order=0)
   - **O-26 (the folder's prototype scripts):** as proposed: they stay as records that run against `v2026.5.0`,
     and the folder's README says so.
 
+- **Answers of 20:35, which complete the list.**
+  - **O-21 (what the minibatch scale multiplies).** The maintainer's view: "The minibatch problem is viewed as a
+    new problem with its own objective function, gradient, and other variables. The problem is scaled so that the
+    minibatch problem is a stochastic estimator for the full problem. All quantities in the minibatch problem are
+    scaled accordingly, so they provide a little self consistent universe." Recorded as Claude then put it: the
+    scale belongs to the batch's inner product on data space (`<a, b>` is `scale * <a, omega^2 b>`), which is
+    what making it a field of its own and not folding it into the weight already meant. So it multiplies `f`,
+    `g`, `JtJp`, `Jp_norm_sq`, `Kp` and `f_resolution`, and nothing else: `r` and `Jp` are the plain vectors at
+    the drawn samples, and `r_block_sumsq` and `y_block_sumsq` are plain sums of squares (their ratio, which the
+    display shows, would not change anyway). Every identity holds: `f = 1/2 <r, r>`, `<Jp, r> = <p, g>`,
+    `Jp_norm_sq = <Jp, Jp>`.
+  - **O-22 (the backend corewise Hessian).** It exists, and it takes what the transposes take: a vector `c` of
+    the type of `z`, no weight, turned inside. The two are then one definition: for the scalar function
+    `phi(x) = <c, z(x)>` with the plain inner product, the corewise transpose is the gradient of `phi` and the
+    corewise Hessian is its second derivative applied to a direction. The curvature term of a fit is the case
+    `c = omega^2 r`. It is tested against automatic differentiation of `<c, t3_probe(x, ww)>`. It stays although
+    it has no frontend method (6.3 read strictly would drop it): it names a capability a backend user would not
+    guess from the engine.
+  - **O-27 and O-28 (jets of a dense tensor; `dense_probe` under N16).** Three backend functions, beside their
+    kinds: `dense_probe(T, ww, pp=None, order=0)`, `dense_apply(T, ww, pp=None, order=0)`,
+    `dense_entries(T, index, pp=None, order=0)`. The reference module calls them for `z`, so the code for the jets
+    of a dense tensor exists once; the examples and tests use them for ground truth. Not wrapped in the frontend,
+    which has no class for a dense array. This amends 6.3, which kept `dense_probe` "as it is".
+  - **Every open point of the plan is now answered.** The plan's body is brought in line in one pass and checked
+    by the reviewer.
+
 ## What remains, in groups (2026-11-15, 15:34)
 
 Of the 57 rows in sections 1 to 9 (9.7 was added on 2026-11-16), 46 are decided, 3 are guidance and 1 is parked. The other 7 are below, in
