@@ -298,6 +298,17 @@ t3_probe_corewise_hessian(x, ww, residual, core_directions, pp=None, order=0)
   called from the corresponding frontend function. This is to be understood *within reason*; exceptions can be
   made in limited circumstances."
 
+- **Checking in the two tiers** (the maintainer, 20:04, after Claude proposed that the engine make every
+  structural check so that both users get the same errors): "The backend is explicitly looser with checking
+  requirements. We make no checking guarantees about backend functions (some functions have them, others don't,
+  that's fine). However, we must provide the *tools* to the backend user to do checks themselves if they so
+  desire. There is no safe mode in the backend. If the user passes a bad input to a backend function, that is on
+  them. They should have checked it beforehand with one of the checkers we provide. For example, the backend
+  functions that require orthogonal frames will happily compute a wrong answer if the user provides a
+  non-orthogonal one, but the backend also provides a function that checks if a frame is orthogonal." So the
+  requirement on the backend is that a checker exists for each thing the frontend checks, not that backend
+  functions check. Claude's proposal is withdrawn.
+
 ## What remains, in groups (2026-11-15, 15:34)
 
 Of the 57 rows in sections 1 to 9 (9.7 was added on 2026-11-16), 46 are decided, 3 are guidance and 1 is parked. The other 7 are below, in

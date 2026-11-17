@@ -1830,3 +1830,11 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
 - On O-18 the maintainer stated the rule for every question of this kind: a frontend user and a backend user,
   each able to do all the important operations in their own layer; nontrivial logic in a backend function that
   the frontend function calls; within reason. Quoted in full in `TARGET_DECISIONS.md`.
+
+## 104. The backend gives checkers, not guarantees (2026-11-16, 20:04)
+
+- Claude had proposed, from the rule of the two users, that the engine make every structural check (the weight's
+  shape, the sample against the mode sizes), so that a backend user gets the same errors as a frontend user.
+- The maintainer corrected the reading: the backend makes no checking guarantee; what it owes its user is the
+  checkers, to call beforehand if they wish. Quoted in `TARGET_DECISIONS.md`. The proposal is withdrawn; the
+  plan's own sentence, that the frontend validates the sample with the backend's validators, was in line.
