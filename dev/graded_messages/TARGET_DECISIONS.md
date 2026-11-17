@@ -233,7 +233,22 @@ t3_probe_corewise_hessian(x, ww, residual, core_directions, pp=None, order=0)
   argument that nothing wanted reads.
 - **O-12 (`nu_L_dot`, `eta_D_dot` with both directions):** as proposed, the raw form, the one `Kp` reads.
 - **O-13 (spellings on a corewise call):** as proposed, the names with a basis are not accepted.
-- **O-5, O-6, O-8, O-10:** to be discussed. On O-6 the maintainer set the frame: "Backend importing from frontend
+- **O-1, O-2, confirmed** (19:30): the old kernels are deleted as the last step of Part 1 on the tests alone, and
+  Part 2's benchmark compares the branch with the released 2026.5.0. ("Yes, delete and use 2026.5.0 branch for
+  comparison in Part 2.")
+- **O-6 (safety), decided 19:30 as Claude proposed after the maintainer's objection.** The backend has checkers
+  only: functions that return a residual and never raise and never read a mode (`fv_frame_consistency_residual`,
+  made free of dense tensors, and a centers' residual beside it, with uniform twins). The engine, the backend
+  `LocalModel` and the backend optimizers check nothing, as `backend/optimizers.py` already says of itself.
+  Enforcement is the frontend's, in safe mode, on concrete arguments, where a frame comes in from the user,
+  through a cached `T3Frame.consistency_residual` like today's `orthogonality_residual`. `backend/optimizers.py`
+  keeps its three pinned imports. **This rewords small item 2 above:** nothing is checked "in the engine".
+- **O-5 (what frame consistency checks), decided 19:30 as proposed.** A frame the caller supplied (a
+  `start_frame`, or a frame given to `fitting.local_model`): `L` against `R` through `D`, once, when the model is
+  built. A frame the library built in the same call: nothing. Centers: not checked in the frontend, since by O-4
+  no frontend user supplies them; the backend checker exists for users of raw data and for the tests. `U` on a
+  supplied frame is not checked, as today.
+- **O-8, O-10:** still under discussion (see the log). On O-6 the maintainer set the frame: "Backend importing from frontend
   is not acceptable. Perhaps we can put the checking functionality in the backend somewhere, then the frontend
   safety module can import it. There is no such thing as safe mode in the backend." On O-8: "I am concerned the
   proposed pytree approach will not work for the numpy-only user."

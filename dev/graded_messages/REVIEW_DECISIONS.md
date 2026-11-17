@@ -1804,3 +1804,12 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   Part 2: O-1 and O-2, the benchmark gate. To discuss: O-5, O-6, O-8, O-10.
 - The answers are listed in `TARGET_DECISIONS.md` (the note "The plan's open points, as the maintainer answers
   them") and at the head of the plan's section 11. The body of the plan is brought in line when the list is done.
+
+## 101. Safety stays in the frontend; what frame consistency checks (2026-11-16, 19:30)
+
+- **O-6.** The plan had proposed that the backend import `safety`. The maintainer (19:11): "Backend importing from
+  frontend is not acceptable ... There is no such thing as safe mode in the backend." Decided: checkers in the
+  backend, enforcement in the frontend. Small item 2 of Part 1 ("in the engine when centers are given") is
+  reworded by this.
+- **O-5.** Only a frame supplied by the caller is checked, `L` against `R` through `D`, when the model is built.
+- **O-1, O-2.** Confirmed: deletion on the tests alone; the benchmark of Part 2 runs against 2026.5.0.

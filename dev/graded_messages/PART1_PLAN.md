@@ -1497,7 +1497,10 @@ and will be brought in line in one pass when the list is complete.
 | O-12 | As proposed: the public `nu_L_dot` and `eta_D_dot` are the raw form in a call with both directions |
 | O-13 | As proposed: a corewise call does not accept the names with a basis |
 | O-28, first part | The ambient transposes take N16's order and names, sum flag off by default (section 2.4); `dense_probe` still open |
-| O-5, O-6, O-8, O-10 | Under discussion. On O-6: the backend does not import the frontend, and "there is no such thing as safe mode in the backend" |
+| O-1, O-2, confirmed | The old kernels are deleted as the last step of Part 1 on the tests alone; Part 2's benchmark compares the branch with the released 2026.5.0 |
+| O-6 | Not as proposed. The backend has checkers only (residual functions, no raise, no mode); the engine, the backend `LocalModel` and the backend optimizers check nothing; the frontend enforces in safe mode where a frame comes in from the user, through a cached `T3Frame.consistency_residual`. `backend/optimizers.py` keeps its three imports |
+| O-5 | A frame the caller supplied: `L` against `R` through `D`, once, when the model is built. A frame the library built in the same call: nothing. Centers and `U`: not checked in the frontend |
+| O-8, O-10 | Under discussion |
 
 - **O-1. Which benchmark is the gate.** The decisions say "the consumer's benchmark", run with chunking off.
   Proposed: `t3polynomial/scripts/b01_backend_bench.py`, which passes `chunk_size=None` on every arm. T3Polynomial's
