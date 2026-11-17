@@ -1872,3 +1872,13 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   proposed names.
 - **Stale text corrected in `TARGET_DECISIONS.md`:** the 5.3 line of "The two parts", small items 2 and 3, and
   amendments on rows 4.2 and 8.3, which the answers to O-5 and O-6 narrowed.
+
+## 109. The plan's last points and names decided (2026-11-16, 20:59)
+
+- The reviewer agreed with the plan's revision for the 28 answers (`reviews/part1_plan/REVIEW_ANSWERS.md`), with
+  six minor items.
+- The maintainer: "Agree with all O-29 -- O-35. Names approved." The answers are Claude's, listed in
+  `TARGET_DECISIONS.md`: `check_batch` an optional member of the protocol; `held` any object, jax-carriable when
+  compiled; the geometry's consistency member dropped (N21 withdrawn); the paper-to-code page; a uniform
+  `unscale_coordinates`; one scale per coordinate.
+- Nothing in the plan is open. Next: the writer's last pass, then the maintainer's review and sign-off.

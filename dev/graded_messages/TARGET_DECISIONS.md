@@ -380,6 +380,27 @@ t3_probe_corewise_hessian(x, ww, residual, core_directions, pp=None, order=0)
   - **Every open point of the plan is now answered.** The plan's body is brought in line in one pass and checked
     by the reviewer.
 
+- **The points the revision raised, and the names added, decided 20:59** ("Agree with all O-29 -- O-35. Names
+  approved."). As Claude had answered each:
+  - **O-29.** `check_batch` is an optional member of the oracle protocol: the frontend calls it when the oracle
+    has it and checks nothing about the batch otherwise.
+  - **O-30.** The protocol says `held` is any object, and that in a compiled program it must be something jax can
+    carry: arrays, tuples, `None` or a registered record.
+  - **O-31.** The geometry's consistency member is dropped (N21 is withdrawn from the table of names). A backend
+    user has `fv_frame_consistency_residual`.
+  - **O-32.** Settled by the amendments to rows 4.2 and 8.3.
+  - **O-33.** The new page takes the notation paragraph of `CLAUDE.md` and the probing map of
+    `docs/entries_apply_probe.md`; other pages link to it.
+  - **O-34.** `UniformTuckerTensorTrain` gets `unscale_coordinates` too, over a uniform backend twin.
+  - **O-35.** One scale per coordinate: `scales` is `len=d`, `elm_shape=(Ni,)`, as the prototype has it.
+  - **Names:** `over_orders='scan'` and `'loop'`; `dense_apply`, `dense_entries`; `check_sample`, `check_data`,
+    `check_weight`; `LeastSquaresOracle.check_batch(batch, shape)`; `pack_batch(kind, order, batch, N)`;
+    `HeldVariables.with_values`; `T3Frame.consistency_residual`, `UT3Frame.consistency_residual`;
+    `fv_centers_consistency_residual`, `ufv_frame_consistency_residual`, `ufv_centers_consistency_residual`; the
+    keyword `frame=None` on `fitting.local_model`; `docs/paper_to_code.md`.
+  - **Nothing in the plan is open now.** Its writer folds these in with the six minor items of the reviewer's
+    last check, and the maintainer then reviews the plan for sign-off.
+
 **How Part 1 is implemented** (the maintainer, 2026-11-16, 20:51). "Once the plan is complete I would like to
 review it. When I sign off, we can begin implementing. You will orchestrate two new agents: the implementer and
 the reviewer. Both implementer and reviewer are Fable 5.2 on medium effort. The implementer writes a slice, then
