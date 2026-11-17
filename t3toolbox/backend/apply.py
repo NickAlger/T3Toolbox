@@ -32,6 +32,8 @@ __all__ = [
     't3_apply_corewise_transpose',
     't3_apply_corewise_hessian',
     't3_apply_corewise_hessian_from_sweep',
+    # Apply a dense tensor
+    'dense_apply',
 ]
 
 def _t3_apply_step(
@@ -429,6 +431,112 @@ def t3_apply_corewise_hessian(
     return t3_apply_corewise_hessian_from_sweep(
         c, ww, core_pair, core_directions,
         tv_precompute_apply_frame_sweep(fv_conversions.t3_corewise_frame(core_pair), ww))
+
+
+##########################################
+########    Dense ground truth    ########
+##########################################
+
+def dense_apply(
+        T:      NDArray,                                        # shape=C+(N0,...,N(d-1))
+        ww:     typ.Sequence[NDArray],                          # len=d, elm_shape=W+(Ni,)
+        pp:     typ.Optional[typ.Sequence[NDArray]] = None,     # len=d, elm_shape=W+(Ni,); given iff order >= 1
+        order:  int = 0,                                        # highest Taylor order.  T=(order+1,) if order else ()
+) -> NDArray:                                                   # z. shape=T+W+C
+    """Apply a dense tensor: contract it with a vector in every mode, one number per sample.
+
+    The dense ground truth of ``apply``: ``z`` is the tensor ``T`` contracted with ``ww[j]`` in every mode
+    ``j``. With ``order >= 1`` it is the jet of that along the line ``ww + s pp``: ``z[t]`` is the Taylor
+    coefficient of ``s^t`` (**not** the derivative, which is ``t!`` times it), for ``t = 0 .. order``, on a leading
+    order axis. The coefficients come from the multilinear expansion over which modes take ``pp``, so they are
+    exact; those above ``t = d`` are zero, because ``z`` has degree ``d`` in ``s``.
+
+    In the shape comments the group ``T = (order + 1,) if order else ()`` is the order axis, as everywhere in the
+    library; the argument ``T`` is the tensor.
+
+    Parameters
+    ----------
+    T: NDArray
+        The tensor to be applied. shape=C+(N0,...,N(d-1)); ``d`` is the number of vectors.
+    ww: typ.Sequence[NDArray]
+        The input vectors. len=d, elm_shape=W+(Ni,)
+    pp: typ.Optional[typ.Sequence[NDArray]]
+        The direction the inputs move in. len=d, elm_shape=W+(Ni,). Given exactly when ``order >= 1``.
+    order: int
+        The highest Taylor order.
+
+    Returns
+    -------
+    NDArray
+        The applies ``z``. shape=T+W+C
+
+    Raises
+    ------
+    ValueError
+        If ``order`` is negative, ``pp`` is given at ``order = 0`` or missing at ``order >= 1``, or a vector does
+        not have the sample stack of ``ww[0]`` or the length of its mode.
+
+    See Also
+    --------
+    t3toolbox.backend.probing.dense_probe
+    t3toolbox.backend.entries.dense_entries
+
+    Examples
+    --------
+
+    Apply to a stack of vectors; value-match against a hand-written einsum, and against the probe contracted with
+    the vector of its open mode:
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.apply as t3a
+    >>> import t3toolbox.backend.probing as t3p
+    >>> np.random.seed(0)
+    >>> T = np.random.randn(10, 11, 12)
+    >>> ww = [np.random.randn(2, 3, N) for N in (10, 11, 12)]      # W=(2,3)
+    >>> z = t3a.dense_apply(T, ww)
+    >>> print(z.shape)                           # one number per sample: W
+    (2, 3)
+    >>> print(bool(np.allclose(z, np.einsum('ijk,uvi,uvj,uvk->uv', T, *ww))))
+    True
+    >>> print(bool(np.allclose(z, np.einsum('uvk,uvk->uv', t3p.dense_probe(T, ww)[2], ww[2]))))
+    True
+
+    A stacked tensor: ``W`` outer, ``C`` inner, as for :py:func:`~t3toolbox.backend.probing.dense_probe`:
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.apply as t3a
+    >>> np.random.seed(0)
+    >>> T = np.random.randn(4, 5, 10, 11, 12)    # C=(4,5) stack on the tensor
+    >>> ww = [np.random.randn(2, 3, N) for N in (10, 11, 12)]
+    >>> z = t3a.dense_apply(T, ww)
+    >>> print(z.shape)                           # W + C
+    (2, 3, 4, 5)
+    >>> print(bool(np.allclose(z, np.einsum('xyijk,uvi,uvj,uvk->uvxy', T, *ww))))
+    True
+
+    Jets: the Taylor coefficients of the applies along ``ww + s pp``, on a leading order axis. Here ``d = 3``, so
+    ``z`` is a cubic in ``s``: the four coefficients sum to the apply at ``s = 1``, and a fifth would be zero:
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.apply as t3a
+    >>> np.random.seed(0)
+    >>> T = np.random.randn(10, 11, 12)
+    >>> ww = [np.random.randn(2, N) for N in (10, 11, 12)]
+    >>> pp = [np.random.randn(2, N) for N in (10, 11, 12)]
+    >>> z = t3a.dense_apply(T, ww, pp, order=4)
+    >>> print(z.shape)                           # T=(order+1,) outermost, then W=(2,)
+    (5, 2)
+    >>> print(bool(np.allclose(z[0], t3a.dense_apply(T, ww))))                 # slot 0 is the plain apply
+    True
+    >>> print(bool(np.allclose(z[3], np.einsum('ijk,wi,wj,wk->w', T, *pp))))   # slot d: every mode takes pp
+    True
+    >>> print(bool(np.all(z[4] == 0)))                                         # above the degree: exactly zero
+    True
+    >>> moved = [w + p for w, p in zip(ww, pp)]                                # the inputs at s = 1
+    >>> print(bool(np.allclose(z.sum(axis=0), t3a.dense_apply(T, moved))))
+    True
+    """
+    return probing._dense_jet(T, ww, pp, order, None, 'dense_apply')
 
 
 def _apply_from_xis_step(

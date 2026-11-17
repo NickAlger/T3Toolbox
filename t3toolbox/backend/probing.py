@@ -11,6 +11,7 @@ two-hole) -- which ``apply``/``entries`` specialize (probe ⊃ apply ⊃
 entries; they import from here, never the reverse). Reference module for the signature style
 (``docs/contributor/signature_style.md``).
 """
+import itertools
 import math
 import numpy as np
 import typing as typ
@@ -130,7 +131,7 @@ def t3_probe(
     >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1)).data
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
     >>> zz = t3p.t3_probe(ww, x)
-    >>> zz_dense = t3p.dense_probe(ww, t3.TuckerTensorTrain(*x).to_dense())   # dense reference
+    >>> zz_dense = t3p.dense_probe(t3.TuckerTensorTrain(*x).to_dense(), ww)   # dense reference
     >>> print([z.shape for z in zz])        # one probe per mode, elm_shape=(Ni,)
     [(10,), (11,), (12,)]
     >>> print([bool(np.allclose(z, z2)) for z, z2 in zip(zz, zz_dense)])
@@ -145,7 +146,7 @@ def t3_probe(
     >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1)).data
     >>> ww = (np.random.randn(2, 3, 10), np.random.randn(2, 3, 11), np.random.randn(2, 3, 12))
     >>> zz = t3p.t3_probe(ww, x)
-    >>> zz_dense = t3p.dense_probe(ww, t3.TuckerTensorTrain(*x).to_dense())
+    >>> zz_dense = t3p.dense_probe(t3.TuckerTensorTrain(*x).to_dense(), ww)
     >>> print([z.shape for z in zz])        # W=(2,3) outer, mode index inner
     [(2, 3, 10), (2, 3, 11), (2, 3, 12)]
     >>> print([bool(np.allclose(z, z2)) for z, z2 in zip(zz, zz_dense)])
@@ -160,7 +161,7 @@ def t3_probe(
     >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1), stack_shape=(4, 5)).data
     >>> ww = (np.random.randn(2, 3, 10), np.random.randn(2, 3, 11), np.random.randn(2, 3, 12))
     >>> zz = t3p.t3_probe(ww, x)
-    >>> zz_dense = t3p.dense_probe(ww, t3.TuckerTensorTrain(*x).to_dense())
+    >>> zz_dense = t3p.dense_probe(t3.TuckerTensorTrain(*x).to_dense(), ww)
     >>> print(zz[0].shape)                  # W=(2,3) outer, C=(4,5) inner, then N0=10
     (2, 3, 4, 5, 10)
     >>> print([bool(np.allclose(z, z2)) for z, z2 in zip(zz, zz_dense)])
@@ -705,7 +706,7 @@ def tv_probe(
     >>> v = t3m.T3Tangent(frame, variations)
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
     >>> zz = t3p.tv_probe(ww, variations.data, probe_frame)
-    >>> zz_dense = t3p.dense_probe(ww, v.to_dense())   # dense reference J^(s) v
+    >>> zz_dense = t3p.dense_probe(v.to_dense(), ww)   # dense reference J^(s) v
     >>> print([z.shape for z in zz])        # one probe per mode, elm_shape=(Ni,)
     [(10,), (11,), (12,)]
     >>> print([bool(np.allclose(z, z2)) for z, z2 in zip(zz, zz_dense)])
@@ -724,7 +725,7 @@ def tv_probe(
     >>> v = t3m.T3Tangent(frame, variations)
     >>> www = (np.random.randn(2, 10), np.random.randn(2, 11), np.random.randn(2, 12))
     >>> zzz = t3p.tv_probe(www, variations.data, frame.data)
-    >>> zzz_dense = t3p.dense_probe(www, v.to_dense())
+    >>> zzz_dense = t3p.dense_probe(v.to_dense(), www)
     >>> print(zzz[0].shape)                 # W=(2,) outer, then N0=10
     (2, 10)
     >>> print([bool(np.allclose(z, z2)) for z, z2 in zip(zzz, zzz_dense)])
@@ -1822,27 +1823,142 @@ def t3_probe_corewise_hessian(
 ##########    Probe dense tensor    ###########
 ###############################################
 
+def _dense_contract(
+        T:          NDArray,                 # shape=C+(N0,...,N(d-1))
+        vectors:    typ.Sequence[NDArray],   # len=d, elm_shape=W+(Ni,); the entry of the open mode is not read
+        open_mode:  typ.Optional[int],       # the mode left open, or None: every mode is contracted
+) -> NDArray:                                # shape=W+C+(N_open,), or W+C if open_mode is None
+    '''Contract a dense tensor with one vector in every mode but ``open_mode``: the one einsum behind
+    :py:func:`dense_probe`, :py:func:`~t3toolbox.backend.apply.dense_apply` and
+    :py:func:`~t3toolbox.backend.entries.dense_entries`.'''
+    xnp, _, _ = get_backend(True, tree_contains_jax((T, vectors)))
+    d = len(vectors)
+    C = T.shape[:T.ndim - d]
+    W = vectors[0].shape[:-1]
+
+    # We are going to construct an einsum string from letters.
+    # A dense 2x2x..x2 tensor exhausting these letters would have 4e15 entries
+    letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    C_letters       = letters[:len(C)]
+    shape_letters   = letters[len(C):len(C)+d]
+    W_letters       = letters[len(C)+d:len(C)+d+len(W)]
+
+    contracted = [jj for jj in range(d) if jj != open_mode]
+    if not contracted:
+        # d == 1 and its one mode is open: no vector to contract, the result is the tensor itself, broadcast over
+        # W (the W letters would otherwise appear only in the einsum output, which numpy rejects)
+        return xnp.broadcast_to(T, W + tuple(T.shape))
+
+    subscripts = C_letters + shape_letters
+    for jj in contracted:
+        subscripts += ',' + W_letters + shape_letters[jj]
+    subscripts += '->' + W_letters + C_letters + ('' if open_mode is None else shape_letters[open_mode])
+    return xnp.einsum(subscripts, T, *[vectors[jj] for jj in contracted])
+
+
+def _check_pp_and_order(
+        pp:     typ.Optional[typ.Sequence[NDArray]],    # the direction of a dense sampling function, or None
+        order:  int,                                    # its highest Taylor order
+        name:   str,                                    # the public function, for the error message
+) -> None:
+    '''Structural check (hard error) of the dense sampling functions: ``order`` is not negative, and ``pp`` is
+    given exactly when ``order >= 1``. Static, so safe under jit.'''
+    if order < 0:
+        raise ValueError('%s: order is the highest Taylor order, 0 or more; got order = %d' % (name, order))
+    if (pp is None) != (order == 0):
+        raise ValueError('%s: pp is given exactly when order >= 1; got order = %d and pp %s'
+                         % (name, order, 'None' if pp is None else 'given'))
+
+
+def _dense_jet(
+        T:          NDArray,                                # shape=C+(N0,...,N(d-1))
+        ww:         typ.Sequence[NDArray],                  # len=d, elm_shape=W+(Ni,)
+        pp:         typ.Optional[typ.Sequence[NDArray]],    # len=d, elm_shape=W+(Ni,); read iff order >= 1
+        order:      int,                                    # highest Taylor order.  T=(order+1,) if order else ()
+        open_mode:  typ.Optional[int],                      # the mode left open, or None: every mode is contracted
+        name:       str,                                    # the public function, for the error messages
+) -> NDArray:                                               # shape=T+W+C+(N_open,), or T+W+C if open_mode is None
+    '''Taylor coefficients in ``s`` of ``T`` contracted with ``ww + s pp`` in every mode but ``open_mode``, by the
+    multilinear expansion: the coefficient of ``s^t`` is the sum, over the sets of ``t`` contracted modes, of ``T``
+    contracted with ``pp`` in those modes and ``ww`` in the others. Exact: a sum of contractions, with no step
+    size. The one place the jets of a dense tensor are computed (the three public dense functions call it).'''
+    xnp, _, _ = get_backend(True, tree_contains_jax((T, ww, pp)))
+    d = len(ww)
+    _check_pp_and_order(pp, order, name)
+    if T.ndim < d:
+        raise ValueError('%s: %d vectors for a tensor with %d axes' % (name, d, T.ndim))
+    shape = T.shape[T.ndim - d:]
+    W = ww[0].shape[:-1]
+    for what, vectors in (('ww', ww), ('pp', pp)):
+        if vectors is None:
+            continue
+        if len(vectors) != d:
+            raise ValueError('%s: %s has %d vectors, expected d = %d' % (name, what, len(vectors), d))
+        for ii, v in enumerate(vectors):
+            if v.shape[:-1] != W:
+                raise ValueError('%s: %s[%d] has sample stack %s, expected W = %s' % (name, what, ii, v.shape[:-1], W))
+            if v.shape[-1] != shape[ii]:
+                raise ValueError('%s: %s[%d] has length %d, expected N_%d = %d'
+                                 % (name, what, ii, v.shape[-1], ii, shape[ii]))
+
+    contracted = [jj for jj in range(d) if jj != open_mode]
+    z_WC = _dense_contract(T, ww, open_mode)                # the coefficient of s^0
+    if order == 0:
+        return z_WC
+
+    slots = [z_WC]
+    for t in range(1, order + 1):
+        slot = xnp.zeros_like(z_WC)                         # stays zero above the degree, len(contracted)
+        for modes in itertools.combinations(contracted, t): # the modes that take pp
+            vectors = [pp[jj] if jj in modes else ww[jj] for jj in range(d)]
+            slot = slot + _dense_contract(T, vectors, open_mode)
+        slots.append(slot)
+    return xnp.stack(slots)
+
+
 def dense_probe(
-        vectors: typ.Sequence[NDArray],
-        T: NDArray,
-) -> typ.Tuple[NDArray]:
-    """Probe a dense tensor.
+        T:      NDArray,                                        # shape=C+(N0,...,N(d-1))
+        ww:     typ.Sequence[NDArray],                          # len=d, elm_shape=W+(Ni,)
+        pp:     typ.Optional[typ.Sequence[NDArray]] = None,     # len=d, elm_shape=W+(Ni,); given iff order >= 1
+        order:  int = 0,                                        # highest Taylor order.  T=(order+1,) if order else ()
+) -> typ.Tuple[NDArray, ...]:                                   # z. len=d, elm_shape=T+W+C+(Ni,)
+    """Probe a dense tensor: contract it with a vector in every mode but one, for each mode in turn.
+
+    The dense ground truth of ``probe``: ``z[i]`` is the tensor ``T`` contracted with ``ww[j]`` in every mode
+    ``j != i``. With ``order >= 1`` it is the jet of that along the line ``ww + s pp``: ``z[i][t]`` is the Taylor
+    coefficient of ``s^t`` (**not** the derivative, which is ``t!`` times it), for ``t = 0 .. order``, on a leading
+    order axis. The coefficients come from the multilinear expansion over which modes take ``pp``, so they are
+    exact; those above ``t = d - 1`` are zero, because ``z[i]`` has degree ``d - 1`` in ``s``.
+
+    In the shape comments the group ``T = (order + 1,) if order else ()`` is the order axis, as everywhere in the
+    library; the argument ``T`` is the tensor.
 
     Parameters
     ----------
-    vectors: typ.Sequence[NDArray]
-        Probing input vectors.
-        len=d.
-        elm_shape=W+(Ni,)
     T: NDArray
-        Tensor to be probed. shape=C+(N0,...,N(d-1))
+        The tensor to be probed. shape=C+(N0,...,N(d-1)); ``d`` is the number of vectors.
+    ww: typ.Sequence[NDArray]
+        The input vectors. len=d, elm_shape=W+(Ni,)
+    pp: typ.Optional[typ.Sequence[NDArray]]
+        The direction the inputs move in. len=d, elm_shape=W+(Ni,). Given exactly when ``order >= 1``.
+    order: int
+        The highest Taylor order.
 
     Returns
     -------
-    typ.Tuple[NDArray]
-        Probes.
-        len=d.
-        elm_shape=(Ni,) or elm_shape=W+C+(Ni,)
+    typ.Tuple[NDArray, ...]
+        The probes ``z``. len=d, elm_shape=T+W+C+(Ni,)
+
+    Raises
+    ------
+    ValueError
+        If ``order`` is negative, ``pp`` is given at ``order = 0`` or missing at ``order >= 1``, or a vector does
+        not have the sample stack of ``ww[0]`` or the length of its mode.
+
+    See Also
+    --------
+    t3toolbox.backend.apply.dense_apply
+    t3toolbox.backend.entries.dense_entries
 
     Examples
     --------
@@ -1854,7 +1970,7 @@ def dense_probe(
     >>> np.random.seed(0)
     >>> T = np.random.randn(10, 11, 12)
     >>> u0, u1, u2 = np.random.randn(10), np.random.randn(11), np.random.randn(12)
-    >>> yy = t3p.dense_probe((u0, u1, u2), T)
+    >>> yy = t3p.dense_probe(T, (u0, u1, u2))
     >>> y0 = np.einsum('ijk,j,k', T, u1, u2)   # contract all modes but 0
     >>> y1 = np.einsum('ijk,i,k', T, u0, u2)
     >>> y2 = np.einsum('ijk,i,j', T, u0, u1)
@@ -1870,7 +1986,7 @@ def dense_probe(
     >>> np.random.seed(0)
     >>> T = np.random.randn(10, 11, 12)
     >>> u0, u1, u2 = np.random.randn(2, 3, 10), np.random.randn(2, 3, 11), np.random.randn(2, 3, 12)
-    >>> yy = t3p.dense_probe((u0, u1, u2), T)
+    >>> yy = t3p.dense_probe(T, (u0, u1, u2))
     >>> y0 = np.einsum('ijk,uvj,uvk->uvi', T, u1, u2)
     >>> y1 = np.einsum('ijk,uvi,uvk->uvj', T, u0, u2)
     >>> y2 = np.einsum('ijk,uvi,uvj->uvk', T, u0, u1)
@@ -1886,7 +2002,7 @@ def dense_probe(
     >>> np.random.seed(0)
     >>> T = np.random.randn(4, 5, 6, 10, 11, 12)   # C=(4,5,6) stack on the tensor
     >>> u0, u1, u2 = np.random.randn(2, 3, 10), np.random.randn(2, 3, 11), np.random.randn(2, 3, 12)
-    >>> yy = t3p.dense_probe((u0, u1, u2), T)
+    >>> yy = t3p.dense_probe(T, (u0, u1, u2))
     >>> y0 = np.einsum('xyzijk,uvj,uvk->uvxyzi', T, u1, u2)
     >>> y1 = np.einsum('xyzijk,uvi,uvk->uvxyzj', T, u0, u2)
     >>> y2 = np.einsum('xyzijk,uvi,uvj->uvxyzk', T, u0, u1)
@@ -1894,56 +2010,33 @@ def dense_probe(
     (2, 3, 4, 5, 6, 10)
     >>> print([bool(np.allclose(y, ref)) for y, ref in zip(yy, (y0, y1, y2))])
     [True, True, True]
+
+    Jets: with ``pp`` and ``order``, the Taylor coefficients of the probes along ``ww + s pp``, on a leading order
+    axis. The probes are polynomials in ``s``, so the coefficients sum to the probes at ``s = 1``:
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.probing as t3p
+    >>> np.random.seed(0)
+    >>> T = np.random.randn(10, 11, 12)
+    >>> ww = [np.random.randn(2, N) for N in (10, 11, 12)]      # W=(2,)
+    >>> pp = [np.random.randn(2, N) for N in (10, 11, 12)]
+    >>> zz = t3p.dense_probe(T, ww, pp, order=2)
+    >>> print(zz[0].shape)                      # T=(order+1,) outermost, then W=(2,), then N0=10
+    (3, 2, 10)
+    >>> print(bool(np.allclose(zz[0][0], t3p.dense_probe(T, ww)[0])))             # slot 0 is the plain probe
+    True
+    >>> print(bool(np.allclose(zz[0][1], np.einsum('ijk,wj,wk->wi', T, pp[1], ww[2])
+    ...                                  + np.einsum('ijk,wj,wk->wi', T, ww[1], pp[2]))))   # slot 1: one mode takes pp
+    True
+    >>> moved = [w + p for w, p in zip(ww, pp)]                                    # the inputs at s = 1
+    >>> print(bool(np.allclose(zz[0].sum(axis=0), t3p.dense_probe(T, moved)[0])))  # degree d-1 = 2: nothing above
+    True
+
+    Gotcha -- ``pp`` goes with ``order``: one without the other is an error, not an order-0 probe:
+
+    >>> t3p.dense_probe(T, ww, pp)   # doctest: +IGNORE_EXCEPTION_DETAIL
+    Traceback (most recent call last):
+        ...
+    ValueError
     """
-    use_jax = tree_contains_jax((vectors, T))
-    xnp, _, _ = get_backend(True, use_jax)
-
-    #
-    d = len(vectors)
-    C = T.shape[:-d]
-    shape = T.shape[-d:]
-    W = vectors[0].shape[:-1]
-
-    for ii, v in enumerate(vectors):
-        if v.shape[:-1] != W:
-            raise ValueError('dense_probe: vector %d has probe stack %s, expected W = %s' % (ii, v.shape[:-1], W))
-        if v.shape[-1] != shape[ii]:
-            raise ValueError('dense_probe: vector %d has length %d, expected N_%d = %d' % (ii, v.shape[-1], ii, shape[ii]))
-
-    # We are going to construct an einsum string from letters.
-    # A dense 2x2x..x2 tensor exhausting these letters would have 4e15 entries
-    letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
-
-    C_letters       = letters[:len(C)]
-    shape_letters   = letters[len(C):len(C)+len(shape)]
-    W_letters       = letters[len(C)+len(shape):len(C)+len(shape)+len(W)]
-
-    vv_letters = []
-    for ii in range(d):
-        vv_letters.append(W_letters + shape_letters[ii])
-
-    T_letters = C_letters + shape_letters
-
-    zz = []
-    for ii in range(d):
-        str = T_letters
-        for jj in range(ii): # front to back, add weighted slices
-            str += ',' + vv_letters[jj]
-
-        for jj in range(d-1,ii,-1): # back to front, contract with each slice
-            str += ',' + vv_letters[jj]
-
-        str += '->'
-
-        str += W_letters + C_letters + shape_letters[ii]
-
-        vvi = tuple(vectors[:ii] + vectors[ii+1:][::-1])
-        if d == 1:
-            # no partner vectors to contract: the probe is the tensor itself, broadcast over W (the W
-            # letters would otherwise appear only in the einsum output, which numpy rejects)
-            z = xnp.broadcast_to(T, W + tuple(T.shape))
-        else:
-            z = xnp.einsum(str, T, *vvi)
-        zz.append(z)
-
-    return tuple(zz)
+    return tuple(_dense_jet(T, ww, pp, order, ii, 'dense_probe') for ii in range(len(ww)))

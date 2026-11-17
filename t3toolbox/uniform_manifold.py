@@ -572,7 +572,7 @@ class UT3Tangent(common.ExplicitEquality):
         >>> print(zz[0].shape)                                     # W + K + C + (N0,) = (2,) + () + () + (10,)
         (2, 10)
         >>> print(bool(max(float(np.linalg.norm(a - b))
-        ...                for a, b in zip(zz, t3p.dense_probe(ww, v.to_dense()))) < 1e-9))   # dense reference
+        ...                for a, b in zip(zz, t3p.dense_probe(v.to_dense(), ww))) < 1e-9))   # dense reference
         True
         """
         return utv_sampling.utv_probe(ww, self.frame.data, self.variations.data)

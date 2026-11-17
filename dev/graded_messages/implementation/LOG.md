@@ -58,3 +58,46 @@ rounds, what Claude checked, the minor issues Claude decided, and what went to t
   section 6 gives the table's format and two ways to change it. It is a test format; Claude decides it at P5.
 - **One interruption:** the server process behind the session stopped once during the slice; the implementer was
   resumed from its transcript and nothing was lost.
+
+## P2. The reference module and the dense functions (2026-11-17)
+
+- **Rounds:** two. Round 1: not yet, two should-fix findings (the test that guards the module's independence
+  could be walked around; a docstring of `mu_tilde` was false for apply and entries), six minor; no definition
+  wrong. Round 2: sign off, four minor.
+- **Result:** `backend/sampling_definitions.py`, 37 functions named as the variables, one signature, each a
+  dense contraction of its subnetwork, jets by evaluation at the roots of unity and a discrete Fourier transform;
+  `dense_probe(T, ww, pp=None, order=0)` in its new form with its 12 callers, and the new `dense_apply`,
+  `dense_entries`. 59 more tests than P1. The whole gate green on the final tree (1,501 passed, 5 skipped, 1
+  expected failure, 65,157 subtests; sphinx clean).
+- **Checked independently by the reviewer:** every one of the 37 names recomputed by a route that shares nothing
+  with the module (the page's recurrences in exact polynomial arithmetic; its own dense Jacobian; an exact double
+  sum for `Kp`), three kinds, orders 0 to 5 and 16, one to four sites, tails: worst relative difference 1.4e-14.
+  Against the library at 2026.5.0: 7e-15. The turn of the order leg checked from first principles. 77 mutations
+  over the two rounds, every real one caught in the end.
+- **Claude checked:** read the module's docstring (it reads as documentation); the diff's shape; ran the slice's
+  tests, the doctests of the four touched backend modules, and sphinx after adding one clause to the docstring
+  (complex arrays are not checked for; their imaginary part is dropped at order 1 and above).
+- **Minor issues decided by Claude:**
+  - `Kp`'s route is read off the arrays (finite differences, exact for this polynomial, on numpy; jax's second
+    derivative on jax arrays), by the house dispatch rule, where the plan said "jax where present". The plan's
+    sentence is corrected.
+  - For apply and entries the reference returns zeros for `xi_tilde`, `mu_tilde` and their dots (the seed enters at
+    the right end only, the note to row 4.4; the reviewer showed zero is the only value consistent with the
+    readouts). Which names the engine accepts for these kinds is P9's, with a test that reference and engine
+    agree; tell the maintainer then.
+  - The reference takes four stores and the manifold names; a corewise point is `(B, G, G, G)`. Enough for P8.
+  - Interpolation changed to the roots of unity (the implementer's choice, invited by Claude): right to 1e-14 at
+    order 32 where Chebyshev nodes gave 2e-8 at order 16.
+- **Edits to the variables page from this slice:** section 8 says which pairings hold for which kind (two of the
+  four are of the probe kind only); section 9 lists the names of a corewise call (`nu_dot`, `eta_dot`,
+  `nu_tilde_dot`, `eta_tilde_dot` among them), which follow from the rule of that section and await the
+  maintainer's confirmation before P8.
+- **For later slices:** P9's identity tests must not assume the pairings of `mu_tilde` and `xi_tilde` for apply
+  and entries. P10 (the dtype rule): float64 cores with a float32 sample give float64 that is right only to 9e-8
+  in the reference. P19: `docs/api_reference.rst` lists backend modules by hand and lacks the new one.
+- **To know when perturbing code in place:** a same-size change written and restored within a second leaves
+  stale bytecode that makes later runs lie. Work in a scratch copy, or run with `python -B` and
+  `PYTHONDONTWRITEBYTECODE=1`.
+- **Two interruptions** of the session during the slice (once with a machine restart); the implementer was
+  resumed both times and its detached gate run survived the second.
+- **To the maintainer:** the corewise names, for confirmation before P8.

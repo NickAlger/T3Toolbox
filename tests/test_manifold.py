@@ -508,7 +508,7 @@ class TestManifold(unittest.TestCase):
                 self.assertLessEqual(norm(np.asarray(u.corewise_norm()) - np.sqrt(np.abs(np.asarray(u.corewise_inner(u))))), tol)
 
     def test_tangent_probe(self):
-        # forward J^(s): v.probe(ww) == dense_probe(ww, v.to_dense()); probes are stacked W + K + C + (N,)
+        # forward J^(s): v.probe(ww) == dense_probe(v.to_dense(), ww); probes are stacked W + K + C + (N,)
         STRUCT = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
         for FRAME_STACK in [(), (2,)]:
             for PROBE_STACK in [(), (2,)]:
@@ -521,7 +521,7 @@ class TestManifold(unittest.TestCase):
                         ww = tuple(rnd(*(PROBE_STACK + (N,))) for N in STRUCT[0])
 
                         zz = v.probe(ww)  # numpy/jax inferred from inputs
-                        zz2 = t3p.dense_probe(ww, v.to_dense())  # dense ground truth, also W + K + C
+                        zz2 = t3p.dense_probe(v.to_dense(), ww)  # dense ground truth, also W + K + C
                         self.assertEqual(
                             PROBE_STACK + TANGENT_STACK + FRAME_STACK + (STRUCT[0][0],),
                             tuple(np.asarray(zz[0]).shape),

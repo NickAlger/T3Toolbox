@@ -509,6 +509,57 @@ class TestDispatch(unittest.TestCase):
                 self.assertGreater(calls[0], 1, 'the first eager call should have traced the scan body')
                 self.assertEqual(1, calls[1], 'the eager scan traced its body again: the body is not a stable object')
 
+    # ---------------------------------------------------- jit bucket: the dense sampling functions
+    def test_jit_dense_sampling_functions(self):
+        """jit dense_probe, dense_apply and dense_entries at order 0 and with jets (a stray np.* on a tracer would
+        raise), with a W and a C stack; jax in gives jax out, eagerly too; float32 stays float32 with x64 on (no
+        array is made in a default dtype); the numbers are numpy's (a smoke test). Then with each array argument
+        in turn a numpy array held outside the trace: the dispatch must be read off all of them."""
+        import t3toolbox.backend.apply as bapply
+        import t3toolbox.backend.entries as bentries
+        rng = np.random.default_rng(0)
+        shape, W, C = (4, 3, 5), (2, 2), (2,)
+        index = np.stack([rng.integers(0, n, size=W) for n in shape])
+        functions = (('dense_probe', probing.dense_probe, False), ('dense_apply', bapply.dense_apply, False),
+                     ('dense_entries', bentries.dense_entries, True))
+        for name, function, takes_index in functions:
+            for order in (0, 3):
+                for dtype, smoke_tol in ((np.float64, 1e-12), (np.float32, 1e-5)):
+                    T = rng.standard_normal(C + shape).astype(dtype)
+                    ww = [rng.standard_normal(W + (n,)).astype(dtype) for n in shape]
+                    pp = [rng.standard_normal(W + (n,)).astype(dtype) for n in shape]
+                    first = index if takes_index else ww
+                    if order == 0:
+                        fn = lambda T, first, pp: function(T, first)
+                    else:
+                        fn = lambda T, first, pp: function(T, first, pp, order)
+                    on_numpy = fn(T, first, pp)
+                    jargs = [jnp.asarray(T), jnp.asarray(first) if takes_index else [jnp.asarray(w) for w in ww],
+                             [jnp.asarray(p) for p in pp]]
+                    with self.subTest(function=name, order=order, dtype=np.dtype(dtype).name):
+                        for leaf in jax.tree_util.tree_leaves(on_numpy):
+                            self.assertTrue(common.is_numpy_ndarray(leaf))
+                            self.assertEqual(leaf.dtype, dtype)
+                        self.assert_jit_jax(fn, *jargs)
+                        self.assert_eager_jax(fn, *jargs)
+                        jitted = jax.jit(fn)(*jargs)
+                        for a, b, c in zip(jax.tree_util.tree_leaves(jitted), jax.tree_util.tree_leaves(on_numpy),
+                                           jax.tree_util.tree_leaves(fn(*jargs))):
+                            self.assertEqual(a.shape, b.shape)
+                            self.assertEqual(a.dtype, dtype)
+                            self.assertEqual(c.dtype, dtype)
+                            self.assertLess(norm(np.asarray(a) - b) / norm(b), smoke_tol)
+                    host = [T, first, pp]
+                    for k in range(3 if order else 2):              # pp is not read at order 0
+                        with self.subTest(function=name, order=order, dtype=np.dtype(dtype).name, numpy_argument=k):
+                            mixed = lambda *rest: fn(*rest[:k], host[k], *rest[k:])    # host[k]: numpy, closed over
+                            traced = jargs[:k] + jargs[k + 1:]
+                            out = jax.jit(mixed)(*traced)
+                            self._leaves_all_jax(out)
+                            for a, b in zip(jax.tree_util.tree_leaves(out), jax.tree_util.tree_leaves(on_numpy)):
+                                self.assertEqual(a.dtype, dtype)
+                                self.assertLess(norm(np.asarray(a) - b) / norm(b), smoke_tol)
+
     # ---------------------------------------------------- jit bucket: backend functions
     def test_jit_backend(self):
         # one grouped contraction through the interpreter (contractions.py)

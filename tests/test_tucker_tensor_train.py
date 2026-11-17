@@ -3163,7 +3163,7 @@ class TestDenseProbeD1(unittest.TestCase):
         x = t3.TuckerTensorTrain.randn((7,), (3,), (1, 1))
         ww = (np.random.randn(2, 3, 7),)                       # W = (2, 3)
         ref = np.asarray(x.probe(ww)[0])
-        got = np.asarray(probing.dense_probe(ww, x.to_dense())[0])
+        got = np.asarray(probing.dense_probe(x.to_dense(), ww)[0])
         self.assertEqual(got.shape, (2, 3, 7))
         self.assertLess(norm(got - ref), 1e-12)
 

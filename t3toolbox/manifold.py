@@ -732,7 +732,7 @@ class T3Tangent(common.ExplicitEquality):
         >>> zz = v.probe(ww)
         >>> print(zz[0].shape)             # W + C + (N0,) = (2,) + () + (10,)
         (2, 10)
-        >>> zz2 = t3p.dense_probe(ww, v.to_dense())   # dense reference
+        >>> zz2 = t3p.dense_probe(v.to_dense(), ww)   # dense reference
         >>> print(bool(max(float(np.linalg.norm(a - b)) for a, b in zip(zz, zz2)) < 1e-9))
         True
 

@@ -96,9 +96,54 @@ print('JAX_ABSENT_OK')
 '''
 
 
+# The reference module of the sampling variables and the three dense sampling functions (graded messages, P2):
+# they import and run with no jax. (Kp of numpy arrays is taken by finite differences, with or without jax; its
+# other route, automatic differentiation, is for jax arrays, and the module must not reach for jax to import.)
+_DEFINITIONS_SCRIPT = r'''
+import sys
+sys.modules['jax'] = None            # make `import jax` raise ImportError
+sys.modules['jax.numpy'] = None
+import numpy as np
+import t3toolbox.backend.common as common
+import t3toolbox.backend.sampling_definitions as sdef
+import t3toolbox.backend.probing as probing
+import t3toolbox.backend.apply as apply
+import t3toolbox.backend.entries as entries
+assert not common.jax_available
+
+rng = np.random.default_rng(0)
+N, nD, nU, rL, rR = (4, 5, 6), (2, 3, 2), (3, 2, 3), (1, 2, 3, 1), (1, 3, 2, 1)
+D = [rng.standard_normal((nD[i], N[i])) for i in range(3)]
+U = [rng.standard_normal((rL[i], nU[i], rR[i + 1])) for i in range(3)]
+L = [rng.standard_normal((rL[i], nD[i], rL[i + 1])) for i in range(3)]
+R = [rng.standard_normal((rR[i], nD[i], rR[i + 1])) for i in range(3)]
+ww = [rng.standard_normal((5, n)) for n in N]
+pp = [rng.standard_normal((5, n)) for n in N]
+index = np.stack([rng.integers(0, n, size=5) for n in N])
+arguments = dict(order=2, variations=([rng.standard_normal((nU[i], N[i])) for i in range(3)],
+                                      [rng.standard_normal((rL[i], nD[i], rR[i + 1])) for i in range(3)]),
+                 core_directions=([rng.standard_normal(B.shape) for B in D], [rng.standard_normal(G.shape) for G in L]))
+leaves = lambda value: sum((leaves(v) for v in value), []) if isinstance(value, (tuple, list)) else [value]
+for kind, first in (('probe', ww), ('apply', ww), ('entries', index)):
+    y = [rng.standard_normal((3, 5, n)) for n in N] if kind == 'probe' else rng.standard_normal((3, 5))
+    for name in sdef.__all__:
+        value = getattr(sdef, name)(kind, (D, U, L, R), (first, pp), y=y, **arguments)
+        assert all(isinstance(leaf, np.ndarray) or np.isscalar(leaf) for leaf in leaves(value)), (kind, name)
+T = rng.standard_normal(N)
+assert probing.dense_probe(T, ww, pp, 2)[0].shape == (3, 5, 4)
+assert apply.dense_apply(T, ww, pp, 2).shape == (3, 5) and entries.dense_entries(T, index, pp, 2).shape == (3, 5)
+print('JAX_ABSENT_OK')
+'''
+
+
 class TestJaxAbsentPolicy(unittest.TestCase):
     def test_requests_for_jax_run_on_numpy_with_a_warning(self):
         out = subprocess.run([sys.executable, '-c', _SCRIPT], capture_output=True, text=True,
+                             env={**os.environ, 'PYTHONPATH': os.getcwd()})
+        self.assertIn('JAX_ABSENT_OK', out.stdout, out.stderr[-2000:])
+
+    def test_the_sampling_definitions_and_the_dense_functions_run_without_jax(self):
+        out = subprocess.run([sys.executable, '-c', _DEFINITIONS_SCRIPT], capture_output=True, text=True,
                              env={**os.environ, 'PYTHONPATH': os.getcwd()})
         self.assertIn('JAX_ABSENT_OK', out.stdout, out.stderr[-2000:])
 

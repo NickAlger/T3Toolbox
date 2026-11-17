@@ -486,7 +486,7 @@ One such function per name of the table, all with the same arguments, each built
 its subnetwork (`SAMPLE_VARIABLES.md`, the column "As a subnetwork"). Jets come from interpolation in `s`, which is
 exact for a polynomial (9.3); `z` comes from the dense tensor through `dense_probe`, `dense_apply` or
 `dense_entries`; `Jp` from the dense tangent tensor; `g`, `JtJp` and the tilde variables from the dense Jacobian;
-`Kp` from the second derivative of the dense objective (jax where present, finite differences otherwise). Ragged
+`Kp` from the second derivative of the dense objective (by the house dispatch rule, inferred from the arrays: finite differences, which are exact for this polynomial, on numpy arrays; jax's second derivative on jax arrays). Ragged
 layout only; small problems only. The module is backend only.
 
 The checkers of a frame (4.2; O-5, O-6). Each returns a residual and never raises and never reads a mode; the
@@ -1019,8 +1019,7 @@ string names.
 
 **P2. The reference module and the dense functions.** `backend/sampling_definitions.py`: one dense function per
 name of section 2.3 and per output, for the three kinds, ragged, from the column "As a subnetwork" of
-`SAMPLE_VARIABLES.md`; jets by interpolation in `s`; `z` through the dense functions; `Kp` by jax where present,
-finite differences otherwise. Tilde and tilde-dot variables are returned turned, as the engine stores them (2.4).
+`SAMPLE_VARIABLES.md`; jets by interpolation in `s`; `z` through the dense functions; `Kp` by finite differences on numpy arrays and by jax on jax arrays (the route inferred from the arrays, as everywhere). Tilde and tilde-dot variables are returned turned, as the engine stores them (2.4).
 It uses no sweep and no engine. The starting material is parts B and C of
 `scripts/review/sample_variables_check.py`. The dense functions of section 2.4 (O-27, O-28): `dense_probe` in
 `backend/probing.py` takes `(T, ww, pp=None, order=0)`, `dense_apply` in `backend/apply.py` and `dense_entries` in

@@ -346,6 +346,13 @@ The tilde of a variable is the multiplier of the dot of the other side of the sa
 | `xi_tilde` | `eta_D_dot` | a Tucker edge, `D` |
 | `eta_tilde` | `xi_U_dot` | a Tucker edge, `U` |
 
+**For which kind each row holds** (added 2026-11-17, from the review of P2, checked there with numbers). The page
+covers the probe kind, and all four rows hold for it. For apply and entries the seed enters at the right end
+only (the note to row 4.4), so `xi_tilde`, `mu_tilde` and their dots are zero, and the rows of `mu_tilde` and
+`xi_tilde` do not hold: the multiplier of `nu_L_dot` there is the seed times `mu`, not `mu_tilde`. The rows of
+`nu_tilde` and `eta_tilde` hold for every kind; for apply and entries those two are the seed times `nu` and
+`eta`. A test of the identities must not assume the first and third rows for apply and entries.
+
 The same statement for the direction: at a cut bond, the direction's sampled network is `mu_R_dot` paired with
 `nu` (the direction is on the left) plus `mu` paired with `nu_L_dot` (the direction is on the right). At a cut
 Tucker edge it is `xi_U_dot` paired with `eta` plus `xi` paired with `eta_D_dot`.
@@ -359,8 +366,23 @@ grades with no basis in the name. Its `nu` is what a call on a manifold frame ca
 **A corewise call passes the point's cores `(B, G)` where a frame `(D, U, L, R)` would go** (decided on
 2026-11-16, 16:55). Two stores or four: the structure of the argument says which kind of call it is, and it stays
 visible under `jit`. The engine then knows that there is one basis on each edge and makes each sweep once. The
-corewise geometry's `frame(x)` returns the point itself, and "`f` at raw cores" is the same call. Whether such a
-call also accepts the spellings with a basis is not decided.
+corewise geometry's `frame(x)` returns the point itself, and "`f` at raw cores" is the same call. Such a call
+does not accept the spellings with a basis (decided on 2026-11-16, the plan's O-13).
+
+**The names of a corewise call, written out** (2026-11-17; they follow from the rule above, the four letters and
+their grades with no basis; listed here because no table had them, found in the review of P2; **to be confirmed
+by the maintainer before the slice that builds the corewise call, P8**):
+
+| Grade | Names on a corewise call | What a manifold call on `(B, G, G, G)` calls them |
+| --- | --- | --- |
+| plain | `xi`, `mu`, `nu`, `eta` | `xi`, `mu`, `nu` (= `nu_L`), `eta` (= `eta_D`) |
+| dot, the raw form | `xi_dot`, `mu_dot`, `nu_dot`, `eta_dot` | `xi_dot`, `mu_dot`, `nu_L_dot` and `eta_D_dot` in their raw form |
+| tilde | `xi_tilde`, `mu_tilde`, `nu_tilde`, `eta_tilde` | `xi_tilde`, `mu_tilde`, `nu_tilde` (= `nu_L_tilde`), `eta_tilde` (= `eta_D_tilde`) |
+| tilde-dot | `xi_tilde_dot`, `mu_tilde_dot`, `nu_tilde_dot`, `eta_tilde_dot` | `xi_tilde_dot`, `mu_tilde_dot`, `nu_L_tilde_dot`, `eta_D_tilde_dot` |
+
+The frame forms `xi_U_dot` and `mu_R_dot` do not exist on a corewise call: there is no second basis for them to be
+in. The reference module (`backend/sampling_definitions.py`) takes four stores only and has the manifold names;
+a test of the corewise call maps the names by this table.
 
 ## 10. Old names to new
 
