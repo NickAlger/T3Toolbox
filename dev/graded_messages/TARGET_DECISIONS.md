@@ -419,6 +419,39 @@ me. If there are minor issues, I trust you to make good decisions." Nothing is i
 `PART1_PLAN.md` at commit `9d070e1`: 21 slices, P0 to P20. The implementation follows
 `implementation/BRIEF.md`; each slice leaves a handover and its reviews in `implementation/`.
 
+## Carried to Part 2 from the implementation of Part 1
+
+Kept here so that nothing found while building Part 1 is forgotten when Part 2 is planned. Each item names its
+row and where it is marked in the code. A search for `PART 2 (row` in `t3toolbox/` and `tests/` finds the markers.
+
+1. **The contraction order inside one step of `jet_contract`** (row 5.5). Found on 2026-11-17 while P1 was in
+   review; the maintainer had asked whether the scan was repeating the extra contractions of the first prototype.
+   - A step of a product is one three-operand `contract` call: the carried jet with all its slots, the operands
+     with no order group, one coefficient of the partner. The cheap order contracts the coefficient with the
+     no-order operands first (the expensive contraction, once) and then against all slots of the carried jet. That
+     is how the library at 2026.5.0 writes it by hand, as two pairwise contractions.
+   - On jax, `jnp.einsum`'s default optimizer picks that order. On numpy, `contract` forces `_pairwise_path`,
+     which pairs the operands that share the most indices; here that is a three-way tie, the first pair wins, and
+     the carried jet is contracted with the core first: the expensive contraction on every slot at every step.
+     Measured on a representative step (`W = 2000`, TT ranks 24, Tucker rank 12, order 4): 7.2e7 against 2.0e7
+     flops, a factor that grows with the order. It holds for every product, the affine ones in the sweeps
+     included. The readout step folds its two jets first on both backends.
+   - The numbers computed are the same. Only numpy is slower, and Part 1 claims nothing about speed.
+   - **Decided by the maintainer (01:51): deferred to Part 2**, "clearly marked so we don't forget". It is
+     contained in `jet_contract` (or in `contract`'s choice of path) and needs no change to any call: the fix is
+     either internal, or the per-term order of 5.5 arriving as one more optional argument. `over_orders` is not
+     the handle for it: that keyword says how a full partner's coefficients are taken, not in what order one
+     step's operands are contracted.
+   - **Markers:** a comment `PART 2 (row 5.5)` at the product step in `backend/contractions.py`; in
+     `tests/test_jet_contract.py` a test marked as an expected failure, which asserts that numpy does not
+     contract the carried jet with the core first. It is reported in every run, and it turns into a failure the
+     day the order is fixed, so it has to be dealt with then.
+2. **Map-type operations on the uniform layout** (row 5.3). Part 1 maps one site at a time through `xmap` (the
+   answer to O-19, "must be revisited in Part 2"). Part 1's strings have no site group, and `jet_contract` raises
+   on a string that names `S` together with an order group.
+3. **The benchmark** (the answers to O-1 and O-2). Part 1 has none. Part 2 compares the branch with the released
+   2026.5.0, on CPU and on a GPU pod, and measures the order-0 condition of 2.7.
+
 ## What remains, in groups (2026-11-15, 15:34)
 
 Of the 57 rows in sections 1 to 9 (9.7 was added on 2026-11-16), 46 are decided, 3 are guidance and 1 is parked. The other 7 are below, in

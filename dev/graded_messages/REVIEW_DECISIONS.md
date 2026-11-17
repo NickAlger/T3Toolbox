@@ -1890,3 +1890,14 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   per slice; Claude looks over and commits each slice; major issues go to the maintainer.
 - The workspace got the tools CI uses (`pytest-xdist`, `pytest-subtests`, `optax`, sphinx and its three
   extensions). It runs Python 3.13, numpy 2.5 and jax 0.12, ahead of CI, so P0 records the baseline here.
+
+## 111. The order inside a step of `jet_contract` is deferred to Part 2, and marked (2026-11-17, 01:51)
+
+- In the review of P1 Claude decided that a readout taking a third full jet is a real scan under `'scan'`. The
+  maintainer asked whether that repeated the extra contractions of the first prototype. It does not: it is the
+  scheme of the library at 2026.5.0 (`_tt_det_lag_step`). But checking found that on numpy the default
+  contraction order inside one step of a product does the expensive contraction on every slot (3.6 times the
+  flops in a representative case), where jax's default picks the library's order.
+- The maintainer: "I lean to defer this to part 2. Make sure it is clearly marked so we don't forget." Recorded in
+  `TARGET_DECISIONS.md`, the new section "Carried to Part 2 from the implementation of Part 1", with a comment
+  in the code and an expected-failure test as markers.
