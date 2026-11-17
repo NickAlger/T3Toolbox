@@ -436,8 +436,31 @@ question; the library writes that axis as a lowercase `d`, always present in a s
   same thing either way: operating with a single core."
 - **For Part 2 (row 5.3):** if map-type operations are done at all sites at once on the uniform layout, that is
   uniform code of its own, written with the `d` axis, not the shared step with an optional group.
-- **The group `A`** (the order axis of an affine variable) came in the same way and is under the maintainer's
-  consideration; nothing about it is changed until he decides.
+- **The group `A` is kept** (decided 2026-11-17, 02:31, after deliberation: "Ok this is convincing. Let's keep A.
+  I see how it has meaning as a jet axis in the same way as T."). The maintainer put three tests to it, and
+  Claude's answers are the record of why it stays:
+  - *Is its absence a natural special case, or is it one code path over two different objects?* An affine
+    variable is a jet: `w + s p`, whose coefficients beyond the first two are zero. `A` holds those two. At order 0
+    the jet is its constant term, one slot, squeezed, exactly as `T = ()` arises. So `A` and `T` are one group,
+    the order axis, in two storage formats: `order+1` slots, or two. Where `S` treated two different things
+    alike, `A` tells two formats of one thing apart.
+  - *What would removing it cost?* Every replacement reopens a decided row: storing affine variables as full jets
+    makes every sweep step a product of two full jets (`order+1` contractions for two; it reverses 2.9, and the
+    library stores `xi` with two slots today); writing `T` for both makes `jet_contract` tell the formats apart by
+    the length of an axis; handling the affine case in each step brings back the branch on order 0 that 2.7
+    removed. 16 of the 41 strings carry `A`.
+  - *Does it mean something with more than one axis?* Yes: with several jet variables `A` has one axis of two
+    slots per variable, as many axes as `T`; it holds the polynomials of degree at most one in each variable.
+    (For `w + s p + t q` that stores one known zero, the `s t` slot.)
+  - **The definition, for the record:** `A` is the order group in the two-slot format of a variable of degree at
+    most one. It always has as many axes as `T`, and it is absent exactly when `T` is. The record of axis counts
+    has no field for it; it takes `T`'s.
+  - **`T` and `A` are not ordinary groups of `contract`.** The same letter on two operands means that their jets
+    multiply as truncated polynomials, not that their axes line up. They are the two jet axes; `C`, `W`, `K` are
+    the grouped stack axes. The maintainer: "It's too bad english does not have a third form of letter aside from
+    lowercase and uppercase which we could use to distinguish grouped axes from jet axes." What tells them apart
+    is that the two letters are reserved and that the string is handed to `jet_contract`; the documentation says
+    so in one table of the letters (P19).
 
 ## Carried to Part 2 from the implementation of Part 1
 

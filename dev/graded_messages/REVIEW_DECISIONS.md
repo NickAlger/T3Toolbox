@@ -1911,3 +1911,11 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
 - The rule: new groups "must be weighed carefully and only introduced with good reason and after deliberation".
 - The group `A` came in the same way; the maintainer is weighing it. Nothing about it changes meanwhile.
 - A correction: Claude told the maintainer that 20 of the 41 strings carry `A`. Counted from the table, it is 16.
+
+## 113. The affine group `A` is kept, after deliberation (2026-11-17, 02:31)
+
+- The maintainer weighed `A` against three tests (is its absence a natural special case; what does removing it
+  cost; does it mean something with more than one axis) and decided to keep it. The answers and the definition
+  are in `TARGET_DECISIONS.md`, in the note on groups: `A` is the order group in the two-slot format of a
+  variable of degree at most one, with as many axes as `T`, absent exactly when `T` is.
+- `T` and `A` are jet axes, not ordinary groups; the documentation is to say so in one table of the letters.
