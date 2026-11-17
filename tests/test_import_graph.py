@@ -14,7 +14,10 @@ Three facts are pinned:
 - the backend's import graph (everything reachable from ``t3toolbox/backend/``) is acyclic;
 - ``backend/optimizers.py`` imports only ``common``, ``regularization`` and ``corewise`` -- the optimizer layer
   stays T3-free, reaching every T3-specific operation through the geometry;
-- the padded-frame modules import only the modules their plan names (downward; no new cycle).
+- the padded-frame modules import only the modules their plan names (downward; no new cycle);
+- no backend module imports ``t3toolbox.safety``: there is no safe mode in the backend, which gives checkers and not
+  guarantees, and the frontend enforces (graded messages, P3);
+- ``backend/jets.py`` and ``backend/data_preparation.py`` import only what they are built on.
 """
 import ast
 import pathlib
@@ -129,6 +132,36 @@ class TestImportGraph(unittest.TestCase):
                 continue
             with self.subTest(module=module):
                 self.assertLessEqual(GRAPH[module], {'t3toolbox.backend.' + n for n in names})
+
+    def test_no_backend_module_imports_safety(self):
+        """There is no safe mode in the backend: no module under ``t3toolbox/backend/`` imports ``t3toolbox.safety``,
+        in either import form or inside a function, directly or through another backend module. (The frontend
+        modules do, and call the backend's checkers.)"""
+        backend = sorted(m for m in MODULES if m.startswith('t3toolbox.backend'))
+        self.assertGreater(len(backend), 30)
+        self.assertIn('t3toolbox.safety', MODULES)
+        for module in backend:
+            with self.subTest(module=module):
+                self.assertNotIn('t3toolbox.safety', GRAPH[module])
+                reached, frontier = set(), {module}                     # everything the module reaches
+                while frontier:
+                    reached |= frontier
+                    frontier = set().union(*(GRAPH[m] for m in frontier)) - reached
+                self.assertNotIn('t3toolbox.safety', reached)
+        self.assertIn('t3toolbox.safety', GRAPH['t3toolbox.fitting'])   # the finder sees the import where it is
+
+    def test_the_import_finder_sees_safety_in_both_import_forms(self):
+        """The two spellings a backend module could use resolve to the safety module (so the test above cannot
+        be walked around by the other form)."""
+        self.assertEqual(resolve('t3toolbox.safety'), 't3toolbox.safety')                  # import t3toolbox.safety, and
+        #                                                           from t3toolbox import safety (module + '.' + name)
+        self.assertEqual(resolve('t3toolbox.safety.checks_active'), 't3toolbox.safety')    # from t3toolbox.safety import ...
+        self.assertIn('t3toolbox.safety', GRAPH['t3toolbox.manifold'])                     # a module that uses it today
+
+    def test_the_jet_and_preparation_modules_import_downward(self):
+        self.assertEqual(GRAPH['t3toolbox.backend.jets'], {'t3toolbox.backend.common'})
+        self.assertEqual(GRAPH['t3toolbox.backend.data_preparation'],
+                         {'t3toolbox.backend.common', 't3toolbox.backend.jets', 't3toolbox.backend.ut3_operations'})
 
 
 if __name__ == '__main__':

@@ -370,8 +370,8 @@ corewise geometry's `frame(x)` returns the point itself, and "`f` at raw cores" 
 does not accept the spellings with a basis (decided on 2026-11-16, the plan's O-13).
 
 **The names of a corewise call, written out** (2026-11-17; they follow from the rule above, the four letters and
-their grades with no basis; listed here because no table had them, found in the review of P2; **to be confirmed
-by the maintainer before the slice that builds the corewise call, P8**):
+their grades with no basis; listed here because no table had them, found in the review of P2; confirmed by the
+maintainer on 2026-11-17 at 12:02, "those are fine"):
 
 | Grade | Names on a corewise call | What a manifold call on `(B, G, G, G)` calls them |
 | --- | --- | --- |

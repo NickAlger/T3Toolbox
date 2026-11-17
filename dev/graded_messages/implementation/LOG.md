@@ -101,3 +101,46 @@ rounds, what Claude checked, the minor issues Claude decided, and what went to t
 - **Two interruptions** of the session during the slice (once with a machine restart); the implementer was
   resumed both times and its detached gate run survived the second.
 - **To the maintainer:** the corewise names, for confirmation before P8.
+
+## P3. Jets, the checkers and data preparation (2026-11-17)
+
+- **Rounds:** two. Round 1: not yet, four should-fix findings (a sample with `pp = None` accepted above order 0;
+  the check of `scales` in the frontend only; `rescale_direction` failing under `jit` with a traced length; a
+  tolerance in the frontend's zero check passing every test), twelve minor. Round 2: not yet on one finding with
+  a one-line fix (`ut3_unscale_coordinates` had dropped out of `__all__`), which the reviewer said needed no
+  further round; Claude made it, with a test that pins the module's seven public names, and saw the page back
+  in the sphinx build.
+- **Result:** `backend/jets.py` (the dual-jet helper and its inverse, the four functions for derivative data,
+  the checkers `check_sample`, `check_data`, `check_weight`, the two validators of `pp` copied) and
+  `backend/data_preparation.py` (block norms, the equalizing weight, the two rescalings, `t3_unscale_coordinates`
+  and its uniform twin, `check_coordinate_scales`); from `t3toolbox.fitting` nine backend functions and two of
+  its own (`dual_jet_to_jet`, `rescale_coordinates`); `unscale_coordinates` on both tensor classes. 81 more tests
+  than P2. The whole gate green on the implementer's final tree (1,580 passed, 5 skipped, 1 expected failure,
+  65,875 subtests; sphinx clean); after it Claude's one-line fix and its two tests, checked by the slice's tests,
+  the module doctests and sphinx.
+- **Checked independently by the reviewer:** the dual jet, its inverse and the pairing identity (216 cases,
+  3.6e-15); the derivative conversions against its own derivatives and the library's old derivative functions;
+  both rescalings against dense tensors; the packed probe array against a definition of its own (81 cases); 167
+  mutations over the two rounds, all caught in the end.
+- **Went to the maintainer** (log entry 115): the four functions whose result depends on the type of the data
+  take `kind` (`jet_to_dual_jet(kind, order, jet, weight)` and the three others); he said such a function is
+  three functions in one. The names of a corewise call were confirmed.
+- **Minor issues decided by Claude:**
+  - `check_coordinate_scales(scales, shape)`, a public backend checker, by the rule that the backend offers the
+    checkers. The frontend's `rescale_coordinates` is its own function that calls it.
+  - The frontend's zero check in `dual_jet_to_jet` is on the divisor as the backend computes it (one private
+    helper serves both tiers), so a weight whose square underflows is refused like a zero. Exact, no tolerance.
+  - One dispatch per call over all the inputs; `rescale_direction` returns `ww` / `index` as given.
+  - Choices of the implementer that touch public behaviour, accepted: the lowest floating precision wins where
+    two user arrays meet (row 5.6); `prepare_derivative_data` accepts order 0; the uniform backend function also
+    takes packed scales; the checkers take the ragged form only.
+- **For later slices:**
+  - P11: the functions of `data_preparation` that take `kind` are for the ragged type; `rescale_coordinates`
+    cannot take a packed array.
+  - P14: a backend user with a packed batch has no checker (the checkers take the ragged form).
+  - P19: cross-references to the re-exported functions render as plain text; a frontend-only teaching example;
+    `docs/api_reference.rst` lacks the new backend modules.
+  - Left as they are: the frontend `rescale_coordinates` gives a poor message for a sample of the wrong form
+    (review r2, finding 18); a 0-dimensional float32 `length` does not lower the dtype (finding 19).
+- **One interruption** during the slice, coinciding with a scheduled check-in; the detached gate run finished and
+  the agent was resumed automatically.

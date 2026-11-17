@@ -136,6 +136,73 @@ print('JAX_ABSENT_OK')
 '''
 
 
+# Jets, the checkers and data preparation (graded messages, P3): the two backend modules, their reach from
+# t3toolbox.fitting (the frontend dual_jet_to_jet with its safe-mode check included) and unscale_coordinates on
+# both tensor classes import and run with no jax, on numpy arrays.
+_JETS_SCRIPT = r'''
+import sys, warnings
+sys.modules['jax'] = None            # make `import jax` raise ImportError
+sys.modules['jax.numpy'] = None
+import numpy as np
+import t3toolbox.backend.common as common
+import t3toolbox.backend.jets as jets
+import t3toolbox.backend.data_preparation as prep
+import t3toolbox.fitting as fitting
+import t3toolbox.safety as safety
+import t3toolbox.tucker_tensor_train as t3
+import t3toolbox.uniform_tucker_tensor_train as ut3
+assert not common.jax_available
+
+rng = np.random.default_rng(0)
+np.random.seed(0)
+shape, W, order = (4, 5, 6), (7,), 2
+leaves = lambda value: sum((leaves(v) for v in value), []) if isinstance(value, (tuple, list)) else [value]
+def on_numpy(value):
+    assert all(isinstance(leaf, np.ndarray) for leaf in leaves(value) if leaf is not None), value
+    return value
+ww = [rng.standard_normal(W + (n,)) for n in shape]
+pp = [rng.standard_normal(W + (n,)) for n in shape]
+index = np.stack([rng.integers(0, n, size=W) for n in shape])
+scales = [0.5 + rng.random(n) for n in shape]
+with warnings.catch_warnings():
+    warnings.simplefilter('error')       # nothing here may ask for jax (the jax-absent warning would be an error)
+    for kind in ('probe', 'apply', 'entries'):
+        first = index if kind == 'entries' else ww
+        y = [rng.standard_normal((order + 1,) + W + (n,)) for n in shape] if kind == 'probe'             else rng.standard_normal((order + 1,) + W)
+        weight = 0.5 + rng.random(((3,) if kind == 'probe' else ()) + (order + 1,))
+        jets.check_sample(kind, order, (first, pp), shape)
+        jets.check_data(kind, order, (first, pp), y)
+        jets.check_weight(kind, order, weight, 3)
+        dual = on_numpy(jets.jet_to_dual_jet(kind, order, y, weight))
+        on_numpy(jets.dual_jet_to_jet(kind, order, dual, weight))
+        on_numpy(fitting.dual_jet_to_jet(kind, order, dual, weight))
+        on_numpy(jets.taylor_to_derivatives(kind, order, jets.derivatives_to_taylor(kind, order, y)))
+        on_numpy(jets.prepare_derivative_data(kind, order, y, validation=y))
+        on_numpy(fitting.prepare_derivative_data(kind, order, y, weight))
+        on_numpy(prep.equalizing_weight(prep.data_block_norms(kind, order, y)))
+        on_numpy(prep.rescale_direction(kind, order, (first, pp), y, 2.0))
+        if kind != 'entries':
+            on_numpy(prep.rescale_coordinates(kind, order, (first, pp), y, scales))
+    zero = np.array([1.0, 0.0, 1.0])
+    try:
+        fitting.dual_jet_to_jet('apply', order, np.ones((3, 7)), zero)
+        raise AssertionError('the frontend dual_jet_to_jet must raise in safe mode where a weight is zero')
+    except ValueError:
+        pass
+    with safety.unsafe():
+        assert not np.isfinite(fitting.dual_jet_to_jet('apply', order, np.ones((3, 7)), zero)[1]).any()
+    x = t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1))
+    ux = ut3.UniformTuckerTensorTrain.from_t3(x)
+    prep.check_coordinate_scales(scales, shape)
+    on_numpy(prep.t3_unscale_coordinates(x.data, scales))
+    on_numpy(prep.ut3_unscale_coordinates(ux.data, scales)[:2])
+    assert isinstance(x.unscale_coordinates(scales).tucker_cores[0], np.ndarray)
+    assert isinstance(ux.unscale_coordinates(scales).tucker_supercore, np.ndarray)
+    assert np.allclose(ux.unscale_coordinates(scales).to_dense(), x.unscale_coordinates(scales).to_dense())
+print('JAX_ABSENT_OK')
+'''
+
+
 class TestJaxAbsentPolicy(unittest.TestCase):
     def test_requests_for_jax_run_on_numpy_with_a_warning(self):
         out = subprocess.run([sys.executable, '-c', _SCRIPT], capture_output=True, text=True,
@@ -144,6 +211,11 @@ class TestJaxAbsentPolicy(unittest.TestCase):
 
     def test_the_sampling_definitions_and_the_dense_functions_run_without_jax(self):
         out = subprocess.run([sys.executable, '-c', _DEFINITIONS_SCRIPT], capture_output=True, text=True,
+                             env={**os.environ, 'PYTHONPATH': os.getcwd()})
+        self.assertIn('JAX_ABSENT_OK', out.stdout, out.stderr[-2000:])
+
+    def test_jets_the_checkers_and_data_preparation_run_without_jax(self):
+        out = subprocess.run([sys.executable, '-c', _JETS_SCRIPT], capture_output=True, text=True,
                              env={**os.environ, 'PYTHONPATH': os.getcwd()})
         self.assertIn('JAX_ABSENT_OK', out.stdout, out.stderr[-2000:])
 

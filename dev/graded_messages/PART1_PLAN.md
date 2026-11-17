@@ -247,7 +247,7 @@ and has the checkers to test those inputs first (section 7.1).
    every order (O-19). A product of two full jets is taken over the orders with `over_orders='loop'` on the ragged
    layout and `'scan'` on the uniform one (O-10). Boundary vectors are ones sized by the end bond of the cores
    passed; start values follow the grade (4.4). The engine squashes no tail.
-6. **The seed.** `r = z - y` (the library's sign, 2.4); the seed `w_tilde = jet_to_dual_jet(r, weight)`: the
+6. **The seed.** `r = z - y` (the library's sign, 2.4); the seed `w_tilde = jet_to_dual_jet(kind, order, r, weight)`: the
    weights, then the turn of the order leg. `JtJp` seeds from `Jp` the same way. A held `r` is used as it is.
 7. **The sums.** `f = 1/2 <r, omega^2 r>`, `r_block_sumsq` (unweighted, the shape of the weight),
    `Jp_norm_sq = <Jp, omega^2 Jp>` are formed inside the call; `f` keeps `C`, `Jp_norm_sq` keeps `K + C`
@@ -349,25 +349,31 @@ call sites with `S` deleted, and the 16 sweep strings (`mu`, `nu`) as they are: 
 has four fields, `T`, `W`, `K`, `C`, and `S` is not a letter a string may name.
 
 ```python
+# These four take `kind`, first, with `order` after it, as the other functions of the two modules do (the
+# maintainer, 2026-11-17: such a function is three mathematical functions in one, so the caller says which).
+# The type of the data is decided by `kind`, never by the type of the object.
 def jet_to_dual_jet(
+        kind:    str,                      # 'probe' | 'apply' | 'entries'
+        order:   int,
         jet:     typ.Any,                  # of the type of z: probe len=d, elm_shape=T+W+[K]+C+(Ni,); apply/entries T+W+[K]+C
         weight:  typ.Optional[NDArray],    # probe (d,)+T; apply/entries T; None = ones
-        order:   int,
 ) -> typ.Any:                              # the dual jet, same shapes: omega^2 * jet, then the order leg turned
 
 def dual_jet_to_jet(
+        kind:      str,
+        order:     int,
         dual_jet:  typ.Any,                # same shapes as jet_to_dual_jet's result
         weight:    typ.Optional[NDArray],  # probe (d,)+T; apply/entries T; None = ones
-        order:     int,
 ) -> typ.Any:                              # the jet: the order leg turned back, then divided by omega^2
                                            #   (where a weight is zero it divides by zero: no check, O-20)
 
 def derivatives_to_taylor(
-        jets:  typ.Any,                    # derivatives: probe len=d, elm_shape=T+W+(Ni,); apply/entries T+W
+        kind:  str,
         order: int,
+        jets:  typ.Any,                    # derivatives: probe len=d, elm_shape=T+W+(Ni,); apply/entries T+W
 ) -> typ.Any:                              # Taylor coefficients, same shapes: slot t divided by t!
 
-def taylor_to_derivatives(jets, order)    # the reverse: slot t multiplied by t!; same arguments and shapes
+def taylor_to_derivatives(kind, order, jets)    # the reverse: slot t multiplied by t!; same arguments and shapes
 
 def derivative_weight_to_taylor_weight(
         weight:  NDArray,                  # a weight on derivative residuals: probe (d,)+T, apply/entries T
@@ -838,9 +844,12 @@ tensors without digging through the backend to find the helpers"):
   tiers);
 - the preparation functions and the jet helpers under their backend names: `derivatives_to_taylor`,
   `taylor_to_derivatives`, `derivative_weight_to_taylor_weight`, `prepare_derivative_data`, `jet_to_dual_jet`,
-  `data_block_norms`, `equalizing_weight`, `rescale_direction`, `rescale_coordinates`, `t3_unscale_coordinates`;
-- its own `dual_jet_to_jet`, a small function: in safe mode it raises where a weight is zero, then calls the
-  backend one, which divides (O-20).
+  `data_block_norms`, `equalizing_weight`, `rescale_direction`, `t3_unscale_coordinates` (the backend objects);
+- its own `dual_jet_to_jet`, a small function: in safe mode it raises where the divisor, the squared weight in
+  the precision of the computation, is zero, then calls the backend one, which divides (O-20);
+- its own `rescale_coordinates`, a small function: it calls the backend checker `check_coordinate_scales` with the
+  mode sizes read off the sample, then the backend function, so that wrong `scales` raise where they are passed
+  (a structural check: in both safety modes and under `jit`). The checker is not re-exported.
 
 **What the frontend does not have.** An entry to the engine; the reference module and the dense functions; a way to
 write an oracle without the backend (writing an oracle is backend-level work, a stated exception to the rule of
@@ -1253,7 +1262,7 @@ N16 (the residual after the sample, the tangent transposes' frame first), `resid
 and `sum_over_samples=True` in place of `sum_over_probes=False`; `TuckerTensorTrain.apply` and its uniform twin take
 `ww` in place of `vecs`; the validators come from `jets`. Where a caller still fits with the old call form of the frontend optimizers (the tests until P16, the examples and
 pages until P17), it makes the old derivative data from
-the merged method as `taylor_to_derivatives(x.probe(ww, pp, order), order)`.
+the merged method as `taylor_to_derivatives('probe', order, x.probe(ww, pp, order))`.
 
 What breaks, from a search of `t3toolbox/`, `tests/`, `docs/`, `examples/` and every doctest (the calls, scripts
 inside strings included, of the 24 removed methods; every call of the frontend transposes and corewise transposes,
@@ -1298,7 +1307,7 @@ each of which breaks on the new order; and every link to `docs/chunking.md`):
   `fit_shared_factors_jetted_probes.py` (helper `dense_jets`). The helpers are replaced here by `dense_apply` and
   `dense_probe` with `pp` and `order` (P2; O-27), which take the stack `W` themselves, so the loops over the samples
   go too, and P20 can delete the module. Where an example still fits derivative data with the old frontend
-  optimizers (until P17), it takes `taylor_to_derivatives(dense_apply(T, ww, pp, order), order)`. (Seven
+  optimizers (until P17), it takes `taylor_to_derivatives('apply', order, dense_apply(T, ww, pp, order))`. (Seven
   examples define their own `dense_apply(A, ww)` or `dense_probe(A, ww)` helpers, local and of no removed name;
   they may stay.)
   `tests/test_probe_derivatives.py` (nine calls of the three `dense_*_derivatives`) is folded into the frontend
@@ -1743,7 +1752,7 @@ per slot or `(degree+1, J+1)` per mode and slot; its options include `val_sample
    - keeps T3Polynomial's own handling around the call (the uniform and jax conversions of `X0` and
      `padded_from`, the warm-start warning) as it is.
 2. The scoring call `X.probe_derivatives(ww, pp, jet_order)` is given back to `TuckerTensorTrain`, in the script's
-   process only, as `taylor_to_derivatives(X.probe(ww, pp, order=jet_order), jet_order)`, so that the consumer's
+   process only, as `taylor_to_derivatives('probe', jet_order, X.probe(ww, pp, order=jet_order))`, so that the consumer's
    misfits keep their derivative form.
 
 The script checks that every `stats` key T3Polynomial reads is present, with the meaning it has today; `timing`
@@ -1874,6 +1883,7 @@ Approved by the maintainer on 2026-11-16 at 20:59, with the uniform twin of O-34
 | `fv_centers_consistency_residual`, `ufv_frame_consistency_residual`, `ufv_centers_consistency_residual` | The centers' residual and the uniform twins of both frame residuals | `backend/fv_operations.py`, `backend/ufv_operations.py` | P4 |
 | `T3Frame.consistency_residual`, `UT3Frame.consistency_residual` | The cached residual the frontend checks | `frame_variations_format.py`, `uniform_frame_variations_format.py` | P4 |
 | `HeldVariables.with_values(**values)` | A new record with the given slots filled | `backend/sampling_variables.py` | P5 |
+| `check_coordinate_scales(scales, shape)` | The checker of the coordinate scales (their form only, never a value). Added in P3 by Claude, by the rule that the backend offers the checkers and after the pattern of the three above; the two `unscale_coordinates` methods and the frontend's own `fitting.rescale_coordinates` call it | `backend/data_preparation.py` | P3 |
 | `LeastSquaresOracle.check_batch(batch, shape)` | The checker of a whole batch; an optional member of the protocol | `backend/fitting.py` | P14 |
 | `pack_batch(kind, order, batch, N)` | The packing of a batch for the uniform layout | `backend/uniform_fitting.py` | P14 |
 | `fitting.local_model(..., frame=None)` | The keyword through which a caller supplies a frame | `t3toolbox/fitting.py` | P16 |

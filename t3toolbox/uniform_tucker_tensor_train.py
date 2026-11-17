@@ -26,6 +26,7 @@ import t3toolbox.backend.ut3_operations as ut3_operations
 import t3toolbox.backend.ut3_orthogonalization as ut3_orthogonalization
 import t3toolbox.backend.ut3_linalg as ut3_linalg
 import t3toolbox.backend.ut3_sampling as ut3_sampling
+import t3toolbox.backend.data_preparation as data_preparation
 import t3toolbox.backend.sampling_derivatives as sampling_derivatives
 import t3toolbox.backend.ut3_svd as ut3_svd
 import t3toolbox.backend.ut3_constructors as ut3_constructors
@@ -248,6 +249,38 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
     def squash_tails(self) -> 'UniformTuckerTensorTrain':
         """Sum the leading/trailing TT bonds down to rank 1 (preserves the represented tensor)."""
         return _from_data(ut3_operations.ut3_squash_tails(self.data))
+
+    def unscale_coordinates(
+            self:    'UniformTuckerTensorTrain',
+            scales:  Sequence[NDArray],     # len=d, elm_shape=(Ni,): as given to rescale_coordinates
+    ) -> 'UniformTuckerTensorTrain':        # same structure and masks: the Tucker supercore's last axis scaled
+        """This tensor, fitted in rescaled coordinates, as a function of the original coordinates.
+
+        The uniform twin of :py:meth:`t3toolbox.tucker_tensor_train.TuckerTensorTrain.unscale_coordinates`: if
+        the sample of a fit had coordinate ``j`` of mode ``i`` multiplied by ``scales[i][j]``
+        (:py:func:`t3toolbox.fitting.rescale_coordinates`), this returns the fitted tensor in the original
+        coordinates. ``scales`` is the ragged sequence that was given there, ``len=d``, ``elm_shape=(Ni,)``,
+        whatever the padded mode size ``N`` of this tensor. The ranks and the masks stay. It calls
+        :py:func:`t3toolbox.backend.data_preparation.ut3_unscale_coordinates`, after checking the form of
+        ``scales`` with :py:func:`t3toolbox.backend.data_preparation.check_coordinate_scales` (a ``ValueError``
+        if it is not one vector of length ``Ni`` per mode).
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> np.random.seed(0)
+        >>> x_fitted = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+        >>> scales = [10.0 ** np.random.randn(N) for N in x_fitted.shape]   # one scale per coordinate
+        >>> ux = ut3.UniformTuckerTensorTrain.from_t3(x_fitted).unscale_coordinates(scales)
+        >>> print(ux.tucker_supercore.shape, ux.shape)
+        (3, 3, 6) (4, 5, 6)
+        >>> print(np.allclose(ux.to_dense(), x_fitted.unscale_coordinates(scales).to_dense()))   # as on ragged
+        True
+        """
+        data_preparation.check_coordinate_scales(scales, self.shape)
+        return _from_data(data_preparation.ut3_unscale_coordinates(self.data, scales))
 
     # ----------------------------------------------------------------- linear algebra
     def __mul__(self, s) -> 'UniformTuckerTensorTrain':

@@ -509,6 +509,266 @@ class TestDispatch(unittest.TestCase):
                 self.assertGreater(calls[0], 1, 'the first eager call should have traced the scan body')
                 self.assertEqual(1, calls[1], 'the eager scan traced its body again: the body is not a stable object')
 
+    # ---------------------------------------------------- jit bucket: jets and data preparation (graded messages, P3)
+    def _jets_and_preparation_cases(self, dtype):
+        """(name, function of arrays only, numpy arguments) for every public function of ``backend.jets`` and
+        ``backend.data_preparation`` that returns arrays, for the probe type (a tuple per mode) and the apply type."""
+        import t3toolbox.backend.jets as jets
+        import t3toolbox.backend.data_preparation as prep
+        rng = np.random.default_rng(0)
+        shape, W, order = (4, 3, 5), (2, 2), 3
+        f = lambda a: np.asarray(a, dtype=dtype)
+        ww = [f(rng.standard_normal(W + (n,))) for n in shape]
+        pp = [f(rng.standard_normal(W + (n,))) for n in shape]
+        index = np.stack([rng.integers(0, n, size=W) for n in shape])
+        scales = [f(0.5 + rng.random(n)) for n in shape]
+        y_probe = [f(rng.standard_normal((order + 1,) + W + (n,))) for n in shape]
+        y_apply = f(rng.standard_normal((order + 1,) + W))
+        w_probe, w_apply = f(0.5 + rng.random((3, order + 1))), f(0.5 + rng.random(order + 1))
+        x = t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1), stack_shape=(2,))
+        cores = tuple(tuple(f(c) for c in family) for family in x.data)
+        cases = []
+        for label, y, weight in (('probe', y_probe, w_probe), ('apply', y_apply, w_apply)):
+            cases += [
+                ('jet_to_dual_jet/' + label, lambda y, weight, kind=label: jets.jet_to_dual_jet(kind, order, y, weight), (y, weight)),
+                ('dual_jet_to_jet/' + label, lambda y, weight, kind=label: jets.dual_jet_to_jet(kind, order, y, weight), (y, weight)),
+                ('jet_to_dual_jet, no weight/' + label, lambda y, kind=label: jets.jet_to_dual_jet(kind, order, y, None), (y,)),
+                ('derivatives_to_taylor/' + label, lambda y, kind=label: jets.derivatives_to_taylor(kind, order, y), (y,)),
+                ('taylor_to_derivatives/' + label, lambda y, kind=label: jets.taylor_to_derivatives(kind, order, y), (y,)),
+                ('derivative_weight_to_taylor_weight/' + label,
+                 lambda weight: jets.derivative_weight_to_taylor_weight(weight, order), (weight,)),
+                ('prepare_derivative_data/' + label,
+                 lambda y, weight, kind=label: jets.prepare_derivative_data(kind, order, y, weight, y), (y, weight)),
+                ('prepare_derivative_data, no weight/' + label,
+                 lambda y, kind=label: jets.prepare_derivative_data(kind, order, y)[:2], (y,)),
+                ('data_block_norms/' + label, lambda y, kind=label: prep.data_block_norms(kind, order, y), (y,)),
+                ('equalizing_weight/' + label, lambda weight: prep.equalizing_weight(weight), (weight,)),
+                ('rescale_direction/' + label,          # (its sample returns ww as given: only pp and y are looked at)
+                 lambda pp, y, kind=label: (lambda out: (out[0][1], out[1]))(
+                     prep.rescale_direction(kind, order, (ww, pp), y, 3.0)), (pp, y)),
+                ('rescale_coordinates/' + label,
+                 lambda ww, pp, y, scales, kind=label: prep.rescale_coordinates(kind, order, (ww, pp), y, scales),
+                 (ww, pp, y, scales)),
+            ]
+        packed = f(rng.standard_normal((3, order + 1) + W + (5,)))         # a probe jet packed for the uniform layout
+        cases += [
+            ('jet_to_dual_jet, a packed probe array', lambda y, weight: jets.jet_to_dual_jet('probe', order, y, weight),
+             (packed, w_probe)),
+            ('dual_jet_to_jet, a packed probe array', lambda y, weight: jets.dual_jet_to_jet('probe', order, y, weight),
+             (packed, w_probe)),
+            ('derivatives_to_taylor, a packed probe array', lambda y: jets.derivatives_to_taylor('probe', order, y), (packed,)),
+            ('taylor_to_derivatives, a packed probe array', lambda y: jets.taylor_to_derivatives('probe', order, y), (packed,)),
+            ('rescale_direction, the length an array/apply',        # traced under jit; closed over in the mixed case
+             lambda pp, y, length: (lambda out: (out[0][1], out[1]))(
+                 prep.rescale_direction('apply', order, (ww, pp), y, length)), (pp, y_apply, f(3.0))),
+            ('rescale_direction, the length an array/probe',
+             lambda pp, y, length: (lambda out: (out[0][1], out[1]))(
+                 prep.rescale_direction('probe', order, (ww, pp), y, length)), (pp, y_probe, f(0.5))),
+            ('rescale_direction/entries',
+             lambda pp, y: prep.rescale_direction('entries', order, (index, pp), y, 3.0)[1], (pp, y_apply)),
+            ('rescale_coordinates, order 0/probe',
+             lambda ww, y, scales: prep.rescale_coordinates('probe', 0, ww, y, scales), (ww, [y[0] for y in y_probe], scales)),
+            ('data_block_norms, order 0/apply', lambda y: prep.data_block_norms('apply', 0, y), (y_apply[0],)),
+            ('t3_unscale_coordinates', lambda cores, scales: prep.t3_unscale_coordinates(cores, scales), (cores, scales)),
+        ]
+        return cases
+
+    def test_jit_jets_and_data_preparation(self):
+        """jit every array-returning function of ``backend.jets`` and ``backend.data_preparation`` (a stray np.* on
+        a tracer would raise); numpy in gives numpy out, jax in gives jax out, eagerly too; float32 stays float32
+        with x64 on (no array is made in a default dtype); the numbers are numpy's (a smoke test)."""
+        to_jax = lambda tree: jax.tree_util.tree_map(jnp.asarray, tree)
+        for dtype, smoke_tol in ((np.float64, 1e-12), (np.float32, 1e-5)):
+            for name, fn, args in self._jets_and_preparation_cases(dtype):
+                on_numpy = fn(*args)
+                with self.subTest(function=name, dtype=np.dtype(dtype).name):
+                    for leaf in jax.tree_util.tree_leaves(on_numpy):
+                        self.assertTrue(common.is_numpy_ndarray(leaf), type(leaf))
+                        self.assertEqual(leaf.dtype, dtype)
+                    jargs = to_jax(args)
+                    self.assert_jit_jax(fn, *jargs)
+                    self.assert_eager_jax(fn, *jargs)
+                    for a, b, c in zip(jax.tree_util.tree_leaves(jax.jit(fn)(*jargs)), jax.tree_util.tree_leaves(on_numpy),
+                                       jax.tree_util.tree_leaves(fn(*jargs))):
+                        self.assertEqual(a.shape, b.shape)
+                        self.assertEqual((a.dtype, c.dtype), (dtype, dtype))
+                        self.assertLessEqual(norm(np.asarray(a) - b), smoke_tol * norm(b))
+                # each array argument in turn a numpy array held outside the trace: the dispatch is read off all
+                for k in range(len(args) if len(args) > 1 else 0):
+                    with self.subTest(function=name, dtype=np.dtype(dtype).name, numpy_argument=k):
+                        mixed = lambda *rest: fn(*rest[:k], args[k], *rest[k:])
+                        out = jax.jit(mixed)(*(jargs[:k] + jargs[k + 1:]))
+                        self._leaves_all_jax(out)
+                        for a in jax.tree_util.tree_leaves(out):
+                            self.assertEqual(a.dtype, dtype)
+
+    def test_jit_ut3_unscale_coordinates(self):
+        """The uniform twin under jit: the Tucker supercore is a jax array, the masks stay host numpy arrays, and
+        the result is the numpy one. The methods of the two tensor classes jit too."""
+        import t3toolbox.backend.data_preparation as prep
+        rng = np.random.default_rng(0)
+        scales = [0.5 + rng.random(N) for N in STRUCT[0]]
+        jscales = [jnp.asarray(s) for s in scales]
+        on_numpy = prep.ut3_unscale_coordinates(ut3.UniformTuckerTensorTrain.from_t3(self.x_np).data, scales)
+        self.assertTrue(common.is_numpy_ndarray(on_numpy[0]))
+        fn = lambda supercores, scales: prep.ut3_unscale_coordinates(supercores + self.ux.data[2:], scales)[:2]
+        self.assert_jit_jax(fn, self.ux.data[:2], jscales)
+        out = jax.jit(fn)(self.ux.data[:2], jscales)
+        self.assertLess(norm(np.asarray(out[0]) - on_numpy[0]), 1e-12 * norm(on_numpy[0]))
+        mixed = jax.jit(lambda supercores: prep.ut3_unscale_coordinates(supercores + self.ux.data[2:], scales)[0])
+        self.assertTrue(common.is_jax_ndarray(mixed(self.ux.data[:2])))             # numpy scales, jax supercores
+        eager = prep.ut3_unscale_coordinates(self.ux.data, jscales)
+        self.assertTrue(common.is_jax_ndarray(eager[0]))
+        for m in eager[3]:
+            self.assertTrue(common.is_numpy_ndarray(m))
+        unscaled = jax.jit(lambda ux, scales: ux.unscale_coordinates(scales))(self.ux, jscales)
+        self._leaves_all_jax(unscaled)
+        self.assert_concrete_masks(unscaled)
+        self.assertLess(norm(np.asarray(unscaled.tucker_supercore) - on_numpy[0]), 1e-12 * norm(on_numpy[0]))
+        ragged = jax.jit(lambda x, scales: x.unscale_coordinates(scales))(self.x, jscales)
+        self._leaves_all_jax(ragged)
+        reference = self.x_np.unscale_coordinates(scales)
+        self.assertLess(norm(np.asarray(ragged.tucker_cores[1]) - reference.tucker_cores[1]),
+                        1e-12 * norm(reference.tucker_cores[1]))
+
+    def test_one_dispatch_over_all_the_inputs_of_a_call(self):
+        """The house rule: numpy or jax is chosen once, over all the arrays a call is given. One jax array among
+        numpy ones (one mode of a probe tuple; the weight; the validation data; the length; the scales) makes
+        every array the call computes a jax array."""
+        import t3toolbox.backend.jets as jets
+        import t3toolbox.backend.data_preparation as prep
+        rng = np.random.default_rng(0)
+        shape, W, order = (4, 3, 5), (2,), 2
+        ww = [rng.standard_normal(W + (n,)) for n in shape]
+        pp = [rng.standard_normal(W + (n,)) for n in shape]
+        scales = [0.5 + rng.random(n) for n in shape]
+        y = [rng.standard_normal((order + 1,) + W + (n,)) for n in shape]
+        weight = 0.5 + rng.random((3, order + 1))
+        mixed = [y[0], jnp.asarray(y[1]), y[2]]                     # one mode of the probe tuple on jax
+        jscales = [scales[0], jnp.asarray(scales[1]), scales[2]]
+        x = self.x_np.data
+        cases = {
+            'jet_to_dual_jet, a mixed tuple': jets.jet_to_dual_jet('probe', order, mixed, weight),
+            'jet_to_dual_jet, a jax weight': jets.jet_to_dual_jet('probe', order, y, jnp.asarray(weight)),
+            'dual_jet_to_jet, a mixed tuple': jets.dual_jet_to_jet('probe', order, mixed, None),
+            'derivatives_to_taylor': jets.derivatives_to_taylor('probe', order, mixed),
+            'taylor_to_derivatives': jets.taylor_to_derivatives('probe', order, mixed),
+            'prepare_derivative_data, jax validation': jets.prepare_derivative_data('probe', order, y, weight, mixed),
+            'prepare_derivative_data, a jax weight': jets.prepare_derivative_data('probe', order, y, jnp.asarray(weight))[:2],
+            'data_block_norms': prep.data_block_norms('probe', order, mixed),
+            'rescale_direction, a jax length': (lambda out: (out[0][1], out[1]))(
+                prep.rescale_direction('probe', order, (ww, pp), y, jnp.asarray(2.0))),
+            'rescale_direction, mixed data': (lambda out: (out[0][1], out[1]))(
+                prep.rescale_direction('probe', order, (ww, pp), mixed, 2.0)),
+            'rescale_coordinates, mixed scales': prep.rescale_coordinates('probe', order, (ww, pp), y, jscales),
+            't3_unscale_coordinates, mixed scales': prep.t3_unscale_coordinates(
+                (x[0], x[1]), [0.5 + rng.random(N) if i else jnp.ones(N) for i, N in enumerate(STRUCT[0])])[0],
+        }
+        for name, out in cases.items():
+            with self.subTest(case=name):
+                self._leaves_all_jax(out)
+        # and the numbers are those of the all-numpy call
+        reference = jets.jet_to_dual_jet('probe', order, y, weight)
+        for a, b in zip(cases['jet_to_dual_jet, a mixed tuple'], reference):
+            self.assertLess(norm(np.asarray(a) - b), 1e-12 * norm(b))
+
+    def test_a_numpy_float64_array_with_a_jax_array_when_x64_is_off(self):
+        """With x64 off jax has no float64. A numpy float64 jet with a jax weight (an integer one too, which has no
+        floating dtype to lower the result's) must not ask jax for float64: no warning, a float32 jax result."""
+        import warnings
+        import t3toolbox.backend.jets as jets
+        import t3toolbox.backend.data_preparation as prep
+        x64 = jax.config.read('jax_enable_x64')
+        jax.config.update('jax_enable_x64', False)
+        try:
+            jet = np.arange(12.0).reshape(3, 4)
+            with warnings.catch_warnings():
+                warnings.simplefilter('error')
+                outs = (jets.jet_to_dual_jet('apply', 2, jet, jnp.asarray([1, 2, 3])),
+                        jets.dual_jet_to_jet('apply', 2, jet, jnp.asarray([1, 2, 3])),
+                        jets.jet_to_dual_jet('apply', 2, jet, jnp.asarray([1.0, 2.0, 3.0])),
+                        jets.jet_to_dual_jet('probe', 2, [jet, jnp.asarray(jet)], None)[0],
+                        prep.rescale_direction('apply', 2, ([jet], [jet]), jet, jnp.asarray(2.0))[1],
+                        prep.rescale_coordinates('apply', 0, [jet], jet, [jnp.ones(4)])[0][0])
+            for out in outs:
+                self.assertTrue(common.is_jax_ndarray(out))
+                self.assertEqual(out.dtype, np.float32)
+            self.assertLess(norm(np.asarray(outs[0]) - jets.jet_to_dual_jet('apply', 2, jet, np.array([1, 2, 3]))), 1e-5 * 1e3)
+        finally:
+            jax.config.update('jax_enable_x64', x64)
+
+    def test_the_frontend_rescale_coordinates_under_jit(self):
+        """``fitting.rescale_coordinates`` under ``jax.jit``: the check of the scales is structural and shapes are
+        static, so it is made on tracers too (a wrong count, a wrong length for a mode and a length-1 scale raise
+        while the function is traced, also inside ``safety.unsafe()``); on good input the numbers are the backend's
+        on numpy."""
+        import t3toolbox.safety as safety
+        import t3toolbox.backend.data_preparation as prep
+        rng = np.random.default_rng(0)
+        shape, W, order = (4, 3, 5), (2,), 2
+        ww = [rng.standard_normal(W + (n,)) for n in shape]
+        pp = [rng.standard_normal(W + (n,)) for n in shape]
+        scales = [0.5 + rng.random(n) for n in shape]
+        to_jax = lambda tree: jax.tree_util.tree_map(jnp.asarray, tree)
+        for kind, y in (('probe', [rng.standard_normal((order + 1,) + W + (n,)) for n in shape]),
+                        ('apply', rng.standard_normal((order + 1,) + W))):
+            fn = lambda ww, pp, y, scales: fitting.rescale_coordinates(kind, order, (ww, pp), y, scales)
+            reference = prep.rescale_coordinates(kind, order, (ww, pp), y, scales)
+            jargs = to_jax((ww, pp, y, scales))
+            with self.subTest(kind=kind):
+                self.assert_jit_jax(fn, *jargs)
+                for a, b in zip(jax.tree_util.tree_leaves(jax.jit(fn)(*jargs)), jax.tree_util.tree_leaves(reference)):
+                    self.assertLess(norm(np.asarray(a) - b), 1e-12 * norm(b))
+                on_numpy = fn(ww, pp, y, scales)
+                for a, b in zip(jax.tree_util.tree_leaves(on_numpy), jax.tree_util.tree_leaves(reference)):
+                    self.assertTrue(common.is_numpy_ndarray(a) and np.array_equal(a, b))
+                wrong = {'a wrong count': (lambda s: s[:2], 'got length 2'),
+                         'a wrong length for a mode': (lambda s: [s[0], s[0], s[2]], r'scales\[1\] has shape \(4,\)'),
+                         'a length-1 scale': (lambda s: [s[0], s[1][:1], s[2]], r'scales\[1\] has shape \(1,\)')}
+                for what, (spoil, pattern) in wrong.items():
+                    bad = lambda ww, pp, y, scales: fn(ww, pp, y, spoil(scales))
+                    with self.subTest(kind=kind, wrong=what):
+                        with self.assertRaisesRegex(ValueError, pattern):
+                            jax.jit(bad)(*jargs)
+                        with safety.unsafe():
+                            with self.assertRaisesRegex(ValueError, pattern):
+                                jax.jit(bad)(*jargs)
+
+    def test_the_checkers_run_under_jit(self):
+        """Shapes are static, so the checkers of a sample, its data and its weight run on tracers: a good input
+        passes inside a jitted function, a wrong one raises its ``ValueError`` while the function is traced."""
+        import t3toolbox.backend.jets as jets
+        rng = np.random.default_rng(0)
+        shape, W, order = (4, 3, 5), (2,), 2
+        ww = [jnp.asarray(rng.standard_normal(W + (n,))) for n in shape]
+        pp = [jnp.asarray(rng.standard_normal(W + (n,))) for n in shape]
+        index = jnp.asarray(np.stack([rng.integers(0, n, size=W) for n in shape]))
+        y_probe = [jnp.zeros((order + 1,) + W + (n,)) for n in shape]
+        y_apply, w_probe, w_apply = jnp.zeros((order + 1,) + W), jnp.ones((3, order + 1)), jnp.ones(order + 1)
+
+        def check(kind, first, pp, y, weight):
+            jets.check_sample(kind, order, (first, pp), shape)
+            jets.check_data(kind, order, (first, pp), y)
+            jets.check_weight(kind, order, weight, len(shape))
+            return jnp.zeros(())
+
+        import t3toolbox.backend.data_preparation as prep
+        jscales = [jnp.ones(n) for n in shape]
+        jax.jit(lambda scales: (prep.check_coordinate_scales(scales, shape), jnp.zeros(()))[1])(jscales)
+        with self.assertRaisesRegex(ValueError, r'scales\[0\] has shape'):
+            jax.jit(lambda scales: (prep.check_coordinate_scales(scales[::-1], shape), jnp.zeros(()))[1])(jscales)
+
+        for kind, first, y, weight in (('probe', ww, y_probe, w_probe), ('apply', ww, y_apply, w_apply),
+                                       ('entries', index, y_apply, w_apply)):
+            with self.subTest(kind=kind):
+                jax.jit(lambda first, pp, y, weight: check(kind, first, pp, y, weight))(first, pp, y, weight)
+                with self.assertRaisesRegex(ValueError, "pp"):
+                    jax.jit(lambda first, pp, y, weight: check(kind, first, pp[::-1], y, weight))(first, pp, y, weight)
+                with self.assertRaisesRegex(ValueError, 'the data y'):
+                    jax.jit(lambda first, pp, y, weight: check(kind, first, pp, weight, weight))(first, pp, y, weight)
+                with self.assertRaisesRegex(ValueError, 'the weight of the %s kind' % kind):
+                    jax.jit(lambda first, pp, y, weight: check(kind, first, pp, y, weight[..., :1]))(first, pp, y, weight)
+
     # ---------------------------------------------------- jit bucket: the dense sampling functions
     def test_jit_dense_sampling_functions(self):
         """jit dense_probe, dense_apply and dense_entries at order 0 and with jets (a stray np.* on a tracer would

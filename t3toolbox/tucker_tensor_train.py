@@ -19,6 +19,7 @@ import t3toolbox.backend.probing as probing
 import t3toolbox.backend.sampling_derivatives as sampling_derivatives
 import t3toolbox.backend.apply as apply
 import t3toolbox.backend.entries as entries
+import t3toolbox.backend.data_preparation as data_preparation
 import t3toolbox.backend.ranks as ranks
 import t3toolbox.backend.tt_orthogonalization as orth
 import t3toolbox.backend.t3_operations as ragged_operations
@@ -1140,6 +1141,65 @@ class TuckerTensorTrain(common.ExplicitEquality):
         reversed_tucker_cores = tuple([B.copy() for B in self.tucker_cores[::-1]])
         reversed_tt_cores = tt_operations.tt_reverse(self.tt_cores)
         return TuckerTensorTrain(reversed_tucker_cores, reversed_tt_cores)
+
+    def unscale_coordinates(
+            self:    'TuckerTensorTrain',
+            scales:  Sequence[NDArray],     # len=d, elm_shape=(Ni,): as given to rescale_coordinates
+    ) -> 'TuckerTensorTrain':               # same structure: column j of Tucker core i times scales[i][j]
+        """This tensor, fitted in rescaled coordinates, as a function of the original coordinates.
+
+        The inverse of :py:func:`t3toolbox.fitting.rescale_coordinates` on the fitted tensor. If the sample
+        of a fit had coordinate ``j`` of mode ``i`` multiplied by ``scales[i][j]``, the fitted tensor lives in
+        the rescaled coordinates. This returns the tensor that gives the same values at the original inputs:
+        entry ``(j_0, ..., j_(d-1))`` is multiplied by ``scales[0][j_0] * ... * scales[d-1][j_(d-1)]``. Only the
+        Tucker cores change, and the ranks stay. It calls
+        :py:func:`t3toolbox.backend.data_preparation.t3_unscale_coordinates`.
+
+        Parameters
+        ----------
+        scales: Sequence[NDArray]
+            The scales that were given to ``rescale_coordinates``: one per coordinate, ``len=d``,
+            ``elm_shape=(Ni,)``.
+
+        Returns
+        -------
+        TuckerTensorTrain
+            The same tensor in the original coordinates.
+
+        Raises
+        ------
+        ValueError
+            If ``scales`` is not one vector of length ``Ni`` per mode (checked, always, by
+            :py:func:`t3toolbox.backend.data_preparation.check_coordinate_scales`).
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.fitting as fitting
+        >>> np.random.seed(0)
+        >>> x_true = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+        >>> ww = [np.random.randn(7, N) for N in x_true.shape]              # inputs in the original coordinates
+        >>> y = x_true.apply(ww)
+        >>> scales = [10.0 ** np.random.randn(N) for N in x_true.shape]     # one scale per coordinate
+        >>> ww_rescaled, y_rescaled = fitting.rescale_coordinates('apply', 0, ww, y, scales)
+
+        A tensor that fits the rescaled sample (here it is written down, where a fit would find it):
+
+        >>> x_fitted = t3.TuckerTensorTrain(tuple(B / s for B, s in zip(x_true.tucker_cores, scales)), x_true.tt_cores)
+        >>> print(np.allclose(x_fitted.apply(ww_rescaled), y_rescaled))
+        True
+
+        Back in the original coordinates it is the tensor that was sampled:
+
+        >>> x = x_fitted.unscale_coordinates(scales)
+        >>> print(np.allclose(x.apply(ww), y), x.structure == x_true.structure)
+        True True
+        >>> print(np.allclose(x.to_dense(), x_true.to_dense()))
+        True
+        """
+        data_preparation.check_coordinate_scales(scales, self.shape)
+        return TuckerTensorTrain(*data_preparation.t3_unscale_coordinates(self.data, scales))
 
     def resize(
             self,
