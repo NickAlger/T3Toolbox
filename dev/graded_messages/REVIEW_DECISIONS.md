@@ -1953,3 +1953,16 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   leaves every signature; everything of the type of `z` has the jet axes) and named its costs and open points
   (the common call through a helper, against row 6.6; the entries kind; the display; the rework). Not yet
   confirmed. Recorded in `TARGET_DECISIONS.md` and in the brief of the plan phase.
+
+## 118. One `ww` plus `order`, with a helper, preferred; input jets with free higher coefficients weighed (2026-11-17, 14:20)
+
+- The maintainer on the structure of entry 117: "I think I agree. Definitely I prefer having one ww plus order as
+  the API, with a helper for converting (ww,pp)-type inputs." Not yet locked down.
+- He raised, leaning against, inputs whose higher Taylor coefficients are free (`w + s p1 + s^2 p2 + ...`), on two
+  grounds: slower algorithms, and a tax on the user. Claude's answer, checked against P1's `jet_contract`: this is
+  what "the inputs are jets, with sizes of their own" already allowed; today's input is the line `w + s p`, two
+  slots, with nothing repeated; `order` cannot be inferred (the count of jet axes is not in the shape, since `W`
+  has any number of axes, and the order of the output is not the degree of the input); the cost of a product is
+  one step per slot of the input, so a line costs what it costs today and a curve of `k` slots costs `k` steps,
+  with no special case in the interface. Both of his grounds hold only if `order` were inferred from the input's
+  shape, which would force the line to be padded with zeros. Claude recommends allowing it. Open with him.
