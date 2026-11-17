@@ -486,8 +486,11 @@ row and where it is marked in the code. A search for `PART 2 (row` in `t3toolbox
      which pairs the operands that share the most indices; here that is a three-way tie, the first pair wins, and
      the carried jet is contracted with the core first: the expensive contraction on every slot at every step.
      Measured on a representative step (`W = 2000`, TT ranks 24, Tucker rank 12, order 4): 7.2e7 against 2.0e7
-     flops, a factor that grows with the order. It holds for every product, the affine ones in the sweeps
-     included. The readout step folds its two jets first on both backends.
+     flops, a factor that grows with the order. It holds for 16 of the 20 product strings, affine ones in the
+     sweeps among them; in the four `nu` strings with an affine leaf the core and the coefficient happen to be
+     the first pair, which is the cheap order (the implementer's count, P1). jax's path depends on the sizes,
+     so on the later steps of the loop form, where the carried slice is short, it can pair differently. The
+     readout step folds its two jets first on both backends.
    - The numbers computed are the same. Only numpy is slower, and Part 1 claims nothing about speed.
    - **Decided by the maintainer (01:51): deferred to Part 2**, "clearly marked so we don't forget". It is
      contained in `jet_contract` (or in `contract`'s choice of path) and needs no change to any call: the fix is

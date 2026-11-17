@@ -11,12 +11,18 @@ leading ``'...'`` einsum cannot express. Group sizes are solved from the operand
 expands into fresh single-axis letters; ONE ordinary einsum runs on the operands exactly as given.
 Full design: ``docs/batching_and_stacking.md`` (esp. §4).
 
+``jet_contract`` is ``contract`` with one more rule: the order groups ``T`` (a full jet) and ``A`` (an
+affine variable) multiply as truncated polynomials. It takes the axis counts of all its groups as one
+record, ``GroupLengths``, so that an operand of the wrong rank raises.
+
 (Until 2026-07-17 this module instead enumerated ~104 named contraction functions --
 ``WCa_Caib_WCi_to_WCb``-style, each a hand-written flatten + fixed-subscript einsum. The
 interpreter replaced them: the old name is the string argument, and the old ``n_probe``/``n_frame``
 parameters are ``len_W=``/``len_C=``.)
 """
+import dataclasses as dc
 import functools
+import itertools
 import operator
 import string
 import typing as typ
@@ -44,6 +50,8 @@ from t3toolbox.backend.common import *
 
 __all__ = [
     'contract',
+    'GroupLengths',
+    'jet_contract',
 ]
 
 # (The ~104 named contraction functions that used to fill this module -- 'Wa_Caib_Wi_to_WCb'
@@ -422,3 +430,424 @@ def contract(
     # the pairwise path is computed on the GROUPED string: one symbol per group, size-independent,
     # cached once -- identical to the path the equivalent named contraction uses.
     return xnp.einsum(expanded, *operands, optimize=list(_pairwise_path(subscripts.replace(' ', ''))))
+
+
+# --------------------------------------------------------------------------------------------------
+# jet_contract: contract, with the order groups T and A multiplying as truncated polynomials
+# --------------------------------------------------------------------------------------------------
+# A jet is a variable stacked over its Taylor coefficients: slot t of the order axis holds the
+# coefficient of s^t. A full jet has order+1 slots (group T); an affine variable has two (group A).
+# A term over the orders is the truncated product of its operands' jets, and `jet_contract` carries
+# it out with ordinary `contract` calls on slices of the order axis:
+#
+#   one operand has an order group, and so has the output    the axis rides: ONE contraction
+#   two operands have one, and the output has T              the truncated product. One jet (the
+#                                                            carrier) keeps T through the contraction,
+#                                                            the other (the partner) is taken one
+#                                                            coefficient at a time: two contractions
+#                                                            for an affine partner; `over_orders`
+#                                                            says how for a full one
+#   the output has no order group                            the top coefficient of the product (the
+#                                                            block readouts). Two full jets are
+#                                                            contracted along the order axis, one of
+#                                                            them turned: ONE contraction. A further
+#                                                            operand is taken one coefficient at a
+#                                                            time: two contractions when it is affine;
+#                                                            `over_orders` says how when it is full
+#
+# The two forms of `over_orders`, wherever a full jet is taken one coefficient at a time:
+#
+#   'scan'   a scan over its coefficients. The carrier rides the carry and is shifted one slot up
+#            the order axis per step, so every step has the same shapes: the zeros the shift brings
+#            in do the truncation. In a product the step contracts the coefficient against the whole
+#            carried jet; in a readout, against the carried jet and the turned one, summed along
+#            the order axis (carried[t] = a[t-k] meets turned[t] = b[order-t]: the orders sum to
+#            order-k, the coefficient supplies k). One program size at every order.
+#   'loop'   a Python loop over the same coefficients, with slices: only the pairs of orders in
+#            range are contracted. The program grows with the order.
+#
+# PART 2 (row 5.5): the order of the contractions INSIDE one step is `contract`'s default, and on numpy
+# that default is the costly one for most product steps (see the note at the product step below).
+#
+# There is no dense order-by-order form: no contraction ever has an (order+1)^2 intermediate.
+# Nothing is reshaped and only the order axis is ever sliced, so `contract`'s sharding property
+# (every sub-axis of every group shards free) carries over; tests/test_contractions_sharding.py
+# compiles it.
+#
+# The strings `contract` is handed are the literal with T or A deleted from the operands taken one
+# coefficient at a time (`_jet_string_case`), so every one of them is an ordinary grouped string.
+#
+# The groups of these strings are T, A, W, K, C and no others. The site axis of the uniform layout
+# is NOT one of them: a term is written for one site's arrays, which is what a step sees on both
+# layouts.
+
+
+_JET_GROUPS = frozenset('TAWKC')        # the groups a jet_contract string may name
+
+
+@dc.dataclass(frozen=True)
+class GroupLengths:
+    """The axis counts of the groups of one ``jet_contract`` call: a hashable static.
+
+    One record is passed whole to every ``jet_contract`` call of a computation, so that every group of
+    every string is pinned and an operand of the wrong rank raises. The fields are plain Python integers, so
+    two records with the same counts are equal and hash alike: a record can key a memoized scan body
+    and ride as jax static data.
+
+    >>> from t3toolbox.backend.contractions import GroupLengths
+    >>> lens = GroupLengths(T=1, W=2, K=0, C=1)
+    >>> lens.W
+    2
+    >>> lens == GroupLengths(T=1, W=2, K=0, C=1), hash(lens) == hash(GroupLengths(T=1, W=2, K=0, C=1))
+    (True, True)
+    >>> GroupLengths(T=2, W=2, K=0, C=1)                           # doctest: +IGNORE_EXCEPTION_DETAIL
+    Traceback (most recent call last):
+        ...
+    ValueError: GroupLengths: T is 1 if order else 0, got 2
+    """
+    T:  int     # 1 if order else 0. The axis count of the order group T, and of the affine group A
+    W:  int     # sample axes
+    K:  int     # direction-stack axes
+    C:  int     # base-point-stack axes
+
+    def __post_init__(self):
+        for field in dc.fields(self):
+            value = getattr(self, field.name)
+            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                raise ValueError(f"GroupLengths: {field.name} must be a nonnegative int, got {value!r}")
+        if self.T > 1:
+            raise ValueError(f"GroupLengths: T is 1 if order else 0, got {self.T}")
+
+
+class _JetStringCase(typ.NamedTuple):
+    '''How the order groups of one jet_contract string multiply when there is an order axis. Static:
+    read off the string alone, by `_jet_string_case`.'''
+    kind:             str                           # 'ride' | 'product' | 'top'
+    terms:            typ.Tuple[str, ...]           # the input terms of the literal
+    step_subscripts:  str                           # what `contract` is handed ('ride': the literal)
+    carrier:          typ.Optional[int]             # the full jet that keeps T and is shifted under 'scan':
+                                                    #   'product': the first full jet; 'top': the first of the pair
+    partner:          typ.Optional[int]             # the operand `over_orders` is about, taken one coefficient
+                                                    #   at a time: 'product': the other jet; 'top': the first
+                                                    #   full jet beyond the pair, if there is one
+    partner_is_full:  bool                          # the partner has T (else A, or there is none)
+    pair:             typ.Optional[typ.Tuple[int, int]]     # 'top': two full jets contracted along the order axis
+    alone:            typ.Optional[int]             # 'top': the one full jet when there is no pair (one slot)
+    looped:           typ.Tuple[int, ...]           # 'top': the operands taken one coefficient at a time
+
+
+def _order_group(
+        term: str,          # one term of a grouped string
+) -> str:                   # 'T', 'A' or ''
+    return 'T' if 'T' in term else ('A' if 'A' in term else '')
+
+
+@functools.lru_cache(maxsize=None)
+def _jet_string_case(
+        subscripts: str,    # a jet_contract string, whitespace stripped
+) -> _JetStringCase:
+    '''Validates a jet_contract string and decides, from the string alone, how its order groups multiply.
+    The string `contract` is handed is the literal with T or A deleted from every operand that is taken
+    one coefficient at a time. Cached: per-call work is one dict lookup.'''
+    terms, out = _parse_grouped_subscripts(subscripts)
+    what = f"jet_contract({subscripts!r})"
+    unknown = sorted({ch for t in terms + (out,) for ch in t if ch.isupper()} - _JET_GROUPS)
+    if unknown:
+        raise ValueError(f"{what}: group(s) {unknown} are not groups of a jet_contract string -- the "
+                         f"groups are T, A, W, K, C, the ones GroupLengths counts.")
+    for t in terms + (out,):
+        if 'T' in t and 'A' in t:
+            raise ValueError(f"{what}: term {t!r} has both order groups T and A.")
+        if _order_group(t) and t[0] not in 'TA':
+            raise ValueError(f"{what}: the order group must lead its term, got {t!r}.")
+
+    jets = tuple(p for p, t in enumerate(terms) if _order_group(t))
+    full = tuple(p for p in jets if 'T' in terms[p])
+
+    def stepped(taken):     # the literal with the order group deleted from the operands in `taken`
+        return ','.join(t.replace('T', '').replace('A', '') if p in taken else t
+                        for p, t in enumerate(terms)) + '->' + out
+
+    if not jets or (len(jets) == 1 and _order_group(out)):
+        return _JetStringCase('ride', terms, subscripts, None, None, False, None, None, ())
+    if 'T' in out:
+        if len(jets) != 2:
+            raise ValueError(f"{what}: a product with T in the output has exactly two operands with "
+                             f"an order group, got {len(jets)}.")
+        # Which of two full jets carries is free: the product is the same either way, to rounding, and
+        # only the split of the work differs (the carrier meets every coefficient of the partner). The
+        # first is taken so that the choice is one rule, read off the string by whoever writes it.
+        carrier = full[0]
+        (partner,) = (p for p in jets if p != carrier)
+        return _JetStringCase('product', terms, stepped((partner,)), carrier, partner,
+                              'T' in terms[partner], None, None, ())
+    if 'A' in out:
+        raise ValueError(f"{what}: a product of jets is a full jet -- the output cannot have A.")
+    if not full:
+        raise ValueError(f"{what}: the top coefficient of a product needs an operand with T (it is "
+                         f"what says how many coefficients there are).")
+    pair = full[:2] if len(full) >= 2 else None     # as for the carrier: which two is free; the first two
+    alone = None if pair else full[0]
+    looped = tuple(p for p in jets if p not in (pair or (alone,)))
+    step_subscripts = stepped(looped + (() if pair else (alone,)))
+    if len(full) >= 3:
+        return _JetStringCase('top', terms, step_subscripts, pair[0], full[2], True, pair, alone, looped)
+    return _JetStringCase('top', terms, step_subscripts, None, None, False, pair, alone, looped)
+
+
+def _jet_group_lens(
+        subscripts: str,            # a grouped string over the groups of GroupLengths
+        lens:       GroupLengths,
+) -> typ.Dict[str, int]:            # the len_<G> keywords of `contract`, for exactly the groups the string names
+    '''`contract` raises on a len_<G> whose group is not in its string, so it is handed the lengths of
+    the groups its string names -- which is all of them, and that is the strictness.'''
+    return {'len_' + g: getattr(lens, 'T' if g == 'A' else g)
+            for g in sorted(set(subscripts) & _JET_GROUPS)}
+
+
+def _shifted_one_slot(
+        x_jet:  NDArray,    # shape=(n_slots,)+...
+        xnp,
+) -> NDArray:               # same shape. Slot t holds what slot t-1 held; slot 0 holds zero
+    return xnp.concatenate([xnp.zeros_like(x_jet[:1]), x_jet[:-1]], axis=0)
+
+
+@functools.lru_cache(maxsize=None)
+def _jet_scan_body(
+        subscripts: str,            # a jet_contract string whose case has a full partner, whitespace stripped
+        lens:       GroupLengths,
+) -> typ.Callable:                  # the body of the scan over the partner's coefficients
+    '''The scan body of `over_orders='scan'`, for a product and for a readout alike: one coefficient of
+    the partner per step, contracted with the carrier, which rides the carry and is shifted one slot per
+    step. Memoized on hashable statics only, so each (string, lengths) has ONE body object and an eager
+    jax scan compiles once (docs/contributor/scan_body_principles.md, rule 4). The body closes over
+    strings and ints, never arrays: every operand rides the carry or the scanned inputs.'''
+    case = _jet_string_case(subscripts)
+    step_subscripts, carrier, partner = case.step_subscripts, case.carrier, case.partner
+    step_lens = _jet_group_lens(step_subscripts, lens)
+    n_operands = len(case.terms)
+
+    def _jet_scan_step(
+            carry:  typ.Tuple,              # (the sum so far, the carrier jet shifted, (every other operand but the partner, ...))
+            xs:     typ.Tuple[NDArray],     # (one coefficient of the partner,)
+    ) -> typ.Tuple[
+        typ.Tuple,                          # the next carry: the sum with this coefficient's part added,
+                                            # the carrier shifted one more slot, the other operands as they came
+        typ.Tuple[()],                      # nothing is stacked
+    ]:
+        total, carried, others = carry
+        (coefficient,) = xs
+        xnp, _, _ = get_backend(True, tree_contains_jax((carry, xs)))   # only xnp; it ignores the flag
+        carried = _shifted_one_slot(carried, xnp)
+        rest = iter(others)
+        operands = [carried if p == carrier else (coefficient if p == partner else next(rest))
+                    for p in range(n_operands)]
+        return (total + contract(step_subscripts, *operands, **step_lens), carried, others), ()
+
+    return _jet_scan_step
+
+
+def _jet_scan(
+        subscripts:     str,                    # the jet_contract string, whitespace stripped
+        lens:           GroupLengths,
+        step_operands:  typ.List[NDArray],      # the operands of one step, with the carrier whole and unshifted;
+                                                # the partner's entry is not read
+        partner_jet:    NDArray,                # shape=(order+1,)+...: scanned along its order axis
+        xscan,                                  # the scan of get_backend(True, use_jax)
+) -> NDArray:                                   # the sum over the partner's coefficients of the step's contraction
+    '''`over_orders='scan'`: the partner's coefficient 0 against the carrier as it is, by one `contract`
+    call (which gives the sum its shape and its dtype); then a scan over the other coefficients, the
+    carrier shifted one slot before each.'''
+    case = _jet_string_case(subscripts)
+    step_operands = list(step_operands)
+    step_operands[case.partner] = partner_jet[0]
+    total = contract(case.step_subscripts, *step_operands, **_jet_group_lens(case.step_subscripts, lens))
+    others = tuple(x for p, x in enumerate(step_operands) if p not in (case.carrier, case.partner))
+    (total, _, _), _ = xscan(_jet_scan_body(subscripts, lens),
+                             (total, step_operands[case.carrier], others), (partner_jet[1:],))
+    return total
+
+
+def jet_contract(
+        subscripts:   str,              # a literal grouped string, e.g. 'TWCa,Caib,AWCi->TWCb'. T: the order
+                                        # group of a full jet; A: of an affine variable. Each leads its term.
+        *operands:    NDArray,          # one array per input term. A T axis has order+1 slots, an A axis 2
+        lens:         GroupLengths,     # the axis counts of T, W, K, C: the whole record, at every call
+        over_orders:  str,              # 'scan' | 'loop': how a full jet is taken one coefficient at a time. No default
+) -> NDArray:                           # the output term's shape. Its T axis, if it has one, has order+1 slots
+    """``contract``, with the order groups ``T`` and ``A`` multiplying as truncated polynomials.
+
+    A jet stacks a variable over its Taylor coefficients: slot ``t`` of its leading order axis is the
+    coefficient of ``s^t``. A full jet has ``order+1`` slots and is written with the group ``T``; an
+    affine variable has two, and is written with ``A``. A term over the orders is the truncated product
+    of its operands' jets, ``c[t] = sum over i+r=t of contract(a[i], ..., b[r])``, and the string says
+    which case it is:
+
+    - one operand has an order group, and so has the output: the axis rides. One ``contract`` call.
+    - two operands have one, and the output has ``T``: the truncated product. The first full jet
+      keeps ``T`` through the contraction and the other is taken one coefficient at a time: two
+      contractions when it is affine; when it is full, the form ``over_orders`` names.
+    - the output has no order group: the top coefficient of the product (the orders of the operands
+      sum to ``order``), which is what a block readout is. Two full jets are contracted along the
+      order axis in one ``contract`` call, one of them turned; a further operand is taken one
+      coefficient at a time: two contractions when it is affine; when it is full, the form
+      ``over_orders`` names.
+
+    At order 0 (``lens.T == 0``) both groups are empty and the call is exactly one ``contract`` call
+    on the string as written.
+
+    ``over_orders`` names the form wherever a full jet is taken one coefficient at a time: in a
+    product of two full jets, and in a readout of three. Both forms give the same value, to rounding:
+
+    - ``'scan'``: a scan over that jet's coefficients. The other jet is carried and shifted one slot
+      up the order axis per step, so every step has the same shapes and the zeros the shift brings in
+      do the truncation. In a product each coefficient is contracted against the whole carried jet;
+      in a readout, against the carried jet and the turned one along the order axis. The scan is the
+      ``xscan`` of ``get_backend(True, use_jax)``: a real ``jax.lax.scan`` when an operand is a jax
+      array (a compiled program of one size at every order), a Python loop on numpy.
+    - ``'loop'``: a Python loop over the same coefficients, with slices; it contracts only the pairs
+      of orders in range, and its program grows with the order.
+
+    Order 0, a ride, a product with an affine operand and a readout with no third full jet have no
+    such loop, and are the same under both.
+
+    The order group leads its term, and every ``T`` axis has the same ``order+1 >= 2`` slots (an
+    ``A`` axis 2).
+
+    ``lens`` is one record of the axis counts of every group, the same at every call of a computation.
+    Every group of the string is pinned by it, so an operand with a stray or a missing axis raises
+    rather than being read as a longer stack. Numpy or jax is inferred from the operands; nothing is
+    reshaped, so every sub-axis of ``W``, ``K`` and ``C`` shards free, as with ``contract``.
+
+    One step of a sweep: the jet ``mu`` through a core ``G`` and an affine ``xi``.
+
+    >>> import numpy as np
+    >>> from t3toolbox.backend.contractions import GroupLengths, jet_contract
+    >>> rng = np.random.default_rng(0)
+    >>> order = 3
+    >>> mu = rng.standard_normal((order + 1, 5, 2))                     # T=(4,), W=(5,), axis a
+    >>> G = rng.standard_normal((2, 3, 4))                              # C=(), axes (a, i, b)
+    >>> xi = rng.standard_normal((2, 5, 3))                             # A=(2,), W=(5,), axis i
+    >>> lens = GroupLengths(T=1, W=1, K=0, C=0)
+    >>> out = jet_contract('TWCa,Caib,AWCi->TWCb', mu, G, xi, lens=lens, over_orders='loop')
+    >>> out.shape
+    (4, 5, 4)
+    >>> by_hand = (np.einsum('wa,aib,wi->wb', mu[2], G, xi[0])          # coefficient 2: orders 2+0 and 1+1
+    ...            + np.einsum('wa,aib,wi->wb', mu[1], G, xi[1]))
+    >>> bool(np.allclose(out[2], by_hand))
+    True
+
+    Two full jets: the two forms over the orders agree to rounding.
+
+    >>> nu = rng.standard_normal((order + 1, 5, 4))                     # T=(4,), W=(5,), axis b
+    >>> eta_scan = jet_contract('TWCa,Caib,TWCb->TWCi', mu, G, nu, lens=lens, over_orders='scan')
+    >>> eta_loop = jet_contract('TWCa,Caib,TWCb->TWCi', mu, G, nu, lens=lens, over_orders='loop')
+    >>> eta_scan.shape, bool(np.allclose(eta_scan, eta_loop))
+    ((4, 5, 3), True)
+
+    No order group in the output: the top coefficient, here summed over the samples (a block readout).
+
+    >>> block = jet_contract('TWCa,AWCi,TWCb->Caib', mu, xi, nu, lens=lens, over_orders='loop')
+    >>> block.shape
+    (2, 3, 4)
+
+    Order 0 is the same string with ``T=0``: no order axis anywhere, and one ``contract`` call.
+
+    >>> lens0 = GroupLengths(T=0, W=1, K=0, C=0)
+    >>> jet_contract('TWCa,Caib,AWCi->TWCb', mu[0], G, xi[0], lens=lens0, over_orders='loop').shape
+    (5, 4)
+
+    An operand of the wrong rank raises, wherever the extra axis is (structural gotcha):
+
+    >>> jet_contract('TWCa,Caib,AWCi->TWCb', mu[:, None], G, xi, lens=lens, over_orders='loop')   # doctest: +IGNORE_EXCEPTION_DETAIL
+    Traceback (most recent call last):
+        ...
+    ValueError: jet_contract('TWCa,Caib,AWCi->TWCb'): operand 0 (term 'TWCa') has ndim 4, but ...
+    """
+    if not isinstance(lens, GroupLengths):
+        raise TypeError(f"jet_contract(): lens must be a GroupLengths, got {type(lens).__name__}.")
+    if over_orders not in ('scan', 'loop'):
+        raise ValueError(f"jet_contract(): over_orders must be 'scan' or 'loop', got {over_orders!r}.")
+    subscripts = subscripts.replace(' ', '')
+    case = _jet_string_case(subscripts)
+    terms = case.terms
+    if len(operands) != len(terms):
+        raise ValueError(f"jet_contract({subscripts!r}): {len(terms)} input term(s) but "
+                         f"{len(operands)} operand(s).")
+    for p, (term, operand) in enumerate(zip(terms, operands)):
+        ndim = sum(getattr(lens, 'T' if ch == 'A' else ch) if ch.isupper() else 1 for ch in term)
+        if operand.ndim != ndim:
+            raise ValueError(f"jet_contract({subscripts!r}): operand {p} (term {term!r}) has ndim "
+                             f"{operand.ndim}, but the term has ndim {ndim} with {lens}.")
+
+    n_slots = None                              # order + 1: the length of every T axis
+    if lens.T:
+        for p, (term, operand) in enumerate(zip(terms, operands)):
+            group = _order_group(term)
+            if group == 'T' and n_slots is None:
+                n_slots = operand.shape[0]
+            if group and (operand.shape[0] < 2 or operand.shape[0] != (2 if group == 'A' else n_slots)):
+                raise ValueError(
+                    f"jet_contract({subscripts!r}): operand {p} (term {term!r}) has {operand.shape[0]} "
+                    f"slot(s) on its order axis -- where there is an order axis (lens.T == 1) every full "
+                    f"jet (T) has the same order+1 >= 2 slots and an affine variable (A) has 2.")
+
+    if lens.T == 0 or case.kind == 'ride':      # no order axis, or it rides: exactly one contraction
+        return contract(subscripts, *operands, **_jet_group_lens(subscripts, lens))
+
+    step_subscripts = case.step_subscripts
+    step_lens = _jet_group_lens(step_subscripts, lens)
+    step_operands = list(operands)
+    xnp, _, xscan = get_backend(True, tree_contains_jax(operands))
+
+    if case.kind == 'product':
+        # PART 2 (row 5.5), the contraction order inside a step -- NOT fixed here, on purpose. A step
+        # contracts three things: the carried jet with all its slots, the operands with no order group
+        # (a core), and ONE coefficient of the partner. The cheap order takes the coefficient with the
+        # core first (the expensive contraction, once) and then meets every slot of the carried jet.
+        #   jax:    `contract` runs one `jnp.einsum`, whose default optimizer picks that order.
+        #   numpy:  `contract` forces `_pairwise_path`, which pairs the operands sharing the most
+        #           letters; here that is a three-way tie, the tie goes to the first two operands, and
+        #           wherever those are the carried jet and the core, the expensive contraction is done
+        #           on EVERY slot, at every step. The values are the same; the cost is not.
+        # The order of a term's contractions is the contraction-order decision of Part 2. Until then
+        # tests/test_jet_contract.py (TestOrderInsideAStep) holds an expected failure that turns into
+        # a reported failure the day the numpy order changes, so that this note cannot be forgotten.
+        carrier_jet, partner_jet = operands[case.carrier], operands[case.partner]
+        if case.partner_is_full and over_orders == 'scan':
+            return _jet_scan(subscripts, lens, step_operands, partner_jet, xscan)
+        product = None
+        for r in range(partner_jet.shape[0]):       # an affine partner (two coefficients), or 'loop'
+            step_operands[case.carrier] = carrier_jet[:n_slots - r]
+            step_operands[case.partner] = partner_jet[r]
+            part = contract(step_subscripts, *step_operands, **step_lens)       # slots r .. of the product
+            product = part if r == 0 else product + xnp.concatenate(
+                [xnp.zeros((r,) + part.shape[1:], part.dtype), part], axis=0)
+        return product
+
+    # the top coefficient of the product: the orders of the operands sum to order
+    scanned = case.partner if over_orders == 'scan' else None       # a full jet beyond the pair, under 'scan'
+    looped = tuple(p for p in case.looped if p != scanned)          # taken one coefficient at a time, here
+    top = None
+    for taken in itertools.product(*(range(operands[p].shape[0]) for p in looped)):
+        left = n_slots - 1 - sum(taken)             # what the remaining operands' orders must sum to
+        if left < 0:
+            continue
+        for p, r in zip(looped, taken):
+            step_operands[p] = operands[p][r]
+        if scanned is not None:                     # the pair along the whole order axis, at every step
+            carried = operands[case.pair[0]]
+            if left < n_slots - 1:                  # the orders already taken: the carrier starts that far up
+                carried = xnp.concatenate([xnp.zeros_like(carried[:n_slots - 1 - left]), carried[:left + 1]], axis=0)
+            step_operands[case.pair[0]] = carried
+            step_operands[case.pair[1]] = operands[case.pair[1]][::-1]
+            part = _jet_scan(subscripts, lens, step_operands, operands[scanned], xscan)
+        else:
+            if case.pair:                           # contracted along the order axis, one of them turned
+                step_operands[case.pair[0]] = operands[case.pair[0]][:left + 1]
+                step_operands[case.pair[1]] = operands[case.pair[1]][:left + 1][::-1]
+            else:
+                step_operands[case.alone] = operands[case.alone][left]
+            part = contract(step_subscripts, *step_operands, **step_lens)
+        top = part if top is None else top + part
+    return top

@@ -45,6 +45,7 @@ import t3toolbox.optimizers as topt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _jet_trs_twins as twins      # the binomial tensor: test-only (the package never contracts it)
+import _jet_contract_cases as jet_cases     # the literal jet_contract strings and their operands: test-only
 
 try:
     import jax
@@ -416,6 +417,97 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(
             lambda cc, ix, p, cp: pd.t3_entries_corewise_derivatives_transpose(cc, ix, p, cp, 3, sum_over_probes=True),
             ca, idx, list(self.zz), self.x.data)
+
+    # ---------------------------------------------------- jit bucket: jet_contract
+    # the cases of jet_contract: the order axis rides; a product with an affine leaf; a product of two full jets
+    # and a readout of three (the two where the forms over the orders differ); a readout with an affine leaf
+    JET_RIDE, JET_AFFINE, JET_FULL = 'TWKCo,Cio->TWKCi', 'TWCa,KCaib,AWCi->TWKCb', 'TWCa,KCaib,TWCb->TWKCi'
+    JET_READOUT, JET_READOUT_FULL = 'TWCa,AWCi,TWKCb->KCaib', 'TWCa,TWCi,TWKCb->KCaib'
+    JET_CASES = (JET_RIDE, JET_AFFINE, JET_FULL, JET_READOUT, JET_READOUT_FULL)
+
+    def _jet_operands(self, string, order, dtype=np.float64):
+        rng = np.random.default_rng(0)
+        shape_of = dict(W=(2, 2), K=(3,), C=(2,))
+        arrays, _ = jet_cases.build(string, order, shape_of, rng)
+        lens = contractions.GroupLengths(T=1 if order else 0, W=2, K=1, C=1)
+        return [a.astype(dtype) for a in arrays], lens
+
+    def test_jit_jet_contract(self):
+        """jit each case under both forms (a stray np.* on a tracer would raise), at orders 3 and 0; jax in
+        gives jax out, eagerly too; float32 stays float32 with x64 on (so no array is created in a default
+        dtype); and the numbers are numpy's (a smoke test).
+
+        Then the dispatch is inferred from ALL the operands: for each operand position in turn, that operand is
+        a numpy array held OUTSIDE the traced arguments while the others are traced. If jax-ness were read off
+        a subset of the operands, a host numpy call would meet a tracer and raise (eagerly it would not: numpy
+        pulls a concrete jax array to the host without a word, and the sum re-absorbs it)."""
+        for string in self.JET_CASES:
+            for order in (3, 0):
+                for form in ('scan', 'loop'):
+                    for dtype, smoke_tol in ((np.float64, 1e-12), (np.float32, 1e-5)):
+                        arrays, lens = self._jet_operands(string, order, dtype)
+                        fn = lambda *ops: contractions.jet_contract(string, *ops, lens=lens, over_orders=form)
+                        on_numpy = fn(*arrays)
+                        jops = [jnp.asarray(a) for a in arrays]
+                        with self.subTest(string=string, order=order, over_orders=form, dtype=np.dtype(dtype).name):
+                            self.assertTrue(common.is_numpy_ndarray(on_numpy))
+                            self.assert_jit_jax(fn, *jops)
+                            self.assert_eager_jax(fn, *jops)
+                            jitted = jax.jit(fn)(*jops)
+                            self.assertEqual(jitted.dtype, dtype)
+                            self.assertEqual(fn(*jops).dtype, dtype)
+                            self.assertEqual(on_numpy.dtype, dtype)
+                            self.assertLess(norm(np.asarray(jitted) - on_numpy) / norm(on_numpy), smoke_tol)
+                        for p in range(len(arrays)):
+                            with self.subTest(string=string, order=order, over_orders=form,
+                                              dtype=np.dtype(dtype).name, numpy_operand=p):
+                                mixed = lambda *rest: fn(*rest[:p], arrays[p], *rest[p:])   # arrays[p]: numpy, closed over
+                                traced = jops[:p] + jops[p + 1:]
+                                out = jax.jit(mixed)(*traced)
+                                self._leaves_all_jax(out)
+                                self.assertEqual(out.dtype, dtype)
+                                self.assertLess(norm(np.asarray(out) - on_numpy) / norm(on_numpy), smoke_tol)
+                                self.assert_eager_jax(mixed, *traced)
+
+    def test_jet_contract_scan_is_one_lax_scan(self):
+        """Wherever a full jet is taken one coefficient at a time (a product of two full jets, a readout of
+        three), ``over_orders='scan'`` on jax operands is ONE ``lax.scan`` over the coefficients, so the program
+        has one size at every order; ``'loop'`` has no scan and grows with the order. Elsewhere (a ride, an affine
+        leaf, a readout with no third full jet) neither form scans, and the program has one size at every order
+        under both. And the scan body is one stable object per (string, lengths), so an EAGER scan traces its
+        body on the first call only (docs/contributor/scan_body_principles.md)."""
+        def program(string, order, form):
+            arrays, lens = self._jet_operands(string, order)
+            fn = lambda *ops: contractions.jet_contract(string, *ops, lens=lens, over_orders=form)
+            return str(jax.make_jaxpr(fn)(*[jnp.asarray(a) for a in arrays]))
+
+        n_lines = lambda string, order, form: len(program(string, order, form).splitlines())
+        for string in (self.JET_FULL, self.JET_READOUT_FULL):
+            with self.subTest(string=string):
+                self.assertEqual(1, program(string, 3, 'scan').count('scan['))
+                self.assertEqual(0, program(string, 3, 'loop').count('scan['))
+                self.assertEqual(n_lines(string, 2, 'scan'), n_lines(string, 8, 'scan'))
+                self.assertLess(n_lines(string, 2, 'loop'), n_lines(string, 8, 'loop'))
+        for string in (self.JET_RIDE, self.JET_AFFINE, self.JET_READOUT, 'TWCi,TWKCo->KCio'):
+            for form in ('scan', 'loop'):
+                with self.subTest(string=string, over_orders=form):
+                    self.assertEqual(0, program(string, 3, form).count('scan['))
+                    self.assertEqual(n_lines(string, 2, form), n_lines(string, 8, form))
+
+        # eager: the first call traces the body (more `contract` calls than the one made outside the scan);
+        # a second call, with new arrays of the same shapes and an equal record built anew, does not
+        for string in (self.JET_FULL, self.JET_READOUT_FULL):
+            _release_jax_programs()         # forget every traced body, so that the first call below is a first
+            calls = []
+            for trial in range(2):
+                arrays, lens = self._jet_operands(string, 3)
+                jops = [jnp.asarray(a + trial) for a in arrays]
+                with unittest.mock.patch.object(contractions, 'contract', wraps=contractions.contract) as spy:
+                    contractions.jet_contract(string, *jops, lens=dc.replace(lens), over_orders='scan')
+                calls.append(spy.call_count)
+            with self.subTest(string=string):
+                self.assertGreater(calls[0], 1, 'the first eager call should have traced the scan body')
+                self.assertEqual(1, calls[1], 'the eager scan traced its body again: the body is not a stable object')
 
     # ---------------------------------------------------- jit bucket: backend functions
     def test_jit_backend(self):

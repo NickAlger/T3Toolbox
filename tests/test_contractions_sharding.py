@@ -18,6 +18,7 @@ Runs on 4 VIRTUAL CPU devices (`XLA_FLAGS=--xla_force_host_platform_device_count
 before jax initializes -- hence the module-level env manipulation and the import guard below.
 """
 import os
+import sys
 import unittest
 
 import numpy as np
@@ -28,6 +29,9 @@ import t3toolbox.backend.common as common
 # same process, the flag is ignored -- hence the device-count skip in setUpClass rather than an assert.
 os.environ['XLA_FLAGS'] = (os.environ.get('XLA_FLAGS', '') +
                            ' --xla_force_host_platform_device_count=4').strip()
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _jet_contract_cases as jet_cases     # the 41 literal jet_contract strings of the sampling terms: test-only
 
 
 def _scan_vocabulary():
@@ -127,6 +131,49 @@ class TestInterpreterAnyAxisSharding(unittest.TestCase):
         Pin that the size table covers the whole vocabulary."""
         letters = {ch for subs in _scan_vocabulary() for ch in subs if ch.islower()}
         self.assertFalse(letters - set(self.SINGLE), 'letters with no sweep size: %s' % sorted(letters - set(self.SINGLE)))
+
+    def test_jet_contract_shards_free_over_every_W_sub_axis(self):
+        """``jet_contract`` multiplies the order groups with ``contract`` calls on SLICES of the order axis
+        (and, under ``'scan'``, a carried jet shifted along it): it reshapes nothing and never moves a
+        sample axis. So the property above carries over to every string it derives and to the programs
+        it builds around them -- the scan, the loop with slices, the turned slice of a block readout.
+        Compiled, not argued: each of the 41 strings of the sampling terms, at order 2, under both forms
+        over the orders, with each sub-axis of the sample stack ``W`` sharded in turn (every operand that
+        has ``W`` is sharded there; the cores and whatever else has no ``W`` are replicated). ZERO
+        all-gathers. The readouts sum over ``W``: an all-reduce, which the math requires.
+        """
+        from jax.sharding import PartitionSpec as P
+        import t3toolbox.backend.contractions as ctr
+
+        order = 2
+        lens = ctr.GroupLengths(T=1, W=2, K=1, C=1)
+        checked = 0
+        for family, string in jet_cases.ALL_STRINGS:
+            for ax in range(2):                         # W has 2 sub-axes; ax=1 is the minor one
+                W = tuple(self.n_dev if j == ax else 2 for j in range(2))
+                shape_of = dict(W=W, K=(2,), C=(2,))    # K on the operand that names it (lens.K is its count)
+                arrays, specs = [], []
+                for term in jet_cases.input_terms(string):
+                    groups, core, affine = jet_cases.spec_of(term)
+                    arrays.append(jet_cases.make(self.rng, shape_of, groups, core, 2 if affine else order + 1))
+                    parts = []
+                    for g in groups:
+                        parts += (['m' if j == ax else None for j in range(2)] if g == 'W'
+                                  else [None] * (1 if g == 'T' else len(shape_of[g])))
+                    parts += [None] * len(core)
+                    specs.append(P(*parts) if 'm' in parts else P())
+                self.assertTrue(any('m' in spec for spec in specs), string)     # W really is sharded
+                for form in ('scan', 'loop'):
+                    with self.subTest(string=string, axis=ax, over_orders=form):
+                        n = self._all_gathers(
+                            lambda *ops: ctr.jet_contract(string, *ops, lens=lens, over_orders=form),
+                            specs, *arrays)
+                        self.assertEqual(0, n,
+                            "jet_contract(%r, over_orders=%r) inserted %d all-gather(s) with axis %d of W "
+                            "sharded -- it slices the order axis only, so every sample axis must shard free."
+                            % (string, form, n, ax))
+                        checked += 1
+        self.assertEqual(checked, 41 * 2 * 2)
 
 
 @unittest.skipUnless(common.jax_available, 'jax not available')

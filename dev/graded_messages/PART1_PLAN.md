@@ -29,7 +29,7 @@ following ("The two parts", and the answer to O-19):
 
 | Open row | What Part 1 does |
 | --- | --- |
-| 5.3 sites | Sweeps go through `xscan`. Map-type operations go one site at a time: a loop over the sites on the ragged layout, `xmap` on the uniform one, for order 0 and for jets alike. No string carries the site group `S` |
+| 5.3 sites | Sweeps go through `xscan`. Map-type operations go one site at a time: a loop over the sites on the ragged layout, `xmap` on the uniform one, for order 0 and for jets alike. There is no site group: a step sees one site's arrays on both layouts |
 | 5.5 contraction order | `contract`'s present default: one einsum on jax, the cached greedy pairwise path on numpy |
 | 7.2 defaults | The model holds the plain sweep variables and the residual |
 | 7.3 where the plan lives | There is no plan, and no signature has a `plan` argument |
@@ -60,12 +60,12 @@ the stochastic step, as today, and makes `take` traceable).
 | --- | --- |
 | The plan | An optional `plan=None` keyword on `sampling_variables`, and wherever 7.3 puts it (the oracle, the model or the solver). No Part 1 signature has to change |
 | The form over the orders (2.9) | `jet_contract` already takes `over_orders`; Part 1's engine sets it from the layout, Part 2 from the plan |
-| The sites (5.3) | The map-type operations at all sites at once on the uniform layout: the map-type strings gain `S`, and `GroupLengths` already has the field (it is 0 at every call in Part 1). To be revisited in Part 2 (O-19) |
+| The sites (5.3) | The map-type operations at all sites at once on the uniform layout, if Part 2 wants them: uniform code of its own, written with the library's `d` axis, not the shared step with an optional group (the maintainer, 2026-11-17: the site group `S` is removed). To be revisited in Part 2 (O-19) |
 | What is held (7.2) | The least-squares oracle's fixed hold list becomes a field of the plan; `held` already flows through every call |
 | Chunking (7.4) | Chunks are array shapes of the batch; the engine already accepts any number of sample axes `W` |
 | Trial policies b and c (4.3) | An optimizer option; the geometry already returns centers with the frame |
 | Several MC-SGD steps in one program (8.3) | The stochastic step is a module-level function of pytrees, and `take` is traceable with a static size |
-| Contraction order (5.5) | Every term is a literal string at its call site, so a per-term order has one place to attach |
+| Contraction order (5.5) | Every term is a literal string at its call site, so a per-term order has one place to attach. Known cost until then: on numpy the default order inside one step of a product does the expensive contraction on every slot (`TARGET_DECISIONS.md`, "Carried to Part 2", item 1; marked in the code and by an expected-failure test) |
 | The benchmark | Part 2 compares the branch with the released 2026.5.0; the dry port (section 9) lets T3Polynomial's benchmark run on the branch |
 
 Part 1 is not released on its own. All work stays on `graded-messages` until Part 2 is done.
@@ -308,7 +308,6 @@ frontend entry ("I would leave the engine to the backend", the answers of 20:15)
 ```python
 @dataclass(frozen=True)
 class GroupLengths:                 # the axis counts of one call's groups (5.4); hashable, a static
-    S:  int                         # site axes: 0 at every call in Part 1 (O-19); the field is Part 2's
     T:  int                         # 1 if order else 0; also the count of the affine group A
     W:  int                         # sample axes
     K:  int                         # direction-stack axes
@@ -337,13 +336,17 @@ The two forms over the orders (2.9; O-10), both built and tested in Part 1:
 
 `jet_contract` knows nothing of the layout; it reads whether its operands are jax, as every function does. The
 caller says which form: in Part 1 the engine passes `'scan'` on the uniform layout and `'loop'` on the ragged one,
-which is how the library runs today. A product with an affine operand, order 0 and the block readouts are the
-same under both forms. The two forms agree to rounding, not bit for bit.
+which is how the library runs today. A product with an affine operand, order 0, and a block readout
+whose jets are all contracted in one call are the same under both forms. A readout that takes a further full jet
+one coefficient at a time (the four `H` strings with a full leaf) follows the form: under `'scan'` it is a real
+scan with the carried shift, so the compiled program has one size at every order (2.9, the notes of 19:08 and
+19:32); under `'loop'` it is slices over the triangle. The two forms agree to rounding, not bit for bit.
 
 **The strings in Part 1.** The 41 strings of the seven families of `scripts/review/term_stacks_check.py`
 (`STRINGS`). The 25 of the map-type families (`xi` 5, `z` 3, `eta` 4, `V` 5, `H` 8) are written there with the
-site group `S`; in Part 1 they run one site at a time, so they stand at their call sites with `S` deleted, and the
-16 sweep strings (`mu`, `nu`) as they are: 41 literal strings, none with `S`. `GroupLengths.S` is 0 at every call.
+site group `S`, which the maintainer removed on 2026-11-17; they run one site at a time, so they stand at their
+call sites with `S` deleted, and the 16 sweep strings (`mu`, `nu`) as they are: 41 literal strings. `GroupLengths`
+has four fields, `T`, `W`, `K`, `C`, and `S` is not a letter a string may name.
 
 ```python
 def jet_to_dual_jet(
@@ -899,8 +902,8 @@ These are the library's rules, applied to this arc. Every slice is held to them;
   (5.1 note): `nu_step` given `L` cores returns `nu_L`. The 22 steps of `scripts/review/jet_steps_check.py` stand.
 - **Every term is a literal string at its call site, through `jet_contract`**, with `K` on the operand that carries
   it, the record `GroupLengths` passed whole and the form over the orders named (5.4, 2.9). The 41 strings of the
-  seven families are listed in `scripts/review/term_stacks_check.py` (`STRINGS`); in Part 1 none carries the site
-  group `S` (section 2.4).
+  seven families are listed in `scripts/review/term_stacks_check.py` (`STRINGS`); none carries a site
+  group (section 2.4).
 - **Dispatch** at the lowest level: `use_jax = tree_contains_jax(...)` over all inputs, `is_uniform` from the
   structure, `xnp, xmap, xscan = get_backend(is_uniform, use_jax)`. No `use_jax` argument. Uniform masks are host
   numpy and use `np`, never `xnp` (`CLAUDE.md`).
@@ -999,7 +1002,7 @@ memoized on `(subscripts, lens)`; `'loop'` is a Python loop over the pairs of or
 `jet_contract` (`term_stacks_check.py`) is the algebra and `scripts/review/order_scan_check.py` the check of the two
 forms; their Python-loop scan is not the code. It passes `contract` only the lengths of the groups each derived
 string names.
-- Tests (`tests/test_jet_contract.py`): every one of the 41 strings, as Part 1 writes them (section 2.4, no `S`),
+- Tests (`tests/test_jet_contract.py`): every one of the 41 strings, as Part 1 writes them (section 2.4),
   against a reference that uses neither `contract` nor `jet_contract` (the prototype's `reference`, moved into the
   test), at orders 0, 1, 3, with `W`, `K`, `C` empty and not, under both forms; the two forms agree to tolerance on
   every product of two full jets, at orders 1 to 16, in float64 and float32; a perturbation is caught; a stray axis
@@ -1671,7 +1674,7 @@ interfaces, not kernels.
 `docs/transposes.md` (its table and headings: the call forms in N16's order; sum by default; `residual`),
 `docs/fitting_and_optimization.md` (the oracle, the batch, the new signatures; the weight's exact shape; ones by
 default with the asterisk of 2.5; derivative data prepared outside), `docs/batching_and_stacking.md` (`T` and `A`,
-the sample stack on the outputs), `docs/grouped_contractions.md` (`jet_contract`), `docs/frame_variations.md`
+the sample stack on the outputs), `docs/grouped_contractions.md` (`jet_contract`, with one table of the letters that says which are grouped stack axes, `C`, `W`, `K`, and which are the two jet axes, `T` and `A`, whose meaning is multiplication of jets and not alignment of axes; and the definition of `A` as the two-slot format of the order group), `docs/frame_variations.md`
 (centers), `docs/numerical_contracts.md` and `docs/contributor/numerical_contract_catalog.md` (the backend's
 checkers, not guarantees; what the frontend enforces, and when), `docs/sharing.md`, `docs/rank_continuation.md` and `docs/aligned_padded_frame.md` where they call
 optimizers, `docs/uniform_equivalence_contract.md`, `docs/contributor/fitting_internals.md`,
@@ -1697,7 +1700,7 @@ are rewritten in the slice that changes it (section 5); P19 rewrites the prose.
 **Records.** `docs/glossary.md` (the variables, the oracle, the batch, held, centers; the old names removed);
 `docs/naming_conventions.md` (the sampling modules, the new modules, the corewise-call rule) and
 `docs/contributor/naming_rules.md`; `docs/contributor/deferred_and_rejected.md` (the "kwarg-unified derivative
-interface" entry reversed, 6.6 note); `dev/OPEN_QUESTION_extension_surface.md` given its resolution (3.4) and
+interface" entry reversed, 6.6 note; a new entry for jets in several variables, a future feature the maintainer named on 2026-11-17, with what the design implies for it: `T` and `A` with one axis per jet variable); `dev/OPEN_QUESTION_extension_surface.md` given its resolution (3.4) and
 archived; `CLAUDE.md` (the paper-to-code map replaced by a pointer to its page; the sampling section; the
 safe-mode paragraph, whose "Frontend-only for now (a backend mirror for raw-`.data` users is deferred)" becomes the
 backend's checkers; the shipped surface; the module list);
