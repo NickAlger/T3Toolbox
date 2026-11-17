@@ -1942,3 +1942,14 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   operand's shape means zeros beyond it, and the output shape is explicit. He agreed with all three.
 - It is to be planned by a writer and a critic (Opus) at the pause after P4, as one or more new slices between P4
   and P5, with the plan document updated, before anything is implemented. Recorded in `TARGET_DECISIONS.md`.
+
+## 117. The public interface is generalized from the start; the letter and the structure are open (2026-11-17, 13:58)
+
+- The maintainer: the public interface takes jets in several variables from the start, not only the jet
+  contraction, because this release is the time to break things. Claude's staging of entry 116 is not taken.
+- He proposed the letter `J` for the jet group and asked for a recommendation; Claude recommends `J`. Not yet
+  confirmed.
+- Claude proposed the structure (one jet shape in place of the integer `order`; the inputs are jets and `pp`
+  leaves every signature; everything of the type of `z` has the jet axes) and named its costs and open points
+  (the common call through a helper, against row 6.6; the entries kind; the display; the rework). Not yet
+  confirmed. Recorded in `TARGET_DECISIONS.md` and in the brief of the plan phase.

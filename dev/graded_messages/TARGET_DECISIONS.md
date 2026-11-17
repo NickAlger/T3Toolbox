@@ -525,14 +525,51 @@ the slices are to be planned at the pause after P4 and carried out before P5.
     conversions use the product of the factorials; strings that differ only in `A` against `T` merge;
     `GroupLengths.T` is `m`; the display, the reference module and the dense functions get `m` order axes.
   - **A cost named:** with one jet letter a string no longer shows which operand is affine.
-  - **Staging proposed by Claude, not yet confirmed:** the jet contraction for general `m` from the start, by a
-    simple correct algorithm; the engine and the public interface single-variable in Part 1, written so that
-    widening later touches only the items above.
+  - **Staging proposed by Claude, and not taken** (see the next entry): the jet contraction for general `m` from
+    the start, by a simple correct algorithm; the engine and the public interface single-variable in Part 1,
+    written so that widening later touches only the items above.
 - **How it is done** (13:49): "I would like to do this as a new slice (or multiple slices) at the pause, inbetween
   P4 and P5. We would do a plan phase with writer and critic Opus agents to create the new slices and update the
   plan document before implementing."
 - This supersedes, for the jet contraction, the entry "A future feature: jets in several variables" above, and it
   changes row 5.4 (the groups `T` and `A`), the 41 strings and P1's `jet_contract`, which is rebuilt.
+
+**The public interface is generalized from the start** (the maintainer, 2026-11-17, 13:58). Decided: the scope.
+Open with him: the structure below, and the letter.
+
+- **Decided, in his words:** "I would like to generalize it from the start. I am concerned that if we do not do it
+  right in the first place, downstream code and future features may start to assume the current structure, and we
+  will have to break them later if we generalize. This release is already mega-breaking, so this is the time to do
+  it." So Claude's staging (the public interface single-variable in Part 1) is not taken. What Part 1 owes for
+  several variables is the right interface and correct results, tested against the definitions; speed for several
+  variables is Part 2.
+- **The letter.** He proposed `J` for jet, noting that it meets the `J` of the Jacobian and that `T` and `A` have
+  downsides of their own ("they are likely variable names for tensors in a user's code"), and asked for a
+  recommendation. **Claude recommends `J`**: `T` already meets the dense tensor argument `T` in the very
+  signatures where the shapes are written (the dense functions of P2), and reads as transpose and as tangent;
+  the Jacobian's `J` lives in the names of variables (`Jp`, `JtJp`, `Jp_norm_sq`) and the group's would live in
+  contraction strings and shape comments, which are different places; `J` is free among the symbols of the
+  stores and cores; the other free letters are worse (`O` reads as zero, `P` sits beside `pp`, `S` was just
+  removed and names the variable). Not yet confirmed by him; the working choice for the plan phase.
+- **The structure Claude proposed to him (14:00), not yet confirmed:**
+  1. *One concept, the jet shape:* a tuple of maximum orders, one per jet variable, `()` for no jets, in place of
+     the integer `order` everywhere. An integer stays as shorthand for one variable and `0` for none. The number
+     of jet variables is `m = len(order)`, and every array that carries jets has exactly `m` leading jet axes.
+     Row 6.2 keeps its sense: `order` decides how the leading axes are read, never the type of the object.
+  2. *The inputs are jets:* the sample's vectors carry the jet axes themselves, with sizes of their own
+     (`ww[i]` of shape `J_in + W + (N_i,)`), and `pp` leaves every signature. The line `w + s p` is the input jet
+     of two slots, built by a helper. Inputs along a curve, or affine in several variables, need nothing new. The
+     affine case stops being a concept: an input of two slots makes `xi` a jet of two slots and the general
+     product handles it.
+  3. *Everything of the type of `z`* (data, residual, weight, block sums) has the jet axes where the one order
+     axis is today. The dual jet turns every jet axis; the derivative conversions use the product of the
+     factorials.
+- **Costs and open points named to him:** the most common call gets one step longer
+  (`probe(ww, pp, order=3)` becomes a call through the helper), which reverses the form row 6.6 decided, so it is
+  his to confirm; the entries kind, whose sample is an integer index and cannot carry jet axes; the display of a
+  table with several order axes; the rework of P1 to P3 and the rewriting of every signature with `pp` or
+  `order` in P5 to P20.
+- The brief of the plan phase (`reviews/jet_group_plan/BRIEF.md`, item 3) carries this.
 
 ## Carried to Part 2 from the implementation of Part 1
 

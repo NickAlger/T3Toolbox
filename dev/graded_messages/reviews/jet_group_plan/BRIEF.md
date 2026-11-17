@@ -85,12 +85,26 @@ guide asks: design the correct thing, then say what it costs.
 2. **The semantics, stated exactly**, with the cases that are easy to get wrong: an operand with fewer slots than
    the output; with more; a size-1 jet axis; operands with no jet group; `m = 0` (must be exactly `contract`);
    the truncation rule and who is responsible for it.
-3. **The scope in Part 1.** Claude proposed, and the maintainer has not yet confirmed: the jet contraction for
-   general `m` from the start; the engine and the public interface single-variable in Part 1 (`order` an
-   integer, the sample `(ww, pp)`), written so that widening later touches a short, named list of things. Work
-   out that list concretely and judge the proposal: what is cheap to generalize now and what is not; where a
-   single-variable assumption would be hard to remove later. Put the choice to the maintainer with what each
-   option costs.
+3. **The scope in Part 1: the public interface is generalized from the start** (the maintainer, 2026-11-17,
+   13:58: "I would like to generalize it from the start. I am concerned that if we do not do it right in the
+   first place, downstream code and future features may start to assume the current structure, and we will have
+   to break them later if we generalize. This release is already mega-breaking, so this is the time to do it.").
+   So not only the jet contraction: the sampling functions and methods, the engine, the oracle and the batch,
+   the data and the weight, the jet helpers, the preparation functions, the checkers, the reference module, the
+   dense functions and the display all take a jet shape and jets of any number of variables. What Part 1 owes
+   for several variables is correctness (tested against the definitions) and the right interface; speed for
+   several variables is Part 2. Claude's proposal for the structure, put to the maintainer on 2026-11-17 and
+   recorded in `TARGET_DECISIONS.md` (the note "One jet group, of any number of axes", and what follows it), is
+   the starting point: work it out fully, test it against the code, and list as open whatever it leaves open or
+   gets wrong. Its main points: one concept, the jet shape (a tuple of maximum orders, one per jet variable; the
+   empty tuple for no jets), in place of the integer `order`; **the inputs are jets** (the sample's vectors carry
+   the jet axes, of sizes of their own, and `pp` leaves every signature; a helper builds the common affine
+   input); every array of the type of `z` (data, residual, weight, block sums) has the jet axes where the one
+   order axis is today; the dual jet turns every jet axis; each variable of the engine has a declared jet shape,
+   the input's or the full one. To be worked out: the entries kind with jets (its sample is an integer index);
+   the display of a table with several order axes; what the consumer's calls become.
+   **The letter of the jet group:** the maintainer proposed `J` for jet and asked for a recommendation; Claude
+   recommends `J` (see the same note). Treat `J` as the working choice and list it for his confirmation.
 4. **What is rebuilt of P1 to P3.** `jet_contract` and its tests; the 41 strings (which merge once `A` is the
    jet group; give the new table of strings, derived, not guessed); the expected-failure marker for Part 2;
    `GroupLengths`; the reference module's and `jets.py`'s wording and shapes (`A = (2,)`); anything else. Use
