@@ -1,7 +1,7 @@
 # T3Toolbox — current handoff
 
 _Updated 2026-11-15, at the 2026.5.0 release; "The next arc" updated the same evening, when the design work moved into
-`dev/graded_messages/`, and again at the pause of 2026-11-16, 04:46 (on the branch `graded-messages`)._ The previous handoff (the store rename R1–R6, phase timing P1–P3, the
+`dev/graded_messages/`, at the pause of 2026-11-16, 04:46, and at the pause of 2026-11-17, 15:20, after slice P4 of the implementation (on the branch `graded-messages`)._ The previous handoff (the store rename R1–R6, phase timing P1–P3, the
 switch W1–W4, the glossary/docs pass, the hand fixes, and the 2026.4.0 arc's state blocks) is archived verbatim at
 `dev/archive/handoff_2026-11-15_pre-2026.5.0.md`; older ones are `handoff_2026-10-29_pre-2026.3.0.md`,
 `handoff_2026-08-21_optimization_layer.md`, `handoff_2026-08-20_pre-2026.1.0.md` and
@@ -48,6 +48,42 @@ not the usual one, then `_tilde`, `_dot`; `NOTATION_HISTORY.md` when an older te
 types of every sampling variable, arrows on the edges, a type checker for every contraction); then
 `DESIGN_AFTER_REVIEW.md` and `REVIEW_DECISIONS.md` (the log). The older documents there carry status notes and are
 history.
+
+**STATE AT THE PAUSE OF 2026-11-17, 15:20 (after slice P4; the current state, and it supersedes the blocks below
+where they differ).** All of this is on the branch `graded-messages`; `main` is untouched since the release.
+
+- **The target was settled and split into two parts** (2026-11-16): Part 1 is what is computed (names, conventions,
+  interfaces); Part 2 is performance (the plan object, chunking, contraction order). No release until both are done.
+- **Part 1 has an approved plan**, `dev/graded_messages/PART1_PLAN.md` (Nick, 2026-11-16, 21:16), in slices P0 to P20.
+  How it is carried out is its section 12 and `dev/graded_messages/implementation/BRIEF.md`: per slice an implementer
+  and a reviewer (Fable 5.2, medium effort) go back and forth until the reviewer signs off; the orchestrating session
+  looks it over and commits (authored by NickAlger, Claude as co-author); major issues go to Nick. The per-slice record
+  is `implementation/LOG.md` with each slice's handover, reviews and responses beside it.
+- **Built, reviewed, committed and pushed: P0 to P4.** P0 the baseline and the gate script
+  (`implementation/run_gate.sh`; steps run ONE AT A TIME, never sphinx beside tests); P1 `jet_contract` and
+  `GroupLengths` in `backend/contractions.py`; P2 the reference module `backend/sampling_definitions.py` and the dense
+  functions; P3 `backend/jets.py`, `backend/data_preparation.py`, the checkers and the frontend's re-exports in
+  `fitting.py`; P4 the frame checkers (`fv_frame_consistency_residual`, `fv_centers_consistency_residual`, their
+  uniform twins, the cached `consistency_residual` on both frame classes). The suite is at 1,632 passed, 5 skipped,
+  1 xfailed (the xfail is the contraction-order marker carried to Part 2). Nothing of the old sampling layer is
+  rerouted or deleted yet: P5 to P11 build the engine, P12 to P17 switch the layers over, P20 deletes.
+- **P5 is NOT started, on purpose.** Nick asked for a planned pause after P4, and decided at it to **generalize the
+  jets first** (2026-11-17, log entries 116 to 120 of `dev/graded_messages/REVIEW_DECISIONS.md`; the notes "One jet
+  group, of any number of axes" and "The public interface is generalized from the start" in `TARGET_DECISIONS.md`):
+  one jet group, letter `J`, of any number of axes (jets in several variables), box truncation, an explicit output
+  shape; `T` and `A` leave the contraction strings; `order` becomes a jet shape (a tuple of maximum orders); the
+  inputs are jets with sizes of their own (a line is two slots, a curve more) and `pp` leaves every signature, a
+  helper building the input of a line; everything of the type of the output has the jet axes; the entries kind is of
+  order 0 only (a helper to one-hot vectors, and apply for anything with a derivative; `entries_derivatives` goes).
+- **NEXT:** a plan phase for that generalization, by an Opus writer and an Opus critic, to the brief
+  `dev/graded_messages/reviews/jet_group_plan/BRIEF.md`: new slices between P4 and P5 (which rebuild parts of P1 to
+  P3) and `PART1_PLAN.md` brought in line everywhere. Nick reviews and signs off; then the new slices are implemented
+  by the usual pair; then P5.
+- **For Nick, from P4** (`implementation/LOG.md`, "P4, review round 1"): the normalization and reduction of the
+  centers' residual; `UT3Frame.is_consistent` now thresholds against `max(1, ||T||)`; `(x - y).norm()` loses accuracy
+  across gauges, and whether the private `_tt_difference_norm` route deserves a public name.
+- **Carried to Part 2** (the section of that name in `TARGET_DECISIONS.md`): the contraction order inside one step of
+  `jet_contract` on numpy; map-type operations on uniform one site at a time; the benchmark against 2026.5.0.
 
 **State at the pause of 2026-11-16, 04:46** (Nick: "let's pause. We will pick up tomorrow"): 41 of the 56 rows decided,
 11 remain. Groups A (jets and the misfit), B (the frame and the value) and C (what a kind is, and the public surface)

@@ -80,6 +80,19 @@ documents and some of the proposal.
 - **The plan of Part 1 was approved on 2026-11-16 at 21:16, and its implementation began.** The work is in
   `implementation/`: the brief, and for each slice a handover and its reviews. The library is now being changed on
   this branch, one slice per commit.
+- **Paused on 2026-11-17 at 15:20, after slice P4, as the maintainer asked.** P0 to P4 are built, reviewed,
+  committed and pushed (`implementation/LOG.md` has each slice's record): the gate, `jet_contract`, the reference
+  module and the dense functions, the jets with the checkers and the preparation of data, and the frame checkers.
+  P5 is not started.
+- **Jets are generalized before P5 (decided 2026-11-17; log entries 116 to 120).** One jet group, letter `J`, of
+  any number of axes: jets in several variables, cut off as a box, with the shape of the output given
+  explicitly. `T` and `A` leave the contraction strings. The public interface is generalized from the start:
+  `order` is a jet shape; the inputs are jets with sizes of their own and `pp` leaves every signature, a helper
+  building the input of a line; everything of the type of the output has the jet axes; the entries kind is of
+  order 0 only. This supersedes, in the bullet of 2026-11-15 above, "input jets are always a point and one
+  direction" and the form `probe(ww, pp=None, order=0)`. **Next:** a writer and a critic plan the new slices
+  between P4 and P5 and bring `PART1_PLAN.md` in line (`reviews/jet_group_plan/BRIEF.md`); the maintainer signs
+  off; then they are implemented; then P5.
 - **The earlier documents are not rewritten.** `EXECUTION_PLANS.md`, `EVALUATOR.md` and `scripts/plan_mockup.py`
   describe the design before the review, and `PROPOSAL.md`, `API_IMPACT.md` and `WORKED_EXAMPLE.md` are affected in
   places. Each has a status note at its top saying what no longer holds. Where they disagree with
@@ -87,7 +100,8 @@ documents and some of the proposal.
 - **A new requirement governs the end state.** Straight after the refactor the maintainer will profile the
   downstream consumer T3Polynomial and tune the new options. A consumer must be able to use every addition
   without rewriting the optimizers and without changing T3Toolbox.
-- **Nothing in T3Toolbox or T3Polynomial was modified.** Everything here is documents and standalone scripts.
+- **Until 2026-11-16 nothing in T3Toolbox was modified**; since then the library is changed on this branch, slice
+  by slice. Nothing in T3Polynomial has been modified.
 - **The algebra is verified numerically on small problems; performance is not.** See "What is established" below.
 
 ## Contents
