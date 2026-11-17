@@ -1,7 +1,7 @@
 # Part 1 of the graded-messages refactor: implementation plan
 
-**Status.** Draft r4, 2026-11-16, for review. Written against the branch `graded-messages` at `a9c31b2` (the library
-and `tests/` unchanged since `4d38df7`). The names
+**Status.** Final draft (r4), 2026-11-16, agreed by the reviewer in round 4; awaiting the maintainer. Written against
+the branch `graded-messages` at `a9c31b2` (the library and `tests/` unchanged since `4d38df7`). The names
 in this plan are proposals until the maintainer settles the table of names (section 3). Every statement about the
 library was checked against the code at that commit; counts were recounted there.
 
@@ -497,8 +497,8 @@ def t3_probe_corewise_hessian(
 a corewise call; both follow the layout above. Where the new keywords go is a proposal (names table, N16). The uniform twins (`ut3_probe`, `utv_probe`,
 `utv_probe_transpose`, `ut3_probe_corewise_transpose`, `ut3_probe_corewise_hessian`, and apply and entries) take
 the same arguments (open point O-3). In `backend/optimizers.py`: `LocalModel` (section 2.2),
-`newton_cg(geom, oracle, batch, x0, regularizer=None, ...)` (8.3), and the other three with the same head and
-`regularizer=None` after their positional arguments, today's keywords following in today's order:
+`newton_cg(geom, oracle, batch, x0, regularizer=None, ...)` (8.3), and the other three with the same head and, as
+proposed in N30, `regularizer=None` after their positional arguments, today's keywords following in today's order:
 `mc_sgd(geom, oracle, batch, x0, rng, batch_size, regularizer=None, draw=None, ...)`, `adam(...)` likewise,
 `gradient_descent(geom, oracle, batch, x0, regularizer=None, ...)`, `flat_draw(oracle, batch, batch_size)` returning `draw(rng) -> batch`. The
 `Geometry` protocol: `frame(x)` returns `(frame, centers)`, the corewise geometries' frame is the point `(B, G)`,
@@ -595,8 +595,8 @@ positionally (searched).
 Fitting and optimization (frontend). The four optimizers take `(geometry, oracle, batch, x0, ...)` (8.3), with
 `val_batch` in place of `val_sample`/`val_data` (8.4), and without `kind`, `sample`, `data`, `order`, `weight`
 (8.3, 2.3, 6.7) and `chunk_size` (Part 1 drops it). `mc_sgd` and `adam` take `batch_size` in place of `batch`
-(note to 8.1 to 8.4). `regularizer=None` follows the positional arguments, as 8.3 writes it for `newton_cg`; every
-other keyword keeps today's order. The oracle is the same object in the frontend and the backend; the batch is
+(note to 8.1 to 8.4). `regularizer=None` follows the positional arguments: 8.3 writes it so for `newton_cg`, and
+N30 proposes the same for the other three; every other keyword keeps today's order. The oracle is the same object in the frontend and the backend; the batch is
 ragged, and the frontend packs it for a uniform `x0`. The keywords not shown are today's:
 
 ```python
@@ -659,6 +659,7 @@ representation-agnostic infrastructure) and `docs/contributor/naming_rules.md` (
 | N27 | the module of N14 and N15 | `backend/contractions.py` | `jet_contract` is `contract` with one more rule |
 | N28 | the module of the uniform twins | `backend/ut3_sampling.py`, `backend/utv_sampling.py`, as today | Grouped by object type, as the naming page records |
 | N29 | the script that draws the dependency diagrams | `docs/sampling_diagrams.py` | Beside the page it draws for (O-23) |
+| N30 | the place of `regularizer` in `gradient_descent`, `mc_sgd` and `adam`, backend and frontend | `regularizer=None` right after the positional arguments, as 8.3 writes it for `newton_cg`; in `mc_sgd` and `adam` it then comes before `draw` (today it comes after `use_jit` in the frontend, and the backend has none) | By analogy with 8.3, which fixes it for `newton_cg` only |
 
 ---
 
@@ -963,7 +964,9 @@ keyword and their default; and every link to `docs/chunking.md`):
   `fit_shared_factors_jetted_probes.py`). No example calls a frontend transpose. Five of them (all but
   `fit_probe_display.py`) also import `sampling_derivatives` as `pd` for their dense ground truth
   (`pd.dense_apply_derivatives`, `pd.dense_probe_derivatives`); that call moves here too, to the replacement O-27
-  settles, so that P19 can delete the module.
+  settles, so that P19 can delete the module. If O-27 is answered as proposed, P13 extends
+  `backend/sampling_definitions.py` (the module of P2) so that its `z` accepts a dense tensor, with its tests in
+  `tests/test_sampling_definitions.py` and its doctest.
 - Pages that name the removed methods in prose only (`docs/entries_apply_probe.md`, `docs/naming_conventions.md`,
   `docs/transposes.md`) are rewritten in P18.
 - Tests added: the doctests on the merged methods (`order=0` returns today's shapes; `order=2` adds `T` outermost).
@@ -1369,6 +1372,7 @@ the new library (section 10).
   | `t3toolbox/fitting.py`, `t3toolbox/optimizers.py` (with its lazy import of `sampling_derivatives` in `_bfit_pd`), `backend/optimizers.py` (a doctest calls `sd.t3_probe_derivatives`) | the old kinds, `uniform_sampling_kind`, `uniform_least_squares_problem`, the chunk estimator | P16 |
   | `examples/fit_hilbert_from_apply_derivatives.py`, `_flat.py`, `_topt.py`, `fit_hilbert_uniform_probe_derivatives_newton_cg.py`, `fit_shared_factors_jetted_probes.py` | `pd.dense_apply_derivatives` or `pd.dense_probe_derivatives`, for the dense ground truth | P13, with the replacement O-27 settles |
   | `tests/test_probe_derivatives.py`, `test_tucker_tensor_train.py`, `test_uniform_probing.py` | the `*_derivatives` functions as comparisons | P13 |
+  | `tests/test_jax_absent.py` (in its subprocess script, a string: `bfit.probe_derivatives_kind(order)`, line 71) | an old kind | P16 |
   | `tests/test_fitting.py`, `tests/test_optimizers_frontend.py` (also by `mock.patch` strings), `tests/backend/test_optimizers.py`, `test_optimizer_display.py`, `test_padded_start.py`, `test_zero_reference.py`, `test_uniform_fitting.py` | the old kinds, the `*_derivatives` data makers, the chunk estimator | P16 |
   | `tests/backend/test_curvature.py`, `_curvature_oracles.py`, `test_uniform_curvature.py` | comparisons with the old two-holes, sweeps and jet functions; the old kinds | the kinds in P16; the rest here |
   | `tests/test_dispatch.py` | rows for old functions and old kinds | the fitting rows in P16; the rest here |
