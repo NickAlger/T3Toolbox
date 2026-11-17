@@ -574,7 +574,23 @@ Open with him: the structure below, and the letter.
   jet axis, so its higher coefficients are free ("Let's allow it (differing p1, p2) per your proposal"). `order`
   cannot be inferred from the input: the shape does not say how many leading axes are jet axes, and the order of
   the output is not the degree of the input. The cost of a product follows the input's own size (one step per
-  slot), so a line costs what it costs today. **Still open:** the letter `J`; the entries kind (log entry 119).
+  slot), so a line costs what it costs today.
+- **The letter is `J`** (the maintainer, 14:44). `T` and `A` leave the contraction strings, and `GroupLengths.T`
+  becomes `GroupLengths.J`.
+- **The entries kind is of order 0 only** (the maintainer, 14:44, on his own question of 14:39: "For entries, the
+  setting is different: we are fitting a tensor to data, and it is not clear what the function should be"). The
+  reason: an index is a discrete argument, and a tensor on a grid has no derivative until it is extended off the
+  grid. The extension is a choice the tensor does not contain, and once it is made it is a curve of input vectors
+  starting at `e_i`, which is apply. The `e_index + s P` of the released `entries_derivatives` is one such choice
+  (the multilinear extension); a nodal basis and finite differences are others, and none is the derivative of an
+  entry. What entries saves over apply at order 0 (an integer sample, a slice in place of a product, a scatter in
+  the transpose) is mostly lost once any slot is a dense vector. So: the entries functions take an index and no
+  `order`; an oracle of the entries kind has no jet shape; a helper turns an index into one-hot vectors, and a
+  user who wants the old behaviour calls apply with the input jet `(one_hot(index), p)`, which also serves a
+  tensor with some discrete modes and some continuous ones. This removes a released feature
+  (`entries_derivatives` and its tangent forms; no example and nothing found in the consumer uses it), for the
+  upgrade notes. It amends every row that gives entries an `order` or a `pp`, among them the ambient transpose
+  `t3_entries_ambient_transpose(index, shape, residual, sum_over_samples=False)`, which stands as written.
 - The brief of the plan phase (`reviews/jet_group_plan/BRIEF.md`, item 3) carries this.
 
 ## Carried to Part 2 from the implementation of Part 1

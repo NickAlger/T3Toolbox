@@ -1983,3 +1983,13 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   transpose) it mostly loses once any slot is a dense vector. No example and nothing in the consumer uses
   entries with derivatives. Proposed: entries is the kind of order 0 only, its functions take no `order`, and a
   helper turns an index into one-hot vectors for apply.
+
+## 120. The entries kind is of order 0 only; the jet letter is `J` (2026-11-17, 14:44)
+
+- The maintainer: "Agree on both: entries is order-0 only and J is the jet letter".
+- Entries: no jets, no `order`, no `pp`; a helper to one-hot vectors, and apply for anything with a derivative.
+  The released `entries_derivatives` and its tangent forms go; for the upgrade notes.
+- With entries 118 and 119 this settles the structure of the generalized interface: one jet shape in place of the
+  integer `order`; the inputs are jets with sizes of their own and `pp` leaves every signature, a helper building
+  the input of a line; everything of the type of `z` has the jet axes. Still for the plan phase: the display of
+  several order axes, the consumer's calls, and the names of the two helpers.

@@ -101,10 +101,19 @@ guide asks: design the correct thing, then say what it costs.
    the jet axes, of sizes of their own, and `pp` leaves every signature; a helper builds the common affine
    input); every array of the type of `z` (data, residual, weight, block sums) has the jet axes where the one
    order axis is today; the dual jet turns every jet axis; each variable of the engine has a declared jet shape,
-   the input's or the full one. To be worked out: the entries kind with jets (its sample is an integer index);
-   the display of a table with several order axes; what the consumer's calls become.
-   **The letter of the jet group:** the maintainer proposed `J` for jet and asked for a recommendation; Claude
-   recommends `J` (see the same note). Treat `J` as the working choice and list it for his confirmation.
+   the input's or the full one. To be worked out: the display of a table with several order axes; what the
+   consumer's calls become.
+   **Decided by the maintainer since (2026-11-17, 14:20 to 14:44; log entries 118 to 120), and binding on the
+   plan:**
+   - One `ww` plus `order`, with a helper that builds the input jet from inputs of the `(ww, pp)` type.
+   - An input may have any number of slots along a jet axis: two for a line, more for a curve whose higher
+     coefficients are free. `order` stays an argument and is never inferred from the input.
+   - **The entries kind is of order 0 only.** It has no jets: its functions take an index and no `order`, and an
+     oracle of the entries kind has no jet shape. A helper turns an index into one-hot vectors, so that what
+     `entries_derivatives` computed is written as apply with the input jet `(one_hot(index), p)`. The entries
+     parts of P2 and P3 lose their `order`, and the engine slices carry jets for two kinds, not three.
+   - **The letter of the jet group is `J`.** `GroupLengths.T` becomes `GroupLengths.J`; `T` and `A` leave the
+     contraction strings.
 4. **What is rebuilt of P1 to P3.** `jet_contract` and its tests; the 41 strings (which merge once `A` is the
    jet group; give the new table of strings, derived, not guessed); the expected-failure marker for Part 2;
    `GroupLengths`; the reference module's and `jets.py`'s wording and shapes (`A = (2,)`); anything else. Use
