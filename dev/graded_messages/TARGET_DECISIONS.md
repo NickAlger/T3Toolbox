@@ -280,6 +280,24 @@ t3_probe_corewise_hessian(x, ww, residual, core_directions, pp=None, order=0)
   safety module can import it. There is no such thing as safe mode in the backend." On O-8: "I am concerned the
   proposed pytree approach will not work for the numpy-only user."
 
+- **O-14 (the two estimates read off the data), decided 19:54:** "compute inline, do not ship at this time.
+  Sometime in the future after this refactor is complete, we will do some more in-depth investigations on
+  scaling. That will be the appropriate time to add such things."
+- **O-15 (`docs/symmetric_probe_derivatives.tex` and the paper-to-code map), decided 19:54:** the document is
+  archived. The map is updated with the new variables where appropriate: "the new variables are different, but
+  most of them have some kind of analog in the paper. We explain the differences." It moves out of `CLAUDE.md`
+  into a file in `docs/`, "so that it is de-emphasized".
+- **O-16 (frontend access to the preparation functions), decided 19:54:** "Both backend and frontend. Frontend
+  user must be able to fit their tensors without digging through the backend to find the helpers."
+- **O-17 (the timing laps), decided 19:54:** as proposed, `oracle` in place of `sweep` and `residual`.
+- **The two users** (the maintainer, 19:54, on O-18 and the points like it): "there are two different
+  hypothetical users: the frontend user and the backend user. They each must be able to do all the important
+  operations with tools in their own layer. The backend is purely functional on basic types (with limited
+  exceptions, such as the held variables object we just discussed), and the frontend is OO-based. The frontend is
+  a wrapper over the backend. Any code that contains nontrivial logic should be in a backend function which is
+  called from the corresponding frontend function. This is to be understood *within reason*; exceptions can be
+  made in limited circumstances."
+
 ## What remains, in groups (2026-11-15, 15:34)
 
 Of the 57 rows in sections 1 to 9 (9.7 was added on 2026-11-16), 46 are decided, 3 are guidance and 1 is parked. The other 7 are below, in

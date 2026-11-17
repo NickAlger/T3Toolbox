@@ -1822,3 +1822,11 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
 - **O-10.** No sixth field and no layout argument. The 5.4 call form already carries `over_orders`; the engine
   sets it in Part 1 (scan on uniform, loop on ragged, as today) and the plan sets it in Part 2. The split's
   statement that Part 1 has only the scan form is corrected.
+
+## 103. O-14 to O-17 answered; the rule of the two users (2026-11-16, 19:54)
+
+- O-14: the estimates are not shipped now. O-15: the `.tex` note is archived and the paper-to-code map moves to
+  `docs/`, updated. O-16: the preparation functions are reachable in both tiers. O-17: as proposed.
+- On O-18 the maintainer stated the rule for every question of this kind: a frontend user and a backend user,
+  each able to do all the important operations in their own layer; nontrivial logic in a backend function that
+  the frontend function calls; within reason. Quoted in full in `TARGET_DECISIONS.md`.
