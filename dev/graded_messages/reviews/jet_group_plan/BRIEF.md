@@ -42,8 +42,8 @@ implementing."
   wins), `SAMPLE_VARIABLES.md` (every variable's name, definition, recurrence and shape),
   `implementation/BRIEF.md` (how slices are implemented and reviewed), `implementation/LOG.md` (what each
   finished slice did and decided), and each slice's handover and reviews in `implementation/`.
-- Slices P0 to P4 are implemented and committed (check `git log` and `implementation/LOG.md`). P5 to P20 are not
-  started. So far built: P1 `jet_contract` and `GroupLengths(T, W, K, C)`; P2 the reference module
+- Slices P0 to P4 are implemented and committed (P4 is `5991725`; check `git log` and `implementation/LOG.md`).
+  P5 to P20 are not started, and nothing else is being implemented while the plan is written. So far built: P1 `jet_contract` and `GroupLengths(T, W, K, C)`; P2 the reference module
   `backend/sampling_definitions.py` and the dense functions; P3 `backend/jets.py` and
   `backend/data_preparation.py`; P4 the checkers of a frame.
 - Decisions made during the implementation that bear on this: the site group `S` was removed and a rule set
@@ -74,9 +74,8 @@ implementing."
 These are the questions the plan must answer or list as open. Reason from first principles, as the library's
 guide asks: design the correct thing, then say what it costs.
 
-1. **The interface of the jet contraction.** One reserved letter for the jet group (which letter; `T` is the
-   natural candidate, and the maintainer noted that there is no third kind of letter to tell jet axes from
-   grouped stack axes). How each operand's jet sizes are known (from its array). How the output's jet shape is
+1. **The interface of the jet contraction.** One reserved letter for the jet group, `J` (decided; see item 3).
+   How each operand's jet sizes are known (from its array). How the output's jet shape is
    passed (an argument of each call; or a field of the record every call already passes; say which and why).
    What the record `GroupLengths` holds. What `over_orders` means now. Whether the three behaviours of today
    (ride, product, top coefficient) are one behaviour. What a readout is in the general setting (the corner
@@ -143,6 +142,8 @@ guide asks: design the correct thing, then say what it costs.
 - The writer changes `PART1_PLAN.md` and writes `reviews/jet_group_plan/ACCOUNT.md`; the critic writes
   `reviews/jet_group_plan/REVIEW_r<n>.md`. Change no other file. Do not commit. Do not touch
   `/home/claude/t3polynomial` (read only; do not run its code). Do not put anyone's email address in any file.
-- The implementation of other slices may be going on in the same tree while you work: do not run the test suite
-  or the gate (the machine has 2 cores and 7 GB and one run at a time); small scripts of your own in `/tmp` to
-  check a mathematical statement are fine and expected.
+- Do not run the whole test suite or the gate (the machine has 2 cores and 7 GB, and the writer and the critic
+  never run tests at the same time); small scripts of your own in `/tmp` to check a mathematical statement or a
+  statement about the code are fine and expected.
+- The log entries 116 to 120 of `REVIEW_DECISIONS.md` are the maintainer's decisions on this, in order; where
+  this brief and they differ, they win. Read them.
