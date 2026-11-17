@@ -471,6 +471,26 @@ today: `order` is one integer, the sample has one set of perturbation vectors `p
 0 or 1 only, and `jet_contract` requires one order axis leading its term. It goes into the library's ledger of
 deferred items (`docs/contributor/deferred_and_rejected.md`) with the documentation slice.
 
+**A `kind` argument where a function is three functions in one** (the maintainer, 2026-11-17, 12:02, in the
+review of P3). The dual-jet helpers and the derivative conversions had no `kind` and told the probe type from the
+others by whether they were given a tuple; a packed uniform probe array passed whole was then misread, silently.
+The maintainer: "A kind argument is acceptable and sometimes even desirable for functions whose output differs
+based on kind. In the examples listed it makes sense because the code function is really three mathematical
+functions bundled onto one, so it makes sense the user may have to say which one they want." So:
+
+- `jet_to_dual_jet(kind, order, jet, weight)`, `dual_jet_to_jet(kind, order, dual_jet, weight)`,
+  `derivatives_to_taylor(kind, order, jets)`, `taylor_to_derivatives(kind, order, jets)`. The argument order is
+  the one the other functions of the two modules have. This changes the signatures of the names N4 to N7 of the
+  plan's table. `derivative_weight_to_taylor_weight(weight, order)` is unchanged.
+- The type is decided by `kind`, never by the type of the object. For `'probe'` the function goes over the modes,
+  so a packed uniform array is taken mode by mode and comes out right, as a tuple; no code for the uniform layout
+  is added.
+- **The names of a corewise call** (`SAMPLE_VARIABLES.md`, section 9; `nu_dot`, `eta_dot`, `nu_tilde_dot`,
+  `eta_tilde_dot` among them) are confirmed: "those are fine."
+- Also decided by Claude in this slice, as minor: a public backend checker `check_coordinate_scales(scales,
+  shape)`, by the rule that the backend offers the checkers; and the frontend's `fitting.rescale_coordinates` is
+  its own function that calls it, so that a frontend user gets the error where the wrong `scales` are passed.
+
 ## Carried to Part 2 from the implementation of Part 1
 
 Kept here so that nothing found while building Part 1 is forgotten when Part 2 is planned. Each item names its

@@ -1925,3 +1925,11 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
 - The maintainer's idea, to "complete the picture": not in this arc. Recorded in `TARGET_DECISIONS.md` with what
   the present design implies for it and what is single-variable today; to be entered in the library's ledger of
   deferred items in the documentation slice.
+
+## 115. `kind` on the dual-jet helpers and the derivative conversions; the corewise names confirmed (2026-11-17, 12:02)
+
+- From the review of P3: the four functions that had no `kind` take it, first, with `order` after it, as the rest
+  of their modules do. The maintainer's reason: such a function is three mathematical functions in one, so the
+  caller says which. A packed uniform probe array then comes out right, mode by mode.
+- The names of a corewise call are confirmed.
+- Claude's minor decisions in P3: `check_coordinate_scales`; the frontend `rescale_coordinates` checks through it.
