@@ -333,6 +333,23 @@ t3_probe_corewise_hessian(x, ww, residual, core_directions, pp=None, order=0)
     optimizers take an oracle object, so they can drive a user-written one.
   - The reference module of definitions is backend only.
 
+- **Answers of 20:28.**
+  - **O-19 (map-type operations on the uniform layout):** "It does not matter what is done here for Part 1
+    because we will address this in detail in Part 2. Let's do the xmap style one (less memory) temporarily. This
+    must be revisited in Part 2." So Part 1 maps one site at a time through `xmap` on the uniform layout, for
+    order 0 and for jets alike; the strings have no site group `S` in Part 1. **Carried to Part 2 with row 5.3.**
+  - **O-20 (`dual_jet_to_jet` where a weight is zero):** "Raise in safe mode, divide by zero in unsafe mode,
+    divide by zero in backend." So the backend function divides, and the frontend's function of the same name
+    makes the check in safe mode before calling it.
+  - **O-23 (the dependency diagrams):** as proposed: generated from the declared graph, committed, and tested
+    against a fresh run.
+  - **O-24 (the switch slice):** "Split. Two commits." For one slice the frontend optimizers accept the old call
+    form and translate it; the next slice moves the examples and pages and deletes the translation.
+  - **O-25 (the bridge):** the first reading: a temporary test file that compares with code never rerouted onto
+    the engine, run in CI from P6 and deleted in P19.
+  - **O-26 (the folder's prototype scripts):** as proposed: they stay as records that run against `v2026.5.0`,
+    and the folder's README says so.
+
 ## What remains, in groups (2026-11-15, 15:34)
 
 Of the 57 rows in sections 1 to 9 (9.7 was added on 2026-11-16), 46 are decided, 3 are guidance and 1 is parked. The other 7 are below, in

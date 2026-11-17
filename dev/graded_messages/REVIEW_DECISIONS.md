@@ -1845,3 +1845,10 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   the least-squares oracle; the engine checks only what it needs to run, held shapes and operand ranks.
 - The preparation functions, the oracle and the batch are reachable from `t3toolbox.fitting`; a backend
   `pack_batch`; no frontend entry to the engine for now; writing an oracle is backend-level work.
+
+## 106. O-19, O-20 and O-23 to O-26 answered (2026-11-16, 20:28)
+
+- O-19: one site at a time on the uniform layout in Part 1, to be revisited in Part 2. O-20: the backend
+  divides; the frontend raises in safe mode. O-23 and O-26: as proposed. O-24: the switch is two commits. O-25:
+  the bridge is a temporary test in CI.
+- Left: O-21 (the maintainer's view stated, Claude to answer), O-22, O-27 with O-28.

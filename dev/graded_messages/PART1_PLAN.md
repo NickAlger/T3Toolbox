@@ -1507,6 +1507,12 @@ and will be brought in line in one pass when the list is complete.
 | O-17 | As proposed: the lap `oracle` in place of `sweep` and `residual` |
 | O-18 | A backend checker for the weight's exact shape, called by the frontend; the engine promises nothing about it; `_canonical_weight` goes. One checker for a whole batch on the least-squares oracle (`check_batch`, name open), called once by the frontend where a batch enters. The engine itself checks only what it needs to run, held shapes (6.5) and operand ranks (5.4). **The backend gives checkers, not guarantees** |
 | Frontend and backend | The preparation functions and jet helpers reachable from `t3toolbox.fitting`; `x.unscale_coordinates(scales)`; the oracle and the batch one class each for both tiers; a backend `pack_batch`; a frontend-only fit as a test; no frontend entry to the engine; writing an oracle is backend-level work |
+| O-19 | For Part 1: one site at a time through `xmap` on the uniform layout (less memory), for order 0 and jets alike; no site group `S` in Part 1's strings. To be revisited in Part 2 |
+| O-20 | The backend function divides; the frontend's function raises in safe mode and divides in unsafe mode |
+| O-23 | As proposed: generated from the declared graph, committed, tested against a fresh run |
+| O-24 | Split into two commits, with the transitional translation of the old call form in the frontend optimizers for one slice |
+| O-25 | The plan's reading: a temporary test file, in CI from P6, deleted in P19 |
+| O-26 | As proposed: the prototype scripts stay as records run against `v2026.5.0` |
 | O-10 | `jet_contract` does not learn the layout. It keeps the argument of the 5.4 call form, `over_orders` (`'scan'` or `'loop'`, 2.9), after `lens`. In Part 1 the engine passes `'scan'` on the uniform layout and `'loop'` on the ragged one; `GroupLengths` keeps five fields; both forms are built and tested |
 
 - **O-1. Which benchmark is the gate.** The decisions say "the consumer's benchmark", run with chunking off.
