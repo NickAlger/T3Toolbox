@@ -202,3 +202,11 @@ must pass `safety.effective_rtol(frame.data)`, since a float32 numpy frame reads
   1 xfailed; `/tmp/gate_P4_r1`); the slice's quick tests after my test, 167 passed. The suite is at 1,632.
 - **Not run here:** numpy 1.x (finding 7: an unstacked float32 frame's residual dtype). CI's floor leg runs it.
 - **The pause begins.** P5 is not started. The items for the maintainer are under "P4, review round 1" above.
+
+### At the pause: the plan phase for the generalized jets begins (2026-11-17, 15:30)
+
+The maintainer settled its inputs between 13:31 and 14:44 (log entries 116 to 120). The Opus writer (agent
+`ade730504190cf063`) was started at 15:30 on `reviews/jet_group_plan/BRIEF.md`; it changes `PART1_PLAN.md` and
+writes `reviews/jet_group_plan/ACCOUNT.md`. When it reports, a fresh Opus critic reviews
+(`reviews/jet_group_plan/REVIEW_r<n>.md`); they iterate until the critic agrees; then the maintainer reads and signs
+off; then the new slices are implemented by a Fable 5.2 medium pair; then P5. No implementation runs meanwhile.
