@@ -1966,3 +1966,20 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   one step per slot of the input, so a line costs what it costs today and a curve of `k` slots costs `k` steps,
   with no special case in the interface. Both of his grounds hold only if `order` were inferred from the input's
   shape, which would force the line to be padded with zeros. Claude recommends allowing it. Open with him.
+
+## 119. Input jets may have any number of slots; the entries kind with jets under thought (2026-11-17, 14:39)
+
+- **Decided:** "Let's allow it (differing p1, p2) per your proposal." An input's size along a jet axis is its own:
+  two slots for a line, more for a curve. `order` stays an argument.
+- **Under thought, his question:** what it means to differentiate the entries kind. He finds `e_i + s p1 + ...`
+  unnatural (it mixes the discrete and the continuous; a user who wants it can use apply), and notes that for
+  apply and probe the map is a polynomial function fitted to Taylor data of an unknown function, where for
+  entries "we are fitting a tensor to data, and it is not clear what the function should be."
+- **Claude's answer, a recommendation, open with him:** the entries kind has no jets. An index is a discrete
+  argument, and a tensor on a grid has no derivative until it is extended off the grid; the extension is a
+  choice the tensor does not contain, and once made it is a set of vectors, which is apply. Today's
+  `e_index + s P` is one such choice (the multilinear extension), computed as apply with a sliced first slot.
+  What entries keeps over apply at order 0 (an integer sample, a slice in place of a product, a scatter in the
+  transpose) it mostly loses once any slot is a dense vector. No example and nothing in the consumer uses
+  entries with derivatives. Proposed: entries is the kind of order 0 only, its functions take no `order`, and a
+  helper turns an index into one-hot vectors for apply.

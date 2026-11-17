@@ -569,6 +569,12 @@ Open with him: the structure below, and the letter.
   his to confirm; the entries kind, whose sample is an integer index and cannot carry jet axes; the display of a
   table with several order axes; the rework of P1 to P3 and the rewriting of every signature with `pp` or
   `order` in P5 to P20.
+- **Confirmed since** (14:20, 14:39): one `ww` plus `order`, with a helper for inputs of the `(ww, pp)` type
+  ("Definitely I prefer having one ww plus order as the API"); and an input may have any number of slots along a
+  jet axis, so its higher coefficients are free ("Let's allow it (differing p1, p2) per your proposal"). `order`
+  cannot be inferred from the input: the shape does not say how many leading axes are jet axes, and the order of
+  the output is not the degree of the input. The cost of a product follows the input's own size (one step per
+  slot), so a line costs what it costs today. **Still open:** the letter `J`; the entries kind (log entry 119).
 - The brief of the plan phase (`reviews/jet_group_plan/BRIEF.md`, item 3) carries this.
 
 ## Carried to Part 2 from the implementation of Part 1
