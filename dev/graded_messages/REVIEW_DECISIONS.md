@@ -1786,3 +1786,13 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   is in `TARGET_DECISIONS.md`, after the small items of Part 1.
 - **The oracle's operation is `query`:** "query is better than evaluate in my opinion".
 - Open: whether the three ambient transposes follow the same rule.
+
+## 99. The ambient transposes take the rule of N16, with the sum flag off (2026-11-16, 18:35)
+
+- The maintainer: "Ambient transposes: take the rule's order and names, default sum_over_samples to False." So
+  `t3_probe_ambient_transpose(ww, residual, sum_over_samples=False)`, the apply one likewise,
+  `t3_entries_ambient_transpose(index, shape, residual, sum_over_samples=False)`, and the frontend's static
+  methods. `ztildes` and `sum_over_probes` are then gone from the library.
+- The plan is updated (sections 2.4 and 2.5, the two merging slices, the last slice's grep). Its O-28 now asks
+  only about `dense_probe`. Before that, the plan's reviewer had agreed with the revision for N16
+  (`reviews/part1_plan/REVIEW_N16.md`), and Claude fixed its three minor items.

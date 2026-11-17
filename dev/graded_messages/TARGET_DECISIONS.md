@@ -204,8 +204,15 @@ t3_probe_corewise_hessian(x, ww, residual, core_directions, pp=None, order=0)
   with the frame first (`T3Tangent.probe_transpose(frame, ww, residual, ...)`): their input is a residual and
   their output a tangent, so they are constructors, like `T3Tangent.zeros(frame)`.
 - Every caller of these functions changes; the slice that merges them already visits every caller.
-- Not settled by this: whether the three ambient transposes, which the plan leaves as they are, take the rule's
-  order and names too.
+- **The three ambient transposes** (decided 2026-11-16, 18:35: "take the rule's order and names, default
+  sum_over_samples to False"). They keep their own code and are not merged with anything (6.3); they have no
+  object to be evaluated at and no `pp` or `order`:
+  `t3_probe_ambient_transpose(ww, residual, sum_over_samples=False)`,
+  `t3_apply_ambient_transpose(ww, residual, sum_over_samples=False)`,
+  `t3_entries_ambient_transpose(index, shape, residual, sum_over_samples=False)`, and the frontend's static
+  methods likewise. Their default is the opposite of the other transposes' (3.7) on purpose: for them the sum
+  folds `W` into the CP rank, which is another operation than summing blocks.
+- Not settled by this: whether `dense_probe(vectors, T)` takes the rule too (`dense_probe(T, ww)`).
 
 ## What remains, in groups (2026-11-15, 15:34)
 
