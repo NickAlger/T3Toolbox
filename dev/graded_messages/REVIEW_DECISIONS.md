@@ -1813,3 +1813,12 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   reworded by this.
 - **O-5.** Only a frame supplied by the caller is checked, `L` against `R` through `D`, when the model is built.
 - **O-1, O-2.** Confirmed: deletion on the tests alone; the benchmark of Part 2 runs against 2026.5.0.
+
+## 102. The held variables are an object with fixed slots; `jet_contract` is told the form, not the layout (2026-11-16, 19:35)
+
+- **O-8.** The maintainer allowed a dictionary-like object for the held variables, with a slot for each allowable
+  variable and a refusal of any other key. `HeldVariables` is that: frozen, read like a dictionary, extended by
+  `with_values`, taken by the engine as `held=None`. Details in `TARGET_DECISIONS.md`.
+- **O-10.** No sixth field and no layout argument. The 5.4 call form already carries `over_orders`; the engine
+  sets it in Part 1 (scan on uniform, loop on ragged, as today) and the plan sets it in Part 2. The split's
+  statement that Part 1 has only the scan form is corrected.

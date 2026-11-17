@@ -106,7 +106,7 @@ we can move forward on without much more planning, and the other which comes lat
 | Rows | every decided row, with the exceptions below | 5.3, 5.5, 7.2, 7.3, 7.5, 7.6, 7.7 |
 
 **Decided rows whose options wait for Part 2** (the row stands; Part 1 builds only the form the library has today):
-2.9, the loop form over the orders (Part 1 has the scan); 4.3, the trial policies b and c (Part 1 has policy a,
+2.9, the user's choice of the form over the orders (Part 1 sets it itself: the scan on the uniform layout, the loop on the ragged one, as today; corrected 2026-11-16, 19:35); 4.3, the trial policies b and c (Part 1 has policy a,
 with the frame's centers of 4.1 in place); 7.1 and 7.4, the plan and chunk sizes as array shapes (Part 1 has no
 plan); 8.3, which phases are compiled and several steps of MC-SGD in one program (Part 1 compiles the CG solve and
 the stochastic step, as today, and makes `take` traceable).
@@ -248,7 +248,34 @@ t3_probe_corewise_hessian(x, ww, residual, core_directions, pp=None, order=0)
   built. A frame the library built in the same call: nothing. Centers: not checked in the frontend, since by O-4
   no frontend user supplies them; the backend checker exists for users of raw data and for the tests. `U` on a
   supplied frame is not checked, as today.
-- **O-8, O-10:** still under discussion (see the log). On O-6 the maintainer set the frame: "Backend importing from frontend
+- **O-8 (the form of `held`), decided 19:35.** The maintainer (19:30): "We are dancing around the fact that the
+  natural datatype for held variables really is a dictionary. I'll allow a dictionary or dictionary-like object
+  here. What about a held variables object, which has slots for all the allowable held variables only. It can be
+  used like a dictionary, but will refuse if someone tries to put in an invalid key." Decided as Claude then
+  wrote it out:
+  - `HeldVariables` is a frozen record with one slot per variable that some other variable reads (taken from the
+    declared graph, and a test checks that the two agree), each `None` when not held, each with its shape comment.
+  - It reads like a dictionary: `held['mu']`, `'mu' in held`, `held.keys()` (the filled slots), iteration, `len`.
+    An unknown name raises, at construction and at lookup.
+  - Adding returns a new object (`held.with_values(mu=mu)`); the object is never changed in place (0.7; a model
+    never changes after it is built; a traced object must not be mutated).
+  - The engine takes it directly, `sampling_variables(..., held=None)`, in place of `**held` keywords, and the
+    oracle's `query(..., held=None)` passes it through.
+  - No shape check in the object: the shapes depend on the frame, the sample and the order, and the engine checks
+    every held variable it is handed at every call (6.5).
+  - A numpy-only user gets an ordinary object; it is registered with jax only where jax is importable.
+  - It lives beside the engine, in `backend/sampling_variables.py` (the plan's N26 had `backend/fitting.py`).
+  - The oracle protocol still types `held` as any object, the oracle's own business; `HeldVariables` is the
+    least-squares oracle's.
+- **O-10 (how `jet_contract` learns the layout), decided 19:35: it does not.** The call form of 5.4 already has
+  the form over the orders as an argument, `jet_contract(subscripts, *operands, lens, over_orders)`, with the two
+  values of 2.9: `'scan'` (one jet carried and shifted; a real `lax.scan` on jax, a Python loop on numpy) and
+  `'loop'` (a loop with slices). `jet_contract` reads whether its operands are jax, as every function does, and
+  knows nothing of the layout. In Part 1 the engine sets the value: `'scan'` on the uniform layout and `'loop'` on
+  the ragged one, which is how the library runs today. In Part 2 it comes from the plan, with no change of
+  signature. `GroupLengths` keeps the five fields of 5.4. Both forms are built and tested in Part 1.
+  **This corrects the section "The two parts":** "Part 1 has the scan" for 2.9 was wrong against the library,
+  whose ragged layout runs the orders in a Python loop. On O-6 the maintainer set the frame: "Backend importing from frontend
   is not acceptable. Perhaps we can put the checking functionality in the backend somewhere, then the frontend
   safety module can import it. There is no such thing as safe mode in the backend." On O-8: "I am concerned the
   proposed pytree approach will not work for the numpy-only user."

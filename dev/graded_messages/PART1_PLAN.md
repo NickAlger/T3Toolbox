@@ -1500,7 +1500,8 @@ and will be brought in line in one pass when the list is complete.
 | O-1, O-2, confirmed | The old kernels are deleted as the last step of Part 1 on the tests alone; Part 2's benchmark compares the branch with the released 2026.5.0 |
 | O-6 | Not as proposed. The backend has checkers only (residual functions, no raise, no mode); the engine, the backend `LocalModel` and the backend optimizers check nothing; the frontend enforces in safe mode where a frame comes in from the user, through a cached `T3Frame.consistency_residual`. `backend/optimizers.py` keeps its three imports |
 | O-5 | A frame the caller supplied: `L` against `R` through `D`, once, when the model is built. A frame the library built in the same call: nothing. Centers and `U`: not checked in the frontend |
-| O-8, O-10 | Under discussion |
+| O-8 | `HeldVariables`: a frozen record with one slot per variable that another variable reads, `None` when not held; read like a dictionary; an unknown name raises; `with_values(...)` returns a new one; no shape check in the object; the engine takes `held=None` in place of `**held`; it lives in `backend/sampling_variables.py`. The protocol types `held` as any object |
+| O-10 | `jet_contract` does not learn the layout. It keeps the argument of the 5.4 call form, `over_orders` (`'scan'` or `'loop'`, 2.9), after `lens`. In Part 1 the engine passes `'scan'` on the uniform layout and `'loop'` on the ragged one; `GroupLengths` keeps five fields; both forms are built and tested |
 
 - **O-1. Which benchmark is the gate.** The decisions say "the consumer's benchmark", run with chunking off.
   Proposed: `t3polynomial/scripts/b01_backend_bench.py`, which passes `chunk_size=None` on every arm. T3Polynomial's
