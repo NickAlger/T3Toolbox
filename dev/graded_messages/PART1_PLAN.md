@@ -860,7 +860,10 @@ corewise call and follows the layout above. The uniform twins (`ut3_probe`, `utv
 the uniform cores' `.data` and `frame` the uniform frame's; they check packing and call the engine, which masks
 once on entry and re-masks core-shaped outputs on exit (O-3). They mirror the form of the sample as today
 (`backend/ut3_sampling.py`, `ut3_probe`): a ragged `ww` (`len=d`, `J_in_i + W + (Ni,)`) gives a ragged output, a
-packed `(d,) + J + W + (N,)` gives a packed output. Every positional call of a function
+packed `(d,) + J + W + (N,)` gives a packed output. To pack input jets they call `ut3_operations.pack_if_ragged`
+with `len_J=len(order)`; `pack_vectors` and `pack_if_ragged` (public in `ut3_operations`) gain the keyword
+`len_J=0`, the number of leading jet axes brought to their largest size across the modes with zeros, every other
+axis still required to agree (P11; name proposed, N41). Every positional call of a function
 whose order changes moves, and every call by keyword of a renamed argument breaks; section 5.3, P12, lists them.
 
 In `backend/optimizers.py`: `LocalModel` (section 2.2),
@@ -1177,7 +1180,7 @@ These are the library's rules, applied to this arc. Every slice is held to them;
 The names are settled: the table of section 3, and the names added after it (section 11.3), except the names this
 change proposes (section 11.4). What each new slice waits on: P4a on O-38 (it is written so that the answer changes
 one rule) and the names N32, N33, N38, N39; P4b on O-36, O-41, O-44 and the names N35 to N37; P4c on O-36 and O-44;
-P4d on O-36, O-37, O-40, O-44, O-46 and O-47; P11 on O-45; P14 on O-44 and O-46; P16 on O-42 (the display). The order is the order of work; each slice starts when the one before it is committed
+P4d on O-36, O-37, O-40, O-44, O-46 and O-47; P11 on O-45 and the name N41; P14 on O-44 and O-46; P16 on O-42 (the display). The order is the order of work; each slice starts when the one before it is committed
 (section 12).
 
 | Slice | Content | Size |
@@ -1563,9 +1566,17 @@ one site at a time through `xmap` (O-19); the sweeps through `xscan`, a real `ja
 `over_orders='scan'`, nested inside (a real scan over a full partner where `m = 1`; the loop where `m >= 2`, section
 2.4). The packed sample is `(d,) + J + W + (N,)`: each mode's input jet brought to the largest size per jet axis by
 zero coefficients, written by `ut3_operations.pack_vectors` through `pack_if_ragged` (which the uniform twins and
-`pack_sample` call). Today `pack_vectors` pads the mode axis only and takes the stack shape of the first vector
-(`backend/ut3_operations.py`, lines 128 to 150); P11 extends it to bring every axis but the last to its largest size
-across the modes, with zeros, which leaves `W` as it is, since `W` is the same for every mode. Those zeros are coefficients, not padding (section 7.2): the packed input is the same
+`pack_sample` call). Today `pack_vectors` pads the mode axis only, takes the stack shape of the first vector, and
+raises when the modes disagree in `W` (the `xnp.pad` or the `xnp.stack` at the end fails; `backend/ut3_operations.py`,
+lines 128 to 152). P11 gives it and `pack_if_ragged` a keyword `len_J=0`, the number of leading jet axes: those
+`len_J` axes are brought to their largest size across the modes with zeros; every other axis but the last must still
+agree across the modes, and a mismatch raises as today. With `len_J=0` the function is today's, so its 55 calls in
+the library and 36 in the tests (an `ast` count of calls of the two names) are unchanged. It takes the count, not the jet shape: what it needs
+to know is how many leading axes may differ, and the target sizes are the largest of the modes' own sizes, which
+are not `F` (an input may have more slots than the box, or fewer); the count is what `contract` takes for a group
+too (`len_W=`, `len_C=`). The engine (P11), the uniform twins (P12) and `pack_sample` (P14) pass
+`len_J=len(order)`; `pack_data` needs no jet padding (the data have the full jet sizes `F` in every mode) and passes
+nothing. Those zeros are coefficients, not padding (section 7.2): the packed input is the same
 polynomial as the ragged one, so every site of the scan has one shape and the result is the ragged result. The
 leaves then have the packed jet sizes, clipped to `F`, and equal the ragged leaves, zero-extended.
 - Tests: equivalence with ragged on real parts (`to_uniform -> op -> to_ragged == op_ragged`) for every name, over
@@ -1578,6 +1589,11 @@ leaves then have the packed jet sizes, clipped to `F`, and equal the ragged leav
   `(1, 1)`, and on the case of the jet matrix with modes of different input jet sizes (packed with zero
   coefficients: `(1, 2)` with modes `(3, 2)`, `(1, 1)`, `(2, 3)`, and `(2,)`); entries at `()` only. Under jit with jax at `m = 1`, the
   compiled program of a call has the same size at orders `(2,)` and `(6,)` (the scan over the orders, 2.9).
+- `pack_vectors` and `pack_if_ragged` with `len_J` (`tests/test_uniform_probing.py` beside the packing tests, or a
+  new file): modes of unequal jet sizes are packed with zeros, and unpacking the ragged sizes gives the inputs back;
+  modes that disagree in `W` raise at every `len_J`, as today at `len_J=0`; with `len_J=0` the result equals
+  today's on the existing cases; a packed array is returned as it is.
+- What breaks: nothing. `len_J` is a new keyword with the default of today's behaviour; no existing call changes.
 - `Kp` on a frame with TT slack (its masks a strict subset of its point's): `core_directions` and the blocks take
   the frame's `D` and `L` masks; garbage in the padding of `core_directions` leaves the real blocks unchanged; and a
   mutation check (the mask on `core_directions` removed) turns this test red
@@ -1948,7 +1964,8 @@ interfaces, not kernels.
 shapes and inputs, so that several variables are tested wherever one is: `order = ()`; `(1,)` and `(3,)` with a line
 input (`affine_jet(ww, pp)`, today's case); `(1, 2)` with `affine_jet(ww, p1, p2)`; `(2,)` with an input of three
 slots (a curve) and with modes of different input jet sizes (one of them of size 1); and **`(1, 2)` with `d = 3`
-modes of input jet sizes `(3, 2)`, `(1, 1)` and `(2, 3)`**: a curve in one variable and a line in the other, a
+modes of input jet sizes `(3, 2)`, `(1, 1)` and `(2, 3)`**: a curve in one variable and a line in the other (the
+curve that reaches the outputs is the `(2, 3)` mode's, along `s_2`; the third slot of the `(3, 2)` mode is clipped), a
 discrete mode (one-hot, one slot) beside continuous ones (entry 120), and an input larger than the box `F = (2, 3)` on
 the first axis only, so the leaves' clipping `min(J_in_i, F)` acts on one axis. Only `m = 2` can show a per-axis bug
 (the clipping, the packing per axis), so the last case runs wherever the matrix does, packed on the uniform layout.
@@ -2023,8 +2040,8 @@ The entries kind runs at `()` only. Order 16 at `m = 1` where the scan is pinned
   2.4).
 - **There is no don't-care slot on a jet axis** (entry 116: an array's jet sizes mean zeros beyond them). Every slot
   of a jet axis is a coefficient. When modes of unequal jet sizes are packed into one array, the zeros written by
-  `ut3_operations.pack_vectors`, extended in P11 (through `pack_if_ragged`, which the twins of P12 and `pack_sample`
-  and `pack_batch` of P14 call) are the coefficients the
+  `ut3_operations.pack_vectors` with its new keyword `len_J` (P11; through `pack_if_ragged`, which the twins of P12
+  and `pack_sample` and `pack_batch` of P14 call with `len_J=len(order)`; a mismatch in `W` still raises) are the coefficients the
   ragged input has there: data, not padding. So the jet axes need no mask, and the uniform equivalence contract
   (`docs/uniform_equivalence_contract.md`) gains one sentence: the don't-care slots are those of the masks (rank
   and mode padding); the slots of a jet axis are data (O-45). Nothing checks them, and no checker is proposed: a
@@ -2377,10 +2394,12 @@ Taylor coefficients) is withdrawn: rows 2.1 and 2.2 decide it (section 2.2).
   size 1 on every output, which a user who writes `order=0` today does not expect.
   Proposed: (a), because (b) makes `0` irregular and (c) surprises. The backend below the public functions sees a
   tuple whatever the answer (section 4).
-- **O-37. Where a frontend user finds `affine_jet` and `index_to_one_hot`.** Proposed: in `t3toolbox.fitting`, under
-  their backend names, like the other jet helpers (P4d), and at the top level `t3toolbox`, since `probe` is a method
-  of the top-level class and needs them outside a fit. Alternatives: `t3toolbox.fitting` only; static methods on
-  `TuckerTensorTrain`.
+- **O-37. Whether `affine_jet` and `index_to_one_hot` are also exported from the top level `t3toolbox`.** Their
+  reach from `t3toolbox.fitting`, under their backend names, is decided: "The preparation functions and the jet
+  helpers are reachable from `t3toolbox.fitting` under the same names" (`TARGET_DECISIONS.md`, the answers of
+  2026-11-16, 20:15, and O-16), and P4d does it. The open part is the top level only. Proposed: export them there
+  too, since `probe` and `apply` are methods of the top-level class and need them outside a fit. Alternatives:
+  `t3toolbox.fitting` only; static methods on `TuckerTensorTrain`.
 - **O-38. One program size at `m >= 2` is given up in Part 1.** Entries 116 and 117 put the speed of several
   variables in Part 2. Row 2.9's `'scan'` has one property that is not speed: the compiled program does not grow
   with the order. At `m >= 2` Part 1's loop gives that up until Part 2 (the program grows with the box). To confirm
@@ -2421,11 +2440,28 @@ Taylor coefficients) is withdrawn: rows 2.1 and 2.2 decide it (section 2.2).
   when it is built; on a method it is silent as in (a). Tests: `LeastSquaresOracle('probe')` raises; the doctests of
   (a) on the methods; every `LeastSquaresOracle` call in the plan's slices and examples passes `order` (the plan's
   sketches then write `order=()` for plain fits).
-  (c) No default anywhere. A forgotten `order` raises `TypeError` at every call. Cost: the most common call, a plain
-  probe, becomes `x.probe(ww, ())`, and every order-0 call of the library, its tests, doctests, pages and examples
-  changes. Tests: each sampling function and method without `order` raises.
+  (c) No default anywhere. A forgotten `order` raises `TypeError` at every call. Its scope: every public function
+  and method that takes a jet shape: the merged sampling functions and their uniform twins (P12), the frontend
+  methods (P13), the dense functions `dense_probe` and `dense_apply` (P4b), the engine `sampling_variables` (P5) and
+  the oracle (P14); the reference module (P4c) follows the engine. The functions of `jets` and `data_preparation`,
+  `pack_batch` and the checkers already take `order` with no default. Cost: the most common call, a plain probe,
+  becomes `x.probe(ww, ())`, and every order-0 call changes: about 300 calls in `t3toolbox/`, `tests/` and
+  `examples/` (an `ast` count of calls named `probe`, `apply`, their `t3_`, `ut3_`, `tv_`, `utv_`, `dense_` and
+  transpose forms; local helpers of the same names included, so an upper bound) and 124 lines of doctests and pages
+  (`grep`). The slices that would change beyond their present text: P4b, P4c, P5 to P12 (their tests by
+  definition call the engine at `()`), P13 (every order-0 call of the frontend methods in the tests, doctests,
+  pages and examples, far more than its doctest), P14, P16, P17, and section 9 (`T.probe(ww)` would no longer be
+  unchanged). Tests: each such function and method without `order` raises.
+  **With O-46.** Under (b), and with the entries oracle keeping its field (O-46 as proposed), a user of the entries
+  kind must write `LeastSquaresOracle('entries', order=())` for a kind that has no jet shape (entry 120). Ways to
+  avoid it, for the two points answered together: (b1) the field has no default for `'probe'` and `'apply'` only,
+  through a sentinel default that the oracle resolves when it is built (`()` for entries, a `TypeError` for the
+  others); cost: a sentinel in a frozen, value-hashed record, and a signature that does not show the rule; (b2) the
+  entries oracle takes no `order` at all (O-46's alternative: a class of its own, or a field `None` for entries);
+  cost: a second class or a field whose meaning depends on the kind; (b3) accept `order=()` for entries as the
+  price of one rule for every kind; cost: an argument that says nothing.
   The writer would propose (b): the silent case that costs most is the fit, the oracle is built once per fit so the
-  extra argument is cheap, and a plain `probe(ww)` stays as short as today. The maintainer's.
+  extra argument is cheap, and a plain `probe(ww)` stays as short as today. With it, (b1). The maintainer's.
 - **O-45. The jet axes on the uniform layout carry data, not padding.** The rule of section 7.2, which follows from
   entry 116 but adds a sentence to the uniform equivalence contract (`docs/uniform_equivalence_contract.md`: which
   slots are don't-care): the masked slots are don't-care; the slots of a jet axis are coefficients, zeros where
@@ -2436,7 +2472,9 @@ Taylor coefficients) is withdrawn: rows 2.1 and 2.2 decide it (section 2.2).
 - **O-46. Does an oracle of the entries kind have an `order` field?** Entry 120: "an oracle of the entries kind has
   no jet shape". Proposed: `LeastSquaresOracle` keeps one class with the field, and for `'entries'` the field must
   be `()` (any other value raises at construction), so the oracle is one value-hashed record for all kinds.
-  Alternative: the field is absent for entries (a separate class, or a field that is `None` for entries).
+  Alternative: the field is absent for entries (a separate class, or a field that is `None` for entries). **With
+  O-44:** if `order` has no default on the oracle (O-44 (b)), the proposal here makes an entries user write
+  `order=()`; O-44 lists the ways to avoid it (b1 to b3), and the two points are best answered together.
 - **O-47. Do the dual-jet and derivative-data functions accept `kind='entries'`?** Proposed: they accept it with
   `order = ()` only and return the data (and, for `prepare_derivative_data`, a weight of ones) unchanged, so that a
   caller looping over kinds needs no special case; any other order raises. Alternative: they refuse
@@ -2478,6 +2516,7 @@ that only change their arguments (N16's keywords, `GroupLengths`) are in section
 | N38 | The Part 2 marker for jets in several variables | `PART 2 (row 5.4, jets in several variables)` | The form of the existing marker, `PART 2 (row 5.5)` | |
 | N39 | The full jet sizes in shape comments | `F` (`F = tuple(n + 1 for n in order)`); `J` for the jet axes of an array in general, `J_in_i` for an input's | `J` is the group's letter; `F` says "full". `T` is the dense tensor argument of the dense functions and leaves the comments | `J` alone, with the size in prose |
 | N40 | The two terms of prose and docstrings | **jet shape** for the tuple of maximum orders (`order`), as the record uses it (entries 116, 117, 120); **jet sizes** for the sizes of an array's jet axes (`n + 1` for a full jet) | The record's term kept for the concept; a second, plainly different word for the array sizes, so that neither has two senses | "jet order" for the tuple (the first draft's term: it says what the entries are, maximum orders) with "jet shape" for the sizes; the record would then need amending |
+| N41 | The keyword of `pack_vectors` and `pack_if_ragged` for the number of leading jet axes | `len_J=0` | The count is what `contract` takes for a group (`len_W=`, `len_C=`), and what the function needs: how many leading axes may differ across the modes; `0` keeps today's behaviour | `n_jet_axes=0`; `jet_axes=0` |
 
 ---
 

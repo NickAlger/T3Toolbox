@@ -59,7 +59,8 @@ is apply at `affine_jet(index_to_one_hot(index, shape), pp)`.
 seed and every tilde variable are full. `r_block_sumsq` and `y_block_sumsq` have the weight's shape.
 
 **The uniform layout.** Modes of unequal input jet sizes are packed by writing zero coefficients (`pack_vectors`,
-extended in P11 to pad every leading axis to the largest size across the modes); those zeros are data, so the jet
+given a keyword `len_J` in P11, the number of leading jet axes brought to their largest size across the modes,
+every other axis still required to agree, so a mismatch in `W` raises as today); those zeros are data, so the jet
 axes need no mask, and nothing checks them.
 
 **Today's cost in the cases the library uses** (entry 117). With one variable, a line input and a full order,
@@ -101,7 +102,7 @@ uniform layout in 2.2, 7.2, P11, P12; the reference module's independence in P4b
   examples; `t3toolbox.fitting` reaches the two helpers.
 - **Section 3.** An amendment note: N16's keywords are `order=()`, N14's fields `J, W, K, C`; the N16 row itself
   says `order=()` in place of `pp=None, order=0`. New names in 11.4.
-- **Section 4.** 29 strings in `tests/_jet_contract_cases.py`; memoization on the jet shape and shapes; `mu_JWCa`;
+- **Section 4.** 29 strings in `tests/_jet_contract_cases.py`; memoization on the jet shape and the operands' jet sizes; `mu_JWCa`;
   the jet shape a tuple below the entry points.
 - **Section 5.1, 5.2.** P4a to P4d in the overview, with the open points each waits on; the additive rule
   mentions them.
@@ -116,7 +117,7 @@ uniform layout in 2.2, 7.2, P11, P12; the reference module's independence in P4b
 - **Section 6.** Rows for `jet_contract` and the rebuilds; "The jet matrix"; the existing test files sorted with
   their P4a to P4d fate.
 - **Section 7.** 7.1 the checkers; 7.2 the scan only at `m = 1`, the padding of input jets; 7.3 the one-hot dtype;
-  7.6 jet axes sliced; 7.7 the jet shape static, a new input jet sizes recompiles.
+  7.6 jet axes sliced; 7.7 the jet shape static, input jets of other jet sizes recompile.
 - **Section 8.** `fitting_and_optimization.md`, `batching_and_stacking.md`, `grouped_contractions.md` (the table of
   letters with `J`; box against total degree); `deferred_and_rejected.md` (three records in place of the "future
   feature" entry); release notes (the upgrade of a jet call, the removal of entries derivatives).
@@ -150,9 +151,11 @@ uniform layout in 2.2, 7.2, P11, P12; the reference module's independence in P4b
   (12 product strings; `mu` and `nu` with a two-slot leaf and with a full leaf, `eta` with two full jets) pair the
   carried jet with the core first, and the 4 `nu` strings with a two-slot leaf are cheap: P1's result. At order 1
   those 4 have the leaf as carrier and are costly too (20 of 20). P1's test pins its counts at `ORDER = 4`.
-- `ut3_operations.pack_vectors` (lines 128 to 150) pads the mode axis only and takes the stack shape of the first
-  vector, so packing modes of unequal jet sizes needs it extended (P11). `ut3_probe` mirrors the form of its sample
-  (`backend/ut3_sampling.py`, lines 81 to 94).
+- `ut3_operations.pack_vectors` (lines 128 to 152) pads the mode axis only, takes the stack shape of the first
+  vector, and raises when the modes disagree in `W` (`xnp.pad` or `xnp.stack` fails). So P11 gives it, and
+  `pack_if_ragged`, a keyword `len_J=0` that pads only the leading jet axes, keeping the error for `W` (critic r2,
+  finding 1). Its calls: 55 in the library, 36 in the tests (`ast`), all unchanged by the default. `ut3_probe`
+  mirrors the form of its sample (`backend/ut3_sampling.py`, lines 81 to 94).
 - Counts by search at `ae3811d`: `jet_contract`/`GroupLengths` calls (`ast`: 55, 4, 2, 2 in the four test files);
   P3's functions are called only from `jets`, `data_preparation`, `t3toolbox/fitting.py` and the tests (calls of
   them: 45 in `test_dispatch.py` by `ast`, 16 in the subprocess script of `test_jax_absent.py` by a regular
@@ -259,7 +262,7 @@ or `sample`).
 | P1 | `GroupLengths`, `jet_contract` and their private helpers (`_JET_GROUPS`, `_JetStringCase`, `_order_group`, `_jet_string_case`, `_jet_group_lens`, `_jet_scan_body`, `_jet_scan`) in `backend/contractions.py` | P4a | 2 public names; the 429 lines P1 added |
 | P1 | `tests/test_jet_contract.py` (32 tests, 55 calls of the two names by `ast`), `tests/_jet_contract_cases.py` (41 strings) | P4a | 32 tests; 41 strings to 29 |
 | P1 | rows in `tests/test_contractions_interpreter.py`, `test_contractions_sharding.py`, `test_dispatch.py` | P4a | 2, 2 and 4 calls of the two names (`ast`) |
-| P2 | `dense_probe`, `dense_apply`, `dense_entries`, and `_dense_jet`; `ut3_operations.pack_vectors` (older) is extended in P11 | P4b | 3 public functions; their callers with `pp`: 4 in `data_preparation`'s doctests, 3 in `sampling_definitions`, 3 in `test_jax_absent.py`, 1 in `test_data_preparation.py`, 2 in `test_jets.py`, those of `test_sampling_definitions.py`, and their own doctests |
+| P2 | `dense_probe`, `dense_apply`, `dense_entries`, and `_dense_jet`; `ut3_operations.pack_vectors` and `pack_if_ragged` (older) gain `len_J=0` in P11 | P4b | 3 public functions; their callers with `pp`: 4 in `data_preparation`'s doctests, 3 in `sampling_definitions`, 3 in `test_jax_absent.py`, 1 in `test_data_preparation.py`, 2 in `test_jets.py`, those of `test_sampling_definitions.py`, and their own doctests |
 | P2 | `backend/sampling_definitions.py`: 37 public functions, all taking `order` and a sample | P4c | 37 |
 | P2 | `tests/test_sampling_definitions.py` | P4b (dense), P4c | 47 of its 56 tests name `pp`, `order` or entries (an `ast` walk over the test functions' source) |
 | P3 | `backend/jets.py`: 11 public functions taking `order`, `pp` or a sample | P4d | 9 changed, 2 deleted (the `pp` validators) |
@@ -327,6 +330,10 @@ Not made by the writer (the brief: Claude makes them).
 - The status note's "orders 0 and 2" of the old check stays as a record of what that script covered.
 
 ## 8. What was found contradictory or hard
+
+- **Round 2.** A first wording of P11 extended `pack_vectors` to pad every axis but the last, which would have
+  turned today's error on a mismatch in `W` into silent wrong data. Corrected: only the `len_J` leading jet axes are
+  padded (N41). O-44 (b) and O-46 interact (an entries user would write `order=()`); O-44 now lists the ways out.
 
 - **The integer shorthand.** The proposal of 14:00 (note "The public interface is generalized from the start",
   item 1) says "an integer stays as shorthand for one variable and `0` for none". That makes `order=0` mean `()`
