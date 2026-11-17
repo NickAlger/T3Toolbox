@@ -247,3 +247,15 @@ don't-care; the reference module must not import the helpers; the old derivative
 corrected) and twelve minor. Sent to the writer at 15:49 with my guidance: the default of `order` and the rule on the
 jet axes of the uniform layout become open points for the maintainer, the second with the rule proposed from entry
 116 (every slot of a jet axis is a coefficient; a zero written when packing is data).
+
+### The plan phase: the critic agrees (2026-11-17, 16:04)
+
+Three rounds (`reviews/jet_group_plan/REVIEW_r1.md` to `REVIEW_r3.md`, `RESPONSE_r1.md`, `RESPONSE_r2.md`).
+Round 2 left one finding (the extension of `pack_vectors` would have zero-padded a mismatch in `W` that raises
+today; now only the jet axes are padded, through a keyword `len_J=0`). Round 3: AGREED. The plan change stands in
+`PART1_PLAN.md` as a draft awaiting the maintainer: slices P4a to P4d, eleven open points (O-36 to O-38, O-40 to
+O-47; O-39 withdrawn as decided by rows 2.1 and 2.2) and the proposed names N32, N33, N35 to N41. My look: read
+the head, the semantics and the algorithm of `jet_contract` in 2.4, the open points and the names; corrected the
+plan's status line, which still said the whole plan awaited sign-off. Not yet done, and mine once he signs: the
+amendments to `TARGET_DECISIONS.md` and `SAMPLE_VARIABLES.md` that the account's section 7 lists. Nothing is
+implemented; no check-in is scheduled beyond the one pending.

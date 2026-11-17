@@ -1,7 +1,9 @@
 # Part 1 of the graded-messages refactor: implementation plan
 
-**Status.** The implementation plan of Part 1, complete: every open point is answered and every name approved.
-Agreed by the reviewer; awaiting the maintainer's sign-off. 2026-11-16. Written against the branch
+**Status.** The implementation plan of Part 1. Approved by the maintainer on 2026-11-16 at 21:16; slices P0 to P4
+are built. **The change of 2026-11-17 for the generalized jet group (next paragraph) is agreed by the critic and
+awaits the maintainer's sign-off**; its open points are in section 11.2 and its proposed names in 11.4. Nothing of
+it is implemented before he signs. The plan was first written against the branch
 `graded-messages` at `a9c31b2` (the library and `tests/` unchanged since `4d38df7`); every statement about the
 library was checked against the code at that commit, and counts were recounted there.
 
