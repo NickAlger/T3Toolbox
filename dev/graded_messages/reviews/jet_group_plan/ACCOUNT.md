@@ -210,27 +210,26 @@ Marked **D** where it follows from a named decision, **W** where the writer chos
 9. The general algorithm: a loop over the partners' multi-indices (product) and a fold of the pair along all jet
    axes plus a loop (readout); not "along each jet axis in turn". **W** (the plan gives the reason).
 10. `'scan'` scans only a partner as large as the box, and only at `m = 1`; `m >= 2` loops under both forms, so one
-    program size is given up there until Part 2. **D** for the speed (entries 116, 117), **O-38** for the loss.
-11. `order` a tuple of maximum orders everywhere. **D** (entries 117, 120). Its default: **O-44**. An integer as
-    shorthand: **O-36**.
-12. `jet_contract`'s argument is called `order` (the jet shape), not jet sizes in slots. **W**, a name proposal
-    (N33).
+    program size is given up there until Part 2. **D** for the speed (entries 116, 117), **D** (O-38, answered 2026-11-17, entry 121) for the loss.
+11. `order` a tuple of maximum orders everywhere. **D** (entries 117, 120). Its default: **D** (O-44, answered 2026-11-17, entry 121). An integer as
+    shorthand: **D** (O-36, answered 2026-11-17, entry 121).
+12. `jet_contract`'s argument is called `order` (the jet shape), not jet sizes in slots. **D** (N33, approved 2026-11-17, entry 122).
 13. The vocabulary: "jet shape" for the tuple of maximum orders, as the record has it; "jet sizes" for an array's
     sizes. **D** for "jet shape" (the record), **W** for "jet sizes" (N40).
 14. Each variable's declared jet sizes: `F`, except `w` (the input's) and the leaves (the input's clipped to `F`);
     the block sums the weight's shape. **D** for "the input's or the full one" (entry 117), **W** for the clipping.
 15. Modes may have different input jet sizes; on the uniform layout they are brought to one by zero coefficients,
-    which are data; no mask on the jet axes; no checker. **D** that the zeros are data (entry 116), **O-45** for
+    which are data; no mask on the jet axes; no checker. **D** that the zeros are data (entry 116), **D** (O-45, answered 2026-11-17, entry 122) for
     the sentence it adds to the uniform equivalence contract.
 16. The input's slots are Taylor coefficients. **D** (rows 2.1, 2.2). (O-39 of the first draft, withdrawn.)
 17. The dual jet flips every axis; the conversions use `k_1! ... k_m!`. **D** (entry 116).
-18. `rescale_direction` with one length or one per variable. **O-40**.
+18. `rescale_direction` with one length or one per variable. **D** (O-40, answered 2026-11-17, entry 121).
 19. `rescale_coordinates` scales every slot of every input jet. **W** (the map is linear in the input).
 20. The helpers `affine_jet(ww, *directions)` and `index_to_one_hot(index, shape)`, in `backend/jets.py`. **D** that
-    they exist (entries 118, 120); names and module **W** (N35 to N37); their frontend reach **O-37**; the one-hot
-    dtype **O-41**. `affine_jet` keeps the form it is given (tuple or packed). **W** (plan section 2.4 gives why).
+    they exist (entries 118, 120); names and module **D** (N35 to N37, approved 2026-11-17, entry 122); their frontend reach **D** (O-37, answered 2026-11-17, entry 121); the one-hot
+    dtype **D** (O-41, answered 2026-11-17, entry 121). `affine_jet` keeps the form it is given (tuple or packed). **W** (plan section 2.4 gives why).
 21. Entries: no `order`, no `pp`; the engine raises on an entries call with an order. **D** (entry 120). The oracle's
-    field: **O-46**. The dual-jet and derivative-data functions with `kind='entries'`: **O-47**.
+    field: **D** (O-46, answered 2026-11-17, entry 121). The dual-jet and derivative-data functions with `kind='entries'`: **D** (O-47, answered 2026-11-17, entry 121).
 22. The two `pp` validators that P3 copied into `jets` are deleted there in P4d (131 removed names). **W**,
     following entry 118 (`pp` leaves every signature).
 23. The weight of the entries kind has the shape `()`. **D** in substance (row 2.5 with entry 120).
@@ -245,8 +244,8 @@ Marked **D** where it follows from a named decision, **W** where the writer chos
 29. The expected-failure marker of row 5.5 restated, pinned at order 4 as in P1 (16 of 20 there; 20 of 20 at order
     1). **D** (entry 111) for keeping it.
 30. A second Part 2 marker, `PART 2 (row 5.4, jets in several variables)`. **W** (N38), tied to O-38.
-31. The display for `m >= 2`. **O-42**.
-32. The ambient transposes without jets. **O-43**.
+31. The display for `m >= 2`. **D** (O-42, answered 2026-11-17, entry 121).
+32. The ambient transposes without jets. **D** (O-43, answered 2026-11-17, entry 121).
 33. An old derivative kind at order `n` translates to `(n,)`, `(0,)` included; an old plain kind to `()`. **D** (row
     2.7: today's derivative kinds carry an order axis of length 1 at order 0).
 34. Four slices, P4a to P4d, in that order (P4b before P4c because the reference module calls the dense functions;
@@ -353,3 +352,27 @@ Not made by the writer (the brief: Claude makes them).
 - **The jet axes on the uniform layout (found by the critic).** The decision of entry 116 makes the zeros of packing
   data, which the uniform equivalence contract does not yet say. Put as O-45.
 - Nothing found impossible.
+
+## 9. After the maintainer's answers (2026-11-17, 16:21 and 16:26; log entries 121 and 122)
+
+The plan was brought in line with his answers in one editing pass; no new design.
+
+- **Section 11.** O-36 to O-47 moved into the record of answers (11.1), each with his words where short and the
+  sections that use it; 11.2 says nothing is open; 11.4 holds the names as approved at 16:26.
+- **Where his answer differed from the proposal.** O-42: one column per multi-index in row-major order, and no
+  fallback to columns by total degree; his addition, an option to turn the table off, is the keyword
+  `error_table=True` (N42; proposed at 16:21, taken as approved with the names at 16:26, to be confirmed at his
+  review). It is added exactly where a table is printed today: the frontend `newton_cg` beside `verbose` (which builds
+  the display callback when `verbose=True`, `t3toolbox/optimizers.py` lines 906 to 911), and `make_newton_display`
+  and `format_newton_iter` in `backend/optimizer_display.py`. The backend `newton_cg` has no `verbose` (it prints
+  through `callback=` only), and `gradient_descent`, `mc_sgd` and `adam` have no `verbose` and no table in either
+  tier. P16 carries it, with a test that the table is off and the records are unchanged; section 8 documents it.
+  O-43: no jets are planned for the ambient transposes, so no ledger entry is planned for them (none had been
+  written into section 8). O-46: (b3), `order` required for every kind and `()` for entries, no sentinel.
+- **As proposed.** O-36 (a tuple only), O-37 (the top-level export too), O-38 (the loop for `m >= 2`), O-40, O-41,
+  O-44 (b), O-45, O-47, and the names N32, N33, N35 to N41.
+- **Elsewhere.** The head and its status line, sections 2.2, 2.4, 2.5, 4, 5.2 (the sentence on which slices wait on
+  which points is gone), P4b, P4d, P13, P14, P16, sections 7.2, 8 and 9 now state the decided rule. Every
+  `LeastSquaresOracle(...)` in the plan passes `order`, except `LeastSquaresOracle('probe')` in P14's test that it
+  raises.
+- **The choices of section 5** that were marked open are marked decided, with the entry.

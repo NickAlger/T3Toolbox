@@ -1,9 +1,9 @@
 # Part 1 of the graded-messages refactor: implementation plan
 
 **Status.** The implementation plan of Part 1. Approved by the maintainer on 2026-11-16 at 21:16; slices P0 to P4
-are built. **The change of 2026-11-17 for the generalized jet group (next paragraph) is agreed by the critic and
-awaits the maintainer's sign-off**; its open points are in section 11.2 and its proposed names in 11.4. Nothing of
-it is implemented before he signs. The plan was first written against the branch
+are built. **The change of 2026-11-17 for the generalized jet group (next paragraph) is agreed by the critic; its
+open points were answered and its names approved by the maintainer on 2026-11-17 (16:21 and 16:26; section 11.1,
+section 11.4).** The maintainer reviews the plan as a whole before P4a starts; nothing of the change is implemented. The plan was first written against the branch
 `graded-messages` at `a9c31b2` (the library and `tests/` unchanged since `4d38df7`); every statement about the
 library was checked against the code at that commit, and counts were recounted there.
 
@@ -12,7 +12,7 @@ library was checked against the code at that commit, and counts were recounted t
 from the start"). Four slices, P4a to P4d, are inserted between P4 and P5; they rebuild what P1 to P3 built where
 the change reaches it, and every later section is brought in line. Written against `ae3811d` (the library and
 `tests/` as P4 left them at `5991725`). The account of the change, with every choice it makes, is
-`reviews/jet_group_plan/ACCOUNT.md`. Section 11.2 holds the points open with the maintainer.
+`reviews/jet_group_plan/ACCOUNT.md`. The maintainer's answers to its open points, O-36 to O-47, are in section 11.1.
 
 **Two terms, defined once and used everywhere below.** The **jet shape** is the tuple of maximum orders, one per
 jet variable, `order = (n_1, ..., n_m)`, as the record uses the term (entries 116, 117, 120: "one jet shape in place
@@ -22,8 +22,9 @@ leading jet axes; a full jet has the jet sizes `F = (n_1 + 1, ..., n_m + 1)`. In
 sizes, `J` the jet axes of an array in general and `J_in_i` those of the input `ww[i]` (N39). A jet is a polynomial
 in `s_1 ... s_m` truncated to the box `F`; an array's jet sizes mean that its coefficients beyond them are zero. Every
 array that carries jets has exactly `m` leading jet axes. The inputs are jets: `ww[i]` is `J_in_i + W + (N_i,)`,
-sizes of its own, and there is no `pp`. The entries kind has no jets. Whether `order` has a default is open (O-44),
-and whether a bare integer is accepted for it (O-36).
+sizes of its own, and there is no `pp`. The entries kind has no jets. `order` is a tuple only; an integer raises
+(O-36). It has the default `()` on the sampling functions and methods, and no default on `LeastSquaresOracle`, where
+it is required for every kind, `()` for entries (O-44, O-46).
 
 **How to read it.** The rows of `TARGET_DECISIONS.md` are the authority, with the maintainer's answers to this
 plan's open points (the note "The plan's open points, as the maintainer answers them" and the notes after it,
@@ -112,7 +113,7 @@ Part 1 is not released on its own. All work stays on `graded-messages` until Par
 | `backend/sampling_variables.py` | The engine `sampling_variables`; `HeldVariables`; the declared graph, one tuple of records per kind; the shape table | new |
 | `backend/sampling_steps.py` | The 22 step functions and the start values. Every name private, `__all__ = []` | new |
 | `backend/sampling_definitions.py` | The reference module: one slow, dense function per variable and per output (9.7). Backend only | new |
-| `backend/jets.py` | `jet_to_dual_jet` and `dual_jet_to_jet` (3.6); the four functions for derivative data (2.3); the two helpers that make input jets, `affine_jet` and `index_to_one_hot` (names proposed, section 11.4); the checkers of a sample, its data and its weight, `check_sample`, `check_data`, `check_weight`. The two validators of `pp` that P3 copied here go in P4d | new |
+| `backend/jets.py` | `jet_to_dual_jet` and `dual_jet_to_jet` (3.6); the four functions for derivative data (2.3); the two helpers that make input jets, `affine_jet` and `index_to_one_hot` (names approved, section 11.4); the checkers of a sample, its data and its weight, `check_sample`, `check_data`, `check_weight`. The two validators of `pp` that P3 copied here go in P4d | new |
 | `backend/data_preparation.py` | The five preparation functions (6.7), and `ut3_unscale_coordinates`, the uniform twin of the last (O-34) | new |
 | `backend/probing.py`, `apply.py`, `entries.py` | One backend function behind each frontend method, each calling the engine, with the merged signature (6.3, 6.6); the ambient transposes in the form of N16, their own code otherwise as it is; the dense functions beside their kinds: `dense_probe(T, ww, order=())` in its new form, `dense_apply(T, ww, order=())` and `dense_entries(T, index)` new | rewritten |
 | `backend/ut3_sampling.py`, `utv_sampling.py` | The uniform twins of the functions above: check packing, call the engine; `ut3_full_sum` as it is | rewritten |
@@ -205,8 +206,8 @@ class each for both tiers, reachable from `t3toolbox.fitting`.
 
 **An oracle** is a frozen description with no arrays and one operation (8.2, 8.3). Its fields are statics, so it
 is value-hashed (`common.ValueHashedFields`) and rides as `aux_data`. The least-squares oracle has two fields,
-`kind` and `order` (the jet shape, a tuple; whether it has a default is O-44; an oracle of the entries kind has
-`order = ()` only, and any other value raises when it is built, or has no `order` field at all, O-46).
+`kind` and `order` (the jet shape, a tuple, required for every kind with no default, O-44; for the entries kind it
+must be `()`, and any other value raises when the oracle is built, O-46: `LeastSquaresOracle('entries', order=())`).
 
 **`held`** is what an oracle keeps at one frame; what goes into it is the oracle's business (8.3), and the
 optimizers pass it back unread. The `Oracle` protocol types it as any object (O-8); in a compiled program it must
@@ -482,7 +483,7 @@ replacing the letters in P1's table and removing repeats (account, section 4). A
 operand is a leaf (a cost named in entry 116); the comment at the call site says it. `GroupLengths` has four
 fields, `J`, `W`, `K`, `C`, and `T`, `A` and `S` are not letters a string may name.
 
-The helpers that make input jets (entries 118 to 120; names proposed, section 11.4), in `backend/jets.py`:
+The helpers that make input jets (entries 118 to 120; names approved, section 11.4), in `backend/jets.py`:
 
 ```python
 def affine_jet(
@@ -509,8 +510,8 @@ twins pack it on entry.
 `index_to_one_hot` makes apply's sample at a grid point: what `entries_derivatives(index, pp)` computed is
 `apply(affine_jet(index_to_one_hot(index, shape), pp), order=(n,))`. A user with a curve, or with several directions
 of their own, builds the input jet directly; nothing else is needed. The dtype of the one-hot vectors is the
-library's default float (the dtype rule of 5.6 then lowers it to the cores' where they are float32); whether it
-should take a `dtype` is open (O-41).
+library's default float (the dtype rule of 5.6 then lowers it to the cores' where they are float32); it has no
+`dtype` argument (O-41).
 
 The input's slots are Taylor coefficients, like every other jet of the library (rows 2.1 and 2.2): `ww[i]` at the
 multi-index `k` is the coefficient of `s^k`. A user whose curve is given by derivatives converts it with
@@ -646,8 +647,8 @@ def ut3_unscale_coordinates(x, scales)    # the uniform twin: x the uniform core
 `rescale_direction` in several variables: a new variable `s_j = length_j s'_j` multiplies the coefficient of
 `s^k` by `length_1^k_1 ... length_m^k_m`, in the input and in the output alike, so the result is the data of the
 same tensor at the new sample. With a line input it is today's rule (the direction times `length`, slot `t` of `y`
-times `length^t`). A single number is the same length for every variable. Whether a length per variable is
-offered is open (O-40). It changes the loss only. `t3_unscale_coordinates`, its twin, `equalizing_weight` and
+times `length^t`). A single number, the default form, is the same length for every variable; one number per jet
+variable is also accepted (O-40). It changes the loss only. `t3_unscale_coordinates`, its twin, `equalizing_weight` and
 `check_coordinate_scales` are unchanged.
 
 `scales` is one scale per coordinate, `len=d`, `elm_shape=(Ni,)` (O-35), as the prototype
@@ -730,7 +731,7 @@ class Oracle(typ.Protocol):                # the fitting layer's extension point
 @dataclass(frozen=True, eq=False)
 class LeastSquaresOracle(ValueHashedFields):
     kind:   str                            # 'probe' | 'apply' | 'entries'
-    order:  typ.Tuple[int, ...] = ()       # the jet shape; the default is O-44; entries: () only (O-46)
+    order:  typ.Tuple[int, ...]            # the jet shape; required, no default (O-44); entries: () only (O-46)
     # query(...): one call of sampling_variables. Its batch is a LeastSquaresBatch, its held a HeldVariables.
     # check_batch(batch, shape) -> None: the form of the sample, its sizes against shape, y, the weight (O-18)
     # n_measurements(batch) -> int;  take(batch, indices) -> LeastSquaresBatch (traceable, static len(indices))
@@ -815,7 +816,7 @@ and take the rule's order and names, with the sum flag off by default (the maint
 `t3_probe_ambient_transpose(ww, residual, sum_over_samples=False)`,
 `t3_apply_ambient_transpose(ww, residual, sum_over_samples=False)`,
 `t3_entries_ambient_transpose(index, shape, residual, sum_over_samples=False)`. They have no object to be evaluated
-at, and no `order`; their `ww` is plain vectors (an ambient transpose of input jets is not part of this arc; O-43). Their
+at, and no `order`; their `ww` is plain vectors (the ambient transposes stay without jets, and no jets are planned for them; O-43). Their
 default differs from the other transposes' on purpose: for them the sum folds `W` into the CP rank. `dense_probe`
 takes the rule too, and `order` (above).
 
@@ -865,7 +866,7 @@ once on entry and re-masks core-shaped outputs on exit (O-3). They mirror the fo
 packed `(d,) + J + W + (N,)` gives a packed output. To pack input jets they call `ut3_operations.pack_if_ragged`
 with `len_J=len(order)`; `pack_vectors` and `pack_if_ragged` (public in `ut3_operations`) gain the keyword
 `len_J=0`, the number of leading jet axes brought to their largest size across the modes with zeros, every other
-axis still required to agree (P11; name proposed, N41). Every positional call of a function
+axis still required to agree (P11; N41). Every positional call of a function
 whose order changes moves, and every call by keyword of a renamed argument breaks; section 5.3, P12, lists them.
 
 In `backend/optimizers.py`: `LocalModel` (section 2.2),
@@ -877,8 +878,17 @@ N30 has it, `regularizer=None` after their positional arguments, today's keyword
 protocol only (O-4); the corewise geometries' frame is the point `(B, G)`. The geometry has no consistency member
 (O-31): a backend user checks a frame with `fv_frame_consistency_residual` or its uniform twin. In
 `optimizer_display.py`:
-`make_newton_display(oracle, batch, val_batch=None, ...)`; `relative_errors` and the table take arrays of the shape
-of the weight. In `uniform_fitting.py`: `pack_sample(kind, order, sample, N)`, `pack_data(kind, order, y, N)` and `pack_batch`
+`make_newton_display(oracle, batch, val_batch=None, ..., error_table=True)` and
+`format_newton_iter(info, train_err, val_err=None, ..., error_table=True)`; `relative_errors` and the table take
+arrays of the shape of the weight. For two or more jet variables the table has one column per multi-index, in
+row-major order (the order of unfolding the array of the weight's jet axes into columns), and no other layout
+(O-42). With `error_table=False` each iteration prints its header lines and no table; the records keep
+`train_err` and `val_err` in full either way. Today the table is printed by `format_newton_iter`
+(`backend/optimizer_display.py`), which the callback of `make_newton_display` calls; the backend `newton_cg` has no
+`verbose` and prints through its `callback=` only; the frontend `newton_cg` builds that callback when `verbose=True`
+(`t3toolbox/optimizers.py`, lines 906 to 911). `gradient_descent`, `mc_sgd` and `adam` have no `verbose` and no
+table, in either tier. So `error_table` is added exactly at those three places: the frontend `newton_cg`, beside
+`verbose`, and `make_newton_display` and `format_newton_iter` in the backend. In `uniform_fitting.py`: `pack_sample(kind, order, sample, N)`, `pack_data(kind, order, y, N)` and `pack_batch`
 (above). The backend `LocalModel`, `local_model` and the optimizers check nothing numerical (O-6), as
 `backend/optimizers.py` already says of itself.
 
@@ -999,6 +1009,7 @@ def newton_cg(
         x0:           Point,                      # ragged or uniform: picks the representation
         regularizer:  typ.Any = None,             # e.g. IdentityRegularizer(lam)
         verbose:      bool = False,
+        error_table:  bool = True,                # with verbose: False prints each row's header lines, no table
         val_batch:    typ.Any = None,             # a batch for the same oracle: the validation column
         callback:     typ.Optional[typ.Callable] = None,
         use_jit:      bool = False,               # moves x0 and the batch's arrays to jax, as today
@@ -1044,8 +1055,8 @@ tensors without digging through the backend to find the helpers"):
 - the preparation functions and the jet helpers under their backend names: `derivatives_to_taylor`,
   `taylor_to_derivatives`, `derivative_weight_to_taylor_weight`, `prepare_derivative_data`, `jet_to_dual_jet`,
   `data_block_norms`, `equalizing_weight`, `rescale_direction`, `t3_unscale_coordinates`, and the two helpers that
-  make input jets, `affine_jet` and `index_to_one_hot` (the backend objects; where else a frontend user finds the
-  two helpers is open, O-37);
+  make input jets, `affine_jet` and `index_to_one_hot` (the backend objects; also exported from the top level
+  `t3toolbox`, O-37);
 - its own `dual_jet_to_jet`, a small function: in safe mode it raises where the divisor, the squared weight in
   the precision of the computation, is zero, then calls the backend one, which divides (O-20);
 - its own `rescale_coordinates`, a small function: it calls the backend checker `check_coordinate_scales` with the
@@ -1071,7 +1082,7 @@ representation-agnostic infrastructure) and `docs/contributor/naming_rules.md` (
 
 **Amended for the generalized jet group (2026-11-17, entries 117 to 120).** N16's keywords are `order=()` in place
 of `pp=None, order=0`: the sample is input jets and there is no `pp` (entry 118); the entries functions have no
-`order` (entry 120). N14's record has the fields `J`, `W`, `K`, `C`. The new names this change needs are proposals,
+`order` (entry 120). N14's record has the fields `J`, `W`, `K`, `C`. The new names this change needs were approved on 2026-11-17,
 in section 11.4.
 
 | # | Placeholder | Name | Why |
@@ -1139,8 +1150,7 @@ These are the library's rules, applied to this arc. Every slice is held to them;
   frontend validates its objects, calls the backend's checkers, and delegates.
 - **Checkers, not guarantees** (section 7.1): no backend module imports `safety`; a backend function checks only what
   it needs to run; the frontend enforces, through backend checkers.
-- **The jet shape is a tuple everywhere** below the frontend's entry points (`order = ()` for none); whatever the
-  answer to O-36, the backend's functions below the public sampling functions see a tuple.
+- **The jet shape is a tuple everywhere** (`order = ()` for none); an integer raises (O-36).
 - **Doctests** teach, are seeded, print structure, and are run and pasted (`docs/contributor/doctest_style.md`).
 - **No auto-formatter.**
 
@@ -1179,10 +1189,8 @@ These are the library's rules, applied to this arc. Every slice is held to them;
 
 ### 5.2 Overview
 
-The names are settled: the table of section 3, and the names added after it (section 11.3), except the names this
-change proposes (section 11.4). What each new slice waits on: P4a on O-38 (it is written so that the answer changes
-one rule) and the names N32, N33, N38, N39; P4b on O-36, O-41, O-44 and the names N35 to N37; P4c on O-36 and O-44;
-P4d on O-36, O-37, O-40, O-44, O-46 and O-47; P11 on O-45 and the name N41; P14 on O-44 and O-46; P16 on O-42 (the display). The order is the order of work; each slice starts when the one before it is committed
+The names are settled: the table of section 3, the names added after it (section 11.3), and the names of the
+change of 2026-11-17 (section 11.4, approved that day at 16:26). Nothing is open. The order is the order of work; each slice starts when the one before it is committed
 (section 12).
 
 | Slice | Content | Size |
@@ -1384,8 +1392,8 @@ frontend, `T3Frame.consistency_residual` and `UT3Frame.consistency_residual`, ca
 - Gate: the full gate.
 
 **P4b. The input jets and the dense functions** (entries 118 to 120; section 2.4). In `backend/jets.py`: `affine_jet`
-and `index_to_one_hot` (names proposed, section 11.4), and the private reading of `order` that every function taking
-it uses (a tuple of nonnegative integers; the integer shorthand as O-36 is answered). The dense functions:
+and `index_to_one_hot` (N35 to N37), and the private reading of `order` that every function taking it uses (a tuple
+of nonnegative integers; an integer raises, O-36). The dense functions:
 `dense_probe(T, ww, order=())` and `dense_apply(T, ww, order=())` take input jets of any jet sizes, clipped to the box;
 `dense_entries(T, index)` loses `pp` and `order`. Their shared private `_dense_jet` (`backend/probing.py`) contracts
 the tensor with the input jets one mode at a time, a truncated product of polynomials by explicit loops over the
@@ -1457,8 +1465,8 @@ none).
 until P13). The module docstring and its doctests are rewritten (a jet in several variables, the turn as a flip of
 every axis; the entries kind has no jets). In `backend/data_preparation.py`: `data_block_norms`, `rescale_direction`
 and `rescale_coordinates` take the jet shape and input jets (section 2.4); the module doctest uses `affine_jet`. In
-`t3toolbox/fitting.py`: `affine_jet` and `index_to_one_hot` reachable under their backend names, and from the top
-level `t3toolbox` if O-37 is answered as proposed; its own
+`t3toolbox/fitting.py` and `t3toolbox/__init__.py`: `affine_jet` and `index_to_one_hot` reachable under their backend
+names from both (O-37); `t3toolbox.fitting`'s own
 `dual_jet_to_jet` and `rescale_coordinates` follow; the module docstring.
 - Tests (`tests/test_jets.py`, 39 of 42 tests touched; `tests/test_data_preparation.py`, 15 of 29: the tests whose
   source names `pp`, `order` or `entries`, by an `ast` walk; the slice's inventory lists them): the pairing identity `sum_k omega_k^2 a_k b_k = [corner](a * jet_to_dual_jet(b))` at `m = 1`
@@ -1749,7 +1757,7 @@ each of which breaks on the new order; and every link to `docs/chunking.md`):
 - Tests added: the doctests on the merged methods (`order=()` returns today's shapes; `order=(2,)` at
   `affine_jet(ww, pp)` adds one jet axis outermost; `order=(1, 1)` at `affine_jet(ww, p, q)` adds two); the merged
   methods raise through `check_sample` on a sample of the wrong form; `entries` has no `order`; on `probe` and
-  `apply`, the doctest of a forgotten `order` (wrong against right, O-44), whatever the answer to O-44.
+  `apply`, the doctest of a forgotten `order` (wrong against right, O-44).
 - Gate: the full gate.
 
 **P14. The oracle and the batch** (additive). `LeastSquaresOracle` and `LeastSquaresBatch` in `backend/fitting.py`
@@ -1759,7 +1767,9 @@ can carry (O-8, O-30); `query` passing `held` (a `HeldVariables`) to the engine;
 `n_measurements`, `take`, `check_batch`, `y_block_sumsq`, `f_resolution`, the minibatch scale on `f`, `g`, `JtJp`,
 `Jp_norm_sq`, `Kp` and `f_resolution` only (O-21); `pack_batch` in `backend/uniform_fitting.py` (the input jets
 brought to one set of jet sizes across the modes, as in P11). Both classes reachable from `t3toolbox.fitting`. The oracle's
-`order` is a tuple; `LeastSquaresOracle('entries', order=(1,))` raises at construction.
+`order` is a tuple, required for every kind with no default (O-44): a plain fit writes
+`LeastSquaresOracle('apply', order=())`, an entries fit `LeastSquaresOracle('entries', order=())` (O-46), and
+`LeastSquaresOracle('entries', order=(1,))` raises at construction.
 - Tests: each output of `query` against the engine and against the reference; `held` holds exactly the names of the
   hold list that the call computed (none computed only to be held); `take` under `jax.jit` with a static size;
   `minibatch_scale` makes the drawn `f` an unbiased estimate of the full `f`, tested exactly on a small `n` by
@@ -1768,9 +1778,9 @@ brought to one set of jet sizes across the modes, as in P11). Both classes reach
   inner product; `check_batch` passes a good batch and raises on each wrong part; `pack_batch` then the uniform
   query equals the ragged query on real parts; the pytree round trip of the batch; the oracle's hash and equality
   by value; bridge against the old kinds through the conversions (one variable, the sample `affine_jet(ww, pp)`);
-  the outputs at `order = (1, 1)` against the reference; the oracle's default of `order` as O-44 decides it (a test
-  that `LeastSquaresOracle('probe')` raises, or that its default is `()`), and in its docstring the doctest of a
-  batch of order 1 given to an oracle without the order.
+  the outputs at `order = (1, 1)` against the reference; `order` is required (O-44): `LeastSquaresOracle('probe')`
+  raises `TypeError`, for every kind; `LeastSquaresOracle('entries', order=(1,))` raises (O-46); the docstring
+  shows the trap of an input jet read with `order=()` as a wrong-against-right example.
 - Gate: the full gate.
 
 **P15. The geometry returns the centers.** The backend `frame(x)` returns `(frame, centers)` on the four backend
@@ -1820,7 +1830,9 @@ deletes the translation.
    `f` (8.4); an oracle without block sums gets the header line and no table. The stored record (the display's
    records, which the frontend returns as `stats['diagnostics']`) keeps `train_err` and `val_err` at every
    iteration in the full shape of the weight, `(d,) + F` or `F`, nothing reduced over modes or orders (8.4). The
-   printed table for `m >= 2` is the answer to O-42; for `m <= 1` it is today's table. The timing laps: `oracle`
+   printed table is today's for `m <= 1`; for `m >= 2` it has one column per multi-index, in row-major order
+   (O-42). `error_table=True` is added to the frontend `newton_cg` (beside `verbose`), to `make_newton_display` and to
+   `format_newton_iter`: `False` prints each row's header lines and no table, and changes no record. The timing laps: `oracle`
    in place of `sweep` and `residual` (O-17), so `stats['timing']` has the keys `frame`, `oracle`, `companion`,
    `gradient`, `curvature`.
 4. *Frontend.* `t3toolbox/optimizers.py` takes `(geometry, oracle, batch, x0, ...)`; it maps the geometry to the
@@ -1871,7 +1883,8 @@ and the backend corewise geometries. What the translation keeps working moves in
 - examples that call a factory: `fit_hilbert_from_entries_lbfgs.py` (`entries_model`),
   `fit_hilbert_from_probes_adam.py` and `fit_hilbert_from_probes_optax.py` (`probe_model`),
   `fit_hilbert_tensor_newton_cg.py` and `fit_varied_rank_tensor_newton_cg.py` (`apply_model`): they move to
-  `fitting.local_model` with a `LeastSquaresOracle` and a `LeastSquaresBatch`.
+  `fitting.local_model` with a `LeastSquaresOracle` (its `order` given, `()` for these plain fits) and a
+  `LeastSquaresBatch`.
 - Pages that name the removed objects in prose only (`docs/api_reference.rst`, `docs/user_guide.rst`,
   `docs/glossary.md`, `docs/naming_conventions.md`, and the contributor pages of section 8) are rewritten in P19
   (the Sphinx configuration is not nitpicky, so a stale `:py:` reference does not fail `sphinx -W`; a stale `:doc:`
@@ -1880,7 +1893,9 @@ and the backend corewise geometries. What the translation keeps working moves in
   (`p` paired with `hvp(p)` equals `gn_quadratic(p)` in Gauss-Newton mode), not by old iteration counts (9.3); a
   model rebuilt each step is one cache key; a new weight or minibatch does not recompile; `want` is a literal; the
   stored record's shapes at `order = ()` for each kind and at `(2,)` and `(1, 1)` for probe and apply, with and
-  without a validation batch; the display's table at `(1, 1)` (O-42); the floor `eps |f|`
+  without a validation batch; the display's table at `(1, 1)`, its columns the multi-indices in row-major order
+  (O-42); with `verbose=True, error_table=False` each row prints its header lines and no table, and the stored
+  records (`stats['diagnostics']`) are equal to those of a run with the table; the floor `eps |f|`
   on a user oracle without `f_resolution`; a user oracle without a draw raises in `mc_sgd`; a supplied `start_frame`
   with a perturbed store raises in safe mode and runs in `safety.unsafe()`; a library-built frame is not checked; a
   bad batch raises in the frontend before any work; the backend optimizers run on the same bad inputs without a
@@ -2046,7 +2061,7 @@ The entries kind runs at `()` only. Order 16 at `m = 1` where the scan is pinned
   and `pack_sample` and `pack_batch` of P14 call with `len_J=len(order)`; a mismatch in `W` still raises) are the coefficients the
   ragged input has there: data, not padding. So the jet axes need no mask, and the uniform equivalence contract
   (`docs/uniform_equivalence_contract.md`) gains one sentence: the don't-care slots are those of the masks (rank
-  and mode padding); the slots of a jet axis are data (O-45). Nothing checks them, and no checker is proposed: a
+  and mode padding); the slots of a jet axis are data (O-45). Nothing checks them, and there is no checker: a
   packed input with a nonzero there is another valid input jet, so a checker would have nothing to tell wrong from
   right. A user who packs by hand gets the polynomial they packed; the docstrings of the twins and of `pack_batch`
   say so. The leaves on the uniform layout have the packed jet sizes, clipped to `F`, and agree with ragged on the
@@ -2163,14 +2178,16 @@ The entries kind runs at `()` only. Order 16 at `m = 1` where the scan is pinned
 `docs/fitting_and_optimization.md` (the oracle, the batch, the new signatures; the jet shape and input jets, with
 `affine_jet` for the line and `index_to_one_hot` for derivatives at grid points; the weight's exact shape `(d,) + F`
 or `F`; ones by default with the asterisk of 2.5; derivative data prepared outside; data given by total degree, in
-the box with weight zero), `docs/batching_and_stacking.md` (the jet group `J` beside the three stacks, and the sample
+the box with weight zero; the display's `error_table=False`, which keeps the header lines and drops the table, and
+the table's columns for several jet variables), `docs/batching_and_stacking.md` (the jet group `J` beside the three stacks, and the sample
 stack on the outputs), `docs/grouped_contractions.md` (`jet_contract`, with one table of the letters that says which
 are grouped stack axes, `C`, `W`, `K`, and which is the jet group, `J`, whose meaning is multiplication of
 polynomials truncated to a box and not alignment of axes; the output's jet shape; the corner coefficient of a
 readout; why the truncation is a box and not a total degree), `docs/frame_variations.md`
 (centers), `docs/numerical_contracts.md` and `docs/contributor/numerical_contract_catalog.md` (the backend's
 checkers, not guarantees; what the frontend enforces, and when), `docs/sharing.md`, `docs/rank_continuation.md` and `docs/aligned_padded_frame.md` where they call
-optimizers, `docs/uniform_equivalence_contract.md`, `docs/contributor/fitting_internals.md`,
+optimizers, `docs/uniform_equivalence_contract.md` (and its sentence of O-45: the slots of a jet axis are data, never
+don't-care), `docs/contributor/fitting_internals.md`,
 `docs/contributor/curvature_internals.md`, `docs/contributor/scan_body_principles.md` (its examples name old kernels),
 `docs/contributor/batching_internals.md`, `docs/contributor/parameters_not_closures.md` (kinds),
 `docs/contributor/precompute_and_caching.md` (where it says the carrying cost of a held object is not memory, and the
@@ -2269,8 +2286,8 @@ T3Polynomial uses one jet variable and a line input everywhere: its sample is `(
 | `tfit.probe_derivatives_model(...)` (the scripts `x06`, `x07`) | `fitting.local_model(...)`, as the row above |
 | `T.probe(ww)` | unchanged |
 
-`(J,)` is right for every `J`, `0` included: the old derivative kind at order 0 has one slot. If O-36 accepts an
-integer as shorthand with `0` meaning `()`, then `J` may replace `(J,)` only where `J >= 1`. Nothing of T3Polynomial depends
+`(J,)` is right for every `J`, `0` included: the old derivative kind at order 0 has one slot. An integer is not
+accepted for `order` (O-36). Nothing of T3Polynomial depends
 on the entries kind. The dry port covers the first two rows; the scripts are not part of it.
 
 **What it is for.** A port of the consumer is part of "done" (small item 5). With both replacements installed,
@@ -2335,8 +2352,10 @@ none of the 131 removed names (129 before the jet group: the two validators of `
 ### 11.1 How they were answered
 
 The maintainer answered O-1 to O-28 on 2026-11-16, 18:35 to 20:35, and O-29 to O-35 at 20:59 (`TARGET_DECISIONS.md`,
-the note "The plan's open points, as the maintainer answers them" and the notes after it). The plan states each
-answer where it uses it.
+the note "The plan's open points, as the maintainer answers them" and the notes after it). He answered O-36 to O-47,
+the points of the change for the generalized jet group, on 2026-11-17 at 16:21 and O-45 at 16:26
+(`TARGET_DECISIONS.md`, the note "The open points of the jet-group plan, as the maintainer answers them"; log
+entries 121 and 122). The plan states each answer where it uses it.
 
 | Point | Answer |
 | --- | --- |
@@ -2375,112 +2394,22 @@ answer where it uses it.
 | O-33 | The page takes the notation paragraph of `CLAUDE.md` and the probing map of `docs/entries_apply_probe.md`; other pages link to it (8) |
 | O-34 | `UniformTuckerTensorTrain.unscale_coordinates`, over `ut3_unscale_coordinates` (2.4, 2.5, P3) |
 | O-35 | One scale per coordinate: `scales` is `len=d`, `elm_shape=(Ni,)` (2.4, P3) |
+| O-36 | An integer for `order`: "Agree. Order is a tuple only." `order=(3,)`, `order=()` for no jets; an integer raises (2026-11-17; head, 2.2, 4) |
+| O-37 | `affine_jet` and `index_to_one_hot` exported from the top level `t3toolbox` as well as from `t3toolbox.fitting` (2026-11-17; 2.5, P4d) |
+| O-38 | For two or more jet variables Part 1 runs the loop under both `over_orders` settings; the compiled program grows with the order there until Part 2 (2026-11-17; 1, 2.4, P4a) |
+| O-39 | Withdrawn before it was put: rows 2.1 and 2.2 decide that the slots of an input jet are Taylor coefficients (2.2) |
+| O-40 | `rescale_direction` takes one length (the default form) or one per jet variable (2026-11-17; 2.4, P4d) |
+| O-41 | `index_to_one_hot` returns the default float dtype; no `dtype` argument (2026-11-17; 2.4, P4b) |
+| O-42 | The display for two or more jet variables: one column per multi-index, in the order of unfolding into a matrix (row-major), no columns by total degree; and, his addition, an option that turns the table off and keeps the rest of the display: `error_table=True` on the frontend `newton_cg` beside `verbose`, on `make_newton_display` and on `format_newton_iter` (2026-11-17; 2.4, 2.5, P16, 8) |
+| O-43 | "The ambient transposes stay without jets. However, there is no plan to add jetting to ambient transposes in the future." Not a deferred item (2026-11-17; 2.4) |
+| O-44 | "Go with recommendation (b)": no default of `order` on `LeastSquaresOracle`; `()` stays the default on the sampling functions and methods, whose docstrings show the trap as a wrong-against-right example (2026-11-17; head, 2.2, 2.4, P13, P14) |
+| O-45 | "Agree with proposal. Every slot along a jet axis is data." No mask on the jet axes, no checker; one sentence in the uniform equivalence contract (2026-11-17, 16:26; 2.2, 7.2, P11, 8) |
+| O-46 | "accept order=() for entries": one class, `order` required for every kind, `()` for entries: `LeastSquaresOracle('entries', order=())`. No sentinel (2026-11-17; 2.2, 2.4, P14) |
+| O-47 | The dual-jet and derivative functions accept `'entries'` at `()` and return the data unchanged (2026-11-17; 2.4, P4d) |
 
 ### 11.2 Open points
 
-O-1 to O-35 are answered (11.1). The generalized jet group (entries 116 to 120) leaves the following, each stated so
-that a short reply settles it. The plan is written with the proposal in each case (for O-44, the sketches keep
-`order=()` on the sampling functions and methods, which (a) and (b) share, and mark the oracle's default as open);
-the slices that depend on an answer are named in section 5.2. O-39 of the first draft (the slots of an input jet are
-Taylor coefficients) is withdrawn: rows 2.1 and 2.2 decide it (section 2.2).
-
-- **O-36. An integer for `order`?** The plan writes `order` as a tuple everywhere. Options:
-  (a) a tuple only: `order=(3,)`; `order=()` for none; an integer raises. Cost: every caller's integer becomes a
-  one-tuple (T3Polynomial's `J` becomes `(J,)`).
-  (b) An integer is shorthand for one variable, `n` meaning `(n,)` for `n >= 1`, and `0` meaning `()`, today's
-  meaning of order 0. Costs: `order=0` and `order=(0,)` differ, so the *type* of `order` decides the number of jet
-  axes (`0` gives `m = 0`, `(0,)` gives `m = 1`), a weaker form of what row 6.2 forbids; and the upgrade of a released
-  derivative call at order 0, `probe_derivatives(ww, pp, 0)`, needs `(0,)`, since its data have one slot (row 2.7):
-  written `order=0`, it meets the misreading of O-44.
-  (c) An integer `n` always means `(n,)`, `0` included; the default stays `()`. Cost: `order=0` puts a jet axis of
-  size 1 on every output, which a user who writes `order=0` today does not expect.
-  Proposed: (a), because (b) makes `0` irregular and (c) surprises. The backend below the public functions sees a
-  tuple whatever the answer (section 4).
-- **O-37. Whether `affine_jet` and `index_to_one_hot` are also exported from the top level `t3toolbox`.** Their
-  reach from `t3toolbox.fitting`, under their backend names, is decided: "The preparation functions and the jet
-  helpers are reachable from `t3toolbox.fitting` under the same names" (`TARGET_DECISIONS.md`, the answers of
-  2026-11-16, 20:15, and O-16), and P4d does it. The open part is the top level only. Proposed: export them there
-  too, since `probe` and `apply` are methods of the top-level class and need them outside a fit. Alternatives:
-  `t3toolbox.fitting` only; static methods on `TuckerTensorTrain`.
-- **O-38. One program size at `m >= 2` is given up in Part 1.** Entries 116 and 117 put the speed of several
-  variables in Part 2. Row 2.9's `'scan'` has one property that is not speed: the compiled program does not grow
-  with the order. At `m >= 2` Part 1's loop gives that up until Part 2 (the program grows with the box). To confirm
-  that loss; the alternative, a nested scan per jet axis in Part 1, is not proposed (its fit with the rules of the
-  scan bodies is unexamined).
-- **O-40. `rescale_direction` in several variables.** Proposed: `length` is a number (the same for every variable)
-  or one number per jet variable; slot `k` of the input jets and of the data is multiplied by
-  `length_1^k_1 ... length_m^k_m`. Alternative: a number only.
-- **O-41. The dtype of `index_to_one_hot`.** Proposed: the library's default float (numpy float64, jax's default),
-  lowered by the dtype rule where the cores are float32; no `dtype` argument. Alternative: a `dtype=None` keyword.
-- **O-42. The display of a table with several order axes.** The stored record keeps the full shape `(d,) + F` (8.4).
-  The printed table, for `m >= 2`: (a) rows the modes, columns the multi-indices in row-major order, each labelled
-  `k_1,k_2` (one column per slot; wide for large boxes); (b) one table per value of the first jet index; (c) columns
-  by total degree `|k|`, each cell the relative error over the slots of that degree. Proposed: (a), because it shows
-  every number the record holds and is today's table at `m = 1`, with (c) as the form when the columns would exceed
-  the width of the terminal. For apply the rows are train and validation, as today.
-- **O-43. The ambient transposes and jets.** The three ambient transposes keep the form decided on 2026-11-16 at
-  18:35: no `order`, and their `ww` plain vectors (section 2.4). Entry 117 asks that the sampling functions take a
-  jet shape from the start; the ambient transposes map a residual onto a dense tensor in CP form and have no jets
-  today. Proposed: they stay without jets in this arc (a transpose of the jet map onto the ambient space would be a
-  new operation, with its own definition), recorded in `docs/contributor/deferred_and_rejected.md` beside the
-  ambient derivative transpose already there. To confirm.
-- **O-44. The default of `order`, now that a forgotten `order` can be silent.** The hazard is new with input jets.
-  Before, a sample above order 0 was the pair `(ww, pp)`, so a forgotten `order` failed on the form of the sample.
-  Now `affine_jet(ww, pp)` is an ordinary sequence of arrays `(2,) + W + (N_i,)`, and row 6.2 ("`order` decides,
-  never the type") is why the array cannot say how many of its axes are jet axes. Read with `order=()`, the jet axis
-  is one more sample axis. The options, and what a forgotten `order` then does:
-  (a) `()` the default everywhere (the plan as first written). `x.probe(affine_jet(ww, pp))` silently returns the
-  plain probes at `w` and at `p` as two samples: slot 0 right, slot 1 not a coefficient. A fit with
-  `LeastSquaresOracle('probe')` and data of order 1 passes `check_batch` (the sample's `W` reads as `(2,) + W`, and
-  `y` has exactly the shape `check_data` then expects) and fits another problem, silently; with a line input
-  `check_data` raises from order 2 on, and with a curve of `n + 1` slots it is silent at every order. Mitigation: the
-  trap shown as a wrong-versus-right doctest on `probe` and `apply`, in `LeastSquaresOracle`'s docstring and in
-  `docs/fitting_and_optimization.md`. Tests: those doctests; a test that the oracle's default is `()`.
-  (b) No default on `LeastSquaresOracle` (and on what else is built once per fit with a jet shape: the oracle is the
-  only such object; `pack_batch`, the checkers and the derivative functions already take `order` positionally),
-  the default `()` kept on the sampling functions and methods. A forgotten `order` on the oracle raises `TypeError`
-  when it is built; on a method it is silent as in (a). Tests: `LeastSquaresOracle('probe')` raises; the doctests of
-  (a) on the methods; every `LeastSquaresOracle` call in the plan's slices and examples passes `order` (the plan's
-  sketches then write `order=()` for plain fits).
-  (c) No default anywhere. A forgotten `order` raises `TypeError` at every call. Its scope: every public function
-  and method that takes a jet shape: the merged sampling functions and their uniform twins (P12), the frontend
-  methods (P13), the dense functions `dense_probe` and `dense_apply` (P4b), the engine `sampling_variables` (P5) and
-  the oracle (P14); the reference module (P4c) follows the engine. The functions of `jets` and `data_preparation`,
-  `pack_batch` and the checkers already take `order` with no default. Cost: the most common call, a plain probe,
-  becomes `x.probe(ww, ())`, and every order-0 call changes: about 300 calls in `t3toolbox/`, `tests/` and
-  `examples/` (an `ast` count of calls named `probe`, `apply`, their `t3_`, `ut3_`, `tv_`, `utv_`, `dense_` and
-  transpose forms; local helpers of the same names included, so an upper bound) and 124 lines of doctests and pages
-  (`grep`). The slices that would change beyond their present text: P4b, P4c, P5 to P12 (their tests by
-  definition call the engine at `()`), P13 (every order-0 call of the frontend methods in the tests, doctests,
-  pages and examples, far more than its doctest), P14, P16, P17, and section 9 (`T.probe(ww)` would no longer be
-  unchanged). Tests: each such function and method without `order` raises.
-  **With O-46.** Under (b), and with the entries oracle keeping its field (O-46 as proposed), a user of the entries
-  kind must write `LeastSquaresOracle('entries', order=())` for a kind that has no jet shape (entry 120). Ways to
-  avoid it, for the two points answered together: (b1) the field has no default for `'probe'` and `'apply'` only,
-  through a sentinel default that the oracle resolves when it is built (`()` for entries, a `TypeError` for the
-  others); cost: a sentinel in a frozen, value-hashed record, and a signature that does not show the rule; (b2) the
-  entries oracle takes no `order` at all (O-46's alternative: a class of its own, or a field `None` for entries);
-  cost: a second class or a field whose meaning depends on the kind; (b3) accept `order=()` for entries as the
-  price of one rule for every kind; cost: an argument that says nothing.
-  The writer would propose (b): the silent case that costs most is the fit, the oracle is built once per fit so the
-  extra argument is cheap, and a plain `probe(ww)` stays as short as today. With it, (b1). The maintainer's.
-- **O-45. The jet axes on the uniform layout carry data, not padding.** The rule of section 7.2, which follows from
-  entry 116 but adds a sentence to the uniform equivalence contract (`docs/uniform_equivalence_contract.md`: which
-  slots are don't-care): the masked slots are don't-care; the slots of a jet axis are coefficients, zeros where
-  packing brought a mode to the larger size; no checker. To confirm. The alternative, not proposed: a mask per mode
-  and jet axis, applied once on entry like the other masks, so that a packed jet slot beyond a mode's own sizes
-  becomes don't-care. Its cost: a new mask structure in the uniform data and in `pack_batch`, kept as host numpy and
-  carried as static data, for a slot whose only sound content is zero.
-- **O-46. Does an oracle of the entries kind have an `order` field?** Entry 120: "an oracle of the entries kind has
-  no jet shape". Proposed: `LeastSquaresOracle` keeps one class with the field, and for `'entries'` the field must
-  be `()` (any other value raises at construction), so the oracle is one value-hashed record for all kinds.
-  Alternative: the field is absent for entries (a separate class, or a field that is `None` for entries). **With
-  O-44:** if `order` has no default on the oracle (O-44 (b)), the proposal here makes an entries user write
-  `order=()`; O-44 lists the ways to avoid it (b1 to b3), and the two points are best answered together.
-- **O-47. Do the dual-jet and derivative-data functions accept `kind='entries'`?** Proposed: they accept it with
-  `order = ()` only and return the data (and, for `prepare_derivative_data`, a weight of ones) unchanged, so that a
-  caller looping over kinds needs no special case; any other order raises. Alternative: they refuse
-  `kind='entries'`, which has no jets and so no derivatives.
+None. Every point is answered (11.1), and every name approved (sections 3, 11.3, 11.4).
 
 ### 11.3 Names added after the table was settled
 
@@ -2501,12 +2430,14 @@ Approved by the maintainer on 2026-11-16 at 20:59, with the uniform twin of O-34
 | `fitting.local_model(..., frame=None)` | The keyword through which a caller supplies a frame | `t3toolbox/fitting.py` | P16 |
 | `docs/paper_to_code.md` | The page of the paper-to-code map | `docs/` | P19 |
 
-### 11.4 Names proposed for the generalized jet group
+### 11.4 Names of the generalized jet group
 
-Proposals, for the maintainer (entries 117 and 120 left "the names of the two helpers" to this phase). Settled names
-that only change their arguments (N16's keywords, `GroupLengths`) are in section 3's amendment.
+Approved by the maintainer on 2026-11-17 at 16:26 ("Agree with proposed names"; entries 117 and 120 had left "the
+names of the two helpers" to the plan phase). N31 and N34 record names decided earlier. N42 was proposed at 16:21 and
+is taken as approved with the others at 16:26, to be confirmed at his review of the plan. Settled names that only
+change their arguments (N16's keywords, `GroupLengths`) are in section 3's amendment.
 
-| # | What | Proposed | Why | Alternatives |
+| # | What | Name | Why | Alternatives considered |
 | --- | --- | --- | --- | --- |
 | N31 | The jet group of a contraction string | `J` | Decided (entry 120) | |
 | N32 | The field of `GroupLengths` for it | `J` | The record's fields are the letters of the groups (`W`, `K`, `C`) | `m`, `n_jet` |
@@ -2519,6 +2450,7 @@ that only change their arguments (N16's keywords, `GroupLengths`) are in section
 | N39 | The full jet sizes in shape comments | `F` (`F = tuple(n + 1 for n in order)`); `J` for the jet axes of an array in general, `J_in_i` for an input's | `J` is the group's letter; `F` says "full". `T` is the dense tensor argument of the dense functions and leaves the comments | `J` alone, with the size in prose |
 | N40 | The two terms of prose and docstrings | **jet shape** for the tuple of maximum orders (`order`), as the record uses it (entries 116, 117, 120); **jet sizes** for the sizes of an array's jet axes (`n + 1` for a full jet) | The record's term kept for the concept; a second, plainly different word for the array sizes, so that neither has two senses | "jet order" for the tuple (the first draft's term: it says what the entries are, maximum orders) with "jet shape" for the sizes; the record would then need amending |
 | N41 | The keyword of `pack_vectors` and `pack_if_ragged` for the number of leading jet axes | `len_J=0` | The count is what `contract` takes for a group (`len_W=`, `len_C=`), and what the function needs: how many leading axes may differ across the modes; `0` keeps today's behaviour | `n_jet_axes=0`; `jet_axes=0` |
+| N42 | The keyword that turns the display's error table off and keeps the rest of the display (O-42) | `error_table=True`, on the frontend `newton_cg` beside `verbose`, on `make_newton_display` and on `format_newton_iter` | It names what it turns off; `True` keeps today's display. Proposed 16:21, taken as approved with the other names at 16:26, to be confirmed at his review | `show_table`, `table` |
 
 ---
 
