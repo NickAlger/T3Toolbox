@@ -41,8 +41,9 @@ trial policy a, with the centers of 4.1 in place), 7.1 and 7.4 (no plan), 8.3 (P
 the stochastic step, as today, and makes `take` traceable).
 
 **What Part 1 gives up until Part 2.**
-- *Memory.* The frontend `chunk_size` and the library's two chunked uniform assemblies (`_wchunked_sum` in
-  `backend/sampling_derivatives.py`) go. Until Part 2, a large jetted fit on the uniform layout with jax uses more
+- *Memory.* The frontend `chunk_size` and the library's chunked uniform assemblies (`_wchunked_sum` in
+  `backend/sampling_derivatives.py`, called from four functions: the Tucker and the TT assembly of the transpose and
+  of the tangent) go. Until Part 2, a large jetted fit on the uniform layout with jax uses more
   memory than today. T3Polynomial's fitting module does chunk today: with `newton_kwargs=None` it passes no
   `chunk_size` (`t3polynomial/fitting.py`, `_level_newton_kwargs` and `_newton_fit`), so the library default
   `chunk_size='auto'` (`t3toolbox/optimizers.py`) applies on its uniform backends.
@@ -1280,7 +1281,7 @@ each of which breaks on the new order; and every link to `docs/chunking.md`):
 - page doctests: `docs/fitting_and_optimization.md` (five calls), `docs/numerical_contracts.md` (two);
 - `docs/chunking.md`: removed here with its toctree entry in `docs/design_notes.rst`, because its doctests call
   `probe_derivatives_transpose(..., chunk_size=...)`. The `:doc:` links to it go in the same commit, or `sphinx -W`
-  fails: `docs/fitting_and_optimization.md` (three), `docs/glossary.md` (three), and the docstrings of
+  fails: `docs/fitting_and_optimization.md` (three), `docs/glossary.md` (two links, and one mention of the file name), and the docstrings of
   `t3toolbox/optimizers.py` (three), `t3toolbox/manifold.py` (one) and `backend/sampling_derivatives.py` (four,
   though the module stays until P20); plain mentions in `CLAUDE.md` and other docstrings are fixed in P19;
 - examples: the six that call a removed method (`fit_hilbert_from_apply_derivatives.py`, `_flat.py`, `_topt.py`,
@@ -1405,8 +1406,8 @@ and the backend corewise geometries. What the translation keeps working moves in
   the fitting rows of `tests/test_dispatch.py`. Every file rewritten here also drops its uses of the old kinds, so
   that after P16 only the old kernels' own tests and the bridge reference them;
 - module doctests: `backend/optimizers.py`, `backend/uniform_fitting.py`, `backend/optimizer_display.py` (its
-  `make_newton_display` example, and the `PhaseSeconds` example, whose laps change), `t3toolbox/fitting.py` (six
-  factory calls), `t3toolbox/optimizers.py` (sixteen optimizer calls, four of `least_squares_problem`, one of
+  `make_newton_display` example, and the `PhaseSeconds` example, whose laps change), `t3toolbox/fitting.py` (seven
+  factory calls, one of them shown raising), `t3toolbox/optimizers.py` (sixteen optimizer calls, four of `least_squares_problem`, one of
   `Problem.local_model`);
 - page doctests that call a factory, which the translation does not cover: `docs/fitting_and_optimization.md`
   (four: lines 147, 182, 424, 430) and `docs/numerical_contracts.md` (one, line 94);
@@ -1443,10 +1444,13 @@ and `_canonical_weight` are deleted.
   those of P13 that took `taylor_to_derivatives` of the dense jets take the Taylor jets directly;
 - page doctests: `docs/fitting_and_optimization.md` (the optimizer calls, one with a custom `draw`),
   `docs/sharing.md` (two), `docs/getting_started.rst` (two);
-- the comments of `examples/fit_hilbert_from_apply_derivatives.py` that name `fitting.apply_derivatives_model`.
+- the comments of `examples/fit_hilbert_from_apply_derivatives.py` that name `fitting.apply_derivatives_model`;
+- the root `README.md`: its fitting example calls `t3t.newton_cg(t3t.MANIFOLD, 'apply', ww, b, x0, ...)`. No CI step
+  runs it, so it is rewritten here by hand and the new snippet is run once to check it (found by P0's review; the
+  inventory searches the root `README.md` from P0 on).
 - Gate: the full gate, the slow tier. A search for the old call form (a kind string in the second position of a
   frontend optimizer, `val_sample=`, `val_data=`, `chunk_size=`) in `t3toolbox/`, `tests/`, `docs/`, `examples/`
-  finds none.
+  and the root `README.md` finds none.
 
 **P18. The dry port.** Section 9.
 
