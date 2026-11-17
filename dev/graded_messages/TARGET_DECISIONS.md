@@ -491,6 +491,49 @@ functions bundled onto one, so it makes sense the user may have to say which one
   shape)`, by the rule that the backend offers the checkers; and the frontend's `fitting.rescale_coordinates` is
   its own function that calls it, so that a frontend user gets the error where the wrong `scales` are passed.
 
+**One jet group, of any number of axes** (the maintainer, 2026-11-17, 13:31 and 13:49). Decided in principle;
+the slices are to be planned at the pause after P4 and carried out before P5.
+
+- **The idea, in his words:** "The generalization is to allow jet axis groups of arbitrary size, of which T and A
+  are special cases which have len=0 or len=1, and A has further restrictions. We would lift these restrictions,
+  allowing multidimensional jets of arbitrary order, and the jet contraction would correspond to truncated
+  multiplication of polynomials, which can now be multidimensional. The user would have to tell the jet
+  contractions engine what jet shape they want as output (maximum order of the output polynomial in each
+  direction) ... This seems to be the natural mathematical structure behind what we are doing here." Efficient
+  algorithms for several variables belong to the performance phase, behind the seam of the jet contraction; "we
+  could start out with algorithms that work for our desired cases, with less efficient algorithms for the more
+  general case, then figure out those later."
+- **Claude's analysis, which he accepted** ("The box truncation is exactly what I mean. I agree with your
+  reasoning that an explicit output shape is required and that is OK."):
+  - A jet in `m` variables with maximum order `n_j` in direction `j` is an element of the polynomial ring in
+    `s_1 ... s_m` cut off at `s_j^(n_j+1)`: a tensor product of one-variable rings. The jet group has `m` axes of
+    sizes `n_j + 1`; order 0 is `m = 0`. An affine variable is a jet with smaller sizes (two slots per axis), so
+    `A` is no longer a group of its own: there is one jet group, and each operand carries its own sizes.
+  - **The truncation is a box, not total degree.** The dual jets rest on a property of the ring: pairing a jet
+    with a dual jet is the top coefficient of their product (row 2.4). The box keeps it (the top coefficient is
+    the corner `s_1^(n_1) ... s_m^(n_m)`, and the turn is a flip along every jet axis). Truncation by total degree
+    does not, for `m >= 2`. Data given by total degree fit in the box with zero weight on the slots not measured.
+  - **What an operand's shape means:** a polynomial whose higher coefficients are zero. A full jet is a
+    truncation and is valid only up to its own order, so the output's shape must not exceed the shape of any
+    operand that is itself a truncation.
+  - **The output shape is explicit, with no default.** The maximum of the inputs is wrong for two exact affine
+    operands; the sum of the degrees is wrong for truncated ones. The engine always knows it: it is the order of
+    the computation.
+  - **Outside the jet contraction:** `order` becomes a jet shape; the sample has one set of perturbation vectors
+    per variable (or, more generally, the inputs are a jet); each variable has its own jet shape (the full one,
+    or the input's); the data and the weight take the box; the dual jet turns every jet axis; the derivative
+    conversions use the product of the factorials; strings that differ only in `A` against `T` merge;
+    `GroupLengths.T` is `m`; the display, the reference module and the dense functions get `m` order axes.
+  - **A cost named:** with one jet letter a string no longer shows which operand is affine.
+  - **Staging proposed by Claude, not yet confirmed:** the jet contraction for general `m` from the start, by a
+    simple correct algorithm; the engine and the public interface single-variable in Part 1, written so that
+    widening later touches only the items above.
+- **How it is done** (13:49): "I would like to do this as a new slice (or multiple slices) at the pause, inbetween
+  P4 and P5. We would do a plan phase with writer and critic Opus agents to create the new slices and update the
+  plan document before implementing."
+- This supersedes, for the jet contraction, the entry "A future feature: jets in several variables" above, and it
+  changes row 5.4 (the groups `T` and `A`), the 41 strings and P1's `jet_contract`, which is rebuilt.
+
 ## Carried to Part 2 from the implementation of Part 1
 
 Kept here so that nothing found while building Part 1 is forgotten when Part 2 is planned. Each item names its

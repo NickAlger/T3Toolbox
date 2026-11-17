@@ -1933,3 +1933,12 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   caller says which. A packed uniform probe array then comes out right, mode by mode.
 - The names of a corewise call are confirmed.
 - Claude's minor decisions in P3: `check_coordinate_scales`; the frontend `rescale_coordinates` checks through it.
+
+## 116. One jet group of any number of axes, decided in principle (2026-11-17, 13:49)
+
+- The maintainer proposed generalizing `T` and `A` to one jet group of any number of axes, with the jet
+  contraction as the truncated product of polynomials in several variables. Claude's analysis found nothing that
+  sinks it and three points to settle: the truncation is a box (total degree would break the dual jets), an
+  operand's shape means zeros beyond it, and the output shape is explicit. He agreed with all three.
+- It is to be planned by a writer and a critic (Opus) at the pause after P4, as one or more new slices between P4
+  and P5, with the plan document updated, before anything is implemented. Recorded in `TARGET_DECISIONS.md`.

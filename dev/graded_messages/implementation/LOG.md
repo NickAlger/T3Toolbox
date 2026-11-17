@@ -150,3 +150,8 @@ rounds, what Claude checked, the minor issues Claude decided, and what went to t
 "Let's have a planned pause after P4 is complete." When P4 is signed off, looked over and committed: do NOT start
 P5. Refresh `dev/HANDOFF.md` and the folder's README for the state at the pause, stop the scheduled check-ins, and
 report to the maintainer. P5 starts when he says.
+
+**Added at 13:49:** at the pause, before P5, a plan phase for the generalization of the jet group (one jet group
+of any number of axes; `TARGET_DECISIONS.md`, "One jet group, of any number of axes"): an Opus writer and an Opus
+critic create the new slices and update `PART1_PLAN.md`; the maintainer reviews; then the new slices are
+implemented by the usual pair; then P5. The brief for that plan phase is `reviews/jet_group_plan/BRIEF.md`.
