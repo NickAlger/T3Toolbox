@@ -1901,3 +1901,13 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
 - The maintainer: "I lean to defer this to part 2. Make sure it is clearly marked so we don't forget." Recorded in
   `TARGET_DECISIONS.md`, the new section "Carried to Part 2 from the implementation of Part 1", with a comment
   in the code and an expected-failure test as markers.
+
+## 112. The site group `S` is removed; a rule on new groups (2026-11-17, 02:23)
+
+- The maintainer asked what `S` was; it was the uniform layout's site axis written as an optional group, which
+  Claude had put into row 5.4 without raising it. He does not want one operation to treat a supercore and a
+  single core alike: "S should go." Row 5.4 is amended, `GroupLengths` has four fields, and the plan is brought in
+  line. Row 5.2 stands, since a sweep step operates on a single core on both layouts.
+- The rule: new groups "must be weighed carefully and only introduced with good reason and after deliberation".
+- The group `A` came in the same way; the maintainer is weighing it. Nothing about it changes meanwhile.
+- A correction: Claude told the maintainer that 20 of the 41 strings carry `A`. Counted from the table, it is 16.

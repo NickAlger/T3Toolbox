@@ -419,6 +419,26 @@ me. If there are minor issues, I trust you to make good decisions." Nothing is i
 `PART1_PLAN.md` at commit `9d070e1`: 21 slices, P0 to P20. The implementation follows
 `implementation/BRIEF.md`; each slice leaves a handover and its reviews in `implementation/`.
 
+**Groups in contraction strings: the site group removed, and a rule** (the maintainer, 2026-11-17, 01:59 to
+02:23). In the review of P1 the maintainer asked what the group `S` was. It was the site axis, the library's
+leading `d` of a uniform supercore, written as a group of zero or one axes so that one string could serve a single
+site and all sites at once. Claude had put it into the 5.4 prototype and row on 2026-11-16 without raising it as a
+question; the library writes that axis as a lowercase `d`, always present in a string for the uniform layout.
+
+- **The rule:** "I am worried that the introduction of the optional T has given license to invent new optional
+  groups for convenience. This is not the case. New groups must be weighed carefully and only introduced with good
+  reason and after deliberation."
+- **On `S`:** "I do not like the S group for site, because it invites over-abstraction, treating ragged and uniform
+  the same in circumstances where they should be thought of differently. A uniform supercore is a different kind
+  if thing than a single ragged core, and reusing the same operation for both is a code smell." Decided: "S
+  should go." Row 5.4 is amended; `GroupLengths` has the fields `T`, `W`, `K`, `C`.
+- **Row 5.2 stands:** "Sweep polymorphism (Row 5.2) is intended and stays because the step in a sweep is doing the
+  same thing either way: operating with a single core."
+- **For Part 2 (row 5.3):** if map-type operations are done at all sites at once on the uniform layout, that is
+  uniform code of its own, written with the `d` axis, not the shared step with an optional group.
+- **The group `A`** (the order axis of an affine variable) came in the same way and is under the maintainer's
+  consideration; nothing about it is changed until he decides.
+
 ## Carried to Part 2 from the implementation of Part 1
 
 Kept here so that nothing found while building Part 1 is forgotten when Part 2 is planned. Each item names its
@@ -447,8 +467,8 @@ row and where it is marked in the code. A search for `PART 2 (row` in `t3toolbox
      contract the carried jet with the core first. It is reported in every run, and it turns into a failure the
      day the order is fixed, so it has to be dealt with then.
 2. **Map-type operations on the uniform layout** (row 5.3). Part 1 maps one site at a time through `xmap` (the
-   answer to O-19, "must be revisited in Part 2"). Part 1's strings have no site group, and `jet_contract` raises
-   on a string that names `S` together with an order group.
+   answer to O-19, "must be revisited in Part 2"). There is no site group: if Part 2 does these at all sites at
+   once, it is uniform code of its own with the `d` axis (the maintainer, 2026-11-17, 02:23).
 3. **The benchmark** (the answers to O-1 and O-2). Part 1 has none. Part 2 compares the branch with the released
    2026.5.0, on CPU and on a GPU pod, and measures the order-0 condition of 2.7.
 
@@ -1290,7 +1310,7 @@ Notes:
 | 5.1 | One function per variable with explicit arguments, seven terms, no graded containers | Decided | |
 | 5.2 | One set of step functions for the ragged and the uniform layout. The layout is detected from the structure of the inputs, as low as reasonably possible. Sweeps go through `xscan` on both layouts. Masks never reach a step: the uniform cores are masked once on entry. Shapes are read from the operands | Decided | 1.2 |
 | 5.3 | For each variable, are sites scanned or vectorized, what is the default, and which variables admit which? | Reopened | 5.2 |
-| 5.4 | The terms are generic over the stack groups through the groups of the contraction engine: a variable is `[S] + T + W + [K] + C + (size,)`, with `T` and `A` the optional order axes of a full and of an affine jet. Each place a term is used has its own literal contraction string, with `K` on the operand that carries the direction, at the call site in the step function. The call is `jet_contract`: `contract` with the order groups multiplying as truncated polynomials, and exactly `contract` at order 0. Every call passes one record of the axis counts of `S`, `T`, `W`, `K` and `C`, so that an operand of the wrong rank raises. The seven terms are seven families of strings | Decided | 2.7, 2.9 |
+| 5.4 | The terms are generic over the stack groups through the groups of the contraction engine: a variable is `[S] + T + W + [K] + C + (size,)`, with `T` and `A` the optional order axes of a full and of an affine jet. Each place a term is used has its own literal contraction string, with `K` on the operand that carries the direction, at the call site in the step function. The call is `jet_contract`: `contract` with the order groups multiplying as truncated polynomials, and exactly `contract` at order 0. Every call passes one record of the axis counts of `S`, `T`, `W`, `K` and `C`, so that an operand of the wrong rank raises. The seven terms are seven families of strings **Amended 2026-11-17, 02:23: the site group `S` is removed.** A variable is `T + W + [K] + C + (size,)` at one site, with a leading `(d,)` on a uniform supercore, written as the library writes it; the record of axis counts has four fields, `T`, `W`, `K`, `C`. The maintainer: a uniform supercore is a different kind of thing than a single ragged core, and reusing one operation for both is a code smell; new groups are introduced only with good reason and after deliberation | Decided | 2.7, 2.9 |
 | 5.5 | The contraction order inside a term is in the plan: the user can specify it and tune it on their problem, and the library provides helpers that choose good orders. Held for the performance discussion (group E): the granularity (per term function, or per place a term is used), the form of the plan's field, and the helpers. Proposed, to be confirmed: how an order reads where the operands are jets | Open | 7.6 |
 | 5.6 | The dtype rule is absorbing: jax takes precedence over numpy, and lower precision over higher. The engine creates no array with a default dtype | Decided | |
 
