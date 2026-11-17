@@ -214,6 +214,30 @@ t3_probe_corewise_hessian(x, ww, residual, core_directions, pp=None, order=0)
   folds `W` into the CP rank, which is another operation than summing blocks.
 - Not settled by this: whether `dense_probe(vectors, T)` takes the rule too (`dense_probe(T, ww)`).
 
+**The plan's open points, as the maintainer answers them** (from 2026-11-16, 19:11). The points are stated in
+`PART1_PLAN.md`, section 11.
+
+- **O-1, O-2 (the benchmark gate):** "let's move this gate to the performance work in part 2." So Part 1 has no
+  benchmark gate. This changes small item 3 above, which put the deletion of the old kernels behind it.
+- **O-3 (the engine on the uniform layout):** as proposed. The engine takes the uniform frame or point `.data`,
+  masks once on entry and re-masks core-shaped outputs on exit; the `ut3_`/`utv_` twins stay as thin wrappers.
+- **O-4 (the geometry's `frame(x)`):** as proposed. `(frame, centers)` with `centers = (Vc, Hc)` or `None`, on
+  the backend protocol only; the frontend geometries keep returning frame objects; the frontend `COREWISE` keeps
+  its `T3Frame` `(B, G, G, G)` and passes `(B, G)` to the backend.
+- **O-7 (optional outputs of an oracle):** as proposed, a class attribute `optional_outputs`.
+- **O-9 (the frontend fitting surface):** as proposed. One `fitting.local_model(geometry, oracle, batch, x,
+  regularizer=None, hessian=..., curvature_damping=None)`; the six model factories, `least_squares_problem` and
+  `LeastSquaresSetup` go.
+- **O-11 (the dtype rule, 5.6):** the inputs that count are "all numerical (floating point) arrays whose entries
+  could affect the numerical values of the output". So an integer index does not count, and neither does an
+  argument that nothing wanted reads.
+- **O-12 (`nu_L_dot`, `eta_D_dot` with both directions):** as proposed, the raw form, the one `Kp` reads.
+- **O-13 (spellings on a corewise call):** as proposed, the names with a basis are not accepted.
+- **O-5, O-6, O-8, O-10:** to be discussed. On O-6 the maintainer set the frame: "Backend importing from frontend
+  is not acceptable. Perhaps we can put the checking functionality in the backend somewhere, then the frontend
+  safety module can import it. There is no such thing as safe mode in the backend." On O-8: "I am concerned the
+  proposed pytree approach will not work for the numpy-only user."
+
 ## What remains, in groups (2026-11-15, 15:34)
 
 Of the 57 rows in sections 1 to 9 (9.7 was added on 2026-11-16), 46 are decided, 3 are guidance and 1 is parked. The other 7 are below, in

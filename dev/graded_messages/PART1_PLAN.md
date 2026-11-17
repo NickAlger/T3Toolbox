@@ -1483,6 +1483,22 @@ none of the 129 removed names, nor `chunk_size`, `sum_over_probes` or `ztildes`.
 None of these is settled by this plan. Where the plan needs an answer to proceed, it states a proposal and marks
 it. The column "Needs" of section 5.2, and the head of each slice, say which answers a slice waits for.
 
+**Answered by the maintainer so far** (2026-11-16, 18:35 and 19:11). The body of the plan still marks these as open
+and will be brought in line in one pass when the list is complete.
+
+| Point | Answer |
+| --- | --- |
+| O-1, O-2 | The benchmark gate moves to the performance work of Part 2 |
+| O-3 | As proposed: the engine takes the uniform `.data`, masks once on entry and re-masks on exit; the `ut3_`/`utv_` twins stay as thin wrappers |
+| O-4 | As proposed: `(frame, centers)` on the backend protocol only; the frontend `COREWISE` keeps its `T3Frame` and passes `(B, G)` to the backend |
+| O-7 | As proposed: a class attribute `optional_outputs` |
+| O-9 | As proposed: one frontend `fitting.local_model(...)`; the six factories, `least_squares_problem` and `LeastSquaresSetup` removed |
+| O-11 | "All numerical (floating point) arrays whose entries could affect the numerical values of the output" |
+| O-12 | As proposed: the public `nu_L_dot` and `eta_D_dot` are the raw form in a call with both directions |
+| O-13 | As proposed: a corewise call does not accept the names with a basis |
+| O-28, first part | The ambient transposes take N16's order and names, sum flag off by default (section 2.4); `dense_probe` still open |
+| O-5, O-6, O-8, O-10 | Under discussion. On O-6: the backend does not import the frontend, and "there is no such thing as safe mode in the backend" |
+
 - **O-1. Which benchmark is the gate.** The decisions say "the consumer's benchmark", run with chunking off.
   Proposed: `t3polynomial/scripts/b01_backend_bench.py`, which passes `chunk_size=None` on every arm. T3Polynomial's
   fitting module passes no `chunk_size` by default, so its own default path chunks today on the uniform backends

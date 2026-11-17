@@ -1796,3 +1796,11 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
 - The plan is updated (sections 2.4 and 2.5, the two merging slices, the last slice's grep). Its O-28 now asks
   only about `dense_probe`. Before that, the plan's reviewer had agreed with the revision for N16
   (`reviews/part1_plan/REVIEW_N16.md`), and Claude fixed its three minor items.
+
+## 100. The plan's open points: the first answers (2026-11-16, 19:11)
+
+- The maintainer read the plan and answered O-1 to O-13. As proposed: O-3, O-4, O-7, O-9, O-12, O-13. His own
+  answer: O-11 (the dtype rule counts every floating-point array whose entries could affect the output). Moved to
+  Part 2: O-1 and O-2, the benchmark gate. To discuss: O-5, O-6, O-8, O-10.
+- The answers are listed in `TARGET_DECISIONS.md` (the note "The plan's open points, as the maintainer answers
+  them") and at the head of the plan's section 11. The body of the plan is brought in line when the list is done.
