@@ -127,10 +127,10 @@ the stochastic step, as today, and makes `take` traceable).
 - **The cost.** Part 1 has no chunking of samples, and the frontend's `chunk_size` goes. Today's library chunks
   two assemblies on the uniform layout with jax. So Part 1 alone is a step back in memory for large jetted fits
   until Part 2. T3Polynomial's scripts run with chunking off today, the GPU benchmark included: they pass
-  `chunk_size=None`. (Corrected on 2026-11-16, 18:00, after the plan's review: this said that the fitting module
+  `chunk_size=None`. (Corrected on 2026-11-16, 17:39, after the plan's review: this said that the fitting module
   itself defaults to `chunk_size=None`. It does not. With no extra options it passes none, so the library's
   `'auto'` applies; its docstring recommends passing `None`.)
-- **A correction to the 5.3 line of the table above** (2026-11-16, 18:00, found by the plan's reviewer and
+- **A correction to the 5.3 line of the table above** (2026-11-16, 17:39, found by the plan's reviewer and
   checked by Claude). "At all sites at once on the uniform one" is how today's plain kernels do it. Today's
   jetted kernels do not: on the uniform layout with jax they map one site at a time (`get_backend` gives
   `jax_map`, which is `jax.lax.map`; `sampling_derivatives.py` calls it 16 times). Since Part 1 computes order 0

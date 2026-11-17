@@ -1747,7 +1747,7 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   unsafe mode, ragged vs uniform layer, numpy vs jax dispatch, shared Tucker factors, backend vs frontend razor,
   sharding, jit compiling.
 
-## 96. The plan of Part 1 written and reviewed; commits re-authored (2026-11-16, 17:07 to 19:00)
+## 96. The plan of Part 1 written and reviewed; commits re-authored (2026-11-16, 17:07 to 18:04)
 
 - **`PART1_PLAN.md`** was written by one Opus agent and reviewed by another over four rounds
   (`reviews/part1_plan/`: the brief, `REVIEW_r1` to `r4`, `RESPONSE_r1` to `r4`). Round 1: 4 blocking findings, 11
@@ -1761,3 +1761,17 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
 - **Authorship** (the maintainer, 17:07, 17:09, 17:17): commits are authored by NickAlger with Claude as co-author.
   The 77 commits then on the branch and the last two of `main` were rewritten to that, trees, dates and messages
   unchanged, and both were force-pushed. `COMMIT_HASH_MAP_2026-11-16.md` gives every old hash with its new one.
+
+## 97. The names of Part 1 settled, except the form of the merged functions (2026-11-16, 18:13)
+
+- The maintainer, on the plan's table of names: "I agree with all the proposals in the table of names, except for
+  N16 whcih I would like to talk through further before deciding". So N1 to N15 and N17 to N30 are decided. Among
+  them: the engine's keywords are `variations`, `core_directions` and `sum_over_samples`; the helpers are
+  `jet_to_dual_jet` and `dual_jet_to_jet`; the oracle's operation is `query` (it was written `evaluate` in the
+  notes of 8.3, as a placeholder); the batch is `LeastSquaresBatch` with `minibatch_scale` and `drawn_indices`;
+  the record of axis counts is `GroupLengths`; the residual argument of the transposes is `residual`; the modules
+  are `sampling_variables`, `sampling_steps`, `sampling_definitions`, `jets` and `data_preparation`.
+- **Open: N16,** the form of the merged sampling functions (which positional arguments, in which order, and where
+  `pp` and `order` go).
+- Times in entry 96 and in the correction notes of "The two parts" were first written from memory and were wrong
+  by up to an hour; they now give the commit times.

@@ -622,9 +622,10 @@ The six model factories of `t3toolbox/fitting.py` (and their re-exports from `t3
 
 ---
 
-## 3. Table of names (awaiting the maintainer)
+## 3. Table of names (settled, except N16)
 
-**Every row is a proposal.** Nothing else in this plan treats them as decided. Proposals follow
+**Settled by the maintainer on 2026-11-16 at 18:13:** he agrees with every row except N16, which is under
+discussion. Until N16 is settled, the signature sketches of sections 2.4 and 2.5 that rest on it are proposals. Proposals follow
 `docs/naming_conventions.md` (family prefixes for functions of a representation; none for
 representation-agnostic infrastructure) and `docs/contributor/naming_rules.md` (clarity wins; no generic names).
 

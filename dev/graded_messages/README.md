@@ -41,7 +41,7 @@ documents and some of the proposal.
   at the outer level of fitting; order 0 is the one-coefficient case of the same functions, with the order axis
   an optional axis `T` that is absent at order 0; input jets are always a point and one direction; and the plain
   and jetted sampling functions are one function, `probe(ww, pp=None, order=0)`, with three fitting kinds that
-  take an `order` in place of six (`REVIEW_DECISIONS.md` entries 12 to 96).
+  take an `order` in place of six (`REVIEW_DECISIONS.md` entries 12 to 97).
 - **Paused on 2026-11-15 at 05:53, to resume the next day.** Decided that morning: one function for the plain and
   the jetted computation (6.6), three kinds with an `order` (2.8), how the direction `pp` is passed (part of 6.2),
   and the convention for arrows on the edges (9.5). Held: what a tilde jet is (2.4); the material for it is
@@ -71,7 +71,7 @@ documents and some of the proposal.
   out: the plan and every performance option. All 46 decided rows are in Part 1; the 7 open rows (5.3, 5.5, 7.2,
   7.3, 7.5, 7.6, 7.7) are Part 2 and come later. An implementation plan for Part 1 is the next document. See
   "The two parts" in `TARGET_DECISIONS.md`.
-- **The plan of Part 1 is written and awaits the maintainer (2026-11-16, 19:00).** `PART1_PLAN.md`: what will be
+- **The plan of Part 1 is written and awaits the maintainer (2026-11-16, 18:04).** `PART1_PLAN.md`: what will be
   built and how, in 20 slices, with a table of 30 proposed names and 27 open points. One agent wrote it and a
   second reviewed it over four rounds until it agreed (`reviews/part1_plan/`). The names and the open points are
   proposals: nothing is decided by being in the plan. The next step is to read it with the maintainer.
