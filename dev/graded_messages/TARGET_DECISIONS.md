@@ -462,6 +462,15 @@ question; the library writes that axis as a lowercase `d`, always present in a s
     is that the two letters are reserved and that the string is handed to `jet_contract`; the documentation says
     so in one table of the letters (P19).
 
+**A future feature: jets in several variables** (the maintainer, 2026-11-17, 02:35: "Also worth considering
+support for multidimensional jets as a future feature. I don't know if anyone will ever use it, but it would
+complete the picture nicely."). Not part of this arc, and nothing is designed. What the present design already
+says about it: the order group `T` would have one axis per jet variable (`x + s u + t v` has two), `A` one axis of
+two slots per variable, and a product is the truncated product variable by variable. What is single-variable
+today: `order` is one integer, the sample has one set of perturbation vectors `pp`, `GroupLengths` accepts `T` of
+0 or 1 only, and `jet_contract` requires one order axis leading its term. It goes into the library's ledger of
+deferred items (`docs/contributor/deferred_and_rejected.md`) with the documentation slice.
+
 ## Carried to Part 2 from the implementation of Part 1
 
 Kept here so that nothing found while building Part 1 is forgotten when Part 2 is planned. Each item names its

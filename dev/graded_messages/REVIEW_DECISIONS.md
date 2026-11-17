@@ -1919,3 +1919,9 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   are in `TARGET_DECISIONS.md`, in the note on groups: `A` is the order group in the two-slot format of a
   variable of degree at most one, with as many axes as `T`, absent exactly when `T` is.
 - `T` and `A` are jet axes, not ordinary groups; the documentation is to say so in one table of the letters.
+
+## 114. Jets in several variables noted as a future feature (2026-11-17, 02:35)
+
+- The maintainer's idea, to "complete the picture": not in this arc. Recorded in `TARGET_DECISIONS.md` with what
+  the present design implies for it and what is single-variable today; to be entered in the library's ledger of
+  deferred items in the documentation slice.
