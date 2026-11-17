@@ -408,6 +408,13 @@ the reviewer critiques it, and they go back and forth until the reviewer signs o
 is good, they can continue and start the next slice. If there are major issues along the way, please consult with
 me. If there are minor issues, I trust you to make good decisions." Nothing is implemented before his sign-off.
 
+- **Memory when running the gate** (the maintainer, 21:02): "one thing to beware of is running sphinx and the
+  tests at the same time, especially if the tests are being run in parallel. On my laptop (13GB and 8 cores) we
+  have run into OOM issues before." The workspace the agents run in has 2 cores and 7 GB. So: the steps of the
+  gate run one after another, never two at once; the implementer and the reviewer never run tests at the same
+  time; the number of test workers and the peak memory are measured in the baseline slice before a full parallel
+  run is trusted.
+
 ## What remains, in groups (2026-11-15, 15:34)
 
 Of the 57 rows in sections 1 to 9 (9.7 was added on 2026-11-16), 46 are decided, 3 are guidance and 1 is parked. The other 7 are below, in
