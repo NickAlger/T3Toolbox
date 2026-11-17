@@ -415,6 +415,10 @@ me. If there are minor issues, I trust you to make good decisions." Nothing is i
   time; the number of test workers and the peak memory are measured in the baseline slice before a full parallel
   run is trusted.
 
+**The plan of Part 1 is approved** (the maintainer, 2026-11-16, 21:16: "Plan approved. Go ahead."). The plan is
+`PART1_PLAN.md` at commit `9d070e1`: 21 slices, P0 to P20. The implementation follows
+`implementation/BRIEF.md`; each slice leaves a handover and its reviews in `implementation/`.
+
 ## What remains, in groups (2026-11-15, 15:34)
 
 Of the 57 rows in sections 1 to 9 (9.7 was added on 2026-11-16), 46 are decided, 3 are guidance and 1 is parked. The other 7 are below, in

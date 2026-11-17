@@ -1882,3 +1882,11 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   compiled; the geometry's consistency member dropped (N21 withdrawn); the paper-to-code page; a uniform
   `unscale_coordinates`; one scale per coordinate.
 - Nothing in the plan is open. Next: the writer's last pass, then the maintainer's review and sign-off.
+
+## 110. The plan of Part 1 approved; the implementation begins (2026-11-16, 21:16)
+
+- The maintainer: "Plan approved. Go ahead." The plan is `PART1_PLAN.md` at `9d070e1`.
+- The implementation follows `implementation/BRIEF.md`: an implementer and a reviewer (Fable 5.2, medium effort)
+  per slice; Claude looks over and commits each slice; major issues go to the maintainer.
+- The workspace got the tools CI uses (`pytest-xdist`, `pytest-subtests`, `optax`, sphinx and its three
+  extensions). It runs Python 3.13, numpy 2.5 and jax 0.12, ahead of CI, so P0 records the baseline here.
