@@ -1746,3 +1746,18 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   with the maintainer. To be kept in mind, in his words things that "have been tricky in the past": safe mode vs
   unsafe mode, ragged vs uniform layer, numpy vs jax dispatch, shared Tucker factors, backend vs frontend razor,
   sharding, jit compiling.
+
+## 96. The plan of Part 1 written and reviewed; commits re-authored (2026-11-16, 17:07 to 19:00)
+
+- **`PART1_PLAN.md`** was written by one Opus agent and reviewed by another over four rounds
+  (`reviews/part1_plan/`: the brief, `REVIEW_r1` to `r4`, `RESPONSE_r1` to `r4`). Round 1: 4 blocking findings, 11
+  should-fix, 5 minor. Rounds 2 and 3: none blocking, 2 should-fix each. Round 4: the reviewer agrees. 35 findings
+  in all, every one accepted. The plan has 20 slices (P0 to P19), a table of 30 proposed names and 27 open points
+  for the maintainer. **Nothing in it is decided by being in it:** the names and the open points await him.
+- **Two statements of the section "The two parts" were wrong against the code** and are corrected there: today's
+  jetted kernels on the uniform layout map one site at a time, so "all sites at once, as today" does not pick a
+  form (open, the plan's O-19); and T3Polynomial's fitting module does not default to `chunk_size=None` (its
+  scripts and its benchmark pass it).
+- **Authorship** (the maintainer, 17:07, 17:09, 17:17): commits are authored by NickAlger with Claude as co-author.
+  The 77 commits then on the branch and the last two of `main` were rewritten to that, trees, dates and messages
+  unchanged, and both were force-pushed. `COMMIT_HASH_MAP_2026-11-16.md` gives every old hash with its new one.
