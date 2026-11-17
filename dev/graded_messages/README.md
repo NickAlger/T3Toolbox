@@ -80,7 +80,7 @@ documents and some of the proposal.
 - **The plan of Part 1 was approved on 2026-11-16 at 21:16, and its implementation began.** The work is in
   `implementation/`: the brief, and for each slice a handover and its reviews. The library is now being changed on
   this branch, one slice per commit.
-- **Paused on 2026-11-17 at 15:20, after slice P4, as the maintainer asked.** P0 to P4 are built, reviewed,
+- **Paused on 2026-11-17 at 15:14, after slice P4, as the maintainer asked.** P0 to P4 are built, reviewed,
   committed and pushed (`implementation/LOG.md` has each slice's record): the gate, `jet_contract`, the reference
   module and the dense functions, the jets with the checkers and the preparation of data, and the frame checkers.
   P5 is not started.

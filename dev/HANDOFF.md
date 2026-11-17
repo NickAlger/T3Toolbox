@@ -1,7 +1,7 @@
 # T3Toolbox — current handoff
 
 _Updated 2026-11-15, at the 2026.5.0 release; "The next arc" updated the same evening, when the design work moved into
-`dev/graded_messages/`, at the pause of 2026-11-16, 04:46, and at the pause of 2026-11-17, 15:20, after slice P4 of the implementation (on the branch `graded-messages`)._ The previous handoff (the store rename R1–R6, phase timing P1–P3, the
+`dev/graded_messages/`, at the pause of 2026-11-16, 04:46, and at the pause of 2026-11-17, 15:14, after slice P4 of the implementation (on the branch `graded-messages`)._ The previous handoff (the store rename R1–R6, phase timing P1–P3, the
 switch W1–W4, the glossary/docs pass, the hand fixes, and the 2026.4.0 arc's state blocks) is archived verbatim at
 `dev/archive/handoff_2026-11-15_pre-2026.5.0.md`; older ones are `handoff_2026-10-29_pre-2026.3.0.md`,
 `handoff_2026-08-21_optimization_layer.md`, `handoff_2026-08-20_pre-2026.1.0.md` and
@@ -49,7 +49,7 @@ types of every sampling variable, arrows on the edges, a type checker for every 
 `DESIGN_AFTER_REVIEW.md` and `REVIEW_DECISIONS.md` (the log). The older documents there carry status notes and are
 history.
 
-**STATE AT THE PAUSE OF 2026-11-17, 15:20 (after slice P4; the current state, and it supersedes the blocks below
+**STATE AT THE PAUSE OF 2026-11-17, 15:14 (after slice P4; the current state, and it supersedes the blocks below
 where they differ).** All of this is on the branch `graded-messages`; `main` is untouched since the release.
 
 - **The target was settled and split into two parts** (2026-11-16): Part 1 is what is computed (names, conventions,
@@ -79,9 +79,9 @@ where they differ).** All of this is on the branch `graded-messages`; `main` is 
   `dev/graded_messages/reviews/jet_group_plan/BRIEF.md`: new slices between P4 and P5 (which rebuild parts of P1 to
   P3) and `PART1_PLAN.md` brought in line everywhere. Nick reviews and signs off; then the new slices are implemented
   by the usual pair; then P5.
-- **For Nick, from P4** (`implementation/LOG.md`, "P4, review round 1"): the normalization and reduction of the
-  centers' residual; `UT3Frame.is_consistent` now thresholds against `max(1, ||T||)`; `(x - y).norm()` loses accuracy
-  across gauges, and whether the private `_tt_difference_norm` route deserves a public name.
+- **From P4, answered by Nick (2026-11-17, 15:18):** the normalization and reduction of the centers' residual, ok;
+  `UT3Frame.is_consistent` thresholding against `max(1, ||T||)`, ok; `(x - y).norm()` losing accuracy across gauges
+  is noted for consideration AFTER this refactor (in the backlog below).
 - **Carried to Part 2** (the section of that name in `TARGET_DECISIONS.md`): the contraction order inside one step of
   `jet_contract` on numpy; map-type operations on uniform one site at a time; the benchmark against 2026.5.0.
 
@@ -233,6 +233,15 @@ As run for 2026.5.0 (the archived prep's §5 has the exact commands):
   `Claude-Session:` line. Check `gh run list` after each push.
 
 ## Next up — the backlog (open since 2026.3.0)
+
+**From the graded-messages arc, for after it** (Nick, 2026-11-17, 15:18: "Note for consideration later, after this
+refactor"):
+- **An accurate norm of a difference.** `(x - y).norm()` loses accuracy when `x` and `y` are in different gauges: the
+  error grows like `eps ||T||^2` (measured in slice P4: a consistent frame of norm `3.7e6` read `3.9e-10` through the
+  subtraction and `4e-15` through the new route). The frame checkers avoid it by bringing each term to left-orthogonal
+  form before the difference is taken (`_tt_difference_norm` and its helpers in `backend/fv_operations.py`, private).
+  To consider: a public function for the norm of a difference of two T3s by that route, and whether `-` followed by
+  `norm` should use it. Record: `dev/graded_messages/implementation/P4_HANDOVER.md` section 4.1 and `P4_REVIEW_r1.md`.
 
 **From the exact-Hessian arc** (each also in the ledger `docs/contributor/deferred_and_rejected.md`):
 - **float32 end to end.** A float32 fit comes back float64: 38 default-dtype constructors in eight backend modules sit

@@ -184,7 +184,7 @@ For the maintainer at the pause, from the review:
 For P16: the frame residual costs six to eight frame constructions (fine once per model build); the enforcement
 must pass `safety.effective_rtol(frame.data)`, since a float32 numpy frame reads 2.5e-7.
 
-### P4, signed off and committed (2026-11-17, 15:20)
+### P4, signed off and committed (2026-11-17, 15:14)
 
 - **Rounds:** two. Round 2 (`P4_REVIEW_r2.md`): SIGNED OFF, all nine findings resolved, three minor notes.
 - **What round 1 changed beyond tests and docstrings:** the norm of the last core is taken after dividing by its
@@ -203,10 +203,24 @@ must pass `safety.effective_rtol(frame.data)`, since a float32 numpy frame reads
 - **Not run here:** numpy 1.x (finding 7: an unstacked float32 frame's residual dtype). CI's floor leg runs it.
 - **The pause begins.** P5 is not started. The items for the maintainer are under "P4, review round 1" above.
 
-### At the pause: the plan phase for the generalized jets begins (2026-11-17, 15:30)
+### At the pause: the plan phase for the generalized jets begins (2026-11-17, 15:15)
 
 The maintainer settled its inputs between 13:31 and 14:44 (log entries 116 to 120). The Opus writer (agent
-`ade730504190cf063`) was started at 15:30 on `reviews/jet_group_plan/BRIEF.md`; it changes `PART1_PLAN.md` and
+`ade730504190cf063`) was started at 15:15 on `reviews/jet_group_plan/BRIEF.md`; it changes `PART1_PLAN.md` and
 writes `reviews/jet_group_plan/ACCOUNT.md`. When it reports, a fresh Opus critic reviews
 (`reviews/jet_group_plan/REVIEW_r<n>.md`); they iterate until the critic agrees; then the maintainer reads and signs
 off; then the new slices are implemented by a Fable 5.2 medium pair; then P5. No implementation runs meanwhile.
+
+A correction: the two headings above first carried 15:20 and 15:30, written from an estimate; the commit times
+are 15:14 and 15:15, and the headings now say so.
+
+### The maintainer on P4's three items (2026-11-17, 15:18)
+
+"1. Ok. 2. Ok. 3. Note for consideration later, after this refactor." So the centers' residual stands as built,
+`UT3Frame.is_consistent` stands with `max(1, ||T||)` (for the changelog in P19), and the accuracy of
+`(x - y).norm()` across gauges is in the backlog of `dev/HANDOFF.md` for after the refactor.
+
+### The writer was stopped with the server and resumed (2026-11-17, 15:19)
+
+The server process behind the session stopped about three minutes after the writer started; resumed by its id.
+It did not coincide with a check-in.
