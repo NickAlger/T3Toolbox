@@ -1,7 +1,7 @@
 # T3Toolbox — current handoff
 
 _Updated 2026-11-15, at the 2026.5.0 release; "The next arc" updated the same evening, when the design work moved into
-`dev/graded_messages/`, at the pause of 2026-11-16, 04:46, and at the pause of 2026-11-17, 15:14, after slice P4 of the implementation (on the branch `graded-messages`)._ The previous handoff (the store rename R1–R6, phase timing P1–P3, the
+`dev/graded_messages/`, at the pause of 2026-11-16, 04:46, and at the pause of 2026-11-17, 15:14, after slice P4 of the implementation, and at the pause of 2026-11-17, 16:30, with the plan for the generalized jets complete (on the branch `graded-messages`)._ The previous handoff (the store rename R1–R6, phase timing P1–P3, the
 switch W1–W4, the glossary/docs pass, the hand fixes, and the 2026.4.0 arc's state blocks) is archived verbatim at
 `dev/archive/handoff_2026-11-15_pre-2026.5.0.md`; older ones are `handoff_2026-10-29_pre-2026.3.0.md`,
 `handoff_2026-08-21_optimization_layer.md`, `handoff_2026-08-20_pre-2026.1.0.md` and
@@ -75,10 +75,27 @@ where they differ).** All of this is on the branch `graded-messages`; `main` is 
   inputs are jets with sizes of their own (a line is two slots, a curve more) and `pp` leaves every signature, a
   helper building the input of a line; everything of the type of the output has the jet axes; the entries kind is of
   order 0 only (a helper to one-hot vectors, and apply for anything with a derivative; `entries_derivatives` goes).
-- **NEXT:** a plan phase for that generalization, by an Opus writer and an Opus critic, to the brief
-  `dev/graded_messages/reviews/jet_group_plan/BRIEF.md`: new slices between P4 and P5 (which rebuild parts of P1 to
-  P3) and `PART1_PLAN.md` brought in line everywhere. Nick reviews and signs off; then the new slices are implemented
-  by the usual pair; then P5.
+- **The plan for that generalization is COMPLETE and awaits Nick's review of the whole (pause of 2026-11-17, 16:30).**
+  An Opus writer and an Opus critic produced it in three rounds (`dev/graded_messages/reviews/jet_group_plan/`: the
+  brief, `ACCOUNT.md` with the design on one page and every choice, `REVIEW_r1..r3.md`, `RESPONSE_r1..r2.md`); the
+  critic agreed. It is in `dev/graded_messages/PART1_PLAN.md` (commit 48a1af4): four new slices between P4 and P5,
+  **P4a** (`jet_contract(subscripts, *operands, lens, order, over_orders)` over the one group `J`,
+  `GroupLengths(J, W, K, C)`, the 41 strings become 29), **P4b** (`affine_jet(ww, *directions)`,
+  `index_to_one_hot(index, shape)`, the dense functions without `pp`), **P4c** (the reference module in several
+  variables; entries without `order`), **P4d** (`jets` and `data_preparation` in the jet shape), and every later
+  slice brought in line. Nick answered all its open points (O-36 to O-47; plan section 11.1, log entries 121 and
+  122) and approved its names (section 11.4): `order` is a tuple only; no default of `order` on `LeastSquaresOracle`
+  (required for every kind, `()` for entries), `()` the default on the sampling functions; every slot along a jet
+  axis of the uniform layout is data (no mask); the ambient transposes have no jets and none are planned; the
+  display's table has one column per multi-index and can be turned off (`error_table=True`, taken as approved with
+  the other names and TO BE CONFIRMED at his review, as is its third place, `format_newton_iter`).
+- **NEXT, and only when Nick says so** (he paused the work for a couple of days on 2026-11-17 at 16:26, to review
+  the updated plan and because of his token budget): (1) his sign-off of the plan as a whole, with any changes;
+  (2) Claude amends the decision records the account's section 7 lists (`TARGET_DECISIONS.md` rows 2.1, 2.3 to 2.9,
+  5.4, 6.2, 6.6 and the notes named there; `SAMPLE_VARIABLES.md` sections 4, 6 and 7) -- NOT yet done: the notes
+  of 2026-11-17 in `TARGET_DECISIONS.md` hold the decisions meanwhile, and the latest note wins; (3) P4a to P4d by
+  the usual pair (Fable 5.2, medium), one slice per commit, with the scheduled check-ins resumed while agents work
+  (none is scheduled now); (4) P5.
 - **From P4, answered by Nick (2026-11-17, 15:18):** the normalization and reduction of the centers' residual, ok;
   `UT3Frame.is_consistent` thresholding against `max(1, ||T||)`, ok; `(x - y).norm()` losing accuracy across gauges
   is noted for consideration AFTER this refactor (in the backlog below).

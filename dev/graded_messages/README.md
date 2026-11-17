@@ -90,9 +90,13 @@ documents and some of the proposal.
   `order` is a jet shape; the inputs are jets with sizes of their own and `pp` leaves every signature, a helper
   building the input of a line; everything of the type of the output has the jet axes; the entries kind is of
   order 0 only. This supersedes, in the bullet of 2026-11-15 above, "input jets are always a point and one
-  direction" and the form `probe(ww, pp=None, order=0)`. **Next:** a writer and a critic plan the new slices
-  between P4 and P5 and bring `PART1_PLAN.md` in line (`reviews/jet_group_plan/BRIEF.md`); the maintainer signs
-  off; then they are implemented; then P5.
+  direction" and the form `probe(ww, pp=None, order=0)`.
+- **The plan for the generalized jets is complete and awaits the maintainer's review (paused 2026-11-17, 16:30).**
+  A writer and a critic produced it in three rounds (`reviews/jet_group_plan/`); it is in `PART1_PLAN.md`: slices
+  P4a to P4d between P4 and P5, and the later slices brought in line. The maintainer answered its open points
+  (O-36 to O-47) and approved its names (log entries 121 and 122), then paused the work for a couple of days to
+  review the plan as a whole. **Nothing of it is implemented, and nothing starts until he says so.** Start reading
+  at the plan's head, then section 2.4 (`jet_contract`), section 5.3 (P4a to P4d) and section 11.1.
 - **The earlier documents are not rewritten.** `EXECUTION_PLANS.md`, `EVALUATOR.md` and `scripts/plan_mockup.py`
   describe the design before the review, and `PROPOSAL.md`, `API_IMPACT.md` and `WORKED_EXAMPLE.md` are affected in
   places. Each has a status note at its top saying what no longer holds. Where they disagree with

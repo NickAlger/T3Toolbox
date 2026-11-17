@@ -259,3 +259,20 @@ the head, the semantics and the algorithm of `jet_contract` in 2.4, the open poi
 plan's status line, which still said the whole plan awaited sign-off. Not yet done, and mine once he signs: the
 amendments to `TARGET_DECISIONS.md` and `SAMPLE_VARIABLES.md` that the account's section 7 lists. Nothing is
 implemented; no check-in is scheduled beyond the one pending.
+
+### The plan for the generalized jets is complete; the pause (2026-11-17, 16:30)
+
+- The maintainer answered the open points (16:21, 16:26; log entries 121 and 122) and approved the names. The
+  writer folded the answers into `PART1_PLAN.md` in one editing pass (commit 48a1af4): section 11.2 has nothing open,
+  11.1 has the answers, 11.4 the approved names. I checked the pass by search (no open mark left; every
+  `LeastSquaresOracle(...)` passes `order` but the one test that it raises without; no sentinel; no fallback by
+  total degree); the critic did not review this last pass, to save the maintainer's budget, since it settles
+  nothing new.
+- Two things in it for his eye: `error_table=True` (N42) is taken as approved with the other names; and the writer
+  put it on `format_newton_iter` as well as on the frontend `newton_cg` and `make_newton_display`, because that
+  public function is where the table is printed.
+- **Paused at his request** ("commit it, update the handoff, and pause before implementation ... We will resume
+  in a couple days"). Not done, on purpose: the amendments to `TARGET_DECISIONS.md` rows and
+  `SAMPLE_VARIABLES.md` listed in `reviews/jet_group_plan/ACCOUNT.md` section 7 (mine, after his sign-off of the
+  whole). No agent is running, no check-in is scheduled, nothing is uncommitted.
+- To resume: `dev/HANDOFF.md`, the block "STATE AT THE PAUSE OF 2026-11-17", its NEXT.
