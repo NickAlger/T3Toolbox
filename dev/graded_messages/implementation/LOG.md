@@ -233,3 +233,17 @@ It did not coincide with a check-in.
   O-36 to O-43 and proposed names N31 to N39. Its draft is committed as a69e497, marked as a draft under review.
 - A fresh Opus critic (agent `ad73f7b1794a3f870`) was started at 15:34 on it; it writes
   `reviews/jet_group_plan/REVIEW_r1.md`. Its findings go back to the writer; rounds until the critic agrees.
+
+### The plan phase: the critic's first review (2026-11-17, 15:49)
+
+The critic: NOT YET (`reviews/jet_group_plan/REVIEW_r1.md`, committed as 50e2b62). It confirmed the mathematics
+with its own scripts (the box product, the corner readout, the dual jet in two and three variables, the product of
+factorials, the grid of roots of unity), the table of 29 strings and the contraction counts against P1. One
+blocking finding: with input jets a forgotten `order` is no longer caught by the form of the sample, and with the
+oracle's default `order=()` a fit at order 1 without a weight passes every check and fits another problem; the
+default is the maintainer's to decide. Seven should-fix (the jet axes on the uniform layout are data, not
+don't-care; the reference module must not import the helpers; the old derivative kinds at order 0 translate to
+`(0,)`; a wider test matrix at `m = 2`; the one-program-size test kept; packed inputs specified; the open points
+corrected) and twelve minor. Sent to the writer at 15:49 with my guidance: the default of `order` and the rule on the
+jet axes of the uniform layout become open points for the maintainer, the second with the rule proposed from entry
+116 (every slot of a jet axis is a coefficient; a zero written when packing is data).
