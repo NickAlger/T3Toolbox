@@ -1838,3 +1838,10 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
 - The maintainer corrected the reading: the backend makes no checking guarantee; what it owes its user is the
   checkers, to call beforehand if they wish. Quoted in `TARGET_DECISIONS.md`. The proposal is withdrawn; the
   plan's own sentence, that the frontend validates the sample with the backend's validators, was in line.
+
+## 105. O-18 and the frontend-against-backend items settled (2026-11-16, 20:15)
+
+- The weight's shape is checked by a backend checker that the frontend calls; a whole batch by one checker on
+  the least-squares oracle; the engine checks only what it needs to run, held shapes and operand ranks.
+- The preparation functions, the oracle and the batch are reachable from `t3toolbox.fitting`; a backend
+  `pack_batch`; no frontend entry to the engine for now; writing an oracle is backend-level work.

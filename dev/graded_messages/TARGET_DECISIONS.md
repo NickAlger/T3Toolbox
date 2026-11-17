@@ -309,6 +309,30 @@ t3_probe_corewise_hessian(x, ww, residual, core_directions, pp=None, order=0)
   requirement on the backend is that a checker exists for each thing the frontend checks, not that backend
   functions check. Claude's proposal is withdrawn.
 
+- **What follows from the two rules, decided 20:15** ("Yes, this is the right reading", and the answers to
+  Claude's items 3 to 6):
+  - **O-18 (the weight's shape).** A backend checker for the weight's exact shape, beside the two validators of
+    the sample; the frontend calls it where a weight comes in; the engine promises nothing about it. The
+    frontend's `_canonical_weight` goes (2.5 removed the rules it implements).
+  - **One checker for a whole batch,** a method of the least-squares oracle (`oracle.check_batch(batch, shape)`,
+    name open): the form of the sample, its shapes against the mode sizes, the shape of `y`, the shape of the
+    weight. Built from the small checkers, which stay public. The frontend optimizers and `fitting.local_model`
+    call it once where a batch enters.
+  - **What the engine checks itself, and nothing else:** what it needs in order to run (an unknown name in
+    `want`, a wanted variable whose argument is missing); the shapes of held variables (6.5); the ranks of
+    operands in `jet_contract` (5.4).
+  - **The checks of the sample** stay as the plan had them: backend validators that the frontend methods call.
+  - **The preparation functions and the jet helpers** are reachable from `t3toolbox.fitting` under the same
+    names; the one that acts on a tensor is also a method, `x.unscale_coordinates(scales)`.
+  - **The oracle and the batch** are one class each for both tiers, reachable from `t3toolbox.fitting`. One
+    backend `pack_batch` packs a batch for the uniform layout, and the frontend calls it. A frontend-only fit
+    from derivative data, importing nothing from `t3toolbox.backend`, is a test beside the backend-only one.
+  - **The engine has no frontend entry.** "I would leave the engine to the backend. If a use cases arises, we can
+    add the frontend version at that time."
+  - **Writing an oracle is backend-level work,** a stated exception to the rule of the two users. The frontend
+    optimizers take an oracle object, so they can drive a user-written one.
+  - The reference module of definitions is backend only.
+
 ## What remains, in groups (2026-11-15, 15:34)
 
 Of the 57 rows in sections 1 to 9 (9.7 was added on 2026-11-16), 46 are decided, 3 are guidance and 1 is parked. The other 7 are below, in

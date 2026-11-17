@@ -1505,6 +1505,8 @@ and will be brought in line in one pass when the list is complete.
 | O-15 | The `.tex` document is archived. The paper-to-code map is updated for the new variables, with the differences explained, and moves out of `CLAUDE.md` into a file in `docs/` |
 | O-16 | Both tiers: the preparation functions are reachable from the frontend as well as the backend |
 | O-17 | As proposed: the lap `oracle` in place of `sweep` and `residual` |
+| O-18 | A backend checker for the weight's exact shape, called by the frontend; the engine promises nothing about it; `_canonical_weight` goes. One checker for a whole batch on the least-squares oracle (`check_batch`, name open), called once by the frontend where a batch enters. The engine itself checks only what it needs to run, held shapes (6.5) and operand ranks (5.4). **The backend gives checkers, not guarantees** |
+| Frontend and backend | The preparation functions and jet helpers reachable from `t3toolbox.fitting`; `x.unscale_coordinates(scales)`; the oracle and the batch one class each for both tiers; a backend `pack_batch`; a frontend-only fit as a test; no frontend entry to the engine; writing an oracle is backend-level work |
 | O-10 | `jet_contract` does not learn the layout. It keeps the argument of the 5.4 call form, `over_orders` (`'scan'` or `'loop'`, 2.9), after `lens`. In Part 1 the engine passes `'scan'` on the uniform layout and `'loop'` on the ragged one; `GroupLengths` keeps five fields; both forms are built and tested |
 
 - **O-1. Which benchmark is the gate.** The decisions say "the consumer's benchmark", run with chunking off.
