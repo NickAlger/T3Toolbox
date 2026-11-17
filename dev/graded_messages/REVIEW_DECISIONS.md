@@ -1993,3 +1993,16 @@ The maintainer's four steps of entry 57. The records are in `reviews/notation_20
   integer `order`; the inputs are jets with sizes of their own and `pp` leaves every signature, a helper building
   the input of a line; everything of the type of `z` has the jet axes. Still for the plan phase: the display of
   several order axes, the consumer's calls, and the names of the two helpers.
+
+## 121. The open points of the jet-group plan answered, but for one (2026-11-17, 16:21)
+
+- The plan change (slices P4a to P4d) was written by an Opus writer and agreed by an Opus critic in three rounds
+  (`reviews/jet_group_plan/`). The maintainer answered its open points: `order` is a tuple only (O-36); the two
+  helpers at the top level too (O-37); the loop under both forms for two or more jet variables in Part 1 (O-38);
+  `rescale_direction` with one length or one per variable (O-40); no `dtype` on `index_to_one_hot` (O-41); the
+  display's columns are the multi-indices in unfolding order, with an option to turn the table off and keep the
+  other diagnostics (O-42); the ambient transposes without jets, with no plan to add them (O-43); no default of
+  `order` on the oracle, `()` kept on the sampling functions (O-44); `order=()` written for the entries oracle
+  (O-46); the dual-jet and derivative functions accept `'entries'` at `()` (O-47).
+- O-45 (the jet axes on the uniform layout) is not answered: the question was not clear to him. O-39 had been
+  withdrawn as already decided. The proposed names are not yet answered. Recorded in `TARGET_DECISIONS.md`.

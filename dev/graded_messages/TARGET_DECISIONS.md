@@ -593,6 +593,40 @@ Open with him: the structure below, and the letter.
   `t3_entries_ambient_transpose(index, shape, residual, sum_over_samples=False)`, which stands as written.
 - The brief of the plan phase (`reviews/jet_group_plan/BRIEF.md`, item 3) carries this.
 
+**The open points of the jet-group plan, as the maintainer answers them** (2026-11-17, 16:21; the points are in
+`PART1_PLAN.md` section 11.2, the plan change agreed by the critic in three rounds, `reviews/jet_group_plan/`).
+
+- **O-36:** "Agree. Order is a tuple only." `order=(3,)`; `order=()` for no jets; an integer raises. This withdraws
+  the integer shorthand Claude had proposed at 14:00 (an integer `0` would have meant `()` while every other `n`
+  meant `(n,)`).
+- **O-37:** the two helpers are exported from the top level `t3toolbox` as well as from `t3toolbox.fitting`.
+- **O-38:** for two or more jet variables, Part 1 runs a loop under both `over_orders` settings, so the compiled
+  program grows with the order there until Part 2.
+- **O-39:** withdrawn before it reached him: rows 2.1 and 2.2 already decide that the slots of an input jet are
+  Taylor coefficients.
+- **O-40:** `rescale_direction` takes one length (the default form), or one per jet variable.
+- **O-41:** `index_to_one_hot` returns the default float dtype, with no `dtype` argument.
+- **O-42, the display for two or more jet variables:** the columns are the multi-indices in the order "you would
+  get if [you] unfolded the tensor into a matrix" (row-major); no columns by total degree. And, his addition: "the
+  table is likely to be too wide in all but the smallest cases. Therefore we should add an option for the user to
+  turn off table display while retaining the rest of the display diagnostics." The name of that option is to be
+  proposed to him.
+- **O-43:** "The ambient transposes stay without jets. However, there is no plan to add jetting to ambient
+  transposes in the future." So it is not a deferred item: the ledger does not list it as work to come.
+- **O-44, the default of `order`:** "Go with recommendation (b)": no default on `LeastSquaresOracle`; `()` stays the
+  default on the sampling functions and methods, whose docstrings show the trap (an input jet read with
+  `order=()` has its jet axis taken for a sample axis) as a wrong-against-right example.
+- **O-46, the entries oracle:** "accept order=() for entries." One class, one rule for every kind: `order` is
+  required, and for `'entries'` it must be `()`. No sentinel default.
+- **O-47:** the dual-jet and derivative functions accept `'entries'` at `()` and return the data unchanged.
+- **O-45, the jet axes on the uniform layout: not answered yet.** He was unsure what was asked, and gave his view
+  of uniform data: "The user will supply a raw array of the appropriate shape, and it is on them to ensure that they
+  didn't put nonzeros in the padded locations. If they put nonzeros there, they will have no effect on the output
+  because the operations will mask the cores before the data is passed through. We also provide helper functions
+  that can convert ragged data to uniform data by padding appropriately." Claude is to explain the question: the
+  slots in question are along a jet axis, which no mask of the cores covers.
+- The proposed names of section 11.4 (N32, N33, N35 to N41) are not yet answered.
+
 ## Carried to Part 2 from the implementation of Part 1
 
 Kept here so that nothing found while building Part 1 is forgotten when Part 2 is planned. Each item names its
