@@ -5,6 +5,21 @@ Agreed by the reviewer; awaiting the maintainer's sign-off. 2026-11-16. Written 
 `graded-messages` at `a9c31b2` (the library and `tests/` unchanged since `4d38df7`); every statement about the
 library was checked against the code at that commit, and counts were recounted there.
 
+**Changed on 2026-11-17 for the generalized jet group** (entries 116 to 120 of `REVIEW_DECISIONS.md`;
+`TARGET_DECISIONS.md`, the notes "One jet group, of any number of axes" and "The public interface is generalized
+from the start"). Four slices, P4a to P4d, are inserted between P4 and P5; they rebuild what P1 to P3 built where
+the change reaches it, and every later section is brought in line. Written against `ae3811d` (the library and
+`tests/` as P4 left them at `5991725`). The account of the change, with every choice it makes, is
+`reviews/jet_group_plan/ACCOUNT.md`. Section 11.2 holds the points open with the maintainer.
+
+**The jet order, in one paragraph** (used everywhere below). `order` is a tuple of maximum orders, one per jet
+variable, `order = (n_1, ..., n_m)`; `order = ()` (`m = 0`) is the computation without jets, which earlier
+versions of this plan called order 0. The full jet shape is `F = (n_1 + 1, ..., n_m + 1)`, written `J` in shape
+comments where it is the shape of a variable's jet axes. A jet is a polynomial in `s_1 ... s_m` truncated to the
+box `F`; an array's jet shape means that its coefficients beyond it are zero. Every array that carries jets has
+exactly `m` leading jet axes. The inputs are jets: `ww[i]` is `J_in_i + W + (N_i,)`, sizes of its own, and there is
+no `pp`. The entries kind has no jets. Whether a bare integer is accepted for `order` is open (O-36).
+
 **How to read it.** The rows of `TARGET_DECISIONS.md` are the authority, with the maintainer's answers to this
 plan's open points (the note "The plan's open points, as the maintainer answers them" and the notes after it,
 2026-11-16). A rule is given here with its row number (for example "2.9") and, where a reader needs it, one
@@ -17,19 +32,27 @@ and shape. The prototypes in `scripts/review/` establish the algebra; the librar
 ## 1. Scope
 
 **Part 1 delivers what is computed.** The sampling variables of `SAMPLE_VARIABLES.md` under their decided names;
-one engine, `sampling_variables`, that computes any of them for the three kinds, in Taylor coefficients, at any
-order, with order 0 as the same functions; `jet_contract` and a literal contraction string at every call site;
+one engine, `sampling_variables`, that computes any of them for the three kinds, in Taylor coefficients, for jets
+in any number of variables and of any order (the probe and apply kinds; the entries kind has no jets), with
+`order = ()` as the same functions; `jet_contract` over one jet group `J` of any number of axes, and a literal
+contraction string at every call site; inputs that are jets, with a helper for the line `w + s p` and one for
+one-hot vectors;
 the weight and the data as arguments; frames with optional centers; arbitrary tails; both layouts. Above it: the
 oracle and the batch, `LocalModel`, the optimizers' new seam, the display, and standalone functions that prepare
 data and weights. Around it: the reference module of definitions and the dense functions it calls, the checkers,
 the tests by definition and the identities, the documentation of the variables, and a dry port of T3Polynomial.
+
+**For jets in several variables Part 1 owes the right interface and correct results**, tested against the
+definitions; their speed is Part 2's (entry 117). It keeps today's cost in the cases the library uses: one jet
+variable; a full jet with a full partner or a partner of two slots; the block readouts (section 2.4, "The
+algorithm in Part 1").
 
 **Part 1 carries out every computation the way the library does it today.** Where a row is open it fixes the
 following ("The two parts", and the answer to O-19):
 
 | Open row | What Part 1 does |
 | --- | --- |
-| 5.3 sites | Sweeps go through `xscan`. Map-type operations go one site at a time: a loop over the sites on the ragged layout, `xmap` on the uniform one, for order 0 and for jets alike. There is no site group: a step sees one site's arrays on both layouts |
+| 5.3 sites | Sweeps go through `xscan`. Map-type operations go one site at a time: a loop over the sites on the ragged layout, `xmap` on the uniform one, at `order = ()` and for jets alike. There is no site group: a step sees one site's arrays on both layouts |
 | 5.5 contraction order | `contract`'s present default: one einsum on jax, the cached greedy pairwise path on numpy |
 | 7.2 defaults | The model holds the plain sweep variables and the residual |
 | 7.3 where the plan lives | There is no plan, and no signature has a `plan` argument |
@@ -47,7 +70,7 @@ the stochastic step, as today, and makes `take` traceable).
   memory than today. T3Polynomial's fitting module does chunk today: with `newton_kwargs=None` it passes no
   `chunk_size` (`t3polynomial/fitting.py`, `_level_newton_kwargs` and `_newton_fit`), so the library default
   `chunk_size='auto'` (`t3toolbox/optimizers.py`) applies on its uniform backends.
-- *Time at order 0 on the uniform layout.* Today's plain kernels run the map-type operations at all sites at once
+- *Time at `order = ()` on the uniform layout.* Today's plain kernels run the map-type operations at all sites at once
   (one contraction with a leading `d`: `compute_eta`, `assemble_z`); Part 1 maps them one site at a time, as
   today's jetted kernels do (`get_backend(True, True)` makes `xmap` `jax.lax.map`; `sampling_derivatives.py` calls
   it sixteen times). The plain ones may be slower than today until Part 2.
@@ -59,7 +82,7 @@ the stochastic step, as today, and makes `take` traceable).
 | Seam | Where Part 2 adds |
 | --- | --- |
 | The plan | An optional `plan=None` keyword on `sampling_variables`, and wherever 7.3 puts it (the oracle, the model or the solver). No Part 1 signature has to change |
-| The form over the orders (2.9) | `jet_contract` already takes `over_orders`; Part 1's engine sets it from the layout, Part 2 from the plan |
+| The form over the orders (2.9) | `jet_contract` already takes `over_orders`; Part 1's engine sets it from the layout, Part 2 from the plan. For `m >= 2` both values run the loop in Part 1 (O-38) |
 | The sites (5.3) | The map-type operations at all sites at once on the uniform layout, if Part 2 wants them: uniform code of its own, written with the library's `d` axis, not the shared step with an optional group (the maintainer, 2026-11-17: the site group `S` is removed). To be revisited in Part 2 (O-19) |
 | What is held (7.2) | The least-squares oracle's fixed hold list becomes a field of the plan; `held` already flows through every call |
 | Chunking (7.4) | Chunks are array shapes of the batch; the engine already accepts any number of sample axes `W` |
@@ -67,6 +90,8 @@ the stochastic step, as today, and makes `take` traceable).
 | Several MC-SGD steps in one program (8.3) | The stochastic step is a module-level function of pytrees, and `take` is traceable with a static size |
 | Contraction order (5.5) | Every term is a literal string at its call site, so a per-term order has one place to attach. Known cost until then: on numpy the default order inside one step of a product does the expensive contraction on every slot (`TARGET_DECISIONS.md`, "Carried to Part 2", item 1; marked in the code and by an expected-failure test) |
 | The benchmark | Part 2 compares the branch with the released 2026.5.0; the dry port (section 9) lets T3Polynomial's benchmark run on the branch |
+| Jets in several variables (5.4, 2.9) | Fast algorithms for `m >= 2` live inside `jet_contract`, behind its signature: the order in which a product's multi-indices are taken, a scan over more than one jet axis, transforms. Part 1 has a simple correct loop over the multi-indices of the operands taken one coefficient at a time, and under `'scan'` it scans only where `m = 1` (section 2.4). No call site changes when Part 2 replaces it |
+| Total-degree data (2.5) | Part 1 has the box only. Data measured up to a total degree fit the box with weight zero on the slots not measured; a cheaper storage of them, if wanted, is Part 2's |
 
 Part 1 is not released on its own. All work stays on `graded-messages` until Part 2 is done.
 
@@ -78,13 +103,13 @@ Part 1 is not released on its own. All work stays on `graded-messages` until Par
 
 | Module | Holds at the end of Part 1 | Status |
 | --- | --- | --- |
-| `backend/contractions.py` | `contract` (unchanged); `jet_contract`; the record of axis counts `GroupLengths` | changed |
+| `backend/contractions.py` | `contract` (unchanged); `jet_contract` over one jet group `J` of any number of axes; the record of axis counts `GroupLengths(J, W, K, C)` | changed |
 | `backend/sampling_variables.py` | The engine `sampling_variables`; `HeldVariables`; the declared graph, one tuple of records per kind; the shape table | new |
 | `backend/sampling_steps.py` | The 22 step functions and the start values. Every name private, `__all__ = []` | new |
 | `backend/sampling_definitions.py` | The reference module: one slow, dense function per variable and per output (9.7). Backend only | new |
-| `backend/jets.py` | `jet_to_dual_jet` and `dual_jet_to_jet` (3.6); the four functions for derivative data (2.3); the checkers of a sample, its data and its weight: the two validators of `pp`, moved from `sampling_derivatives`, and three new ones | new |
+| `backend/jets.py` | `jet_to_dual_jet` and `dual_jet_to_jet` (3.6); the four functions for derivative data (2.3); the two helpers that make input jets, `affine_jet` and `index_to_one_hot` (names proposed, section 11.4); the checkers of a sample, its data and its weight, `check_sample`, `check_data`, `check_weight`. The two validators of `pp` that P3 copied here go in P4d | new |
 | `backend/data_preparation.py` | The five preparation functions (6.7), and `ut3_unscale_coordinates`, the uniform twin of the last (O-34) | new |
-| `backend/probing.py`, `apply.py`, `entries.py` | One backend function behind each frontend method, each calling the engine, with the merged signature (6.3, 6.6); the ambient transposes in the form of N16, their own code otherwise as it is; the dense functions beside their kinds: `dense_probe` in its new form, `dense_apply` and `dense_entries` new | rewritten |
+| `backend/probing.py`, `apply.py`, `entries.py` | One backend function behind each frontend method, each calling the engine, with the merged signature (6.3, 6.6); the ambient transposes in the form of N16, their own code otherwise as it is; the dense functions beside their kinds: `dense_probe(T, ww, order=())` in its new form, `dense_apply(T, ww, order=())` and `dense_entries(T, index)` new | rewritten |
 | `backend/ut3_sampling.py`, `utv_sampling.py` | The uniform twins of the functions above: check packing, call the engine; `ut3_full_sum` as it is | rewritten |
 | `backend/sampling_derivatives.py` | Deleted in the last slice | removed |
 | `backend/fitting.py` | `LeastSquaresOracle` (with `check_batch`), `LeastSquaresBatch`; the default draw's `take` and `n_measurements` | rewritten |
@@ -123,26 +148,40 @@ the names with a basis are not accepted (O-13).
 `fv_conversions.t3_orthogonal_representations` (its "variations"), which the geometry's `frame` discards today
 (`backend/geometry.py`, `ManifoldGeometryOps.frame`). The engine takes `Vc` only (4.1).
 
-**A sample.** `ww` (probe, apply) or `index` (entries) when `order == 0`; `(ww, pp)` or `(index, pp)` above.
-`order` decides, never the type (6.2). `ww[i]` is `W + (N_i,)`; `index` is `(d,) + W`, integer. On the uniform
-layout the vectors are packed once, when the batch is packed (`pack_batch`), and the engine is strict about it.
+**The jet order** `order` is a tuple of maximum orders, one per jet variable (entries 116, 117, 120): `m =
+len(order)` jet variables, `order = ()` for none. Its full jet shape is `F = tuple(n + 1 for n in order)`. Every
+array that carries jets has exactly `m` leading jet axes, and `order` decides how the leading axes are read,
+never the type of the object (6.2). A jet is a polynomial in `s_1 ... s_m` truncated to a box; an array's jet
+shape means that its coefficients beyond it are zero, so an axis of size 1 is a variable the array does not
+depend on, and padding with zeros changes nothing. The entries kind has no jets: its `order` is always `()`.
 
-**The data `y`** is of the type of `z`, in forward order (2.4): probe `y[i]` is `T + W + (N_i,)`; apply and entries
-`y` is `T + W`. It broadcasts over `C`.
+**A sample.** For probe and apply, `ww` alone, at every order: `ww[i]` is `J_in_i + W + (N_i,)`, the input jet of
+mode `i`, with `m` leading jet axes of sizes of its own (at `m = 0` it is `W + (N_i,)`). The line `w + s p` is the
+input jet of two slots, `affine_jet(ww, pp)` (section 2.4); a curve has more slots; `w + s_1 p_1 + s_2 p_2` is
+`affine_jet(ww, pp_1, pp_2)`, of jet shape `(2, 2)` with a zero at `(1, 1)`. The modes may have different jet
+shapes (a mode of size 1 along every axis does not move: a discrete mode beside continuous ones). `order` is
+never inferred from the sample (entry 119): the count of jet axes is not in the shape, since `W` has any number of
+axes. For entries, `index`, `(d,) + W`, integer, with no jets (entry 120). There is no `pp` anywhere. On the
+uniform layout the vectors are packed once, when the batch is packed (`pack_batch`), the jet axes of the modes
+padded with zeros to their largest size, and the engine is strict about it.
 
-**The weight** has exactly the shape `(d,) + T` for probe and `T` for apply and entries; no rule for a bare vector,
-no broadcast of a mode dimension of 1 (2.5, 6.7). `None` means ones. The engine promises nothing about a weight of
-another shape; the backend checker `check_weight` tests it, and the frontend calls it where a weight comes in
-(O-18).
+**The data `y`** is of the type of `z`, in forward order (2.4): probe `y[i]` is `F + W + (N_i,)`; apply `y` is
+`F + W`; entries `y` is `W`. It broadcasts over `C`. Data measured only up to a total degree are given in the box,
+with weight zero on the slots not measured (entry 116).
+
+**The weight** has exactly the shape `(d,) + F` for probe, `F` for apply and `()` for entries; no rule for a bare
+vector, no broadcast of a mode dimension of 1 (2.5, 6.7). `None` means ones. The engine promises nothing about a
+weight of another shape; the backend checker `check_weight` tests it, and the frontend calls it where a weight
+comes in (O-18).
 
 **A batch** is the data of a least-squares fit, arrays only (8.x note "The oracle is a description"):
 
 ```python
 @dataclass(frozen=True, eq=False)
 class LeastSquaresBatch:                 # a registered pytree: every field a leaf (None allowed)
-    sample:          typ.Any             # ww | index | (ww, pp) | (index, pp), as the oracle's order says
-    y:               typ.Any             # the data: probe len=d, elm_shape=T+W+(Ni,); apply/entries T+W
-    weight:          typ.Optional[NDArray] = None   # probe (d,)+T; apply/entries T; None = ones
+    sample:          typ.Any             # ww (probe, apply: input jets, elm_shape=J_in_i+W+(Ni,)) | index (entries)
+    y:               typ.Any             # the data: probe len=d, elm_shape=F+W+(Ni,); apply F+W; entries W
+    weight:          typ.Optional[NDArray] = None   # probe (d,)+F; apply F; entries (); None = ones
     minibatch_scale: typ.Optional[float]   = None   # n/batch_size on a drawn batch; None = 1 (a full batch)
     drawn_indices:   typ.Optional[NDArray] = None   # int, (batch_size,): which samples a draw took
 ```
@@ -152,7 +191,8 @@ class each for both tiers, reachable from `t3toolbox.fitting`.
 
 **An oracle** is a frozen description with no arrays and one operation (8.2, 8.3). Its fields are statics, so it
 is value-hashed (`common.ValueHashedFields`) and rides as `aux_data`. The least-squares oracle has two fields,
-`kind` and `order`.
+`kind` and `order` (a tuple, `()` by default; an oracle of the entries kind has `order = ()` only, and any other
+value raises when it is built).
 
 **`held`** is what an oracle keeps at one frame; what goes into it is the oracle's business (8.3), and the
 optimizers pass it back unread. The `Oracle` protocol types it as any object (O-8); in a compiled program it must
@@ -195,12 +235,12 @@ read from `held`.
 def sampling_variables(
         kind:              str,                              # 'probe' | 'apply' | 'entries'
         frame:             typ.Tuple,                        # a manifold frame or a corewise point: section 2.2
-        sample:            typ.Any,                          # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:            typ.Any,                          # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         want:              typ.Tuple[str, ...],              # variable names (the table); the return is aligned
 
-        order:             int = 0,                          # highest Taylor order.  T=(order+1,) if order else ()
+        order:             typ.Tuple[int, ...] = (),         # the jet order (n_1..n_m); F=(n_1+1,..). entries: () only
         y:                 typ.Optional[typ.Any] = None,     # the data; needed for r and what reads it
-        weight:            typ.Optional[NDArray] = None,     # probe (d,)+T, apply/entries T; None = ones
+        weight:            typ.Optional[NDArray] = None,     # probe (d,)+F, apply F, entries (); None = ones
         variations:        typ.Optional[typ.Tuple] = None,   # (V, H), elm_shapes K+C+(nUi,Ni), K+C+(rLi,nDi,rR(i+1))
         core_directions:   typ.Optional[typ.Tuple] = None,   # (D_dot, L_dot) at (D, L), shapes of D, L with K+C
         Vc:                typ.Optional[typ.Sequence[NDArray]] = None,   # len=d, elm_shape=C+(nUi,Ni)
@@ -221,8 +261,8 @@ and has the checkers to test those inputs first (section 7.1).
 
 1. **What it needs in order to run, always.** An unknown kind or an unknown name in `want` raises (the graph cannot
    be read otherwise); a wanted variable whose argument is missing raises (`Kp` without `core_directions`; `r`
-   without `y` and without a held `r`); every held variable it is handed has the shape of the table, the order
-   included (6.5). The ranks of the operands are checked in `jet_contract` (5.4). Nothing else is checked here: not
+   without `y` and without a held `r`); an entries call with `order != ()` raises (its sample cannot carry jets);
+   every held variable it is handed has the shape of the table, its declared jet shape included (6.5). The ranks of the operands are checked in `jet_contract` (5.4). Nothing else is checked here: not
    the form of the sample, not its sizes against the frame's, not the shape of `y`, not the shape of the weight
    (those are the checkers of `jets`, section 2.4).
 2. **Layout and call type** from the structure of `frame` (section 2.2). On the uniform layout the inputs are masked
@@ -244,11 +284,11 @@ and has the checkers to test those inputs first (section 7.1).
 5. **The sweeps and the maps.** A sweep along the chain goes through `xscan` with a module-level body
    (`docs/contributor/scan_body_principles.md`). A map-type operation (the `xi`, `eta`, `z` steps and the block
    readouts) goes one site at a time: a loop over the sites on the ragged layout, `xmap` on the uniform one, at
-   every order (O-19). A product of two full jets is taken over the orders with `over_orders='loop'` on the ragged
-   layout and `'scan'` on the uniform one (O-10). Boundary vectors are ones sized by the end bond of the cores
+   every order (O-19). Every term is one `jet_contract` call with the output's jet order from the table of declared
+   jet shapes below; `over_orders='loop'` on the ragged layout and `'scan'` on the uniform one (O-10). Boundary vectors are ones sized by the end bond of the cores
    passed; start values follow the grade (4.4). The engine squashes no tail.
 6. **The seed.** `r = z - y` (the library's sign, 2.4); the seed `w_tilde = jet_to_dual_jet(kind, order, r, weight)`: the
-   weights, then the turn of the order leg. `JtJp` seeds from `Jp` the same way. A held `r` is used as it is.
+   weights, then the turn of every jet axis (a flip of each). `JtJp` seeds from `Jp` the same way. A held `r` is used as it is.
 7. **The sums.** `f = 1/2 <r, omega^2 r>`, `r_block_sumsq` (unweighted, the shape of the weight),
    `Jp_norm_sq = <Jp, omega^2 Jp>` are formed inside the call; `f` keeps `C`, `Jp_norm_sq` keeps `K + C`
    (3.7).
@@ -270,6 +310,22 @@ and has the checkers to test those inputs first (section 7.1).
 | Tilde-dot | `xi_tilde_dot`, `mu_tilde_dot`, `nu_L_tilde_dot`, `eta_D_tilde_dot` |
 | Outputs | `z`, `r`, `Jp`, `g`, `JtJp`, `Kp`, `V_tilde`, `H_tilde`, `V_tilde_dot`, `H_tilde_dot` |
 | Sums | `f`, `r_block_sumsq`, `Jp_norm_sq` |
+
+**The declared jet shape of each variable** (entries 116 and 117: each variable of the engine has a declared jet
+shape, the input's or the full one). With `F` the full jet shape and `J_in_i` the jet shape of `ww[i]`:
+
+| Variables | Jet shape at index `i` | Why |
+| --- | --- | --- |
+| `w[i]` | `J_in_i` as given | the input |
+| `xi[i]`, `xi_dot[i]`, `xi_U_dot[i]` | `min(J_in_i, F)` axis by axis | a Tucker core on the input: exact, of the input's degree; slots beyond `F` never reach an output, so they are dropped here |
+| every other variable: `mu`, `nu`, `eta` in every basis and grade, the seed `w_tilde`, every tilde and tilde-dot variable (`xi_tilde` and `xi_tilde_dot` included), `z`, `r`, `Jp` | `F` | a product truncated to the box, or a dual jet, which is always full (2.4) |
+| the blocks, the sums | none | read at the corner coefficient, or summed |
+
+The engine passes each `jet_contract` call the jet order of its output from this table: `order` itself for a
+variable of jet shape `F`, `tuple(min(a, b) - 1 for a, b in zip(J_in_i, F))` for a leaf. No call asks for an output
+box larger than that of an operand that is a truncation (entry 116): the only operands that are not truncated are
+the inputs and the leaves, whose jets are exact. For entries every jet shape is `()`. With a line input and one
+variable this is today's `T` and `A` exactly: the leaves have two slots, everything else `order + 1`.
 
 `nu_L_dot` and `eta_D_dot` are one name each for both dot forms (`SAMPLE_VARIABLES.md` 5.2, "One dot"). In a call
 that has both `variations` and `core_directions`, the two directions differ in general, so the engine forms the
@@ -308,90 +364,184 @@ frontend entry ("I would leave the engine to the backend", the answers of 20:15)
 ```python
 @dataclass(frozen=True)
 class GroupLengths:                 # the axis counts of one call's groups (5.4); hashable, a static
-    T:  int                         # 1 if order else 0; also the count of the affine group A
+    J:  int                         # jet axes: m = len(order), any count >= 0
     W:  int                         # sample axes
     K:  int                         # direction-stack axes
     C:  int                         # base-point-stack axes
 
 def jet_contract(
-        subscripts:   str,           # a literal grouped string; T a full jet's order group, A an affine one's
-        *operands:    NDArray,
-        lens:         GroupLengths,  # every call passes the whole record, so a wrong rank raises
-        over_orders:  str,           # 'scan' | 'loop': how two full jets are multiplied (2.9); no default
-) -> NDArray:                        # contract(), with T and A multiplying as truncated polynomials
+        subscripts:   str,                    # a literal grouped string over J, W, K, C; J leads its term
+        *operands:    NDArray,                # one per input term; each with its own sizes along J
+        lens:         GroupLengths,           # every call passes the whole record, so a wrong rank raises
+        order:        typ.Tuple[int, ...],    # the output's jet order, len=lens.J; no default (entry 116)
+        over_orders:  str,                    # 'scan' | 'loop': how a jet is taken one coefficient at a time
+) -> NDArray:                                 # J=tuple(n+1 for n in order) leading if the output term has J
 ```
 
-`jet_contract` follows the rule of 5.4: one operand with an order group and the output with it, the axis rides
-(one `contract`); two operands with one and `T` in the output, the truncated product of 2.9 (two contractions for
-an affine partner; for two full jets, the form `over_orders` names); no order group in the output, the top
-coefficient of the product. At order 0 it is exactly one `contract` call. `contract` raises on a `len_<G>` whose
-group is not in its string (`contractions._solve_group_lengths`), so `jet_contract` passes on only the lengths of
-the groups that each string it hands to `contract` names; the strictness comes from those being all of them.
+**What `jet_contract` computes: one behaviour.** Each operand is a polynomial in `s_1 ... s_m` (`m = lens.J`): an
+operand whose term has `J` has its coefficients on its `m` leading axes, of sizes of its own, and is zero beyond
+them; an operand whose term has no `J` is a constant. The result is their product, contracted as `contract`
+contracts the string with `J` deleted. If the output term has `J`, the result is that product's coefficients on
+the box `F = tuple(n + 1 for n in order)`: the truncated product. If it has no `J`, the result is the one
+coefficient at the corner `s_1^(n_1) ... s_m^(n_m)`: a block readout, since the pairing of a jet with a dual jet
+stored turned is the corner coefficient of their product (2.4). What were three behaviours are cases of it: a
+string with one jet operand and `J` in the output is a ride (one `contract`, the operand sliced to the box, the
+result padded with zeros where the box is larger); two jet operands and `J` in the output is a product; no `J` in
+the output is a readout. At `m = 0` (`lens.J == 0`, `order == ()`) the call is exactly one `contract` call on the
+string as written (2.7).
 
-The two forms over the orders (2.9; O-10), both built and tested in Part 1:
-- `'scan'`: one jet carried and shifted one slot per step, the other contracted against it, through the `xscan` of
-  `get_backend(True, use_jax)`: a real `lax.scan` when the operands are jax, a Python loop on numpy. Its body is
-  module-level, from a factory memoized on `(subscripts, lens)`.
-- `'loop'`: a Python loop over the pairs of orders, with slices.
+The easy cases to get wrong, stated:
+- *An operand with fewer slots than the box* along an axis is zero beyond them (entry 116): nothing is padded; its
+  coefficients are taken where they exist.
+- *An operand with more slots than the box*: its slots beyond the box never reach the result (in a product the
+  index of a contribution is the sum of the operands' indices) and are not read.
+- *A jet axis of size 1* is a variable the operand does not depend on. It is an axis like any other and counts in
+  the rank; it is not an absent axis.
+- *An operand with no `J` in its term* is a constant: at `m >= 1` it has no jet axes at all.
+- *The output's box larger than every operand's* is allowed and well defined (zeros where no product reaches);
+  the engine never asks for it.
+- *The truncation is the caller's.* `jet_contract` treats every operand as an exact polynomial; it cannot tell a
+  full jet truncated at order 1 (two slots) from an exact line (two slots). The rule of entry 116, that the output
+  box must not exceed the box of an operand that is itself a truncation, is kept by the engine through its table
+  of declared jet shapes (section 2.3), not checked here.
+
+**What `jet_contract` checks**, structurally, at every call (5.4; "What the engine checks itself" of the answers
+of 20:15): the letters of the string are among `J`, `W`, `K`, `C` and lowercase; `J` leads every term that has it;
+the record is a `GroupLengths`; `len(order) == lens.J`, each entry a nonnegative integer; every operand has the
+rank its term has under `lens` (a stray or a missing axis raises, wherever it is); every jet axis of every operand
+has at least one slot; `over_orders` is `'scan'` or `'loop'`. Nothing numerical. The products of the strings may
+have any number of jet operands; the library's strings have one, two or three.
+
+**`GroupLengths`** keeps its role: one record per computation, passed whole to every call, hashable, a key of the
+memoized scan bodies. Its fields are `J`, `W`, `K`, `C`; `J` is the number of jet axes, any nonnegative integer.
+The output's jet order is not a field of it: it differs between the calls of one computation (a leaf has the
+input's jet shape, a sweep variable the full one), so it is an argument of each call. The jet sizes of the
+operands are not in it either: they are read off the arrays, whose shapes are static under `jit`.
+
+**The algorithm in Part 1** (entry 117 and the brief's item 6: a simple correct algorithm for every case, and
+today's cost in the cases the library uses). Which operand is carried and which are taken one coefficient at a
+time is read off the operands' static shapes, never off the string:
+- *Product* (`J` in the output; two or more jet operands). The carrier is the jet operand with the most slots (the
+  product of its jet sizes), the first in the string among equals; it keeps `J` through the contraction. Every
+  other jet operand is taken one multi-index at a time, `J` deleted from its term: for each combination of their
+  multi-indices `r` that lies inside the box, one `contract` of the carrier, sliced to the part of the box above
+  `r`, with those coefficients, added into the result at offset `r`. Its cost is one contraction per multi-index of
+  the partners, so a partner of two slots costs two, as today, and a full partner `order + 1`.
+- *Readout* (no `J` in the output). The two jet operands with the most slots form the pair, folded in one
+  `contract` call along all their jet axes, the second flipped on every jet axis and both sliced to the ranges
+  that meet at the corner (`sum_k a[k] b[c - k]`); every other jet operand is taken one multi-index at a time, with
+  the corner reduced by its index. One jet operand alone gives its corner coefficient, one slice. Its cost is one
+  contraction per multi-index of the operands beyond the pair, as today.
+- *`over_orders`* names how an operand taken one coefficient at a time is taken when it is a full partner: one
+  with as many slots as the box along its jet axis. `'scan'`: the carrier rides the carry and is shifted one slot
+  per step, through `xscan` (a real `lax.scan` on jax, a Python loop on numpy), so the compiled program has one size
+  at every order; the readout with a third full operand scans it likewise. `'loop'`: a Python loop with slices. A
+  partner with fewer slots than the box (a leaf, an input) is looped under both forms, as today's affine partner
+  is. **For `m >= 2` both forms run the loop in Part 1** (the seam of section 1, and O-38): a scan over more than
+  one jet axis is Part 2's.
+- With one jet variable, a line input and a full order this makes exactly the contractions of P1's `jet_contract`
+  on the corresponding `T`/`A` strings: one for a ride, two for a product with a leaf, `order + 1` for two full
+  jets; a readout makes no more than before (the `V` strings with an input fold the trunk and the input in one call,
+  where P1 made two). P4a pins the counts by counting `contract` calls.
+- *Not chosen:* the product taken along each jet axis in turn (the ring is a tensor product). For a contraction it
+  needs an intermediate that carries the remaining jet axes of both operands at once, which costs more than the loop
+  over the partner's multi-indices and saves nothing in the cases the library uses.
 
 `jet_contract` knows nothing of the layout; it reads whether its operands are jax, as every function does. The
 caller says which form: in Part 1 the engine passes `'scan'` on the uniform layout and `'loop'` on the ragged one,
-which is how the library runs today. A product with an affine operand, order 0, and a block readout
-whose jets are all contracted in one call are the same under both forms. A readout that takes a further full jet
-one coefficient at a time (the four `H` strings with a full leaf) follows the form: under `'scan'` it is a real
-scan with the carried shift, so the compiled program has one size at every order (2.9, the notes of 19:08 and
-19:32); under `'loop'` it is slices over the triangle. The two forms agree to rounding, not bit for bit.
+which is how the library runs today. The two forms agree to rounding, not bit for bit. Nothing is reshaped, and
+only jet axes are sliced, so every sub-axis of `W`, `K`, `C` shards free, as with `contract`.
 
-**The strings in Part 1.** The 41 strings of the seven families of `scripts/review/term_stacks_check.py`
-(`STRINGS`). The 25 of the map-type families (`xi` 5, `z` 3, `eta` 4, `V` 5, `H` 8) are written there with the
-site group `S`, which the maintainer removed on 2026-11-17; they run one site at a time, so they stand at their
-call sites with `S` deleted, and the 16 sweep strings (`mu`, `nu`) as they are: 41 literal strings. `GroupLengths`
-has four fields, `T`, `W`, `K`, `C`, and `S` is not a letter a string may name.
+**The strings in Part 1.** The 41 strings of P1 (`tests/_jet_contract_cases.py`, `STRINGS`, seven families) are
+written with `J` in place of both `T` and `A`. Strings that differed only in `A` against `T` become one: 41 become
+29, by family `xi` 5, `z` 3, `mu` 4 (from 8), `nu` 4 (from 8), `eta` 4, `V` 5, `H` 4 (from 8). Of the 16 strings
+that carried `A`, 12 merge with a string that carried `T` (the four of `mu`, of `nu` and of `H` with an affine leaf);
+4 stay distinct (two of `xi` and two of `V`, where the input carries no `C` and the seed does). Derived by
+replacing the letters in P1's table and removing repeats (account, section 4). A string no longer shows which
+operand is a leaf (a cost named in entry 116); the comment at the call site says it. `GroupLengths` has four
+fields, `J`, `W`, `K`, `C`, and `T`, `A` and `S` are not letters a string may name.
+
+The helpers that make input jets (entries 118 to 120; names proposed, section 11.4), in `backend/jets.py`:
 
 ```python
-# These four take `kind`, first, with `order` after it, as the other functions of the two modules do (the
-# maintainer, 2026-11-17: such a function is three mathematical functions in one, so the caller says which).
-# The type of the data is decided by `kind`, never by the type of the object.
+def affine_jet(
+        ww:           typ.Sequence[NDArray],           # len=d, elm_shape=W+(Ni,): the point
+        *directions:  typ.Sequence[NDArray],           # m of them, each len=d, elm_shape=W+(Ni,)
+) -> typ.Tuple[NDArray, ...]:                          # len=d, elm_shape=(2,)*m+W+(Ni,): w + s_1 p_1 + ... + s_m p_m
+                                                       #   slot 0 is w, slot e_j is p_j, every other slot zero
+
+def index_to_one_hot(
+        index:  NDArray,                               # int, shape=(d,)+W
+        shape:  typ.Sequence[int],                     # the mode sizes N_i, len=d
+) -> typ.Tuple[NDArray, ...]:                          # len=d, elm_shape=W+(Ni,): e_index, in the default float dtype
+```
+
+`affine_jet(ww, pp)` is the input jet of the line `w + s p`, of jet shape `(2,)`: the call that was
+`probe(ww, pp, order=3)` is `probe(affine_jet(ww, pp), order=(3,))`. With no direction it returns `ww` unchanged
+(`m = 0`). It checks nothing beyond what it needs to stack (each direction has the shape of `ww`, structurally).
+`index_to_one_hot` makes apply's sample at a grid point: what `entries_derivatives(index, pp)` computed is
+`apply(affine_jet(index_to_one_hot(index, shape), pp), order=(n,))`. A user with a curve, or with several directions
+of their own, builds the input jet directly; nothing else is needed. The dtype of the one-hot vectors is the
+library's default float (the dtype rule of 5.6 then lowers it to the cores' where they are float32); whether it
+should take a `dtype` is open (O-41).
+
+The input's slots are Taylor coefficients, like every other jet of the library (2.1, 2.2): `ww[i]` at the
+multi-index `k` is the coefficient of `s^k`. A user whose curve is given by derivatives converts it with
+`derivatives_to_taylor` first. (To confirm, O-39.)
+
+The functions of the dual jet and of derivative data take `kind` first and `order` after it (the maintainer,
+2026-11-17, 12:02: such a function is three mathematical functions in one, so the caller says which). The type of
+the data is decided by `kind`, never by the type of the object. Below, `F = tuple(n + 1 for n in order)`; the
+entries kind has `order = ()` only, and its jets have no jet axes.
+
+```python
 def jet_to_dual_jet(
         kind:    str,                      # 'probe' | 'apply' | 'entries'
-        order:   int,
-        jet:     typ.Any,                  # of the type of z: probe len=d, elm_shape=T+W+[K]+C+(Ni,); apply/entries T+W+[K]+C
-        weight:  typ.Optional[NDArray],    # probe (d,)+T; apply/entries T; None = ones
-) -> typ.Any:                              # the dual jet, same shapes: omega^2 * jet, then the order leg turned
+        order:   typ.Tuple[int, ...],      # the jet order; entries: ()
+        jet:     typ.Any,                  # of the type of z: probe len=d, elm_shape=F+W+[K]+C+(Ni,); apply F+W+[K]+C; entries W+[K]+C
+        weight:  typ.Optional[NDArray],    # probe (d,)+F; apply F; entries (); None = ones
+) -> typ.Any:                              # the dual jet, same shapes: omega^2 * jet, then every jet axis flipped
 
 def dual_jet_to_jet(
         kind:      str,
-        order:     int,
+        order:     typ.Tuple[int, ...],
         dual_jet:  typ.Any,                # same shapes as jet_to_dual_jet's result
-        weight:    typ.Optional[NDArray],  # probe (d,)+T; apply/entries T; None = ones
-) -> typ.Any:                              # the jet: the order leg turned back, then divided by omega^2
+        weight:    typ.Optional[NDArray],  # probe (d,)+F; apply F; entries (); None = ones
+) -> typ.Any:                              # the jet: every jet axis flipped back, then divided by omega^2
                                            #   (where a weight is zero it divides by zero: no check, O-20)
 
 def derivatives_to_taylor(
         kind:  str,
-        order: int,
-        jets:  typ.Any,                    # derivatives: probe len=d, elm_shape=T+W+(Ni,); apply/entries T+W
-) -> typ.Any:                              # Taylor coefficients, same shapes: slot t divided by t!
+        order: typ.Tuple[int, ...],
+        jets:  typ.Any,                    # derivatives: probe len=d, elm_shape=F+W+(Ni,); apply F+W
+) -> typ.Any:                              # Taylor coefficients, same shapes: slot k divided by k_1! ... k_m!
 
-def taylor_to_derivatives(kind, order, jets)    # the reverse: slot t multiplied by t!; same arguments and shapes
+def taylor_to_derivatives(kind, order, jets)    # the reverse: slot k multiplied by k_1! ... k_m!
 
 def derivative_weight_to_taylor_weight(
-        weight:  NDArray,                  # a weight on derivative residuals: probe (d,)+T, apply/entries T
-        order:   int,
-) -> NDArray:                              # same shape: slot t multiplied by t!
+        weight:  NDArray,                  # a weight on derivative residuals: probe (d,)+F, apply F
+        order:   typ.Tuple[int, ...],
+) -> NDArray:                              # same shape: slot k multiplied by k_1! ... k_m!
 
 def prepare_derivative_data(
-        kind:        str,                      # 'probe' | 'apply' | 'entries'
-        order:       int,                      # >= 1
+        kind:        str,                      # 'probe' | 'apply' | 'entries' (entries: order () only)
+        order:       typ.Tuple[int, ...],
         y:           typ.Any,                  # derivatives, of the type of z
         weight:      typ.Optional[NDArray] = None,   # on derivative residuals; None = ones on the derivatives
         validation:  typ.Optional[typ.Any] = None,   # validation derivatives, or None
 ) -> typ.Tuple[
         typ.Any,                               # y in Taylor coefficients
-        NDArray,                               # the Taylor weight: t! per slot when weight is None
+        NDArray,                               # the Taylor weight: k_1! ... k_m! per slot when weight is None
         typ.Optional[typ.Any],                 # validation in Taylor coefficients, or None
 ]:
 ```
+
+Why the turn is a flip of every axis and the factor a product of factorials: the ring is the tensor product of
+one-variable rings, so the pairing `sum_k omega_k^2 r_k a_k` is the corner coefficient of `a` times the weighted `r`
+flipped on every jet axis (checked numerically, account section 3), and the mixed derivative
+`d^k / ds^k` of `s^k` is `k_1! ... k_m!`. The functions of the entries kind accept `order = ()` only and do
+nothing to the jet axes (there are none); for it the functions of derivative data return the data and the weight as
+they are (a weight of ones when none is given).
 
 The checkers of a sample, its data and its weight. Each raises a `ValueError` naming what is wrong and returns
 nothing; shapes are static, so each is safe under `jit`. They are checkers, not guarantees: no backend function
@@ -400,28 +550,35 @@ calls them, the frontend does (section 2.5), and `LeastSquaresOracle.check_batch
 ```python
 def check_sample(
         kind:    str,                      # 'probe' | 'apply' | 'entries'
-        order:   int,
-        sample:  typ.Any,                  # ww | index | (ww, pp) | (index, pp), as order says
+        order:   typ.Tuple[int, ...],      # the jet order; entries: ()
+        sample:  typ.Any,                  # ww (probe, apply) | index (entries)
         shape:   typ.Sequence[int],        # the mode sizes N_i, len=d
-) -> None:                                 # the form for the order; d vectors of W+(Ni,), or index (d,)+W; pp as ww
+) -> None:                                 # d arrays J_in_i+W+(Ni,), each with len(order) jet axes of size >= 1 and
+                                           #   one W for all; or index (d,)+W, integer
 
-def check_data(kind: str, order: int, sample: typ.Any, y: typ.Any) -> None:
-                                           # y is T+W+(Ni,) per mode (probe) or T+W (apply, entries)
+def check_data(kind: str, order: typ.Tuple[int, ...], sample: typ.Any, y: typ.Any) -> None:
+                                           # y is F+W+(Ni,) per mode (probe), F+W (apply), W (entries)
 
-def check_weight(kind: str, order: int, weight: typ.Optional[NDArray], d: int) -> None:
-                                           # None, or exactly (d,)+T (probe) or T (apply, entries)
+def check_weight(kind: str, order: typ.Tuple[int, ...], weight: typ.Optional[NDArray], d: int) -> None:
+                                           # None, or exactly (d,)+F (probe), F (apply), () (entries)
 ```
 
-`check_perturbation_vectors(ww, pp)` and `check_perturbation_index(index, pp, shape=None)` move from
-`sampling_derivatives` unchanged; `check_sample` calls them. The logic of `check_sample` and `check_data` is today's
-frontend `fitting._check_ragged_sample`, which goes with the factories.
+A shape cannot say how many of an input's leading axes are jet axes: `check_sample` reads the first `len(order)`
+axes of every `ww[i]` as jet axes and the axes between them and the last as `W`, and requires one `W` for all modes.
+A sample of the wrong form for the order is caught when the modes' `W` then disagree, or the count of axes is too
+small; an input of jet shape `(2,)` passed with `order = ()` and a `W` of one more axis is not distinguishable from
+a two-axis sample stack, and the docstring says so (the cost of never inferring `order`, entry 119).
+`check_perturbation_vectors` and `check_perturbation_index`, which P3 copied into `jets`, go from it in P4d: there is
+no `pp`. The originals stay in `sampling_derivatives`, called by the old frontend methods until P13, and go in
+P20. The logic of `check_sample` and `check_data` replaces today's frontend `fitting._check_ragged_sample`, which
+goes with the factories.
 
 ```python
 def data_block_norms(
         kind:   str,
-        order:  int,
-        y:      typ.Any,                   # probe len=d, elm_shape=T+W+(Ni,); apply/entries T+W
-) -> NDArray:                              # the shape of the weight: probe (d,)+T; apply/entries T
+        order:  typ.Tuple[int, ...],
+        y:      typ.Any,                   # probe len=d, elm_shape=F+W+(Ni,); apply F+W; entries W
+) -> NDArray:                              # the shape of the weight: probe (d,)+F; apply F; entries ()
 
 def equalizing_weight(
         block_norms:  NDArray,             # from data_block_norms
@@ -429,11 +586,12 @@ def equalizing_weight(
 ) -> NDArray:                              # same shape: 1 / max(x, floor * max(x))
 
 def rescale_direction(
-        kind:    str,
-        order:   int,
-        sample:  typ.Any,                  # (ww, pp) | (index, pp)
+        kind:    str,                      # 'probe' | 'apply'
+        order:   typ.Tuple[int, ...],      # at least one jet variable
+        sample:  typ.Any,                  # ww, input jets: J_in_i+W+(Ni,)
         y:       typ.Any,                  # of the type of z
-        length:  float,                    # pp *= length; slot t of y *= length**t   (loss-only)
+        length:  typ.Any,                  # a number, or one per jet variable (len=m): slot k of the input jets
+                                           #   and of y times length_1**k_1 ... length_m**k_m   (loss-only)
 ) -> typ.Tuple[
         typ.Any,                           # the sample
         typ.Any,                           # y
@@ -441,12 +599,12 @@ def rescale_direction(
 
 def rescale_coordinates(
         kind:    str,
-        order:   int,
-        sample:  typ.Any,                  # ww | (ww, pp); probe and apply only
+        order:   typ.Tuple[int, ...],
+        sample:  typ.Any,                  # ww, input jets; probe and apply only
         y:       typ.Any,                  # of the type of z
         scales:  typ.Sequence[NDArray],    # len=d, elm_shape=(Ni,): coordinate j of mode i times scales[i][j]
 ) -> typ.Tuple[
-        typ.Any,                           # the sample
+        typ.Any,                           # the sample: every slot of every input jet scaled
         typ.Any,                           # y (for probe, mode i's data divided by scales[i] too: 6.7 note)
 ]:
 
@@ -458,6 +616,13 @@ def t3_unscale_coordinates(
 def ut3_unscale_coordinates(x, scales)    # the uniform twin: x the uniform cores' .data; the same scales
 ```
 
+`rescale_direction` in several variables: a new variable `s_j = length_j s'_j` multiplies the coefficient of
+`s^k` by `length_1^k_1 ... length_m^k_m`, in the input and in the output alike, so the result is the data of the
+same tensor at the new sample. With a line input it is today's rule (the direction times `length`, slot `t` of `y`
+times `length^t`). A single number is the same length for every variable. Whether a length per variable is
+offered is open (O-40). It changes the loss only. `t3_unscale_coordinates`, its twin, `equalizing_weight` and
+`check_coordinate_scales` are unchanged.
+
 `scales` is one scale per coordinate, `len=d`, `elm_shape=(Ni,)` (O-35), as the prototype
 `scripts/review/bad_scaling_example.py` has it: its problem has coordinate scales spread over four decades within a
 mode, which one number per mode cannot undo.
@@ -466,34 +631,41 @@ The two estimates the prototype reads off the data (a length for the directions,
 shipped: the example computes them inline (O-14: "compute inline, do not ship at this time").
 
 The dense functions, beside their kinds, in the form of N16 (O-27, O-28). They are the dense ground truth of the
-library: the reference module calls them for `z`, and the examples and the tests use them. Jets come from the
-multilinear expansion over which modes take `p`, which is exact (the method of today's `dense_*_derivatives`,
-without the `t!`). They keep today's `dense_probe` stacks (`W` on the sample, `C` on `T`). The frontend does not wrap
-them: it has no class for a dense array.
+library: the reference module calls them for `z`, and the examples and the tests use them. The jets of a dense
+tensor at input jets are exact: the tensor is contracted with the input jets one mode at a time, each a truncated
+product of polynomials written as explicit loops over the multi-indices of the input's slots, with `numpy` or
+`jax.numpy` and never `jet_contract` (so that the ground truth shares no code with what it checks). They keep today's
+`dense_probe` stacks (`W` on the sample, `C` on `T`). The frontend does not wrap them: it has no class for a dense
+array.
 
 ```python
 def dense_probe(
         T:      NDArray,                              # shape=C+(N0,...,N(d-1))
-        ww:     typ.Sequence[NDArray],                # len=d, elm_shape=W+(Ni,)
-        pp:     typ.Optional[typ.Sequence[NDArray]] = None,   # len=d, elm_shape=W+(Ni,); given iff order >= 1
-        order:  int = 0,
-) -> typ.Tuple[NDArray, ...]:                         # z. len=d, elm_shape=T+W+C+(Ni,)
+        ww:     typ.Sequence[NDArray],                # len=d, elm_shape=J_in_i+W+(Ni,): input jets
+        order:  typ.Tuple[int, ...] = (),             # the jet order; F=tuple(n+1 for n in order)
+) -> typ.Tuple[NDArray, ...]:                         # z. len=d, elm_shape=F+W+C+(Ni,)
 
-def dense_apply(T, ww, pp=None, order=0) -> NDArray:      # T+W+C
-def dense_entries(T, index, pp=None, order=0) -> NDArray: # index (d,)+W, integer; T+W+C
+def dense_apply(T, ww, order=()) -> NDArray:          # F+W+C
+def dense_entries(T, index) -> NDArray:               # index (d,)+W, integer; W+C. No jets (entry 120)
 ```
 
 ```python
-def mu(kind: str, frame, sample, i: int, order: int = 0, *, variations=None, core_directions=None,
+def mu(kind: str, frame, sample, i: int, order=(), *, variations=None, core_directions=None,
        w_tilde=None) -> NDArray:           # sampling_definitions: mu[i] by its definition, dense, no sweep
 ```
 
 One such function per name of the table, all with the same arguments, each built as the dense contraction of
 its subnetwork (`SAMPLE_VARIABLES.md`, the column "As a subnetwork"). Jets come from interpolation in `s`, which is
-exact for a polynomial (9.3); `z` comes from the dense tensor through `dense_probe`, `dense_apply` or
-`dense_entries`; `Jp` from the dense tangent tensor; `g`, `JtJp` and the tilde variables from the dense Jacobian;
-`Kp` from the second derivative of the dense objective (by the house dispatch rule, inferred from the arrays: finite differences, which are exact for this polynomial, on numpy arrays; jax's second derivative on jax arrays). Ragged
-layout only; small problems only. The module is backend only.
+exact for a polynomial (9.3): in several variables, evaluation on the tensor grid of roots of unity, `M_j` nodes for
+variable `j`, and a discrete Fourier transform along each node axis. Every variable is a polynomial in `s_j` of
+degree at most `d * (a_j - 1) + n_j`, with `a_j` the largest input size along axis `j` clipped to `n_j + 1`, so `M_j
+= d * (a_j - 1) + n_j + 1` nodes are exact (the inputs are clipped to the box first; their higher slots never reach
+a variable). With a line input that is P2's `d + order + 1`. `z` comes from the dense tensor through `dense_probe`,
+`dense_apply` or `dense_entries`; `Jp` from the dense tangent tensor; `g`, `JtJp` and the tilde variables from the
+dense Jacobian; `Kp` from the second derivative of the dense objective (by the house dispatch rule, inferred from
+the arrays: finite differences, which are exact for this polynomial, on numpy arrays; jax's second derivative on jax
+arrays). Each variable is returned with its declared jet shape (section 2.3). Ragged layout only; small problems
+only (the node grid has `M_1 ... M_m` points). The module is backend only.
 
 The checkers of a frame (4.2; O-5, O-6). Each returns a residual and never raises and never reads a mode; the
 frontend compares it with a tolerance in safe mode (section 2.5).
@@ -531,7 +703,7 @@ class Oracle(typ.Protocol):                # the fitting layer's extension point
 @dataclass(frozen=True, eq=False)
 class LeastSquaresOracle(ValueHashedFields):
     kind:   str                            # 'probe' | 'apply' | 'entries'
-    order:  int = 0
+    order:  typ.Tuple[int, ...] = ()       # the jet order; entries: () only (any other raises at construction)
     # query(...): one call of sampling_variables. Its batch is a LeastSquaresBatch, its held a HeldVariables.
     # check_batch(batch, shape) -> None: the form of the sample, its sizes against shape, y, the weight (O-18)
     # n_measurements(batch) -> int;  take(batch, indices) -> LeastSquaresBatch (traceable, static len(indices))
@@ -557,7 +729,7 @@ plain sums of squares. The identities hold on a drawn batch: `f = 1/2 <r, r>`, `
 ```python
 def pack_batch(                            # backend/uniform_fitting.py
         kind:   str,
-        order:  int,
+        order:  typ.Tuple[int, ...],
         batch:  LeastSquaresBatch,         # ragged
         N:      int,                       # the packed width
 ) -> LeastSquaresBatch:                    # the sample's vectors and the probe data packed (pack_sample, pack_data)
@@ -589,7 +761,7 @@ def point_objective(
 (the note "The names of Part 1, and the form of the merged sampling functions" in "The two parts"). One rule: the
 object the function is evaluated at comes first (the cores `x`, or the `frame`, with the `variations` after it for
 the tangent forward), then the sample (`ww` or `index`), then what is applied (the `residual`, then the
-`core_directions`); then the keywords `pp=None, order=0`; then `sum_over_samples=True` where there is a sum. One
+`core_directions`); then the keyword `order=()` (no `pp`: the sample is input jets; the entries functions have no `order`, entry 120); then `sum_over_samples=True` where there is a sum. One
 name for one thing, on both layouts: `x` for a Tucker tensor train's cores (today `x`, `data` or `core_pair`),
 `frame` (today `frame` or `frame_data`), `variations` (today `variation` or `variations_data`), `ww` (today `ww` or
 `vecs`) or `index`, `residual` (today `ztildes` or `c`), `core_directions`. The sum flag is `sum_over_samples=True`
@@ -597,13 +769,13 @@ in place of `sum_over_probes=False` (3.7 note; N3, N25).
 
 | Function, today | Becomes |
 | --- | --- |
-| `t3_probe(ww, x)`, `ut3_probe(ww, data)` | `t3_probe(x, ww, pp=None, order=0)`, `ut3_probe` likewise |
-| `t3_apply(x, vecs)`, `ut3_apply(data, vecs)` | `t3_apply(x, ww, pp=None, order=0)`, `ut3_apply` likewise |
-| `t3_entries(x, index)`, `ut3_entries(data, index)` | `t3_entries(x, index, pp=None, order=0)`, `ut3_entries` likewise |
-| `tv_probe(ww, variation, frame)`, `utv_probe(ww, frame_data, variations_data)` | `tv_probe(frame, variations, ww, pp=None, order=0)`, `utv_probe` likewise; apply and entries (`index`) likewise |
-| `tv_probe_transpose(ztildes, ww, frame, sum_over_probes=False)`, `utv_probe_transpose(ztildes, ww, frame_data, ...)` | `tv_probe_transpose(frame, ww, residual, pp=None, order=0, sum_over_samples=True)`, `utv_probe_transpose` likewise; apply (`c`) and entries (`c`, `index`) likewise |
-| `t3_probe_corewise_transpose(ztildes, ww, core_pair, sum_over_probes=False)`, `ut3_probe_corewise_transpose(ztildes, ww, data, ...)` | `t3_probe_corewise_transpose(x, ww, residual, pp=None, order=0, sum_over_samples=True)`, the twin likewise; apply and entries likewise |
-| `t3_probe_corewise_hessian(ztildes, ww, core_pair, core_directions)`, `ut3_probe_corewise_hessian(ztildes, ww, data, core_directions)` | `t3_probe_corewise_hessian(x, ww, residual, core_directions, pp=None, order=0)`, the twin likewise; apply and entries likewise |
+| `t3_probe(ww, x)`, `ut3_probe(ww, data)` | `t3_probe(x, ww, order=())`, `ut3_probe` likewise |
+| `t3_apply(x, vecs)`, `ut3_apply(data, vecs)` | `t3_apply(x, ww, order=())`, `ut3_apply` likewise |
+| `t3_entries(x, index)`, `ut3_entries(data, index)` | `t3_entries(x, index)`, `ut3_entries` likewise: no `order` (entry 120) |
+| `tv_probe(ww, variation, frame)`, `utv_probe(ww, frame_data, variations_data)` | `tv_probe(frame, variations, ww, order=())`, `utv_probe` likewise; apply likewise; `tv_entries(frame, variations, index)` |
+| `tv_probe_transpose(ztildes, ww, frame, sum_over_probes=False)`, `utv_probe_transpose(ztildes, ww, frame_data, ...)` | `tv_probe_transpose(frame, ww, residual, order=(), sum_over_samples=True)`, `utv_probe_transpose` likewise; apply (`c`) likewise; `tv_entries_transpose(frame, index, residual, sum_over_samples=True)` |
+| `t3_probe_corewise_transpose(ztildes, ww, core_pair, sum_over_probes=False)`, `ut3_probe_corewise_transpose(ztildes, ww, data, ...)` | `t3_probe_corewise_transpose(x, ww, residual, order=(), sum_over_samples=True)`, the twin likewise; apply likewise; entries without `order` |
+| `t3_probe_corewise_hessian(ztildes, ww, core_pair, core_directions)`, `ut3_probe_corewise_hessian(ztildes, ww, data, core_directions)` | `t3_probe_corewise_hessian(x, ww, residual, core_directions, order=())`, the twin likewise; apply likewise; entries without `order` |
 
 The transposes take a residual of the type of `z` and no weight and turn it inside: by 6.6 the backend function
 behind a frontend method has the method's signature, and by 2.4 and 3.6 the frontend transposes take a residual and
@@ -616,31 +788,29 @@ and take the rule's order and names, with the sum flag off by default (the maint
 `t3_probe_ambient_transpose(ww, residual, sum_over_samples=False)`,
 `t3_apply_ambient_transpose(ww, residual, sum_over_samples=False)`,
 `t3_entries_ambient_transpose(index, shape, residual, sum_over_samples=False)`. They have no object to be evaluated
-at, and no `pp` or `order`. Their default differs from the other transposes' on purpose: for them the sum folds `W`
-into the CP rank. `dense_probe` takes the rule too, and `pp` and `order` (above).
+at, and no `order`; their `ww` is plain vectors (an ambient transpose of input jets is not part of this arc; O-43). Their
+default differs from the other transposes' on purpose: for them the sum folds `W` into the CP rank. `dense_probe`
+takes the rule too, and `order` (above).
 
 ```python
 def t3_probe(
         x:      typ.Tuple,                            # (tucker_cores, tt_cores), elm_shapes C+(nDi,Ni), C+(ri,nDi,r(i+1))
-        ww:     typ.Sequence[NDArray],                # len=d, elm_shape=W+(Ni,)
-        pp:     typ.Optional[typ.Sequence[NDArray]] = None,   # len=d, elm_shape=W+(Ni,); given iff order >= 1
-        order:  int = 0,                              # highest Taylor order.  T=(order+1,) if order else ()
-) -> typ.Tuple[NDArray, ...]:                         # z. len=d, elm_shape=T+W+C+(Ni,)
+        ww:     typ.Sequence[NDArray],                # len=d, elm_shape=J_in_i+W+(Ni,): input jets
+        order:  typ.Tuple[int, ...] = (),             # the jet order; F=tuple(n+1 for n in order)
+) -> typ.Tuple[NDArray, ...]:                         # z. len=d, elm_shape=F+W+C+(Ni,)
 
 def tv_probe(
         frame:       typ.Tuple,                       # (D, U, L, R)
         variations:  typ.Tuple,                       # (V, H), elm_shapes K+C+(nUi,Ni), K+C+(rLi,nDi,rR(i+1))
-        ww:          typ.Sequence[NDArray],           # len=d, elm_shape=W+(Ni,)
-        pp:          typ.Optional[typ.Sequence[NDArray]] = None,
-        order:       int = 0,
-) -> typ.Tuple[NDArray, ...]:                         # Jp. len=d, elm_shape=T+W+K+C+(Ni,)
+        ww:          typ.Sequence[NDArray],           # len=d, elm_shape=J_in_i+W+(Ni,)
+        order:       typ.Tuple[int, ...] = (),
+) -> typ.Tuple[NDArray, ...]:                         # Jp. len=d, elm_shape=F+W+K+C+(Ni,)
 
 def tv_probe_transpose(
         frame:             typ.Tuple,                 # (D, U, L, R)
-        ww:                typ.Sequence[NDArray],     # len=d, elm_shape=W+(Ni,)
-        residual:          typ.Sequence[NDArray],     # of the type of z: len=d, elm_shape=T+W+[K]+C+(Ni,)
-        pp:                typ.Optional[typ.Sequence[NDArray]] = None,
-        order:             int = 0,
+        ww:                typ.Sequence[NDArray],     # len=d, elm_shape=J_in_i+W+(Ni,)
+        residual:          typ.Sequence[NDArray],     # of the type of z: len=d, elm_shape=F+W+[K]+C+(Ni,)
+        order:             typ.Tuple[int, ...] = (),
         sum_over_samples:  bool = True,               # False: W joins the stack, W+K+C
 ) -> typ.Tuple[
         typ.Tuple[NDArray, ...],                      # V blocks. len=d, elm_shape=[W]+[K]+C+(nUi,Ni)
@@ -649,18 +819,17 @@ def tv_probe_transpose(
 
 def t3_probe_corewise_hessian(
         x:                typ.Tuple,                  # (B, G): the point whose cores the directions vary
-        ww:               typ.Sequence[NDArray],      # len=d, elm_shape=W+(Ni,)
-        residual:         typ.Sequence[NDArray],      # c, of the type of z: len=d, elm_shape=T+W+C+(Ni,); no weight
+        ww:               typ.Sequence[NDArray],      # len=d, elm_shape=J_in_i+W+(Ni,)
+        residual:         typ.Sequence[NDArray],      # c, of the type of z: len=d, elm_shape=F+W+C+(Ni,); no weight
         core_directions:  typ.Tuple,                  # (B_dot, G_dot), shapes of B, G with K+C
-        pp:               typ.Optional[typ.Sequence[NDArray]] = None,
-        order:            int = 0,
+        order:            typ.Tuple[int, ...] = (),
 ) -> typ.Tuple[
         typ.Tuple[NDArray, ...],                      # Tucker block. len=d, elm_shape=K+C+(nDi,Ni)
         typ.Tuple[NDArray, ...],                      # TT block.     len=d, elm_shape=K+C+(ri,nDi,r(i+1))
 ]:
 ```
 
-`t3_probe_corewise_transpose(x, ww, residual, pp=None, order=0, sum_over_samples=True)` is the transpose on a
+`t3_probe_corewise_transpose(x, ww, residual, order=(), sum_over_samples=True)` is the transpose on a
 corewise call and follows the layout above. The uniform twins (`ut3_probe`, `utv_probe`, `utv_probe_transpose`,
 `ut3_probe_corewise_transpose`, `ut3_probe_corewise_hessian`, and apply and entries) take the same lists, with `x`
 the uniform cores' `.data` and `frame` the uniform frame's; they check packing and call the engine, which masks
@@ -685,13 +854,13 @@ of the weight. In `uniform_fitting.py`: `pack_sample(kind, order, sample, N)`, `
 
 | Module | Today | Changed (call the engine) | Kept as they are | Removed |
 | --- | --- | --- | --- | --- |
-| `probing` | 34 | 5 | 2, in the form of N16, with their own code: `t3_probe_ambient_transpose`; `dense_probe`, which also gains `pp` and `order` | 27: every `compute_*`, `assemble_*`, `tv_precompute_probe_frame_sweep`, the three `*_from_sweep` |
+| `probing` | 34 | 5 | 2, in the form of N16, with their own code: `t3_probe_ambient_transpose`; `dense_probe`, which also gains `order` and takes input jets | 27: every `compute_*`, `assemble_*`, `tv_precompute_probe_frame_sweep`, the three `*_from_sweep` |
 | `apply` | 10 | 5 | 1 (`t3_apply_ambient_transpose`, its arguments by N16) | 4: the sweep and `*_from_sweep` functions |
 | `entries` | 10 | 5 | 1 (`t3_entries_ambient_transpose`, its arguments by N16) | 4: likewise |
 | `ut3_sampling` | 25 | 9 | 1 (`ut3_full_sum`) | 15: every `*_derivatives*` and `*_from_sweep` |
 | `utv_sampling` | 30 | 6 | 0 | 24: the sweeps, `*_from_sweep`, every `*_derivatives*` |
-| `sampling_derivatives` | 57 | 0 | 2 moved to `jets` (`check_perturbation_vectors`, `check_perturbation_index`) | 55, the module with them (the chunk estimators and `dense_*_derivatives` included; the dense jets are `dense_probe`, `dense_apply`, `dense_entries` with `pp` and `order`) |
-| **Total** | 166 | 30 | 7 | 129 |
+| `sampling_derivatives` | 57 | 0 | 0 (P3 copied `check_perturbation_vectors` and `check_perturbation_index` into `jets`; P4d deletes the copies, there being no `pp`) | 57, the module with them (the chunk estimators and `dense_*_derivatives` included; the dense jets are `dense_probe` and `dense_apply` with input jets and `order`) |
+| **Total** | 166 | 30 | 5 | 131 |
 
 New in these modules: `dense_apply` in `apply`, `dense_entries` in `entries`.
 
@@ -706,14 +875,15 @@ the private `_canonical_weight` and `_check_ragged_sample` (O-18); in
 
 | Class | Sampling methods today | After | Removed |
 | --- | --- | --- | --- |
-| `TuckerTensorTrain` | 15 | 9: `entries`, `apply`, `probe` and their `*_corewise_transpose` with `(…, pp=None, order=0)`; the three ambient transposes with their arguments by N16 | the 3 `*_derivatives`, the 3 `*_corewise_derivatives_transpose` |
+| `TuckerTensorTrain` | 15 | 9: `entries`, `apply`, `probe` and their `*_corewise_transpose`, probe and apply with `(…, order=())`, entries with no `order`; the three ambient transposes with their arguments by N16 | the 3 `*_derivatives`, the 3 `*_corewise_derivatives_transpose` |
 | `T3Tangent` | 12 | 6: `probe`, `apply`, `entries` and their `*_transpose`, merged | 6 |
 | `UniformTuckerTensorTrain` | 12 | 6 | 6 |
 | `UT3Tangent` | 12 | 6 | 6 |
 
-Each merged method returns `T + W + [K] + C + ...` with `T` outermost, Taylor coefficients (6.6). The methods follow
-the rule of N16 (section 2.4) with `self` as the object: the sample, then what is applied, then `pp=None, order=0`
-(6.6: "the transposes take the same `pp` and `order`"), then `sum_over_samples=True` where there is a sum. The
+Each merged method returns `F + W + [K] + C + ...` with the jet axes outermost, Taylor coefficients (6.6). The methods follow
+the rule of N16 (section 2.4) with `self` as the object: the sample, then what is applied, then `order=()` for
+probe and apply (6.6: the transposes take the same `order`; entries has none), then `sum_over_samples=True` where
+there is a sum. The
 tangent transposes stay static methods with the frame first: their input is a residual and their output a tangent,
 so they are constructors, like `T3Tangent.zeros(frame)` (N16). Besides the order, three things change:
 
@@ -727,43 +897,40 @@ and `uniform_manifold.py`, and what each becomes:
 
 | Class | Method, today | Becomes |
 | --- | --- | --- |
-| `TuckerTensorTrain`, `UniformTuckerTensorTrain` | `probe(ww)` | `probe(ww, pp=None, order=0)` |
-| | `apply(vecs)` | `apply(ww, pp=None, order=0)` |
-| | `entries(index)` | `entries(index, pp=None, order=0)` |
-| | `probe_corewise_transpose(ztildes, ww, sum_over_probes=False)` | `probe_corewise_transpose(ww, residual, pp=None, order=0, sum_over_samples=True)` |
-| | `apply_corewise_transpose(c, ww, sum_over_probes=False)` | `apply_corewise_transpose(ww, residual, pp=None, order=0, sum_over_samples=True)` |
-| | `entries_corewise_transpose(c, index, sum_over_probes=False)` | `entries_corewise_transpose(index, residual, pp=None, order=0, sum_over_samples=True)` |
+| `TuckerTensorTrain`, `UniformTuckerTensorTrain` | `probe(ww)` | `probe(ww, order=())`; `ww` input jets |
+| | `apply(vecs)` | `apply(ww, order=())` |
+| | `entries(index)` | `entries(index)`, unchanged in form |
+| | `probe_corewise_transpose(ztildes, ww, sum_over_probes=False)` | `probe_corewise_transpose(ww, residual, order=(), sum_over_samples=True)` |
+| | `apply_corewise_transpose(c, ww, sum_over_probes=False)` | `apply_corewise_transpose(ww, residual, order=(), sum_over_samples=True)` |
+| | `entries_corewise_transpose(c, index, sum_over_probes=False)` | `entries_corewise_transpose(index, residual, sum_over_samples=True)` |
 | `TuckerTensorTrain` only, static | `probe_ambient_transpose(ztildes, ww, sum_over_probes=False)`, `apply_ambient_transpose(c, ww, ...)`, `entries_ambient_transpose(c, index, shape, ...)` | `probe_ambient_transpose(ww, residual, sum_over_samples=False)`, `apply_ambient_transpose(ww, residual, sum_over_samples=False)`, `entries_ambient_transpose(index, shape, residual, sum_over_samples=False)`; still static, the default still off |
-| `T3Tangent`, `UT3Tangent` | `probe(ww)`, `apply(ww)`, `entries(index)` | the same with `pp=None, order=0` |
-| static | `probe_transpose(ztildes, ww, frame, sum_over_probes=False)` | `probe_transpose(frame, ww, residual, pp=None, order=0, sum_over_samples=True)` |
-| static | `apply_transpose(c, ww, frame, ...)`, `entries_transpose(c, index, frame, ...)` | `apply_transpose(frame, ww, residual, ...)`, `entries_transpose(frame, index, residual, ...)`, the same keywords |
+| `T3Tangent`, `UT3Tangent` | `probe(ww)`, `apply(ww)`, `entries(index)` | probe and apply with `order=()`; `entries(index)` unchanged in form |
+| static | `probe_transpose(ztildes, ww, frame, sum_over_probes=False)` | `probe_transpose(frame, ww, residual, order=(), sum_over_samples=True)` |
+| static | `apply_transpose(c, ww, frame, ...)`, `entries_transpose(c, index, frame, ...)` | `apply_transpose(frame, ww, residual, order=(), ...)`, `entries_transpose(frame, index, residual, sum_over_samples=True)` |
 
 The sketches, one instance method, one static transpose, one corewise transpose; the others follow the same rule:
 
 ```python
     def probe(                                        # TuckerTensorTrain (instance method)
             self,
-            ww:     typ.Sequence[NDArray],                    # len=d, elm_shape=W+(Ni,)
-            pp:     typ.Optional[typ.Sequence[NDArray]] = None,   # len=d, elm_shape=W+(Ni,); given iff order >= 1
-            order:  int = 0,                                  # highest Taylor order.  T=(order+1,) if order else ()
-    ) -> typ.Tuple[NDArray, ...]:                             # len=d, elm_shape=T+W+C+(Ni,)
+            ww:     typ.Sequence[NDArray],                    # len=d, elm_shape=J_in_i+W+(Ni,): input jets
+            order:  typ.Tuple[int, ...] = (),                 # the jet order; F=tuple(n+1 for n in order)
+    ) -> typ.Tuple[NDArray, ...]:                             # len=d, elm_shape=F+W+C+(Ni,)
 
     @staticmethod
     def probe_transpose(                              # T3Tangent (static method, a constructor)
             frame:             'bvf.T3Frame',
-            ww:                typ.Sequence[NDArray],         # len=d, elm_shape=W+(Ni,)
-            residual:          typ.Sequence[NDArray],         # len=d, elm_shape=T+W+[K]+C+(Ni,)
-            pp:                typ.Optional[typ.Sequence[NDArray]] = None,
-            order:             int = 0,
+            ww:                typ.Sequence[NDArray],         # len=d, elm_shape=J_in_i+W+(Ni,)
+            residual:          typ.Sequence[NDArray],         # len=d, elm_shape=F+W+[K]+C+(Ni,)
+            order:             typ.Tuple[int, ...] = (),
             sum_over_samples:  bool = True,
     ) -> 'T3Tangent':                                         # at frame; tangent stack [W]+[K], frame stack C
 
     def probe_corewise_transpose(                     # TuckerTensorTrain (instance method)
             self,
-            ww:                typ.Sequence[NDArray],         # len=d, elm_shape=W+(Ni,)
-            residual:          typ.Sequence[NDArray],         # len=d, elm_shape=T+W+C+(Ni,)
-            pp:                typ.Optional[typ.Sequence[NDArray]] = None,
-            order:             int = 0,
+            ww:                typ.Sequence[NDArray],         # len=d, elm_shape=J_in_i+W+(Ni,)
+            residual:          typ.Sequence[NDArray],         # len=d, elm_shape=F+W+C+(Ni,)
+            order:             typ.Tuple[int, ...] = (),
             sum_over_samples:  bool = True,
     ) -> typ.Tuple[
             typ.Tuple[NDArray, ...],                          # Tucker-core gradients, shapes of self.tucker_cores (with [W])
@@ -774,8 +941,8 @@ The sketches, one instance method, one static transpose, one corewise transpose;
 Every call of a transpose or a corewise transpose moves its arguments; a call of `apply` with `vecs=` breaks
 (none was found). P13 lists them.
 
-The merged methods check what they check today, structurally, through the backend checkers: the sample's vectors
-against `pp` (`check_perturbation_vectors`, `check_perturbation_index`, from `jets`).
+The merged methods check the sample structurally through the backend checker `check_sample(kind, order, ww,
+self.shape)` (today they check the sample's vectors against `pp`; there is no `pp`).
 
 `TuckerTensorTrain.unscale_coordinates(scales)` returns the tensor in the original coordinates; it calls
 `t3_unscale_coordinates` (O-16 and the answers of 20:15). `UniformTuckerTensorTrain.unscale_coordinates(scales)`
@@ -795,8 +962,8 @@ ragged, and the frontend packs it for a uniform `x0`. The keywords not shown are
 ```python
 def newton_cg(
         geometry,                                 # MANIFOLD / COREWISE / UNIFORM_* / a SharedGeometry over one
-        oracle,                                   # e.g. LeastSquaresOracle('probe', order=3)
-        batch,                                    # e.g. LeastSquaresBatch((ww, pp), y, weight)
+        oracle,                                   # e.g. LeastSquaresOracle('probe', order=(3,))
+        batch,                                    # e.g. LeastSquaresBatch(affine_jet(ww, pp), y, weight)
         x0:           Point,                      # ragged or uniform: picks the representation
         regularizer:  typ.Any = None,             # e.g. IdentityRegularizer(lam)
         verbose:      bool = False,
@@ -825,8 +992,8 @@ The six model factories of `t3toolbox/fitting.py` (and their re-exports from `t3
 ```python
 def local_model(                                  # t3toolbox/fitting.py
         geometry,                                 # MANIFOLD / COREWISE / UNIFORM_* / a SharedGeometry over one
-        oracle,                                   # e.g. LeastSquaresOracle('probe', order=3)
-        batch,                                    # e.g. LeastSquaresBatch((ww, pp), y, weight)
+        oracle,                                   # e.g. LeastSquaresOracle('probe', order=(3,))
+        batch,                                    # e.g. LeastSquaresBatch(affine_jet(ww, pp), y, weight)
         x:                  Point,
         regularizer:        typ.Any = None,
         hessian:            str = 'gauss_newton',  # or 'exact'
@@ -844,7 +1011,9 @@ tensors without digging through the backend to find the helpers"):
   tiers);
 - the preparation functions and the jet helpers under their backend names: `derivatives_to_taylor`,
   `taylor_to_derivatives`, `derivative_weight_to_taylor_weight`, `prepare_derivative_data`, `jet_to_dual_jet`,
-  `data_block_norms`, `equalizing_weight`, `rescale_direction`, `t3_unscale_coordinates` (the backend objects);
+  `data_block_norms`, `equalizing_weight`, `rescale_direction`, `t3_unscale_coordinates`, and the two helpers that
+  make input jets, `affine_jet` and `index_to_one_hot` (the backend objects; where else a frontend user finds the
+  two helpers is open, O-37);
 - its own `dual_jet_to_jet`, a small function: in safe mode it raises where the divisor, the squared weight in
   the precision of the computation, is zero, then calls the backend one, which divides (O-20);
 - its own `rescale_coordinates`, a small function: it calls the backend checker `check_coordinate_scales` with the
@@ -868,6 +1037,11 @@ consistency member). The names added since were approved on 2026-11-16 at 20:59;
 names follow `docs/naming_conventions.md` (family prefixes for functions of a representation; none for
 representation-agnostic infrastructure) and `docs/contributor/naming_rules.md` (clarity wins; no generic names).
 
+**Amended for the generalized jet group (2026-11-17, entries 117 to 120).** N16's keywords are `order=()` in place
+of `pp=None, order=0`: the sample is input jets and there is no `pp` (entry 118); the entries functions have no
+`order` (entry 120). N14's record has the fields `J`, `W`, `K`, `C`. The new names this change needs are proposals,
+in section 11.4.
+
 | # | Placeholder | Name | Why |
 | --- | --- | --- | --- |
 | N1 | engine keyword `direction` | `variations` | The library's word for `(V, H)` (`T3Variations`) |
@@ -885,7 +1059,7 @@ representation-agnostic infrastructure) and `docs/contributor/naming_rules.md` (
 | N13 | the record of held variables | `HeldVariables` | |
 | N14 | the record of axis counts | `GroupLengths` | `contract` already spells them `len_<G>` |
 | N15 | `jet_contract` | `jet_contract` | Already the decided spelling in 5.4; a placeholder only in the brief |
-| N16 | the form of the merged functions, backend and frontend | One rule: the object the function is evaluated at first (`x`, or `frame` then `variations` for a tangent), then the sample (`ww` or `index`), then what is applied (`residual`, then `core_directions`); then the keywords `pp=None, order=0`; then `sum_over_samples=True` where there is a sum. One name for one thing on both layouts: `x`, `frame`, `variations`, `ww` or `index`, `residual`, `core_directions`. The frontend's instance methods follow the rule with `self` as the object; the tangent transposes stay static methods with the frame first. The ambient transposes take the rule's order and names and keep the sum flag off by default (decided 18:35). Sections 2.4 and 2.5 give every form | Decided by the maintainer, 2026-11-16 (18:13 and 18:18), `TARGET_DECISIONS.md`, the note "The names of Part 1, and the form of the merged sampling functions": the order the engine and the oracle already have |
+| N16 | the form of the merged functions, backend and frontend | One rule: the object the function is evaluated at first (`x`, or `frame` then `variations` for a tangent), then the sample (`ww` or `index`), then what is applied (`residual`, then `core_directions`); then the keyword `order=()` (no `pp`: the sample is input jets; the entries functions have no `order`, entry 120); then `sum_over_samples=True` where there is a sum. One name for one thing on both layouts: `x`, `frame`, `variations`, `ww` or `index`, `residual`, `core_directions`. The frontend's instance methods follow the rule with `self` as the object; the tangent transposes stay static methods with the frame first. The ambient transposes take the rule's order and names and keep the sum flag off by default (decided 18:35). Sections 2.4 and 2.5 give every form | Decided by the maintainer, 2026-11-16 (18:13 and 18:18), `TARGET_DECISIONS.md`, the note "The names of Part 1, and the form of the merged sampling functions": the order the engine and the oracle already have |
 | N17 | the reference module; its functions | `backend/sampling_definitions.py`; one function named exactly as the variable (`sampling_definitions.mu`) | The module name says what they are; the function name is the variable |
 | N18 | the engine's module; the steps' module | `backend/sampling_variables.py`; `backend/sampling_steps.py` | The module is named after its function, as `regularization` is |
 | N19 | the residual argument of the transposes and corewise Hessians (`ztildes` or `c` today) | `residual` | 2.4 calls `ztildes` a misnomer and leaves the name to the naming questions |
@@ -910,14 +1084,16 @@ These are the library's rules, applied to this arc. Every slice is held to them;
 - **One set of step functions for both layouts** (5.2). A step is named by letter and grade and serves both bases
   (5.1 note): `nu_step` given `L` cores returns `nu_L`. The 22 steps of `scripts/review/jet_steps_check.py` stand.
 - **Every term is a literal string at its call site, through `jet_contract`**, with `K` on the operand that carries
-  it, the record `GroupLengths` passed whole and the form over the orders named (5.4, 2.9). The 41 strings of the
-  seven families are listed in `scripts/review/term_stacks_check.py` (`STRINGS`); none carries a site
-  group (section 2.4).
+  it, the record `GroupLengths` passed whole, the output's jet order from the table of declared jet shapes (section
+  2.3) and the form over the orders named (5.4, 2.9). The 29 strings of the seven families are listed in
+  `tests/_jet_contract_cases.py` (`STRINGS`, rewritten in P4a); `J` is the one jet group, and no string carries a
+  site group (section 2.4).
 - **Dispatch** at the lowest level: `use_jax = tree_contains_jax(...)` over all inputs, `is_uniform` from the
   structure, `xnp, xmap, xscan = get_backend(is_uniform, use_jax)`. No `use_jax` argument. Uniform masks are host
   numpy and use `np`, never `xnp` (`CLAUDE.md`).
 - **Scan and map bodies** are module-level and close over nothing; a static no operand carries reaches a body
-  through a factory memoized on hashable scalars (`GroupLengths`, the kind, the grade), never arrays
+  through a factory memoized on hashable scalars (`GroupLengths`, the jet order and the jet shapes, the kind, the
+  grade), never arrays
   (`docs/contributor/scan_body_principles.md`, rule 4).
 - **Masks**: the uniform inputs are masked once on the engine's entry, each with the frame's own masks; steps never
   see a mask; core-shaped outputs are re-masked on its exit (`docs/contributor/uniform_internals.md`).
@@ -926,11 +1102,13 @@ These are the library's rules, applied to this arc. Every slice is held to them;
   (`t3_orthogonal_representations`, with its default `squash_tails=True`, called by the geometry's `frame`) keeps
   its default: 4.4 leaves that default unspoken, and 1.1 puts frame construction off limits.
 - **Signatures** in the house style (`docs/contributor/signature_style.md`); body locals carry their axis layout in
-  the suffix (`mu_TWCa`).
+  the suffix (`mu_JWCa`; `J` the jet axes, as in the strings).
 - **The razor and the two users** (section 7.5): anything a raw-`.data` user would get wrong is in the backend; the
   frontend validates its objects, calls the backend's checkers, and delegates.
 - **Checkers, not guarantees** (section 7.1): no backend module imports `safety`; a backend function checks only what
   it needs to run; the frontend enforces, through backend checkers.
+- **The jet order is a tuple everywhere** below the frontend's entry points (`order = ()` for none); whatever the
+  answer to O-36, the backend's functions below the public sampling functions see a tuple.
 - **Doctests** teach, are seeded, print structure, and are run and pasted (`docs/contributor/doctest_style.md`).
 - **No auto-formatter.**
 
@@ -941,9 +1119,10 @@ These are the library's rules, applied to this arc. Every slice is held to them;
 ### 5.1 How the suite stays green
 
 - **Additive first.** Slices P1 to P11 add new modules beside the old ones. Two old things change in them, each with
-  its callers in the same slice: `dense_probe` takes the order of N16 and gains `pp` and `order` (P2), and P4's
-  consistency residual goes through the cores, keeping its signature (`fv_frame_consistency_residual`,
-  `T3Frame.is_consistent`). So the suite stays green by construction.
+  its callers in the same slice: `dense_probe` takes the order of N16 and gains `pp` and `order` (P2), then input
+  jets in place of `pp` (P4b), and P4's consistency residual goes through the cores, keeping its signature
+  (`fv_frame_consistency_residual`, `T3Frame.is_consistent`). P4a to P4d rebuild what P1 to P3 added, which nothing
+  old calls, with its tests and its few callers in the same slice. So the suite stays green by construction.
 - **Then switch, one surface at a time.** P12, P13, P15, P16 and P17 each move one surface (P14 is additive). Each
   switching slice rewrites the tests, doctests, documentation pages and examples that call the surface it changes,
   in the same commit, because CI runs all of them (`.github/workflows/tests.yaml`: the suite, the module doctests,
@@ -968,8 +1147,10 @@ These are the library's rules, applied to this arc. Every slice is held to them;
 
 ### 5.2 Overview
 
-The names are settled: the table of section 3, and the names added after it (section 11.3). Nothing is open, so no
-slice waits on an answer. The order is the order of work; each slice starts when the one before it is committed
+The names are settled: the table of section 3, and the names added after it (section 11.3), except the names this
+change proposes (section 11.4). P4a waits on no answer of section 11.2 but O-38 (and is written so that its answer
+changes one rule); P4b waits on O-36, O-37 and O-41; P4c on O-36; P4d on O-36, O-39 and O-40; P16 on O-42 (the
+display). The order is the order of work; each slice starts when the one before it is committed
 (section 12).
 
 | Slice | Content | Size |
@@ -979,6 +1160,10 @@ slice waits on an answer. The order is the order of work; each slice starts when
 | P2 | The reference module `sampling_definitions`; `dense_probe` in its new form, `dense_apply`, `dense_entries` | medium |
 | P3 | `jets` (with the checkers) and `data_preparation`, with the uniform `ut3_unscale_coordinates`; their frontend reach | small |
 | P4 | The checkers of a frame, without dense tensors; the frames' cached `consistency_residual` | small |
+| P4a | `jet_contract` over one jet group `J` of any number of axes, the output's jet order an argument; `GroupLengths(J, W, K, C)`; the 29 strings; its tests rebuilt | medium |
+| P4b | The input jets and the dense functions: `affine_jet`, `index_to_one_hot`; `dense_probe(T, ww, order=())`, `dense_apply(T, ww, order=())`, `dense_entries(T, index)` | small |
+| P4c | The reference module in several variables, with input jets; entries of order `()` only | medium |
+| P4d | `jets` and `data_preparation` in the jet order: the dual jet flips every jet axis, factorials of multi-indices, the checkers of input jets, the rescalings; the validators of `pp` removed; their frontend reach | medium |
 | P5 | Engine A: the declared graph, what the engine needs to run, `HeldVariables`; probe, ragged, the plain grade (`z` both routes, `r`, `f`, `r_block_sumsq`) | medium |
 | P6 | Engine B: the tilde grade and `g`; the bridge; the generic twin | medium |
 | P7 | Engine C: the dot grade of the frame form (`Jp`, `Jp_norm_sq`, `JtJp`) | medium |
@@ -1005,7 +1190,8 @@ frontend sampling methods, `dense_probe`, the six model factories, `Problem`, `l
 package `__init__.py` included), `tests/`, `docs/`, `examples/`, `CLAUDE.md`. The inventory is a working note in
 `dev/` (ephemeral). Gate: none.
 
-**P1. `jet_contract`.** In `backend/contractions.py`: `GroupLengths` and `jet_contract` (section 2.4), with both
+**P1. `jet_contract`.** (Built and committed, `3fcfbe7`, with the groups `T` and `A`; rebuilt over the one jet group `J`
+in P4a. The text below is the slice as it was carried out.) In `backend/contractions.py`: `GroupLengths` and `jet_contract` (section 2.4), with both
 forms over the orders. `'scan'` is the carried shift through `xscan`, with a module-level body from a factory
 memoized on `(subscripts, lens)`; `'loop'` is a Python loop over the pairs of orders. The prototype's
 `jet_contract` (`term_stacks_check.py`) is the algebra and `scripts/review/order_scan_check.py` the check of the two
@@ -1026,7 +1212,9 @@ string names.
   compiles to one `lax.scan`.
 - Gate: the full gate. Deletes nothing.
 
-**P2. The reference module and the dense functions.** `backend/sampling_definitions.py`: one dense function per
+**P2. The reference module and the dense functions.** (Built and committed, `a38d1a3`, with `pp` and an integer
+`order`; the dense functions are rebuilt in P4b and the reference module in P4c. The text below is the slice as it
+was carried out.) `backend/sampling_definitions.py`: one dense function per
 name of section 2.3 and per output, for the three kinds, ragged, from the column "As a subnetwork" of
 `SAMPLE_VARIABLES.md`; jets by interpolation in `s`; `z` through the dense functions; `Kp` by finite differences on numpy arrays and by jax on jax arrays (the route inferred from the arrays, as everywhere). Tilde and tilde-dot variables are returned turned, as the engine stores them (2.4).
 It uses no sweep and no engine. The starting material is parts B and C of
@@ -1054,7 +1242,8 @@ order (`tests/test_fitting.py`, `tests/backend/test_optimizers.py`, `tests/test_
 - `tests/test_dispatch.py`: the three dense functions under jit.
 - Gate: the full gate.
 
-**P3. Jets, the checkers and data preparation.** `backend/jets.py` (N4 to N8; the two validators of `pp`, copied,
+**P3. Jets, the checkers and data preparation.** (Built and committed, `625d3ba`, with `pp` and an integer `order`;
+rebuilt in P4d. The text below is the slice as it was carried out.) `backend/jets.py` (N4 to N8; the two validators of `pp`, copied,
 the old ones deleted in P20; `check_sample`, `check_data`, `check_weight`) and `backend/data_preparation.py` (N9),
 with `scales` one per coordinate (O-35), and `ut3_unscale_coordinates` (O-34). Their frontend reach (O-16, the
 answers of 20:15):
@@ -1092,13 +1281,167 @@ frontend, `T3Frame.consistency_residual` and `UT3Frame.consistency_residual`, ca
   cases.
 - Gate: the full gate.
 
+**P4a. `jet_contract` over one jet group** (entries 116, 120; section 2.4). In `backend/contractions.py`:
+- `GroupLengths(J, W, K, C)`: the field `T` is renamed `J` and its bound (`T` of 0 or 1) is dropped: `J` is any
+  nonnegative integer.
+- `jet_contract(subscripts, *operands, lens, order, over_orders)`: the letters of a string are `J`, `W`, `K`, `C`
+  (`T`, `A` and `S` raise); the one behaviour of section 2.4 (the truncated product on the box of `order`, or its
+  corner when the output has no `J`); the checks of section 2.4. The reading of a string (which terms carry `J`,
+  whether the output does) is cached on the string; the choice of the carrier, the pair and the operands taken one
+  coefficient at a time is made from the operands' jet shapes, which are static, and cached on `(string, jet shapes,
+  order)`. The scan body stays module-level, from a factory memoized on hashable statics only (the string, the
+  record, `order`, the jet shapes, the positions). Under `'scan'` it scans where `m = 1` and the partner has as many
+  slots as the box; everywhere else (a smaller partner; `m >= 2`) it loops, under both forms.
+- The comments and the module docstring say `J` for `T` and `A`. The note `PART 2 (row 5.5)` stays at the product
+  step. A second note, `PART 2 (row 5.4, jets in several variables)`, marks the place where `m >= 2` takes the loop
+  under `'scan'`, and the item is added to "Carried to Part 2" of `TARGET_DECISIONS.md` (by Claude; account,
+  section 7).
+- `tests/_jet_contract_cases.py`: `STRINGS` holds the 29 strings of section 2.4; `reference` is rewritten as an
+  independent truncated product: each operand's slots enumerated by explicit loops over its multi-indices, a fixed
+  lowercase `np.einsum` per combination, accumulated at the sum of the multi-indices where it lies in the box (or at
+  the corner); it uses neither `contract` nor `jet_contract`. `n_contractions` follows the rule of section 2.4.
+- Tests (`tests/test_jet_contract.py`, rebuilt; its 32 tests' subjects kept):
+  - every one of the 29 strings against the reference at `m = 0`; at `m = 1` with the orders `(1,)`, `(3,)` and the
+    library's operand shapes (full jets of `F`, a leaf or an input of two slots) and with random sizes per operand
+    (below, at and above the box, and 1); at `m = 2` with the orders `(1, 2)` and `(2, 0)` and the same kinds of
+    shapes; `m = 3` on a few strings; `W`, `K`, `C` empty and not; both forms;
+  - at `m = 1`, on strings whose cores are scalars, against `numpy.polynomial.polynomial.polymul` truncated, an
+    arithmetic that shares nothing with the reference;
+  - the pairing that the dual jets rest on: the corner of `a` times the weighted `b` flipped on every jet axis equals
+    `sum_k omega_k^2 a_k b_k`, at `m = 1` and `m = 2`;
+  - the cases of section 2.4: slots beyond the box are not read (changing them changes nothing); an operand with
+    fewer slots equals the same operand padded with zeros; a jet axis of size 1; an output box larger than every
+    operand's;
+  - structure: `m = 0` is exactly one `contract` call on the string as written, under either form; at `m = 1` with
+    the library's shapes the number of `contract` calls is P1's (one for a ride, two for a product with a two-slot
+    partner, `order + 1` for two full jets) and no more for a readout; no contraction names a pair of orders;
+  - the two forms agree to tolerance on every product of two full jets at `m = 1`, orders 1 to 16, in float64 and
+    float32; at `m = 2` they give the same arrays;
+  - strictness: a stray or a missing axis on any operand raises; a wrong record; `len(order) != lens.J`; a negative
+    or non-integer entry of `order`; a jet axis of size 0; `T`, `A` or `S` in a string; `J` not leading its term; an
+    unknown `over_orders`; `lens` not a `GroupLengths`; a count of operands that does not match the string;
+  - float32 stays float32; numpy in numpy out; the operands are not changed;
+  - `GroupLengths`: the fields `J`, `W`, `K`, `C` in order; equality and hash by value; frozen; `J` any nonnegative
+    integer; an equal record gets the same scan body;
+  - the expected failure of `TestOrderInsideAStep` (row 5.5) kept, restated on the 12 product strings with the
+    library's operand shapes; the implementer recounts which of them pair the carried jet with the core first on
+    numpy and puts the count in the comment and the handover (P1 counted 16 of 20 on the old strings).
+- `tests/test_contractions_interpreter.py` (`TestJetContractDerivedStrings`, three records): every string that
+  `jet_contract` hands `contract` (the literal with `J` deleted from the operands taken one coefficient at a time)
+  is a valid `contract` string, for the 29 strings and every literal call site; its `HISTORICAL` table follows.
+- `tests/test_contractions_sharding.py`: the product strings under both forms at `m = 1`, and one product at
+  `m = 2`, each `W` sub-axis sharded, zero all-gathers.
+- `tests/test_dispatch.py`: jit `jet_contract` on a ride, a product with a leaf, a product of two full jets and a
+  readout, under both forms, at `m = 0`, `1` and `2`; `'scan'` at `m = 1` on jax compiles to one `lax.scan`.
+- What breaks: tests only. `jet_contract` and `GroupLengths` have no caller in the library (searched
+  `t3toolbox/`: only `backend/contractions.py`). The callers in tests: `tests/test_jet_contract.py` (53 calls of
+  the two), `tests/test_dispatch.py` (5), `tests/test_contractions_interpreter.py` (3),
+  `tests/test_contractions_sharding.py` (3), `tests/_jet_contract_cases.py` (1); `tests/test_sampling_definitions.py`
+  names `jet_contract` only in its list of forbidden names, which stays.
+- Gate: the full gate.
+
+**P4b. The input jets and the dense functions** (entries 118 to 120; section 2.4). In `backend/jets.py`: `affine_jet`
+and `index_to_one_hot` (names proposed, section 11.4), and the private reading of `order` that every function taking
+it uses (a tuple of nonnegative integers; the integer shorthand as O-36 is answered). The dense functions:
+`dense_probe(T, ww, order=())` and `dense_apply(T, ww, order=())` take input jets of any jet shape, clipped to the box;
+`dense_entries(T, index)` loses `pp` and `order`. Their shared private `_dense_jet` (`backend/probing.py`) contracts
+the tensor with the input jets one mode at a time, a truncated product of polynomials by explicit loops over the
+input's multi-indices, never through `jet_contract`. The docstrings say what a jet of a dense tensor is in several
+variables, with one doctest each of a line (`affine_jet(ww, pp)`), of two directions, and of an input of three
+slots.
+
+What breaks: every call of a dense function that passes `pp` (an order-0 call, `dense_probe(T, ww)`, is unchanged;
+`t3toolbox/manifold.py` line 735, `t3toolbox/uniform_manifold.py` line 575, `tests/test_manifold.py` line 524 and
+`tests/test_tucker_tensor_train.py` line 3166 are such). The calls with `pp`, from a search of `t3toolbox/`,
+`tests/`, `docs/`, `examples/` and the doctests:
+- the dense functions' own doctests in `backend/probing.py`, `apply.py`, `entries.py`;
+- `backend/data_preparation.py`: four, in its module doctest (two) and in `rescale_direction`'s (two). They become
+  `dense_probe(T, affine_jet(ww, pp), (order,))`; the rest of those doctests changes in P4d;
+- `backend/sampling_definitions.py`: three, in the definition of `z` (lines 572 to 581). Until P4c they become the
+  same call through `affine_jet`, and for entries at an order above 0, `dense_apply` at
+  `affine_jet(index_to_one_hot(index, shape), pp)`, which is what the old call computed;
+- tests: `tests/test_jax_absent.py` (lines 133 and 134, three calls), `tests/test_data_preparation.py` (line 156),
+  `tests/test_jets.py` (lines 446 and 449), `tests/test_sampling_definitions.py` (its calls with `pp`; the slice's
+  inventory lists them).
+No page and no example calls a library dense function with `pp`; the examples' local helpers of the same names are
+not the library's.
+- Tests (in `tests/test_sampling_definitions.py`, beside the dense functions' tests of P2, which are restated):
+  at `order = ()` today's values (`dense_apply` is the probe contracted with the last vector, `dense_entries`
+  indexes `T`); the jets equal interpolation in `s` of `order = ()` calls along the input jet evaluated at roots of
+  unity: a line at `m = 1`, two directions at `m = 2` (a two-dimensional grid), a curve of three slots; modes with
+  different input jet shapes, a mode of size 1 on every jet axis; input slots beyond the box change nothing; `W` and
+  `C` stacks. `affine_jet`: the shapes, slot 0 the point and slot `e_j` the `j`-th direction, zeros elsewhere, no
+  direction returns `ww`. `index_to_one_hot`: the rows of the identity. The recipe of entry 120:
+  `dense_apply(T, affine_jet(index_to_one_hot(index, shape), pp), (n,))` equals
+  `sampling_derivatives.dense_entries_derivatives` divided by `t!` (the old module stays until P20).
+- `tests/test_dispatch.py`: the three dense functions and the two helpers under jit. `tests/test_jax_absent.py`:
+  the helpers without jax.
+- Gate: the full gate.
+
+**P4c. The reference module in several variables** (section 2.4, "One such function per name"). In
+`backend/sampling_definitions.py`: `order` a tuple; the sample `ww` (input jets) or `index`; an entries call with
+`order != ()` raises; the nodes a grid of roots of unity, `M_j` per variable, and a discrete Fourier transform along
+each node axis; the inputs clipped to the box; every function returns its variable with the declared jet shape of
+section 2.3 (the leaves with the input's, clipped); the seed `w_tilde` turned on every jet axis. The module docstring
+is rewritten for jets in several variables (the paragraph on `A` goes; the inputs are jets; the entries kind has
+none).
+- Tests (`tests/test_sampling_definitions.py`; 47 of its 56 tests build a sample, pass `order` or name entries, and
+  the slice's inventory lists them): every name at `order = ()`, `(1,)` and `(3,)` with a line input, at `(1, 2)`
+  with `affine_jet(ww, p1, p2)`, and at `(2,)` with an input of three slots and with modes of different input jet
+  shapes; the jets against the Taylor expansion computed on two node grids; `Jp`, `g` and `Kp` against the dense
+  tangent tensor, the dense Jacobian and the second derivative, at `m = 2` too; the pairings of section 8 of
+  `SAMPLE_VARIABLES.md` at every cut edge, at `m = 2`; with one variable and a line input, `z` and `g` of the probe
+  kind against the old `sampling_derivatives` functions through the conversions (`t!` per slot, the turn); the
+  entries kind at `order = ()` equals apply at `index_to_one_hot`, and an entries call with an order raises.
+- The independence test of the module (its forbidden names) is kept.
+- What breaks: nothing outside the module's tests: the library has no caller of `sampling_definitions` (searched
+  `t3toolbox/`, `docs/`, `examples/`; `tests/test_jax_absent.py` imports it and is updated).
+- Gate: the full gate.
+
+**P4d. `jets` and `data_preparation` in the jet order** (entries 116 to 120; section 2.4). In `backend/jets.py`:
+`jet_to_dual_jet` and `dual_jet_to_jet` weigh, then flip every jet axis; `derivatives_to_taylor`,
+`taylor_to_derivatives`, `derivative_weight_to_taylor_weight` and `prepare_derivative_data` use `k_1! ... k_m!`;
+`check_sample`, `check_data` and `check_weight` take the jet order and input jets, and the entries kind with
+`order = ()` only; `check_perturbation_vectors` and `check_perturbation_index` are deleted from `jets` (their
+`__all__` loses two names; the originals stay in `sampling_derivatives`, which the frontend's old methods import
+until P13). The module docstring and its doctests are rewritten (a jet in several variables, the turn as a flip of
+every axis; the entries kind has no jets). In `backend/data_preparation.py`: `data_block_norms`, `rescale_direction`
+and `rescale_coordinates` take the jet order and input jets (section 2.4); the module doctest uses `affine_jet`. In
+`t3toolbox/fitting.py`: `affine_jet` and `index_to_one_hot` reachable under their backend names, and from the top
+level `t3toolbox` if O-37 is answered as proposed; its own
+`dual_jet_to_jet` and `rescale_coordinates` follow; the module docstring.
+- Tests (`tests/test_jets.py`, 39 of 42 tests touched; `tests/test_data_preparation.py`, 15 of 29; the slice's
+  inventory lists them): the pairing identity `sum_k omega_k^2 a_k b_k = [corner](a * jet_to_dual_jet(b))` at `m = 1`
+  and `m = 2`, against a product computed in the test; the round trip of the dual jet, on a packed probe array too;
+  the derivative conversions against mixed partial derivatives of a known polynomial in two variables;
+  `prepare_derivative_data` with no weight returns `k_1! ... k_m!` per slot, for apply and for probe with its mode
+  axis; the entries kind with `order = ()` returns its data unchanged, and with an order raises; each checker passes
+  a good input and raises on each wrong form (too few axes for the jet order, modes whose `W` disagree once the jet
+  axes are read, a jet axis of size 0, data not of the full box, a weight of the old shapes: a bare vector, a mode
+  dimension of 1, a weight of `(d, n + 1)` given for `m = 2`); `rescale_direction` gives the data of the same tensor
+  at the new sample (`dense_probe`, `dense_apply`) at `m = 1` and `m = 2`, with one length and with one per
+  variable; `rescale_coordinates` then `t3_unscale_coordinates` gives the same probe values at an input jet; the
+  frontend's `dual_jet_to_jet` raises in safe mode at `m = 2` as at `m = 1`.
+- `tests/test_dispatch.py` (its rows for `jets` and `data_preparation`, about thirty references) and
+  `tests/test_jax_absent.py` (eleven) by the new signatures; `tests/test_import_graph.py` unchanged.
+- What breaks: the callers of the changed functions, which are only these modules, `t3toolbox/fitting.py` and the
+  tests above (searched `t3toolbox/`, `docs/`, `examples/`: no page or example calls them yet). The frontend methods
+  `unscale_coordinates` are unchanged.
+- Gate: the full gate. After P4d nothing in P1 to P3's code takes `pp` or reads an integer order.
+
 **P5. Engine A.** `backend/sampling_steps.py` with the steps of the plain grade; `backend/sampling_variables.py` with
 the probe kind's declared graph, `HeldVariables` and `sampling_variables` for `w`, `xi`, `mu`, `nu`, `eta`, `nu_L`,
 `eta_D`, `z` (through `D`, and with `Vc` read off the frame), `r`, `f`, `r_block_sumsq`. Ragged layout, one sample
 axis, no `K` or `C` yet, numpy and jax. What the engine needs to run (section 2.3 step 1), and nothing more.
-- Tests by definition (`tests/test_sampling_variables.py`): every name against `sampling_definitions`, at orders 0,
-  1, 3, with a random weight.
-- Identities (`tests/test_sampling_identities.py`): order 0 equals slot 0 of a higher order; a held variable gives
+- Tests by definition (`tests/test_sampling_variables.py`): every name against `sampling_definitions`, with a
+  random weight, at the jet orders of the matrix of section 6 ("The jet matrix"): `()`, `(1,)` and `(3,)` with a line
+  input, `(1, 2)` with `affine_jet(ww, p1, p2)`, `(2,)` with an input of three slots and with modes of different
+  input jet shapes.
+- The declared jet shapes (section 2.3): every variable the engine returns has the jet shape of the table, the
+  leaves the input's clipped to `F`; every `jet_contract` call of a step is given the output's jet order of the
+  table (a test hook on the private step module records the calls).
+- Identities (`tests/test_sampling_identities.py`): `order = ()` equals the slot `(0, ..., 0)` of any jet order; a
+  jet order `(n_1, n_2)` restricted to `(n_1, 0)` equals the one-variable call along the first direction; a held variable gives
   the result of a recomputed one; `z` through `D` equals `z` with `Vc`.
 - Structural tests (`tests/test_sampling_graph.py`): the docstring table equals the declared graph row for row,
   exactly; the slots of `HeldVariables` are exactly the variables some other variable reads; asking for one variable
@@ -1117,8 +1460,10 @@ axis, no `K` or `C` yet, numpy and jax. What the engine needs to run (section 2.
 - Tests by definition for the new names. Identities, each with a random weight: `g` is the derivative of `f` by
   finite differences; the short form of `eta_tilde` equals a slice of the full one.
 - The bridge (`tests/bridge/test_old_kernels_bridge.py`, temporary, section 5.1): `z` and `g` against
-  `sampling_derivatives.t3_probe_derivatives`, the old `compute_*` kernels and `ProbeDerivativesKind.transpose`;
-  the dense functions of P2 against `dense_*_derivatives` divided by `t!`.
+  `sampling_derivatives.t3_probe_derivatives`, the old `compute_*` kernels and `ProbeDerivativesKind.transpose`,
+  the new side called at `affine_jet(ww, pp)` and `(order,)`; the dense functions against `dense_*_derivatives`
+  divided by `t!` (the entries one against `dense_apply` at `affine_jet(index_to_one_hot(index, shape), pp)`). The
+  bridge has one variable only: the old code has no other.
 - The generic twin (`tests/_generic_twin.py`): `scripts/graded_messages_prototype.py` brought to the decided names,
   as a second check of the written-out terms (9.3).
 - `tests/test_dispatch.py`: jit `sampling_variables` for `('f', 'g')`.
@@ -1144,10 +1489,14 @@ with both directions the public `nu_L_dot` and `eta_D_dot` are the raw form (O-1
 - Gate: the full gate.
 
 **P9. Engine E.** Apply and entries: their graphs (the forward needs only `xi` and `mu`; the adjoint only `nu_tilde`
-and `eta_tilde`; the README's "Things learned"), the entries gather, the scalar output and the weight of shape `T`.
-- Tests by definition for both kinds; the identities of P5 to P8 for both; entries against apply at one-hot
-  vectors to tolerance (not bitwise; 0.8). Bridge against `t3_apply_derivatives`, `t3_entries_derivatives` and
-  their kinds.
+and `eta_tilde`; the README's "Things learned"), the apply kind with jets (the scalar output `F + W`, the weight of
+shape `F`), and the entries kind at `order = ()` only (entry 120): the gather, the output `W`, the weight `()`; an
+entries call with an order raises (section 2.3 step 1). The engine's graph of the entries kind has no jets anywhere.
+- Tests by definition for both kinds (apply on the jet matrix of section 6, entries at `()`); the identities of P5
+  to P8 for both; entries against apply at `index_to_one_hot(index, shape)` to tolerance (not bitwise; 0.8). Bridge
+  against `t3_apply_derivatives` and its kind at `affine_jet(ww, pp)`; `t3_entries` and the plain entries kind at
+  order 0; `t3_entries_derivatives` against apply at `affine_jet(index_to_one_hot(index, shape), pp)`, which is the
+  migration of entry 120.
 - Gate: the full gate.
 
 **P10. Engine F.** Any number of axes in `W`; the direction stack `K` on `variations` and `core_directions`; the
@@ -1158,23 +1507,29 @@ keeping `C`, `Jp_norm_sq` keeping `K + C`; the dtype rule over the inputs the ca
   and `K = (2, 3)`), against the reference applied element by element; the dtype rule for every output on the four
   backends (float32 in, float32 out; float32 mixed with float64 gives float32; jax mixed with numpy gives jax); an
   input nothing wanted reads does not change the dtype (a float64 `y` on a call wanting only `z` in float32 gives
-  float32); an integer `index` does not count.
+  float32); an integer `index` does not count; the one-hot vectors of `index_to_one_hot` are an input like any other
+  float array. The stack matrix runs at `order = ()`, `(2,)` and `(1, 1)`.
 - Gate: the full gate.
 
 **P11. Engine G: the uniform layout, and sharding over `W`.** The uniform frame and point structures; mask once on
 entry, each input with the frame's own masks (section 2.3 step 2); re-mask on exit (O-3); the map-type operations
-one site at a time through `xmap` (O-19); the sweeps through `xscan`, a real `jax.lax.scan` with jax; the products
-of two full jets with `over_orders='scan'`, nested inside.
+one site at a time through `xmap` (O-19); the sweeps through `xscan`, a real `jax.lax.scan` with jax; the terms with
+`over_orders='scan'`, nested inside (a real scan over a full partner where `m = 1`; the loop where `m >= 2`, section
+2.4). The packed sample is `(d,) + J_in + W + (N,)`: the modes' input jets padded with zeros to their largest size on
+each jet axis, which changes no jet (an array's shape means zeros beyond it), so every site of the scan has one
+shape; the leaves then have that jet shape, clipped to `F`.
 - Tests: equivalence with ragged on real parts (`to_uniform -> op -> to_ragged == op_ragged`) for every name, over
   the full `_CONFIGS` matrix of the uniform tests: forced-larger padding and a stack whose ranks vary across `C`
   included; garbage-padded inputs give the same real parts; arbitrary tails on both layouts; exact masks of every
-  core-shaped output, derived non-circularly from the frame's masks.
+  core-shaped output, derived non-circularly from the frame's masks; at `order = ()`, `(2,)` with a line input,
+  `(1, 1)`, and with modes of different input jet shapes (packed with padding). Under jit with jax at `m = 1`, the
+  compiled program of a call has the same size at orders `(2,)` and `(6,)` (the scan over the orders, 2.9).
 - `Kp` on a frame with TT slack (its masks a strict subset of its point's): `core_directions` and the blocks take
   the frame's `D` and `L` masks; garbage in the padding of `core_directions` leaves the real blocks unchanged; and a
   mutation check (the mask on `core_directions` removed) turns this test red
   (`docs/contributor/testing_strategy.md`, the two-hole note).
 - Sharding (`tests/test_contractions_sharding.py`, a new class beside `TestJetKernelsShardOverW`): `g` and `Kp` from
-  `sampling_variables` at order 0 and order 3, ragged and uniform, under `shard_map` with `W` sharded and the cores
+  `sampling_variables` at `order = ()`, `(3,)` and `(1, 1)`, ragged and uniform, under `shard_map` with `W` sharded and the cores
   replicated: zero all-gathers in the compiled program, and the result equal to the unsharded one. The existing
   class's note on the varying-axes check (`check_vma` / `check_rep` off) applies to the engine's scan carries too.
 - `tests/test_dispatch.py`: jit the engine on uniform data; an eager call twice adds no compilation (the scan
@@ -1249,9 +1604,10 @@ Where they are:
   call the old forms; they are records that run against `v2026.5.0`, not run by CI (O-26).
 - Tests added: the uniform twins' exact output masks and garbage-padded inputs, through their public signatures;
   the default of every transpose sums the samples; the corewise transpose equals the gradient, and the corewise
-  Hessian applied to a direction equals the second derivative along it, of `phi(x) = <c, t3_probe(x, ww, pp,
-  order)>` (and of apply and entries) by automatic differentiation in jax, at orders 0 and 2, skipped where jax is
-  absent (O-22); the ambient transposes' default does not sum.
+  Hessian applied to a direction equals the second derivative along it, of `phi(x) = <c, t3_probe(x, ww, order)>`
+  (and of apply, and of entries at `order = ()`) by automatic differentiation in jax, at `order = ()`, `(2,)` and
+  `(1, 1)`, skipped where jax is absent (O-22); the ambient transposes' default does not sum; an entries function
+  has no `order` argument.
 - `tests/test_dispatch.py`: the rows for these names, by the new signatures.
 - Gate: the full gate. From here `probing.compute_*` and the plain `assemble_*` are called only by the old kinds,
   their tests and the bridge.
@@ -1262,7 +1618,9 @@ N16 (the residual after the sample, the tangent transposes' frame first), `resid
 and `sum_over_samples=True` in place of `sum_over_probes=False`; `TuckerTensorTrain.apply` and its uniform twin take
 `ww` in place of `vecs`; the validators come from `jets`. Where a caller still fits with the old call form of the frontend optimizers (the tests until P16, the examples and
 pages until P17), it makes the old derivative data from
-the merged method as `taylor_to_derivatives('probe', order, x.probe(ww, pp, order))`.
+the merged method as `taylor_to_derivatives('probe', (order,), x.probe(affine_jet(ww, pp), (order,)))`; old
+entries-derivative data, as `taylor_to_derivatives('apply', (order,), x.apply(affine_jet(index_to_one_hot(index,
+x.shape), pp), (order,)))`.
 
 What breaks, from a search of `t3toolbox/`, `tests/`, `docs/`, `examples/` and every doctest (the calls, scripts
 inside strings included, of the 24 removed methods; every call of the frontend transposes and corewise transposes,
@@ -1305,16 +1663,18 @@ each of which breaks on the new order; and every link to `docs/chunking.md`):
   removed names P20's gate greps for. `pd.dense_probe_derivatives` is called once in each of
   `fit_hilbert_uniform_probe_derivatives_newton_cg.py` (helper `dense_probe_derivative_jets`) and
   `fit_shared_factors_jetted_probes.py` (helper `dense_jets`). The helpers are replaced here by `dense_apply` and
-  `dense_probe` with `pp` and `order` (P2; O-27), which take the stack `W` themselves, so the loops over the samples
+  `dense_probe` at `affine_jet(ww, pp)` and `(order,)` (P4b; O-27), which take the stack `W` themselves, so the loops over the samples
   go too, and P20 can delete the module. Where an example still fits derivative data with the old frontend
-  optimizers (until P17), it takes `taylor_to_derivatives('apply', order, dense_apply(T, ww, pp, order))`. (Seven
+  optimizers (until P17), it takes `taylor_to_derivatives('apply', (order,), dense_apply(T, affine_jet(ww, pp), (order,)))`. (Seven
   examples define their own `dense_apply(A, ww)` or `dense_probe(A, ww)` helpers, local and of no removed name;
   they may stay.)
   `tests/test_probe_derivatives.py` (nine calls of the three `dense_*_derivatives`) is folded into the frontend
   sampling tests here, on the dense functions.
 - Pages that name the removed methods in prose only (`docs/entries_apply_probe.md`, `docs/naming_conventions.md`,
   `docs/transposes.md`) are rewritten in P19.
-- Tests added: the doctests on the merged methods (`order=0` returns today's shapes; `order=2` adds `T` outermost).
+- Tests added: the doctests on the merged methods (`order=()` returns today's shapes; `order=(2,)` at
+  `affine_jet(ww, pp)` adds one jet axis outermost; `order=(1, 1)` at `affine_jet(ww, p, q)` adds two); the merged
+  methods raise through `check_sample` on a sample of the wrong form; `entries` has no `order`.
 - Gate: the full gate.
 
 **P14. The oracle and the batch** (additive). `LeastSquaresOracle` and `LeastSquaresBatch` in `backend/fitting.py`
@@ -1322,8 +1682,9 @@ beside the old kinds; the `Oracle` protocol as documentation in `backend/optimiz
 (O-7), `check_batch` as an optional member (O-29), and `held` typed as any object that, in a compiled program, jax
 can carry (O-8, O-30); `query` passing `held` (a `HeldVariables`) to the engine;
 `n_measurements`, `take`, `check_batch`, `y_block_sumsq`, `f_resolution`, the minibatch scale on `f`, `g`, `JtJp`,
-`Jp_norm_sq`, `Kp` and `f_resolution` only (O-21); `pack_batch` in `backend/uniform_fitting.py`. Both classes
-reachable from `t3toolbox.fitting`.
+`Jp_norm_sq`, `Kp` and `f_resolution` only (O-21); `pack_batch` in `backend/uniform_fitting.py` (the input jets
+padded to one jet shape across the modes, as in P11). Both classes reachable from `t3toolbox.fitting`. The oracle's
+`order` is a tuple; `LeastSquaresOracle('entries', order=(1,))` raises at construction.
 - Tests: each output of `query` against the engine and against the reference; `held` holds exactly the names of the
   hold list that the call computed (none computed only to be held); `take` under `jax.jit` with a static size;
   `minibatch_scale` makes the drawn `f` an unbiased estimate of the full `f`, tested exactly on a small `n` by
@@ -1331,7 +1692,8 @@ reachable from `t3toolbox.fitting`.
   unscaled and the identities `f = 1/2 <r, r>`, `<Jp, r> = <p, g>`, `Jp_norm_sq = <Jp, Jp>` hold in the batch's
   inner product; `check_batch` passes a good batch and raises on each wrong part; `pack_batch` then the uniform
   query equals the ragged query on real parts; the pytree round trip of the batch; the oracle's hash and equality
-  by value; bridge against the old kinds through the conversions.
+  by value; bridge against the old kinds through the conversions (one variable, the sample `affine_jet(ww, pp)`);
+  the outputs at `order = (1, 1)` against the reference.
 - Gate: the full gate.
 
 **P15. The geometry returns the centers.** The backend `frame(x)` returns `(frame, centers)` on the four backend
@@ -1380,7 +1742,8 @@ deletes the translation.
    once, and `f_resolution`; without `f_resolution` the trust-region floor is `eps |f|` with `eps` from the dtype of
    `f` (8.4); an oracle without block sums gets the header line and no table. The stored record (the display's
    records, which the frontend returns as `stats['diagnostics']`) keeps `train_err` and `val_err` at every
-   iteration in the full shape of the weight, nothing reduced over modes or orders (8.4). The timing laps: `oracle`
+   iteration in the full shape of the weight, `(d,) + F` or `F`, nothing reduced over modes or orders (8.4). The
+   printed table for `m >= 2` is the answer to O-42; for `m <= 1` it is today's table. The timing laps: `oracle`
    in place of `sweep` and `residual` (O-17), so `stats['timing']` has the keys `frame`, `oracle`, `companion`,
    `gradient`, `curvature`.
 4. *Frontend.* `t3toolbox/optimizers.py` takes `(geometry, oracle, batch, x0, ...)`; it maps the geometry to the
@@ -1395,7 +1758,10 @@ deletes the translation.
    positional arguments are then read as the old signature names them (`geometry, kind, sample, data, x0`, and for
    `mc_sgd` and `adam` `rng, batch`), as in `topt.adam(t3m.COREWISE, 'probe', ww, pdata, x0c, rng, 20, max_iter=50)`
    (`docs/fitting_and_optimization.md`), and rebuilt into the new form; the kind string gives the oracle; the old weight goes through `_canonical_weight` (kept until P17 for this) and is
-   broadcast to the exact shape; derivative data, validation data and weight go through `prepare_derivative_data`;
+   broadcast to the exact shape; an integer `order=n` becomes `(n,)` (or `()` at 0), and an old sample `(ww, pp)`
+   becomes `affine_jet(ww, pp)`; the old kind `'entries_derivatives'` becomes the oracle `('apply', (n,))` at
+   `affine_jet(index_to_one_hot(index, x0.shape), pp)`; derivative data, validation data and weight go through
+   `prepare_derivative_data`;
    `val_sample`/`val_data` become `val_batch`; `batch` (an int, for `mc_sgd` and `adam`) becomes `batch_size`; an
    old custom `draw` returning `(sample, data)` is wrapped to return a batch; `chunk_size` is accepted and dropped.
 
@@ -1414,7 +1780,8 @@ and the backend corewise geometries. What the translation keeps working moves in
   `bopt.least_squares_problem`, `probe_derivatives_model` and `newton_cg` script),
   `tests/test_aligned_padded_frame_frontend.py` (`topt.least_squares_problem`), `tests/test_chunk_size_estimator.py`
   (`test_resolver`, which calls `_resolve_chunk_size`, and `test_newton_cg_exact_across_chunk_size` are removed), and
-  the fitting rows of `tests/test_dispatch.py`. Every file rewritten here also drops its uses of the old kinds, so
+  the fitting rows of `tests/test_dispatch.py`. A case that fits from entries derivatives moves to the apply kind at
+  `affine_jet(index_to_one_hot(index, shape), pp)` (entry 120). Every file rewritten here also drops its uses of the old kinds, so
   that after P16 only the old kernels' own tests and the bridge reference them;
 - module doctests: `backend/optimizers.py`, `backend/uniform_fitting.py`, `backend/optimizer_display.py` (its
   `make_newton_display` example, and the `PhaseSeconds` example, whose laps change), `t3toolbox/fitting.py` (seven
@@ -1433,13 +1800,14 @@ and the backend corewise geometries. What the translation keeps working moves in
 - Tests added: optimizers judged by outcomes on problems with known answers and by the model's consistency
   (`p` paired with `hvp(p)` equals `gn_quadratic(p)` in Gauss-Newton mode), not by old iteration counts (9.3); a
   model rebuilt each step is one cache key; a new weight or minibatch does not recompile; `want` is a literal; the
-  stored record's shapes at orders 0 and 2 for each kind, with and without a validation batch; the floor `eps |f|`
+  stored record's shapes at `order = ()` and `(2,)` for each kind and at `(1, 1)` for probe and apply, with and
+  without a validation batch; the display's table at `(1, 1)` (O-42); the floor `eps |f|`
   on a user oracle without `f_resolution`; a user oracle without a draw raises in `mc_sgd`; a supplied `start_frame`
   with a perturbed store raises in safe mode and runs in `safety.unsafe()`; a library-built frame is not checked; a
   bad batch raises in the frontend before any work; the backend optimizers run on the same bad inputs without a
   check. The translation (temporary, deleted in P17): each old call form gives the result of the new one.
 - The frontend-only fit (the answers of 20:15): a test that fits a tensor from derivative data importing nothing from
-  `t3toolbox.backend` (`t3toolbox.fitting` for the oracle, the batch and `prepare_derivative_data`;
+  `t3toolbox.backend` (`t3toolbox.fitting` for the oracle, the batch, `affine_jet` and `prepare_derivative_data`;
   `t3toolbox.optimizers.newton_cg`), beside the backend-only fit of section 7.5.
 - The slow tier (`T3TOOLBOX_SLOW_TESTS=1`, serially) is part of this slice's gate.
 - From here nothing in the library calls the old kinds, `Problem`, or the old sampling kernels except their own
@@ -1451,7 +1819,8 @@ and `_canonical_weight` are deleted.
 - examples: `fit_hilbert_from_apply_derivatives_topt.py` (`mc_sgd`, with a custom draw),
   `fit_hilbert_regularized.py`, `fit_hilbert_uniform_newton_cg.py`, `fit_hilbert_uniform_probe_derivatives_newton_cg.py`,
   `fit_per_mode_weight_probes.py`, `fit_probe_display.py` (with `val_sample`, `val_data`),
-  `fit_shared_factors_jetted_probes.py`; the examples that fit derivative data use `prepare_derivative_data`, and
+  `fit_shared_factors_jetted_probes.py`; the examples that fit derivative data use `affine_jet` and
+  `prepare_derivative_data`, and
   those of P13 that took `taylor_to_derivatives` of the dense jets take the Taylor jets directly;
 - page doctests: `docs/fitting_and_optimization.md` (the optimizer calls, one with a custom `draw`),
   `docs/sharing.md` (two), `docs/getting_started.rst` (two);
@@ -1487,6 +1856,7 @@ removals and moves of existing pages.
 | `estimate_chunk_size`, `max_chunk_size_within`, `DEFAULT_CHUNK_SIZE` | the frontend optimizers | P16 | P20 |
 | `TestJetKernelsShardOverW` | itself (it imports `sampling_derivatives`) | replaced by P11's class | P20 |
 | The bridge test | itself | P20 | P20 |
+| The copies of `check_perturbation_vectors`, `check_perturbation_index` in `jets` (P3) | nothing (there is no `pp`) | P4d | P4d |
 
 `Problem`, the factories, the old call form and the frontend methods are removed when they switch because they are
 interfaces, not kernels.
@@ -1497,13 +1867,14 @@ interfaces, not kernels.
 
 | Layer | What | Where | When |
 | --- | --- | --- | --- |
-| Reference | `sampling_definitions` pinned against the dense tensor, the dense tangent tensor, the dense Jacobian and the Hessian | `tests/test_sampling_definitions.py` | P2 |
-| By definition (9.3) | every name, every kind, orders 0, 1, 3, a random weight, against the reference | `tests/test_sampling_variables.py` | P5 to P11 |
-| Identities (9.3) | the adjoint identity of `Jp` and `g`; `p` with `JtJp` equals `Jp_norm_sq`; `g` is the derivative of `f`; held equals recomputed; independence of the layout and the backend; order 0 equals slot 0; `Vc` route equals `D` route; short forms are slices | `tests/test_sampling_identities.py` | P5 to P11 |
+| `jet_contract` | the 29 strings against an independent truncated product at `m = 0, 1, 2, 3`; `numpy.polynomial` at `m = 1`; the box pairing; the cases of section 2.4; contraction counts; strictness | `tests/test_jet_contract.py` | P1, rebuilt in P4a |
+| Reference | `sampling_definitions` pinned against the dense tensor, the dense tangent tensor, the dense Jacobian and the Hessian | `tests/test_sampling_definitions.py` | P2, P4c |
+| By definition (9.3) | every name, every kind, the jet matrix below (entries at `()` only), a random weight, against the reference | `tests/test_sampling_variables.py` | P5 to P11 |
+| Identities (9.3) | the adjoint identity of `Jp` and `g`; `p` with `JtJp` equals `Jp_norm_sq`; `g` is the derivative of `f`; held equals recomputed; independence of the layout and the backend; `order = ()` equals the slot `(0, ..., 0)`; a second variable of order 0 equals one variable; `Vc` route equals `D` route; short forms are slices | `tests/test_sampling_identities.py` | P5 to P11 |
 | Generic twin | the written-out terms against terms derived mechanically | `tests/_generic_twin.py`, used by the identity tests | P6 |
 | Structural | the table equals the declared graph; the slots of `HeldVariables` equal the variables read by others; one wanted variable computes only its reads; unknown names and missing arguments raise; held shapes; the dtype rule; uniform output masks | `tests/test_sampling_graph.py`, the uniform tests | P5, P10, P11, P12 |
-| Checkers | each checker passes a good input and catches each wrong one; no backend function calls one; the frontend enforces through them, in safe mode where numerical | `tests/test_jets.py`, the frame tests, the fitting tests | P3, P4, P14, P16 |
-| Reference | the dense functions against interpolation and today's values; the corewise transpose and Hessian against automatic differentiation of `<c, z(x)>` | `tests/test_sampling_definitions.py`, the curvature tests | P2, P12 |
+| Checkers | each checker passes a good input and catches each wrong one; no backend function calls one; the frontend enforces through them, in safe mode where numerical | `tests/test_jets.py`, the frame tests, the fitting tests | P3, P4, P4d, P14, P16 |
+| Reference | the dense functions against interpolation and today's values, at input jets of every kind of the jet matrix; the corewise transpose and Hessian against automatic differentiation of `<c, z(x)>` | `tests/test_sampling_definitions.py`, the curvature tests | P2, P4b, P12 |
 | Uniform | equivalence with ragged on real parts over the full `_CONFIGS` matrix; exact output masks; garbage-padded inputs; tails; the two-hole masks on a TT-slack frame, with a mutation check | `tests/test_sampling_variables.py` (uniform cases), `tests/test_uniform_probing.py` | P11, P12 |
 | Sharding | the AST sweep over every literal string; `jet_contract`'s product strings; `g` and `Kp` under `shard_map` with `W` sharded, zero all-gathers, equal to unsharded | `tests/test_contractions_sharding.py` | P1, P11 |
 | Dispatch | jit each new public function; numpy in numpy out, jax in jax out; eager calls compile once | `tests/test_dispatch.py` | every slice |
@@ -1511,6 +1882,12 @@ interfaces, not kernels.
 | Fitting | outcomes on known answers; model consistency; compile keys; the stored record's shapes; the `eps |f|` floor; a draw-less oracle in MC-SGD; the minibatch scale's identities; a frontend-only fit from derivative data | the rewritten fitting tests | P14, P16 |
 | Bridge (temporary) | new outputs against old code that is never rerouted (`sampling_derivatives`, the old kernels, the old kinds), through the stated conversions | `tests/bridge/test_old_kernels_bridge.py` | P6 to P14; deleted in P20 |
 | Translation (temporary) | each old call form of the frontend optimizers gives the result of the new one | the frontend optimizer tests | P16; deleted in P17 |
+
+**The jet matrix.** Every test by definition, every identity and the uniform equivalence run over the same jet
+orders and inputs, so that several variables are tested wherever one is: `order = ()`; `(1,)` and `(3,)` with a line
+input (`affine_jet(ww, pp)`, today's case); `(1, 2)` with `affine_jet(ww, p1, p2)`; `(2,)` with an input of three
+slots (a curve) and with modes of different input jet shapes (one of them of size 1). Order 16 at `m = 1` where the
+scan is pinned (one program size). The sizes stay small: the reference evaluates on a grid of `M_1 ... M_m` nodes.
 
 **Tolerances.** Numerical comparisons are to a tolerance scaled to the dtype; structural ones are exact (0.8, 9.3).
 
@@ -1521,7 +1898,7 @@ interfaces, not kernels.
 | `tests/test_jet_recurrence.py`, `tests/_jet_trs_twins.py` | Test old kernels only; deleted in P20 |
 | `tests/backend/test_from_sweep_reuse.py` | Its calls updated in P12; deleted in P20 |
 | `tests/test_chunk_size_estimator.py` | Its `newton_cg` case fed through the merged `probe` in P13; that case and `test_resolver` removed in P16; its estimator cases deleted in P20 |
-| `tests/test_contractions_sharding.py` | Extended in P1 and P11; its class `TestJetKernelsShardOverW` (imports `sampling_derivatives`) deleted in P20, replaced by P11's |
+| `tests/test_contractions_sharding.py` | Extended in P1, P4a and P11; its class `TestJetKernelsShardOverW` (imports `sampling_derivatives`) deleted in P20, replaced by P11's |
 | `tests/test_probe_derivatives.py` | Folded into the frontend sampling tests in P13, on the dense functions |
 | `tests/test_uniform_probing.py`, `tests/test_manifold.py` | `test_manifold.py`'s `dense_probe` call in P2; their calls of the changed backend names in P12, of the frontend methods in P13; `test_manifold.py`'s `fitting.apply_model` call in P16 |
 | `tests/test_tucker_tensor_train.py` | Its `dense_probe` call in P2; its frontend sampling calls in P13 |
@@ -1531,9 +1908,12 @@ interfaces, not kernels.
 | `tests/backend/test_optimizers.py`, `test_padded_start.py`, `test_zero_reference.py` | Removed-method calls in P13; the backend `frame` in P15; rewritten in P16 |
 | `tests/backend/test_geometry.py` | The backend `frame` in P15; rewritten in P16 |
 | `tests/backend/test_optimizer_display.py`, `tests/test_optimizers_frontend.py`, `tests/test_sharing.py` (fitting), `tests/test_oracle_sweep.py`, `tests/oracle_sweeps/`, `tests/test_jax_absent.py`, `tests/test_aligned_padded_frame_frontend.py` | Removed-method calls in P13 where they have them; rewritten in P16 |
-| `tests/test_dispatch.py` | Rows added from P1; changed calls in P12, P13, P15; fitting rows in P16; old rows removed in P20 |
-| `tests/test_contractions_interpreter.py` | Extended in P1 |
-| `tests/test_import_graph.py`, `tests/test_jax_absent.py` | New modules registered as they land; no backend module imports `safety` (P3) |
+| `tests/test_dispatch.py` | Rows added from P1; the rows of P1 to P3 rewritten in P4a to P4d; changed calls in P12, P13, P15; fitting rows in P16; old rows removed in P20 |
+| `tests/test_contractions_interpreter.py` | Extended in P1; its jet records and derived strings rewritten in P4a |
+| `tests/test_import_graph.py`, `tests/test_jax_absent.py` | New modules registered as they land; no backend module imports `safety` (P3); `test_jax_absent.py`'s calls of the dense functions, `jets` and `sampling_definitions` in P4b to P4d |
+| `tests/test_jet_contract.py`, `tests/_jet_contract_cases.py` | Written in P1; rebuilt in P4a (29 strings, the one jet group) |
+| `tests/test_sampling_definitions.py` | Written in P2; its dense tests in P4b, its definitions in P4c |
+| `tests/test_jets.py`, `tests/test_data_preparation.py` | Written in P3; the dense calls in P4b; rewritten for the jet order in P4d |
 | `tests/test_frame_variations_format.py`, `tests/test_uniform_frame_variations_format.py` | `is_consistent` cases in P4 |
 
 ---
@@ -1549,12 +1929,12 @@ interfaces, not kernels.
   function, that is on them."
 - **The backend's checkers in Part 1.** Of a frame: `fv_frame_consistency_residual`, the centers' residual, their
   uniform twins (P4), beside today's `fv_frame_orthogonality_residual` and its twin. Of a sample, its data and its
-  weight: `check_sample`, `check_data`, `check_weight` and the two validators of `pp` (P3); for a whole batch,
+  weight: `check_sample`, `check_data`, `check_weight` (P3, in the jet order from P4d); for a whole batch,
   `LeastSquaresOracle.check_batch` (P14).
 - **What the backend still checks, structurally, because it must to run:** the engine's unknown names, missing
   arguments and held shapes (section 2.3 step 1), the operand ranks in `jet_contract` (5.4), and exact mode's
   `optional_outputs` (P16). Nothing numerical.
-- **What the frontend enforces.** Structural, always: the sample against `pp` in the merged methods; the batch through
+- **What the frontend enforces.** Structural, always: the sample through `check_sample` in the merged methods; the batch through
   `check_batch` where a batch enters the optimizers or `fitting.local_model`; the same-frame guard. Numerical, in
   safe mode only, skipped in `safety.unsafe()` and under a jax trace: a frame the caller supplied (`start_frame`, or
   the `frame` of `fitting.local_model`), `L` against `R` through `D`, once when the model is built, through the
@@ -1573,8 +1953,12 @@ interfaces, not kernels.
 ### 7.2 The ragged against the uniform layout
 
 - One set of step functions; the layout from the structure of the inputs (layout first, then the count); sweeps
-  through `xscan`; map-type operations one site at a time, a loop on ragged and `xmap` on uniform (O-19); products
-  of two full jets with `'loop'` on ragged and `'scan'` on uniform (O-10).
+  through `xscan`; map-type operations one site at a time, a loop on ragged and `xmap` on uniform (O-19); every
+  `jet_contract` with `'loop'` on ragged and `'scan'` on uniform (O-10), which scans only where `m = 1` (section
+  2.4).
+- The packed sample pads the modes' input jets with zeros to one jet shape (P11, P14): zeros beyond an array's shape
+  change no jet, so the uniform layout needs no mask on the jet axes; the leaves on the uniform layout have the
+  padded jet shape, clipped to `F`, and agree with ragged on the slots ragged has.
 - Mask once on entry, each input with the frame's own masks (`core_directions` with the frame's `D` and `L` masks,
   never the point's, a superset at TT slack); steps mask-free; core-shaped outputs re-masked on exit by the engine.
   The uniform frame `.data` carries host-numpy masks that `partition_static` keeps out of the trace, as today.
@@ -1593,6 +1977,8 @@ interfaces, not kernels.
   out; the dtype matrix of P10; `test_jax_absent.py` imports every new module without jax; the optimizers'
   `use_jit=True` auto-conversion moves the batch to jax (today it moves `sample` and `data`,
   `_prepare_jit_inputs`); `HeldVariables` and the checkers import and run without jax.
+- `index_to_one_hot` returns numpy arrays for a numpy index and jax arrays for a jax index, in the default floating
+  dtype; it is then an input like any other (the dtype rule of 5.6).
 
 ### 7.4 Shared Tucker factors
 
@@ -1636,7 +2022,7 @@ interfaces, not kernels.
 
 - Part 1 promises nothing new about sharding (7.7 is open). It must not break what holds today: every sub-axis of
   every group is shardable with no all-gather, because `contract` never reshapes.
-- `jet_contract` reshapes nothing either: both forms over the orders slice the order axis, never `W`.
+- `jet_contract` reshapes nothing either: both forms slice jet axes only, never `W`, at any `m`.
 - Every string at a call site is a literal, so the AST scan of `tests/test_contractions_sharding.py` sees it.
 - The arrays of a batch are top-level arguments of the compiled phases, not closures (8.3 note).
 - What holds today beyond the per-string sweep: the jetted transpose and the two-hole, run under `shard_map` with
@@ -1644,13 +2030,15 @@ interfaces, not kernels.
   class `TestJetKernelsShardOverW`). P11 pins the same property on the engine; the old class goes with
   `sampling_derivatives` in P20.
 - **Tests.** The sharding sweep on the new literals and on `jet_contract`'s product strings (P1); `g` and `Kp` from
-  the engine at orders 0 and 3, ragged and uniform, under `shard_map` with `W` sharded (P11).
+  the engine at `order = ()`, `(3,)` and `(1, 1)`, ragged and uniform, under `shard_map` with `W` sharded (P11).
 
 ### 7.7 Compiling with jit
 
-- **Statics and leaves.** Static (`aux_data`, value-hashed): the geometry, the oracle (`kind`, `order`), the
-  regularizer, `want` (a literal tuple at every library call site), the filled slots of `HeldVariables`, uniform
-  masks and shapes, `GroupLengths`, `over_orders`. Leaves: the batch (the weight, the minibatch, its scale, its
+- **Statics and leaves.** Static (`aux_data`, value-hashed): the geometry, the oracle (`kind`, and `order`, a tuple
+  of Python integers), the regularizer, `want` (a literal tuple at every library call site), the filled slots of
+  `HeldVariables`, uniform masks and shapes, `GroupLengths`, `over_orders`, the jet order passed to each
+  `jet_contract` call. The input jets' jet shapes are array shapes: a sample of another jet shape recompiles, as a
+  sample of another `W` does today. Leaves: the batch (the weight, the minibatch, its scale, its
   indices), the frame, the centers, the held arrays, `f`, the curvature state.
 - So a new weight, a new minibatch and a new frame do not recompile; a rank change does, as today.
 - **Scan bodies** are module-level; statics reach them through factories memoized on hashable scalars, never
@@ -1680,9 +2068,14 @@ interfaces, not kernels.
 
 **Rewritten.** `docs/entries_apply_probe.md` (its table of the transposes' call forms, section 4) and
 `docs/transposes.md` (its table and headings: the call forms in N16's order; sum by default; `residual`),
-`docs/fitting_and_optimization.md` (the oracle, the batch, the new signatures; the weight's exact shape; ones by
-default with the asterisk of 2.5; derivative data prepared outside), `docs/batching_and_stacking.md` (`T` and `A`,
-the sample stack on the outputs), `docs/grouped_contractions.md` (`jet_contract`, with one table of the letters that says which are grouped stack axes, `C`, `W`, `K`, and which are the two jet axes, `T` and `A`, whose meaning is multiplication of jets and not alignment of axes; and the definition of `A` as the two-slot format of the order group), `docs/frame_variations.md`
+`docs/fitting_and_optimization.md` (the oracle, the batch, the new signatures; the jet order and input jets, with
+`affine_jet` for the line and `index_to_one_hot` for derivatives at grid points; the weight's exact shape `(d,) + F`
+or `F`; ones by default with the asterisk of 2.5; derivative data prepared outside; data given by total degree, in
+the box with weight zero), `docs/batching_and_stacking.md` (the jet group `J` beside the three stacks, and the sample
+stack on the outputs), `docs/grouped_contractions.md` (`jet_contract`, with one table of the letters that says which
+are grouped stack axes, `C`, `W`, `K`, and which is the jet group, `J`, whose meaning is multiplication of
+polynomials truncated to a box and not alignment of axes; the output's jet order; the corner coefficient of a
+readout; why the truncation is a box and not a total degree), `docs/frame_variations.md`
 (centers), `docs/numerical_contracts.md` and `docs/contributor/numerical_contract_catalog.md` (the backend's
 checkers, not guarantees; what the frontend enforces, and when), `docs/sharing.md`, `docs/rank_continuation.md` and `docs/aligned_padded_frame.md` where they call
 optimizers, `docs/uniform_equivalence_contract.md`, `docs/contributor/fitting_internals.md`,
@@ -1708,11 +2101,17 @@ are rewritten in the slice that changes it (section 5); P19 rewrites the prose.
 **Records.** `docs/glossary.md` (the variables, the oracle, the batch, held, centers; the old names removed);
 `docs/naming_conventions.md` (the sampling modules, the new modules, the corewise-call rule) and
 `docs/contributor/naming_rules.md`; `docs/contributor/deferred_and_rejected.md` (the "kwarg-unified derivative
-interface" entry reversed, 6.6 note; a new entry for jets in several variables, a future feature the maintainer named on 2026-11-17, with what the design implies for it: `T` and `A` with one axis per jet variable); `dev/OPEN_QUESTION_extension_surface.md` given its resolution (3.4) and
+interface" entry reversed, 6.6 note; jets in several variables are built, so the entry the earlier plan foresaw for
+them as a future feature becomes three records: the fast algorithms for `m >= 2` deferred to Part 2 behind
+`jet_contract`; truncation by total degree rejected, because the dual jets need the box (row 2.4); the entries kind
+with jets removed, with the reason of entry 120 and the migration to apply at one-hot vectors); `dev/OPEN_QUESTION_extension_surface.md` given its resolution (3.4) and
 archived; `CLAUDE.md` (the paper-to-code map replaced by a pointer to its page; the sampling section; the
 safe-mode paragraph, whose "Frontend-only for now (a backend mirror for raw-`.data` users is deferred)" becomes the
 backend's checkers; the shipped surface; the module list);
-`docs/release_notes.md` with the old-to-new name map (`SAMPLE_VARIABLES.md` section 10); `CHANGELOG.md`.
+`docs/release_notes.md` with the old-to-new name map (`SAMPLE_VARIABLES.md` section 10), and the upgrade of a jet
+call: the released `probe_derivatives(ww, pp, 3)` becomes `probe(affine_jet(ww, pp), order=(3,))`, in Taylor
+coefficients (`taylor_to_derivatives` gives the derivatives back), and `entries_derivatives(index, pp, n)` and its tangent forms, which are
+removed, become apply at `affine_jet(index_to_one_hot(index, shape), pp)`; `CHANGELOG.md`.
 
 ---
 
@@ -1729,7 +2128,7 @@ removed API.
 | --- | --- | --- |
 | `_newton_fit` | `topt.newton_cg(geometry, 'probe_derivatives', (ww, pp), data, X0, order=jet_order, weight=weight, **kwargs)` | P17 (in P16 the translation still takes the old form) |
 | `fit_rank_continuation` and `fit_rank_continuation_adaptive`, scoring each level | `X.probe_derivatives(ww, pp, jet_order)`, then the consumer's own `weighted_misfit` and `forward_summed_reverse_misfit` | P13 |
-| `polynomial_predict` | `T.probe(ww)[-1]` | unchanged (`order=0`; the sample is `probe`'s only positional argument under N16 too) |
+| `polynomial_predict` | `T.probe(ww)[-1]` | unchanged (`order=()`, plain vectors; the sample is `probe`'s only positional argument under N16 too) |
 
 T3Polynomial calls no transpose, corewise transpose or backend sampling function of the library (searched), so
 the order of N16 does not reach it.
@@ -1745,14 +2144,16 @@ per slot or `(degree+1, J+1)` per mode and slot; its options include `val_sample
 1. `_newton_fit` is replaced by a function with the same signature that:
    - converts with `prepare_derivative_data(...)`: the data, the validation data and the weight to Taylor form, a
      per-slot weight broadcast to `(d, J+1)` first, because the weight's shape is exact (2.5);
-   - builds `batch = LeastSquaresBatch((ww, pp), y, weight)`, `val_batch` likewise, and
-     `oracle = LeastSquaresOracle('probe', order=J)`;
+   - builds `batch = LeastSquaresBatch(affine_jet(ww, pp), y, weight)`, `val_batch` likewise, and
+     `oracle = LeastSquaresOracle('probe', order=(J,))`; the conversions take `(J,)` too
+     (`prepare_derivative_data('probe', (J,), ...)`);
    - calls `newton_cg(geometry, oracle, batch, X0, val_batch=val_batch, **kwargs)`, with `chunk_size` dropped from
      the options and `val_sample`, `val_data` turned into `val_batch`;
    - keeps T3Polynomial's own handling around the call (the uniform and jax conversions of `X0` and
      `padded_from`, the warm-start warning) as it is.
 2. The scoring call `X.probe_derivatives(ww, pp, jet_order)` is given back to `TuckerTensorTrain`, in the script's
-   process only, as `taylor_to_derivatives('probe', jet_order, X.probe(ww, pp, order=jet_order))`, so that the consumer's
+   process only, as `taylor_to_derivatives('probe', (jet_order,), X.probe(affine_jet(ww, pp), order=(jet_order,)))`,
+   so that the consumer's
    misfits keep their derivative form.
 
 The script checks that every `stats` key T3Polynomial reads is present, with the meaning it has today; `timing`
@@ -1763,6 +2164,20 @@ is not read by T3Polynomial (its keys change, O-17).
 `'uniform_jax'`): the fit reaches the known answer to the validation error the release reaches; the display's table
 appears; every `newton_cg` option T3Polynomial passes is accepted. The script's output is recorded in the folder
 like the other checks.
+
+**What the consumer's calls become** (entry 120 asks for them; read from `/home/claude/t3polynomial`, not run).
+T3Polynomial uses one jet variable and a line input everywhere: its sample is `(ww, pp)` and its order the integer
+`jet_order`. Its library calls become, after P17:
+
+| Today (`t3polynomial/fitting.py` and its scripts) | After |
+| --- | --- |
+| `topt.newton_cg(geometry, 'probe_derivatives', (ww, pp), data, X0, order=J, weight=weight, ...)` | `y, w, val = prepare_derivative_data('probe', (J,), data, np.tile(weight, (d, 1)) if weight.ndim == 1 else weight, val_data)`; `newton_cg(geometry, LeastSquaresOracle('probe', order=(J,)), LeastSquaresBatch(affine_jet(ww, pp), y, w), X0, val_batch=..., ...)` |
+| `X.probe_derivatives(ww, pp, J)` (scoring; also in the scripts `d05`, `d06`, `o01`, `x02`) | `taylor_to_derivatives('probe', (J,), X.probe(affine_jet(ww, pp), order=(J,)))` |
+| `topt.least_squares_problem(t3m.MANIFOLD, 'probe_derivatives', ...)` (the scripts `g06`, `g06b`, `g06c`, `d07`) | `fitting.local_model(t3m.MANIFOLD, oracle, batch, X)` with the oracle and the batch above |
+| `T.probe(ww)` | unchanged |
+
+If O-36 accepts an integer for one variable, `(J,)` may be written `J` throughout. Nothing of T3Polynomial depends
+on the entries kind. The dry port covers the first two rows; the scripts are not part of it.
 
 **What it is for.** A port of the consumer is part of "done" (small item 5). With both replacements installed,
 T3Polynomial's own benchmark runs unchanged on the branch, which is what Part 2's benchmark against the released
@@ -1816,7 +2231,8 @@ branch for comparison in Part 2"). No benchmark gates it.
 
 Its own gate: the full gate, the slow tier, `sphinx -W`, and a grep over `t3toolbox/`, `tests/`, `docs/` and
 `examples/` (not `dev/`, `CHANGELOG.md` or `docs/release_notes.md`, which name the removed names on purpose) that finds
-none of the 129 removed names, nor `chunk_size`, `sum_over_probes` or `ztildes`.
+none of the 131 removed names (129 before the jet group: the two validators of `pp` no longer move to `jets`), nor
+`chunk_size`, `sum_over_probes`, `ztildes`, or a keyword `pp=` of a sampling function.
 
 ---
 
@@ -1856,7 +2272,7 @@ answer where it uses it.
 | O-24 | Split in two commits, with a translation of the old call form for one slice (P16, P17) |
 | O-25 | A temporary test file, deleted in the last slice (5.1) |
 | O-26 | The prototype scripts stay as records run against `v2026.5.0` (10) |
-| O-27 | `dense_probe`, `dense_apply`, `dense_entries` with `pp` and `order`, backend, used by the reference module, the examples and the tests (2.4, P2, P13) |
+| O-27 | `dense_probe`, `dense_apply`, `dense_entries` with `pp` and `order`, backend, used by the reference module, the examples and the tests (2.4, P2, P13). Amended by entries 118 to 120: input jets and the jet order, no `pp`; `dense_entries` has no jets (P4b) |
 | O-28 | The ambient transposes in N16's order and names, the sum off by default; `dense_probe` as O-27 (2.4) |
 | O-29 | `check_batch` is an optional member of the oracle protocol; the frontend calls it when the oracle has it, and checks nothing about the batch otherwise (2.4, 2.5, P14, P16) |
 | O-30 | `held` is any object; in a compiled program, something jax can carry: arrays, tuples, `None` or a registered record (2.2, 2.4) |
@@ -1868,7 +2284,49 @@ answer where it uses it.
 
 ### 11.2 Open points
 
-None. Every point is answered, and every name approved.
+O-1 to O-35 are answered (11.1). The generalized jet group (entries 116 to 120) leaves the following, each stated so
+that a short reply settles it. The plan is written with the proposal in each case; the slices that depend on an
+answer are named in section 5.2.
+
+- **O-36. An integer for `order`?** The plan writes `order` as a tuple everywhere (`()` the default). Options:
+  (a) a tuple only: `order=(3,)`; `order=()` for none; an integer raises. (b) An integer is shorthand for one
+  variable, `n` meaning `(n,)` for `n >= 1`, and `0` meaning `()`, today's meaning of order 0. Then `(0,)` (one
+  variable of order 0, one jet axis of size 1) is reachable only as a tuple, and `order=0` and `order=(0,)` differ.
+  (c) An integer `n` always means `(n,)`, `0` included; the default stays `()`. Then `order=0` puts a jet axis of
+  size 1 on every output, which a user who writes `order=0` today does not expect. Proposed: (a), because (b) makes
+  `0` irregular and (c) surprises; the cost is `(3,)` in the most common call, where T3Polynomial writes `J` today.
+  The backend below the public functions sees a tuple whatever the answer (section 4).
+- **O-37. Where a frontend user finds `affine_jet` and `index_to_one_hot`.** Proposed: in `t3toolbox.fitting`, under
+  their backend names, like the other jet helpers (P4d). They are also needed to call `x.probe` and `x.apply` with
+  jets, outside a fit; options are to export them from `t3toolbox` itself too, or to give them static methods on
+  `TuckerTensorTrain`. Proposed: `t3toolbox.fitting` and the top level `t3toolbox` both, since `probe` is a method
+  of the top-level class.
+- **O-38. `over_orders='scan'` for `m >= 2`.** Proposed: in Part 1 both forms run the loop over the partner's
+  multi-indices when `m >= 2`, so the compiled program grows with the jet sizes there; the scan over more than one
+  jet axis is Part 2's, marked in the code as `PART 2 (row 5.4, jets in several variables)` and added to "Carried to
+  Part 2". The alternative is a nested scan, one level per jet axis, in Part 1. Is the loop acceptable for `m >= 2`
+  in Part 1?
+- **O-39. The input's slots are Taylor coefficients.** The plan reads `ww[i]` at the multi-index `k` as the
+  coefficient of `s^k`, as every other jet of the library (2.1, 2.2). For a line it makes no difference; for a curve
+  given by its derivatives the user converts first. To confirm.
+- **O-40. `rescale_direction` in several variables.** Proposed: `length` is a number (the same for every variable)
+  or one number per jet variable; slot `k` of the input jets and of the data is multiplied by
+  `length_1^k_1 ... length_m^k_m`. Alternative: a number only. Which?
+- **O-41. The dtype of `index_to_one_hot`.** Proposed: the library's default float (numpy float64, jax's default),
+  lowered by the dtype rule where the cores are float32; no `dtype` argument. Alternative: a `dtype=None`
+  keyword. Which?
+- **O-42. The display of a table with several order axes.** The stored record keeps the full shape `(d,) + F` (8.4).
+  The printed table, for `m >= 2`: (a) rows the modes, columns the multi-indices in row-major order, each labelled
+  `k_1,k_2` (one column per slot; wide for large boxes); (b) one table per value of the first jet index; (c) columns
+  by total degree `|k|`, each cell the relative error over the slots of that degree. Proposed: (a), because it shows
+  every number the record holds and is today's table at `m = 1`, with (c) as the form when the columns would exceed
+  the width of the terminal. For apply the rows are train and validation, as today.
+- **O-43. The ambient transposes and jets.** The three ambient transposes keep the form decided on 2026-11-16 at
+  18:35: no `order`, and their `ww` plain vectors (section 2.4). Entry 117 asks that the sampling functions take a
+  jet order from the start; the ambient transposes map a residual onto a dense tensor in CP form and have no jets
+  today. Proposed: they stay without jets in this arc (a transpose of the jet map onto the ambient space would be a
+  new operation, with its own definition), recorded in `docs/contributor/deferred_and_rejected.md` beside the
+  ambient derivative transpose already there. To confirm.
 
 ### 11.3 Names added after the table was settled
 
@@ -1877,17 +2335,34 @@ Approved by the maintainer on 2026-11-16 at 20:59, with the uniform twin of O-34
 | Name | What | Where | Slice |
 | --- | --- | --- | --- |
 | `over_orders='scan'`, `'loop'` | The values of `jet_contract`'s form over the orders; passed at every call, with no default | `backend/contractions.py` | P1 |
-| `dense_apply(T, ww, pp=None, order=0)`, `dense_entries(T, index, pp=None, order=0)`; `dense_probe(T, ww, pp=None, order=0)` | The dense functions | `backend/apply.py`, `entries.py`, `probing.py` | P2 |
-| `check_sample(kind, order, sample, shape)`, `check_data(kind, order, sample, y)`, `check_weight(kind, order, weight, d)` | The checkers of a sample, its data and its weight | `backend/jets.py` | P3 |
+| `dense_apply(T, ww, pp=None, order=0)`, `dense_entries(T, index, pp=None, order=0)`; `dense_probe(T, ww, pp=None, order=0)` | The dense functions. From P4b: `dense_apply(T, ww, order=())`, `dense_entries(T, index)`, `dense_probe(T, ww, order=())` | `backend/apply.py`, `entries.py`, `probing.py` | P2, P4b |
+| `check_sample(kind, order, sample, shape)`, `check_data(kind, order, sample, y)`, `check_weight(kind, order, weight, d)` | The checkers of a sample, its data and its weight; from P4d `order` is the jet order and the sample input jets | `backend/jets.py` | P3, P4d |
 | `ut3_unscale_coordinates(x, scales)`; `UniformTuckerTensorTrain.unscale_coordinates(scales)` | The uniform twin of `t3_unscale_coordinates` and its method (O-34) | `backend/data_preparation.py`; `uniform_tucker_tensor_train.py` | P3 |
 | `fv_centers_consistency_residual`, `ufv_frame_consistency_residual`, `ufv_centers_consistency_residual` | The centers' residual and the uniform twins of both frame residuals | `backend/fv_operations.py`, `backend/ufv_operations.py` | P4 |
 | `T3Frame.consistency_residual`, `UT3Frame.consistency_residual` | The cached residual the frontend checks | `frame_variations_format.py`, `uniform_frame_variations_format.py` | P4 |
 | `HeldVariables.with_values(**values)` | A new record with the given slots filled | `backend/sampling_variables.py` | P5 |
 | `check_coordinate_scales(scales, shape)` | The checker of the coordinate scales (their form only, never a value). Added in P3 by Claude, by the rule that the backend offers the checkers and after the pattern of the three above; the two `unscale_coordinates` methods and the frontend's own `fitting.rescale_coordinates` call it | `backend/data_preparation.py` | P3 |
 | `LeastSquaresOracle.check_batch(batch, shape)` | The checker of a whole batch; an optional member of the protocol | `backend/fitting.py` | P14 |
-| `pack_batch(kind, order, batch, N)` | The packing of a batch for the uniform layout | `backend/uniform_fitting.py` | P14 |
+| `pack_batch(kind, order, batch, N)` | The packing of a batch for the uniform layout (`order` the jet order; input jets padded to one jet shape) | `backend/uniform_fitting.py` | P14 |
 | `fitting.local_model(..., frame=None)` | The keyword through which a caller supplies a frame | `t3toolbox/fitting.py` | P16 |
 | `docs/paper_to_code.md` | The page of the paper-to-code map | `docs/` | P19 |
+
+### 11.4 Names proposed for the generalized jet group
+
+Proposals, for the maintainer (entries 117 and 120 left "the names of the two helpers" to this phase). Settled names
+that only change their arguments (N16's keywords, `GroupLengths`) are in section 3's amendment.
+
+| # | What | Proposed | Why | Alternatives |
+| --- | --- | --- | --- | --- |
+| N31 | The jet group of a contraction string | `J` | Decided (entry 120) | |
+| N32 | The field of `GroupLengths` for it | `J` | The record's fields are the letters of the groups (`W`, `K`, `C`) | `m`, `n_jet` |
+| N33 | The output's jet order, an argument of `jet_contract` | `order` | One concept and one name across the library: the same tuple of maximum orders the engine, the oracle and the sampling functions take; the box is `F = tuple(n + 1 for n in order)` | `jet_shape` in slot counts (the array's shape, `n + 1`; but then two words for one thing, off by one); `out_order` |
+| N34 | The argument the user gives for the jets of a call | `order`, a tuple of maximum orders | Decided as the name (entry 118: "one ww plus order"); the tuple is entry 117's jet shape | |
+| N35 | The helper that makes the input jet of a line (or of a point and `m` directions) | `affine_jet(ww, *directions)` | It is what it makes: the input jet of degree at most one in each variable, `w + s_1 p_1 + ... + s_m p_m`; `jet` as in `jet_to_dual_jet` | `line_jet(ww, pp)` (one direction only, simplest for the common case); `input_jet(ww, *pp)`; `lines_to_jets` (the `a_to_b` grammar, but it is not a conversion of one object) |
+| N36 | The helper that turns an index into one-hot vectors | `index_to_one_hot(index, shape)` | The library's `a_to_b` grammar for a free converter (`t3_to_dense`, `jet_to_dual_jet`); `index` is the entries kind's word | `one_hot(index, shape)`; `index_to_vectors` |
+| N37 | Their module | `backend/jets.py` | Both make the input jets a sampling function takes, beside the other helpers of jets | `backend/entries.py` for `index_to_one_hot` (it is about the entries kind; but it is used with apply) |
+| N38 | The Part 2 marker for jets in several variables | `PART 2 (row 5.4, jets in several variables)` | The form of the existing marker, `PART 2 (row 5.5)` | |
+| N39 | The full jet shape in shape comments | `F` (`F = tuple(n + 1 for n in order)`); `J` for the jet axes of an array in general, `J_in_i` for an input's | `J` is the group's letter; `F` says "full". `T` is the dense tensor argument of the dense functions and leaves the comments | `J` alone, with the size in prose |
 
 ---
 
