@@ -1,7 +1,7 @@
 # Part 1 of the graded-messages refactor: implementation plan
 
 **Status.** Final draft, agreed by the reviewer in round 4; revised on 2026-11-16 for the maintainer's decision on
-N16; this revision is to be checked by the reviewer. Written against
+N16, and that revision agreed by the reviewer (`reviews/part1_plan/REVIEW_N16.md`). Written against
 the branch `graded-messages` at `a9c31b2` (the library and `tests/` unchanged since `4d38df7`). The names
 in this plan are settled (section 3). Every statement about the
 library was checked against the code at that commit; counts were recounted there.
@@ -961,6 +961,12 @@ A call counts once per call site, in `t3toolbox/` (the uniform twins' bodies and
 and the doctests; "by reference" is `tests/backend/test_uniform_curvature.py`, which holds the six corewise Hessians
 in a table and a helper (lines 595 to 608) and calls them as `hess(z, s, theta, D)` and
 `ragged_hess(...)` (lines 646, 647, 656, 673, 676); the `*_from_sweep` functions it also holds stay as they are.
+Two more sites hold these functions by reference, and a search by call name misses them too:
+`tests/test_dispatch.py` (lines 619 to 626, the corewise Hessians in a table) and `tests/backend/test_curvature.py`
+(lines 889 to 896, a helper that returns them, with the corewise transposes inside lambdas). In P13,
+`tests/test_uniform_probing.py` (lines 600 to 605) holds the three `UT3Tangent` transposes in a list and calls them
+as `op(*args, v.frame, ...)`, which has to be rewritten to put the frame first. All three files are already on the
+slices' lists.
 
 Where they are:
 - the library: the uniform twins' bodies (`backend/ut3_sampling.py`, `backend/utv_sampling.py`), which call the
@@ -1584,3 +1590,5 @@ it. The column "Needs" of section 5.2, and the head of each slice, say which ans
   questions: do they take the rule's order; do they rename `ztildes`/`c` to `residual` and `sum_over_probes` to
   `sum_over_samples`; and if so, does their default turn to `True` with the other transposes'? The plan leaves them
   as they are until answered. Needed before P12 (backend) and P13 (frontend).
+  The same question holds for `dense_probe(vectors, T)` (`backend/probing.py`), which 6.3 also keeps as it is:
+  under the rule it would read `dense_probe(T, ww)`. It bears on O-27 too, one of whose alternatives extends it.
