@@ -549,13 +549,13 @@ class TestStrictness(unittest.TestCase):
         lens = lens_of((3,), shape_of)
         want = jet_contract(string, *arrays, lens=lens, order=(3,), over_orders='loop')
         for good in ((np.int64(3),), (np.int32(3),), (np.uint8(3),)):
-            with self.subTest(order=good):
+            with self.subTest(order=repr(good)):    # a builtin label: xdist cannot send numpy scalars on numpy 1.x
                 self.assertTrue(np.array_equal(want, jet_contract(string, *arrays, lens=lens, order=good,
                                                                   over_orders='loop')))
         for bad, error in ((3, TypeError), ([3], TypeError), (np.array([3]), TypeError), ((3.0,), TypeError),
                            ((True,), TypeError), ((np.bool_(True),), TypeError), ((-1,), ValueError),
                            ((None,), TypeError), ((3, 1), ValueError), ((), ValueError)):
-            with self.subTest(order=bad):
+            with self.subTest(order=repr(bad)):
                 with self.assertRaises(error):
                     jet_contract(string, *arrays, lens=lens, order=bad, over_orders='loop')
         with self.assertRaisesRegex(TypeError, 'order is the jet shape'):
@@ -842,7 +842,7 @@ class TestGroupLengths(unittest.TestCase):
             self.assertEqual(J, GroupLengths(J=J, W=0, K=0, C=0).J)
         for bad in (dict(W=-1), dict(J=-1), dict(W=1.0), dict(W=None), dict(C=True), dict(K=(2,)),
                     dict(W=np.int64(2)), dict(J=np.int64(1))):
-            with self.subTest(bad=bad):
+            with self.subTest(bad=repr(bad)):     # a builtin label (as above)
                 with self.assertRaises(ValueError):
                     GroupLengths(**{**dict(J=1, W=2, K=0, C=1), **bad})
 

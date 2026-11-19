@@ -433,3 +433,14 @@ Nothing of the library or the tests was touched. No agent is running and nothing
   150 passed in round 1; Claude: `TestInputJets` 4 passed after the added assertion).
 - **For P4d** (the reviewer): `data_preparation`'s doctest comments still use the old `T` group notation.
 - **Pushed after this commit**, with P4a and the records, so that CI's floor leg runs on the fix.
+
+### CI on P4b's head: the floor leg finishes; two subTest labels fixed (2026-11-19, 16:05)
+
+- CI run 44620999298 on `d26f1d4c`: docs build, examples and the current leg PASS; **the floor leg no longer hangs**
+  (14 min 55 s, against hours before the `_einsum` fix), and FAILS on two tests of P4a:
+  `TestStrictness::test_the_jet_shape_is_a_tuple_of_nonnegative_integers` and
+  `TestGroupLengths::test_counts_are_nonnegative_ints_and_J_any_count`, both `execnet DumpError: can't serialize
+  <class 'numpy.int64'>`: their `subTest` labels carried numpy scalars, which xdist cannot send on numpy 1.x (the
+  rule "subTest params are builtins" of `dev/HANDOFF.md`; neither local env reproduces it: `t3toolbox` is numpy 2,
+  `tttt` has no xdist). 1,654 passed otherwise. **Fixed by Claude** (minor): the labels are `repr(...)`. Checked on
+  both envs; CI is the judge of the serialization.
