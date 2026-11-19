@@ -1513,7 +1513,7 @@ class TestStructure(unittest.TestCase):
         inputs = ((), (1,), (3, 0), (np.int64(2), 3), (np.uint8(1),), 3, 0, [1], (1.0,), (True,), (np.bool_(True),),
                   (-1,), (None,), np.array([1]), '1')
         for order in inputs:
-            with self.subTest(order=order):
+            with self.subTest(order=repr(order)):    # a builtin label: xdist cannot send numpy scalars on numpy 1.x
                 outcomes = []
                 for read in (sdef._read_jet_shape, lambda o: contractions._read_order(o, 'x')):
                     try:

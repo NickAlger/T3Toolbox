@@ -483,3 +483,11 @@ in the historical range of `main`)** all PASS. The first time the branch has pas
 - **Gate:** the implementer's full gate at `-n 3`, every step PASS (suite 1,660 passed, 5 skipped, 1 xfailed; 25.6
   min; peak 9.9 GB). The floor env: the file passes (68 passed). The reviewer: 72 passed, doctests 37; Claude:
   doctests 37.
+
+### CI on P4c's head: one more numpy subTest label (2026-11-19, 17:45)
+
+CI run 44636416721 on `5a102126`: everything PASS but one test on the floor,
+`TestStructure::test_the_jet_shape_is_read_as_the_library_reads_it` (P4c), the same `DumpError` on a `numpy.int64`
+`subTest` label. Fixed by Claude (`repr(...)`). The rule was only in `dev/HANDOFF.md`; it is now in `BRIEF.md` ("Rules
+for both agents"), and the agents are told. A local guard (a `conftest.py` check that every `subTest` label is a
+builtin, so the trap fails on any environment) is a candidate for the maintainer at the pause.
