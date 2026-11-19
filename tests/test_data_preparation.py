@@ -55,10 +55,17 @@ def per_mode(kind, value):
 
 
 def dense_sample(kind, T, sample, order):
-    """The data of the dense tensor ``T`` at a sample, of the type of z, through the three dense functions."""
+    """The data of the dense tensor ``T`` at a sample, of the type of z, through the dense functions: at order 0
+    each kind's own; above it the jets along the line ``first + s pp``, an input jet of two slots (entries off the
+    grid: apply at the one-hot vectors of its index)."""
     first, pp = (sample, None) if order == 0 else sample
-    function = {'probe': probing.dense_probe, 'apply': bapply.dense_apply, 'entries': bentries.dense_entries}[kind]
-    return function(T, first) if order == 0 else function(T, first, pp, order)
+    if order == 0:
+        function = {'probe': probing.dense_probe, 'apply': bapply.dense_apply, 'entries': bentries.dense_entries}[kind]
+        return function(T, first)
+    if kind == 'entries':
+        first, kind = jets.index_to_one_hot(first, T.shape[T.ndim - len(pp):]), 'apply'
+    function = {'probe': probing.dense_probe, 'apply': bapply.dense_apply}[kind]
+    return function(T, jets.affine_jet(first, pp), (order,))
 
 
 def random_sample(rng, kind, order, W=(7,)):
@@ -153,7 +160,7 @@ class TestEqualizing(unittest.TestCase):
         T = rng.standard_normal(SHAPE)
         ww = [rng.standard_normal((7, N)) for N in SHAPE]
         pp = [1e-2 * rng.standard_normal((7, N)) for N in SHAPE]
-        y = probing.dense_probe(T, ww, pp, 2)
+        y = probing.dense_probe(T, jets.affine_jet(ww, pp), (2,))
         norms = prep.data_block_norms('probe', 2, y)
         weight = prep.equalizing_weight(norms)
         weighted = [weight[i].reshape(3, 1, 1) * y[i] for i in range(D)]

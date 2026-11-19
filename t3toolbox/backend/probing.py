@@ -1823,142 +1823,149 @@ def t3_probe_corewise_hessian(
 ##########    Probe dense tensor    ###########
 ###############################################
 
-def _dense_contract(
-        T:          NDArray,                 # shape=C+(N0,...,N(d-1))
-        vectors:    typ.Sequence[NDArray],   # len=d, elm_shape=W+(Ni,); the entry of the open mode is not read
-        open_mode:  typ.Optional[int],       # the mode left open, or None: every mode is contracted
-) -> NDArray:                                # shape=W+C+(N_open,), or W+C if open_mode is None
-    '''Contract a dense tensor with one vector in every mode but ``open_mode``: the one einsum behind
-    :py:func:`dense_probe`, :py:func:`~t3toolbox.backend.apply.dense_apply` and
-    :py:func:`~t3toolbox.backend.entries.dense_entries`.'''
-    xnp, _, _ = get_backend(True, tree_contains_jax((T, vectors)))
-    d = len(vectors)
-    C = T.shape[:T.ndim - d]
-    W = vectors[0].shape[:-1]
-
+def _dense_contract_one_mode(
+        A:          NDArray,    # shape=[W]+C+(the modes not yet contracted)
+        has_W:      bool,       # does A lead with the sample stack W?
+        vector:     NDArray,    # shape=W+(N_mode,): one coefficient of the input jet of the mode
+        n_C:        int,        # the number of axes of C
+        axis:       int,        # the place of the mode among the modes not yet contracted
+) -> NDArray:                   # shape=W+C+(the modes not yet contracted, but this one)
+    '''Contract one mode of a dense tensor (partly contracted already) with one vector: one einsum.'''
+    xnp, _, _ = get_backend(True, tree_contains_jax((A, vector)))
+    n_W = vector.ndim - 1
+    n_modes = A.ndim - n_C - (n_W if has_W else 0)
     # We are going to construct an einsum string from letters.
     # A dense 2x2x..x2 tensor exhausting these letters would have 4e15 entries
     letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
-    C_letters       = letters[:len(C)]
-    shape_letters   = letters[len(C):len(C)+d]
-    W_letters       = letters[len(C)+d:len(C)+d+len(W)]
-
-    contracted = [jj for jj in range(d) if jj != open_mode]
-    if not contracted:
-        # d == 1 and its one mode is open: no vector to contract, the result is the tensor itself, broadcast over
-        # W (the W letters would otherwise appear only in the einsum output, which numpy rejects)
-        return xnp.broadcast_to(T, W + tuple(T.shape))
-
-    subscripts = C_letters + shape_letters
-    for jj in contracted:
-        subscripts += ',' + W_letters + shape_letters[jj]
-    subscripts += '->' + W_letters + C_letters + ('' if open_mode is None else shape_letters[open_mode])
-    return xnp.einsum(subscripts, T, *[vectors[jj] for jj in contracted])
-
-
-def _check_pp_and_order(
-        pp:     typ.Optional[typ.Sequence[NDArray]],    # the direction of a dense sampling function, or None
-        order:  int,                                    # its highest Taylor order
-        name:   str,                                    # the public function, for the error message
-) -> None:
-    '''Structural check (hard error) of the dense sampling functions: ``order`` is not negative, and ``pp`` is
-    given exactly when ``order >= 1``. Static, so safe under jit.'''
-    if order < 0:
-        raise ValueError('%s: order is the highest Taylor order, 0 or more; got order = %d' % (name, order))
-    if (pp is None) != (order == 0):
-        raise ValueError('%s: pp is given exactly when order >= 1; got order = %d and pp %s'
-                         % (name, order, 'None' if pp is None else 'given'))
+    W_letters = letters[:n_W]
+    C_letters = letters[n_W:n_W + n_C]
+    mode_letters = letters[n_W + n_C:n_W + n_C + n_modes]
+    kept = mode_letters[:axis] + mode_letters[axis + 1:]
+    subscripts = ((W_letters if has_W else '') + C_letters + mode_letters + ',' + W_letters + mode_letters[axis]
+                  + '->' + W_letters + C_letters + kept)
+    return xnp.einsum(subscripts, A, vector)
 
 
 def _dense_jet(
-        T:          NDArray,                                # shape=C+(N0,...,N(d-1))
-        ww:         typ.Sequence[NDArray],                  # len=d, elm_shape=W+(Ni,)
-        pp:         typ.Optional[typ.Sequence[NDArray]],    # len=d, elm_shape=W+(Ni,); read iff order >= 1
-        order:      int,                                    # highest Taylor order.  T=(order+1,) if order else ()
-        open_mode:  typ.Optional[int],                      # the mode left open, or None: every mode is contracted
-        name:       str,                                    # the public function, for the error messages
-) -> NDArray:                                               # shape=T+W+C+(N_open,), or T+W+C if open_mode is None
-    '''Taylor coefficients in ``s`` of ``T`` contracted with ``ww + s pp`` in every mode but ``open_mode``, by the
-    multilinear expansion: the coefficient of ``s^t`` is the sum, over the sets of ``t`` contracted modes, of ``T``
-    contracted with ``pp`` in those modes and ``ww`` in the others. Exact: a sum of contractions, with no step
-    size. The one place the jets of a dense tensor are computed (the three public dense functions call it).'''
-    xnp, _, _ = get_backend(True, tree_contains_jax((T, ww, pp)))
+        T:          NDArray,                    # shape=C+(N0,...,N(d-1))
+        ww:         typ.Sequence[NDArray],      # len=d, elm_shape=J_in_i+W+(Ni,): the input jets
+        order:      typ.Tuple[int, ...],        # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
+        open_mode:  typ.Optional[int],          # the mode left open, or None: every mode is contracted
+        name:       str,                        # the public function, for the error messages
+) -> NDArray:                                   # shape=F+W+C+(N_open,), or F+W+C if open_mode is None
+    '''The Taylor coefficients, on the box ``F = order + 1``, of ``T`` contracted with the input jets in every mode
+    but ``open_mode``. The input jet of mode ``j`` is the polynomial ``w_j(s) = sum_k ww[j][k] s^k`` (``k`` a
+    multi-index over its own jet sizes, zero beyond them), and the result is the product of the ``w_j(s)``
+    through ``T``, truncated to the box. Computed one mode at a time: the partly contracted tensor is a polynomial
+    whose coefficients are kept by multi-index, and contracting mode ``j`` multiplies it by ``w_j(s)``, by explicit
+    loops over the pairs of multi-indices whose sum lies in the box, one einsum per pair. Exact: sums of
+    contractions, with no step size and no interpolation. The one place the jets of a dense tensor are computed
+    (the three public dense functions rest on it), and it shares nothing with the library's sweeps or with
+    ``jet_contract``.'''
+    xnp, _, _ = get_backend(True, tree_contains_jax((T, ww)))
+    order = contractions._read_order(order, name)
+    m = len(order)
+    box = tuple(n + 1 for n in order)
     d = len(ww)
-    _check_pp_and_order(pp, order, name)
     if T.ndim < d:
         raise ValueError('%s: %d vectors for a tensor with %d axes' % (name, d, T.ndim))
     shape = T.shape[T.ndim - d:]
-    W = ww[0].shape[:-1]
-    for what, vectors in (('ww', ww), ('pp', pp)):
-        if vectors is None:
+    n_C = T.ndim - d
+    for ii, w in enumerate(ww):
+        if w.ndim < m + 1:
+            raise ValueError('%s: ww[%d] has %d axes, fewer than the %d jet axes of the jet shape %s and a mode axis'
+                             % (name, ii, w.ndim, m, order))
+    W = tuple(ww[0].shape[m:-1])
+    for ii, w in enumerate(ww):
+        if min(w.shape[:m], default=1) < 1:
+            raise ValueError('%s: ww[%d] has the jet sizes %s: every jet axis has at least one slot'
+                             % (name, ii, tuple(w.shape[:m])))
+        if tuple(w.shape[m:-1]) != W:
+            raise ValueError('%s: ww[%d] has sample stack %s once its %d jet axes are read, expected W = %s'
+                             % (name, ii, tuple(w.shape[m:-1]), m, W))
+        if w.shape[-1] != shape[ii]:
+            raise ValueError('%s: ww[%d] has length %d, expected N_%d = %d' % (name, ii, w.shape[-1], ii, shape[ii]))
+
+    coefficients = {(0,) * m: T}                # the tensor: a polynomial of degree 0, layout C + modes
+    has_W = False                               # after the first contraction: W + C + the modes left
+    left = list(range(d))
+    for jj in range(d):
+        if jj == open_mode:
             continue
-        if len(vectors) != d:
-            raise ValueError('%s: %s has %d vectors, expected d = %d' % (name, what, len(vectors), d))
-        for ii, v in enumerate(vectors):
-            if v.shape[:-1] != W:
-                raise ValueError('%s: %s[%d] has sample stack %s, expected W = %s' % (name, what, ii, v.shape[:-1], W))
-            if v.shape[-1] != shape[ii]:
-                raise ValueError('%s: %s[%d] has length %d, expected N_%d = %d'
-                                 % (name, what, ii, v.shape[-1], ii, shape[ii]))
+        input_slots = list(itertools.product(*(range(min(size, f)) for size, f in zip(ww[jj].shape[:m], box))))
+        product = {}
+        for r, A in coefficients.items():
+            for k in input_slots:               # slots of the input beyond the box are never read
+                t = tuple(a + b for a, b in zip(r, k))
+                if any(a > n for a, n in zip(t, order)):
+                    continue
+                term = _dense_contract_one_mode(A, has_W, ww[jj][k], n_C, left.index(jj))
+                product[t] = term if t not in product else product[t] + term
+        coefficients, has_W = product, True
+        left.remove(jj)
+    if not has_W:
+        # d == 1 and its one mode is open: no vector is contracted, and the result is the tensor itself, broadcast
+        # over W (the W letters would otherwise appear only in an einsum output, which numpy rejects)
+        coefficients = {r: xnp.broadcast_to(A, W + tuple(A.shape)) for r, A in coefficients.items()}
 
-    contracted = [jj for jj in range(d) if jj != open_mode]
-    z_WC = _dense_contract(T, ww, open_mode)                # the coefficient of s^0
-    if order == 0:
-        return z_WC
-
-    slots = [z_WC]
-    for t in range(1, order + 1):
-        slot = xnp.zeros_like(z_WC)                         # stays zero above the degree, len(contracted)
-        for modes in itertools.combinations(contracted, t): # the modes that take pp
-            vectors = [pp[jj] if jj in modes else ww[jj] for jj in range(d)]
-            slot = slot + _dense_contract(T, vectors, open_mode)
-        slots.append(slot)
-    return xnp.stack(slots)
+    first = coefficients[(0,) * m]
+    if m == 0:
+        return first
+    zero = xnp.zeros_like(first)                # a coefficient no product reaches: exactly zero
+    slots = [coefficients.get(r, zero) for r in itertools.product(*(range(f) for f in box))]
+    return xnp.reshape(xnp.stack(slots), box + tuple(first.shape))
 
 
 def dense_probe(
-        T:      NDArray,                                        # shape=C+(N0,...,N(d-1))
-        ww:     typ.Sequence[NDArray],                          # len=d, elm_shape=W+(Ni,)
-        pp:     typ.Optional[typ.Sequence[NDArray]] = None,     # len=d, elm_shape=W+(Ni,); given iff order >= 1
-        order:  int = 0,                                        # highest Taylor order.  T=(order+1,) if order else ()
-) -> typ.Tuple[NDArray, ...]:                                   # z. len=d, elm_shape=T+W+C+(Ni,)
+        T:      NDArray,                                # shape=C+(N0,...,N(d-1))
+        ww:     typ.Sequence[NDArray],                  # len=d, elm_shape=J_in_i+W+(Ni,): the input jets
+        order:  typ.Tuple[int, ...] = (),               # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
+) -> typ.Tuple[NDArray, ...]:                           # z. len=d, elm_shape=F+W+C+(Ni,)
     """Probe a dense tensor: contract it with a vector in every mode but one, for each mode in turn.
 
     The dense ground truth of ``probe``: ``z[i]`` is the tensor ``T`` contracted with ``ww[j]`` in every mode
-    ``j != i``. With ``order >= 1`` it is the jet of that along the line ``ww + s pp``: ``z[i][t]`` is the Taylor
-    coefficient of ``s^t`` (**not** the derivative, which is ``t!`` times it), for ``t = 0 .. order``, on a leading
-    order axis. The coefficients come from the multilinear expansion over which modes take ``pp``, so they are
-    exact; those above ``t = d - 1`` are zero, because ``z[i]`` has degree ``d - 1`` in ``s``.
+    ``j != i``.
 
-    In the shape comments the group ``T = (order + 1,) if order else ()`` is the order axis, as everywhere in the
-    library; the argument ``T`` is the tensor.
+    **Jets.** With a jet shape ``order = (n_1, ..., n_m)`` the inputs are input jets in ``m`` variables
+    ``s_1 ... s_m``: ``ww[j]`` has ``m`` leading jet axes of sizes of its own, ``J_in_j``, and its slot at the
+    multi-index ``k`` is the Taylor coefficient of ``s_1^k_1 ... s_m^k_m`` of the input vector ``w_j(s)`` (zero
+    beyond its sizes). ``z[i]`` is then the polynomial ``T`` contracted with ``w_j(s)`` for ``j != i``, given by
+    its Taylor coefficients (**not** derivatives) on the box ``F = (n_1 + 1, ..., n_m + 1)``, on ``m`` leading jet
+    axes. Input slots beyond the box are never read. The coefficients are exact: sums of contractions, computed
+    one mode at a time. A line ``w + s p`` is the input jet of two slots, :py:func:`~t3toolbox.backend.jets.affine_jet`.
+    ``order`` is never read off the inputs: with the default ``order = ()`` an input jet's leading axes are read
+    as sample axes.
+
+    In the shape comments ``F`` is the full jet sizes, ``J_in_i`` the jet sizes of the input ``ww[i]``; the
+    argument ``T`` is the tensor.
 
     Parameters
     ----------
     T: NDArray
         The tensor to be probed. shape=C+(N0,...,N(d-1)); ``d`` is the number of vectors.
     ww: typ.Sequence[NDArray]
-        The input vectors. len=d, elm_shape=W+(Ni,)
-    pp: typ.Optional[typ.Sequence[NDArray]]
-        The direction the inputs move in. len=d, elm_shape=W+(Ni,). Given exactly when ``order >= 1``.
-    order: int
-        The highest Taylor order.
+        The input jets. len=d, elm_shape=J_in_i+W+(Ni,); with ``order = ()``, W+(Ni,).
+    order: typ.Tuple[int, ...]
+        The jet shape: the maximum order in each jet variable. ``()`` (the default) for no jets.
 
     Returns
     -------
     typ.Tuple[NDArray, ...]
-        The probes ``z``. len=d, elm_shape=T+W+C+(Ni,)
+        The probes ``z``. len=d, elm_shape=F+W+C+(Ni,)
 
     Raises
     ------
+    TypeError
+        If ``order`` is not a tuple of integers (an integer is not a jet shape).
     ValueError
-        If ``order`` is negative, ``pp`` is given at ``order = 0`` or missing at ``order >= 1``, or a vector does
-        not have the sample stack of ``ww[0]`` or the length of its mode.
+        If an entry of ``order`` is negative, or an input does not have the jet axes of the jet shape (each of
+        at least one slot), the sample stack of ``ww[0]`` or the length of its mode.
 
     See Also
     --------
     t3toolbox.backend.apply.dense_apply
     t3toolbox.backend.entries.dense_entries
+    t3toolbox.backend.jets.affine_jet
 
     Examples
     --------
@@ -2011,17 +2018,19 @@ def dense_probe(
     >>> print([bool(np.allclose(y, ref)) for y, ref in zip(yy, (y0, y1, y2))])
     [True, True, True]
 
-    Jets: with ``pp`` and ``order``, the Taylor coefficients of the probes along ``ww + s pp``, on a leading order
-    axis. The probes are polynomials in ``s``, so the coefficients sum to the probes at ``s = 1``:
+    Jets along a line ``ww + s pp``: the input jet of two slots, made by ``affine_jet``. The probes are
+    polynomials in ``s`` of degree ``d - 1 = 2``, so slot 1 is the sum over the one mode that takes ``pp``, and
+    the three coefficients sum to the probes at ``s = 1``:
 
     >>> import numpy as np
     >>> import t3toolbox.backend.probing as t3p
+    >>> from t3toolbox.backend.jets import affine_jet
     >>> np.random.seed(0)
     >>> T = np.random.randn(10, 11, 12)
     >>> ww = [np.random.randn(2, N) for N in (10, 11, 12)]      # W=(2,)
     >>> pp = [np.random.randn(2, N) for N in (10, 11, 12)]
-    >>> zz = t3p.dense_probe(T, ww, pp, order=2)
-    >>> print(zz[0].shape)                      # T=(order+1,) outermost, then W=(2,), then N0=10
+    >>> zz = t3p.dense_probe(T, affine_jet(ww, pp), order=(2,))
+    >>> print(zz[0].shape)                      # F=(3,) outermost, then W=(2,), then N0=10
     (3, 2, 10)
     >>> print(bool(np.allclose(zz[0][0], t3p.dense_probe(T, ww)[0])))             # slot 0 is the plain probe
     True
@@ -2032,11 +2041,22 @@ def dense_probe(
     >>> print(bool(np.allclose(zz[0].sum(axis=0), t3p.dense_probe(T, moved)[0])))  # degree d-1 = 2: nothing above
     True
 
-    Gotcha -- ``pp`` goes with ``order``: one without the other is an error, not an order-0 probe:
+    An input of three slots, a curve ``w + s p + s^2 q`` in one variable: slot 2 of a probe has the terms where
+    one mode takes ``q`` and those where two modes take ``p``:
 
-    >>> t3p.dense_probe(T, ww, pp)   # doctest: +IGNORE_EXCEPTION_DETAIL
+    >>> qq = [np.random.randn(2, N) for N in (10, 11, 12)]
+    >>> curve = [np.stack([w, p, q]) for w, p, q in zip(ww, pp, qq)]               # J_in = (3,): slots 0, 1, 2
+    >>> zz = t3p.dense_probe(T, curve, order=(2,))
+    >>> slot2 = (np.einsum('ijk,wj,wk->wi', T, qq[1], ww[2]) + np.einsum('ijk,wj,wk->wi', T, ww[1], qq[2])
+    ...          + np.einsum('ijk,wj,wk->wi', T, pp[1], pp[2]))
+    >>> print(bool(np.allclose(zz[0][2], slot2)))
+    True
+
+    Gotcha -- ``order`` is a tuple, the jet shape; an integer is not accepted:
+
+    >>> t3p.dense_probe(T, affine_jet(ww, pp), 2)   # doctest: +IGNORE_EXCEPTION_DETAIL
     Traceback (most recent call last):
         ...
-    ValueError
+    TypeError: dense_probe: order is the jet shape, a tuple of maximum orders, ...
     """
-    return tuple(_dense_jet(T, ww, pp, order, ii, 'dense_probe') for ii in range(len(ww)))
+    return tuple(_dense_jet(T, ww, order, ii, 'dense_probe') for ii in range(len(ww)))

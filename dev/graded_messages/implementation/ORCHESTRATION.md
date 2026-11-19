@@ -181,3 +181,13 @@ are things to check when the slice is reached.
   way and was removed by the maintainer. His rule since: a new group in the contraction strings, or any new
   abstraction of that weight, is raised with him first.
 - **`git add` by name.** A directory-wide `git add` once swept an agent's unfinished draft into a commit.
+- **`jnp.einsum`'s default `optimize` differs between jax generations** (found 2026-11-19, P4a and P4b). jax 0.10
+  defaults to `'auto'`; jax 0.4.30, CI's floor, to `'optimal'`, an exhaustive path search exponential in the number
+  of operands. The house convention "the jax path omits `optimize`" (`CLAUDE.md`) is safe for the library's two- and
+  three-operand contractions, and hangs for an einsum of a whole network (the reference module's `_tensor`: the CI
+  floor leg ran for hours on the four-site test problem). An einsum of many operands on jax passes `optimize`
+  explicitly (`'greedy'`). A test that pins jax's default must accept both values. Candidate for the contributor
+  docs in P19.
+- **The branch had never run in CI** until the draft PR #26 (2026-11-19): the workflows run only on `main` and on PRs
+  to it. Two floor failures from P1 and P2 had sat unseen for three days. After every push, read both legs.
+- **`pkill -f PATTERN` from a shell whose own command line contains PATTERN kills that shell too.** Kill by PID.

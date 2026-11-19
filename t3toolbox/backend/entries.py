@@ -347,25 +347,19 @@ def t3_entries_corewise_hessian(
 ##########################################
 
 def dense_entries(
-        T:      NDArray,                                        # shape=C+(N0,...,N(d-1))
-        index:  NDArray,                                        # int, shape=(d,)+W
-        pp:     typ.Optional[typ.Sequence[NDArray]] = None,     # len=d, elm_shape=W+(Ni,); given iff order >= 1
-        order:  int = 0,                                        # highest Taylor order.  T=(order+1,) if order else ()
-) -> NDArray:                                                   # z. shape=T+W+C
+        T:      NDArray,                # shape=C+(N0,...,N(d-1))
+        index:  NDArray,                # int, shape=(d,)+W
+) -> NDArray:                           # z. shape=W+C
     """Entries of a dense tensor: ``T[index[0], ..., index[d-1]]``, one number per sample.
 
-    The dense ground truth of ``entries``. At ``order = 0`` the tensor is indexed, with no arithmetic: an entry
-    comes back as it is stored, whatever the other entries hold. With ``order >= 1`` it is the jet along the line
-    ``e_index + s pp``, which leaves the grid: an entry is the tensor contracted with a unit vector in every mode
-    (``entries`` is ``apply`` at one-hot inputs), so the jet is that of
-    :py:func:`~t3toolbox.backend.apply.dense_apply` at the unit vectors ``e_index``. ``z[t]`` is the Taylor
-    coefficient of ``s^t`` (**not** the derivative, which is ``t!`` times it), for ``t = 0 .. order``, on a leading
-    order axis; those above ``t = d`` are zero. The jet contracts the whole tensor, so there a non-finite entry
-    anywhere spoils every sample.
+    The dense ground truth of ``entries``. The tensor is indexed, with no arithmetic: an entry comes back as it is
+    stored, whatever the other entries hold. The entries kind has no jets: an index is a point of the grid, and a
+    tensor on a grid has no derivative until it is extended off it. Along a curve of input vectors that starts at
+    the grid point (one such extension) the jets are those of :py:func:`~t3toolbox.backend.apply.dense_apply` at the
+    one-hot vectors :py:func:`~t3toolbox.backend.jets.index_to_one_hot` (example below).
 
-    In the shape comments the group ``T = (order + 1,) if order else ()`` is the order axis, as everywhere in the
-    library; the argument ``T`` is the tensor. Index semantics are numpy's: a negative index wraps; an
-    out-of-range index raises under numpy and **clamps silently under jax**.
+    The argument ``T`` is the tensor. Index semantics are numpy's: a negative index wraps; an out-of-range index
+    raises under numpy and **clamps silently under jax**.
 
     Parameters
     ----------
@@ -373,28 +367,22 @@ def dense_entries(
         The tensor. shape=C+(N0,...,N(d-1)); ``d`` is the length of ``index``.
     index: NDArray
         The grid points, one row per mode. dtype=int, shape=(d,)+W
-    pp: typ.Optional[typ.Sequence[NDArray]]
-        The direction the inputs move in, off the grid. len=d, elm_shape=W+(Ni,). Given exactly when
-        ``order >= 1``.
-    order: int
-        The highest Taylor order.
 
     Returns
     -------
     NDArray
-        The entries ``z``. shape=T+W+C
+        The entries ``z``. shape=W+C
 
     Raises
     ------
     ValueError
-        If ``order`` is negative, ``pp`` is given at ``order = 0`` or missing at ``order >= 1``, the index has more
-        rows than the tensor has axes, or a vector of ``pp`` does not have the sample stack of ``index`` or the
-        length of its mode.
+        If the index has more rows than the tensor has axes.
 
     See Also
     --------
     t3toolbox.backend.probing.dense_probe
     t3toolbox.backend.apply.dense_apply
+    t3toolbox.backend.jets.index_to_one_hot
 
     Examples
     --------
@@ -425,19 +413,22 @@ def dense_entries(
     >>> print(bool(np.allclose(z, T[:, index[0], index[1], index[2]].T)))
     True
 
-    Jets: the Taylor coefficients along ``e_index + s pp``, on a leading order axis. Slot 1 is the directional
-    derivative: the sum over the modes of ``pp`` contracted into that mode, at the grid point in the others:
+    Off the grid, along ``e_index + s pp``: the apply at the one-hot vectors moved in the direction ``pp``. Slot 0
+    is the entry; slot 1 the sum over the modes of ``pp`` contracted into that mode, at the grid point in the
+    others:
 
     >>> import numpy as np
+    >>> import t3toolbox.backend.apply as t3a
     >>> import t3toolbox.backend.entries as t3e
+    >>> from t3toolbox.backend.jets import affine_jet, index_to_one_hot
     >>> np.random.seed(0)
     >>> T = np.random.randn(10, 11, 12)
     >>> index = np.array([[3, 0, 9, 9], [1, 10, 4, 4], [0, 11, 2, 5]])
     >>> pp = [np.random.randn(4, N) for N in (10, 11, 12)]
-    >>> z = t3e.dense_entries(T, index, pp, order=2)
-    >>> print(z.shape)                           # T=(order+1,) outermost, then W=(4,)
+    >>> z = t3a.dense_apply(T, affine_jet(index_to_one_hot(index, T.shape), pp), order=(2,))
+    >>> print(z.shape)                           # F=(3,) outermost, then W=(4,)
     (3, 4)
-    >>> print(bool(np.allclose(z[0], T[index[0], index[1], index[2]])))        # slot 0 is the entry
+    >>> print(bool(np.allclose(z[0], t3e.dense_entries(T, index))))
     True
     >>> slope = (np.einsum('wi,iw->w', pp[0], T[:, index[1], index[2]])
     ...          + np.einsum('wj,wj->w', pp[1], T[index[0], :, index[2]])
@@ -445,20 +436,15 @@ def dense_entries(
     >>> print(bool(np.allclose(z[1], slope)))
     True
     """
-    xnp, _, _ = get_backend(True, tree_contains_jax((T, index, pp)))
-    probing._check_pp_and_order(pp, order, 'dense_entries')
+    xnp, _, _ = get_backend(True, tree_contains_jax((T, index)))
     T = xnp.asarray(T)
     index = xnp.asarray(index)
     d = index.shape[0]
     if T.ndim < d:
         raise ValueError('dense_entries: an index with %d rows for a tensor with %d axes' % (d, T.ndim))
-    if order == 0:
-        n_C, n_W = T.ndim - d, index.ndim - 1
-        z_CW = T[(Ellipsis,) + tuple(index[ii] for ii in range(d))]             # indexing: no arithmetic
-        return xnp.moveaxis(z_CW, tuple(range(n_C, n_C + n_W)), tuple(range(n_W)))     # C + W -> W + C
-    shape = T.shape[T.ndim - d:]
-    ww = [xnp.eye(shape[ii], dtype=T.dtype)[index[ii]] for ii in range(d)]     # one-hot e_{index_i}: W+(Ni,)
-    return probing._dense_jet(T, ww, pp, order, None, 'dense_entries')
+    n_C, n_W = T.ndim - d, index.ndim - 1
+    z_CW = T[(Ellipsis,) + tuple(index[ii] for ii in range(d))]                 # indexing: no arithmetic
+    return xnp.moveaxis(z_CW, tuple(range(n_C, n_C + n_W)), tuple(range(n_W)))  # C + W -> W + C
 
 
 def _entry_xis(tucker_cores, index):

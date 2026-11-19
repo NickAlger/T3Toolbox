@@ -39,12 +39,13 @@ A tensor seen through badly scaled coordinates, sampled by probes at order 2 wit
 >>> import numpy as np
 >>> import t3toolbox.backend.data_preparation as prep
 >>> import t3toolbox.backend.probing as probing
+>>> from t3toolbox.backend.jets import affine_jet
 >>> np.random.seed(0)
 >>> shape, order, W = (4, 5, 6), 2, 8
 >>> T = np.random.randn(*shape)                                          # a dense tensor, for the data
 >>> ww = [np.random.randn(W, N) for N in shape]
 >>> pp = [1e-2 * np.random.randn(W, N) for N in shape]                   # directions 100 times too short
->>> y = probing.dense_probe(T, ww, pp, order)                            # len=d, elm_shape=T+W+(Ni,)
+>>> y = probing.dense_probe(T, affine_jet(ww, pp), (order,))            # len=d, elm_shape=T+W+(Ni,)
 
 The norm of each block, one row per mode and one column per order, falls by about 100 per order:
 
@@ -58,7 +59,7 @@ Lengthen the directions. The data change with them, slot ``t`` by ``length**t``,
 the same tensor:
 
 >>> (ww2, pp2), y2 = prep.rescale_direction('probe', order, (ww, pp), y, 100.0)
->>> print(bool(np.allclose(y2[0], probing.dense_probe(T, ww2, pp2, order)[0])))
+>>> print(bool(np.allclose(y2[0], probing.dense_probe(T, affine_jet(ww2, pp2), (order,))[0])))
 True
 
 The equalizing weight is the inverse of the block norms, so every block of the weighted data has norm one:
@@ -320,16 +321,17 @@ def rescale_direction(
     >>> import numpy as np
     >>> import t3toolbox.backend.data_preparation as prep
     >>> import t3toolbox.backend.apply as apply
+    >>> from t3toolbox.backend.jets import affine_jet
     >>> np.random.seed(0)
     >>> shape, order = (4, 5, 6), 2
     >>> T = np.random.randn(*shape)
     >>> ww = [np.random.randn(7, N) for N in shape]
     >>> pp = [np.random.randn(7, N) for N in shape]
-    >>> y = apply.dense_apply(T, ww, pp, order)                     # T + W = (3, 7)
+    >>> y = apply.dense_apply(T, affine_jet(ww, pp), (order,))      # T + W = (3, 7)
     >>> (ww2, pp2), y2 = prep.rescale_direction('apply', order, (ww, pp), y, 10.0)
     >>> print(bool(np.allclose(pp2[0], 10.0 * pp[0])), bool(np.allclose(y2[2], 100.0 * y[2])))
     True True
-    >>> print(bool(np.allclose(y2, apply.dense_apply(T, ww2, pp2, order))))   # the data of the same tensor
+    >>> print(bool(np.allclose(y2, apply.dense_apply(T, affine_jet(ww2, pp2), (order,)))))   # the same tensor's data
     True
     """
     _require_kind(kind)

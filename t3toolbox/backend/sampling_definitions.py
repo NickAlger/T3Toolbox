@@ -351,12 +351,16 @@ def _einsum(
         subscripts:  str,
         operands:    typ.Sequence[NDArray],
 ) -> NDArray:
-    '''One ``einsum`` of many operands. numpy is told to order the pairwise contractions (left alone it loops
-    over every index of the subnetwork at once); jax orders them itself, so there the argument is omitted (the
-    house convention). The order does not change what is computed.'''
+    '''One ``einsum`` of many operands (a whole subnetwork: ``2d`` cores and more). Both backends are told to order
+    the pairwise contractions greedily. numpy left alone loops over every index of the subnetwork at once. jax
+    left alone uses its default ``optimize``: on jax 0.4.30 (the CI floor) that is ``'optimal'``, opt_einsum's
+    exhaustive path search, exponential in the number of operands, which never finished on a four-site network.
+    So this is a deliberate exception to the house convention of a bare ``jnp.einsum``, which holds for the
+    library's einsums of two or three operands; do not remove ``optimize`` here. The order does not change what
+    is computed.'''
     if tree_contains_jax((operands,)):
         xnp, _, _ = get_backend(False, True)
-        return xnp.einsum(subscripts, *operands)
+        return xnp.einsum(subscripts, *operands, optimize='greedy')
     return np.einsum(subscripts, *operands, optimize='greedy')
 
 
@@ -567,18 +571,25 @@ def _dense_sample(
         tensor:  NDArray,       # shape=X+(N0,...,N(d-1))
 ) -> typ.Any:                   # of the type of z, with X after W: probe len=d, elm_shape=T+W+X+(Ni,); else T+W+X
     '''The kind's sampling of a dense tensor, through the library's dense function for the kind. For entries the
-    inputs are already unit vectors, so it is the dense apply at them.'''
+    inputs are already unit vectors, so it is the dense apply at them. Above order 0 the inputs are the input jets
+    of the line ``w + s p``, two slots each, built here (the module imports nothing of the library but the dense
+    functions).'''
+    if S.order == 0:
+        inputs, jet_shape = S.ww, ()
+    else:
+        xnp, _, _ = get_backend(False, tree_contains_jax((S.ww, S.pp)))
+        inputs, jet_shape = [xnp.stack([w, p]) for w, p in zip(S.ww, S.pp)], (S.order,)
     if S.kind == 'probe':
-        return probing.dense_probe(tensor, S.ww, S.pp, S.order)
-    return apply.dense_apply(tensor, S.ww, S.pp, S.order)
+        return probing.dense_probe(tensor, inputs, jet_shape)
+    return apply.dense_apply(tensor, inputs, jet_shape)
 
 
 def _z(S: _Setting, sample: typ.Any) -> typ.Any:
-    '''``z``: the dense tensor of the base point ``(D, L)``, sampled. For entries through ``dense_entries``.'''
+    '''``z``: the dense tensor of the base point ``(D, L)``, sampled. For entries at order 0 through
+    ``dense_entries``; above it, the apply at the unit vectors moved along ``pp`` (entries has no jets).'''
     tensor = _tensor(S.L, S.D)
-    if S.kind == 'entries':
-        index, pp = (sample, None) if S.order == 0 else sample
-        return entries.dense_entries(tensor, index, pp, S.order)
+    if S.kind == 'entries' and S.order == 0:
+        return entries.dense_entries(tensor, sample)
     return _dense_sample(S, tensor)
 
 

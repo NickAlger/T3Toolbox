@@ -30,8 +30,10 @@ pins the reference itself. Its lines of evidence, each by a route the reference 
 7. **The corewise frame** (`TestCorewiseFrame`), **structure** (`TestStructure`: the names, the one
    signature, the shapes, the errors, a doctest on every function, and that the module calls nothing of the
    library but the three dense functions) and **dispatch** (`TestJax`).
-8. **The dense functions** (`TestDenseFunctions`): order 0 against hand-written contractions and indexing,
-   jets against interpolation of order-0 calls, the ``W`` and ``C`` stacks, the errors.
+8. **The dense functions** (`TestDenseFunctions`): with no jets against hand-written contractions and indexing;
+   their jets at input jets of every kind (a line, two directions, a curve, modes of different jet sizes)
+   against the calls with no jets along the input jets at a grid of roots of unity; the ``W`` and ``C`` stacks,
+   the errors. **The input jets** (`TestInputJets`): ``affine_jet`` and ``index_to_one_hot``.
 
 Numerical comparisons are to a tolerance, structural ones exact. numpy only, by the house convention, except
 `TestJax` and the jax half of `TestKp`; the dense functions under jit are in ``test_dispatch.py``.
@@ -1391,8 +1393,50 @@ class TestJax(unittest.TestCase):
                         self.assertLessEqual(relative_error(np.asarray(a), b), 2e-3)
 
 
+def jet_by_roots_of_unity(value_at, input_sizes, order):
+    """The Taylor coefficients, on the box ``order + 1``, of a polynomial in ``s_1 ... s_m`` given only by its values:
+    ``value_at(s)`` (``s`` a tuple of complex numbers) returns a list of arrays. The polynomial is evaluated on a grid of
+    roots of unity, ``M_a`` of them along axis ``a``, with ``M_a - 1`` the degree bound along that axis (the sum over
+    ``input_sizes`` of ``size_a - 1``: a product of the inputs has at most that degree), and the coefficients come
+    back by a discrete Fourier transform along each axis, which is exact for a polynomial of that degree."""
+    m = len(order)
+    M = [1 + sum(sizes[a] - 1 for sizes in input_sizes) for a in range(m)]
+    values = None
+    for node in itertools.product(*(range(M_a) for M_a in M)):
+        s = tuple(np.exp(2j * np.pi * node[a] / M[a]) for a in range(m))
+        value = value_at(s)
+        if values is None:
+            values = [np.zeros(tuple(M) + v.shape, complex) for v in value]
+        for stored, v in zip(values, value):
+            stored[node] = v
+    result = []
+    for stored in values:
+        coefficients = np.fft.fftn(stored, axes=tuple(range(m))) / np.prod(M) if m else stored
+        box = np.zeros(tuple(n + 1 for n in order) + stored.shape[m:], complex)
+        inside = tuple(slice(0, min(n + 1, M_a)) for n, M_a in zip(order, M))
+        box[inside] = coefficients[inside]
+        assert np.abs(box.imag).max(initial=0.0) <= 1e-9 * max(np.abs(box.real).max(initial=0.0), 1.0)
+        result.append(box.real)
+    return result
+
+
+def evaluate_input_jet(w, s):
+    """The input vector of the input jet ``w`` (``J_in + W + (N,)``, ``m = len(s)`` jet axes) at ``s``: the sum
+    over its slots of the coefficient times ``s^k``."""
+    m = len(s)
+    value = 0
+    for k in itertools.product(*(range(size) for size in w.shape[:m])):
+        value = value + w[k] * np.prod([s[a] ** k[a] for a in range(m)])
+    return np.asarray(value, dtype=complex) * np.ones(w.shape[m:])
+
+
 class TestDenseFunctions(unittest.TestCase):
-    """``dense_probe``, ``dense_apply``, ``dense_entries``: the dense ground truth of the three kinds."""
+    """``dense_probe``, ``dense_apply``, ``dense_entries``: the dense ground truth of the three kinds.
+
+    With no jets they are checked against hand-written contractions and indexing. Their jets are checked against
+    the definition: the same function with no jets, called along the input jets at a grid of roots of unity (the
+    input vectors evaluated there), and the coefficients recovered by a discrete Fourier transform. That route
+    shares nothing with the functions' own (a truncated product, one mode at a time)."""
 
     def setUp(self):
         rng = np.random.default_rng(0)
@@ -1407,7 +1451,12 @@ class TestDenseFunctions(unittest.TestCase):
     def check(self, got, expected, tol=1e-12):
         self.assertLessEqual(relative_error(got, expected), tol)
 
-    def test_order_0_dense_probe_is_the_tensor_contracted_with_all_vectors_but_one(self):
+    def input_jets(self, sizes, W=(2, 2)):
+        """Random input jets of the given jet sizes, one per mode: ``sizes[i] + W + (Ni,)``."""
+        return [self.rng.standard_normal(tuple(s) + W + (n,)) for s, n in zip(sizes, self.shape)]
+
+    # ---------------------------------------------------------------- no jets: today's values
+    def test_dense_probe_is_the_tensor_contracted_with_all_vectors_but_one(self):
         T, TC, (u, v, w) = self.T, self.TC, self.ww
         z = probing.dense_probe(T, self.ww)
         self.assertIsInstance(z, tuple)
@@ -1420,19 +1469,22 @@ class TestDenseFunctions(unittest.TestCase):
         self.check(z[2], np.einsum('xyijk,abi,abj->abxyk', TC, u, v))
         z = probing.dense_probe(T, [x[0, 0] for x in self.ww])              # no sample stack
         self.check(z[1], np.einsum('ijk,i,k->j', T, u[0, 0], w[0, 0]))
+        self.assertTrue(all(np.array_equal(a, b) for a, b in zip(z, probing.dense_probe(T, [x[0, 0] for x in self.ww], ()))))
 
     def test_dense_probe_with_one_mode(self):
-        # No vector is contracted: the probe is the tensor itself, broadcast over W (review 2026-08-22, C1).
+        # No vector is contracted: the probe is the tensor itself, broadcast over W (review 2026-08-22, C1); with
+        # jets it is the same at slot 0 and zero above (degree 0 in s, whatever the input jet)
         T = self.rng.standard_normal((2, 6))                                # C = (2,), N0 = 6
-        ww, pp = [self.rng.standard_normal((3, 6))], [self.rng.standard_normal((3, 6))]
+        ww = [self.rng.standard_normal((3, 6))]
         (z,) = probing.dense_probe(T, ww)
         self.assertEqual(z.shape, (3, 2, 6))
         self.assertTrue(np.array_equal(z, np.broadcast_to(T, (3, 2, 6))))
-        (z,) = probing.dense_probe(T, ww, pp, 2)                            # degree 0 in s: zero above slot 0
-        self.assertEqual(z.shape, (3, 3, 2, 6))
-        self.assertTrue(np.array_equal(z[0], np.broadcast_to(T, (3, 2, 6))) and np.all(z[1:] == 0))
+        (z,) = probing.dense_probe(T, [self.rng.standard_normal((2, 2, 3, 6))], (2, 1))
+        self.assertEqual(z.shape, (3, 2, 3, 2, 6))
+        self.assertTrue(np.array_equal(z[0, 0], np.broadcast_to(T, (3, 2, 6))))
+        self.assertTrue(np.all(z[1:] == 0) and np.all(z[:, 1:] == 0))
 
-    def test_order_0_dense_apply_is_the_probe_contracted_with_the_vector_of_its_mode(self):
+    def test_dense_apply_is_the_probe_contracted_with_the_vector_of_its_mode(self):
         for T, C in ((self.T, ''), (self.TC, 'xy')):
             z = apply.dense_apply(T, self.ww)
             self.assertEqual(z.shape, (2, 2) + T.shape[:-3])                # W + C
@@ -1440,7 +1492,7 @@ class TestDenseFunctions(unittest.TestCase):
             for i, probe in enumerate(probing.dense_probe(T, self.ww)):
                 self.check(z, np.einsum('ab...o,abo->ab...', probe, self.ww[i]))
 
-    def test_order_0_dense_entries_is_indexing(self):
+    def test_dense_entries_is_indexing(self):
         i0, i1, i2 = self.index
         z = entries.dense_entries(self.T, self.index)
         self.assertEqual(z.shape, (2, 2))
@@ -1463,47 +1515,69 @@ class TestDenseFunctions(unittest.TestCase):
         self.assertTrue(np.array_equal(entries.dense_entries(self.T, self.index[:, 0, 0]),         # W = ()
                                        self.T[i0[0, 0], i1[0, 0], i2[0, 0]]))
 
-    def functions(self):
-        """(name, the function of (T, inputs, pp, order), its inputs, the degree of its output in s)."""
-        unit = [np.eye(n)[self.index[i]] for i, n in enumerate(self.shape)]
-        return (('dense_probe', probing.dense_probe, self.ww, 2),
-                ('dense_apply', apply.dense_apply, self.ww, 3),
-                ('dense_entries', lambda T, index, pp=None, order=0: entries.dense_entries(T, index, pp, order),
-                 self.index, 3)), unit
+    # ---------------------------------------------------------------- jets: against the definition
+    def check_against_roots_of_unity(self, input_sizes, order, T=None, tol=1e-11):
+        """dense_probe and dense_apply at the input jets of ``input_sizes`` and the jet shape ``order``, against the
+        no-jet calls at the input vectors evaluated on a grid of roots of unity: the shapes exactly, the values to
+        ``tol``."""
+        T = self.T if T is None else T
+        C = T.shape[:T.ndim - 3]
+        ww = self.input_jets(input_sizes)
+        box = tuple(n + 1 for n in order)
+        inputs_at = lambda s: [evaluate_input_jet(w, s) for w in ww]                    # complex input vectors
+        probe = probing.dense_probe(T, ww, order)
+        expected = jet_by_roots_of_unity(lambda s: list(probing.dense_probe(T, inputs_at(s))), input_sizes, order)
+        for i in range(3):
+            self.assertEqual(probe[i].shape, box + (2, 2) + C + (self.shape[i],))
+            self.check(probe[i], expected[i], tol)
+        got = apply.dense_apply(T, ww, order)
+        (expected,) = jet_by_roots_of_unity(lambda s: [apply.dense_apply(T, inputs_at(s))], input_sizes, order)
+        self.assertEqual(got.shape, box + (2, 2) + C)
+        self.check(got, expected, tol)
 
-    def test_jets_are_the_interpolation_of_order_0_calls(self):
-        # The coefficients come from the multilinear expansion; here they are recovered from order-0 calls along
-        # ww + s pp, at two sets of nodes. With the W and C stacks, the order axis leading: T + W + C + ...
-        functions, unit = self.functions()
-        for name, function, first, degree in functions:
-            # the same function at order 0 along the line; entries leaves the grid, where it is apply at e + s p
-            along, start = (apply.dense_apply, unit) if name == 'dense_entries' else (function, first)
-            for T in (self.T, self.TC):
-                C = T.shape[:-3]
-                for order in (1, 2, 3, 5):
-                    got = function(T, first, self.pp, order)
-                    for nodes in node_sets(max(degree, order)):
-                        with self.subTest(name=name, C=C, order=order, nodes=float(nodes[-1])):
-                            at = lambda s: along(T, [w + s * p for w, p in zip(start, self.pp)])
-                            if name == 'dense_probe':
-                                for i in range(3):
-                                    self.assertEqual(got[i].shape, (order + 1, 2, 2) + C + self.shape[i:i + 1])
-                                    self.check(got[i], interpolate(lambda s: at(s)[i], nodes, order + 1), 1e-9)
-                            else:
-                                self.assertEqual(got.shape, (order + 1, 2, 2) + C)
-                                self.check(got, interpolate(at, nodes, order + 1), 1e-9)
+    def test_a_line_in_one_variable(self):
+        for T in (self.T, self.TC):
+            for n in (1, 2, 3, 5):
+                with self.subTest(C=T.shape[:-3], order=(n,)):
+                    self.check_against_roots_of_unity([(2,)] * 3, (n,), T)
 
-    def test_slot_0_is_the_order_0_call_and_the_slots_above_the_degree_are_zero(self):
-        functions, _ = self.functions()
-        for name, function, first, degree in functions:
-            with self.subTest(name=name):
-                jet = function(self.TC, first, self.pp, degree + 2)
-                plain = function(self.TC, first)
-                for jet_i, plain_i in zip(modes_of('probe', jet) if name == 'dense_probe' else [jet],
-                                          modes_of('probe', plain) if name == 'dense_probe' else [plain]):
-                    self.assertTrue(np.array_equal(jet_i[0], plain_i))
-                    self.assertGreater(np.abs(jet_i[degree]).min(), 0)
-                    self.assertTrue(np.all(jet_i[degree + 1:] == 0))        # exactly: no term is formed there
+    def test_two_directions_in_two_variables(self):
+        for T in (self.T, self.TC):
+            for order in ((1, 1), (1, 2), (2, 3)):
+                with self.subTest(C=T.shape[:-3], order=order):
+                    self.check_against_roots_of_unity([(2, 2)] * 3, order, T)
+
+    def test_a_curve_of_three_slots(self):
+        for order in ((1,), (2,), (4,)):
+            with self.subTest(order=order):
+                self.check_against_roots_of_unity([(3,)] * 3, order)
+
+    def test_modes_of_different_input_jet_sizes(self):
+        """Each mode with jet sizes of its own, below, at and above the box, and a mode of size 1 on every jet axis
+        (a discrete mode, which does not move); and the case of the jet matrix: modes ``(3, 2)``, ``(1, 1)``,
+        ``(2, 3)`` at ``(1, 2)`` (the first clipped on its first axis)."""
+        for sizes, order in ((((4,), (1,), (2,)), (2,)), (((1,), (3,), (5,)), (3,)), (((1, 1),) * 3, (1, 2)),
+                             (((3, 2), (1, 1), (2, 3)), (1, 2)), (((2, 1), (1, 4), (3, 2)), (2, 2)),
+                             (((2, 1, 2), (1, 2, 1), (2, 2, 2)), (1, 1, 1))):
+            with self.subTest(sizes=sizes, order=order):
+                self.check_against_roots_of_unity(sizes, order)
+
+    def test_input_slots_beyond_the_box_change_nothing(self):
+        """NaN in every input slot beyond the box: the jets are bit for bit those of the inputs cut to the box."""
+        order, box = (1, 2), (2, 3)
+        ww = self.input_jets([(4, 3), (2, 5), (3, 4)])
+        poisoned = []
+        for w in ww:
+            x = np.full_like(w, np.nan)
+            x[:2, :3] = w[:2, :3]
+            poisoned.append(x)
+        cut = [w[:2, :3] for w in ww]
+        for got, want in ((probing.dense_probe(self.TC, poisoned, order), probing.dense_probe(self.TC, cut, order)),
+                          ([apply.dense_apply(self.TC, poisoned, order)], [apply.dense_apply(self.TC, cut, order)])):
+            for a, b in zip(got, want):
+                self.assertFalse(np.isnan(a).any())
+                self.assertTrue(np.array_equal(a, b))
+        self.assertEqual(box, apply.dense_apply(self.T, cut, order).shape[:2])
 
     def test_the_coefficients_are_taylor_coefficients_not_derivatives(self):
         # Slot 2 of the apply along w + s p: the sum over the PAIRS of modes that take p, each pair once (the
@@ -1511,35 +1585,64 @@ class TestDenseFunctions(unittest.TestCase):
         T, (u, v, w), (p, q, r) = self.T, self.ww, self.pp
         slot2 = (np.einsum('ijk,abi,abj,abk->ab', T, p, q, w) + np.einsum('ijk,abi,abj,abk->ab', T, p, v, r)
                  + np.einsum('ijk,abi,abj,abk->ab', T, u, q, r))
-        self.check(apply.dense_apply(T, self.ww, self.pp, 2)[2], slot2)
+        line = [np.stack([w_, p_]) for w_, p_ in zip(self.ww, self.pp)]
+        self.check(apply.dense_apply(T, line, (2,))[2], slot2)
 
-    def test_pp_goes_with_order(self):
-        functions, _ = self.functions()
-        for name, function, first, _ in functions:
+    def test_slot_0_is_the_call_with_no_jets_and_the_slots_above_the_degree_are_zero(self):
+        line = [np.stack([w, p]) for w, p in zip(self.ww, self.pp)]
+        for name, function, degree in (('dense_probe', probing.dense_probe, 2), ('dense_apply', apply.dense_apply, 3)):
             with self.subTest(name=name):
+                jet = function(self.TC, line, (degree + 2,))
+                plain = function(self.TC, self.ww)
+                for jet_i, plain_i in zip(modes_of('probe', jet) if name == 'dense_probe' else [jet],
+                                          modes_of('probe', plain) if name == 'dense_probe' else [plain]):
+                    self.assertTrue(np.array_equal(jet_i[0], plain_i))
+                    self.assertGreater(np.abs(jet_i[degree]).min(), 0)
+                    self.assertTrue(np.all(jet_i[degree + 1:] == 0))        # exactly: no term is formed there
+
+    def test_the_jets_of_entries_off_the_grid(self):
+        """The recipe of entry 120: the released ``entries_derivatives`` is apply at the one-hot vectors moved
+        along ``pp``, in Taylor coefficients, ``dense_entries_derivatives / t!`` (the old module stays until P20)."""
+        import t3toolbox.backend.jets as jets
+        import t3toolbox.backend.sampling_derivatives as sampling_derivatives
+        T = self.T                                  # the old oracle takes one grid point of an unstacked tensor
+        for n in (1, 2, 4):
+            got = apply.dense_apply(T, jets.affine_jet(jets.index_to_one_hot(self.index, self.shape), self.pp), (n,))
+            self.assertEqual((n + 1, 2, 2), got.shape)
+            self.assertTrue(np.array_equal(got[0], entries.dense_entries(T, self.index)))
+            factorials = np.array([math.factorial(t) for t in range(n + 1)], dtype=float)
+            for a, b in itertools.product(range(2), range(2)):
+                with self.subTest(order=n, sample=(a, b)):
+                    old = sampling_derivatives.dense_entries_derivatives(
+                        [int(i) for i in self.index[:, a, b]], [p[a, b] for p in self.pp], T, n)
+                    self.check(got[:, a, b], old / factorials)
+
+    # ---------------------------------------------------------------- structure
+    def test_the_jet_shape_is_a_tuple(self):
+        line = [np.stack([w, p]) for w, p in zip(self.ww, self.pp)]
+        for name, function in (('dense_probe', probing.dense_probe), ('dense_apply', apply.dense_apply)):
+            with self.subTest(name=name):
+                for bad in (2, [2], 2.0):
+                    with self.assertRaisesRegex(TypeError, name + ': order is the jet shape'):
+                        function(self.T, line, bad)
                 with self.assertRaisesRegex(ValueError, name):
-                    function(self.T, first, self.pp)                        # pp without an order
-                with self.assertRaisesRegex(ValueError, name):
-                    function(self.T, first, None, 2)                        # an order without pp
-                with self.assertRaisesRegex(ValueError, name + ': order'):
-                    function(self.T, first, self.pp, -1)                    # a negative order, with pp
-                with self.assertRaisesRegex(ValueError, name + ': order'):
-                    function(self.T, first, None, -1)                       # ... and without
+                    function(self.T, line, (-1,))
+                np.testing.assert_array_equal(function(self.T, line, (np.int64(2),))[0], function(self.T, line, (2,))[0])
 
     def test_wrong_shapes_raise(self):
         short = [x[..., :-1] for x in self.ww]
-        other_stack = [x[0] for x in self.ww]
         mixed = [self.ww[0][0]] + self.ww[1:]
+        line = [np.stack([w, p]) for w, p in zip(self.ww, self.pp)]
         with self.assertRaisesRegex(ValueError, 'dense_probe'):
             probing.dense_probe(self.T, short)                              # a wrong mode size
         with self.assertRaisesRegex(ValueError, 'dense_apply'):
             apply.dense_apply(self.T, mixed)                                # sample stacks that differ
-        with self.assertRaisesRegex(ValueError, 'dense_apply'):
-            apply.dense_apply(self.T, self.ww, other_stack, 1)              # pp unlike ww
-        with self.assertRaisesRegex(ValueError, 'dense_probe'):
-            probing.dense_probe(self.T, self.ww, self.pp[:2], 1)            # too few pp
-        with self.assertRaisesRegex(ValueError, 'dense_entries'):
-            entries.dense_entries(self.T, self.index, other_stack, 1)       # pp unlike index
+        with self.assertRaisesRegex(ValueError, r'dense_apply: ww\[\d\] has sample stack'):
+            apply.dense_apply(self.T, [line[0][0]] + line[1:], (1,))        # one input without its jet axis
+        with self.assertRaisesRegex(ValueError, 'dense_probe: ww\\[1\\] has the jet sizes \\(0,\\)'):
+            probing.dense_probe(self.T, [line[0], line[1][:0], line[2]], (1,))   # a jet axis of size 0
+        with self.assertRaisesRegex(ValueError, 'dense_apply: ww\\[0\\] has 1 axes'):
+            apply.dense_apply(self.T, [np.ones(4), np.ones((2, 3)), np.ones((2, 5))], (1, 1))    # too few axes
         with self.assertRaisesRegex(ValueError, 'dense_entries'):
             entries.dense_entries(self.T[0, 0], self.index)                 # more index rows than axes
         with self.assertRaisesRegex(ValueError, 'dense_probe'):
@@ -1549,20 +1652,18 @@ class TestDenseFunctions(unittest.TestCase):
         self.assertIn('dense_probe', probing.__all__)
         self.assertIn('dense_apply', apply.__all__)
         self.assertIn('dense_entries', entries.__all__)
-        for function in (probing.dense_probe, apply.dense_apply, entries.dense_entries):
-            names = list(inspect.signature(function).parameters)
-            self.assertEqual(names[0], 'T')
-            self.assertEqual(names[2:], ['pp', 'order'])
-            self.assertEqual([p.default for p in inspect.signature(function).parameters.values()][2:], [None, 0])
-        self.assertEqual(list(inspect.signature(probing.dense_probe).parameters)[1], 'ww')
-        self.assertEqual(list(inspect.signature(apply.dense_apply).parameters)[1], 'ww')
-        self.assertEqual(list(inspect.signature(entries.dense_entries).parameters)[1], 'index')
+        for function, second in ((probing.dense_probe, 'ww'), (apply.dense_apply, 'ww')):
+            parameters = inspect.signature(function).parameters
+            self.assertEqual(['T', second, 'order'], list(parameters))
+            self.assertEqual((), parameters['order'].default)
+        self.assertEqual(['T', 'index'], list(inspect.signature(entries.dense_entries).parameters))
 
     def test_numpy_in_numpy_out_and_the_dtype_is_kept(self):
         T32 = self.T.astype(np.float32)
-        ww32, pp32 = [x.astype(np.float32) for x in self.ww], [x.astype(np.float32) for x in self.pp]
-        for value in (probing.dense_probe(T32, ww32, pp32, 2)[0], apply.dense_apply(T32, ww32, pp32, 2),
-                      entries.dense_entries(T32, self.index, pp32, 2), entries.dense_entries(T32, self.index)):
+        line32 = [np.stack([w, p]).astype(np.float32) for w, p in zip(self.ww, self.pp)]
+        plane32 = [np.stack([line32[i], np.zeros_like(line32[i])], axis=1) for i in range(3)]   # jet sizes (2, 2)
+        for value in (probing.dense_probe(T32, line32, (2,))[0], apply.dense_apply(T32, line32, (2,)),
+                      apply.dense_apply(T32, plane32, (1, 2)), entries.dense_entries(T32, self.index)):
             self.assertIsInstance(value, np.ndarray)
             self.assertEqual(value.dtype, np.float32)
 
@@ -1570,15 +1671,99 @@ class TestDenseFunctions(unittest.TestCase):
         if not common.jax_available:
             self.skipTest('jax is not installed')
         import jax.numpy as jnp
-        T, ww, pp = jnp.asarray(self.T), common.tree_to_jax(self.ww), common.tree_to_jax(self.pp)
-        for got, expected in ((probing.dense_probe(T, ww, pp, 2)[1],
-                               probing.dense_probe(self.T, self.ww, self.pp, 2)[1]),
-                              (apply.dense_apply(T, ww, pp, 2), apply.dense_apply(self.T, self.ww, self.pp, 2)),
-                              (entries.dense_entries(T, jnp.asarray(self.index), pp, 2),
-                               entries.dense_entries(self.T, self.index, self.pp, 2)),
+        line = [np.stack([w, p]) for w, p in zip(self.ww, self.pp)]
+        T, jline = jnp.asarray(self.T), common.tree_to_jax(line)
+        for got, expected in ((probing.dense_probe(T, jline, (2,))[1], probing.dense_probe(self.T, line, (2,))[1]),
+                              (apply.dense_apply(T, jline, (2,)), apply.dense_apply(self.T, line, (2,))),
+                              (entries.dense_entries(T, jnp.asarray(self.index)), entries.dense_entries(self.T, self.index)),
                               (apply.dense_apply(T, self.ww), apply.dense_apply(self.T, self.ww))):  # mixed: jax wins
             self.assertTrue(common.is_jax_ndarray(got))
             self.check(np.asarray(got), expected, 1e-4)
+
+
+class TestInputJets(unittest.TestCase):
+    """``jets.affine_jet`` and ``jets.index_to_one_hot``: the input jets of a point moved along directions, and the
+    one-hot vectors of a grid point."""
+
+    def setUp(self):
+        self.rng = np.random.default_rng(1)
+        self.shape = (3, 4, 2)
+        self.ww = [self.rng.standard_normal((5, n)) for n in self.shape]
+        self.directions = [[self.rng.standard_normal((5, n)) for n in self.shape] for _ in range(3)]
+
+    def test_the_slots_of_affine_jet(self):
+        import t3toolbox.backend.jets as jets
+        for m in (1, 2, 3):
+            directions = self.directions[:m]
+            jet = jets.affine_jet(self.ww, *directions)
+            self.assertIsInstance(jet, tuple)
+            for i, x in enumerate(jet):
+                with self.subTest(m=m, mode=i):
+                    self.assertEqual((2,) * m + (5, self.shape[i]), x.shape)
+                    for k in itertools.product(range(2), repeat=m):
+                        if sum(k) == 0:
+                            self.assertTrue(np.array_equal(x[k], self.ww[i]))               # slot 0: the point
+                        elif sum(k) == 1:
+                            self.assertTrue(np.array_equal(x[k], directions[k.index(1)][i]))   # slot e_j: p_j
+                        else:
+                            self.assertTrue(np.all(x[k] == 0))                            # every other slot: zero
+        self.assertIs(self.ww, jets.affine_jet(self.ww))                                  # no direction: ww itself
+        as_list = jets.affine_jet(list(self.ww), list(self.directions[0]))
+        self.assertIsInstance(as_list, tuple)
+        nan_point = [np.full_like(w, np.nan) for w in self.ww]                            # a zero slot is made,
+        self.assertTrue(np.all(jets.affine_jet(nan_point, *self.directions[:2])[0][1, 1] == 0))   # not 0 * w
+
+    def test_affine_jet_of_packed_vectors_is_packed(self):
+        import t3toolbox.backend.jets as jets
+        same = [self.rng.standard_normal((4, 5, 3)) for _ in range(3)]                    # (d,) + W + (N,), d = 4
+        for m in (1, 2):
+            packed = jets.affine_jet(same[0], *same[1:1 + m])
+            ragged = jets.affine_jet(list(same[0]), *[list(p) for p in same[1:1 + m]])
+            with self.subTest(m=m):
+                self.assertEqual((4,) + (2,) * m + (5, 3), packed.shape)
+                self.assertTrue(np.array_equal(packed, np.stack(ragged)))
+        self.assertIs(same[0], jets.affine_jet(same[0]))
+
+    def test_affine_jet_promotes_and_checks_only_the_shapes(self):
+        import t3toolbox.backend.jets as jets
+        w32 = [w.astype(np.float32) for w in self.ww]
+        self.assertEqual(np.float32, jets.affine_jet(w32, [p.astype(np.float32) for p in self.directions[0]])[0].dtype)
+        self.assertEqual(np.float64, jets.affine_jet(w32, self.directions[0])[0].dtype)
+        with self.assertRaisesRegex(ValueError, 'affine_jet: direction 0 has the shape'):
+            jets.affine_jet(self.ww, [p[0] for p in self.directions[0]])                # a mode of another shape
+        with self.assertRaisesRegex(ValueError, 'affine_jet: direction 1 must be a sequence of 3'):
+            jets.affine_jet(self.ww, self.directions[0], self.directions[1][:2])        # too few modes
+        with self.assertRaisesRegex(ValueError, 'affine_jet: direction 0 must be packed'):
+            jets.affine_jet(np.stack([w[:, :2] for w in self.ww]), self.directions[0])  # a tuple beside packed
+
+    def test_index_to_one_hot_is_the_rows_of_the_identity(self):
+        import t3toolbox.backend.jets as jets
+        index = np.stack([self.rng.integers(-n, n, size=(2, 3)) for n in self.shape])
+        e = jets.index_to_one_hot(index, self.shape)
+        self.assertIsInstance(e, tuple)
+        for i, n in enumerate(self.shape):
+            self.assertEqual((2, 3, n), e[i].shape)
+            self.assertEqual(np.float64, e[i].dtype)
+            self.assertTrue(np.array_equal(e[i], np.eye(n)[index[i]]))                  # a negative index wraps
+        # entries is apply at the one-hot vectors, exactly (each product has one nonzero term)
+        T = self.rng.standard_normal(self.shape)
+        self.assertTrue(np.array_equal(apply.dense_apply(T, e), entries.dense_entries(T, index)))
+        # outside [-N, N): a numpy index raises, naming the mode and the values, as numpy's indexing does
+        with self.assertRaisesRegex(IndexError, r'index_to_one_hot: mode 1 has the index or indices \[-9, 4\], outside \[-4, 4\)'):
+            jets.index_to_one_hot(np.array([[0, 2], [-9, 4], [0, 1]]), self.shape)
+        with self.assertRaisesRegex(IndexError, 'mode 0'):
+            jets.index_to_one_hot(np.array([[3], [0], [0]]), self.shape)                # N: one past the end
+        with self.assertRaisesRegex(IndexError, r'mode 1 has the index or indices \[-5\]'):
+            jets.index_to_one_hot(np.array([[0], [-5], [0]]), self.shape)               # -N - 1, alone in its mode
+        jets.index_to_one_hot(np.array([[-3, 2], [-4, 3], [-2, 1]]), self.shape)        # the ends of [-N, N): fine
+        if common.jax_available:                # a jax index (possibly a tracer) is not checked: zeros out of range
+            import jax.numpy as jnp
+            e = jets.index_to_one_hot(jnp.asarray(np.array([[5, 0], [-9, 1], [0, 1]])), self.shape)
+            self.assertTrue(np.all(np.asarray(e[0][0]) == 0) and np.all(np.asarray(e[1][0]) == 0))
+            self.assertTrue(np.array_equal(np.asarray(e[0][1]), np.eye(3)[0]))
+        for bad in (np.zeros((2, 3), int), np.zeros((3, 2))):
+            with self.assertRaises(ValueError):
+                jets.index_to_one_hot(bad, self.shape)                                    # rows; integer dtype
 
 
 if __name__ == '__main__':

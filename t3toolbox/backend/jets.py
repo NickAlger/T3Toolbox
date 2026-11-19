@@ -22,7 +22,12 @@ object of the other type than ``kind`` says is not guarded against: a tuple give
 into one array, which fails where the modes differ in size and otherwise reads the mode axis as the order axis.
 The checkers take the ragged form only (a tuple or a list for the probe kind).
 
-Three groups of functions:
+Four groups of functions:
+
+- **The input jets.** A sampling function with a jet shape takes input jets, the Taylor coefficients of its input
+  vectors as polynomials in the jet variables. :py:func:`affine_jet` makes the input jet of a point moved along
+  directions, ``w + s_1 p_1 + ... + s_m p_m`` (the line ``w + s p`` with one), and :py:func:`index_to_one_hot` the
+  one-hot vectors of a grid point, the apply kind's sample of an entry.
 
 - **The dual jet.** :py:func:`jet_to_dual_jet` makes the seed of a transpose from a residual: the weights
   (``weight**2``, slot by slot), then the turn of the order axis. :py:func:`dual_jet_to_jet` is its inverse.
@@ -121,6 +126,7 @@ A weight per mode and order, chosen for derivatives, is converted slot by slot a
 >>> print(weight.tolist())
 [[1.0, 1.0, 2.0, 6.0], [2.0, 2.0, 4.0, 12.0]]
 """
+import itertools
 import math
 import typing as typ
 
@@ -137,6 +143,9 @@ __all__ = [
     'taylor_to_derivatives',
     'derivative_weight_to_taylor_weight',
     'prepare_derivative_data',
+    # The input jets
+    'affine_jet',
+    'index_to_one_hot',
     # The checkers of a sample, its data and its weight
     'check_perturbation_vectors',
     'check_perturbation_index',
@@ -683,6 +692,202 @@ def prepare_derivative_data(
     weight_taylor = _taylor_weight(weight, order, xnp)
     validation_taylor = None if validation is None else _scale_orders(kind, validation, order, True, xnp)
     return y_taylor, weight_taylor, validation_taylor
+
+
+#############################################
+########    The input jets    ###############
+#############################################
+
+def _affine_jet_of_one_array(
+        w:          NDArray,                    # the point: shape=X
+        directions: typ.Sequence[NDArray],      # m of them, each shape=X
+        axis:       int,                        # where the m jet axes go
+        xnp,
+) -> NDArray:                                   # shape=X[:axis]+(2,)*m+X[axis:]
+    m = len(directions)
+    dtype = xnp.result_type(w, *directions)
+    zero = xnp.zeros(w.shape, dtype=dtype)      # zeros made, not 0 * w: a slot of no term is exactly zero
+    slots = []
+    for k in itertools.product(range(2), repeat=m):                 # the multi-indices of the box, row-major
+        slots.append(w if sum(k) == 0 else (directions[k.index(1)] if sum(k) == 1 else zero))
+    stacked = xnp.stack([xnp.asarray(slot, dtype=dtype) for slot in slots], axis=axis)
+    return xnp.reshape(stacked, w.shape[:axis] + (2,) * m + w.shape[axis:])
+
+
+def affine_jet(
+        ww:             typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+(Ni,); or packed (d,)+W+(N,)
+        *directions:    typ.Union[typ.Sequence[NDArray], NDArray],  # m of them, each of the form and shapes of ww
+) -> typ.Union[typ.Tuple[NDArray, ...], NDArray]:   # len=d, elm_shape=(2,)*m+W+(Ni,); or packed (d,)+(2,)*m+W+(N,)
+    """The input jet of the point ``ww`` moved along ``m`` directions: ``w + s_1 p_1 + ... + s_m p_m``.
+
+    A sampling function with a jet shape ``order`` takes input jets: per mode an array whose ``m = len(order)``
+    leading jet axes hold the Taylor coefficients of the input vector as a polynomial in ``s_1 ... s_m``. The input
+    of degree at most one in each variable, ``w + s_1 p_1 + ... + s_m p_m``, has two slots per jet axis: slot
+    ``(0, ..., 0)`` is ``w``, slot ``e_j`` (one in axis ``j``, zero elsewhere) is ``p_j``, and every other slot is
+    zero (with two directions, slot ``(1, 1)``, the coefficient of ``s_1 s_2``). The line ``w + s p`` is
+    ``affine_jet(ww, pp)``, of jet sizes ``(2,)``, used with a jet shape ``(n,)``. An input jet of another kind (a
+    curve, with more slots) is built directly; nothing else is needed.
+
+    It returns the form it is given: for a tuple or a list, a tuple, one array per mode; for vectors packed for the
+    uniform layout, one array ``(d,) + W + (N,)``, the packed array ``(d,) + (2,) * m + W + (N,)``. With no
+    direction it returns ``ww`` as it is (``m = 0``: no jets). The dtype is the one the point and the directions
+    promote to. It checks only what it needs to stack: each direction has the form and the shapes of ``ww``.
+
+    Parameters
+    ----------
+    ww: typ.Union[typ.Sequence[NDArray], NDArray]
+        The point. len=d, elm_shape=W+(Ni,); or packed, shape=(d,)+W+(N,)
+    *directions: typ.Union[typ.Sequence[NDArray], NDArray]
+        The directions ``p_1 ... p_m``, each of the form and the shapes of ``ww``.
+
+    Returns
+    -------
+    typ.Union[typ.Tuple[NDArray, ...], NDArray]
+        The input jet. len=d, elm_shape=(2,)*m+W+(Ni,); or packed, shape=(d,)+(2,)*m+W+(N,)
+
+    Raises
+    ------
+    ValueError
+        If a direction does not have the form of ``ww`` (a sequence of as many arrays, or one array) or the shape
+        of ``ww`` in some mode.
+
+    See Also
+    --------
+    index_to_one_hot
+    t3toolbox.backend.probing.dense_probe
+
+    Examples
+    --------
+    A line in one variable: two slots, the point and the direction.
+
+    >>> import numpy as np
+    >>> from t3toolbox.backend.jets import affine_jet
+    >>> np.random.seed(0)
+    >>> ww = [np.random.randn(5, N) for N in (3, 4)]          # d = 2, W = (5,)
+    >>> pp = [np.random.randn(5, N) for N in (3, 4)]
+    >>> line = affine_jet(ww, pp)
+    >>> print([x.shape for x in line])                        # (2,) + W + (Ni,)
+    [(2, 5, 3), (2, 5, 4)]
+    >>> print(bool(np.array_equal(line[1][0], ww[1])), bool(np.array_equal(line[1][1], pp[1])))
+    True True
+
+    Two directions: jet sizes ``(2, 2)``, and the slot of ``s_1 s_2`` is zero.
+
+    >>> qq = [np.random.randn(5, N) for N in (3, 4)]
+    >>> plane = affine_jet(ww, pp, qq)
+    >>> print(plane[0].shape)
+    (2, 2, 5, 3)
+    >>> print(bool(np.array_equal(plane[0][0, 1], qq[0])), bool(np.all(plane[0][1, 1] == 0)))
+    True True
+
+    Packed vectors give a packed jet, the jet axes after the mode axis:
+
+    >>> packed = np.stack([np.random.randn(5, 3) for _ in range(2)])     # (d,) + W + (N,)
+    >>> print(affine_jet(packed, packed).shape)
+    (2, 2, 5, 3)
+    """
+    m = len(directions)
+    if m == 0:
+        return ww
+    xnp, _, _ = get_backend(True, tree_contains_jax((ww, directions)))
+    if is_ndarray(ww):
+        for j, p in enumerate(directions):
+            if not is_ndarray(p) or tuple(p.shape) != tuple(ww.shape):
+                raise ValueError('affine_jet: direction %d must be packed like ww, an array of shape %s; got %s'
+                                 % (j, tuple(ww.shape), tuple(p.shape) if is_ndarray(p) else type(p).__name__))
+        return _affine_jet_of_one_array(ww, directions, 1, xnp)
+    d = len(ww)
+    for j, p in enumerate(directions):
+        if is_ndarray(p) or len(p) != d:
+            raise ValueError('affine_jet: direction %d must be a sequence of %d arrays, as ww is' % (j, d))
+        for i, (w_i, p_i) in enumerate(zip(ww, p)):
+            if tuple(p_i.shape) != tuple(w_i.shape):
+                raise ValueError('affine_jet: direction %d has the shape %s in mode %d, where ww has %s'
+                                 % (j, tuple(p_i.shape), i, tuple(w_i.shape)))
+    return tuple(_affine_jet_of_one_array(ww[i], [p[i] for p in directions], 0, xnp) for i in range(d))
+
+
+def index_to_one_hot(
+        index:  NDArray,                # int, shape=(d,)+W
+        shape:  typ.Sequence[int],      # the mode sizes N_i, len=d
+) -> typ.Tuple[NDArray, ...]:           # len=d, elm_shape=W+(Ni,): e_index, in the default float dtype
+    """The one-hot vectors of a grid point: ``e_index[i]`` in each mode ``i``.
+
+    ``entries`` at ``index`` is ``apply`` at these vectors. The entries kind has no jets; the jets of a tensor
+    along a curve of input vectors that starts at the grid point are the apply kind's at an input jet whose slot
+    ``0`` is these vectors, for example ``affine_jet(index_to_one_hot(index, shape), pp)`` for the line
+    ``e_index + s pp``. It is also the sample of a tensor with some discrete modes beside continuous ones.
+
+    The vectors are numpy for a numpy index and jax for a jax index (a traced one included), in the library's
+    default floating dtype (float64 on numpy; on jax float32 unless x64 is on); there is no ``dtype`` argument, and
+    the sampling functions lower it to the cores' precision. Index semantics are numpy's indexing, as in
+    :py:func:`~t3toolbox.backend.entries.dense_entries`: an index in ``[-N_i, 0)`` wraps, and a numpy index
+    outside ``[-N_i, N_i)`` raises an ``IndexError``. A jax index (a traced one included) cannot be checked, and an
+    out-of-range one gives a zero vector.
+
+    Parameters
+    ----------
+    index: NDArray
+        The grid points, one row per mode. dtype=int, shape=(d,)+W
+    shape: typ.Sequence[int]
+        The mode sizes ``N_i``. len=d
+
+    Returns
+    -------
+    typ.Tuple[NDArray, ...]
+        The one-hot vectors. len=d, elm_shape=W+(Ni,)
+
+    Raises
+    ------
+    ValueError
+        If ``index`` is not of an integer dtype, or has not one row per mode.
+    IndexError
+        If ``index`` is a numpy array and an index of mode ``i`` is outside ``[-N_i, N_i)``.
+
+    See Also
+    --------
+    affine_jet
+    t3toolbox.backend.entries.dense_entries
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from t3toolbox.backend.jets import index_to_one_hot
+    >>> index = np.array([[0, 2], [1, -1]])                   # (d,) + W: d = 2, W = (2,)
+    >>> e = index_to_one_hot(index, (3, 4))
+    >>> print([x.shape for x in e], e[0].dtype)
+    [(2, 3), (2, 4)] float64
+    >>> print(e[0].tolist(), e[1].tolist())
+    [[1.0, 0.0, 0.0], [0.0, 0.0, 1.0]] [[0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]]
+
+    An index outside the grid has no one-hot vector (structural gotcha):
+
+    >>> index_to_one_hot(np.array([[0, 3], [1, 0]]), (3, 4))      # doctest: +IGNORE_EXCEPTION_DETAIL
+    Traceback (most recent call last):
+        ...
+    IndexError: index_to_one_hot: mode 0 has the index or indices [3], outside [-3, 3)
+    """
+    use_jax = tree_contains_jax(index)
+    xnp, _, _ = get_backend(True, use_jax)
+    if not is_ndarray(index):
+        index = np.asarray(index)
+    if not np.issubdtype(index.dtype, np.integer):
+        raise ValueError('index_to_one_hot: the index is of an integer dtype; got %s' % (index.dtype,))
+    if index.ndim < 1 or index.shape[0] != len(shape):
+        raise ValueError('index_to_one_hot: the index has one row per mode, %d; got the shape %s'
+                         % (len(shape), tuple(index.shape)))
+    if not use_jax:                             # a concrete numpy index: checked as numpy's indexing checks it
+        for i, N in enumerate(shape):
+            outside = (index[i] < -N) | (index[i] >= N)
+            if outside.any():
+                raise IndexError('index_to_one_hot: mode %d has the index or indices %s, outside [%d, %d)'
+                                 % (i, sorted(set(index[i][outside].tolist()))[:5], -N, N))
+    default_float = xnp.zeros(()).dtype
+    vectors = []
+    for i, N in enumerate(shape):
+        index_i = xnp.where(index[i] < 0, index[i] + N, index[i])
+        vectors.append((index_i[..., None] == xnp.arange(N)).astype(default_float))
+    return tuple(vectors)
 
 
 ######################################################################

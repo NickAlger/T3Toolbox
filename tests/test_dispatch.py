@@ -816,54 +816,94 @@ class TestDispatch(unittest.TestCase):
 
     # ---------------------------------------------------- jit bucket: the dense sampling functions
     def test_jit_dense_sampling_functions(self):
-        """jit dense_probe, dense_apply and dense_entries at order 0 and with jets (a stray np.* on a tracer would
-        raise), with a W and a C stack; jax in gives jax out, eagerly too; float32 stays float32 with x64 on (no
-        array is made in a default dtype); the numbers are numpy's (a smoke test). Then with each array argument
-        in turn a numpy array held outside the trace: the dispatch must be read off all of them."""
+        """jit dense_probe and dense_apply with no jets, with the input jets of a line at (3,) and with input jets of
+        their own sizes at (1, 2), and dense_entries (a stray np.* on a tracer would raise), with a W and a C stack;
+        jax in gives jax out, eagerly too; float32 stays float32 with x64 on (no array is made in a default dtype);
+        the numbers are numpy's (a smoke test). Then with each array argument in turn a numpy array held outside the
+        trace: the dispatch must be read off all of them."""
         import t3toolbox.backend.apply as bapply
         import t3toolbox.backend.entries as bentries
         rng = np.random.default_rng(0)
         shape, W, C = (4, 3, 5), (2, 2), (2,)
         index = np.stack([rng.integers(0, n, size=W) for n in shape])
-        functions = (('dense_probe', probing.dense_probe, False), ('dense_apply', bapply.dense_apply, False),
-                     ('dense_entries', bentries.dense_entries, True))
-        for name, function, takes_index in functions:
-            for order in (0, 3):
-                for dtype, smoke_tol in ((np.float64, 1e-12), (np.float32, 1e-5)):
-                    T = rng.standard_normal(C + shape).astype(dtype)
-                    ww = [rng.standard_normal(W + (n,)).astype(dtype) for n in shape]
-                    pp = [rng.standard_normal(W + (n,)).astype(dtype) for n in shape]
-                    first = index if takes_index else ww
-                    if order == 0:
-                        fn = lambda T, first, pp: function(T, first)
-                    else:
-                        fn = lambda T, first, pp: function(T, first, pp, order)
-                    on_numpy = fn(T, first, pp)
-                    jargs = [jnp.asarray(T), jnp.asarray(first) if takes_index else [jnp.asarray(w) for w in ww],
-                             [jnp.asarray(p) for p in pp]]
-                    with self.subTest(function=name, order=order, dtype=np.dtype(dtype).name):
-                        for leaf in jax.tree_util.tree_leaves(on_numpy):
-                            self.assertTrue(common.is_numpy_ndarray(leaf))
-                            self.assertEqual(leaf.dtype, dtype)
-                        self.assert_jit_jax(fn, *jargs)
-                        self.assert_eager_jax(fn, *jargs)
-                        jitted = jax.jit(fn)(*jargs)
-                        for a, b, c in zip(jax.tree_util.tree_leaves(jitted), jax.tree_util.tree_leaves(on_numpy),
-                                           jax.tree_util.tree_leaves(fn(*jargs))):
-                            self.assertEqual(a.shape, b.shape)
+        jet_cases_ = ((), [()] * 3), ((3,), [(2,)] * 3), ((1, 2), [(2, 3), (1, 1), (3, 2)])  # (order, input jet sizes)
+        cases_ = [(name, function, order, sizes) for name, function in (('dense_probe', probing.dense_probe),
+                                                                        ('dense_apply', bapply.dense_apply))
+                  for order, sizes in jet_cases_] + [('dense_entries', bentries.dense_entries, None, None)]
+        for name, function, order, sizes in cases_:
+            for dtype, smoke_tol in ((np.float64, 1e-12), (np.float32, 1e-5)):
+                T = rng.standard_normal(C + shape).astype(dtype)
+                if order is None:
+                    first = index
+                    fn = lambda T, first: function(T, first)
+                    jfirst = jnp.asarray(first)
+                else:
+                    first = [rng.standard_normal(s + W + (n,)).astype(dtype) for s, n in zip(sizes, shape)]
+                    fn = lambda T, first, order=order: function(T, first, order)
+                    jfirst = [jnp.asarray(w) for w in first]
+                on_numpy = fn(T, first)
+                jargs = [jnp.asarray(T), jfirst]
+                with self.subTest(function=name, order=order, dtype=np.dtype(dtype).name):
+                    for leaf in jax.tree_util.tree_leaves(on_numpy):
+                        self.assertTrue(common.is_numpy_ndarray(leaf))
+                        self.assertEqual(leaf.dtype, dtype)
+                    self.assert_jit_jax(fn, *jargs)
+                    self.assert_eager_jax(fn, *jargs)
+                    jitted = jax.jit(fn)(*jargs)
+                    for a, b, c in zip(jax.tree_util.tree_leaves(jitted), jax.tree_util.tree_leaves(on_numpy),
+                                       jax.tree_util.tree_leaves(fn(*jargs))):
+                        self.assertEqual(a.shape, b.shape)
+                        self.assertEqual(a.dtype, dtype)
+                        self.assertEqual(c.dtype, dtype)
+                        self.assertLess(norm(np.asarray(a) - b) / norm(b), smoke_tol)
+                host = [T, first]
+                for k in range(2):
+                    with self.subTest(function=name, order=order, dtype=np.dtype(dtype).name, numpy_argument=k):
+                        mixed = lambda *rest: fn(*rest[:k], host[k], *rest[k:])    # host[k]: numpy, closed over
+                        traced = jargs[:k] + jargs[k + 1:]
+                        out = jax.jit(mixed)(*traced)
+                        self._leaves_all_jax(out)
+                        for a, b in zip(jax.tree_util.tree_leaves(out), jax.tree_util.tree_leaves(on_numpy)):
                             self.assertEqual(a.dtype, dtype)
-                            self.assertEqual(c.dtype, dtype)
                             self.assertLess(norm(np.asarray(a) - b) / norm(b), smoke_tol)
-                    host = [T, first, pp]
-                    for k in range(3 if order else 2):              # pp is not read at order 0
-                        with self.subTest(function=name, order=order, dtype=np.dtype(dtype).name, numpy_argument=k):
-                            mixed = lambda *rest: fn(*rest[:k], host[k], *rest[k:])    # host[k]: numpy, closed over
-                            traced = jargs[:k] + jargs[k + 1:]
-                            out = jax.jit(mixed)(*traced)
-                            self._leaves_all_jax(out)
-                            for a, b in zip(jax.tree_util.tree_leaves(out), jax.tree_util.tree_leaves(on_numpy)):
-                                self.assertEqual(a.dtype, dtype)
-                                self.assertLess(norm(np.asarray(a) - b) / norm(b), smoke_tol)
+
+    def test_jit_input_jet_helpers(self):
+        """jit affine_jet (on a tuple and on packed vectors, with one direction and two) and index_to_one_hot: jax in,
+        jax out, eagerly too; affine_jet keeps float32; the one-hot vectors are jax's default float for a jax index
+        (float64 with x64 on), numpy's float64 for a numpy one; the numbers are numpy's. A numpy direction closed
+        over beside traced ones: the dispatch is read off all the arguments."""
+        import t3toolbox.backend.jets as bjets
+        rng = np.random.default_rng(1)
+        shape, W = (4, 3, 5), (2, 2)
+        for dtype in (np.float64, np.float32):
+            ww = [rng.standard_normal(W + (n,)).astype(dtype) for n in shape]
+            pp = [rng.standard_normal(W + (n,)).astype(dtype) for n in shape]
+            qq = [rng.standard_normal(W + (n,)).astype(dtype) for n in shape]
+            packed = [np.stack([rng.standard_normal(W + (4,)).astype(dtype) for _ in range(3)]) for _ in range(3)]
+            for what, args in (('a line', (ww, pp)), ('two directions', (ww, pp, qq)), ('packed', tuple(packed))):
+                on_numpy = bjets.affine_jet(*args)
+                jargs = [jax.tree_util.tree_map(jnp.asarray, a) for a in args]
+                with self.subTest(what=what, dtype=np.dtype(dtype).name):
+                    self.assert_jit_jax(bjets.affine_jet, *jargs)
+                    self.assert_eager_jax(bjets.affine_jet, *jargs)
+                    jitted = jax.jit(bjets.affine_jet)(*jargs)
+                    for a, b in zip(jax.tree_util.tree_leaves(jitted), jax.tree_util.tree_leaves(on_numpy)):
+                        self.assertEqual(a.dtype, dtype)
+                        self.assertTrue(np.array_equal(np.asarray(a), b))
+                    mixed = lambda *rest: bjets.affine_jet(*rest, args[-1])              # the last direction: numpy
+                    out = jax.jit(mixed)(*jargs[:-1])
+                    self._leaves_all_jax(out)
+                    for a, b in zip(jax.tree_util.tree_leaves(out), jax.tree_util.tree_leaves(on_numpy)):
+                        self.assertTrue(np.array_equal(np.asarray(a), b))
+        index = np.stack([rng.integers(-n, n, size=W) for n in shape])
+        on_numpy = bjets.index_to_one_hot(index, shape)
+        self.assertTrue(all(common.is_numpy_ndarray(e) and e.dtype == np.float64 for e in on_numpy))
+        one_hot = lambda index: bjets.index_to_one_hot(index, shape)
+        self.assert_jit_jax(one_hot, jnp.asarray(index))
+        self.assert_eager_jax(one_hot, jnp.asarray(index))
+        for a, b in zip(jax.jit(one_hot)(jnp.asarray(index)), on_numpy):
+            self.assertEqual(a.dtype, jnp.zeros(()).dtype)
+            self.assertTrue(np.array_equal(np.asarray(a), b))
 
     # ---------------------------------------------------- jit bucket: backend functions
     def test_jit_backend(self):

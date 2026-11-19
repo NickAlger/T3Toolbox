@@ -391,3 +391,45 @@ Nothing of the library or the tests was touched. No agent is running and nothing
   One `Kp` case by jax takes 1 to 2 s on the floor (0.05 to 3.6 s on jax 0.10), with or without the x64 context,
   so the jax route is not itself pathological; the cause is being looked for. Every other file P1 to P4 added
   passes on the floor.
+
+### P4b: the input jets and the dense functions; the floor hang found and fixed (2026-11-19, 14:08 to 15:39)
+
+- **Rounds:** two (`P4b_REVIEW_r1.md` NOT YET, one should-fix; `P4b_REVIEW_r2.md` SIGN OFF; `P4b_RESPONSE_r1.md`;
+  handover `P4b_HANDOVER.md`). The same implementer and reviewer as P4a. The reviewer read the slice while the
+  implementer's gate ran, and ran its checks after.
+- **What changed:** `backend/jets.py`: `affine_jet(ww, *directions)` (tuple or packed form, as given) and
+  `index_to_one_hot(index, shape)`. `backend/probing.py`: `dense_probe(T, ww, order=())` on input jets; `_dense_jet`
+  multiplies the tensor by each mode's input jet one mode at a time, by explicit loops over the pairs of
+  multi-indices inside the box (never `jet_contract`); `_dense_contract` and `_check_pp_and_order` deleted (no other
+  caller). `backend/apply.py`: `dense_apply(T, ww, order=())`. `backend/entries.py`: `dense_entries(T, index)`,
+  indexing only, its docstring showing the recipe of entry 120. `backend/sampling_definitions.py`: builds its own
+  two-slot input jet until P4c, never imports `jets`. The callers with `pp` updated (`data_preparation`'s doctests,
+  `test_jax_absent`, `test_data_preparation`, `test_jets`). The dense functions read `order` through
+  `contractions._read_order` (the implementer's choice: `jets` does not re-expose it; P4d's functions import it
+  from `contractions` too).
+- **The CI floor hang, found by Claude and fixed in this slice (decided as minor; P4b already edited the module):**
+  `sampling_definitions._einsum` called `jnp.einsum` without `optimize`. On jax 0.4.30 the default is `'optimal'`,
+  opt_einsum's exhaustive path search, exponential in the number of operands; `_tensor` contracts a whole network
+  in one einsum, so the four-site test problem `long()` never finished (faulthandler stack: `w_tilde` -> `_z` ->
+  `_tensor` -> `_einsum` -> `opt_einsum.paths._optimal_iterate`). jax 0.10's default `'auto'` hid it. The jax path now
+  passes `optimize='greedy'`, with a docstring saying why the house convention does not apply there. Proof:
+  `tests/test_sampling_definitions.py` on the floor env, single-process, 65 passed in 107 s (it hung before); 132 s
+  on the `t3toolbox` env. The lesson is in `ORCHESTRATION.md` section 7.
+- **Review round 1:** the reviewer's own oracle (unclipped input jets at roots of unity, one einsum per node,
+  inverse DFT; about 640 outputs over three seeds, `d = 1..4`, `m = 1..3`, mixed and discrete jet sizes, inputs
+  beyond the box, `W` and `C` stacks) agrees to 2e-15; NaN beyond the box changes nothing; the recipe of entry 120
+  matches, and its slot 0 equals `dense_entries` exactly; packed `affine_jet` right at `m = 3`. 5 of 8 mutants caught,
+  the 3 others equivalent. One should-fix, **ruled by Claude** (minor): `index_to_one_hot` gave a zero vector for an
+  index outside `[-N, N)`, silently. Now it follows numpy indexing and `dense_entries`: `[-N, 0)` wraps; a numpy
+  index outside raises `IndexError` naming the mode and the values; a jax index (possibly traced) is unchecked and
+  gives zeros, as its docstring says. The reason: an index outside the grid has no one-hot vector, and zeros would
+  turn a bad index into plausible data.
+- **Round 2:** SIGN OFF, with one minor note: no test had `-N - 1` alone in its mode (a mutant narrowing the lower
+  bound survived). **Claude added the assertion** (`TestInputJets`) and checked in a scratch copy that it fails on
+  that mutant and passes on the code.
+- **Gate:** the implementer's full gate at `-n 3`, with the floor fix in and before round 1, every step PASS (suite
+  1,657 passed, 5 skipped, 1 xfailed; 24.9 min; peak 9.8 GB; module doctests 312). After round 1 (`index_to_one_hot`
+  and its tests): the affected tests and doctests single-process (implementer: 54 + 2 passed, doctests 21; reviewer:
+  150 passed in round 1; Claude: `TestInputJets` 4 passed after the added assertion).
+- **For P4d** (the reviewer): `data_preparation`'s doctest comments still use the old `T` group notation.
+- **Pushed after this commit**, with P4a and the records, so that CI's floor leg runs on the fix.

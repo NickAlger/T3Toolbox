@@ -130,8 +130,9 @@ for kind, first in (('probe', ww), ('apply', ww), ('entries', index)):
         value = getattr(sdef, name)(kind, (D, U, L, R), (first, pp), y=y, **arguments)
         assert all(isinstance(leaf, np.ndarray) or np.isscalar(leaf) for leaf in leaves(value)), (kind, name)
 T = rng.standard_normal(N)
-assert probing.dense_probe(T, ww, pp, 2)[0].shape == (3, 5, 4)
-assert apply.dense_apply(T, ww, pp, 2).shape == (3, 5) and entries.dense_entries(T, index, pp, 2).shape == (3, 5)
+line = [np.stack([w, p]) for w, p in zip(ww, pp)]       # the input jet of w + s p, built by hand: jets is not imported
+assert probing.dense_probe(T, line, (2,))[0].shape == (3, 5, 4)
+assert apply.dense_apply(T, line, (2,)).shape == (3, 5) and entries.dense_entries(T, index).shape == (5,)
 print('JAX_ABSENT_OK')
 '''
 
@@ -198,6 +199,12 @@ with warnings.catch_warnings():
     on_numpy(prep.ut3_unscale_coordinates(ux.data, scales)[:2])
     assert isinstance(x.unscale_coordinates(scales).tucker_cores[0], np.ndarray)
     assert isinstance(ux.unscale_coordinates(scales).tucker_supercore, np.ndarray)
+    # the input jets (graded messages, P4b): numpy in, numpy out, with no jax
+    line = on_numpy(jets.affine_jet(ww, pp))
+    assert [x.shape for x in line] == [(2,) + W + (n,) for n in shape]
+    assert on_numpy(jets.affine_jet(np.stack(ww[:1] * 2), np.stack(pp[:1] * 2))).shape == (2, 2) + W + (4,)
+    one_hot = on_numpy(jets.index_to_one_hot(index, shape))
+    assert [x.dtype for x in one_hot] == [np.float64] * 3
     assert np.allclose(ux.unscale_coordinates(scales).to_dense(), x.unscale_coordinates(scales).to_dense())
 print('JAX_ABSENT_OK')
 '''

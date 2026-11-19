@@ -443,10 +443,10 @@ class TestDerivativeData(unittest.TestCase):
         along = lambda s: [w + s * p for w, p in zip(ww, pp)]
         order = 3                                                   # the outputs have degree d = 3 in s (probe: 2)
         apply_derivatives = interpolated_derivatives(lambda s: bapply.dense_apply(T, along(s)), order, D + 2)
-        apply_taylor = bapply.dense_apply(T, ww, pp, order)
+        apply_taylor = bapply.dense_apply(T, jets.affine_jet(ww, pp), (order,))
         self.assertLessEqual(relerr(jets.derivatives_to_taylor('apply', order, apply_derivatives), apply_taylor), 1e-11)
         self.assertLessEqual(relerr(jets.taylor_to_derivatives('apply', order, apply_taylor), apply_derivatives), 1e-11)
-        probe_taylor = probing.dense_probe(T, ww, pp, order)
+        probe_taylor = probing.dense_probe(T, jets.affine_jet(ww, pp), (order,))
         probe_derivatives = [interpolated_derivatives(lambda s: probing.dense_probe(T, along(s))[i], order, D + 2)
                              for i in range(D)]
         converted = jets.derivatives_to_taylor('probe', order, probe_derivatives)
