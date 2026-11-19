@@ -57,28 +57,35 @@ basis: ``nu_tilde`` of ``mu_R_dot``, and ``eta_tilde`` of ``xi_U_dot``, for ever
 is on the right of every bond and in every trunk, so the last two do not hold there (those tilde variables are
 zero).
 
-**The three kinds** differ in the inputs and the outputs. ``'probe'`` and ``'apply'`` take vectors ``ww``;
-``'entries'`` takes integer grid points ``index``, whose inputs are the unit vectors ``e_index``. ``'probe'``
-has one output per mode, ``z[i]``, with mode edge ``i`` left open; ``'apply'`` and ``'entries'`` have one number
-per sample.
+**The three kinds** differ in the inputs and the outputs. ``'probe'`` and ``'apply'`` take vectors ``ww``
+(input jets, below); ``'entries'`` takes integer grid points ``index``, whose inputs are the unit vectors
+``e_index``, and has no jets. ``'probe'`` has one output per mode, ``z[i]``, with mode edge ``i`` left open;
+``'apply'`` and ``'entries'`` have one number per sample.
 
-**Jets.** With ``order >= 1`` the inputs move along a line, ``w[i] + s p[i]``, and every variable is a
-polynomial in ``s``. A variable is then returned as its Taylor coefficients (the coefficient of ``s^t``, not the
-derivative, which is ``t!`` times it) for ``t = 0 .. order``, on a leading order axis ``T = (order + 1,)``; at
-``order = 0`` there is no such axis, ``T = ()``. The inputs and the leaves that are affine in ``s`` (``w``,
-``xi``, ``xi_dot``, ``xi_U_dot``) carry two coefficients, ``A = (2,)``, at every ``order >= 1``. The
-coefficients are found by evaluating the dense contraction at ``d + order + 1`` values of ``s``, the complex
-roots of unity, and taking the discrete Fourier transform of the values. That is exact for a polynomial of that
-degree, and it loses no digits as the order grows: against exact arithmetic the edge variables are right to
-about ``1e-14`` (relative, float64) at order 3 and at order 32 alike, and a coefficient that is zero in truth
-comes out at rounding level. The outputs and the blocks do not interpolate at all. The cost grows with the
-order, so the module is still for small problems.
+**Jets.** The jet shape ``order = (n_1, ..., n_m)`` is a tuple of maximum orders, one per jet variable ``s_1 ...
+s_m``; ``order = ()`` is no jets. The inputs are then **input jets**: ``ww[i]`` has ``m`` leading jet axes of
+sizes of its own, ``J_in_i``, and its slot at the multi-index ``k`` is the Taylor coefficient of
+``s_1^k_1 ... s_m^k_m`` of the input vector (zero beyond its sizes). The line ``w + s p`` is the input jet of two
+slots, ``np.stack([w, p])``; two directions make a jet in two variables; a curve has more slots. Every variable is
+then a polynomial in ``s``, returned as its Taylor coefficients (not derivatives) on the box ``F = (n_1 + 1, ...,
+n_m + 1)``, on ``m`` leading jet axes. **The declared jet sizes**: the input ``w[i]`` has its own, as given; the
+leaves ``xi[i]``, ``xi_dot[i]`` and ``xi_U_dot[i]`` have the input's, clipped to ``F`` (exact, of the input's
+degree); every other variable has ``F``. Input slots beyond the box never reach a variable and are not read.
+
+The coefficients are found by evaluating the dense contractions on a grid of complex roots of unity, ``M_j`` of
+them in ``s_j``, and taking the discrete Fourier transform of the values along each axis. With ``a_j`` the largest
+input size along axis ``j`` (clipped to ``n_j + 1``), every variable has degree at most ``d (a_j - 1) + n_j`` in
+``s_j`` (a product of ``d`` inputs and one seed), so ``M_j = d (a_j - 1) + n_j + 1`` is exact; for the apply kind
+with every input of ``a_j`` slots that degree is reached, and one node fewer would not do. It loses no digits as the
+order grows (the transform is unitary up to a scale), and a coefficient that is zero in truth comes out at rounding
+level. The outputs and the blocks do not interpolate at all. The cost grows with the grid, ``M_1 ... M_m``
+evaluations per variable, so the module is for small problems.
 
 **The seed, and the turn.** The data ``y`` and the residual ``r = z - y`` are of the type of ``z``, in forward
-order. The seed is the residual made into a dual jet: weighted, then with its order axis turned,
-``w_tilde[t] = weight[order - t]**2 * r[order - t]``. As a polynomial in ``s`` the seed is
-``sum_t w_tilde[t] s^t``, so the tilde and tilde-dot variables are stored turned too: paired with a jet, the
-number they stand for is the coefficient of ``s^order`` of the product. Pass ``y`` (and ``weight``) for the seed
+order. The seed is the residual made into a dual jet: weighted, then turned, a flip of every jet axis,
+``w_tilde[k] = weight[order - k]**2 * r[order - k]`` (``k`` a multi-index). As a polynomial in ``s`` the seed is
+``sum_k w_tilde[k] s^k``, so the tilde and tilde-dot variables are stored turned too: paired with a jet, the
+number they stand for is the coefficient of the corner ``s_1^n_1 ... s_m^n_m`` of the product. Pass ``y`` (and ``weight``) for the seed
 of the residual, or ``w_tilde`` for a seed of your own; ``w_tilde`` wins where both are given.
 
 **The arguments** are the same for every function:
@@ -86,18 +93,18 @@ of the residual, or ``w_tilde`` for a seed of your own; ``w_tilde`` wins where b
 - ``kind``: ``'probe'``, ``'apply'`` or ``'entries'``.
 - ``frame``: ``(D, U, L, R)``, each ``len=d``. A corewise point ``(B, G)`` is the frame ``(B, G, G, G)``; on it
   ``nu_L`` and ``nu`` are one array, and so are ``eta_D`` and ``eta``.
-- ``sample``: at ``order = 0`` the inputs: ``ww`` (``len=d``, ``elm_shape=W+(Ni,)``) or ``index`` (int,
-  ``shape=(d,)+W``). At ``order >= 1`` the pair ``(ww, pp)`` or ``(index, pp)``, ``pp`` with the shapes of
-  ``ww``. ``order`` decides which, never the type.
+- ``sample``: the input jets ``ww`` (``len=d``, ``elm_shape=J_in_i+W+(Ni,)``; with ``order = ()``, ``W+(Ni,)``),
+  or for ``'entries'`` the grid points ``index`` (int, ``shape=(d,)+W``). ``order`` says how many leading axes of
+  ``ww[i]`` are jet axes, never the shape of the array.
 - ``i``: the index of the variable: a bond ``0 .. d`` for ``mu`` and ``nu`` (in any basis and grade), a site
   ``0 .. d-1`` for ``xi``, ``eta``, ``w`` and the blocks, a mode ``0 .. d-1`` for ``z``, ``r``, ``Jp`` and
   ``w_tilde`` of the probe kind. ``None`` (the default) returns the whole variable: a tuple over the index, or,
   for a variable with no index, the array itself.
-- ``order``: the highest Taylor order.
+- ``order``: the jet shape, a tuple; ``()`` (the default) for no jets, and the only one ``'entries'`` takes.
 - ``variations``: ``(V, H)``, ``V[i]`` of shape ``(nUi, Ni)`` and ``H[i]`` of shape ``(rLi, nDi, rR(i+1))``.
 - ``core_directions``: ``(D_dot, L_dot)``, with the shapes of ``D`` and ``L``.
-- ``y``: the data, of the type of ``z``: probe ``len=d``, ``elm_shape=T+W+(Ni,)``; apply and entries ``T+W``.
-- ``weight``: probe ``(d,)+T``; apply and entries ``T``; ``None`` is ones.
+- ``y``: the data, of the type of ``z``: probe ``len=d``, ``elm_shape=F+W+(Ni,)``; apply ``F+W``; entries ``W``.
+- ``weight``: probe ``(d,)+F``; apply ``F``; entries ``()``; ``None`` is ones.
 - ``w_tilde``: a seed, of the type of ``z``, stored turned.
 
 A function reads only the arguments its variable depends on, and raises a ``ValueError`` if one of those is
@@ -106,8 +113,7 @@ missing.
 **What is not here.** The stacks ``K`` (of directions) and ``C`` (of base points): apply these functions element
 by element. The uniform layout: this module is for the ragged layout only, and a uniform ``.data`` must not be
 passed (that of a uniform Tucker tensor train also has four entries and would be read as four stores, with no
-error). Complex arrays (nothing checks for them: at ``order >= 1`` the imaginary part is dropped without an
-error). Problems with more than 16 sites. The sample stack ``W`` is supported, with any number of
+error). Complex arrays (nothing checks for them: with jets the imaginary part is dropped without an error). Problems with more than 16 sites. The sample stack ``W`` is supported, with any number of
 axes, and the blocks (``g``, ``JtJp``, ``Kp``, ``V_tilde``, ...) are summed over it.
 
 **How each is computed.** An edge variable (the four letters, in every basis and grade) is one dense ``einsum``
@@ -190,34 +196,63 @@ __all__ = [
 _KINDS = ('probe', 'apply', 'entries')
 
 
+def _read_jet_shape(
+        order:  typ.Any,            # the jet shape as given
+) -> typ.Tuple[int, ...]:           # the jet shape: a tuple of Python ints >= 0, one per jet variable
+    '''The jet shape: a tuple of maximum orders, ``()`` for no jets, ``(n,)`` for one variable. A tuple only, so an
+    integer or a list raises; each entry a nonnegative integer (a Python ``int`` or a numpy integer scalar, never a
+    ``bool``), returned as Python ints. The rule of the library; written here again, since this module shares no
+    code with the library but the dense functions.'''
+    if not isinstance(order, tuple):
+        raise TypeError('order is the jet shape, a tuple of maximum orders, one per jet variable (() for none, (n,) '
+                        'for one), got %r' % (order,))
+    for n in order:
+        if not isinstance(n, (int, np.integer)) or isinstance(n, bool):       # a numpy bool is not an np.integer
+            raise TypeError('every entry of the jet shape is an integer, got %r' % (order,))
+        if n < 0:
+            raise ValueError('every entry of the jet shape is >= 0, got %r' % (order,))
+    return tuple(int(n) for n in order)
+
+
 @dc.dataclass(frozen=True, eq=False)
 class _Setting:
-    '''What every definition reads, worked out once from the common arguments: the stores, and the inputs
-    evaluated at the interpolation nodes. ``M = (m,) + W`` below: the node axis, then the sample stack.'''
-    kind:     str                     # 'probe' | 'apply' | 'entries'
-    d:        int                     # the number of sites
-    order:    int                     # highest Taylor order
-    D:        typ.List[NDArray]       # len=d, elm_shape=(nDi,Ni)
-    U:        typ.List[NDArray]       # len=d, elm_shape=(rLi,nUi,rR(i+1))
-    L:        typ.List[NDArray]       # len=d, elm_shape=(rLi,nDi,rL(i+1))
-    R:        typ.List[NDArray]       # len=d, elm_shape=(rRi,nDi,rR(i+1))
-    ww:       typ.List[NDArray]       # len=d, elm_shape=W+(Ni,): the inputs at s = 0 (unit vectors for entries)
-    pp:       typ.Optional[typ.List[NDArray]]   # len=d, elm_shape=W+(Ni,), or None at order 0
-    nodes:    np.ndarray              # HOST complex128, shape=(m,): the values of s; real (0.,) at order 0
-    inputs:   typ.List[NDArray]       # len=d, elm_shape=M+(Ni,): ww + s pp at the nodes; complex if order
-    M:        typ.Tuple[int, ...]     # (m,) + W
+    '''What every definition reads, worked out once from the common arguments: the stores, and the inputs evaluated
+    on the grid of nodes. ``M = G + W`` below: the grid's axes ``G = (M_1, ..., M_m)``, then the sample stack.'''
+    kind:        str                       # 'probe' | 'apply' | 'entries'
+    d:           int                       # the number of sites
+    order:       typ.Tuple[int, ...]       # the jet shape (n_1, ..., n_m)
+    box:         typ.Tuple[int, ...]       # F = (n_1 + 1, ..., n_m + 1)
+    D:           typ.List[NDArray]         # len=d, elm_shape=(nDi,Ni)
+    U:           typ.List[NDArray]         # len=d, elm_shape=(rLi,nUi,rR(i+1))
+    L:           typ.List[NDArray]         # len=d, elm_shape=(rLi,nDi,rL(i+1))
+    R:           typ.List[NDArray]         # len=d, elm_shape=(rRi,nDi,rR(i+1))
+    ww:          typ.List[NDArray]         # len=d, elm_shape=J_in_i+W+(Ni,): the input jets as given (unit vectors
+                                           #   for entries)
+    leaf_sizes:  typ.List[typ.Tuple[int, ...]]     # len=d: the input jet sizes clipped to F, min(J_in_i, F)
+    nodes:       typ.Tuple[np.ndarray, ...]        # HOST complex128, len=m, elm_shape=(M_j,): the values of s_j
+    inputs:      typ.List[NDArray]         # len=d, elm_shape=M+(Ni,): the input jets on the grid; complex if m >= 1
+    M:           typ.Tuple[int, ...]       # G + W
 
 
 def _setting(
         kind:    str,           # 'probe' | 'apply' | 'entries'
         frame:   typ.Tuple,     # (D, U, L, R)
-        sample:  typ.Any,       # ww | index if order == 0, else (ww, pp) | (index, pp)
-        order:   int,
+        sample:  typ.Any,       # ww (the input jets, len=d, elm_shape=J_in_i+W+(Ni,)) | index (entries)
+        order:   typ.Any,       # the jet shape
 ) -> _Setting:
-    '''Read the common arguments. Raises only on what cannot be run: an unknown kind, a frame that is not four
-    stores, more sites than the einsum letters allow.'''
+    '''Read the common arguments. Raises only on what cannot be run: a jet shape that is not one, an unknown kind,
+    an entries call with jets, a frame that is not four stores, more sites than the einsum letters allow.
+
+    The grid. Along jet variable ``j`` the inputs, clipped to the box ``F``, have at most ``a_j`` slots, so every
+    edge variable, a product of at most ``d`` inputs and at most one seed of ``n_j + 1`` slots, has degree at most
+    ``d (a_j - 1) + n_j`` in ``s_j``. ``M_j = d (a_j - 1) + n_j + 1`` roots of unity along that axis are then enough
+    for the discrete Fourier transform to give its coefficients exactly (see `_taylor`).'''
+    order = _read_jet_shape(order)
     if kind not in _KINDS:
         raise ValueError("unknown kind %r: expected 'probe', 'apply' or 'entries'" % (kind,))
+    if kind == 'entries' and order != ():
+        raise ValueError("the entries kind has no jets: its order is (), got %r. Along a curve that leaves the "
+                         "grid point, use 'apply' at an input jet whose slot 0 is the one-hot vectors" % (order,))
     if len(frame) != 4:
         raise ValueError('a frame is the four stores (D, U, L, R); got %d. A corewise point (B, G) is the frame '
                          '(B, G, G, G)' % len(frame))
@@ -227,61 +262,73 @@ def _setting(
         raise ValueError('the definitions are for small problems: at most %d sites, got %d' % (len(_BOND) - 1, d))
     xnp, _, _ = get_backend(False, tree_contains_jax((frame, sample)))
 
-    first, pp = (sample, None) if order == 0 else sample
+    m, box = len(order), tuple(n + 1 for n in order)
     if kind == 'entries':
-        index = xnp.asarray(first)
+        index = xnp.asarray(sample)
         ww = [xnp.eye(D[i].shape[1], dtype=D[i].dtype)[index[i]] for i in range(d)]     # the unit vectors e_index
     else:
-        ww = list(first)
-    pp = None if pp is None else list(pp)
-
-    if order == 0:
-        nodes = np.zeros(1)
-        inputs = [w_WN[None] for w_WN in ww]
-    else:
-        m = d + order + 1                                           # every variable has degree at most d + order
-        nodes = np.exp(2j * np.pi * np.arange(m) / m)               # the m-th roots of unity: see _taylor
-        inputs = [w_WN[None] + _along(_complex(nodes, w_WN), w_WN.ndim) * p_WN[None] for w_WN, p_WN in zip(ww, pp)]
-    return _Setting(kind, d, order, D, U, L, R, ww, pp, nodes, inputs, tuple(inputs[0].shape[:-1]))
+        ww = list(sample)
+    clipped = [w[tuple(slice(0, f) for f in box)] for w in ww]                         # slots beyond F reach nothing
+    leaf_sizes = [tuple(w.shape[:m]) for w in clipped]
+    largest = [max(sizes[j] for sizes in leaf_sizes) for j in range(m)]
+    nodes = tuple(np.exp(2j * np.pi * np.arange(M_j) / M_j)
+                  for M_j in (d * (a - 1) + n + 1 for a, n in zip(largest, order)))
+    inputs = [_on_grid(nodes, w) for w in clipped]
+    return _Setting(kind, d, order, box, D, U, L, R, ww, leaf_sizes, nodes, inputs, tuple(inputs[0].shape[:-1]))
 
 
 def _complex(
         values:  np.ndarray,    # HOST complex128
         like:    NDArray,       # a real array of the computation
 ) -> NDArray:                   # the values in the array module of `like`, complex in its precision
-    '''Host constants (the nodes, their powers) as a complex array beside ``like``: complex64 for float32,
+    '''Host constants (the powers of the nodes) as a complex array beside ``like``: complex64 for float32,
     complex128 for float64, numpy or jax as ``like`` is.'''
     xnp, _, _ = get_backend(False, tree_contains_jax((like,)))
     return xnp.asarray(values, dtype=xnp.result_type(like.dtype, np.complex64))
 
 
-def _along(
-        values_m:  NDArray,     # shape=(m,)
-        ndim:      int,         # the number of axes to add behind
-) -> NDArray:                   # shape=(m,)+(1,)*ndim
-    '''A vector as a leading axis that broadcasts over ``ndim`` more.'''
-    return values_m.reshape(values_m.shape + (1,) * ndim)
+def _on_grid(
+        nodes:  typ.Tuple[np.ndarray, ...],     # HOST complex128, len=m, elm_shape=(M_j,)
+        jet:    NDArray,                        # shape=J+X: a polynomial in s_1 .. s_m, its m leading axes the slots
+) -> NDArray:                                   # shape=G+X: its values on the grid, G = (M_1, ..., M_m)
+    '''A jet evaluated on the grid of nodes: the sum over its slots ``k`` of ``jet[k] s_1^k_1 ... s_m^k_m``. With no
+    jet variable, the jet itself.'''
+    m = len(nodes)
+    if m == 0:
+        return jet
+    grid = tuple(len(s_j) for s_j in nodes)
+    rest = jet.ndim - m
+    value = None
+    for k in np.ndindex(*jet.shape[:m]):
+        powers = np.ones(grid, dtype=complex)                   # s_1^k_1 ... s_m^k_m on the grid, on the host
+        for j, (s_j, k_j) in enumerate(zip(nodes, k)):
+            powers = powers * (s_j ** k_j).reshape((1,) * j + (len(s_j),) + (1,) * (m - j - 1))
+        term = _complex(powers, jet).reshape(grid + (1,) * rest) * jet[k]
+        value = term if value is None else value + term
+    return value
 
 
 def _taylor(
         S:          _Setting,
-        values_MX:  NDArray,            # shape=M+X: a polynomial in s evaluated at the nodes
-        affine:     bool = False,       # keep two coefficients, the group A, in place of T
-) -> NDArray:                           # shape=T+W+X (A+W+X if affine): the Taylor coefficients, by interpolation
-    '''The Taylor coefficients ``0 .. order`` of a polynomial in ``s`` from its values at the nodes.
+        values_MX:  NDArray,                                    # shape=M+X: a polynomial in s on the grid
+        sizes:      typ.Optional[typ.Tuple[int, ...]] = None,   # the jet sizes kept; None: the box F
+) -> NDArray:                                                   # shape=sizes+W+X: the Taylor coefficients
+    '''The Taylor coefficients of a polynomial in ``s_1 ... s_m`` from its values on the grid, on the box ``sizes``.
 
-    The nodes are the ``m``-th roots of unity, ``s_k = exp(2 pi i k / m)``. There a polynomial of degree below
-    ``m`` has the values ``f(s_k) = sum_t c_t exp(2 pi i k t / m)``, so its coefficients are the averages
-    ``c_t = mean_k f(s_k) exp(-2 pi i k t / m)``: the discrete Fourier transform of the values, divided by
-    ``m``. That is exact for such a polynomial, and it loses no digits at any order (the transform is unitary up
-    to a scale, where real nodes give a Vandermonde system that loses digits as the order grows). The cores and
-    the inputs are real, so the coefficients are, and the imaginary part, which is rounding, is dropped. At
-    order 0 there is one node, ``s = 0``, and nothing to transform.'''
-    if S.order == 0:
-        return values_MX[0]
+    Along axis ``j`` the nodes are the ``M_j``-th roots of unity, ``s_k = exp(2 pi i k / M_j)``. There a polynomial of
+    degree below ``M_j`` has the values ``f(s_k) = sum_t c_t exp(2 pi i k t / M_j)``, so its coefficients are the
+    averages ``c_t = mean_k f(s_k) exp(-2 pi i k t / M_j)``: the discrete Fourier transform of the values, divided
+    by ``M_j``, along each axis in turn. That is exact for such a polynomial, and it loses no digits at any order
+    (the transform is unitary up to a scale, where real nodes give a Vandermonde system that loses digits as the
+    order grows). The cores and the inputs are real, so the coefficients are, and the imaginary part, which is
+    rounding, is dropped. With no jet variable there is no grid, and nothing to transform.'''
+    m = len(S.order)
+    if m == 0:
+        return values_MX
     xnp, _, _ = get_backend(False, tree_contains_jax((values_MX,)))
-    n_slots = 2 if affine else S.order + 1
-    return xnp.fft.fft(values_MX, axis=0)[:n_slots].real / len(S.nodes)
+    sizes = S.box if sizes is None else sizes
+    coefficients = xnp.fft.fftn(values_MX, axes=tuple(range(m))) / math.prod(len(s_j) for s_j in S.nodes)
+    return coefficients[tuple(slice(0, size) for size in sizes)].real
 
 
 def _each(
@@ -569,26 +616,19 @@ def _sum(
 def _dense_sample(
         S:       _Setting,
         tensor:  NDArray,       # shape=X+(N0,...,N(d-1))
-) -> typ.Any:                   # of the type of z, with X after W: probe len=d, elm_shape=T+W+X+(Ni,); else T+W+X
+) -> typ.Any:                   # of the type of z, with X after W: probe len=d, elm_shape=F+W+X+(Ni,); else F+W+X
     '''The kind's sampling of a dense tensor, through the library's dense function for the kind. For entries the
-    inputs are already unit vectors, so it is the dense apply at them. Above order 0 the inputs are the input jets
-    of the line ``w + s p``, two slots each, built here (the module imports nothing of the library but the dense
-    functions).'''
-    if S.order == 0:
-        inputs, jet_shape = S.ww, ()
-    else:
-        xnp, _, _ = get_backend(False, tree_contains_jax((S.ww, S.pp)))
-        inputs, jet_shape = [xnp.stack([w, p]) for w, p in zip(S.ww, S.pp)], (S.order,)
+    inputs are already unit vectors (with no jets), so it is the dense apply at them. The dense functions take the
+    input jets as given and read none of their slots beyond the box.'''
     if S.kind == 'probe':
-        return probing.dense_probe(tensor, inputs, jet_shape)
-    return apply.dense_apply(tensor, inputs, jet_shape)
+        return probing.dense_probe(tensor, S.ww, S.order)
+    return apply.dense_apply(tensor, S.ww, S.order)
 
 
 def _z(S: _Setting, sample: typ.Any) -> typ.Any:
-    '''``z``: the dense tensor of the base point ``(D, L)``, sampled. For entries at order 0 through
-    ``dense_entries``; above it, the apply at the unit vectors moved along ``pp`` (entries has no jets).'''
+    '''``z``: the dense tensor of the base point ``(D, L)``, sampled. For entries through ``dense_entries``.'''
     tensor = _tensor(S.L, S.D)
-    if S.kind == 'entries' and S.order == 0:
+    if S.kind == 'entries':                         # no jets: indexing
         return entries.dense_entries(tensor, sample)
     return _dense_sample(S, tensor)
 
@@ -614,7 +654,7 @@ def _map_type_of_z(S: _Setting, function: typ.Callable, *values: typ.Any) -> typ
 
 def _weight_squared(
         S:       _Setting,
-        weight:  typ.Optional[NDArray],     # probe (d,)+T; apply, entries T; None = ones
+        weight:  typ.Optional[NDArray],     # probe (d,)+F; apply F; entries (); None = ones
         i:       typ.Optional[int],         # the mode (probe), None otherwise
         ndim:    int,                       # the number of axes of the jet it will multiply
 ) -> typ.Any:                               # shape=T+(1,)*(ndim-len(T)), or the number 1.0
@@ -627,15 +667,16 @@ def _weight_squared(
 
 
 def _turn(S: _Setting, jet_TX: NDArray) -> NDArray:
-    '''Turn the order axis: slot ``t`` and slot ``order - t`` change places. Nothing at order 0.'''
-    return jet_TX if S.order == 0 else jet_TX[::-1]
+    '''Turn the jets: a flip of every jet axis, so slot ``k`` and slot ``order - k`` change places. Nothing with no
+    jets.'''
+    return jet_TX[(slice(None, None, -1),) * len(S.order)]
 
 
 def _dual_jet(
         S:       _Setting,
         jet:     typ.Any,                       # of the type of z
-        weight:  typ.Optional[NDArray],         # probe (d,)+T; apply, entries T; None = ones
-) -> typ.Any:                                   # of the type of z: weight**2 * jet, then the order axis turned
+        weight:  typ.Optional[NDArray],         # probe (d,)+F; apply F; entries (); None = ones
+) -> typ.Any:                                   # of the type of z: weight**2 * jet, then every jet axis flipped
     '''The seed made from a jet: the weights, then the turn.'''
     return _map_type_of_z(S, lambda i, jet_TX: _turn(S, _weight_squared(S, weight, i, jet_TX.ndim) * jet_TX), jet)
 
@@ -658,24 +699,21 @@ def _the_seed(
 
 def _at_nodes(
         S:     _Setting,
-        seed:  typ.Any,         # of the type of z, stored turned: probe len=d, elm_shape=T+W+(Ni,); else T+W
+        seed:  typ.Any,         # of the type of z, stored turned: probe len=d, elm_shape=F+W+(Ni,); else F+W
 ) -> typ.Any:                   # the seed as a polynomial in s, at the nodes: probe len=d, elm_shape=M+(Ni,); else M
-    '''``sum_t seed[t] s^t`` at every node. This is where "stored turned" is used: slot ``t`` of the stored seed is
-    the coefficient of ``s^t``.'''
+    '''``sum_k seed[k] s^k`` on the grid. This is where "stored turned" is used: slot ``k`` of the stored seed is the
+    coefficient of ``s_1^k_1 ... s_m^k_m``.'''
     def at_nodes(i, seed_TX):
         xnp, _, _ = get_backend(False, tree_contains_jax((seed_TX,)))
         seed_TX = xnp.asarray(seed_TX)
-        if S.order == 0:
-            return seed_TX[None]
-        powers_mt = _complex(np.vander(S.nodes, S.order + 1, increasing=True), seed_TX)     # s_k^t
-        return xnp.tensordot(powers_mt, seed_TX, axes=1)
+        return _on_grid(S.nodes, seed_TX)
     return _map_type_of_z(S, at_nodes, seed)
 
 
 def _pair(
         S:     _Setting,
-        seed:  typ.Any,         # of the type of z, stored turned: probe len=d, elm_shape=T+W+(Ni,); else T+W
-        jet:   typ.Any,         # of the type of z, with a stack X after W: T+W+X+(Ni,); else T+W+X
+        seed:  typ.Any,         # of the type of z, stored turned: probe len=d, elm_shape=F+W+(Ni,); else F+W
+        jet:   typ.Any,         # of the type of z, with a stack X after W: F+W+X+(Ni,); else F+W+X
 ) -> NDArray:                   # shape=X
     '''The number a seed and a jet stand for together: the coefficient of ``s^order`` of their product, summed
     over the samples (and, for probe, over the modes and the mode edge). The same as the plain sum, slot by slot,
@@ -795,7 +833,7 @@ def _Kp(S: _Setting, seed: typ.Any, core_directions: typ.Tuple) -> typ.Tuple:
     '''``Kp``, by the route the arrays say, as everything in the library is dispatched: automatic differentiation
     where an array it reads is a jax array, finite differences where all are numpy (so a numpy result does not
     depend on whether jax is installed). The two agree to rounding.'''
-    if tree_contains_jax((S.D, S.L, S.ww, S.pp, seed, core_directions)):
+    if tree_contains_jax((S.D, S.L, S.ww, seed, core_directions)):
         return _Kp_by_jax(S, seed, core_directions)
     return _Kp_by_finite_differences(S, seed, core_directions)
 
@@ -808,31 +846,31 @@ def _Kp(S: _Setting, seed: typ.Any, core_directions: typ.Tuple) -> typ.Tuple:
 def w(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # w[i]. shape=A+W+(Ni,)
+) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # w[i]. shape=min(J_in_i,F)+W+(Ni,)
     """``w[i]``: the input of site ``i``, as a jet.
 
-    At ``order = 0`` it is the input vector itself: ``ww[i]``, or for ``'entries'`` the unit vector ``e_index[i]``.
-    At ``order >= 1`` the input moves along the line ``ww[i] + s pp[i]``, which is affine in ``s``, so its jet has
-    two coefficients whatever the order: ``w[i][0] = ww[i]`` and ``w[i][1] = pp[i]``. That is the group
-    ``A = (2,) if order else ()``.
+    With no jets it is the input vector itself: ``ww[i]``, or for ``'entries'`` the unit vector ``e_index[i]``.
+    With a jet shape it is the input jet ``ww[i]`` as it is given, of its own jet sizes ``J_in_i`` (slots beyond the
+    box ``F`` are kept here, though no other variable reads them). For the line ``w + s p`` it has two slots,
+    ``w[i][0] = ww[i]`` and ``w[i][1] = pp[i]``, whatever the order.
 
     Returns
     -------
     NDArray, or a tuple of d of them if ``i`` is None
-        ``w[i]``. shape=A+W+(Ni,)
+        ``w[i]``. shape=J_in_i+W+(Ni,)
 
     Examples
     --------
-    The input as a jet: the vector and the direction it moves in, two coefficients at any order:
+    The input as a jet: the input jet of the line ``ww + s pp``, two slots at any order:
 
     >>> import numpy as np
     >>> import t3toolbox.backend.sampling_definitions as sdef
@@ -845,8 +883,9 @@ def w(
     >>> frame = (D, U, L, R)
     >>> ww = [rng.standard_normal((7, n)) for n in N]                      # W=(7,)
     >>> pp = [rng.standard_normal((7, n)) for n in N]                      # the direction the inputs move in
-    >>> w1 = sdef.w('probe', frame, (ww, pp), 1, order=3)
-    >>> print(w1.shape)                                                    # A + W + (N1,) = (2,) + (7,) + (5,)
+    >>> line = [np.stack([w, p]) for w, p in zip(ww, pp)]                  # the input jets: J_in = (2,)
+    >>> w1 = sdef.w('probe', frame, line, 1, order=(3,))
+    >>> print(w1.shape)                                                    # J_in + W + (N1,) = (2,) + (7,) + (5,)
     (2, 7, 5)
     >>> print(bool(np.all(w1[0] == ww[1])), bool(np.all(w1[1] == pp[1])))
     True True
@@ -869,45 +908,41 @@ def w(
     (3, 4) [0.0, 0.0, 0.0, 1.0]
     """
     S = _setting(kind, frame, sample, order)
-    xnp, _, _ = get_backend(False, tree_contains_jax((S.ww, S.pp)))
-
-    def w_at(i):
-        return S.ww[i] if order == 0 else xnp.stack([S.ww[i], S.pp[i]])
-    return _each(i, range(S.d), w_at, 'w')
+    return _each(i, range(S.d), lambda i: S.ww[i], 'w')
 
 
 def w_tilde(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the mode, 0 .. d-1 (probe only); None = all of it
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> typ.Any:                                                # w_tilde[i]. probe T+W+(Ni,); apply, entries T+W
+) -> typ.Any:                                                # w_tilde[i]. probe F+W+(Ni,); apply F+W; entries W
     """``w_tilde``: the seed, of the type of ``z``, stored turned.
 
     The seed is what the adjoint (tilde) variables are built on. With ``y`` given it is the residual ``r = z - y``
-    made into a dual jet: weighted, then with the order axis turned,
+    made into a dual jet: weighted, then turned, a flip of every jet axis (``k`` a multi-index of the box ``F``),
 
-        ``w_tilde[i][t] = weight[i, order - t]**2 * r[i][order - t]``        (probe; no mode index for the others).
+        ``w_tilde[i][k] = weight[i, order - k]**2 * r[i][order - k]``        (probe; no mode index for the others).
 
-    The turn is what makes its pairing with a jet the coefficient of ``s^order`` of their product:
-    ``sum_t w_tilde[order - t] * a[t] = sum_t weight[t]**2 * r[t] * a[t]``, the weighted inner product with the
-    residual. At ``order = 0`` there is nothing to turn. With ``w_tilde`` given, that seed is returned as it is.
+    The turn is what makes its pairing with a jet the coefficient of the corner ``s_1^n_1 ... s_m^n_m`` of their
+    product: ``sum_k w_tilde[order - k] * a[k] = sum_k weight[k]**2 * r[k] * a[k]``, the weighted inner product with
+    the residual. With no jets there is nothing to turn. With ``w_tilde`` given, that seed is returned as it is.
 
     Returns
     -------
     NDArray, or for probe with ``i`` None a tuple of d of them
-        The seed. probe: ``w_tilde[i]``, shape=T+W+(Ni,); apply and entries: shape=T+W
+        The seed. probe: ``w_tilde[i]``, shape=F+W+(Ni,); apply: shape=F+W; entries: shape=W
 
     Examples
     --------
-    The seed of the residual: the weights, then the turn of the order axis:
+    The seed of the residual: the weights, then the turn (here one jet variable, the line ``ww + s pp``):
 
     >>> import numpy as np
     >>> import t3toolbox.backend.sampling_definitions as sdef
@@ -920,19 +955,20 @@ def w_tilde(
     >>> frame = (D, U, L, R)
     >>> ww = [rng.standard_normal((7, n)) for n in N]                      # W=(7,)
     >>> pp = [rng.standard_normal((7, n)) for n in N]                      # the direction the inputs move in
-    >>> y = [rng.standard_normal((3, 7, n)) for n in N]                    # the data: T + W + (Ni,), order 2
-    >>> weight = 0.5 + rng.random((3, 3))                                  # (d,) + T
-    >>> args = dict(order=2, y=y, weight=weight)
-    >>> r1 = sdef.r('probe', frame, (ww, pp), 1, **args)
-    >>> w_tilde1 = sdef.w_tilde('probe', frame, (ww, pp), 1, **args)
-    >>> print(w_tilde1.shape)                                              # T + W + (N1,)
+    >>> line = [np.stack([w, p]) for w, p in zip(ww, pp)]                  # the input jets: J_in = (2,)
+    >>> y = [rng.standard_normal((3, 7, n)) for n in N]                    # the data: F + W + (Ni,), order (2,)
+    >>> weight = 0.5 + rng.random((3, 3))                                  # (d,) + F
+    >>> args = dict(order=(2,), y=y, weight=weight)
+    >>> r1 = sdef.r('probe', frame, line, 1, **args)
+    >>> w_tilde1 = sdef.w_tilde('probe', frame, line, 1, **args)
+    >>> print(w_tilde1.shape)                                              # F + W + (N1,)
     (3, 7, 5)
     >>> print(bool(np.allclose(w_tilde1[0], weight[1, 2] ** 2 * r1[2])))   # slot 0 holds order 2: turned
     True
     >>> print(bool(np.allclose(w_tilde1[2], weight[1, 0] ** 2 * r1[0])))
     True
 
-    For ``'apply'`` the seed is one number per sample (here at order 0, with no weight: the residual):
+    For ``'apply'`` the seed is one number per sample (here with no jets and no weight: the residual):
 
     >>> import numpy as np
     >>> import t3toolbox.backend.sampling_definitions as sdef
@@ -960,25 +996,25 @@ def w_tilde(
 def xi(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # xi[i]. shape=A+W+(nDi,)
+) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # xi[i]. shape=min(J_in_i,F)+W+(nDi,)
     """``xi[i]``: the leaf below Tucker edge ``i``, in the ``D`` basis: ``D[i]`` applied to the input ``w[i]``.
 
-    Recurrence: ``xi[i] = xi_term(D[i], w[i])``, the contraction ``'io,Wo->Wi'``. It is affine in ``s``, so at
-    ``order >= 1`` it has two coefficients (the group ``A``).
+    Recurrence: ``xi[i] = xi_term(D[i], w[i])``, the contraction ``'io,Wo->Wi'``. It is a polynomial of the input's
+    degree, so with jets it has the input's jet sizes, clipped to the box ``F`` (two slots each for a line).
 
     Returns
     -------
     NDArray, or a tuple of d of them if ``i`` is None
-        ``xi[i]``. shape=A+W+(nDi,)
+        ``xi[i]``. shape=min(J_in_i,F)+W+(nDi,)
 
     Examples
     --------
@@ -999,22 +1035,22 @@ def xi(
     True
     """
     S = _setting(kind, frame, sample, order)
-    return _each(i, range(S.d), lambda i: _taylor(S, _leaf(S.D[i], S.inputs[i]), affine=True), 'xi')
+    return _each(i, range(S.d), lambda i: _taylor(S, _leaf(S.D[i], S.inputs[i]), S.leaf_sizes[i]), 'xi')
 
 
 def mu(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the bond, 0 .. d; None = every bond
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # mu[i]. shape=T+W+(rLi,)
+) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # mu[i]. shape=F+W+(rLi,)
     """``mu[i]``: the left of bond ``i``, in the ``L`` basis: the ``L`` cores of sites ``0 .. i-1``, each over its
     ``D`` core and its input, from the ones at bond 0.
 
@@ -1024,7 +1060,7 @@ def mu(
     Returns
     -------
     NDArray, or a tuple of d+1 of them if ``i`` is None
-        ``mu[i]``. shape=T+W+(rLi,)
+        ``mu[i]``. shape=F+W+(rLi,)
 
     Examples
     --------
@@ -1062,13 +1098,25 @@ def mu(
     >>> frame = (D, U, L, R)
     >>> ww = [rng.standard_normal((7, n)) for n in N]                      # W=(7,)
     >>> pp = [rng.standard_normal((7, n)) for n in N]                      # the direction the inputs move in
-    >>> mu2 = sdef.mu('probe', frame, (ww, pp), 2, order=3)
-    >>> print(mu2.shape)                                                   # T + W + (rL2,) = (4,) + (7,) + (3,)
+    >>> line = [np.stack([w, p]) for w, p in zip(ww, pp)]                  # the input jets of ww + s pp
+    >>> mu2 = sdef.mu('probe', frame, line, 2, order=(3,))
+    >>> print(mu2.shape)                                                   # F + W + (rL2,) = (4,) + (7,) + (3,)
     (4, 7, 3)
     >>> print(bool(np.allclose(mu2[0], sdef.mu('probe', frame, ww, 2))))
     True
     >>> print(bool(np.allclose(mu2[3], 0)))                                # two sites to the left: degree 2 in s
     True
+
+    In two jet variables, along ``ww + s_1 pp + s_2 qq`` (input jets of sizes ``(2, 2)``, slot ``(1, 1)`` zero), at
+    the jet shape ``(1, 2)``: two jet axes, and the slots of total degree above 2 are zero:
+
+    >>> qq = [rng.standard_normal((7, n)) for n in N]
+    >>> plane = [np.stack([np.stack([w, q]), np.stack([p, 0 * p])]) for w, p, q in zip(ww, pp, qq)]
+    >>> mu2 = sdef.mu('probe', frame, plane, 2, order=(1, 2))
+    >>> print(mu2.shape)                                                   # F + W + (rL2,) = (2, 3) + (7,) + (3,)
+    (2, 3, 7, 3)
+    >>> print(bool(np.allclose(mu2[0, 0], sdef.mu('probe', frame, ww, 2))), bool(np.allclose(mu2[1, 2], 0)))
+    True True
     """
     S = _setting(kind, frame, sample, order)
     return _each(i, range(S.d + 1), lambda i: _taylor(S, _left_side(S.L, S.D, S.inputs, i)), 'mu')
@@ -1077,16 +1125,16 @@ def mu(
 def nu(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the bond, 0 .. d; None = every bond
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # nu[i]. shape=T+W+(rRi,)
+) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # nu[i]. shape=F+W+(rRi,)
     """``nu[i]``: the right of bond ``i``, in the ``R`` basis: the ``R`` cores of sites ``i .. d-1``, each over its
     ``D`` core and its input, up to the ones at bond ``d``.
 
@@ -1096,7 +1144,7 @@ def nu(
     Returns
     -------
     NDArray, or a tuple of d+1 of them if ``i`` is None
-        ``nu[i]``. shape=T+W+(rRi,)
+        ``nu[i]``. shape=F+W+(rRi,)
 
     Examples
     --------
@@ -1124,16 +1172,16 @@ def nu(
 def eta(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # eta[i]. shape=T+W+(nUi,)
+) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # eta[i]. shape=F+W+(nUi,)
     """``eta[i]``: the trunk above Tucker edge ``i``, in the ``U`` basis: ``U[i]`` with ``L`` cores to its left and
     ``R`` cores to its right, every site but ``i`` over its ``D`` core and its input.
 
@@ -1142,7 +1190,7 @@ def eta(
     Returns
     -------
     NDArray, or a tuple of d of them if ``i`` is None
-        ``eta[i]``. shape=T+W+(nUi,)
+        ``eta[i]``. shape=F+W+(nUi,)
 
     Examples
     --------
@@ -1173,16 +1221,16 @@ def eta(
 def nu_L(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the bond, 0 .. d; None = every bond
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # nu_L[i]. shape=T+W+(rLi,)
+) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # nu_L[i]. shape=F+W+(rLi,)
     """``nu_L[i]``: the right of bond ``i``, in the ``L`` basis: as ``nu[i]`` with ``L`` cores in place of ``R`` cores.
     It is the right side at the base point ``(D, L)``.
 
@@ -1191,7 +1239,7 @@ def nu_L(
     Returns
     -------
     NDArray, or a tuple of d+1 of them if ``i`` is None
-        ``nu_L[i]``. shape=T+W+(rLi,)
+        ``nu_L[i]``. shape=F+W+(rLi,)
 
     Examples
     --------
@@ -1219,16 +1267,16 @@ def nu_L(
 def eta_D(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # eta_D[i]. shape=T+W+(nDi,)
+) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # eta_D[i]. shape=F+W+(nDi,)
     """``eta_D[i]``: the trunk above Tucker edge ``i``, in the ``D`` basis: as ``eta[i]`` with ``L[i]`` in place of
     ``U[i]`` and ``L`` cores to the right, so every TT core is an ``L`` core. It is the trunk at the base point
     ``(D, L)``, and the value is read off it: ``z[i] = z_term(eta_D[i], D[i])``.
@@ -1238,7 +1286,7 @@ def eta_D(
     Returns
     -------
     NDArray, or a tuple of d of them if ``i`` is None
-        ``eta_D[i]``. shape=T+W+(nDi,)
+        ``eta_D[i]``. shape=F+W+(nDi,)
 
     Examples
     --------
@@ -1273,25 +1321,25 @@ def eta_D(
 def xi_U_dot(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # xi_U_dot[i]. shape=A+W+(nUi,)
+) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # xi_U_dot[i]. shape=min(J_in_i,F)+W+(nUi,)
     """``xi_U_dot[i]``: the leaf below Tucker edge ``i`` with the direction in it, in the ``U`` basis: ``V[i]`` applied
     to the input ``w[i]``. Needs ``variations``.
 
-    Recurrence: ``xi_U_dot[i] = xi_term(V[i], w[i])``. Affine in ``s`` (the group ``A``).
+    Recurrence: ``xi_U_dot[i] = xi_term(V[i], w[i])``. With jets, the input's jet sizes clipped to ``F``, as ``xi``.
 
     Returns
     -------
     NDArray, or a tuple of d of them if ``i`` is None
-        ``xi_U_dot[i]``. shape=A+W+(nUi,)
+        ``xi_U_dot[i]``. shape=min(J_in_i,F)+W+(nUi,)
 
     Examples
     --------
@@ -1315,22 +1363,22 @@ def xi_U_dot(
     """
     S = _setting(kind, frame, sample, order)
     V, H = _need(variations, 'xi_U_dot', 'variations (V, H)')
-    return _each(i, range(S.d), lambda i: _taylor(S, _leaf(V[i], S.inputs[i]), affine=True), 'xi_U_dot')
+    return _each(i, range(S.d), lambda i: _taylor(S, _leaf(V[i], S.inputs[i]), S.leaf_sizes[i]), 'xi_U_dot')
 
 
 def mu_R_dot(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the bond, 0 .. d; None = every bond
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # mu_R_dot[i]. shape=T+W+(rRi,)
+) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # mu_R_dot[i]. shape=F+W+(rRi,)
     """``mu_R_dot[i]``: the left of bond ``i`` with the direction at one of the sites ``0 .. i-1``, summed over the
     sites, in the ``R`` basis. Needs ``variations``.
 
@@ -1343,7 +1391,7 @@ def mu_R_dot(
     Returns
     -------
     NDArray, or a tuple of d+1 of them if ``i`` is None
-        ``mu_R_dot[i]``. shape=T+W+(rRi,)
+        ``mu_R_dot[i]``. shape=F+W+(rRi,)
 
     Examples
     --------
@@ -1382,16 +1430,16 @@ def mu_R_dot(
 def nu_L_dot(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the bond, 0 .. d; None = every bond
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # nu_L_dot[i]. shape=T+W+(rLi,)
+) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # nu_L_dot[i]. shape=F+W+(rLi,)
     """``nu_L_dot[i]``: the right of bond ``i`` with the direction at one of the sites ``i .. d-1``, summed over the
     sites, in the ``L`` basis. Needs ``variations`` or ``core_directions``.
 
@@ -1409,7 +1457,7 @@ def nu_L_dot(
     Returns
     -------
     NDArray, or a tuple of d+1 of them if ``i`` is None
-        ``nu_L_dot[i]``. shape=T+W+(rLi,)
+        ``nu_L_dot[i]``. shape=F+W+(rLi,)
 
     Examples
     --------
@@ -1488,16 +1536,16 @@ def nu_L_dot(
 def eta_D_dot(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # eta_D_dot[i]. shape=T+W+(nDi,)
+) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # eta_D_dot[i]. shape=F+W+(nDi,)
     """``eta_D_dot[i]``: the trunk above Tucker edge ``i`` with the direction at one site, summed over the sites, in
     the ``D`` basis. Needs ``variations`` or ``core_directions``.
 
@@ -1514,7 +1562,7 @@ def eta_D_dot(
     Returns
     -------
     NDArray, or a tuple of d of them if ``i`` is None
-        ``eta_D_dot[i]``. shape=T+W+(nDi,)
+        ``eta_D_dot[i]``. shape=F+W+(nDi,)
 
     Examples
     --------
@@ -1563,25 +1611,25 @@ def eta_D_dot(
 def xi_dot(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # xi_dot[i]. shape=A+W+(nDi,)
+) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # xi_dot[i]. shape=min(J_in_i,F)+W+(nDi,)
     """``xi_dot[i]``: the leaf below Tucker edge ``i`` with the raw direction in it, in the ``D`` basis: ``D_dot[i]``
     applied to the input ``w[i]``. Needs ``core_directions``.
 
-    Recurrence: ``xi_dot[i] = xi_term(D_dot[i], w[i])``. Affine in ``s`` (the group ``A``).
+    Recurrence: ``xi_dot[i] = xi_term(D_dot[i], w[i])``. With jets, the input's jet sizes clipped to ``F``, as ``xi``.
 
     Returns
     -------
     NDArray, or a tuple of d of them if ``i`` is None
-        ``xi_dot[i]``. shape=A+W+(nDi,)
+        ``xi_dot[i]``. shape=min(J_in_i,F)+W+(nDi,)
 
     Examples
     --------
@@ -1605,22 +1653,22 @@ def xi_dot(
     """
     S = _setting(kind, frame, sample, order)
     D_dot, L_dot = _need(core_directions, 'xi_dot', 'core_directions (D_dot, L_dot)')
-    return _each(i, range(S.d), lambda i: _taylor(S, _leaf(D_dot[i], S.inputs[i]), affine=True), 'xi_dot')
+    return _each(i, range(S.d), lambda i: _taylor(S, _leaf(D_dot[i], S.inputs[i]), S.leaf_sizes[i]), 'xi_dot')
 
 
 def mu_dot(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the bond, 0 .. d; None = every bond
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # mu_dot[i]. shape=T+W+(rLi,)
+) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # mu_dot[i]. shape=F+W+(rLi,)
     """``mu_dot[i]``: the left of bond ``i`` with the raw direction at one of the sites ``0 .. i-1``, summed over the
     sites, in the ``L`` basis. Needs ``core_directions``.
 
@@ -1633,7 +1681,7 @@ def mu_dot(
     Returns
     -------
     NDArray, or a tuple of d+1 of them if ``i`` is None
-        ``mu_dot[i]``. shape=T+W+(rLi,)
+        ``mu_dot[i]``. shape=F+W+(rLi,)
 
     Examples
     --------
@@ -1684,31 +1732,32 @@ def mu_dot(
 def xi_tilde(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # xi_tilde[i]. shape=T+W+(nDi,)
+) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # xi_tilde[i]. shape=F+W+(nDi,)
     """``xi_tilde[i]``: the leaf below Tucker edge ``i`` with the seed in place of its input, in the ``D`` basis:
     ``D[i]`` applied to the seed ``w_tilde[i]``. Needs ``y`` or ``w_tilde``.
 
     That is the probe kind, whose seed has one vector per input. Recurrence: ``xi_tilde[i] = xi_term(D[i],
-    w_tilde[i])``. The seed is a full dual jet, so this has the order group ``T``, not ``A``, and is stored turned.
+    w_tilde[i])``. The seed is a full dual jet, so this has the full jet sizes ``F``, not the input's, and is stored
+    turned.
     For the probe kind it is the multiplier of ``eta_D_dot[i]``.
 
     For ``'apply'`` and ``'entries'`` the seed is one number per sample at bond ``d``, not at an input, and
-    ``xi_tilde`` is zero (with the group ``T`` all the same); it is then not the multiplier of ``eta_D_dot[i]``
+    ``xi_tilde`` is zero (with the jet sizes ``F`` all the same); it is then not the multiplier of ``eta_D_dot[i]``
     (that is the seed times ``xi[i]``, which has no name).
 
     Returns
     -------
     NDArray, or a tuple of d of them if ``i`` is None
-        ``xi_tilde[i]``. shape=T+W+(nDi,)
+        ``xi_tilde[i]``. shape=F+W+(nDi,)
 
     Examples
     --------
@@ -1744,16 +1793,16 @@ def xi_tilde(
 def mu_tilde(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the bond, 0 .. d; None = every bond
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # mu_tilde[i]. shape=T+W+(rLi,)
+) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # mu_tilde[i]. shape=F+W+(rLi,)
     """``mu_tilde[i]``: ``mu[i]`` with the seed in place of one of the inputs ``0 .. i-1``, summed over them. In the
     ``L`` basis. Needs ``y`` or ``w_tilde``.
 
@@ -1771,7 +1820,7 @@ def mu_tilde(
     Returns
     -------
     NDArray, or a tuple of d+1 of them if ``i`` is None
-        ``mu_tilde[i]``. shape=T+W+(rLi,)
+        ``mu_tilde[i]``. shape=F+W+(rLi,)
 
     Examples
     --------
@@ -1811,16 +1860,16 @@ def mu_tilde(
 def nu_tilde(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the bond, 0 .. d; None = every bond
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # nu_tilde[i]. shape=T+W+(rRi,)
+) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # nu_tilde[i]. shape=F+W+(rRi,)
     """``nu_tilde[i]``: ``nu[i]`` with the seed put in, in the ``R`` basis. Needs ``y`` or ``w_tilde``.
 
     For ``'probe'`` the seed takes the place of one of the inputs ``i .. d-1``, summed over them. For ``'apply'``
@@ -1836,7 +1885,7 @@ def nu_tilde(
     Returns
     -------
     NDArray, or a tuple of d+1 of them if ``i`` is None
-        ``nu_tilde[i]``. shape=T+W+(rRi,)
+        ``nu_tilde[i]``. shape=F+W+(rRi,)
 
     Examples
     --------
@@ -1895,16 +1944,16 @@ def nu_tilde(
 def eta_tilde(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # eta_tilde[i]. shape=T+W+(nUi,)
+) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # eta_tilde[i]. shape=F+W+(nUi,)
     """``eta_tilde[i]``: ``eta[i]`` with the seed put in, in the ``U`` basis. Needs ``y`` or ``w_tilde``.
 
     For ``'probe'`` the seed takes the place of one input other than input ``i`` (the leaf of site ``i`` is not in
@@ -1919,7 +1968,7 @@ def eta_tilde(
     Returns
     -------
     NDArray, or a tuple of d of them if ``i`` is None
-        ``eta_tilde[i]``. shape=T+W+(nUi,)
+        ``eta_tilde[i]``. shape=F+W+(nUi,)
 
     Examples
     --------
@@ -1959,16 +2008,16 @@ def eta_tilde(
 def nu_L_tilde(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the bond, 0 .. d; None = every bond
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # nu_L_tilde[i]. shape=T+W+(rLi,)
+) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # nu_L_tilde[i]. shape=F+W+(rLi,)
     """``nu_L_tilde[i]``: ``nu_L[i]`` with the seed put in, in the ``L`` basis: as ``nu_tilde[i]`` with ``L`` cores in
     place of ``R`` cores. Needs ``y`` or ``w_tilde``.
 
@@ -1983,7 +2032,7 @@ def nu_L_tilde(
     Returns
     -------
     NDArray, or a tuple of d+1 of them if ``i`` is None
-        ``nu_L_tilde[i]``. shape=T+W+(rLi,)
+        ``nu_L_tilde[i]``. shape=F+W+(rLi,)
 
     Examples
     --------
@@ -2022,16 +2071,16 @@ def nu_L_tilde(
 def eta_D_tilde(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # eta_D_tilde[i]. shape=T+W+(nDi,)
+) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # eta_D_tilde[i]. shape=F+W+(nDi,)
     """``eta_D_tilde[i]``: ``eta_D[i]`` with the seed put in, in the ``D`` basis: as ``eta_tilde[i]`` with every TT
     core an ``L`` core. Needs ``y`` or ``w_tilde``.
 
@@ -2046,7 +2095,7 @@ def eta_D_tilde(
     Returns
     -------
     NDArray, or a tuple of d of them if ``i`` is None
-        ``eta_D_tilde[i]``. shape=T+W+(nDi,)
+        ``eta_D_tilde[i]``. shape=F+W+(nDi,)
 
     Examples
     --------
@@ -2094,16 +2143,16 @@ def eta_D_tilde(
 def xi_tilde_dot(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # xi_tilde_dot[i]. shape=T+W+(nDi,)
+) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # xi_tilde_dot[i]. shape=F+W+(nDi,)
     """``xi_tilde_dot[i]``: the leaf below Tucker edge ``i`` with the raw direction and the seed in it: ``D_dot[i]``
     applied to the seed ``w_tilde[i]``. In the ``D`` basis. Needs ``core_directions``, and ``y`` or ``w_tilde``.
 
@@ -2114,7 +2163,7 @@ def xi_tilde_dot(
     Returns
     -------
     NDArray, or a tuple of d of them if ``i`` is None
-        ``xi_tilde_dot[i]``. shape=T+W+(nDi,)
+        ``xi_tilde_dot[i]``. shape=F+W+(nDi,)
 
     Examples
     --------
@@ -2153,16 +2202,16 @@ def xi_tilde_dot(
 def mu_tilde_dot(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the bond, 0 .. d; None = every bond
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # mu_tilde_dot[i]. shape=T+W+(rLi,)
+) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # mu_tilde_dot[i]. shape=F+W+(rLi,)
     """``mu_tilde_dot[i]``: the left of bond ``i`` with the raw direction at one of the sites ``0 .. i-1`` and the
     seed in place of one of the inputs ``0 .. i-1``, summed over both. In the ``L`` basis. Needs
     ``core_directions``, and ``y`` or ``w_tilde``.
@@ -2180,7 +2229,7 @@ def mu_tilde_dot(
     Returns
     -------
     NDArray, or a tuple of d+1 of them if ``i`` is None
-        ``mu_tilde_dot[i]``. shape=T+W+(rLi,)
+        ``mu_tilde_dot[i]``. shape=F+W+(rLi,)
 
     Examples
     --------
@@ -2227,16 +2276,16 @@ def mu_tilde_dot(
 def nu_L_tilde_dot(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the bond, 0 .. d; None = every bond
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # nu_L_tilde_dot[i]. shape=T+W+(rLi,)
+) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # nu_L_tilde_dot[i]. shape=F+W+(rLi,)
     """``nu_L_tilde_dot[i]``: the right of bond ``i`` with the raw direction at one of the sites ``i .. d-1`` and the
     seed put in, summed over both. In the ``L`` basis. Needs ``core_directions``, and ``y`` or ``w_tilde``.
 
@@ -2253,7 +2302,7 @@ def nu_L_tilde_dot(
     Returns
     -------
     NDArray, or a tuple of d+1 of them if ``i`` is None
-        ``nu_L_tilde_dot[i]``. shape=T+W+(rLi,)
+        ``nu_L_tilde_dot[i]``. shape=F+W+(rLi,)
 
     Examples
     --------
@@ -2300,16 +2349,16 @@ def nu_L_tilde_dot(
 def eta_D_tilde_dot(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # eta_D_tilde_dot[i]. shape=T+W+(nDi,)
+) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # eta_D_tilde_dot[i]. shape=F+W+(nDi,)
     """``eta_D_tilde_dot[i]``: the trunk above Tucker edge ``i`` with the raw direction at one site and the seed put
     in, summed over both. In the ``D`` basis. Needs ``core_directions``, and ``y`` or ``w_tilde``.
 
@@ -2327,7 +2376,7 @@ def eta_D_tilde_dot(
     Returns
     -------
     NDArray, or a tuple of d of them if ``i`` is None
-        ``eta_D_tilde_dot[i]``. shape=T+W+(nDi,)
+        ``eta_D_tilde_dot[i]``. shape=F+W+(nDi,)
 
     Examples
     --------
@@ -2381,22 +2430,23 @@ def eta_D_tilde_dot(
 def z(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the mode, 0 .. d-1 (probe only); None = all of it
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> typ.Any:                                                # z[i]. probe T+W+(Ni,); apply, entries T+W
+) -> typ.Any:                                                # z[i]. probe F+W+(Ni,); apply F+W; entries W
     """``z``: the value. The whole network at the base point ``(D, L)``, sampled.
 
     For ``'probe'`` there is one output per mode: ``z[i]`` is the dense tensor of ``(D, L)`` contracted with the
     inputs of every mode but ``i``, mode edge ``i`` left open. For ``'apply'`` it is the tensor contracted with the
-    inputs of every mode, and for ``'entries'`` its entry at ``index``: one number per sample. With ``order`` it is
-    the jet of that along ``ww + s pp``. Computed from the dense tensor, through
+    inputs of every mode, and for ``'entries'`` its entry at ``index``: one number per sample. With a jet shape it
+    is the jet of that at the input jets, on the box ``F`` (the entries kind has no jets). Computed from the dense
+    tensor, through
     :py:func:`~t3toolbox.backend.probing.dense_probe`, :py:func:`~t3toolbox.backend.apply.dense_apply` or
     :py:func:`~t3toolbox.backend.entries.dense_entries`.
 
@@ -2406,7 +2456,7 @@ def z(
     Returns
     -------
     NDArray, or for probe with ``i`` None a tuple of d of them
-        The value. probe: ``z[i]``, shape=T+W+(Ni,); apply and entries: shape=T+W
+        The value. probe: ``z[i]``, shape=F+W+(Ni,); apply: shape=F+W; entries: shape=W
 
     Examples
     --------
@@ -2434,7 +2484,8 @@ def z(
     >>> print(bool(np.allclose(sdef.z('entries', frame, index), T[index[0], index[1], index[2]])))
     True
 
-    Jets: the Taylor coefficients along ``ww + s pp`` on a leading axis. They sum to the value at ``s = 1``:
+    Jets: the Taylor coefficients along ``ww + s pp`` (the input jet of two slots) on a leading axis. They sum to
+    the value at ``s = 1``:
 
     >>> import numpy as np
     >>> import t3toolbox.backend.sampling_definitions as sdef
@@ -2447,12 +2498,25 @@ def z(
     >>> frame = (D, U, L, R)
     >>> ww = [rng.standard_normal((7, n)) for n in N]                      # W=(7,)
     >>> pp = [rng.standard_normal((7, n)) for n in N]                      # the direction the inputs move in
-    >>> z1 = sdef.z('probe', frame, (ww, pp), 1, order=2)
-    >>> print(z1.shape)                                                    # T + W + (N1,) = (3,) + (7,) + (5,)
+    >>> line = [np.stack([w, p]) for w, p in zip(ww, pp)]                  # the input jets: J_in = (2,)
+    >>> z1 = sdef.z('probe', frame, line, 1, order=(2,))
+    >>> print(z1.shape)                                                    # F + W + (N1,) = (3,) + (7,) + (5,)
     (3, 7, 5)
     >>> at_one = sdef.z('probe', frame, [w + p for w, p in zip(ww, pp)], 1)
     >>> print(bool(np.allclose(z1.sum(axis=0), at_one)))                   # z[1] has degree d-1 = 2 in s
     True
+
+    Gotchas: the jet shape is a tuple, and the entries kind has no jets (off the grid it is the apply kind at an
+    input jet whose slot 0 is the one-hot vectors):
+
+    >>> sdef.z('probe', frame, line, 1, order=2)                          # doctest: +IGNORE_EXCEPTION_DETAIL
+    Traceback (most recent call last):
+        ...
+    TypeError: order is the jet shape, a tuple of maximum orders, one per jet variable (() for none, (n,) for one), got 2
+    >>> sdef.z('entries', frame, np.array([[3], [4], [0]]), order=(1,))  # doctest: +IGNORE_EXCEPTION_DETAIL
+    Traceback (most recent call last):
+        ...
+    ValueError: the entries kind has no jets: its order is (), got (1,). ...
     """
     S = _setting(kind, frame, sample, order)
     return _per_mode(S, i, _z(S, sample), 'z')
@@ -2461,23 +2525,23 @@ def z(
 def r(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the mode, 0 .. d-1 (probe only); None = all of it
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> typ.Any:                                                # r[i]. probe T+W+(Ni,); apply, entries T+W
-    """``r = z - y``: the residual, of the type of ``z``, in forward order (slot ``t`` is the coefficient of ``s^t``).
+) -> typ.Any:                                                # r[i]. probe F+W+(Ni,); apply F+W; entries W
+    """``r = z - y``: the residual, of the type of ``z``, in forward order (slot ``k`` is the coefficient of ``s^k``).
     Needs ``y``.
 
     Returns
     -------
     NDArray, or for probe with ``i`` None a tuple of d of them
-        The residual. probe: ``r[i]``, shape=T+W+(Ni,); apply and entries: shape=T+W
+        The residual. probe: ``r[i]``, shape=F+W+(Ni,); apply and entries: shape=F+W
 
     Examples
     --------
@@ -2505,16 +2569,16 @@ def r(
 def Jp(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the mode, 0 .. d-1 (probe only); None = all of it
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> typ.Any:                                                # Jp[i]. probe T+W+(Ni,); apply, entries T+W
+) -> typ.Any:                                                # Jp[i]. probe F+W+(Ni,); apply F+W; entries W
     """``Jp``: the direction's output. The whole network with the direction ``(V, H)`` at one site, summed over the
     sites, sampled as ``z`` is. Needs ``variations``.
 
@@ -2529,7 +2593,7 @@ def Jp(
     Returns
     -------
     NDArray, or for probe with ``i`` None a tuple of d of them
-        The direction's output. probe: ``Jp[i]``, shape=T+W+(Ni,); apply and entries: shape=T+W
+        The direction's output. probe: ``Jp[i]``, shape=F+W+(Ni,); apply and entries: shape=F+W
 
     Examples
     --------
@@ -2565,14 +2629,14 @@ def Jp(
 def g(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # None: it has no index
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Tuple[
         typ.Tuple[NDArray, ...],                             # V_tilde. len=d, elm_shape=(nUi,Ni)
@@ -2628,14 +2692,14 @@ def g(
 def JtJp(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # None: it has no index
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Tuple[
         typ.Tuple[NDArray, ...],                             # V_tilde. len=d, elm_shape=(nUi,Ni)
@@ -2681,14 +2745,14 @@ def JtJp(
 def Kp(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # None: it has no index
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Tuple[
         typ.Tuple[NDArray, ...],                             # V_tilde_dot. len=d, elm_shape=(nDi,Ni)
@@ -2750,14 +2814,14 @@ def Kp(
 def V_tilde(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # V_tilde[i]. shape=(nUi,Ni)
     """``V_tilde[i]``: the Tucker block of ``g``, with the shape of ``V[i]``: the whole network with the leaf core under
@@ -2803,14 +2867,14 @@ def V_tilde(
 def H_tilde(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # H_tilde[i]. shape=(rLi,nDi,rR(i+1))
     """``H_tilde[i]``: the TT block of ``g``, with the shape of ``H[i]``: the whole network with the TT core of site
@@ -2860,14 +2924,14 @@ def H_tilde(
 def V_tilde_dot(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # V_tilde_dot[i]. shape=(nDi,Ni)
     """``V_tilde_dot[i]``: the Tucker block of ``Kp``, with the shape of ``D[i]``: the network at the base point with
@@ -2918,14 +2982,14 @@ def V_tilde_dot(
 def H_tilde_dot(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # H_tilde_dot[i]. shape=(rLi,nDi,rL(i+1))
     """``H_tilde_dot[i]``: the TT block of ``Kp``, with the shape of ``L[i]``: the network at the base point with
@@ -2992,14 +3056,14 @@ def H_tilde_dot(
 def f(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # None: it has no index
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> NDArray:                                                # f. shape=()
     """``f``: the misfit, ``1/2 <r, weight**2 r>``: half the sum, over the modes, the orders, the samples and the mode
@@ -3023,7 +3087,7 @@ def f(
     >>> frame = (D, U, L, R)
     >>> ww = [rng.standard_normal((7, n)) for n in N]                      # W=(7,)
     >>> y = [rng.standard_normal((7, n)) for n in N]                       # the data: of the type of z
-    >>> weight = 0.5 + rng.random(3)                                       # (d,): one weight per mode at order 0
+    >>> weight = 0.5 + rng.random(3)                                       # (d,): one weight per mode, no jets
     >>> r = sdef.r('probe', frame, ww, y=y)
     >>> f = sdef.f('probe', frame, ww, y=y, weight=weight)
     >>> print(bool(np.allclose(f, 0.5 * sum(weight[i] ** 2 * np.sum(r[i] ** 2) for i in range(3)))))
@@ -3040,24 +3104,24 @@ def f(
 def r_block_sumsq(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # None: it has no index
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> NDArray:                                                # shape of the weight: probe (d,)+T; apply, entries T
+) -> NDArray:                                                # shape of the weight: probe (d,)+F; apply F; entries ()
     """``r_block_sumsq``: the sum of squares of the residual in each block, unweighted. A block is one mode at one
-    order (probe) or one order (apply, entries), so the result has the shape of the weight; the sum is over the
-    samples and the mode edge. Needs ``y``.
+    slot of the box ``F`` (probe) or one slot (apply; entries has the one block), so the result has the shape of the
+    weight; the sum is over the samples and the mode edge. Needs ``y``.
 
     Returns
     -------
     NDArray
-        The block sums. probe: shape=(d,)+T; apply and entries: shape=T
+        The block sums. probe: shape=(d,)+F; apply: shape=F; entries: shape=()
 
     Examples
     --------
@@ -3072,11 +3136,12 @@ def r_block_sumsq(
     >>> frame = (D, U, L, R)
     >>> ww = [rng.standard_normal((7, n)) for n in N]                      # W=(7,)
     >>> pp = [rng.standard_normal((7, n)) for n in N]                      # the direction the inputs move in
-    >>> y = [rng.standard_normal((3, 7, n)) for n in N]                    # the data at order 2: T + W + (Ni,)
-    >>> sums = sdef.r_block_sumsq('probe', frame, (ww, pp), order=2, y=y)
-    >>> print(sums.shape)                                                  # (d,) + T: one number per mode and order
+    >>> line = [np.stack([w, p]) for w, p in zip(ww, pp)]                  # the input jets: J_in = (2,)
+    >>> y = [rng.standard_normal((3, 7, n)) for n in N]                    # the data at (2,): F + W + (Ni,)
+    >>> sums = sdef.r_block_sumsq('probe', frame, line, order=(2,), y=y)
+    >>> print(sums.shape)                                                  # (d,) + F: one number per mode and slot
     (3, 3)
-    >>> r = sdef.r('probe', frame, (ww, pp), order=2, y=y)
+    >>> r = sdef.r('probe', frame, line, order=(2,), y=y)
     >>> print(bool(np.allclose(sums[1, 2], np.sum(r[1][2] ** 2))))
     True
     """
@@ -3084,10 +3149,10 @@ def r_block_sumsq(
     S = _setting(kind, frame, sample, order)
     r_ = _r(S, sample, _need(y, 'r_block_sumsq', 'the data y'))
     xnp, _, _ = get_backend(False, tree_contains_jax((r_,)))
-    n_T = 1 if order else 0
+    m = len(S.order)
 
-    def sumsq(i, r_TX):
-        return xnp.sum(r_TX ** 2, axis=tuple(range(n_T, r_TX.ndim)))
+    def sumsq(i, r_FX):
+        return xnp.sum(r_FX ** 2, axis=tuple(range(m, r_FX.ndim)))
     sums = _map_type_of_z(S, sumsq, r_)
     return xnp.stack(sums) if kind == 'probe' else sums
 
@@ -3095,14 +3160,14 @@ def r_block_sumsq(
 def Jp_norm_sq(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww | index if order == 0, else (ww, pp) | (index, pp)
+        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # None: it has no index
-        order:            int = 0,                           # highest Taylor order.  T=(order+1,) if order else ()
+        order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[NDArray] = None,      # probe (d,)+T; apply, entries T; None = ones
+        weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> NDArray:                                                # Jp_norm_sq. shape=()
     """``Jp_norm_sq``: ``<Jp, weight**2 Jp>``, the squared weighted norm of the direction's output, summed as ``f`` is

@@ -2,38 +2,45 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
-"""``backend.sampling_definitions`` (the reference module) and the three dense sampling functions.
+"""``backend/sampling_definitions.py``: the reference module, pinned to the definitions.
 
-The reference module says what each sampling variable IS, and later tests hold the engine to it, so this file
-pins the reference itself. Its lines of evidence, each by a route the reference does not take:
+The reference computes every sampling variable by one dense contraction of its part of the network. Here it is
+checked by lines of evidence that share nothing with it but the library's conversions to dense tensors:
 
-1. **The outputs against dense tensors** (`TestOutputsAgainstDense`). ``z`` against ``t3_to_dense`` contracted
-   with the inputs; ``Jp`` against the dense tangent tensor (``tv_to_dense``); ``g``, ``V_tilde``, ``H_tilde``
-   and ``JtJp`` against the dense Jacobian, built here column by column from ``tv_to_dense`` and transposed
-   with the PLAIN slot-by-slot inner product (the reference pairs a turned seed at the top coefficient);
-   ``r``, ``w_tilde``, ``f``, ``r_block_sumsq`` and ``Jp_norm_sq`` against their formulas. The sampling of a
-   dense tensor and its jets are computed here by ``np.tensordot`` and by interpolation, not by the library's
+1. **The outputs against dense tensors** (`TestOutputsAgainstDense`): ``z`` and ``Jp`` against the dense tensor and
+   the dense tangent tensor, ``g`` and ``JtJp`` against the dense Jacobian, transposed; ``r``, the seed
+   ``w_tilde``, ``f``, ``r_block_sumsq`` and ``Jp_norm_sq`` against their formulas. The sampling of a dense tensor
+   and its jets are computed here by ``np.tensordot`` and by interpolation on a real grid, not by the library's
    dense functions.
-2. **The edge variables against the recurrences** (`TestRecurrences`): every recurrence of
-   ``SAMPLE_VARIABLES.md`` section 5, written out here with truncated products as explicit loops. The reference
+2. **The edge variables against the recurrences** (`TestRecurrences`): every recurrence of ``SAMPLE_VARIABLES.md``
+   section 5, written out here with truncated products as explicit loops over multi-indices. The reference
    contracts each whole subnetwork at once, so this is the page's statement that the two definitions agree.
-3. **The readouts** (`TestReadouts`): section 6 of the page. The outputs and blocks (dense tensor, dense
-   Jacobian, second derivative) equal the terms of the edge variables (subnetworks). This is what ties the
-   tilde variables to the dense Jacobian and the tilde-dot variables to the second derivative.
+3. **The readouts** (`TestReadouts`): section 6 of the page. The outputs and blocks (dense tensor, dense Jacobian,
+   second derivative) equal the terms of the edge variables (subnetworks). This is what ties the tilde variables to
+   the dense Jacobian and the tilde-dot variables to the second derivative.
 4. **The pairings** (`TestPairings`): section 8 of the page, at every cut edge.
-5. **Jets two ways** (`TestJetsTwoWays`): every variable at an order against the interpolation, at two other
-   sets of nodes, of the same variable at order 0 along ``ww + s pp`` (with the stored seed as the polynomial
-   ``sum_t w_tilde[t] s^t``, which is what "stored turned" means).
-6. **Kp** (`TestKp`): automatic differentiation (jax arrays) against finite differences (numpy arrays), and
-   that the route is read off the arrays; against the difference quotient of ``g`` on the corewise frame with the
-   seed held; against the second derivative of the dense objective.
-7. **The corewise frame** (`TestCorewiseFrame`), **structure** (`TestStructure`: the names, the one
-   signature, the shapes, the errors, a doctest on every function, and that the module calls nothing of the
-   library but the three dense functions) and **dispatch** (`TestJax`).
-8. **The dense functions** (`TestDenseFunctions`): with no jets against hand-written contractions and indexing;
+5. **Jets two ways** (`TestJetsTwoWays`): every variable at a jet shape against the interpolation, on two real
+   grids that are not the reference's, of the same variable with no jets at the input jets evaluated there (with the
+   stored seed as the polynomial ``sum_k w_tilde[k] s^k``, which is what "stored turned" means).
+6. **Kp** (`TestKp`): automatic differentiation (jax arrays) against finite differences (numpy arrays), and that
+   the route is read off the arrays; against the difference quotient of ``g`` on the corewise frame with the seed
+   held; against the second derivative of the dense objective.
+7. **The old kernels** (`TestAgainstTheOldKernels`): with one variable and a line input, ``z`` and ``g`` of the
+   probe kind against ``sampling_derivatives`` (until it is deleted), through the conversions: derivatives are
+   ``t!`` times Taylor coefficients, and the old transpose takes the residual forward, not turned.
+8. **The corewise frame** (`TestCorewiseFrame`), **structure** (`TestStructure`: the names, the one signature, the
+   jet shape and its reader, the declared jet sizes, the errors, a doctest on every function, and that the module
+   calls nothing of the library but the three dense functions) and **dispatch** (`TestJax`).
+9. **The dense functions** (`TestDenseFunctions`): with no jets against hand-written contractions and indexing;
    their jets at input jets of every kind (a line, two directions, a curve, modes of different jet sizes)
    against the calls with no jets along the input jets at a grid of roots of unity; the ``W`` and ``C`` stacks,
    the errors. **The input jets** (`TestInputJets`): ``affine_jet`` and ``index_to_one_hot``.
+
+**The jet matrix** (`JET_CASES`), over which 1 to 6 run: no jets; a line at ``(1,)`` and ``(3,)``; two directions
+at ``(1, 2)`` (``affine_jet(ww, p1, p2)``); modes of input jet sizes ``(3, 2)``, ``(1, 1)``, ``(2, 3)`` at
+``(1, 2)`` (a curve in one variable and a line in the other, a discrete mode, and an input larger than the box on
+the first axis); a curve of three slots at ``(2,)``; modes of input jet sizes ``(1,)``, ``(4,)``, ``(2,)`` at
+``(2,)`` (a mode that does not move, and one clipped). The entries kind runs with no jets only.
 
 Numerical comparisons are to a tolerance, structural ones exact. numpy only, by the house convention, except
 `TestJax` and the jax half of `TestKp`; the dense functions under jit are in ``test_dispatch.py``.
@@ -48,6 +55,8 @@ import unittest.mock
 import numpy as np
 
 import t3toolbox.backend.common as common
+import t3toolbox.backend.contractions as contractions
+import t3toolbox.backend.jets as jets
 import t3toolbox.backend.sampling_definitions as sdef
 import t3toolbox.backend.probing as probing
 import t3toolbox.backend.apply as apply
@@ -56,7 +65,6 @@ import t3toolbox.backend.t3_conversions as t3_conversions
 import t3toolbox.backend.tv_operations as tv_operations
 
 KINDS = ('probe', 'apply', 'entries')
-ORDERS = (0, 1, 3)
 TOL = 1e-10                 # relative, float64: sums of products of a dozen O(1) arrays, and a small solve
 
 # The names of PART1_PLAN.md section 2.3, "The names the engine accepts", by group.
@@ -77,7 +85,138 @@ SITE_NAMES = ('w', 'xi', 'eta', 'eta_D', 'xi_U_dot', 'eta_D_dot', 'xi_dot', 'xi_
               'xi_tilde_dot', 'eta_D_tilde_dot', 'V_tilde', 'H_tilde', 'V_tilde_dot', 'H_tilde_dot')
 MODE_NAMES = ('z', 'r', 'Jp', 'w_tilde')                    # indexed by the mode for probe, not indexed otherwise
 UNINDEXED_NAMES = ('g', 'JtJp', 'Kp', 'f', 'r_block_sumsq', 'Jp_norm_sq')
-AFFINE_NAMES = ('w', 'xi', 'xi_dot', 'xi_U_dot')            # the group A: two coefficients at any order >= 1
+LEAF_NAMES = ('xi', 'xi_dot', 'xi_U_dot')                   # the declared jet sizes: the input's, clipped to F
+
+
+#######################################
+########    The jet matrix    #########
+#######################################
+
+class JetCase:
+    """One jet shape and one kind of input jet: ``'none'`` (no jets), ``'line'`` (``affine_jet(ww, pp)``),
+    ``'plane'`` (``affine_jet(ww, pp, qq)``), ``'curve'`` (three random slots), or a tuple of jet sizes, one per mode
+    (cycled over the modes; random slots, slot 0 the point ``ww``)."""
+
+    def __init__(self, label, order, form):
+        self.label, self.order, self.form = label, tuple(order), form
+        self.m = len(order)
+        self.box = tuple(n + 1 for n in order)
+
+    def __repr__(self):
+        return self.label
+
+
+NO_JETS = JetCase('no jets', (), 'none')
+LINE_1 = JetCase('a line at (1,)', (1,), 'line')
+LINE_3 = JetCase('a line at (3,)', (3,), 'line')
+PLANE = JetCase('two directions at (1, 2)', (1, 2), 'plane')
+MIXED_MODES = JetCase('modes (3, 2), (1, 1), (2, 3) at (1, 2)', (1, 2), ((3, 2), (1, 1), (2, 3)))
+CURVE = JetCase('a curve of three slots at (2,)', (2,), 'curve')
+MIXED_SIZES = JetCase('modes (1,), (4,), (2,) at (2,)', (2,), ((1,), (4,), (2,)))
+JET_CASES = (NO_JETS, LINE_1, LINE_3, PLANE, MIXED_MODES, CURVE, MIXED_SIZES)
+WITH_JETS = JET_CASES[1:]
+
+
+class Jets:
+    """The algebra of jets on the box ``F`` of one jet shape, written out with explicit loops over multi-indices.
+    Inside these tests every jet is lifted to the full box: ``m`` leading axes of sizes ``F`` (none with no jets)."""
+
+    def __init__(self, order):
+        self.order, self.m = tuple(order), len(order)
+        self.box = tuple(n + 1 for n in order)
+        self.corner = tuple(order)
+        self.slots = list(np.ndindex(*self.box))
+
+    def lift(self, value):
+        """A value (one array, or a tuple of them) on the full box: cut to it, and padded with zeros up to it."""
+        if isinstance(value, (tuple, list)):
+            return [self.lift(v) for v in value]
+        value = np.asarray(value)
+        if self.m == 0:
+            return value
+        value = value[tuple(slice(0, f) for f in self.box)]
+        return np.pad(value, [(0, f - s) for f, s in zip(self.box, value.shape)] + [(0, 0)] * (value.ndim - self.m))
+
+    def tprod(self, term, *jets_):
+        """The truncated product: slot ``t`` is the sum, over the slots that add up to ``t``, of ``term`` of them."""
+        out = None
+        for ks in itertools.product(self.slots, repeat=len(jets_)):
+            t = tuple(sum(k[j] for k in ks) for j in range(self.m))
+            if any(a >= f for a, f in zip(t, self.box)):
+                continue
+            value = term(*(jet[k] for jet, k in zip(jets_, ks)))
+            if out is None:
+                out = np.zeros(self.box + np.shape(value))
+            out[t] += value
+        return out
+
+    def top(self, term, *jets_):
+        """The coefficient at the corner of the product."""
+        return self.tprod(term, *jets_)[self.corner]
+
+    def flip(self, x):
+        return np.asarray(x)[(slice(None, None, -1),) * self.m]
+
+    # the terms of SAMPLE_VARIABLES.md section 5
+    def xi(self, B, w):
+        return np.einsum('io,...o->...i', B, w)
+
+    def z(self, eta, B):
+        return np.einsum('...i,io->...o', eta, B)
+
+    def mu(self, mu, G, xi):
+        return self.tprod(lambda a, x: np.einsum('...a,aib,...i->...b', a, G, x), mu, xi)
+
+    def nu(self, G, xi, nu):
+        return self.tprod(lambda x, b: np.einsum('aib,...i,...b->...a', G, x, b), xi, nu)
+
+    def eta(self, mu, G, nu):
+        return self.tprod(lambda a, b: np.einsum('...a,aib,...b->...i', a, G, b), mu, nu)
+
+    def V_top(self, eta, w):                    # summed over the samples, at the corner
+        return self.top(lambda e, v: np.einsum('Wi,Wo->io', flat(e), flat(v)), eta, w)
+
+    def H_top(self, mu, xi, nu):
+        return self.top(lambda a, x, b: np.einsum('Wa,Wi,Wb->aib', flat(a), flat(x), flat(b)), mu, xi, nu)
+
+    def pair(self, a, b):
+        """Two jets on the two sides of one edge, contracted over the edge: a jet ``F + W``."""
+        return self.tprod(lambda p, q: np.einsum('...a,...a->...', p, q), a, b)
+
+    def top_pair(self, a, b):
+        """The number two jets stand for together: the corner coefficient of their product, summed over everything."""
+        return float(np.sum(self.pair(a, b)[self.corner]))
+
+    def times_seed(self, seed, jet):
+        """The seed of apply or entries (a jet ``F + W``, one number per sample) times a jet ``F + W + (size,)``."""
+        return self.tprod(lambda c, x: c[..., None] * x, seed, jet)
+
+    def ones(self, W, size):                    # the start of a plain sweep: ones in slot 0, zero elsewhere
+        out = np.zeros(self.box + W + (size,))
+        out[(0,) * self.m] = 1.0
+        return out
+
+    def weight_of(self, weight, kind, i):
+        """The weight of mode ``i`` (probe) as an array of the box."""
+        return np.asarray(weight)[i] if kind == 'probe' else np.asarray(weight)
+
+    def weighted(self, jets_, weight, kind):
+        """``weight**2 * jet``, slot by slot, on lifted jets (a list over the modes)."""
+        return [(self.weight_of(weight, kind, i) ** 2).reshape(self.box + (1,) * (jet.ndim - self.m)) * jet
+                for i, jet in enumerate(jets_)]
+
+
+def flat(x_WX):                 # the sample stack as one axis
+    return x_WX.reshape((-1,) + x_WX.shape[-1:])
+
+
+def evaluate(jet, s):
+    """An input jet (clipped to its box, ``m = len(s)`` jet axes) at the point ``s``: the sum over its slots."""
+    m = len(s)
+    value = 0
+    for k in np.ndindex(*jet.shape[:m]):
+        value = value + jet[k] * np.prod([s[j] ** k[j] for j in range(m)])
+    return np.asarray(value) * np.ones(jet.shape[m:])
 
 
 #######################################
@@ -86,13 +225,13 @@ AFFINE_NAMES = ('w', 'xi', 'xi_dot', 'xi_U_dot')            # the group A: two c
 
 class Problem:
     """Random stores (not orthogonal, not consistent with each other: no definition needs that), a sample for
-    each kind, both forms of a direction, data and a weight."""
+    each kind and jet case, both forms of a direction, data and a weight."""
 
     def __init__(self, seed, shape, nD, nU, rL, rR, W):
         rng = np.random.default_rng(seed)
         rn = rng.standard_normal
         d = len(shape)
-        self.d, self.shape, self.W = d, tuple(shape), tuple(W)
+        self.seed, self.d, self.shape, self.W = seed, d, tuple(shape), tuple(W)
         self.D = [rn((nD[i], shape[i])) for i in range(d)]
         self.U = [rn((rL[i], nU[i], rR[i + 1])) for i in range(d)]
         self.L = [rn((rL[i], nD[i], rL[i + 1])) for i in range(d)]
@@ -104,6 +243,7 @@ class Problem:
         self.L_dot = [rn(G.shape) for G in self.L]
         self.ww = [rn(self.W + (n,)) for n in shape]
         self.pp = [rn(self.W + (n,)) for n in shape]
+        self.qq = [rn(self.W + (n,)) for n in shape]
         self.index = np.stack([rng.integers(0, n, size=self.W) for n in shape])
         self.rng = rng
 
@@ -113,21 +253,37 @@ class Problem:
             return [np.eye(n)[self.index[i]] for i, n in enumerate(self.shape)]
         return self.ww
 
-    def sample(self, kind, order):
-        first = self.index if kind == 'entries' else self.ww
-        return first if order == 0 else (first, self.pp)
+    def input_jets(self, case):
+        """The input jets of a jet case, slot 0 the point ``ww`` (the same for every case)."""
+        if case.form == 'none':
+            return list(self.ww)
+        if case.form == 'line':
+            return list(jets.affine_jet(self.ww, self.pp))
+        if case.form == 'plane':
+            return list(jets.affine_jet(self.ww, self.pp, self.qq))
+        sizes = [(3,)] * self.d if case.form == 'curve' else [case.form[i % len(case.form)] for i in range(self.d)]
+        rng = np.random.default_rng(1000 * self.seed + JET_CASES.index(case))
+        out = []
+        for i, size in enumerate(sizes):
+            jet = rng.standard_normal(tuple(size) + self.W + (self.shape[i],))
+            jet[(0,) * case.m] = self.ww[i]
+            out.append(jet)
+        return out
 
-    def data(self, kind, order):
-        """``(y, weight)``: of the type of ``z``, and of the shape the weight has for the kind and the order."""
-        T = (order + 1,) if order else ()
-        rng = np.random.default_rng(1000 + order)
+    def sample(self, kind, case):
+        return self.index if kind == 'entries' else self.input_jets(case)
+
+    def data(self, kind, case):
+        """``(y, weight)``: of the type of ``z``, and of the shape the weight has for the kind and the jet shape."""
+        rng = np.random.default_rng(2000 + JET_CASES.index(case))
+        F = case.box
         if kind == 'probe':
-            return [rng.standard_normal(T + self.W + (n,)) for n in self.shape], 0.5 + rng.random((self.d,) + T)
-        return rng.standard_normal(T + self.W), 0.5 + rng.random(T)
+            return [rng.standard_normal(F + self.W + (n,)) for n in self.shape], 0.5 + rng.random((self.d,) + F)
+        return rng.standard_normal(F + self.W), 0.5 + rng.random(F)
 
-    def arguments(self, kind, order):
-        y, weight = self.data(kind, order)
-        return dict(order=order, variations=(self.V, self.H), core_directions=(self.D_dot, self.L_dot),
+    def arguments(self, kind, case):
+        y, weight = self.data(kind, case)
+        return dict(order=case.order, variations=(self.V, self.H), core_directions=(self.D_dot, self.L_dot),
                     y=y, weight=weight)
 
 
@@ -150,63 +306,14 @@ PROBLEMS = (('small', small), ('tails', tails), ('long', long), ('two sites, W =
             ('one site', one_site))
 
 
-############################################################
-########    Jets, written out: explicit loops over orders    ####
-############################################################
-#
-# Inside these tests every jet has a leading order axis of length order + 1, at order 0 too.  `lift` brings a
-# value of the reference into that form (an affine variable is padded with zeros), `tprod` multiplies jets.
-
-def lift(value, order):
-    """A reference value (one array, or a tuple of them) with a full leading order axis."""
-    if isinstance(value, (tuple, list)):
-        return [lift(v, order) for v in value]
-    value = np.asarray(value)
-    if order == 0:
-        return value[None]
-    if value.shape[0] == order + 1:
-        return value
-    assert value.shape[0] == 2, value.shape                 # an affine variable: the group A
-    return np.concatenate([value, np.zeros((order - 1,) + value.shape[1:])])
-
-
-def tprod(term, *jets):
-    """The truncated product: slot t is the sum, over the orders that add up to t, of ``term`` of the slots."""
-    P = jets[0].shape[0]
-    out = None
-    for orders in itertools.product(range(P), repeat=len(jets)):
-        if sum(orders) < P:
-            value = term(*(jet[t] for jet, t in zip(jets, orders)))
-            if out is None:
-                out = np.zeros((P,) + value.shape)
-            out[sum(orders)] += value
-    return out
-
-
-def top(term, *jets):
-    """The coefficient of the highest order of the product."""
-    return tprod(term, *jets)[-1]
-
-
-xi_term  = lambda B, w:        np.stack([np.einsum('io,...o->...i', B, w_t) for w_t in w])
-z_term   = lambda eta, B:      np.stack([np.einsum('...i,io->...o', eta_t, B) for eta_t in eta])
-mu_term  = lambda mu, G, xi:   tprod(lambda a, x: np.einsum('...a,aib,...i->...b', a, G, x), mu, xi)
-nu_term  = lambda G, xi, nu:   tprod(lambda x, b: np.einsum('aib,...i,...b->...a', G, x, b), xi, nu)
-eta_term = lambda mu, G, nu:   tprod(lambda a, b: np.einsum('...a,aib,...b->...i', a, G, b), mu, nu)
-
-def V_top(eta, w):              # summed over the samples, at the top coefficient
-    return top(lambda e, v: np.einsum('Wi,Wo->io', flat(e), flat(v)), eta, w)
-
-def H_top(mu, xi, nu):
-    return top(lambda a, x, b: np.einsum('Wa,Wi,Wb->aib', flat(a), flat(x), flat(b)), mu, xi, nu)
-
-def flat(x_WX):                 # the sample stack as one axis
-    return x_WX.reshape((-1,) + x_WX.shape[-1:])
-
-def ones_jet(order, W, size):   # the start of a plain sweep: ones at order 0, zero above
-    out = np.zeros((order + 1,) + W + (size,))
-    out[0] = 1.0
-    return out
+def cases(problems=PROBLEMS, kinds=KINDS, jet_cases=JET_CASES):
+    """``(labels, problem, kind, jet case)`` over the matrix; the entries kind with no jets only."""
+    for name, make in problems:
+        for kind in kinds:
+            for case in jet_cases:
+                if kind == 'entries' and case.m:
+                    continue
+                yield dict(problem=name, kind=kind, jets=case.label), make(), kind, case
 
 
 def relative_error(got, expected):
@@ -220,7 +327,7 @@ def relative_error(got, expected):
 #######################################################################
 
 def sample_dense(kind, T, vectors):
-    """Order 0: a dense tensor ``T`` (no stack) contracted with vectors ``W + (Ni,)``, by ``np.tensordot`` one
+    """No jets: a dense tensor ``T`` (no stack) contracted with vectors ``W + (Ni,)``, by ``np.tensordot`` one
     sample at a time. probe: a list of ``W + (Ni,)``; apply and entries: ``W``."""
     d = T.ndim
     W = vectors[0].shape[:-1]
@@ -239,53 +346,63 @@ def sample_dense(kind, T, vectors):
     return np.array([contract_all_but(k, None) for k in range(n_samples)]).reshape(W)
 
 
-def interpolate(value_at, nodes, n_slots):
-    """Taylor coefficients ``0 .. n_slots - 1`` of a polynomial in ``s``, from its values at ``nodes``."""
-    values = np.stack([np.asarray(value_at(s)) for s in nodes])
-    coefficients = np.linalg.solve(np.vander(nodes, increasing=True), values.reshape((len(nodes), -1)))
-    return coefficients[:n_slots].reshape((n_slots,) + values.shape[1:])
-
-
 def node_sets(degree):
-    """Two sets of ``degree + 1`` nodes, neither of them the reference's (Chebyshev nodes on [-1, 1])."""
+    """Two sets of ``degree + 1`` real nodes, neither of them the reference's (roots of unity)."""
     return np.linspace(-1.0, 1.0, degree + 1), np.linspace(-0.6, 1.3, degree + 1)
 
 
-def sample_dense_jet(P, kind, T, order, nodes=None):
-    """``T`` sampled along ``inputs + s pp`` in Taylor coefficients, of the type of ``z``: by interpolation of
-    `sample_dense`. At order 0 no order axis, as the reference returns it."""
-    inputs = P.inputs(kind)
-    if order == 0:
+def interpolate(value_at, degrees, sizes, which=0):
+    """The Taylor coefficients, on the box ``sizes``, of a polynomial in ``s_1 ... s_m`` of degree at most
+    ``degrees[j]`` in ``s_j``, from its values on a grid of real nodes (``node_sets``, set ``which``):
+    ``value_at(s)`` returns a list of arrays; a tensor-product Vandermonde system, solved one axis at a time."""
+    m = len(degrees)
+    nodes = [node_sets(g)[which] for g in degrees]
+    values = None
+    for node in itertools.product(*(range(len(n)) for n in nodes)):
+        value = [np.asarray(v) for v in value_at(tuple(nodes[j][node[j]] for j in range(m)))]
+        if values is None:
+            values = [np.zeros(tuple(len(n) for n in nodes) + v.shape) for v in value]
+        for stored, v in zip(values, value):
+            stored[node] = v
+    out = []
+    for stored in values:
+        for j in range(m):
+            inverse = np.linalg.inv(np.vander(nodes[j], increasing=True))
+            stored = np.moveaxis(np.tensordot(inverse, stored, axes=([1], [j])), 0, j)
+        box = np.zeros(tuple(sizes) + stored.shape[m:])
+        inside = tuple(slice(0, min(s, g + 1)) for s, g in zip(sizes, degrees))
+        box[inside] = stored[inside]
+        out.append(box)
+    return out
+
+
+def clipped_inputs(P, kind, case):
+    """The input jets of a case, cut to the box (slots beyond it reach no coefficient on it)."""
+    return [x[tuple(slice(0, f) for f in case.box)] for x in P.input_jets(case)] if kind != 'entries' \
+        else P.inputs(kind)
+
+
+def degree_bound(P, kind, case, seed=False):
+    """A bound on the degree in each ``s_j`` of a sampled output (and, with ``seed``, of a tilde variable)."""
+    inputs = clipped_inputs(P, kind, case)
+    return [sum(x.shape[j] - 1 for x in inputs) + (case.order[j] if seed else 0) for j in range(case.m)]
+
+
+def sample_dense_jet(P, kind, T, case, which=0):
+    """``T`` sampled at the input jets of a case, in Taylor coefficients on the box, of the type of ``z``: by
+    interpolation of `sample_dense` on a real grid. With no jets, `sample_dense` itself."""
+    inputs = clipped_inputs(P, kind, case)
+    if case.m == 0:
         return sample_dense(kind, T, inputs)
-    nodes = node_sets(max(P.d, order))[0] if nodes is None else nodes     # the degree in s is at most d
-    at = lambda s: sample_dense(kind, T, [w + s * p for w, p in zip(inputs, P.pp)])
-    if kind == 'probe':
-        return [interpolate(lambda s: at(s)[i], nodes, order + 1) for i in range(P.d)]
-    return interpolate(at, nodes, order + 1)
+    at = lambda s: (lambda value: value if kind == 'probe' else [value])(
+        sample_dense(kind, T, [evaluate(x, s) for x in inputs]))
+    value = interpolate(at, degree_bound(P, kind, case), case.box, which)
+    return value if kind == 'probe' else value[0]
 
 
 def modes_of(kind, value):
     """An object of the type of ``z`` as a list of arrays: the modes for probe, one array otherwise."""
     return list(value) if kind == 'probe' else [value]
-
-
-def weight_of(weight, kind, i, order):
-    """The weight of mode ``i`` as an array ``(order + 1,)`` (one number at order 0)."""
-    w = np.asarray(weight)[i] if kind == 'probe' else np.asarray(weight)
-    return w.reshape((order + 1,))
-
-
-def weighted(jets, weight, kind, order):
-    """``weight**2 * jet``, slot by slot, on lifted jets (a list over the modes)."""
-    return [(weight_of(weight, kind, i, order) ** 2).reshape((order + 1,) + (1,) * (jet.ndim - 1)) * jet
-            for i, jet in enumerate(jets)]
-
-
-def cases(problems=PROBLEMS, kinds=KINDS, orders=ORDERS):
-    for name, make in problems:
-        for kind in kinds:
-            for order in orders:
-                yield dict(problem=name, kind=kind, order=order), make(), kind, order
 
 
 class TestOutputsAgainstDense(unittest.TestCase):
@@ -295,59 +412,61 @@ class TestOutputsAgainstDense(unittest.TestCase):
         self.assertLessEqual(relative_error(got, expected), tol)
 
     def test_z_is_the_dense_tensor_contracted_with_the_inputs(self):
-        for labels, P, kind, order in cases():
+        for labels, P, kind, case in cases():
             with self.subTest(**labels):
                 T = t3_conversions.t3_to_dense((P.D, P.L))
-                expected = modes_of(kind, sample_dense_jet(P, kind, T, order))
-                got = modes_of(kind, sdef.z(kind, P.frame, P.sample(kind, order), order=order))
+                expected = modes_of(kind, sample_dense_jet(P, kind, T, case))
+                got = modes_of(kind, sdef.z(kind, P.frame, P.sample(kind, case), order=case.order))
                 self.assertEqual(len(got), len(expected))
                 for a, b in zip(got, expected):
                     self.check(a, b)
 
     def test_Jp_is_the_dense_tangent_tensor_contracted_with_the_inputs(self):
-        for labels, P, kind, order in cases():
+        for labels, P, kind, case in cases():
             with self.subTest(**labels):
                 T_dot = tv_operations.tv_to_dense(P.frame, (P.V, P.H))
-                expected = modes_of(kind, sample_dense_jet(P, kind, T_dot, order))
-                got = modes_of(kind, sdef.Jp(kind, P.frame, P.sample(kind, order), order=order,
+                expected = modes_of(kind, sample_dense_jet(P, kind, T_dot, case))
+                got = modes_of(kind, sdef.Jp(kind, P.frame, P.sample(kind, case), order=case.order,
                                              variations=(P.V, P.H)))
                 for a, b in zip(got, expected):
                     self.check(a, b)
 
     def test_r_and_the_seed_and_the_sums_are_their_formulas(self):
-        for labels, P, kind, order in cases():
+        for labels, P, kind, case in cases():
             with self.subTest(**labels):
-                sample, args = P.sample(kind, order), P.arguments(kind, order)
+                J = Jets(case.order)
+                sample, args = P.sample(kind, case), P.arguments(kind, case)
                 y, weight = args['y'], args['weight']
-                z = lift(modes_of(kind, sdef.z(kind, P.frame, sample, order=order)), order)
-                r = lift(modes_of(kind, sdef.r(kind, P.frame, sample, **args)), order)
-                for r_i, z_i, y_i in zip(r, z, lift(modes_of(kind, y), order)):
+                z = J.lift(modes_of(kind, sdef.z(kind, P.frame, sample, order=case.order)))
+                r = J.lift(modes_of(kind, sdef.r(kind, P.frame, sample, **args)))
+                for r_i, z_i, y_i in zip(r, z, J.lift(modes_of(kind, y))):
                     self.check(r_i, z_i - y_i)
 
-                # the seed: the weights, then the turn of the order axis
-                seed = lift(modes_of(kind, sdef.w_tilde(kind, P.frame, sample, **args)), order)
-                for seed_i, weighted_r_i in zip(seed, weighted(r, weight, kind, order)):
-                    self.check(seed_i, weighted_r_i[::-1])
-                if order:                                   # and the turn is not a no-op here
-                    self.assertGreater(relative_error(seed[0], weighted(r, weight, kind, order)[0]), 1e-3)
+                # the seed: the weights, then the turn, a flip of every jet axis
+                seed = J.lift(modes_of(kind, sdef.w_tilde(kind, P.frame, sample, **args)))
+                for seed_i, weighted_r_i in zip(seed, J.weighted(r, weight, kind)):
+                    self.check(seed_i, J.flip(weighted_r_i))
+                if case.m:                                  # and the turn is not a no-op here
+                    self.assertGreater(relative_error(seed[0], J.weighted(r, weight, kind)[0]), 1e-3)
 
                 f = sdef.f(kind, P.frame, sample, **args)
                 self.assertEqual(np.shape(f), ())
-                self.check(f, 0.5 * sum(np.sum(wr * r_i) for wr, r_i in zip(weighted(r, weight, kind, order), r)))
+                self.check(f, 0.5 * sum(np.sum(wr * r_i) for wr, r_i in zip(J.weighted(r, weight, kind), r)))
 
                 sums = sdef.r_block_sumsq(kind, P.frame, sample, **args)
                 self.assertEqual(np.shape(sums), np.shape(weight))          # structural: exact
-                expected = np.array([[np.sum(r_i[t] ** 2) for t in range(order + 1)] for r_i in r])
+                expected = np.array([np.sum(r_i ** 2, axis=tuple(range(case.m, r_i.ndim))) for r_i in r])
                 self.check(np.reshape(sums, expected.shape), expected)
 
-                Jp = lift(modes_of(kind, sdef.Jp(kind, P.frame, sample, **args)), order)
+                Jp = J.lift(modes_of(kind, sdef.Jp(kind, P.frame, sample, **args)))
                 Jp_norm_sq = sdef.Jp_norm_sq(kind, P.frame, sample, **args)
                 self.assertEqual(np.shape(Jp_norm_sq), ())
-                self.check(Jp_norm_sq, sum(np.sum(wJ * J) for wJ, J in zip(weighted(Jp, weight, kind, order), Jp)))
+                self.check(Jp_norm_sq, sum(np.sum(wJ * J_) for wJ, J_ in zip(J.weighted(Jp, weight, kind), Jp)))
 
-    def jacobian_columns(self, P, kind, order):
+    def jacobian_columns(self, P, kind, case):
         """The dense Jacobian of ``(V, H) -> Jp``, one column per unit direction: a list, over the blocks
         ``V[0..d-1], H[0..d-1]``, of arrays ``block shape + (list over modes of lifted jets)``."""
+        J = Jets(case.order)
         zero_V, zero_H = [0 * V for V in P.V], [0 * H for H in P.H]
         blocks = []
         for which, cores in ((0, P.V), (1, P.H)):
@@ -359,7 +478,7 @@ class TestOutputsAgainstDense(unittest.TestCase):
                     V = zero_V[:i] + [unit] + zero_V[i + 1:] if which == 0 else zero_V
                     H = zero_H[:i] + [unit] + zero_H[i + 1:] if which == 1 else zero_H
                     T_dot = tv_operations.tv_to_dense(P.frame, (V, H))
-                    columns[entry] = lift(modes_of(kind, sample_dense_jet(P, kind, T_dot, order)), order)
+                    columns[entry] = J.lift(modes_of(kind, sample_dense_jet(P, kind, T_dot, case)))
                 blocks.append((block.shape, columns))
         return blocks
 
@@ -375,14 +494,15 @@ class TestOutputsAgainstDense(unittest.TestCase):
         return out
 
     def test_g_and_JtJp_are_the_dense_jacobian_transposed(self):
-        for labels, P, kind, order in cases(problems=PROBLEMS[:2]):
+        for labels, P, kind, case in cases(problems=PROBLEMS[:2], jet_cases=(NO_JETS, LINE_3, PLANE, MIXED_MODES)):
             with self.subTest(**labels):
-                sample, args = P.sample(kind, order), P.arguments(kind, order)
+                J = Jets(case.order)
+                sample, args = P.sample(kind, case), P.arguments(kind, case)
                 weight = args['weight']
-                blocks = self.jacobian_columns(P, kind, order)
+                blocks = self.jacobian_columns(P, kind, case)
 
-                r = lift(modes_of(kind, sdef.r(kind, P.frame, sample, **args)), order)
-                expected = self.transposed(blocks, weighted(r, weight, kind, order))
+                r = J.lift(modes_of(kind, sdef.r(kind, P.frame, sample, **args)))
+                expected = self.transposed(blocks, J.weighted(r, weight, kind))
                 V_tilde, H_tilde = sdef.g(kind, P.frame, sample, **args)
                 self.assertEqual((len(V_tilde), len(H_tilde)), (P.d, P.d))
                 for a, b in zip(list(V_tilde) + list(H_tilde), expected):
@@ -393,8 +513,8 @@ class TestOutputsAgainstDense(unittest.TestCase):
                 for a, b in zip(sdef.H_tilde(kind, P.frame, sample, **args), H_tilde):
                     self.assertTrue(np.array_equal(a, b))
 
-                Jp = lift(modes_of(kind, sdef.Jp(kind, P.frame, sample, **args)), order)
-                expected = self.transposed(blocks, weighted(Jp, weight, kind, order))
+                Jp = J.lift(modes_of(kind, sdef.Jp(kind, P.frame, sample, **args)))
+                expected = self.transposed(blocks, J.weighted(Jp, weight, kind))
                 JtJp = sdef.JtJp(kind, P.frame, sample, **args)
                 for a, b in zip(list(JtJp[0]) + list(JtJp[1]), expected):
                     self.check(a, b)
@@ -402,146 +522,147 @@ class TestOutputsAgainstDense(unittest.TestCase):
     def test_a_given_seed_is_used_as_it_is(self):
         # g with the residual's seed passed in as w_tilde is g from y and the weight; and a seed of one's own is
         # paired turned: the transpose of an UN-turned functional c is g(w_tilde = c turned).
-        for labels, P, kind, order in cases(problems=PROBLEMS[:1]):
+        for labels, P, kind, case in cases(problems=PROBLEMS[:1], jet_cases=(NO_JETS, LINE_3, PLANE)):
             with self.subTest(**labels):
-                sample, args = P.sample(kind, order), P.arguments(kind, order)
+                J = Jets(case.order)
+                sample, args = P.sample(kind, case), P.arguments(kind, case)
                 seed = sdef.w_tilde(kind, P.frame, sample, **args)
                 from_y = sdef.g(kind, P.frame, sample, **args)
-                from_seed = sdef.g(kind, P.frame, sample, order=order, w_tilde=seed)
+                from_seed = sdef.g(kind, P.frame, sample, order=case.order, w_tilde=seed)
                 for a, b in zip(from_y[0] + from_y[1], from_seed[0] + from_seed[1]):
                     self.assertTrue(np.array_equal(a, b))
 
                 c = [P.rng.standard_normal(np.shape(s)) for s in modes_of(kind, seed)]      # forward order
-                turned = [c_i[::-1] if order else c_i for c_i in c]
-                got = sdef.g(kind, P.frame, sample, order=order, w_tilde=turned if kind == 'probe' else turned[0])
-                expected = self.transposed(self.jacobian_columns(P, kind, order), lift(c, order))
+                turned = [J.flip(c_i) for c_i in c]
+                got = sdef.g(kind, P.frame, sample, order=case.order, w_tilde=turned if kind == 'probe' else turned[0])
+                expected = self.transposed(self.jacobian_columns(P, kind, case), J.lift(c))
                 for a, b in zip(list(got[0]) + list(got[1]), expected):
                     self.check(a, b)
 
 
 class Variables:
-    """Every variable of one case from the reference, lifted, by name: ``v.mu[i]`` is a jet with a full order
-    axis. Computed on first use."""
+    """Every variable of one case from the reference, lifted to the full box, by name: ``v.mu[i]`` is a jet with
+    ``m`` axes of the box. Computed on first use."""
 
-    def __init__(self, P, kind, order, **overrides):
-        self.P, self.kind, self.order = P, kind, order
-        self.args = dict(P.arguments(kind, order), **overrides)
-        self.sample = P.sample(kind, order)
+    def __init__(self, P, kind, case, **overrides):
+        self.P, self.kind, self.case = P, kind, case
+        self.J = Jets(case.order)
+        self.args = dict(P.arguments(kind, case), **overrides)
+        self.sample = P.sample(kind, case)
         self.cache = {}
 
     def __getattr__(self, name):
         if name not in ALL_NAMES:
             raise AttributeError(name)
         if name not in self.cache:
-            self.cache[name] = lift(getattr(sdef, name)(self.kind, self.P.frame, self.sample, **self.args), self.order)
+            self.cache[name] = self.J.lift(getattr(sdef, name)(self.kind, self.P.frame, self.sample, **self.args))
         return self.cache[name]
 
 
 class TestRecurrences(unittest.TestCase):
     """SAMPLE_VARIABLES.md section 5: each variable, contracted whole by the reference, satisfies its
-    recurrence. The recurrences are written out here from the page."""
+    recurrence. The recurrences are written out here from the page, with truncated products on the box."""
 
     def check(self, got, expected, what):
         self.assertLessEqual(relative_error(got, expected), TOL, what)
 
     def test_plain(self):
-        for labels, P, kind, order in cases():
+        for labels, P, kind, case in cases():
             with self.subTest(**labels):
-                v, d = Variables(P, kind, order), P.d
+                v, d, J = Variables(P, kind, case), P.d, Jets(case.order)
                 D, U, L, R = P.frame
                 for i in range(d):
-                    self.check(v.xi[i], xi_term(D[i], v.w[i]), 'xi')
-                    self.check(v.mu[i + 1], mu_term(v.mu[i], L[i], v.xi[i]), 'mu')
-                    self.check(v.nu[i], nu_term(R[i], v.xi[i], v.nu[i + 1]), 'nu')
-                    self.check(v.nu_L[i], nu_term(L[i], v.xi[i], v.nu_L[i + 1]), 'nu_L')
-                    self.check(v.eta[i], eta_term(v.mu[i], U[i], v.nu[i + 1]), 'eta')
-                    self.check(v.eta_D[i], eta_term(v.mu[i], L[i], v.nu_L[i + 1]), 'eta_D')
-                # the starts: ones in slot 0 and zero above, sized by the end bond of the cores (tails). Exact
-                # at order 0; with jets they come out of the interpolation, so to rounding.
+                    self.check(v.xi[i], J.xi(D[i], v.w[i]), 'xi')
+                    self.check(v.mu[i + 1], J.mu(v.mu[i], L[i], v.xi[i]), 'mu')
+                    self.check(v.nu[i], J.nu(R[i], v.xi[i], v.nu[i + 1]), 'nu')
+                    self.check(v.nu_L[i], J.nu(L[i], v.xi[i], v.nu_L[i + 1]), 'nu_L')
+                    self.check(v.eta[i], J.eta(v.mu[i], U[i], v.nu[i + 1]), 'eta')
+                    self.check(v.eta_D[i], J.eta(v.mu[i], L[i], v.nu_L[i + 1]), 'eta_D')
+                # the starts: ones in slot 0 and zero elsewhere, sized by the end bond of the cores (tails). Exact
+                # with no jets; with jets they come out of the interpolation, so to rounding.
                 for start, size in ((v.mu[0], L[0].shape[0]), (v.nu[d], R[d - 1].shape[2]),
                                     (v.nu_L[d], L[d - 1].shape[2])):
-                    self.assertEqual(start.shape, (order + 1,) + P.W + (size,))
-                    if order == 0:
-                        self.assertTrue(np.array_equal(start, ones_jet(order, P.W, size)))
-                    self.check(start, ones_jet(order, P.W, size), 'a start')
+                    self.assertEqual(start.shape, case.box + P.W + (size,))
+                    if case.m == 0:
+                        self.assertTrue(np.array_equal(start, J.ones(P.W, size)))
+                    self.check(start, J.ones(P.W, size), 'a start')
 
     def test_dot_in_the_frame_form(self):
-        for labels, P, kind, order in cases():
+        for labels, P, kind, case in cases():
             with self.subTest(**labels):
-                v, d = Variables(P, kind, order, core_directions=None), P.d
+                v, d, J = Variables(P, kind, case, core_directions=None), P.d, Jets(case.order)
                 D, U, L, R = P.frame
                 V, H = P.V, P.H
                 for i in range(d):
-                    self.check(v.xi_U_dot[i], xi_term(V[i], v.w[i]), 'xi_U_dot')
+                    self.check(v.xi_U_dot[i], J.xi(V[i], v.w[i]), 'xi_U_dot')
                     self.check(v.mu_R_dot[i + 1],
-                               mu_term(v.mu_R_dot[i], R[i], v.xi[i]) + mu_term(v.mu[i], H[i], v.xi[i])
-                               + mu_term(v.mu[i], U[i], v.xi_U_dot[i]), 'mu_R_dot')
+                               J.mu(v.mu_R_dot[i], R[i], v.xi[i]) + J.mu(v.mu[i], H[i], v.xi[i])
+                               + J.mu(v.mu[i], U[i], v.xi_U_dot[i]), 'mu_R_dot')
                     self.check(v.nu_L_dot[i],
-                               nu_term(L[i], v.xi[i], v.nu_L_dot[i + 1]) + nu_term(H[i], v.xi[i], v.nu[i + 1])
-                               + nu_term(U[i], v.xi_U_dot[i], v.nu[i + 1]), 'nu_L_dot')
+                               J.nu(L[i], v.xi[i], v.nu_L_dot[i + 1]) + J.nu(H[i], v.xi[i], v.nu[i + 1])
+                               + J.nu(U[i], v.xi_U_dot[i], v.nu[i + 1]), 'nu_L_dot')
                     self.check(v.eta_D_dot[i],
-                               eta_term(v.mu_R_dot[i], R[i], v.nu[i + 1]) + eta_term(v.mu[i], H[i], v.nu[i + 1])
-                               + eta_term(v.mu[i], L[i], v.nu_L_dot[i + 1]), 'eta_D_dot')
+                               J.eta(v.mu_R_dot[i], R[i], v.nu[i + 1]) + J.eta(v.mu[i], H[i], v.nu[i + 1])
+                               + J.eta(v.mu[i], L[i], v.nu_L_dot[i + 1]), 'eta_D_dot')
                 self.assertTrue(np.all(v.mu_R_dot[0] == 0) and v.mu_R_dot[0].shape[-1] == R[0].shape[0])
                 self.assertTrue(np.all(v.nu_L_dot[d] == 0) and v.nu_L_dot[d].shape[-1] == L[d - 1].shape[2])
 
     def test_dot_in_the_raw_form(self):
-        for labels, P, kind, order in cases():
+        for labels, P, kind, case in cases():
             with self.subTest(**labels):
-                v, d = Variables(P, kind, order, variations=None), P.d
+                v, d, J = Variables(P, kind, case, variations=None), P.d, Jets(case.order)
                 D, U, L, R = P.frame
                 D_dot, L_dot = P.D_dot, P.L_dot
                 for i in range(d):
-                    self.check(v.xi_dot[i], xi_term(D_dot[i], v.w[i]), 'xi_dot')
+                    self.check(v.xi_dot[i], J.xi(D_dot[i], v.w[i]), 'xi_dot')
                     self.check(v.mu_dot[i + 1],
-                               mu_term(v.mu_dot[i], L[i], v.xi[i]) + mu_term(v.mu[i], L_dot[i], v.xi[i])
-                               + mu_term(v.mu[i], L[i], v.xi_dot[i]), 'mu_dot')
+                               J.mu(v.mu_dot[i], L[i], v.xi[i]) + J.mu(v.mu[i], L_dot[i], v.xi[i])
+                               + J.mu(v.mu[i], L[i], v.xi_dot[i]), 'mu_dot')
                     self.check(v.nu_L_dot[i],
-                               nu_term(L[i], v.xi[i], v.nu_L_dot[i + 1]) + nu_term(L_dot[i], v.xi[i], v.nu_L[i + 1])
-                               + nu_term(L[i], v.xi_dot[i], v.nu_L[i + 1]), 'nu_L_dot (raw)')
+                               J.nu(L[i], v.xi[i], v.nu_L_dot[i + 1]) + J.nu(L_dot[i], v.xi[i], v.nu_L[i + 1])
+                               + J.nu(L[i], v.xi_dot[i], v.nu_L[i + 1]), 'nu_L_dot (raw)')
                     self.check(v.eta_D_dot[i],
-                               eta_term(v.mu_dot[i], L[i], v.nu_L[i + 1]) + eta_term(v.mu[i], L_dot[i], v.nu_L[i + 1])
-                               + eta_term(v.mu[i], L[i], v.nu_L_dot[i + 1]), 'eta_D_dot (raw)')
+                               J.eta(v.mu_dot[i], L[i], v.nu_L[i + 1]) + J.eta(v.mu[i], L_dot[i], v.nu_L[i + 1])
+                               + J.eta(v.mu[i], L[i], v.nu_L_dot[i + 1]), 'eta_D_dot (raw)')
                 self.assertTrue(np.all(v.mu_dot[0] == 0) and np.all(v.nu_L_dot[d] == 0))
 
     def seed_starts(self, v):
         """What the seed puts in: the seeded leaves, and the start of the right-to-left tilde sweeps. probe: the
         seed at the inputs, sweeps from zero. apply, entries: no seeded leaf, sweeps from the seed times ones."""
-        P, d, order = v.P, v.P.d, v.order
+        P, d, J = v.P, v.P.d, v.J
         D, U, L, R = P.frame
         if v.kind == 'probe':
-            xi_tilde = [xi_term(D[i], v.w_tilde[i]) for i in range(d)]
-            xi_tilde_dot = [xi_term(P.D_dot[i], v.w_tilde[i]) for i in range(d)]
-            start = lambda size: np.zeros((order + 1,) + P.W + (size,))
+            xi_tilde = [J.xi(D[i], v.w_tilde[i]) for i in range(d)]
+            xi_tilde_dot = [J.xi(P.D_dot[i], v.w_tilde[i]) for i in range(d)]
+            start = lambda size: np.zeros(J.box + P.W + (size,))
         else:
-            xi_tilde = [np.zeros((order + 1,) + P.W + (D[i].shape[0],)) for i in range(d)]
+            xi_tilde = [np.zeros(J.box + P.W + (D[i].shape[0],)) for i in range(d)]
             xi_tilde_dot = xi_tilde
             start = lambda size: v.w_tilde[..., None] * np.ones(size)
         return xi_tilde, xi_tilde_dot, start
 
     def test_tilde(self):
-        for labels, P, kind, order in cases():
+        for labels, P, kind, case in cases():
             with self.subTest(**labels):
-                v, d = Variables(P, kind, order), P.d
+                v, d, J = Variables(P, kind, case), P.d, Jets(case.order)
                 D, U, L, R = P.frame
                 xi_tilde, _, start = self.seed_starts(v)
                 for i in range(d):
                     self.check(v.xi_tilde[i], xi_tilde[i], 'xi_tilde')
                     self.check(v.mu_tilde[i + 1],
-                               mu_term(v.mu_tilde[i], L[i], v.xi[i]) + mu_term(v.mu[i], L[i], v.xi_tilde[i]),
-                               'mu_tilde')
+                               J.mu(v.mu_tilde[i], L[i], v.xi[i]) + J.mu(v.mu[i], L[i], v.xi_tilde[i]), 'mu_tilde')
                     self.check(v.nu_tilde[i],
-                               nu_term(R[i], v.xi[i], v.nu_tilde[i + 1]) + nu_term(R[i], v.xi_tilde[i], v.nu[i + 1]),
+                               J.nu(R[i], v.xi[i], v.nu_tilde[i + 1]) + J.nu(R[i], v.xi_tilde[i], v.nu[i + 1]),
                                'nu_tilde')
                     self.check(v.nu_L_tilde[i],
-                               nu_term(L[i], v.xi[i], v.nu_L_tilde[i + 1])
-                               + nu_term(L[i], v.xi_tilde[i], v.nu_L[i + 1]), 'nu_L_tilde')
+                               J.nu(L[i], v.xi[i], v.nu_L_tilde[i + 1]) + J.nu(L[i], v.xi_tilde[i], v.nu_L[i + 1]),
+                               'nu_L_tilde')
                     self.check(v.eta_tilde[i],
-                               eta_term(v.mu_tilde[i], U[i], v.nu[i + 1]) + eta_term(v.mu[i], U[i], v.nu_tilde[i + 1]),
+                               J.eta(v.mu_tilde[i], U[i], v.nu[i + 1]) + J.eta(v.mu[i], U[i], v.nu_tilde[i + 1]),
                                'eta_tilde')
                     self.check(v.eta_D_tilde[i],
-                               eta_term(v.mu_tilde[i], L[i], v.nu_L[i + 1])
-                               + eta_term(v.mu[i], L[i], v.nu_L_tilde[i + 1]), 'eta_D_tilde')
+                               J.eta(v.mu_tilde[i], L[i], v.nu_L[i + 1]) + J.eta(v.mu[i], L[i], v.nu_L_tilde[i + 1]),
+                               'eta_D_tilde')
                 self.assertTrue(np.all(v.mu_tilde[0] == 0))
                 self.check(v.nu_tilde[d], start(R[d - 1].shape[2]), 'the start of nu_tilde')
                 self.check(v.nu_L_tilde[d], start(L[d - 1].shape[2]), 'the start of nu_L_tilde')
@@ -550,33 +671,33 @@ class TestRecurrences(unittest.TestCase):
                         self.assertTrue(np.all(v.xi_tilde[i] == 0) and np.all(v.mu_tilde[i + 1] == 0))
 
     def test_tilde_dot(self):
-        for labels, P, kind, order in cases():
+        for labels, P, kind, case in cases():
             with self.subTest(**labels):
-                v, d = Variables(P, kind, order, variations=None), P.d      # the raw dots
+                v, d, J = Variables(P, kind, case, variations=None), P.d, Jets(case.order)    # the raw dots
                 D, U, L, R = P.frame
                 D_dot, L_dot = P.D_dot, P.L_dot
                 _, xi_tilde_dot, _ = self.seed_starts(v)
                 for i in range(d):
                     self.check(v.xi_tilde_dot[i], xi_tilde_dot[i], 'xi_tilde_dot')
                     self.check(v.mu_tilde_dot[i + 1],
-                               mu_term(v.mu_tilde_dot[i], L[i], v.xi[i]) + mu_term(v.mu_dot[i], L[i], v.xi_tilde[i])
-                               + mu_term(v.mu_tilde[i], L[i], v.xi_dot[i]) + mu_term(v.mu[i], L[i], v.xi_tilde_dot[i])
-                               + mu_term(v.mu_tilde[i], L_dot[i], v.xi[i]) + mu_term(v.mu[i], L_dot[i], v.xi_tilde[i]),
+                               J.mu(v.mu_tilde_dot[i], L[i], v.xi[i]) + J.mu(v.mu_dot[i], L[i], v.xi_tilde[i])
+                               + J.mu(v.mu_tilde[i], L[i], v.xi_dot[i]) + J.mu(v.mu[i], L[i], v.xi_tilde_dot[i])
+                               + J.mu(v.mu_tilde[i], L_dot[i], v.xi[i]) + J.mu(v.mu[i], L_dot[i], v.xi_tilde[i]),
                                'mu_tilde_dot')
                     self.check(v.nu_L_tilde_dot[i],
-                               nu_term(L[i], v.xi[i], v.nu_L_tilde_dot[i + 1])
-                               + nu_term(L[i], v.xi_tilde[i], v.nu_L_dot[i + 1])
-                               + nu_term(L[i], v.xi_dot[i], v.nu_L_tilde[i + 1])
-                               + nu_term(L[i], v.xi_tilde_dot[i], v.nu_L[i + 1])
-                               + nu_term(L_dot[i], v.xi[i], v.nu_L_tilde[i + 1])
-                               + nu_term(L_dot[i], v.xi_tilde[i], v.nu_L[i + 1]), 'nu_L_tilde_dot')
+                               J.nu(L[i], v.xi[i], v.nu_L_tilde_dot[i + 1])
+                               + J.nu(L[i], v.xi_tilde[i], v.nu_L_dot[i + 1])
+                               + J.nu(L[i], v.xi_dot[i], v.nu_L_tilde[i + 1])
+                               + J.nu(L[i], v.xi_tilde_dot[i], v.nu_L[i + 1])
+                               + J.nu(L_dot[i], v.xi[i], v.nu_L_tilde[i + 1])
+                               + J.nu(L_dot[i], v.xi_tilde[i], v.nu_L[i + 1]), 'nu_L_tilde_dot')
                     self.check(v.eta_D_tilde_dot[i],
-                               eta_term(v.mu_tilde_dot[i], L[i], v.nu_L[i + 1])
-                               + eta_term(v.mu_dot[i], L[i], v.nu_L_tilde[i + 1])
-                               + eta_term(v.mu_tilde[i], L[i], v.nu_L_dot[i + 1])
-                               + eta_term(v.mu[i], L[i], v.nu_L_tilde_dot[i + 1])
-                               + eta_term(v.mu_tilde[i], L_dot[i], v.nu_L[i + 1])
-                               + eta_term(v.mu[i], L_dot[i], v.nu_L_tilde[i + 1]), 'eta_D_tilde_dot')
+                               J.eta(v.mu_tilde_dot[i], L[i], v.nu_L[i + 1])
+                               + J.eta(v.mu_dot[i], L[i], v.nu_L_tilde[i + 1])
+                               + J.eta(v.mu_tilde[i], L[i], v.nu_L_dot[i + 1])
+                               + J.eta(v.mu[i], L[i], v.nu_L_tilde_dot[i + 1])
+                               + J.eta(v.mu_tilde[i], L_dot[i], v.nu_L[i + 1])
+                               + J.eta(v.mu[i], L_dot[i], v.nu_L_tilde[i + 1]), 'eta_D_tilde_dot')
                 self.assertTrue(np.all(v.mu_tilde_dot[0] == 0) and np.all(v.nu_L_tilde_dot[d] == 0))
 
 
@@ -589,41 +710,41 @@ class TestReadouts(unittest.TestCase):
         self.assertLessEqual(relative_error(got, expected), TOL, what)
 
     def test_z_and_Jp(self):
-        for labels, P, kind, order in cases():
+        for labels, P, kind, case in cases():
             with self.subTest(**labels):
-                v, d = Variables(P, kind, order, core_directions=None), P.d
+                v, d, J = Variables(P, kind, case, core_directions=None), P.d, Jets(case.order)
                 D, U, L, R = P.frame
                 if kind == 'probe':
                     for i in range(d):
-                        self.check(v.z[i], z_term(v.eta_D[i], D[i]), 'z')
-                        self.check(v.Jp[i], z_term(v.eta_D_dot[i], D[i]) + z_term(v.eta[i], P.V[i]), 'Jp')
+                        self.check(v.z[i], J.z(v.eta_D[i], D[i]), 'z')
+                        self.check(v.Jp[i], J.z(v.eta_D_dot[i], D[i]) + J.z(v.eta[i], P.V[i]), 'Jp')
                 else:                                       # read at the right end: bond d, summed with the ones
                     self.check(v.z, v.mu[d].sum(axis=-1), 'z')
                     self.check(v.Jp, v.mu_R_dot[d].sum(axis=-1), 'Jp')
 
     def test_the_blocks_of_g(self):
-        for labels, P, kind, order in cases():
+        for labels, P, kind, case in cases():
             with self.subTest(**labels):
-                v, d = Variables(P, kind, order), P.d
+                v, d, J = Variables(P, kind, case), P.d, Jets(case.order)
                 V_tilde, H_tilde = sdef.g(kind, P.frame, v.sample, **v.args)
                 for i in range(d):
-                    V_block = V_top(v.eta_tilde[i], v.w[i])
+                    V_block = J.V_top(v.eta_tilde[i], v.w[i])
                     if kind == 'probe':                     # the seed at input i itself
-                        V_block = V_block + V_top(v.eta[i], v.w_tilde[i])
+                        V_block = V_block + J.V_top(v.eta[i], v.w_tilde[i])
                     self.check(V_tilde[i], V_block, 'V_tilde')
                     self.check(H_tilde[i],
-                               H_top(v.mu_tilde[i], v.xi[i], v.nu[i + 1]) + H_top(v.mu[i], v.xi_tilde[i], v.nu[i + 1])
-                               + H_top(v.mu[i], v.xi[i], v.nu_tilde[i + 1]), 'H_tilde')
+                               J.H_top(v.mu_tilde[i], v.xi[i], v.nu[i + 1]) + J.H_top(v.mu[i], v.xi_tilde[i], v.nu[i + 1])
+                               + J.H_top(v.mu[i], v.xi[i], v.nu_tilde[i + 1]), 'H_tilde')
 
     def test_the_blocks_of_Kp(self):
-        for labels, P, kind, order in cases():
+        for labels, P, kind, case in cases():
             with self.subTest(**labels):
-                v, d = Variables(P, kind, order, variations=None), P.d      # the raw dots
+                v, d, J = Variables(P, kind, case, variations=None), P.d, Jets(case.order)    # the raw dots
                 V_tilde_dot, H_tilde_dot = sdef.Kp(kind, P.frame, v.sample, **v.args)
                 for i in range(d):
-                    V_block = V_top(v.eta_D_tilde_dot[i], v.w[i])
+                    V_block = J.V_top(v.eta_D_tilde_dot[i], v.w[i])
                     if kind == 'probe':
-                        V_block = V_block + V_top(v.eta_D_dot[i], v.w_tilde[i])
+                        V_block = V_block + J.V_top(v.eta_D_dot[i], v.w_tilde[i])
                     self.check(V_tilde_dot[i], V_block, 'V_tilde_dot')
                     mu = {'': v.mu[i], 'd': v.mu_dot[i], 't': v.mu_tilde[i], 'td': v.mu_tilde_dot[i]}
                     xi = {'': v.xi[i], 'd': v.xi_dot[i], 't': v.xi_tilde[i], 'td': v.xi_tilde_dot[i]}
@@ -632,22 +753,12 @@ class TestReadouts(unittest.TestCase):
                     nine = [g for g in itertools.product(('', 'd', 't', 'td'), repeat=3)
                             if ''.join(sorted(''.join(g))) == 'dt']           # one tilde and one dot in all
                     self.assertEqual(len(nine), 9)
-                    self.check(H_tilde_dot[i], sum(H_top(mu[a], xi[b], nu[c]) for a, b, c in nine), 'H_tilde_dot')
+                    self.check(H_tilde_dot[i], sum(J.H_top(mu[a], xi[b], nu[c]) for a, b, c in nine), 'H_tilde_dot')
                 # the two blocks' own functions are the same arrays
                 for a, b in zip(sdef.V_tilde_dot(kind, P.frame, v.sample, **v.args), V_tilde_dot):
                     self.assertTrue(np.array_equal(a, b))
                 for a, b in zip(sdef.H_tilde_dot(kind, P.frame, v.sample, **v.args), H_tilde_dot):
                     self.assertTrue(np.array_equal(a, b))
-
-
-def pair(a, b):
-    """Two jets on the two sides of one edge, contracted over the edge: a jet ``T + W``."""
-    return tprod(lambda p, q: np.einsum('...a,...a->...', p, q), a, b)
-
-
-def top_pair(a, b):
-    """The number two jets stand for together: the top coefficient of their product, summed over everything."""
-    return float(np.sum(pair(a, b)[-1]))
 
 
 class TestPairings(unittest.TestCase):
@@ -657,11 +768,11 @@ class TestPairings(unittest.TestCase):
         # At a cut bond the direction's sampled network is mu_R_dot paired with nu plus mu paired with nu_L_dot;
         # at a cut Tucker edge, xi_U_dot paired with eta plus xi paired with eta_D_dot. Every cut gives the same
         # jet per sample: the direction's network with every mode contracted, which is Jp of apply / entries.
-        for labels, P, kind, order in cases(kinds=('apply', 'entries')):
+        for labels, P, kind, case in cases(kinds=('apply', 'entries')):
             with self.subTest(**labels):
-                v, d = Variables(P, kind, order, core_directions=None), P.d
-                cuts = ([pair(v.mu_R_dot[i], v.nu[i]) + pair(v.mu[i], v.nu_L_dot[i]) for i in range(d + 1)]
-                        + [pair(v.xi_U_dot[i], v.eta[i]) + pair(v.xi[i], v.eta_D_dot[i]) for i in range(d)])
+                v, d, J = Variables(P, kind, case, core_directions=None), P.d, Jets(case.order)
+                cuts = ([J.pair(v.mu_R_dot[i], v.nu[i]) + J.pair(v.mu[i], v.nu_L_dot[i]) for i in range(d + 1)]
+                        + [J.pair(v.xi_U_dot[i], v.eta[i]) + J.pair(v.xi[i], v.eta_D_dot[i]) for i in range(d)])
                 self.assertEqual(len(cuts), 2 * d + 1)
                 for cut in cuts:
                     self.assertLessEqual(relative_error(cut, v.Jp), TOL)
@@ -678,58 +789,53 @@ class TestPairings(unittest.TestCase):
         # The tilde of a variable is the multiplier of the dot of the other side of the same edge, in the same
         # basis: with the direction wholly on one side of the edge, the seed paired with Jp, over the modes on
         # the OTHER side, is the tilde variable paired with the dotted one.
-        for labels, P, kind, order in cases(kinds=('probe',)):
+        for labels, P, kind, case in cases(kinds=('probe',)):
             with self.subTest(**labels):
-                d = P.d
-                base = Variables(P, kind, order)
+                d, J = P.d, Jets(case.order)
+                base = Variables(P, kind, case)
                 seed = base.w_tilde
 
                 def modes(direction, which):
-                    Jp = Variables(P, kind, order, variations=direction).Jp
-                    return sum(top_pair(seed[k], Jp[k]) for k in which)
+                    Jp = Variables(P, kind, case, variations=direction).Jp
+                    return sum(J.top_pair(seed[k], Jp[k]) for k in which)
 
                 for i in range(d + 1):
                     right = self.one_sided(P, lambda j: j >= i)                 # mu_tilde multiplies nu_L_dot
-                    v = Variables(P, kind, order, variations=right, core_directions=None)
-                    self.check(top_pair(base.mu_tilde[i], v.nu_L_dot[i]), modes(right, range(i)))
+                    v = Variables(P, kind, case, variations=right, core_directions=None)
+                    self.check(J.top_pair(base.mu_tilde[i], v.nu_L_dot[i]), modes(right, range(i)))
                     left = self.one_sided(P, lambda j: j < i)                   # nu_tilde multiplies mu_R_dot
-                    v = Variables(P, kind, order, variations=left, core_directions=None)
-                    self.check(top_pair(base.nu_tilde[i], v.mu_R_dot[i]), modes(left, range(i, d)))
+                    v = Variables(P, kind, case, variations=left, core_directions=None)
+                    self.check(J.top_pair(base.nu_tilde[i], v.mu_R_dot[i]), modes(left, range(i, d)))
                 for i in range(d):
                     leaf = (self.one_sided(P, lambda j: j == i)[0], [0 * H for H in P.H])   # only V[i]
-                    v = Variables(P, kind, order, variations=leaf, core_directions=None)
-                    self.check(top_pair(base.eta_tilde[i], v.xi_U_dot[i]),      # eta_tilde multiplies xi_U_dot
+                    v = Variables(P, kind, case, variations=leaf, core_directions=None)
+                    self.check(J.top_pair(base.eta_tilde[i], v.xi_U_dot[i]),    # eta_tilde multiplies xi_U_dot
                                modes(leaf, [k for k in range(d) if k != i]))
                     trunk = (self.one_sided(P, lambda j: j != i)[0], P.H)       # everything but V[i]
-                    v = Variables(P, kind, order, variations=trunk, core_directions=None)
-                    self.check(top_pair(base.xi_tilde[i], v.eta_D_dot[i]), modes(trunk, [i]))   # xi_tilde: eta_D_dot
+                    v = Variables(P, kind, case, variations=trunk, core_directions=None)
+                    self.check(J.top_pair(base.xi_tilde[i], v.eta_D_dot[i]), modes(trunk, [i]))   # xi_tilde: eta_D_dot
 
     def test_the_multipliers_of_apply_and_entries(self):
         # The seed sits at bond d, so it is on the right of every bond and in every trunk: nu_tilde multiplies
         # mu_R_dot and eta_tilde multiplies xi_U_dot, and there is no mu_tilde and no xi_tilde.
-        for labels, P, kind, order in cases(kinds=('apply', 'entries')):
+        for labels, P, kind, case in cases(kinds=('apply', 'entries')):
             with self.subTest(**labels):
-                d = P.d
-                base = Variables(P, kind, order)
+                d, J = P.d, Jets(case.order)
+                base = Variables(P, kind, case)
+
                 def paired_with_Jp(direction):
-                    Jp = Variables(P, kind, order, variations=direction).Jp
-                    return top_pair(base.w_tilde[..., None], Jp[..., None])
+                    Jp = Variables(P, kind, case, variations=direction).Jp
+                    return J.top_pair(base.w_tilde[..., None], Jp[..., None])
                 for i in range(d + 1):
                     left = self.one_sided(P, lambda j: j < i)
-                    v = Variables(P, kind, order, variations=left, core_directions=None)
-                    self.check(top_pair(base.nu_tilde[i], v.mu_R_dot[i]), paired_with_Jp(left))
+                    v = Variables(P, kind, case, variations=left, core_directions=None)
+                    self.check(J.top_pair(base.nu_tilde[i], v.mu_R_dot[i]), paired_with_Jp(left))
                     self.assertTrue(np.all(base.mu_tilde[i] == 0))
                 for i in range(d):
                     leaf = (self.one_sided(P, lambda j: j == i)[0], [0 * H for H in P.H])
-                    v = Variables(P, kind, order, variations=leaf, core_directions=None)
-                    self.check(top_pair(base.eta_tilde[i], v.xi_U_dot[i]), paired_with_Jp(leaf))
+                    v = Variables(P, kind, case, variations=leaf, core_directions=None)
+                    self.check(J.top_pair(base.eta_tilde[i], v.xi_U_dot[i]), paired_with_Jp(leaf))
                     self.assertTrue(np.all(base.xi_tilde[i] == 0))
-
-
-def times_seed(seed, jet):
-    """The seed of apply or entries (a jet ``T + W``, one number per sample) times a jet ``T + W + (size,)``, as
-    polynomials in ``s``, truncated."""
-    return tprod(lambda c, x: c[..., None] * x, seed, jet)
 
 
 class TestApplyAndEntries(unittest.TestCase):
@@ -741,137 +847,166 @@ class TestApplyAndEntries(unittest.TestCase):
         self.assertLessEqual(relative_error(got, expected), TOL, what)
 
     def test_they_are_zero_or_the_seed_times_the_untilded_variable(self):
-        for labels, P, kind, order in cases(kinds=('apply', 'entries')):
+        for labels, P, kind, case in cases(kinds=('apply', 'entries')):
             with self.subTest(**labels):
-                v, d = Variables(P, kind, order, variations=None), P.d      # the raw dots
+                v, d, J = Variables(P, kind, case, variations=None), P.d, Jets(case.order)   # the raw dots
                 seed = v.w_tilde
                 for i in range(d + 1):
                     self.assertTrue(np.all(v.mu_tilde[i] == 0) and np.all(v.mu_tilde_dot[i] == 0))
-                    self.check(v.nu_tilde[i], times_seed(seed, v.nu[i]), 'nu_tilde')
-                    self.check(v.nu_L_tilde[i], times_seed(seed, v.nu_L[i]), 'nu_L_tilde')
-                    self.check(v.nu_L_tilde_dot[i], times_seed(seed, v.nu_L_dot[i]), 'nu_L_tilde_dot')
+                    self.check(v.nu_tilde[i], J.times_seed(seed, v.nu[i]), 'nu_tilde')
+                    self.check(v.nu_L_tilde[i], J.times_seed(seed, v.nu_L[i]), 'nu_L_tilde')
+                    self.check(v.nu_L_tilde_dot[i], J.times_seed(seed, v.nu_L_dot[i]), 'nu_L_tilde_dot')
+                raw = sdef.xi_tilde(kind, P.frame, v.sample, **v.args)          # not lifted: its own jet sizes
                 for i in range(d):
                     self.assertTrue(np.all(v.xi_tilde[i] == 0) and np.all(v.xi_tilde_dot[i] == 0))
-                    self.assertEqual(v.xi_tilde[i].shape, (order + 1,) + P.W + (P.D[i].shape[0],))     # T, not A
-                    self.check(v.eta_tilde[i], times_seed(seed, v.eta[i]), 'eta_tilde')
-                    self.check(v.eta_D_tilde[i], times_seed(seed, v.eta_D[i]), 'eta_D_tilde')
-                    self.check(v.eta_D_tilde_dot[i], times_seed(seed, v.eta_D_dot[i]), 'eta_D_tilde_dot')
+                    self.assertEqual(raw[i].shape, case.box + P.W + (P.D[i].shape[0],))     # F, not the input's
+                    self.check(v.eta_tilde[i], J.times_seed(seed, v.eta[i]), 'eta_tilde')
+                    self.check(v.eta_D_tilde[i], J.times_seed(seed, v.eta_D[i]), 'eta_D_tilde')
+                    self.check(v.eta_D_tilde_dot[i], J.times_seed(seed, v.eta_D_dot[i]), 'eta_D_tilde_dot')
 
     def test_their_blocks_have_only_the_terms_with_the_seed_on_the_right(self):
-        for labels, P, kind, order in cases(kinds=('apply', 'entries')):
+        for labels, P, kind, case in cases(kinds=('apply', 'entries')):
             with self.subTest(**labels):
-                v, d = Variables(P, kind, order, variations=None), P.d
+                v, d, J = Variables(P, kind, case, variations=None), P.d, Jets(case.order)
                 V_tilde, H_tilde = sdef.g(kind, P.frame, v.sample, **v.args)
                 V_tilde_dot, H_tilde_dot = sdef.Kp(kind, P.frame, v.sample, **v.args)
                 for i in range(d):
-                    self.check(V_tilde[i], V_top(v.eta_tilde[i], v.w[i]), 'V_tilde')
-                    self.check(H_tilde[i], H_top(v.mu[i], v.xi[i], v.nu_tilde[i + 1]), 'H_tilde')
-                    self.check(V_tilde_dot[i], V_top(v.eta_D_tilde_dot[i], v.w[i]), 'V_tilde_dot')
+                    self.check(V_tilde[i], J.V_top(v.eta_tilde[i], v.w[i]), 'V_tilde')
+                    self.check(H_tilde[i], J.H_top(v.mu[i], v.xi[i], v.nu_tilde[i + 1]), 'H_tilde')
+                    self.check(V_tilde_dot[i], J.V_top(v.eta_D_tilde_dot[i], v.w[i]), 'V_tilde_dot')
                     self.check(H_tilde_dot[i],
-                               H_top(v.mu_dot[i], v.xi[i], v.nu_L_tilde[i + 1])
-                               + H_top(v.mu[i], v.xi_dot[i], v.nu_L_tilde[i + 1])
-                               + H_top(v.mu[i], v.xi[i], v.nu_L_tilde_dot[i + 1]), 'H_tilde_dot')
+                               J.H_top(v.mu_dot[i], v.xi[i], v.nu_L_tilde[i + 1])
+                               + J.H_top(v.mu[i], v.xi_dot[i], v.nu_L_tilde[i + 1])
+                               + J.H_top(v.mu[i], v.xi[i], v.nu_L_tilde_dot[i + 1]), 'H_tilde_dot')
 
     def test_two_of_the_four_pairings_are_of_the_probe_kind_only(self):
         # Section 8 pairs mu_tilde with nu_L_dot and xi_tilde with eta_D_dot. For apply and entries those two
         # tilde variables are zero, and what multiplies nu_L_dot and eta_D_dot is the seed times mu and the seed
         # times xi, which have no names. (The other two pairings hold for every kind: TestPairings.)
-        for labels, P, kind, order in cases(kinds=('apply', 'entries'), orders=(0, 3)):
+        for labels, P, kind, case in cases(kinds=('apply', 'entries'), jet_cases=(NO_JETS, LINE_3, MIXED_MODES)):
             with self.subTest(**labels):
-                d = P.d
-                base = Variables(P, kind, order)
+                d, J = P.d, Jets(case.order)
+                base = Variables(P, kind, case)
                 seed = base.w_tilde
-                zero_H = [0 * H for H in P.H]
                 for i in range(1, d):                       # a bond with sites on both sides
                     right = ([V if j >= i else 0 * V for j, V in enumerate(P.V)],
                              [H if j >= i else 0 * H for j, H in enumerate(P.H)])
-                    v = Variables(P, kind, order, variations=right, core_directions=None)
-                    paired_with_Jp = top_pair(seed[..., None], v.Jp[..., None])
+                    v = Variables(P, kind, case, variations=right, core_directions=None)
+                    paired_with_Jp = J.top_pair(seed[..., None], v.Jp[..., None])
                     self.assertGreater(abs(paired_with_Jp), 1e-3)
-                    self.assertEqual(top_pair(base.mu_tilde[i], v.nu_L_dot[i]), 0.0)
-                    self.assertLessEqual(abs(top_pair(times_seed(seed, base.mu[i]), v.nu_L_dot[i]) - paired_with_Jp),
+                    self.assertEqual(J.top_pair(base.mu_tilde[i], v.nu_L_dot[i]), 0.0)
+                    self.assertLessEqual(abs(J.top_pair(J.times_seed(seed, base.mu[i]), v.nu_L_dot[i]) - paired_with_Jp),
                                          TOL * abs(paired_with_Jp))
                 for i in range(d):
                     trunk = ([V if j != i else 0 * V for j, V in enumerate(P.V)], P.H)       # everything but V[i]
-                    v = Variables(P, kind, order, variations=trunk, core_directions=None)
-                    paired_with_Jp = top_pair(seed[..., None], v.Jp[..., None])
+                    v = Variables(P, kind, case, variations=trunk, core_directions=None)
+                    paired_with_Jp = J.top_pair(seed[..., None], v.Jp[..., None])
                     self.assertGreater(abs(paired_with_Jp), 1e-3)
-                    self.assertEqual(top_pair(base.xi_tilde[i], v.eta_D_dot[i]), 0.0)
-                    self.assertLessEqual(abs(top_pair(times_seed(seed, base.xi[i]), v.eta_D_dot[i]) - paired_with_Jp),
+                    self.assertEqual(J.top_pair(base.xi_tilde[i], v.eta_D_dot[i]), 0.0)
+                    self.assertLessEqual(abs(J.top_pair(J.times_seed(seed, base.xi[i]), v.eta_D_dot[i]) - paired_with_Jp),
                                          TOL * abs(paired_with_Jp))
 
     def test_a_tilde_dot_variable_is_the_derivative_of_its_tilde_with_the_seed_held(self):
         # For every kind (for apply and entries both sides of the first two are zero).
         h = 1e-4
-        for labels, P, kind, order in cases(problems=PROBLEMS[:2], orders=(0, 3)):
+        for labels, P, kind, case in cases(problems=PROBLEMS[:2], jet_cases=(NO_JETS, LINE_3, MIXED_MODES)):
             with self.subTest(**labels):
-                sample, args = P.sample(kind, order), P.arguments(kind, order)
+                sample, args = P.sample(kind, case), P.arguments(kind, case)
                 seed = sdef.w_tilde(kind, P.frame, sample, **args)
 
                 def moved(e):                               # the base point (D, L) moved along the raw direction
                     return ([X + e * X_dot for X, X_dot in zip(P.D, P.D_dot)], P.U,
                             [X + e * X_dot for X, X_dot in zip(P.L, P.L_dot)], P.R)
                 for name in ('xi_tilde', 'mu_tilde', 'nu_L_tilde', 'eta_D_tilde'):
-                    at = lambda e: getattr(sdef, name)(kind, moved(e), sample, order=order, w_tilde=seed)
+                    at = lambda e: getattr(sdef, name)(kind, moved(e), sample, order=case.order, w_tilde=seed)
                     quotient = [(8 * (a - b) - (c - d_)) / (12 * h)
                                 for a, b, c, d_ in zip(at(h), at(-h), at(2 * h), at(-2 * h))]
-                    dotted = getattr(sdef, name + '_dot')(kind, P.frame, sample, order=order, w_tilde=seed,
+                    dotted = getattr(sdef, name + '_dot')(kind, P.frame, sample, order=case.order, w_tilde=seed,
                                                           core_directions=args['core_directions'])
                     for a, b in zip(dotted, quotient):
                         self.assertLessEqual(relative_error(a, b), 1e-8, name + '_dot')
 
 
 class TestJetsTwoWays(unittest.TestCase):
-    """Every variable at an order, against the Taylor expansion of the same variable at order 0 along
-    ``ww + s pp``, by interpolation at two sets of nodes that are not the reference's. For the tilde grades the
-    order-0 call is given the stored seed as the polynomial ``sum_t w_tilde[t] s^t``: that is what it means
-    that they are stored turned."""
+    """Every variable at a jet shape, against the Taylor expansion of the same variable with no jets at the input
+    jets evaluated at ``s``, by interpolation on two real grids that are not the reference's. For the tilde grades
+    the no-jet call is given the stored seed as the polynomial ``sum_k w_tilde[k] s^k``: that is what it means that
+    they are stored turned. The declared jet sizes are checked exactly."""
 
     JETTED = tuple(name for name in ALL_NAMES if name in BOND_NAMES + SITE_NAMES + MODE_NAMES
-                   and name not in ('V_tilde', 'H_tilde', 'V_tilde_dot', 'H_tilde_dot', 'r', 'w_tilde'))
+                   and name not in ('V_tilde', 'H_tilde', 'V_tilde_dot', 'H_tilde_dot', 'r', 'w_tilde', 'w'))
 
     def test_every_variable(self):
-        self.assertEqual(len(self.JETTED), 25)              # w, z, Jp and the 22 edge variables
-        for labels, P, kind, order in cases(problems=(PROBLEMS[0], PROBLEMS[2]), orders=(1, 3)):
-            sample, args = P.sample(kind, order), P.arguments(kind, order)
+        self.assertEqual(len(self.JETTED), 24)              # z, Jp and the 22 edge variables
+        # every jet case on three sites; on four (a larger grid, every coefficient nonzero) one variable and two
+        matrix = itertools.chain(cases(problems=PROBLEMS[:1], kinds=('probe', 'apply'), jet_cases=WITH_JETS),
+                                 cases(problems=PROBLEMS[2:3], kinds=('probe', 'apply'), jet_cases=(LINE_3, MIXED_MODES)))
+        for labels, P, kind, case in matrix:
+            sample, args = P.sample(kind, case), P.arguments(kind, case)
             seed = sdef.w_tilde(kind, P.frame, sample, **args)
-            inputs = P.inputs(kind)
-            line_kind = 'apply' if kind == 'entries' else kind      # off the grid, entries is apply at e + s p
+            inputs = clipped_inputs(P, kind, case)
+            degrees = degree_bound(P, kind, case, seed=True)      # no variable has a higher degree
 
             def at(name, s, i):
-                powers = s ** np.arange(order + 1)
-                seed_s = ([np.tensordot(powers, c, axes=1) for c in seed] if kind == 'probe'
-                          else np.tensordot(powers, seed, axes=1))
-                moved = [w + s * p for w, p in zip(inputs, P.pp)]
-                return getattr(sdef, name)(line_kind, P.frame, moved, i, variations=args['variations'],
-                                           core_directions=args['core_directions'], w_tilde=seed_s)
+                seed_s = [evaluate(c, s) for c in seed] if kind == 'probe' else evaluate(seed, s)
+                return getattr(sdef, name)(kind, P.frame, [evaluate(x, s) for x in inputs], i,
+                                           variations=args['variations'], core_directions=args['core_directions'],
+                                           w_tilde=seed_s)
 
             for name in self.JETTED:
                 got = getattr(sdef, name)(kind, P.frame, sample, **args)
-                indexed = isinstance(got, tuple)            # not so for z and Jp of apply and entries
+                indexed = isinstance(got, tuple)            # not so for z and Jp of apply
                 got = list(got) if indexed else [got]
-                n_slots = 2 if name in AFFINE_NAMES else order + 1
-                for nodes in node_sets(P.d + order):        # no variable has a higher degree in s
-                    for i, got_i in enumerate(got):
-                        index = i if indexed else None
-                        with self.subTest(name=name, i=index, nodes=float(nodes[-1]), **labels):
-                            expected = interpolate(lambda s: at(name, s, index), nodes, n_slots)
-                            self.assertEqual(got_i.shape, expected.shape)       # structural: A or T slots
+                for i, got_i in enumerate(got):
+                    index = i if indexed else None
+                    sizes = tuple(inputs[i].shape[:case.m]) if name in LEAF_NAMES else case.box
+                    for which in (0, 1):
+                        with self.subTest(name=name, i=index, nodes=which, **labels):
+                            (expected,) = interpolate(lambda s: [at(name, s, index)], degrees, sizes, which)
+                            self.assertEqual(got_i.shape, expected.shape)       # structural: the declared sizes
                             self.assertLessEqual(relative_error(got_i, expected), 1e-8)
 
-    def test_slot_zero_of_a_plain_or_dot_jet_is_the_variable_at_order_zero(self):
-        # Not so for the tilde grades, whose seed is turned: its slot 0 holds the top order.
+    def test_slot_zero_is_the_variable_with_no_jets(self):
+        # For the plain and dot grades, and the outputs: slot (0, ..., 0) of the jet at any jet shape is the variable
+        # with no jets at the input jets' slot 0 (the point ww). Not so for the tilde grades, whose seed is turned:
+        # their slot 0 holds the corner.
         P = small()
-        for kind in KINDS:
-            args = P.arguments(kind, 0)
-            for name in NAMES['plain'] + NAMES['dot, frame form'] + NAMES['dot, raw form'] + ('w', 'z', 'Jp'):
+        for kind in ('probe', 'apply'):
+            args = P.arguments(kind, NO_JETS)
+            for case in WITH_JETS:
+                for name in NAMES['plain'] + NAMES['dot, frame form'] + NAMES['dot, raw form'] + ('z', 'Jp'):
+                    with self.subTest(kind=kind, jets=case.label, name=name):
+                        plain = getattr(sdef, name)(kind, P.frame, P.sample(kind, NO_JETS), **args)
+                        jet = getattr(sdef, name)(kind, P.frame, P.sample(kind, case), **dict(args, order=case.order))
+                        as_list = lambda value: list(value) if isinstance(value, tuple) else [value]
+                        self.assertEqual(len(as_list(jet)), len(as_list(plain)))
+                        for jet_i, plain_i in zip(as_list(jet), as_list(plain)):
+                            self.assertLessEqual(relative_error(jet_i[(0,) * case.m], plain_i), TOL)
+
+    def test_a_second_variable_of_order_zero_is_one_variable(self):
+        # The jet shape (n, 0) with inputs of sizes (2, 1) is the jet shape (n,) with the line: the second axis has
+        # one slot everywhere, a variable nothing depends on.
+        P = small()
+        for kind in ('probe', 'apply'):
+            line = P.input_jets(LINE_3)
+            flat_args = P.arguments(kind, LINE_3)
+            with_second = [x[:, None] for x in line]
+            y = [y_i[:, None] for y_i in flat_args['y']] if kind == 'probe' else flat_args['y'][:, None]
+            weight = flat_args['weight'][..., None]
+            args = dict(flat_args, order=(3, 0), y=y, weight=weight)
+            for name in ALL_NAMES:
                 with self.subTest(kind=kind, name=name):
-                    order0 = getattr(sdef, name)(kind, P.frame, P.sample(kind, 0), **dict(args, order=0))
-                    order3 = getattr(sdef, name)(kind, P.frame, P.sample(kind, 3), **dict(args, order=3))
-                    as_list = lambda value: list(value) if isinstance(value, tuple) else [value]
-                    self.assertEqual(len(as_list(order3)), len(as_list(order0)))
-                    for jet, plain in zip(as_list(order3), as_list(order0)):
-                        self.assertLessEqual(relative_error(jet[0], plain), TOL)
+                    one = getattr(sdef, name)(kind, P.frame, line, **flat_args)
+                    two = getattr(sdef, name)(kind, P.frame, with_second, **args)
+                    flatten = lambda value: (sum((flatten(v) for v in value), []) if isinstance(value, (tuple, list))
+                                             else [np.asarray(value)])
+                    for a, b in zip(flatten(one), flatten(two)):
+                        if b.ndim == a.ndim + 1:                    # a jet (or a block sum): drop the second jet
+                            k = next(k for k in range(b.ndim)       # axis, of one slot
+                                     if b.shape[k] == 1 and b.shape[:k] + b.shape[k + 1:] == a.shape)
+                            b = np.squeeze(b, axis=k)
+                        self.assertEqual(a.shape, b.shape)
+                        self.assertLessEqual(relative_error(b, a), TOL)
 
 
 def blocks_of(pair_of_tuples):
@@ -890,15 +1025,14 @@ def jax_in_double_precision():
 class TestKp(unittest.TestCase):
     """``Kp``: the second derivative of the dense objective ``<seed, z>`` in the cores of the base point."""
 
-    def jax_problem(self, P, kind, order):
+    def jax_problem(self, P, kind, case):
         """The arguments of a case as jax arrays: ``(frame, sample, arguments)``."""
         import jax.numpy as jnp
         to_jax = common.tree_to_jax
-        args = P.arguments(kind, order)
-        first = jnp.asarray(P.index) if kind == 'entries' else to_jax(P.ww)
-        return (tuple(to_jax(store) for store in P.frame),
-                first if order == 0 else (first, to_jax(P.pp)),
-                dict(order=order, variations=(to_jax(P.V), to_jax(P.H)),
+        args = P.arguments(kind, case)
+        sample = jnp.asarray(P.index) if kind == 'entries' else to_jax(P.input_jets(case))
+        return (tuple(to_jax(store) for store in P.frame), sample,
+                dict(order=case.order, variations=(to_jax(P.V), to_jax(P.H)),
                      core_directions=(to_jax(P.D_dot), to_jax(P.L_dot)),
                      y=to_jax(args['y']) if kind == 'probe' else jnp.asarray(args['y']),
                      weight=jnp.asarray(args['weight'])))
@@ -909,15 +1043,15 @@ class TestKp(unittest.TestCase):
         # context, so that no setting of the process changes.
         if not common.jax_available:
             self.skipTest('jax is not installed: Kp is the finite differences alone')
-        for labels, P, kind, order in cases():
+        for labels, P, kind, case in cases(jet_cases=(NO_JETS, LINE_3, MIXED_MODES)):
             with self.subTest(**labels):
-                sample, args = P.sample(kind, order), P.arguments(kind, order)
-                S = sdef._setting(kind, P.frame, sample, order)
+                sample, args = P.sample(kind, case), P.arguments(kind, case)
+                S = sdef._setting(kind, P.frame, sample, case.order)
                 seed = sdef.w_tilde(kind, P.frame, sample, **args)
                 by_differences = sdef._Kp_by_finite_differences(S, seed, args['core_directions'])
                 with jax_in_double_precision():
-                    jax_frame, jax_sample, jax_args = self.jax_problem(P, kind, order)
-                    S_jax = sdef._setting(kind, jax_frame, jax_sample, order)
+                    jax_frame, jax_sample, jax_args = self.jax_problem(P, kind, case)
+                    S_jax = sdef._setting(kind, jax_frame, jax_sample, case.order)
                     seed_jax = sdef.w_tilde(kind, jax_frame, jax_sample, **jax_args)
                     by_jax = sdef._Kp_by_jax(S_jax, seed_jax, jax_args['core_directions'])
                     for a in blocks_of(by_jax):
@@ -931,9 +1065,9 @@ class TestKp(unittest.TestCase):
     def test_the_route_of_Kp_is_read_off_the_arrays(self):
         # numpy arrays: the finite differences, whether or not jax is installed (the automatic differentiation
         # is made to raise here, and is not reached). A jax array among them: automatic differentiation.
-        P, kind, order = small(), 'probe', 1
-        sample, args = P.sample(kind, order), P.arguments(kind, order)
-        S = sdef._setting(kind, P.frame, sample, order)
+        P, kind, case = small(), 'probe', LINE_1
+        sample, args = P.sample(kind, case), P.arguments(kind, case)
+        S = sdef._setting(kind, P.frame, sample, case.order)
         seed = sdef.w_tilde(kind, P.frame, sample, **args)
         by_differences = sdef._Kp_by_finite_differences(S, seed, args['core_directions'])
 
@@ -950,7 +1084,7 @@ class TestKp(unittest.TestCase):
                     self.assertTrue(np.array_equal(a, b))
         if not common.jax_available:
             return
-        jax_frame, jax_sample, jax_args = self.jax_problem(P, kind, order)
+        jax_frame, jax_sample, jax_args = self.jax_problem(P, kind, case)
         with unittest.mock.patch.object(sdef, '_Kp_by_finite_differences', not_this_route):
             all_jax = blocks_of(sdef.Kp(kind, jax_frame, jax_sample, **jax_args))
             mixed = dict(args, core_directions=jax_args['core_directions'])
@@ -964,15 +1098,15 @@ class TestKp(unittest.TestCase):
         # g on the corewise frame (B, G, G, G) with a FIXED seed is the gradient of <seed, z(B, G)>; Kp is its
         # derivative along (D_dot, L_dot). g is pinned by the dense Jacobian (TestOutputsAgainstDense).
         h = 1e-4
-        for labels, P, kind, order in cases(problems=PROBLEMS[:2], orders=(0, 3)):
+        for labels, P, kind, case in cases(problems=PROBLEMS[:2], jet_cases=(NO_JETS, LINE_3, PLANE)):
             with self.subTest(**labels):
-                sample, args = P.sample(kind, order), P.arguments(kind, order)
+                sample, args = P.sample(kind, case), P.arguments(kind, case)
                 seed = sdef.w_tilde(kind, P.frame, sample, **args)
 
                 def gradient(e):
                     B = [X + e * X_dot for X, X_dot in zip(P.D, P.D_dot)]
                     G = [X + e * X_dot for X, X_dot in zip(P.L, P.L_dot)]
-                    return blocks_of(sdef.g(kind, (B, G, G, G), sample, order=order, w_tilde=seed))
+                    return blocks_of(sdef.g(kind, (B, G, G, G), sample, order=case.order, w_tilde=seed))
                 quotient = [(8 * (a - b) - (c - d)) / (12 * h)             # a fourth-order central difference
                             for a, b, c, d in zip(gradient(h), gradient(-h), gradient(2 * h), gradient(-2 * h))]
                 Kp = blocks_of(sdef.Kp(kind, P.frame, sample, **args))
@@ -985,11 +1119,12 @@ class TestKp(unittest.TestCase):
         # the plain inner product, z from t3_to_dense sampled by the tests' own route; <q, Kp> is the mixed
         # second derivative of phi along q and along the direction.
         nodes = np.linspace(-1.0, 1.0, 2 * small().d + 1)
-        for labels, P, kind, order in cases(problems=PROBLEMS[:1], orders=(0, 3)):
+        for labels, P, kind, case in cases(problems=PROBLEMS[:1], jet_cases=(NO_JETS, LINE_3, PLANE)):
             with self.subTest(**labels):
-                sample, args = P.sample(kind, order), P.arguments(kind, order)
-                r = lift(modes_of(kind, sdef.r(kind, P.frame, sample, **args)), order)
-                functional = weighted(r, args['weight'], kind, order)
+                J = Jets(case.order)
+                sample, args = P.sample(kind, case), P.arguments(kind, case)
+                r = J.lift(modes_of(kind, sdef.r(kind, P.frame, sample, **args)))
+                functional = J.weighted(r, args['weight'], kind)
                 rng = np.random.default_rng(5)
                 q = [rng.standard_normal(X.shape) for X in P.D + P.L]
                 p = P.D_dot + P.L_dot
@@ -998,19 +1133,19 @@ class TestKp(unittest.TestCase):
                 def phi(a, b):
                     cores = [X + a * Q + b * X_dot for X, Q, X_dot in zip(x, q, p)]
                     T = t3_conversions.t3_to_dense((cores[:P.d], cores[P.d:]))
-                    z = lift(modes_of(kind, sample_dense_jet(P, kind, T, order)), order)
+                    z = J.lift(modes_of(kind, sample_dense_jet(P, kind, T, case)))
                     return sum(np.sum(c * z_i) for c, z_i in zip(functional, z))
                 # phi is a polynomial of degree at most 2 d along each of the two: its mixed derivative at 0,
                 # exactly, by interpolation in the one and then in the other
-                slope = lambda f: interpolate(f, nodes, 2)[1]
+                slope = lambda f: np.linalg.solve(np.vander(nodes, increasing=True), [f(t) for t in nodes])[1]
                 mixed = slope(lambda a: slope(lambda b: phi(a, b)))
                 Kp = blocks_of(sdef.Kp(kind, P.frame, sample, **args))
                 paired = sum(np.sum(a * b) for a, b in zip(q, Kp))
                 self.assertLessEqual(abs(paired - mixed), 1e-9 * max(abs(mixed), 1.0))
 
     def test_Kp_is_symmetric_and_linear_in_the_direction(self):
-        P, kind, order = small(), 'probe', 1
-        sample, args = P.sample(kind, order), P.arguments(kind, order)
+        P, kind, case = small(), 'probe', LINE_1
+        sample, args = P.sample(kind, case), P.arguments(kind, case)
         rng = np.random.default_rng(6)
         a = ([rng.standard_normal(X.shape) for X in P.D], [rng.standard_normal(X.shape) for X in P.L])
         b = args['core_directions']
@@ -1023,6 +1158,42 @@ class TestKp(unittest.TestCase):
             self.assertLessEqual(relative_error(got, x + 2 * y), TOL)
 
 
+class TestAgainstTheOldKernels(unittest.TestCase):
+    """The bridge to the library as it is today (``sampling_derivatives``, deleted in P20): with one jet variable and
+    a line input, ``z`` and ``g`` of the probe kind. The old kernels take ``(ww, pp)`` and work in derivatives, and
+    the old transpose takes its residual forward. So, slot by slot: an old ``z`` is ``t!`` times the reference's;
+    and the old transpose given ``weight[t]**2 * r[t] / t!``, forward, is the reference's ``g``, whose seed is the
+    same residual weighted and turned."""
+
+    def test_z_and_g_of_the_probe_kind(self):
+        import t3toolbox.backend.sampling_derivatives as sampling_derivatives
+        for name, make in PROBLEMS[:3]:
+            P = make()
+            line = P.input_jets(LINE_1)
+            for n in (1, 2, 3):
+                with self.subTest(problem=name, order=n):
+                    case = JetCase('a line', (n,), 'line')
+                    factorials = np.array([math.factorial(t) for t in range(n + 1)], dtype=float)
+                    per_slot = lambda x, c: c.reshape((n + 1,) + (1,) * (x.ndim - 1)) * x
+
+                    z = sdef.z('probe', P.frame, line, order=(n,))
+                    old = sampling_derivatives.t3_probe_derivatives(P.ww, P.pp, (P.D, P.L), n)
+                    for a, b in zip(z, old):
+                        self.assertLessEqual(relative_error(a, per_slot(b, 1.0 / factorials)), TOL)
+
+                    rng = np.random.default_rng(n)
+                    y = [rng.standard_normal((n + 1,) + P.W + (N,)) for N in P.shape]
+                    weight = 0.5 + rng.random((P.d, n + 1))
+                    g = sdef.g('probe', P.frame, line, order=(n,), y=y, weight=weight)
+                    r = sdef.r('probe', P.frame, line, order=(n,), y=y)
+                    forward = [per_slot(r[i], weight[i] ** 2 / factorials) for i in range(P.d)]
+                    old = sampling_derivatives.tv_probe_derivatives_transpose(forward, P.ww, P.pp, P.frame, n,
+                                                                              sum_over_probes=True)
+                    for a, b in zip(blocks_of(g), blocks_of(old)):
+                        self.assertLessEqual(relative_error(a, b), TOL)
+                    self.assertEqual(case.m, 1)
+
+
 class TestCorewiseFrame(unittest.TestCase):
     """SAMPLE_VARIABLES.md section 9: the corewise frame ``(B, G, G, G)`` has one basis on each edge."""
 
@@ -1031,19 +1202,19 @@ class TestCorewiseFrame(unittest.TestCase):
         corewise = (P.D, P.L, P.L, P.L)
         raw = (P.D_dot, P.L_dot)
         for kind in KINDS:
-            for order in (0, 3):
-                sample, args = P.sample(kind, order), P.arguments(kind, order)
+            for case in ((NO_JETS,) if kind == 'entries' else (NO_JETS, LINE_3, MIXED_MODES)):
+                sample, args = P.sample(kind, case), P.arguments(kind, case)
                 get = lambda name, **more: getattr(sdef, name)(kind, corewise, sample, **dict(args, **more))
                 pairs = [('nu', 'nu_L', {}), ('eta', 'eta_D', {}), ('nu_tilde', 'nu_L_tilde', {}),
                          ('eta_tilde', 'eta_D_tilde', {}),
                          # a direction at a corewise point is a raw direction: the frame's dots are the raw ones
                          ('mu_R_dot', 'mu_dot', dict(variations=raw)), ('xi_U_dot', 'xi_dot', dict(variations=raw))]
                 for one, other, more in pairs:
-                    with self.subTest(kind=kind, order=order, one=one, other=other):
+                    with self.subTest(kind=kind, jets=case.label, one=one, other=other):
                         for a, b in zip(get(one, **more), get(other, **more)):
                             self.assertLessEqual(relative_error(a, b), TOL)
                 for name in ('nu_L_dot', 'eta_D_dot'):      # one name, two forms, the same array here
-                    with self.subTest(kind=kind, order=order, name=name):
+                    with self.subTest(kind=kind, jets=case.label, name=name):
                         frame_form = get(name, variations=raw, core_directions=None)
                         raw_form = get(name, variations=None, core_directions=raw)
                         for a, b in zip(frame_form, raw_form):
@@ -1052,8 +1223,8 @@ class TestCorewiseFrame(unittest.TestCase):
     def test_with_both_directions_the_shared_names_are_the_raw_form(self):
         # On a manifold frame the two forms differ; with both arguments given the name means the raw form
         # (the one Kp reads).
-        P, kind = small(), 'probe'
-        sample, args = P.sample(kind, 1), P.arguments(kind, 1)
+        P, kind, case = small(), 'probe', LINE_1
+        sample, args = P.sample(kind, case), P.arguments(kind, case)
         for name in ('nu_L_dot', 'eta_D_dot'):
             both = getattr(sdef, name)(kind, P.frame, sample, **args)
             raw_only = getattr(sdef, name)(kind, P.frame, sample, **dict(args, variations=None))
@@ -1150,7 +1321,7 @@ class TestStructure(unittest.TestCase):
                     ('frame', inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.empty),
                     ('sample', inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.empty),
                     ('i', inspect.Parameter.POSITIONAL_OR_KEYWORD, None),
-                    ('order', inspect.Parameter.POSITIONAL_OR_KEYWORD, 0),
+                    ('order', inspect.Parameter.POSITIONAL_OR_KEYWORD, ()),
                     ('variations', inspect.Parameter.KEYWORD_ONLY, None),
                     ('core_directions', inspect.Parameter.KEYWORD_ONLY, None),
                     ('y', inspect.Parameter.KEYWORD_ONLY, None),
@@ -1221,20 +1392,28 @@ class TestStructure(unittest.TestCase):
                 'eta_D_tilde_dot': nD}
 
     def test_the_shapes_are_those_of_the_table(self):
-        # SAMPLE_VARIABLES.md section 7: T + W + (size,), with A in place of T for the affine variables; one
-        # array per bond (d + 1) or per site (d); the blocks have the shapes of the cores they stand for.
-        for labels, P, kind, order in cases(problems=PROBLEMS[:2], orders=(0, 1, 3)):
-            sample, args = P.sample(kind, order), P.arguments(kind, order)
-            T = (order + 1,) if order else ()
-            A = (2,) if order else ()
+        # PART1_PLAN.md section 2.3, the table of declared jet sizes, and SAMPLE_VARIABLES.md section 7: the input
+        # w[i] has its own jet sizes, as given; the leaves (xi, xi_dot, xi_U_dot) the input's clipped to the box F;
+        # every other variable F. Then W + (size,); one array per bond (d + 1) or per site (d); the blocks have the
+        # shapes of the cores they stand for; the block sums the shape of the weight.
+        for labels, P, kind, case in cases(problems=PROBLEMS[:2]):
+            sample, args = P.sample(kind, case), P.arguments(kind, case)
+            F = case.box
             d = P.d
+            given = [tuple(x.shape[:case.m]) for x in P.input_jets(case)] if kind != 'entries' else [()] * d
             for name, size in self.sizes(P).items():
                 with self.subTest(name=name, **labels):
                     values = getattr(sdef, name)(kind, P.frame, sample, **args)
                     self.assertIsInstance(values, tuple)
                     self.assertEqual(len(values), d + 1 if name in BOND_NAMES else d)
-                    group = A if name in AFFINE_NAMES else T
-                    self.assertEqual([v.shape for v in values], [group + P.W + (size(i),) for i in range(len(values))])
+                    if name == 'w':
+                        sizes = given
+                    elif name in LEAF_NAMES:
+                        sizes = [tuple(min(a, f) for a, f in zip(g, F)) for g in given]
+                    else:
+                        sizes = [F] * len(values)
+                    self.assertEqual([v.shape for v in values],
+                                     [sizes[i] + P.W + (size(i),) for i in range(len(values))])
                     for v in values:
                         self.assertIsInstance(v, np.ndarray)
                         self.assertEqual(v.dtype, np.float64)
@@ -1242,9 +1421,10 @@ class TestStructure(unittest.TestCase):
                 for name in ('z', 'r', 'Jp', 'w_tilde'):
                     value = getattr(sdef, name)(kind, P.frame, sample, **args)
                     if kind == 'probe':
-                        self.assertEqual([v.shape for v in value], [T + P.W + (n,) for n in P.shape])
+                        self.assertEqual([v.shape for v in value], [F + P.W + (n,) for n in P.shape])
                     else:
-                        self.assertEqual(value.shape, T + P.W)
+                        self.assertEqual(value.shape, F + P.W)
+                self.assertEqual(np.shape(sdef.r_block_sumsq(kind, P.frame, sample, **args)), np.shape(args['weight']))
                 V_shapes = [V.shape for V in P.V]
                 H_shapes = [H.shape for H in P.H]
                 for name in ('g', 'JtJp'):
@@ -1259,7 +1439,8 @@ class TestStructure(unittest.TestCase):
     def test_one_index_is_the_entry_of_the_whole(self):
         P = small()
         for kind in KINDS:
-            sample, args = P.sample(kind, 1), P.arguments(kind, 1)
+            case = NO_JETS if kind == 'entries' else LINE_1
+            sample, args = P.sample(kind, case), P.arguments(kind, case)
             for name in BOND_NAMES + SITE_NAMES + (MODE_NAMES if kind == 'probe' else ()):
                 with self.subTest(kind=kind, name=name):
                     whole = getattr(sdef, name)(kind, P.frame, sample, **args)
@@ -1273,7 +1454,7 @@ class TestStructure(unittest.TestCase):
     def test_an_index_where_there_is_none_raises(self):
         P = small()
         for kind in KINDS:
-            sample, args = P.sample(kind, 0), P.arguments(kind, 0)
+            sample, args = P.sample(kind, NO_JETS), P.arguments(kind, NO_JETS)
             for name in UNINDEXED_NAMES + (MODE_NAMES if kind != 'probe' else ()):
                 with self.subTest(kind=kind, name=name):
                     with self.assertRaises(ValueError):
@@ -1281,7 +1462,7 @@ class TestStructure(unittest.TestCase):
 
     def test_a_missing_argument_raises(self):
         P, kind = small(), 'probe'
-        sample, args = P.sample(kind, 0), P.arguments(kind, 0)
+        sample, args = P.sample(kind, NO_JETS), P.arguments(kind, NO_JETS)
         needs_variations = ('xi_U_dot', 'mu_R_dot', 'Jp', 'JtJp', 'Jp_norm_sq')
         needs_core_directions = ('xi_dot', 'mu_dot', 'xi_tilde_dot', 'mu_tilde_dot', 'nu_L_tilde_dot',
                                  'eta_D_tilde_dot', 'Kp', 'V_tilde_dot', 'H_tilde_dot')
@@ -1319,6 +1500,28 @@ class TestStructure(unittest.TestCase):
         frame = tuple([np.ones((1, 2))] * many if k == 0 else [np.ones((1, 1, 1))] * many for k in range(4))
         with self.assertRaises(ValueError):
             sdef.mu('probe', frame, [np.ones((1, 2))] * many)               # more sites than einsum letters
+        with self.assertRaisesRegex(ValueError, 'the entries kind has no jets'):
+            sdef.mu('entries', P.frame, P.index, order=(1,))                # entries has no jets
+        for bad in (1, 0, [1], (1.0,), (True,), (-1,)):                     # the jet shape is a tuple
+            with self.subTest(order=bad):
+                with self.assertRaises((TypeError, ValueError)):
+                    sdef.mu('probe', P.frame, P.input_jets(LINE_1), order=bad)
+
+    def test_the_jet_shape_is_read_as_the_library_reads_it(self):
+        # The module reads the jet shape with a function of its own (it shares no code with the library but the
+        # dense functions); on every input it agrees with the library's reader: the same result, or the same error.
+        inputs = ((), (1,), (3, 0), (np.int64(2), 3), (np.uint8(1),), 3, 0, [1], (1.0,), (True,), (np.bool_(True),),
+                  (-1,), (None,), np.array([1]), '1')
+        for order in inputs:
+            with self.subTest(order=order):
+                outcomes = []
+                for read in (sdef._read_jet_shape, lambda o: contractions._read_order(o, 'x')):
+                    try:
+                        value = read(order)
+                        outcomes.append(('read', value, tuple(type(n) for n in value)))
+                    except (TypeError, ValueError) as error:
+                        outcomes.append(type(error))
+                self.assertEqual(outcomes[0], outcomes[1])
 
     def test_sixteen_sites_run(self):
         d = 16
@@ -1330,38 +1533,41 @@ class TestStructure(unittest.TestCase):
         self.assertLessEqual(relative_error(sdef.mu('probe', (D, G, G, G), ww, d)[:, 0], expected), TOL)
 
     def test_the_input_is_returned_exactly(self):
+        # w is the input jet as given, slots beyond the box included (the mode of four slots at (2,)); for entries
+        # the unit vectors
         P = small()
-        for kind in KINDS:
-            w = sdef.w(kind, P.frame, P.sample(kind, 3), order=3)
-            for w_i, x_i, p_i in zip(w, P.inputs(kind), P.pp):
-                self.assertEqual(w_i.shape, (2,) + P.W + x_i.shape[-1:])
-                self.assertTrue(np.array_equal(w_i[0], x_i) and np.array_equal(w_i[1], p_i))
+        for kind, case in (('probe', LINE_3), ('apply', MIXED_SIZES), ('apply', MIXED_MODES), ('entries', NO_JETS)):
+            w = sdef.w(kind, P.frame, P.sample(kind, case), order=case.order)
+            expected = P.inputs(kind) if kind == 'entries' else P.input_jets(case)
+            with self.subTest(kind=kind, jets=case.label):
+                for w_i, x_i in zip(w, expected):
+                    self.assertEqual(w_i.shape, x_i.shape)
+                    self.assertTrue(np.array_equal(w_i, x_i))
 
     def test_the_plain_and_dot_variables_do_not_depend_on_the_kind(self):
         # probe and apply take the same inputs and differ only in the outputs and in where the seed goes.
         P = small()
-        for order in (0, 3):
-            args = P.arguments('probe', order)
+        for case in (NO_JETS, LINE_3, MIXED_MODES):
+            args = P.arguments('probe', case)
             for name in NAMES['plain'] + NAMES['dot, frame form'] + NAMES['dot, raw form'] + ('w',):
-                with self.subTest(name=name, order=order):
-                    for a, b in zip(getattr(sdef, name)('probe', P.frame, P.sample('probe', order), **args),
-                                    getattr(sdef, name)('apply', P.frame, P.sample('apply', order), **args)):
+                with self.subTest(name=name, jets=case.label):
+                    for a, b in zip(getattr(sdef, name)('probe', P.frame, P.sample('probe', case), **args),
+                                    getattr(sdef, name)('apply', P.frame, P.sample('apply', case), **args)):
                         self.assertTrue(np.array_equal(a, b))
 
     def test_entries_is_apply_at_unit_vectors(self):
+        # with no jets (the entries kind has none): every name equals apply at index_to_one_hot
         P = small()
-        for order in (0, 3):
-            args = P.arguments('entries', order)
-            unit = P.inputs('entries')
-            apply_sample = unit if order == 0 else (unit, P.pp)
-            for name in ALL_NAMES:
-                with self.subTest(name=name, order=order):
-                    a = getattr(sdef, name)('entries', P.frame, P.sample('entries', order), **args)
-                    b = getattr(sdef, name)('apply', P.frame, apply_sample, **args)
-                    flatten = lambda value: (sum((flatten(v) for v in value), []) if isinstance(value, tuple)
-                                             else [np.asarray(value)])
-                    for x, y in zip(flatten(a), flatten(b)):
-                        self.assertLessEqual(relative_error(x, y), TOL)
+        args = P.arguments('entries', NO_JETS)
+        unit = list(jets.index_to_one_hot(P.index, P.shape))
+        for name in ALL_NAMES:
+            with self.subTest(name=name):
+                a = getattr(sdef, name)('entries', P.frame, P.index, **args)
+                b = getattr(sdef, name)('apply', P.frame, unit, **args)
+                flatten = lambda value: (sum((flatten(v) for v in value), []) if isinstance(value, tuple)
+                                         else [np.asarray(value)])
+                for x, y in zip(flatten(a), flatten(b)):
+                    self.assertLessEqual(relative_error(x, y), TOL)
 
 
 class TestJax(unittest.TestCase):
@@ -1379,11 +1585,11 @@ class TestJax(unittest.TestCase):
         P = small()
         flatten = lambda value: (sum((flatten(v) for v in value), []) if isinstance(value, (tuple, list))
                                  else [value])
-        for kind, order in (('probe', 1), ('apply', 0), ('entries', 1)):
-            sample, args = P.sample(kind, order), P.arguments(kind, order)
-            jax_frame, jax_sample, jax_args = TestKp.jax_problem(None, P, kind, order)
+        for kind, case in (('probe', LINE_1), ('apply', NO_JETS), ('apply', PLANE), ('entries', NO_JETS)):
+            sample, args = P.sample(kind, case), P.arguments(kind, case)
+            jax_frame, jax_sample, jax_args = TestKp.jax_problem(None, P, kind, case)
             for name in ALL_NAMES:
-                with self.subTest(kind=kind, order=order, name=name):
+                with self.subTest(kind=kind, jets=case.label, name=name):
                     got = flatten(getattr(sdef, name)(kind, jax_frame, jax_sample, **jax_args))
                     expected = flatten(getattr(sdef, name)(kind, P.frame, sample, **args))
                     self.assertEqual(len(got), len(expected))

@@ -120,17 +120,18 @@ R = [rng.standard_normal((rR[i], nD[i], rR[i + 1])) for i in range(3)]
 ww = [rng.standard_normal((5, n)) for n in N]
 pp = [rng.standard_normal((5, n)) for n in N]
 index = np.stack([rng.integers(0, n, size=5) for n in N])
-arguments = dict(order=2, variations=([rng.standard_normal((nU[i], N[i])) for i in range(3)],
+line = [np.stack([w, p]) for w, p in zip(ww, pp)]      # the input jet of w + s p, built by hand: jets is not imported
+arguments = dict(variations=([rng.standard_normal((nU[i], N[i])) for i in range(3)],
                                       [rng.standard_normal((rL[i], nD[i], rR[i + 1])) for i in range(3)]),
                  core_directions=([rng.standard_normal(B.shape) for B in D], [rng.standard_normal(G.shape) for G in L]))
 leaves = lambda value: sum((leaves(v) for v in value), []) if isinstance(value, (tuple, list)) else [value]
-for kind, first in (('probe', ww), ('apply', ww), ('entries', index)):
-    y = [rng.standard_normal((3, 5, n)) for n in N] if kind == 'probe' else rng.standard_normal((3, 5))
+for kind, sample, order in (('probe', line, (2,)), ('apply', line, (2,)), ('entries', index, ())):
+    F = tuple(n + 1 for n in order)
+    y = [rng.standard_normal(F + (5, n)) for n in N] if kind == 'probe' else rng.standard_normal(F + (5,))
     for name in sdef.__all__:
-        value = getattr(sdef, name)(kind, (D, U, L, R), (first, pp), y=y, **arguments)
+        value = getattr(sdef, name)(kind, (D, U, L, R), sample, order=order, y=y, **arguments)
         assert all(isinstance(leaf, np.ndarray) or np.isscalar(leaf) for leaf in leaves(value)), (kind, name)
 T = rng.standard_normal(N)
-line = [np.stack([w, p]) for w, p in zip(ww, pp)]       # the input jet of w + s p, built by hand: jets is not imported
 assert probing.dense_probe(T, line, (2,))[0].shape == (3, 5, 4)
 assert apply.dense_apply(T, line, (2,)).shape == (3, 5) and entries.dense_entries(T, index).shape == (5,)
 print('JAX_ABSENT_OK')

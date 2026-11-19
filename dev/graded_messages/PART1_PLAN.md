@@ -1531,7 +1531,12 @@ axis, no `K` or `C` yet, numpy and jax. What the engine needs to run (section 2.
   `sampling_derivatives.t3_probe_derivatives`, the old `compute_*` kernels and `ProbeDerivativesKind.transpose`,
   the new side called at `affine_jet(ww, pp)` and `(order,)`; the dense functions against `dense_*_derivatives`
   divided by `t!` (the entries one against `dense_apply` at `affine_jet(index_to_one_hot(index, shape), pp)`). The
-  bridge has one variable only: the old code has no other.
+  bridge has one variable only: the old code has no other. **The conversions, as derived in P4c** (added
+  2026-11-19; `TestAgainstTheOldKernels` of `tests/test_sampling_definitions.py`, checked by the reviewer from the
+  definitions): the old `z` is `t!` times the new one, slot by slot; the old transpose computes
+  `sum_t t! J_t^T c_t` and the new `g` is `sum_t J_t^T omega_t^2 r_t`, so the old transpose given
+  `c_t = omega_t^2 r_t / t!`, in FORWARD order, equals the new `g`. Not turned: the turn is inside the new `g`. A
+  nonuniform weight makes the `t!`, the square and the turn each visible.
 - The generic twin (`tests/_generic_twin.py`): `scripts/graded_messages_prototype.py` brought to the decided names,
   as a second check of the written-out terms (9.3).
 - `tests/test_dispatch.py`: jit `sampling_variables` for `('f', 'g')`.

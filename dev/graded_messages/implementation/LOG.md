@@ -444,3 +444,42 @@ Nothing of the library or the tests was touched. No agent is running and nothing
   rule "subTest params are builtins" of `dev/HANDOFF.md`; neither local env reproduces it: `t3toolbox` is numpy 2,
   `tttt` has no xdist). 1,654 passed otherwise. **Fixed by Claude** (minor): the labels are `repr(...)`. Checked on
   both envs; CI is the judge of the serialization.
+
+### CI green on the branch, the floor included (2026-11-19, 16:17)
+
+CI run 44624219934 on `3ccff5da`: docs build, examples, the current leg (17 min 42 s) and **the floor leg (13 min 43 s,
+in the historical range of `main`)** all PASS. The first time the branch has passed on the floor.
+
+### P4c: the reference module in several variables (2026-11-19, 15:39 to 17:17)
+
+- **Rounds:** one. `P4c_REVIEW_r1.md`: SIGN OFF, no blocking or should-fix finding. Handover `P4c_HANDOVER.md`.
+- **What changed:** `backend/sampling_definitions.py`: the 37 functions take `order=()` (the jet shape) and a sample
+  of input jets, or `index` for entries, no `pp`; a private reader of the jet shape of the module's own (imports
+  neither `jets` nor `contractions`), tested to agree with `contractions._read_order` on 15 inputs; an entries call
+  with jets raises; inputs clipped to the box; a grid of `M_j = d(a_j - 1) + n_j + 1` roots of unity per axis and a
+  DFT along each; every function returns its declared jet sizes (plan, section 2.3); the seed flipped on every jet
+  axis; the `_einsum` fix kept. The module docstring and doctests rewritten. Its independence test unchanged
+  (byte-identical to `HEAD`, the reviewer checked) and passing. `tests/test_sampling_definitions.py` rebuilt over
+  the plan's jet matrix with a real-grid dense route of its own; new: `TestAgainstTheOldKernels` (the bridge), the
+  readers agree, a second variable of order 0 equals one variable for every name, entries equals apply at
+  `index_to_one_hot` and raises with jets.
+- **The bridge, derived twice independently** (the reviewer, and Claude while the review ran): the old `z` is `t!`
+  times the new; the old transpose `sum_t t! J_t^T c_t` equals the new `g = sum_t J_t^T omega_t^2 r_t` at
+  `c_t = omega_t^2 r_t / t!`, in FORWARD order (the turn is inside the new `g`). The test asserts exactly that, with a
+  nonuniform weight. **Claude added that sentence to the plan's P6** (the bridge slice), so its implementer need not
+  derive it again; the plan's older "`t!` per slot, the turn" was ambiguous on where the turn goes.
+- **The nodes, checked by both:** the largest degree in `s_j` is `d(a_j - 1)` for the plain variables,
+  `(d - 1)(a_j - 1) + n_j` for probe's tilde ones, `d(a_j - 1) + n_j` for apply's `nu_tilde[0]` (the seed and all `d`
+  inputs); so `M_j` is exact for every variable and tight only for apply at full-size inputs (one node fewer breaks
+  apply's `nu_tilde[0]` only).
+- **The reviewer's independent check:** `xi`, `mu`, `nu`, `eta` and their tilde forms recomputed by their
+  recurrences, each step one P4a `jet_contract`, on a frame of four unrelated stores, probe and apply, `d = 3, 4`,
+  seven jet cases (mixed sizes, clipping, `m = 3`): agree to 2e-15 over three seeds. Mutants: the implementer's 16
+  of 17 caught (the survivor equivalent), the reviewer's 4 of 4.
+- **The test budget:** `tests/test_sampling_definitions.py` single-process 132 -> 217 s (current env), 107 -> 224 s
+  (floor). The implementer trimmed only cases of no distinct coverage (the reviewer agreed); the next cut, if one is
+  wanted, is the four-site half of `TestJetsTwoWays` (101 s of the floor's total). Left as is: in the `-n 3` suite
+  it is spread over workers.
+- **Gate:** the implementer's full gate at `-n 3`, every step PASS (suite 1,660 passed, 5 skipped, 1 xfailed; 25.6
+  min; peak 9.9 GB). The floor env: the file passes (68 passed). The reviewer: 72 passed, doctests 37; Claude:
+  doctests 37.
