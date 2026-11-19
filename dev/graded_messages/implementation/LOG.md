@@ -276,3 +276,24 @@ implemented; no check-in is scheduled beyond the one pending.
   `SAMPLE_VARIABLES.md` listed in `reviews/jet_group_plan/ACCOUNT.md` section 7 (mine, after his sign-off of the
   whole). No agent is running, no check-in is scheduled, nothing is uncommitted.
 - To resume: `dev/HANDOFF.md`, the block "STATE AT THE PAUSE OF 2026-11-17", its NEXT.
+
+### The work moves to Claude Code on the maintainer's laptop (2026-11-19, 10:18)
+
+The maintainer: "I'm going to continue this locally with Claude code on my laptop. Can you make sure the handoff
+and other documents are updated so that Claude code will have the right context?" The branch was unchanged since the
+pause (`680ca36`). Done, documents only:
+
+- `implementation/ORCHESTRATION.md`, new: where things stand; what the orchestrating session does for a slice; what
+  was particular to the cloud session (agent ids, check-ins, the ten-minute limit, paths, versions, the commit
+  trailer, the stale Claude doc); the first steps on another machine (the rewritten history; the environment; a
+  baseline there); the amendments owed before P4a; the notes carried to later slices, gathered from this log;
+  things learned the hard way.
+- `dev/HANDOFF.md`: a START HERE block at the head of "The next arc" with the reading order for the work now; the
+  sentence that no library code had been changed, corrected.
+- Banners at the top of `TARGET_DECISIONS.md` and `SAMPLE_VARIABLES.md` naming what is not yet amended for the jets
+  and what wins meanwhile. The amendments themselves are still owed, after his sign-off of the changed plan.
+- `BRIEF.md`: its workspace section marked as the cloud workspace's. The folder `README.md`: a pointer for a new
+  session; the Claude doc marked as far behind. `CLAUDE.md` (on this branch): a pointer at the head of "Current
+  state" to the handoff, by its own handoff ritual.
+
+Nothing of the library or the tests was touched. No agent is running and nothing is scheduled.

@@ -1,5 +1,15 @@
 # The sampling variables
 
+> **READ THIS FIRST (2026-11-19). Three sections below are not yet amended for the generalized jets** (decided
+> by the maintainer on 2026-11-17; `TARGET_DECISIONS.md`, the notes of that date; `PART1_PLAN.md`). The names and
+> the definitions of the variables stand unchanged. What changes: the order group `T` and the affine group `A` are
+> one jet group `J` of any number of axes; a full jet has the jet sizes `F = (n_1 + 1, ..., n_m + 1)`; the input
+> `w[i]` is itself a jet, `J_in_i + W + (N_i,)`, with sizes of its own, and there is no `pp`; the "top coefficient"
+> is the corner coefficient `s_1^n_1 ... s_m^n_m`; the entries kind has no jet axes. This touches section 4 (the
+> truncated product), section 6 (the readouts) and section 7 (the group table and the shape column). The
+> amendments owed are listed in `reviews/jet_group_plan/ACCOUNT.md` section 7 and are made after the maintainer
+> signs off the changed plan. Until then, for shapes and groups, `PART1_PLAN.md` (its head and section 2.3) wins.
+
 **Status.** This page is the reference for the names and the definitions of the sampling variables. The
 notation was decided by the maintainer on 2026-11-15 (23:23), after he had seen it drawn: "This is excellent and
 further confirms that this notation is the right one. I want to lock in this new notation." It replaces the

@@ -25,6 +25,10 @@ it; the next slice starts only after that.
 
 ## The workspace
 
+*(This section describes the cloud workspace in which P0 to P4 were built. On another machine the rules stand
+(one run at a time; never sphinx beside tests; the consumer is read-only) and the particulars differ: the paths, the
+versions, the baseline, the ten-minute limit. See `ORCHESTRATION.md` beside this file, sections 3 and 4.)*
+
 - The repository is `/home/claude/t3toolbox`, on the branch `graded-messages`. Run Python as
   `PYTHONPATH=/home/claude/t3toolbox python3 ...` from the repository root.
 - Python 3.13, numpy 2.5, jax 0.12. **This is ahead of what CI runs** (CI's current leg is Python 3.11, numpy 2.4,

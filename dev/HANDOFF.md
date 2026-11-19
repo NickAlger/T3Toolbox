@@ -1,7 +1,7 @@
 # T3Toolbox — current handoff
 
 _Updated 2026-11-15, at the 2026.5.0 release; "The next arc" updated the same evening, when the design work moved into
-`dev/graded_messages/`, at the pause of 2026-11-16, 04:46, and at the pause of 2026-11-17, 15:14, after slice P4 of the implementation, and at the pause of 2026-11-17, 16:30, with the plan for the generalized jets complete (on the branch `graded-messages`)._ The previous handoff (the store rename R1–R6, phase timing P1–P3, the
+`dev/graded_messages/`, at the pause of 2026-11-16, 04:46, and at the pause of 2026-11-17, 15:14, after slice P4 of the implementation, at the pause of 2026-11-17, 16:30, with the plan for the generalized jets complete, and on 2026-11-19 for the move of the work to Claude Code on Nick's laptop (on the branch `graded-messages`)._ The previous handoff (the store rename R1–R6, phase timing P1–P3, the
 switch W1–W4, the glossary/docs pass, the hand fixes, and the 2026.4.0 arc's state blocks) is archived verbatim at
 `dev/archive/handoff_2026-11-15_pre-2026.5.0.md`; older ones are `handoff_2026-10-29_pre-2026.3.0.md`,
 `handoff_2026-08-21_optimization_layer.md`, `handoff_2026-08-20_pre-2026.1.0.md` and
@@ -37,10 +37,44 @@ behaviour is one candidate, never the default; decide the TARGET before any sequ
 laptop copy on 2026-11-15). `main` holds the snapshot of that
 moment. **From then on the work, that folder included, continues on the branch `graded-messages`** (Nick, 2026-11-15:
 "future commits will be on a branch. The reason for using a branch is the fact that this refactor will be major and
-severely breaking"); it is merged when it is done. Look on the branch for the live state. No library code has been
-changed yet.
+severely breaking"); it is merged when it is done. Look on the branch for the live state. Library code has been
+changed on the branch since 2026-11-16 (slices P0 to P4 of Part 1); `main` has none of it.
 
-**Read, in this order:** its `README.md`; `TARGET_DECISIONS.md`, the working agenda (its sections "Where this stands"
+**START HERE (written 2026-11-19, 10:18, for a session that picks this up; Nick is moving the work from a cloud
+session of Claude to Claude Code on his laptop).** Nothing lives in the old session: everything is in files.
+
+- **Where it stands, in four lines.** Part 1 of the refactor is being implemented on `graded-messages`, slice by
+  slice. P0 to P4 are built, reviewed and committed. The plan was then changed for generalized jets (new slices P4a
+  to P4d before P5), and **that changed plan awaits Nick's review and sign-off; nothing of P4a on is implemented and
+  nothing starts until he says so.** The block "STATE AT THE PAUSE OF 2026-11-17" below is the state in full.
+- **Read, in this order:** (1) `CLAUDE.md`; (2) this section down to the end of the block "STATE AT THE PAUSE OF
+  2026-11-17" (the blocks after it are older states, kept as history); (3)
+  `dev/graded_messages/implementation/ORCHESTRATION.md`: how a slice is run, what was particular to the cloud
+  session, the first steps on another machine, what is owed before P4a, and the notes carried to later slices;
+  (4) `dev/graded_messages/PART1_PLAN.md`: the head, section 2.4 (`jet_contract`), section 5 (the slices; P4a to
+  P4d are next), section 11.1 (Nick's answers) and 11.4 (the names), section 12 (the process); (5)
+  `dev/graded_messages/implementation/BRIEF.md` (the agents' brief) and `LOG.md` (the record, slice by slice);
+  (6) as reference: `dev/graded_messages/TARGET_DECISIONS.md` (the decisions; **its rows are not yet amended for
+  the jets, see the banner at its top**; its notes of 2026-11-16 and 2026-11-17 are the newest decisions) and
+  `SAMPLE_VARIABLES.md` (every variable's name, definition and shape; banner likewise);
+  `dev/graded_messages/REVIEW_DECISIONS.md` is the log of decisions in order (entries 116 to 122 are the jets).
+- **On the laptop, first:** the history was rewritten on 2026-11-16 (the author of the commits was corrected; the
+  last two commits of `main` and all of `graded-messages` were force-pushed with new hashes), so a clone from before
+  then must be brought to the remote's commits, after checking that it holds no work of its own. Then take a
+  baseline of the gate on that machine before the first slice. Both are in `ORCHESTRATION.md` section 4.
+- **Waiting on Nick:** his sign-off of the changed plan; within it, confirming the keyword `error_table=True` and
+  that it also goes on `format_newton_iter`. Then, in order: the amendments to the decision records
+  (`ORCHESTRATION.md` section 5), P4a to P4d, P5.
+- **Nick's standing rules for this arc** (all in force; the first block of "THE ARC IN PROGRESS" above, and
+  `TARGET_DECISIONS.md`): reason from first principles; compatibility with today's behaviour is never a reason;
+  keep it simple and avoid state; code statically readable, with literal contraction strings; the backend gives
+  checkers and no guarantees, the frontend enforces; each of the two users (frontend, backend) can do everything
+  in their own layer; a new group or abstraction of weight is raised with him before it enters a plan; no reliance
+  on small CPU timings; tolerance tests for numerical things and exact tests for structural ones; read the
+  library's own records before proposing; go slowly. No release until Part 1 and Part 2 are both done.
+
+**The reading order of 2026-11-15, for the design documents** (history; the START HERE block above is the order for
+the work now): its `README.md`; `TARGET_DECISIONS.md`, the working agenda (its sections "Where this stands"
 and "What remains, in groups" are the state and carry the counts; the rows are being settled one at a time with
 Nick); `SAMPLE_VARIABLES.md`, THE reference for the names and definitions of the sampling variables (the notation Nick
 locked in on 2026-11-15, 23:23: a letter for the side contracted, `mu`/`nu`/`xi`/`eta`, a basis written only when it is
@@ -94,8 +128,8 @@ where they differ).** All of this is on the branch `graded-messages`; `main` is 
   (2) Claude amends the decision records the account's section 7 lists (`TARGET_DECISIONS.md` rows 2.1, 2.3 to 2.9,
   5.4, 6.2, 6.6 and the notes named there; `SAMPLE_VARIABLES.md` sections 4, 6 and 7) -- NOT yet done: the notes
   of 2026-11-17 in `TARGET_DECISIONS.md` hold the decisions meanwhile, and the latest note wins; (3) P4a to P4d by
-  the usual pair (Fable 5.2, medium), one slice per commit, with the scheduled check-ins resumed while agents work
-  (none is scheduled now); (4) P5.
+  the usual pair (Fable 5.2, medium), one slice per commit (the scheduled check-ins of the cloud session are not
+  needed where the session does not stop; none is scheduled); (4) P5.
 - **From P4, answered by Nick (2026-11-17, 15:18):** the normalization and reduction of the centers' residual, ok;
   `UT3Frame.is_consistent` thresholding against `max(1, ||T||)`, ok; `(x - y).norm()` losing accuracy across gauges
   is noted for consideration AFTER this refactor (in the backlog below).

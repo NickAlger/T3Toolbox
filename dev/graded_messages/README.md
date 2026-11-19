@@ -97,6 +97,12 @@ documents and some of the proposal.
   (O-36 to O-47) and approved its names (log entries 121 and 122), then paused the work for a couple of days to
   review the plan as a whole. **Nothing of it is implemented, and nothing starts until he says so.** Start reading
   at the plan's head, then section 2.4 (`jet_contract`), section 5.3 (P4a to P4d) and section 11.1.
+- **Picking this up in a new session or on another machine (2026-11-19):** read
+  `implementation/ORCHESTRATION.md` first. It says where things stand, what the orchestrating session does for a
+  slice, what was particular to the cloud session in which P0 to P4 were built (agent ids, check-ins, paths,
+  versions, the baseline), the first steps on another machine (the history was rewritten on 2026-11-16; take a
+  baseline there), the amendments owed to the decision records, and the notes carried to the slices not yet built.
+  `TARGET_DECISIONS.md` and `SAMPLE_VARIABLES.md` carry a banner at the top for what is not yet amended.
 - **The earlier documents are not rewritten.** `EXECUTION_PLANS.md`, `EVALUATOR.md` and `scripts/plan_mockup.py`
   describe the design before the review, and `PROPOSAL.md`, `API_IMPACT.md` and `WORKED_EXAMPLE.md` are affected in
   places. Each has a status note at its top saying what no longer holds. Where they disagree with
@@ -186,7 +192,9 @@ diagrams" (28 rows, one drawing per variable, output and block, with no file of 
 by `scripts/variable_diagrams_gen.py`), "Scaling survey" (`T3POLYNOMIAL_SCALING_SURVEY.md`), "Design after review"
 (`DESIGN_AFTER_REVIEW.md`), API impact, Worked example, Execution plans and Evaluator, the older tabs with the same
 status notes as the files here, and "Notation history" (`NOTATION_HISTORY.md`), last:
-<https://claude.ai/artifact/PvTCvDZBKaPKqRTnntH42s>. The tabs were brought in step with the files on 2026-11-16
+<https://claude.ai/artifact/PvTCvDZBKaPKqRTnntH42s>. **As of 2026-11-19 the doc is far behind the files** (nothing
+of the two-part split, the plan of Part 1, the implementation or the generalized jets is in it); do not read it for
+the state. The tabs were last brought in step with the files on 2026-11-16
 and checked against them (`reviews/notation_2026-11-15/DOC_REVIEW_r1.md`); the notes of the "Target decisions"
 tab are shorter than the file's in places. The decisions log and the review reports are only in
 this package. The markdown files here are the durable copy.

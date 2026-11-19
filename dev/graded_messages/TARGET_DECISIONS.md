@@ -1,5 +1,18 @@
 # Target decisions
 
+> **READ THIS FIRST (2026-11-19). The rows below are not yet amended for the generalized jets.** On 2026-11-17 the
+> maintainer decided: one jet group `J` of any number of axes in place of `T` and `A`; `order` a tuple of maximum
+> orders (the jet shape), never an integer; the inputs are jets and `pp` leaves every signature; the entries kind
+> is of order 0 only; and he answered the open points O-36 to O-47. These decisions are in the notes of 2026-11-17
+> near the end of this file ("One jet group, of any number of axes"; "The public interface is generalized from the
+> start"; "The open points of the jet-group plan, as the maintainer answers them"), in entries 116 to 122 of
+> `REVIEW_DECISIONS.md`, and worked out in `PART1_PLAN.md`. **Where a row or an older note here speaks of `T`, `A`,
+> the order axis, an integer `order`, `pp`, a five-field `GroupLengths`, 41 strings, or entries with an order
+> (rows 2.1, 2.3 to 2.9, 3.4, 5.4, 6.2, 6.6; the notes on names and N16, on the removed site group, on jets in
+> several variables as a future feature; the answers O-10, O-27, O-28), those notes and the plan win.** The
+> amendments owed are listed in `reviews/jet_group_plan/ACCOUNT.md` section 7 and are made after the maintainer
+> signs off the changed plan (`implementation/ORCHESTRATION.md` section 5). Everything else in this file stands.
+
 The decisions that define the target design of the sampling layer, in the order they depend on each other. This
 list asks questions. It proposes no answers. It was drafted on 2026-11-15 at the maintainer's request, after he
 found that the review of 2026-11-14 had leaned on preserving old behaviour and on the sequencing of the refactor.
