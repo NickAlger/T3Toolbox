@@ -31,7 +31,7 @@ os.environ['XLA_FLAGS'] = (os.environ.get('XLA_FLAGS', '') +
                            ' --xla_force_host_platform_device_count=4').strip()
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import _jet_contract_cases as jet_cases     # the 41 literal jet_contract strings of the sampling terms: test-only
+import _jet_contract_cases as jet_cases     # the 29 literal jet_contract strings of the sampling terms: test-only
 
 
 def _scan_vocabulary():
@@ -133,47 +133,60 @@ class TestInterpreterAnyAxisSharding(unittest.TestCase):
         self.assertFalse(letters - set(self.SINGLE), 'letters with no sweep size: %s' % sorted(letters - set(self.SINGLE)))
 
     def test_jet_contract_shards_free_over_every_W_sub_axis(self):
-        """``jet_contract`` multiplies the order groups with ``contract`` calls on SLICES of the order axis
-        (and, under ``'scan'``, a carried jet shifted along it): it reshapes nothing and never moves a
-        sample axis. So the property above carries over to every string it derives and to the programs
-        it builds around them -- the scan, the loop with slices, the turned slice of a block readout.
-        Compiled, not argued: each of the 41 strings of the sampling terms, at order 2, under both forms
-        over the orders, with each sub-axis of the sample stack ``W`` sharded in turn (every operand that
-        has ``W`` is sharded there; the cores and whatever else has no ``W`` are replicated). ZERO
-        all-gathers. The readouts sum over ``W``: an all-reduce, which the math requires.
+        """``jet_contract`` multiplies the jets with ``contract`` calls on SLICES of the jet axes (and, under
+        ``'scan'``, a carried jet shifted along them; in a readout, a slice flipped; a part padded into the box): it
+        reshapes nothing and never moves a sample axis. So the property above carries over to every string it
+        derives and to the programs it builds around them. Compiled, not argued: each of the 29 strings of the
+        sampling terms at the jet shape ``(2,)`` with the operand shapes the library gives it (the products and
+        the readouts with a leaf of two slots AND with a full leaf, so that the scan of a full partner is among
+        them), and products and readouts at ``(1, 2)``, under both forms over the orders, with each sub-axis of the
+        sample stack ``W`` sharded in turn (every operand that has ``W`` is sharded there; the cores and whatever
+        else has no ``W`` are replicated). ZERO all-gathers. The readouts sum over ``W``: an all-reduce, which the
+        math requires.
         """
         from jax.sharding import PartitionSpec as P
         import t3toolbox.backend.contractions as ctr
 
-        order = 2
-        lens = ctr.GroupLengths(T=1, W=2, K=1, C=1)
         checked = 0
-        for family, string in jet_cases.ALL_STRINGS:
-            for ax in range(2):                         # W has 2 sub-axes; ax=1 is the minor one
-                W = tuple(self.n_dev if j == ax else 2 for j in range(2))
-                shape_of = dict(W=W, K=(2,), C=(2,))    # K on the operand that names it (lens.K is its count)
-                arrays, specs = [], []
-                for term in jet_cases.input_terms(string):
-                    groups, core, affine = jet_cases.spec_of(term)
-                    arrays.append(jet_cases.make(self.rng, shape_of, groups, core, 2 if affine else order + 1))
-                    parts = []
-                    for g in groups:
-                        parts += (['m' if j == ax else None for j in range(2)] if g == 'W'
-                                  else [None] * (1 if g == 'T' else len(shape_of[g])))
-                    parts += [None] * len(core)
-                    specs.append(P(*parts) if 'm' in parts else P())
-                self.assertTrue(any('m' in spec for spec in specs), string)     # W really is sharded
-                for form in ('scan', 'loop'):
-                    with self.subTest(string=string, axis=ax, over_orders=form):
-                        n = self._all_gathers(
-                            lambda *ops: ctr.jet_contract(string, *ops, lens=lens, over_orders=form),
-                            specs, *arrays)
-                        self.assertEqual(0, n,
-                            "jet_contract(%r, over_orders=%r) inserted %d all-gather(s) with axis %d of W "
-                            "sharded -- it slices the order axis only, so every sample axis must shard free."
-                            % (string, form, n, ax))
-                        checked += 1
-        self.assertEqual(checked, 41 * 2 * 2)
+        two_variables = ['JWCa,KCaib,JWCi->JWKCb', 'KCaib,JWCi,JWCb->JWKCa', 'JWCa,Caib,JWKCb->JWKCi',
+                         'JWKCi,JWo->KCio', 'JWCa,JWKCi,JWCb->KCaib']
+        for order in ((2,), (1, 2)):
+            for family, string in jet_cases.ALL_STRINGS:
+                if len(order) == 2 and string not in two_variables:
+                    continue
+                for label, sizes, out_order in jet_cases.library_shapes(family, string, order):
+                    lens = ctr.GroupLengths(J=len(out_order), W=2, K=1, C=1)
+                    for ax in range(2):                         # W has 2 sub-axes; ax=1 is the minor one
+                        W = tuple(self.n_dev if j == ax else 2 for j in range(2))
+                        shape_of = dict(W=W, K=(2,), C=(2,))    # K on the operand that names it (lens.K is its count)
+                        arrays, specs = [], []
+                        for p, term in enumerate(jet_cases.input_terms(string)):
+                            arrays.append(jet_cases.make(self.rng, shape_of, term, sizes.get(p, ())))
+                            parts = []
+                            for ch in term:
+                                if ch == 'W':
+                                    parts += ['m' if j == ax else None for j in range(2)]
+                                elif ch == 'J':
+                                    parts += [None] * len(out_order)
+                                elif ch.isupper():
+                                    parts += [None] * len(shape_of[ch])
+                                else:
+                                    parts += [None]
+                            specs.append(P(*parts) if 'm' in parts else P())
+                        self.assertTrue(any('m' in spec for spec in specs), string)     # W really is sharded
+                        for form in ('scan', 'loop'):
+                            with self.subTest(string=string, order=order, shapes=label, axis=ax, over_orders=form):
+                                n = self._all_gathers(
+                                    lambda *ops: ctr.jet_contract(string, *ops, lens=lens, order=out_order,
+                                                                  over_orders=form),
+                                    specs, *arrays)
+                                self.assertEqual(0, n,
+                                    "jet_contract(%r, order=%r, over_orders=%r) inserted %d all-gather(s) with axis "
+                                    "%d of W sharded -- it slices the jet axes only, so every sample axis must "
+                                    "shard free." % (string, out_order, form, n, ax))
+                                checked += 1
+        # (2,): 29 strings, 12 of them (mu, nu, H) in two shapes; (1, 2): 5 strings, 3 in two shapes
+        self.assertEqual(checked, (29 + 12 + 5 + 3) * 2 * 2)
 
 
 @unittest.skipUnless(common.jax_available, 'jax not available')

@@ -342,3 +342,52 @@ Nothing of the library or the tests was touched. No agent is running and nothing
   - The implementer found that P1's `test_jax_default_optimizer_is_the_one_read_here` pins jax's einsum default
     as `'auto'`, which is jax 0.10's; jax 0.4.30, the floor's, has `'optimal'`. Ruling in the message that starts
     P4a; the floor leg's result decides whether the behaviour tests beside it hold on 0.4.30 too.
+
+### P4a: `jet_contract` over one jet group (2026-11-19, 11:45 to 14:08)
+
+- **Rounds:** two. The implementer (Opus 5.5, high) built the slice after its orientation turn; the reviewer (the
+  same agent that oriented, Opus 5.5, high) wrote `P4a_REVIEW_r1.md` (NOT YET, one should-fix) and
+  `P4a_REVIEW_r2.md` (SIGN OFF). The implementer's answers: `P4a_RESPONSE_r1.md`. Handover: `P4a_HANDOVER.md`.
+- **What changed:** `backend/contractions.py`, the `jet_contract` section rewritten (`contract` untouched):
+  `GroupLengths(J, W, K, C)` with `J` any count; `jet_contract(subscripts, *operands, lens, order, over_orders)`, the
+  one behaviour of section 2.4; the string read and cached on the string, the roles (ride, product, readout;
+  carrier, pair, partners) cached on `(string, jet sizes, order)`; the scan body memoized on every static it reads;
+  `_read_order`, the one reader of `order`, which P4b reuses; the markers `PART 2 (row 5.4, jets in several
+  variables)` and `PART 2 (row 5.5)`. Tests: `tests/_jet_contract_cases.py` (the 29 strings, by family xi 5, z 3,
+  mu 4, nu 4, eta 4, V 5, H 4, checked; the library's operand shapes; an independent multi-index reference),
+  `tests/test_jet_contract.py` rebuilt (47 tests), and the `jet_contract` rows of the interpreter, sharding and
+  dispatch tests.
+- **Decided by Claude at the start (minor, logged above):** "most slots" after clipping; a string with no `J`
+  raises at every `m`; the jax default pin accepts `{'auto', 'optimal'}`; a product with several partners at `m = 1`
+  under `'scan'` scans the first full one; an unreachable corner gives zeros; `order` a tuple of nonnegative
+  integers (Python or numpy integer scalars, normalized to Python ints; `bool` rejected), read before any cache.
+- **Decided by Claude during the slice (minor):** accepted the implementer's one departure, **an input term of `J`
+  alone raises** (from the string, at every `m`): taken one coefficient at a time it would leave `contract` an empty
+  term; a scalar polynomial is written `'JW'` with `W = 0`. The reviewer agreed.
+- **Review round 1** (NOT YET): the code held up under an independent roots-of-unity oracle (1,296 calls per seed,
+  three seeds, `m = 1` to 3, worst 2.3e-15), NaN beyond the box (bit-identical results), the edge cases, P1's
+  contraction counts on all 41 operand shapes, constant program size under `'scan'`, 25 of 26 mutants caught (the
+  survivor equivalent). One should-fix: the lone readout and the unreachable-corner fallback were never compiled
+  under jit (host-numpy mutants there passed every test). Three minor (a docstring calling `n_contractions`
+  independent; a signature's comment column; the `J`-alone rule not in the docstring). All fixed in round 1;
+  round 2 confirmed the mutants are now caught.
+- **The row-5.5 recount** (`_pairwise_path` on the derived step strings): at order 4, 16 of the 20 product cases
+  pair the carried jet with the core first, the cheap 4 being the `nu` strings with a two-slot leaf, as in P1; at
+  order 1, 20 of 20. As the plan predicted. The expected failure is restated and still xfails.
+- **Gate:** the implementer's full gate at `-n 3` on its round-0 tree, every step PASS (suite 1,647 passed, 5
+  skipped, 1 xfailed; 15 tests more than the baseline; peak 10.1 GB, 2.2 GB left). After round 1 (tests and
+  docstrings only): the slice's tests and the module doctests, single-process (implementer, reviewer, and Claude:
+  67 passed, 1 xfailed; doctests 3 passed). Not rerun as a whole: the changes after the gate are two test rows and
+  docstrings.
+- **The floor, locally** (`tttt`, jax 0.4.30, numpy 1.22), on P4a's tree: `tests/test_jet_contract.py` 46 passed,
+  1 xfailed (the reviewer; the jax behaviour tests of `TestOrderInsideAStep` hold under jax 0.4.30's default
+  `'optimal'`, so the restated pin is enough); `tests/test_dispatch.py -k jet_contract` 2 passed in 44 s (Claude).
+- **Found outside the slice: the CI floor leg hangs on the branch.** CI's first run on PR #26 (head `10e680d`): the
+  floor leg's suite step ran for hours, against 11 to 16 minutes on `main`. Reproduced locally on the floor env,
+  file by file, on the committed head: P1's `test_jax_default_optimizer_is_the_one_read_here` FAILS there (fixed
+  by P4a); `tests/test_sampling_definitions.py` does not finish in 15 minutes, stalling at
+  `TestKp::test_jax_against_finite_differences` (P2's reference module; 36 s on jax 0.10); `tests/test_dispatch.py`
+  serially reaches `test_jit_fitting` (pre-existing) at 15 minutes, which may only be its known serial slowness.
+  One `Kp` case by jax takes 1 to 2 s on the floor (0.05 to 3.6 s on jax 0.10), with or without the x64 context,
+  so the jax route is not itself pathological; the cause is being looked for. Every other file P1 to P4 added
+  passes on the floor.
