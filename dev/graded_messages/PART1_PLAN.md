@@ -3,7 +3,10 @@
 **Status.** The implementation plan of Part 1. Approved by the maintainer on 2026-11-16 at 21:16; slices P0 to P4
 are built. **The change of 2026-11-17 for the generalized jet group (next paragraph) is agreed by the critic; its
 open points were answered and its names approved by the maintainer on 2026-11-17 (16:21 and 16:26; section 11.1,
-section 11.4).** The maintainer reviews the plan as a whole before P4a starts; nothing of the change is implemented. The plan was first written against the branch
+section 11.4).** **The maintainer signed off the plan as a whole on 2026-11-19** ("Part 1 of the plan is confirmed as
+a whole. But we may encounter issues along the way which require adjusting the plan as we go."; `TARGET_DECISIONS.md`,
+the note "The changed plan signed off"); P4a starts. A change found necessary while building is made here and
+recorded. The plan was first written against the branch
 `graded-messages` at `a9c31b2` (the library and `tests/` unchanged since `4d38df7`); every statement about the
 library was checked against the code at that commit, and counts were recounted there.
 
@@ -416,18 +419,22 @@ The easy cases to get wrong, stated:
 - *An operand with no `J` in its term* is a constant: at `m >= 1` it has no jet axes at all.
 - *The output's box larger than every operand's* is allowed and well defined (zeros where no product reaches);
   the engine never asks for it.
-- *No jet operand at `m >= 1`*: a string with `J` in the output and no operand with `J`, or a readout with no
-  operand with `J`, raises. Under the one behaviour the first would be a constant in slot `(0, ..., 0)` and the
-  second zero unless `order` is all zeros; neither occurs in the library, and either is more likely a mistake in a
-  string than an intent. (At `m = 0` every string is plain `contract`.)
+- *No jet operand*: a string in which no operand has `J` raises, at every `m`, `m = 0` included. Under the one
+  behaviour such a string with `J` in the output would be a constant in slot `(0, ..., 0)`, and a readout zero
+  unless `order` is all zeros; neither occurs in the library, and either is more likely a mistake in a string than
+  an intent. **Changed 2026-11-19, at the start of P4a** (Claude, on a point the implementer and the reviewer raised
+  independently): this said "at `m >= 1`", with every string plain `contract` at `m = 0`, which would make a
+  string's validity depend on the order, against P1's rule that a call site is wrong at every order or at none. A
+  string with no `J` is a `contract` string. (A string with `J` in the output and no jet operand is also rejected by
+  `contract`'s parser.)
 - *The truncation is the caller's.* `jet_contract` treats every operand as an exact polynomial; it cannot tell a
   full jet truncated at order 1 (two slots) from an exact line (two slots). The rule of entry 116, that the output
   box must not exceed the box of an operand that is itself a truncation, is kept by the engine through its table
   of declared jet sizes (section 2.3), not checked here.
 
 **What `jet_contract` checks**, structurally, at every call (5.4; "What the engine checks itself" of the answers
-of 20:15): the letters of the string are among `J`, `W`, `K`, `C` and lowercase; `J` leads every term that has it; at `m >= 1` a string
-with `J` in the output, or a readout, has at least one operand with `J`;
+of 20:15): the letters of the string are among `J`, `W`, `K`, `C` and lowercase; `J` leads every term that has it; at least
+one operand has `J`, at every `m`;
 the record is a `GroupLengths`; `len(order) == lens.J`, each entry a nonnegative integer; every operand has the
 rank its term has under `lens` (a stray or a missing axis raises, wherever it is); every jet axis of every operand
 has at least one slot; `over_orders` is `'scan'` or `'loop'`. Nothing numerical. The products of the strings may
@@ -443,12 +450,14 @@ operands are not in it either: they are read off the arrays, whose shapes are st
 today's cost in the cases the library uses). Which operand is carried and which are taken one coefficient at a
 time is read off the operands' static shapes, never off the string:
 - *Product* (`J` in the output; two or more jet operands). The carrier is the jet operand with the most slots (the
-  product of its jet sizes), the first in the string among equals; it keeps `J` through the contraction. Every
+  product of its jet sizes, each operand counted after it is clipped to the box, since slots beyond the box are
+  never read; made explicit 2026-11-19, at the start of P4a), the first in the string among equals; it keeps `J` through the contraction. Every
   other jet operand is taken one multi-index at a time, `J` deleted from its term: for each combination of their
   multi-indices `r` that lies inside the box, one `contract` of the carrier, sliced to the part of the box above
   `r`, with those coefficients, added into the result at offset `r`. Its cost is one contraction per multi-index of
   the partners, so a partner of two slots costs two, as today, and a full partner `order + 1`.
-- *Readout* (no `J` in the output). The two jet operands with the most slots form the pair, folded in one
+- *Readout* (no `J` in the output). The two jet operands with the most slots (counted after clipping to the box of the corner, `order + 1` on
+  each axis; first in the string among equals) form the pair, folded in one
   `contract` call along all their jet axes, the second flipped on every jet axis and both sliced to the ranges
   that meet at the corner (`sum_k a[k] b[c - k]`); every other jet operand is taken one multi-index at a time, with
   the corner reduced by its index. One jet operand alone gives its corner coefficient, one slice. Its cost is one
@@ -2434,7 +2443,7 @@ Approved by the maintainer on 2026-11-16 at 20:59, with the uniform twin of O-34
 
 Approved by the maintainer on 2026-11-17 at 16:26 ("Agree with proposed names"; entries 117 and 120 had left "the
 names of the two helpers" to the plan phase). N31 and N34 record names decided earlier. N42 was proposed at 16:21 and
-is taken as approved with the others at 16:26, to be confirmed at his review of the plan. Settled names that only
+is taken as approved with the others at 16:26; he confirmed it, on all three places, on 2026-11-19. Settled names that only
 change their arguments (N16's keywords, `GroupLengths`) are in section 3's amendment.
 
 | # | What | Name | Why | Alternatives considered |
@@ -2450,7 +2459,7 @@ change their arguments (N16's keywords, `GroupLengths`) are in section 3's amend
 | N39 | The full jet sizes in shape comments | `F` (`F = tuple(n + 1 for n in order)`); `J` for the jet axes of an array in general, `J_in_i` for an input's | `J` is the group's letter; `F` says "full". `T` is the dense tensor argument of the dense functions and leaves the comments | `J` alone, with the size in prose |
 | N40 | The two terms of prose and docstrings | **jet shape** for the tuple of maximum orders (`order`), as the record uses it (entries 116, 117, 120); **jet sizes** for the sizes of an array's jet axes (`n + 1` for a full jet) | The record's term kept for the concept; a second, plainly different word for the array sizes, so that neither has two senses | "jet order" for the tuple (the first draft's term: it says what the entries are, maximum orders) with "jet shape" for the sizes; the record would then need amending |
 | N41 | The keyword of `pack_vectors` and `pack_if_ragged` for the number of leading jet axes | `len_J=0` | The count is what `contract` takes for a group (`len_W=`, `len_C=`), and what the function needs: how many leading axes may differ across the modes; `0` keeps today's behaviour | `n_jet_axes=0`; `jet_axes=0` |
-| N42 | The keyword that turns the display's error table off and keeps the rest of the display (O-42) | `error_table=True`, on the frontend `newton_cg` beside `verbose`, on `make_newton_display` and on `format_newton_iter` | It names what it turns off; `True` keeps today's display. Proposed 16:21, taken as approved with the other names at 16:26, to be confirmed at his review | `show_table`, `table` |
+| N42 | The keyword that turns the display's error table off and keeps the rest of the display (O-42) | `error_table=True`, on the frontend `newton_cg` beside `verbose`, on `make_newton_display` and on `format_newton_iter` | It names what it turns off; `True` keeps today's display. Proposed 16:21, taken as approved with the other names at 16:26; confirmed at his review, 2026-11-19 | `show_table`, `table` |
 
 ---
 
@@ -2466,7 +2475,17 @@ The maintainer set the process on 2026-11-16 at 20:51 (`TARGET_DECISIONS.md`, "H
   only after that commit.
 - **What a slice hands over:** the code; its tests; the results of its gate (section 5.1), run unpiped on a clean
   tree; and a short note of anything that departed from this plan, with the reason.
-- **The agents:** both Fable 5.2 on medium effort (the maintainer, 20:51).
+- **The agents:** both Fable 5.2 on medium effort (the maintainer, 20:51), for P0 to P4. **From P4a (the maintainer,
+  2026-11-19):** both Opus 5.5 on high effort, and the same implementer and reviewer are kept from slice to slice, so
+  that they carry their context; the next slice starts after Claude's commit, with the same pair. Required reading for
+  both, and for Claude: a handful of methods of `TuckerTensorTrain` (`t3toolbox/tucker_tensor_train.py`) and the
+  backend functions they call, for the style and the conventions of the library.
+- **Planned pauses (the maintainer, 2026-11-19):** after P4d (the jet sub-arc P4a to P4d), after P11 (the engine
+  sub-arc P5 to P11) and after P15 (before the switch). At each the work stops for a check-in. Between them, small or
+  clear issues are decided by Claude and logged; big unforeseen ones, or ones where the right decision is uncertain,
+  go to the maintainer at once. Think from first principles and use judgement; go slowly and do it right.
+- **CI:** a draft pull request, #26 (`graded-messages` into `main`, opened 2026-11-19, not to be merged before Parts 1
+  and 2 are done), so that both CI test legs, the examples and the docs build run on every push to the branch.
 - **Memory.** The gate's steps run one after another, never two at once, and the implementer and the reviewer
   never run tests at the same time (the maintainer, 21:02: running sphinx and a parallel test run together has
   run a 13 GB machine out of memory). The workspace the agents run in has 2 cores and 7 GB. P0 measures the suite's

@@ -1,14 +1,12 @@
 # The sampling variables
 
-> **READ THIS FIRST (2026-11-19). Three sections below are not yet amended for the generalized jets** (decided
-> by the maintainer on 2026-11-17; `TARGET_DECISIONS.md`, the notes of that date; `PART1_PLAN.md`). The names and
-> the definitions of the variables stand unchanged. What changes: the order group `T` and the affine group `A` are
-> one jet group `J` of any number of axes; a full jet has the jet sizes `F = (n_1 + 1, ..., n_m + 1)`; the input
-> `w[i]` is itself a jet, `J_in_i + W + (N_i,)`, with sizes of its own, and there is no `pp`; the "top coefficient"
-> is the corner coefficient `s_1^n_1 ... s_m^n_m`; the entries kind has no jet axes. This touches section 4 (the
-> truncated product), section 6 (the readouts) and section 7 (the group table and the shape column). The
-> amendments owed are listed in `reviews/jet_group_plan/ACCOUNT.md` section 7 and are made after the maintainer
-> signs off the changed plan. Until then, for shapes and groups, `PART1_PLAN.md` (its head and section 2.3) wins.
+> **Amended for the generalized jets (2026-11-19).** The maintainer decided on 2026-11-17 (`TARGET_DECISIONS.md`, the
+> notes of that date; `PART1_PLAN.md`) that the order group `T` and the affine group `A` are one jet group `J` of any
+> number of axes; a full jet has the jet sizes `F = (n_1 + 1, ..., n_m + 1)` for the jet shape `order = (n_1, ..., n_m)`;
+> the input `w[i]` is itself a jet, `J_in_i + W + (N_i,)`, and there is no `pp`; the readout is the corner coefficient
+> `s_1^n_1 ... s_m^n_m`; the entries kind has no jet axes. He signed off the changed plan on 2026-11-19, and sections 4
+> (the truncated product), 6 (the readouts) and 7 (the group table and the shape column) were brought in line that day
+> (`reviews/jet_group_plan/ACCOUNT.md` section 7). The names and the definitions of the variables did not change.
 
 **Status.** This page is the reference for the names and the definitions of the sampling variables. The
 notation was decided by the maintainer on 2026-11-15 (23:23), after he had seen it drawn: "This is excellent and
@@ -121,8 +119,9 @@ Four sides, two bases, four grades: 32 possibilities, of which 22 occur.
 
 ## 4. The seven terms
 
-Every contraction is one of seven terms. At order 0 each is one `einsum`; at a higher order it is the truncated
-product over the order axis of the same contraction (target decision 2.9).
+Every contraction is one of seven terms. At `order = ()` each is one `einsum`; with jets it is the truncated
+product over the jet axes (`J`) of the same contraction, on the box of the jet shape (target decision 2.9;
+amended 2026-11-19 for the generalized jets).
 
 | Term | Contraction | What it makes |
 | --- | --- | --- |
@@ -260,17 +259,19 @@ Their names did not change. They are written here with the new names of what the
 | --- | --- | --- |
 | `z[i]` | `z_term(eta_D[i], D[i])`; or, where the Tucker centers are given, `z_term(eta[i], Vc[i])` | the value: the whole network at the base point, with mode edge `i` open. The two forms are equal; the second needs no sweep through the base point's cores |
 | `Jp[i]` | `z_term(eta_D_dot[i], D[i]) + z_term(eta[i], V[i])` | the direction's output: the whole network with the direction at one site and mode edge `i` open |
-| `V_tilde[i]` | top coefficient of `V_term(eta_tilde[i], w[i]) + V_term(eta[i], w_tilde[i])` | a block with the shape of `V[i]`: the whole network with the leaf core under `U[i]` taken out, and the seed in place of one input, which may be input `i` |
-| `H_tilde[i]` | top coefficient of `H_term(mu_tilde[i], xi[i], nu[i+1]) + H_term(mu[i], xi_tilde[i], nu[i+1]) + H_term(mu[i], xi[i], nu_tilde[i+1])` | a block with the shape of `H[i]`: the whole network with the TT core of site `i` taken out (`L` cores to its left, `R` cores to its right), and the seed in place of one input |
-| `V_tilde_dot[i]` | top coefficient of `V_term(eta_D_tilde_dot[i], w[i]) + V_term(eta_D_dot[i], w_tilde[i])` | a block with the shape of `D[i]`: the network at the base point with `D[i]` taken out, the direction at one site and the seed in place of one input, which may be input `i`. At site `i` the direction can only be `L_dot[i]` |
-| `H_tilde_dot[i]` | top coefficient of nine `H_term`s of `mu[i]`, `xi[i]`, `nu_L[i+1]`: the tilde on one of the three and the dot on one of the three. Three terms have both on the same variable (its tilde-dot); six have them on two different ones | a block with the shape of `L[i]`: the network at the base point with `L[i]` taken out, the direction at one site and the seed in place of one input. At site `i` the direction can only be `D_dot[i]` |
+| `V_tilde[i]` | corner coefficient of `V_term(eta_tilde[i], w[i]) + V_term(eta[i], w_tilde[i])` | a block with the shape of `V[i]`: the whole network with the leaf core under `U[i]` taken out, and the seed in place of one input, which may be input `i` |
+| `H_tilde[i]` | corner coefficient of `H_term(mu_tilde[i], xi[i], nu[i+1]) + H_term(mu[i], xi_tilde[i], nu[i+1]) + H_term(mu[i], xi[i], nu_tilde[i+1])` | a block with the shape of `H[i]`: the whole network with the TT core of site `i` taken out (`L` cores to its left, `R` cores to its right), and the seed in place of one input |
+| `V_tilde_dot[i]` | corner coefficient of `V_term(eta_D_tilde_dot[i], w[i]) + V_term(eta_D_dot[i], w_tilde[i])` | a block with the shape of `D[i]`: the network at the base point with `D[i]` taken out, the direction at one site and the seed in place of one input, which may be input `i`. At site `i` the direction can only be `L_dot[i]` |
+| `H_tilde_dot[i]` | corner coefficient of nine `H_term`s of `mu[i]`, `xi[i]`, `nu_L[i+1]`: the tilde on one of the three and the dot on one of the three. Three terms have both on the same variable (its tilde-dot); six have them on two different ones | a block with the shape of `L[i]`: the network at the base point with `L[i]` taken out, the direction at one site and the seed in place of one input. At site `i` the direction can only be `D_dot[i]` |
 
 - `g = (V_tilde, H_tilde)` with the seed made from the weighted residual `r = z - y`.
 - `JtJp` is the same pair of blocks with the seed made from the weighted `Jp`.
 - `Kp = (V_tilde_dot, H_tilde_dot)`, at the base point, with the raw form of the direction. The two blocks keep
   the letters `V` and `H` for "the Tucker block" and "the TT block", although the cores taken out are `D[i]` and
   `L[i]`.
-- A block is summed over the samples. "Top coefficient" is the readout of a tilde jet (target decision 2.4).
+- A block is summed over the samples. The "corner coefficient" is the readout of a tilde jet (target decision 2.4):
+  the coefficient of `s_1^n_1 ... s_m^n_m` of the product, for `order = (n_1, ..., n_m)`; with one jet variable it
+  is what this page called the top coefficient until 2026-11-19. `z`, `r` and `Jp` have the full jet sizes `F`.
 - On the corewise frame the gradient is `V_term(eta_D_tilde, w) + V_term(eta_D, w_tilde)` and the three
   `H_term`s with `nu_L`: the same formulas in the base point's basis. (These are the names as seen from a call on
   a manifold frame. In a call on the corewise frame itself they have no basis: section 9.)
@@ -294,19 +295,19 @@ Their names did not change. They are written here with the new names of what the
   `z` and `Jp` are covectors.)
 - **The basis gives the space.** `L` and `R` are the two bases of a bond; `D` and `U` the two of a Tucker edge.
 - **The grade gives the order factor.** Plain and dot are jets. Tilde and tilde-dot are dual jets, stored with
-  the order turned (target decision 2.4).
+  every jet axis turned (flipped; target decision 2.4).
 
 **The arrows** (target decision 9.5; `scripts/review/arrow_type_check.py`). A variable whose name has no basis
 travels with the arrows of the frame: it is in the basis of the store it travels away from. A variable whose name
 carries a basis travels against them, and so do the outputs `z` and `Jp`.
 
-**The shape** of a variable at index `i` is `T + W + [K] + C + (size,)` on the ragged layout, with a leading
-`(d,)` on the uniform layout.
+**The shape** of a variable at index `i` is `J + W + [K] + C + (size,)` on the ragged layout, with a leading
+`(d,)` on the uniform layout. `J` is the one jet group; its sizes are the variable's declared jet sizes (the table
+below, and `PART1_PLAN.md` section 2.3).
 
 | Group | Meaning |
 | --- | --- |
-| `T` | the order group: `(order+1,)`, or `()` at order 0 |
-| `A` | the order group of an affine variable, in place of `T`: `(2,)`, or `()` at order 0. The affine variables are the input `w` and the leaves `xi`, `xi_dot`, `xi_U_dot`. The seed is a full dual jet, so `xi_tilde` and `xi_tilde_dot` carry `T` |
+| `J` | the jet axes, `m = len(order)` of them, `()` when `order = ()`; the sizes differ by variable: `F = (n_1 + 1, ..., n_m + 1)` for a full jet (every plain, dot, tilde and tilde-dot variable but the leaves, the seed included); the input's own sizes `J_in_i` for `w[i]`; the input's clipped to `F` axis by axis, `min(J_in_i, F)`, for the leaves `xi`, `xi_dot`, `xi_U_dot`. The seed is a full dual jet, so `xi_tilde` and `xi_tilde_dot` are full. For the entries kind there are no jet axes |
 | `W` | the sample stack |
 | `K` | the stack of directions. Present on every variable that depends on the direction: the dot and tilde-dot grades, `Jp`, and a tilde variable whose seed was made from `Jp` |
 | `C` | the stack of base points |
@@ -314,36 +315,41 @@ carries a basis travels against them, and so do the outputs `z` and `Jp`.
 
 | Variable | Sits on | Basis, size | Variance | Order factor | Shape at index `i` |
 | --- | --- | --- | --- | --- | --- |
-| `mu` | bond `i` | `L`, `rL_i` | vector | jet | `T + W + C + (rL_i,)` |
-| `mu_dot` | bond `i` | `L`, `rL_i` | vector | jet | `T + W + K + C + (rL_i,)` |
-| `mu_tilde` | bond `i` | `L`, `rL_i` | vector | dual jet | `T + W + C + (rL_i,)` |
-| `mu_tilde_dot` | bond `i` | `L`, `rL_i` | vector | dual jet | `T + W + K + C + (rL_i,)` |
-| `mu_R_dot` | bond `i` | `R`, `rR_i` | vector | jet | `T + W + K + C + (rR_i,)` |
-| `nu` | bond `i` | `R`, `rR_i` | covector | jet | `T + W + C + (rR_i,)` |
-| `nu_tilde` | bond `i` | `R`, `rR_i` | covector | dual jet | `T + W + C + (rR_i,)` |
-| `nu_L` | bond `i` | `L`, `rL_i` | covector | jet | `T + W + C + (rL_i,)` |
-| `nu_L_dot` | bond `i` | `L`, `rL_i` | covector | jet | `T + W + K + C + (rL_i,)` |
-| `nu_L_tilde` | bond `i` | `L`, `rL_i` | covector | dual jet | `T + W + C + (rL_i,)` |
-| `nu_L_tilde_dot` | bond `i` | `L`, `rL_i` | covector | dual jet | `T + W + K + C + (rL_i,)` |
-| `xi` | Tucker edge `i` | `D`, `nD_i` | vector | jet, affine | `A + W + C + (nD_i,)` |
-| `xi_dot` | Tucker edge `i` | `D`, `nD_i` | vector | jet, affine | `A + W + K + C + (nD_i,)` |
-| `xi_tilde` | Tucker edge `i` | `D`, `nD_i` | vector | dual jet | `T + W + C + (nD_i,)` |
-| `xi_tilde_dot` | Tucker edge `i` | `D`, `nD_i` | vector | dual jet | `T + W + K + C + (nD_i,)` |
-| `xi_U_dot` | Tucker edge `i` | `U`, `nU_i` | vector | jet, affine | `A + W + K + C + (nU_i,)` |
-| `eta` | Tucker edge `i` | `U`, `nU_i` | covector | jet | `T + W + C + (nU_i,)` |
-| `eta_tilde` | Tucker edge `i` | `U`, `nU_i` | covector | dual jet | `T + W + C + (nU_i,)` |
-| `eta_D` | Tucker edge `i` | `D`, `nD_i` | covector | jet | `T + W + C + (nD_i,)` |
-| `eta_D_dot` | Tucker edge `i` | `D`, `nD_i` | covector | jet | `T + W + K + C + (nD_i,)` |
-| `eta_D_tilde` | Tucker edge `i` | `D`, `nD_i` | covector | dual jet | `T + W + C + (nD_i,)` |
-| `eta_D_tilde_dot` | Tucker edge `i` | `D`, `nD_i` | covector | dual jet | `T + W + K + C + (nD_i,)` |
+| `mu` | bond `i` | `L`, `rL_i` | vector | jet | `J + W + C + (rL_i,)` |
+| `mu_dot` | bond `i` | `L`, `rL_i` | vector | jet | `J + W + K + C + (rL_i,)` |
+| `mu_tilde` | bond `i` | `L`, `rL_i` | vector | dual jet | `J + W + C + (rL_i,)` |
+| `mu_tilde_dot` | bond `i` | `L`, `rL_i` | vector | dual jet | `J + W + K + C + (rL_i,)` |
+| `mu_R_dot` | bond `i` | `R`, `rR_i` | vector | jet | `J + W + K + C + (rR_i,)` |
+| `nu` | bond `i` | `R`, `rR_i` | covector | jet | `J + W + C + (rR_i,)` |
+| `nu_tilde` | bond `i` | `R`, `rR_i` | covector | dual jet | `J + W + C + (rR_i,)` |
+| `nu_L` | bond `i` | `L`, `rL_i` | covector | jet | `J + W + C + (rL_i,)` |
+| `nu_L_dot` | bond `i` | `L`, `rL_i` | covector | jet | `J + W + K + C + (rL_i,)` |
+| `nu_L_tilde` | bond `i` | `L`, `rL_i` | covector | dual jet | `J + W + C + (rL_i,)` |
+| `nu_L_tilde_dot` | bond `i` | `L`, `rL_i` | covector | dual jet | `J + W + K + C + (rL_i,)` |
+| `xi` | Tucker edge `i` | `D`, `nD_i` | vector | jet, of the input's sizes | `J + W + C + (nD_i,)` |
+| `xi_dot` | Tucker edge `i` | `D`, `nD_i` | vector | jet, of the input's sizes | `J + W + K + C + (nD_i,)` |
+| `xi_tilde` | Tucker edge `i` | `D`, `nD_i` | vector | dual jet | `J + W + C + (nD_i,)` |
+| `xi_tilde_dot` | Tucker edge `i` | `D`, `nD_i` | vector | dual jet | `J + W + K + C + (nD_i,)` |
+| `xi_U_dot` | Tucker edge `i` | `U`, `nU_i` | vector | jet, of the input's sizes | `J + W + K + C + (nU_i,)` |
+| `eta` | Tucker edge `i` | `U`, `nU_i` | covector | jet | `J + W + C + (nU_i,)` |
+| `eta_tilde` | Tucker edge `i` | `U`, `nU_i` | covector | dual jet | `J + W + C + (nU_i,)` |
+| `eta_D` | Tucker edge `i` | `D`, `nD_i` | covector | jet | `J + W + C + (nD_i,)` |
+| `eta_D_dot` | Tucker edge `i` | `D`, `nD_i` | covector | jet | `J + W + K + C + (nD_i,)` |
+| `eta_D_tilde` | Tucker edge `i` | `D`, `nD_i` | covector | dual jet | `J + W + C + (nD_i,)` |
+| `eta_D_tilde_dot` | Tucker edge `i` | `D`, `nD_i` | covector | dual jet | `J + W + K + C + (nD_i,)` |
 
-The input `w[i]` is `A + W + (N_i,)` and the seed `w_tilde[i]` is `T + W + [K] + C + (N_i,)`, with `K` when it
-was made from `Jp`. The outputs: `z[i]` is
-`T + W + C + (N_i,)` and `Jp[i]` is `T + W + K + C + (N_i,)`. A block has the shape of the core it stands for,
-the stack `C` included: `V_tilde[i]` is `C + (nU_i, N_i)` and `H_tilde[i]` is `C + (rL_i, nD_i, rR_(i+1))`. It has
-`K` in front where it depends on the direction: always for `V_tilde_dot` and `H_tilde_dot`, and for `V_tilde` and
-`H_tilde` when the seed was made from `Jp`. It has no `T` and no `W`: a block is summed over the samples and read
-at the top coefficient.
+The input `w[i]` is `J_in_i + W + (N_i,)`, a jet with sizes of its own (there is no `pp`: the line `w + s p` is
+the input jet of two slots, `affine_jet(ww, pp)`), and the seed `w_tilde[i]` is `F + W + [K] + C + (N_i,)`, with `K`
+when it was made from `Jp`. The outputs: `z[i]` is `F + W + C + (N_i,)` and `Jp[i]` is `F + W + K + C + (N_i,)`. A
+block has the shape of the core it stands for, the stack `C` included: `V_tilde[i]` is `C + (nU_i, N_i)` and
+`H_tilde[i]` is `C + (rL_i, nD_i, rR_(i+1))`. It has `K` in front where it depends on the direction: always for
+`V_tilde_dot` and `H_tilde_dot`, and for `V_tilde` and `H_tilde` when the seed was made from `Jp`. It has no jet axes
+and no `W`: a block is summed over the samples and read at the corner coefficient. For the entries kind the input is
+an integer `index`, `(d,) + W`, and no variable has jet axes.
+
+*Amended 2026-11-19 for the generalized jets* (`TARGET_DECISIONS.md`, rows 2.9 and 5.4 and the notes of 2026-11-17;
+`PART1_PLAN.md` section 2.3): the order group `T` and the affine group `A` are the one jet group `J`; the column
+"Order factor" said "jet, affine" for the leaves, which are now jets of the input's sizes.
 
 ## 8. The multiplier pairings
 

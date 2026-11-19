@@ -297,3 +297,48 @@ pause (`680ca36`). Done, documents only:
   state" to the handoff, by its own handoff ritual.
 
 Nothing of the library or the tests was touched. No agent is running and nothing is scheduled.
+
+### Resumed on the laptop: the plan signed off, the records amended, the baseline (2026-11-19, 10:50 to 11:45)
+
+- **The maintainer** (his message came before 10:56): "Part 1 of the plan is confirmed as a whole. But we may
+  encounter issues along the way which require adjusting the plan as we go." Pauses after P4d, after P11 and after
+  P15. Small or clear issues: Claude decides and logs; big, unforeseen or uncertain ones go to him at once. "Think
+  from first principles ... use judgement rather than blindly following rules ... go slow and do things right."
+  N42 (`error_table=True` on the three places) confirmed. CI through a draft pull request. The agents: two Opus 5.5
+  on high effort, the same implementer and reviewer kept from slice to slice. Required reading for all: a handful
+  of `TuckerTensorTrain` methods and the backend functions they call. Recorded in `../TARGET_DECISIONS.md`, the note
+  "The changed plan signed off".
+- **The clone** was already level with the remote at `10e680d` (it had the rewritten history); nothing to move.
+- **Draft pull request #26** (`graded-messages` into `main`), opened 10:57: the workflows run only on `main` and on
+  pull requests to it, so the branch had never run in CI and P1 to P4 had never run on the floor. First run, on
+  `10e680d`: docs build PASS, examples PASS, current leg PASS; the floor leg was still running at 11:45.
+- **The amendments owed for the jets** (`ORCHESTRATION.md` section 5; `../reviews/jet_group_plan/ACCOUNT.md`
+  section 7), made by Claude: `../TARGET_DECISIONS.md` rows 2.1, 2.3 to 2.9, 3.4, 5.4, 6.2, 6.6 and 9.4 (row 9.4, the
+  letter of the order group, was not on the account's list and is amended too); the notes on N16, O-10, O-27 and
+  O-28, the group `A` (marked superseded in place) and jets in several variables as a future feature (likewise);
+  "Carried to Part 2", item 1 restated and items 4 to 6 added (the scan over several jet axes; the zero slots of an
+  input affine in several variables; data by total degree); the banner. `../SAMPLE_VARIABLES.md` sections 4, 6 and
+  7 brought in line in place (it is the reference, not a log), with a dated note and a new banner.
+- **`PART1_PLAN.md`:** the status line (signed off), N42 confirmed (11.4), section 12 (the agents, the pauses, CI).
+  `BRIEF.md`: the laptop's workspace in place of the cloud's, the required reading, how the pair works with Claude.
+  `ORCHESTRATION.md`: section 0, "Since the move to the laptop".
+- **The baseline**, `BASELINE_laptop.md`: the whole gate at `-n 3` on `10e680d`, 10:55 to 11:44, every step PASS;
+  the suite 1,632 passed, 5 skipped, 1 xfailed, the same as the cloud workspace's. The suite takes 23 minutes and
+  peaks at 9.8 GB (2.5 GB left): nothing may run beside it.
+- **Required reading, Claude:** `to_dense`, `probe`, `probe_derivatives`, `norm` of `TuckerTensorTrain`; the backend
+  `t3_probe` and its sweep (`compute_xi`, `_mu_step`, `compute_mu`, `compute_nu`, `_eta_step`, `assemble_z`),
+  `common.get_backend`, the jetted kernels of `sampling_derivatives` (`t3_probe_derivatives` and its steps), and
+  P1's `jet_contract` whole.
+- **The agents** (Opus 5.5, high), started during the gate (after 10:56) on an orientation turn (read only; no Python,
+  no edits): the implementer (about 270k tokens) and the reviewer (about 280k). Both reported a sound reading of P4a.
+  Independently, both raised the same two gaps in the plan's section 2.4, which Claude decided as minor and wrote
+  into the plan (marked "2026-11-19, at the start of P4a"):
+  - **"Most slots" is counted after clipping to the box** (for a readout, to the corner's box): slots beyond the
+    box are never read, so they must not decide the carrier or the pair. Values are the same either way; the cost
+    and the counts are not.
+  - **A string with no `J` raises at every `m`**, `m = 0` included. The plan had it raise at `m >= 1` only and run as
+    plain `contract` at `m = 0`, which would make a string's validity depend on the order, against P1's rule that a
+    call site is wrong at every order or at none. A string with no `J` is a `contract` string.
+  - The implementer found that P1's `test_jax_default_optimizer_is_the_one_read_here` pins jax's einsum default
+    as `'auto'`, which is jax 0.10's; jax 0.4.30, the floor's, has `'optimal'`. Ruling in the message that starts
+    P4a; the floor leg's result decides whether the behaviour tests beside it hold on 0.4.30 too.

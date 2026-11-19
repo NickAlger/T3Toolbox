@@ -40,31 +40,30 @@ moment. **From then on the work, that folder included, continues on the branch `
 severely breaking"); it is merged when it is done. Look on the branch for the live state. Library code has been
 changed on the branch since 2026-11-16 (slices P0 to P4 of Part 1); `main` has none of it.
 
-**START HERE (written 2026-11-19, 10:18, for a session that picks this up; Nick is moving the work from a cloud
-session of Claude to Claude Code on his laptop).** Nothing lives in the old session: everything is in files.
+**START HERE (updated 2026-11-19, 11:45; Claude Code on Nick's laptop, branch `graded-messages`).** Nothing lives
+in a session: everything is in files.
 
-- **Where it stands, in four lines.** Part 1 of the refactor is being implemented on `graded-messages`, slice by
-  slice. P0 to P4 are built, reviewed and committed. The plan was then changed for generalized jets (new slices P4a
-  to P4d before P5), and **that changed plan awaits Nick's review and sign-off; nothing of P4a on is implemented and
-  nothing starts until he says so.** The block "STATE AT THE PAUSE OF 2026-11-17" below is the state in full.
+- **Where it stands.** Part 1 of the refactor is being implemented, slice by slice. P0 to P4 are built and
+  committed. On 2026-11-19 Nick **signed off the changed plan as a whole** (`PART1_PLAN.md`; "we may encounter
+  issues along the way which require adjusting the plan as we go"), and the slices **P4a to P4d** (the generalized
+  jets) are being built by two Opus 5.5 agents on high effort, an implementer and a reviewer kept from slice to
+  slice, with Claude orchestrating and committing. **Planned pauses** for a check-in with Nick: after P4d, after P11,
+  after P15. Between them Claude decides small or clear issues and logs them; big or uncertain ones go to Nick at
+  once. The amendments to the decision records for the jets are made; the laptop's gate baseline is
+  `dev/graded_messages/implementation/BASELINE_laptop.md`; CI runs on the branch through the draft PR #26 (never
+  merge it before Parts 1 and 2 are done). The live record is `dev/graded_messages/implementation/LOG.md`.
+- **Machine:** the suite at `-n 3` peaks at 9.8 GB of the 13; nothing may run beside it.
 - **Read, in this order:** (1) `CLAUDE.md`; (2) this section down to the end of the block "STATE AT THE PAUSE OF
   2026-11-17" (the blocks after it are older states, kept as history); (3)
   `dev/graded_messages/implementation/ORCHESTRATION.md`: how a slice is run, what was particular to the cloud
-  session, the first steps on another machine, what is owed before P4a, and the notes carried to later slices;
+  session, section 0 (the process since the laptop), and the notes carried to later slices;
   (4) `dev/graded_messages/PART1_PLAN.md`: the head, section 2.4 (`jet_contract`), section 5 (the slices; P4a to
   P4d are next), section 11.1 (Nick's answers) and 11.4 (the names), section 12 (the process); (5)
   `dev/graded_messages/implementation/BRIEF.md` (the agents' brief) and `LOG.md` (the record, slice by slice);
-  (6) as reference: `dev/graded_messages/TARGET_DECISIONS.md` (the decisions; **its rows are not yet amended for
-  the jets, see the banner at its top**; its notes of 2026-11-16 and 2026-11-17 are the newest decisions) and
-  `SAMPLE_VARIABLES.md` (every variable's name, definition and shape; banner likewise);
+  (6) as reference: `dev/graded_messages/TARGET_DECISIONS.md` (the decisions; amended for the jets on 2026-11-19,
+  see the banner at its top; its notes of 2026-11-17 and 2026-11-19 are the newest decisions) and
+  `SAMPLE_VARIABLES.md` (every variable's name, definition and shape);
   `dev/graded_messages/REVIEW_DECISIONS.md` is the log of decisions in order (entries 116 to 122 are the jets).
-- **On the laptop, first:** the history was rewritten on 2026-11-16 (the author of the commits was corrected; the
-  last two commits of `main` and all of `graded-messages` were force-pushed with new hashes), so a clone from before
-  then must be brought to the remote's commits, after checking that it holds no work of its own. Then take a
-  baseline of the gate on that machine before the first slice. Both are in `ORCHESTRATION.md` section 4.
-- **Waiting on Nick:** his sign-off of the changed plan; within it, confirming the keyword `error_table=True` and
-  that it also goes on `format_newton_iter`. Then, in order: the amendments to the decision records
-  (`ORCHESTRATION.md` section 5), P4a to P4d, P5.
 - **Nick's standing rules for this arc** (all in force; the first block of "THE ARC IN PROGRESS" above, and
   `TARGET_DECISIONS.md`): reason from first principles; compatibility with today's behaviour is never a reason;
   keep it simple and avoid state; code statically readable, with literal contraction strings; the backend gives

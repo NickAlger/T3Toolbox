@@ -1,17 +1,14 @@
 # Target decisions
 
-> **READ THIS FIRST (2026-11-19). The rows below are not yet amended for the generalized jets.** On 2026-11-17 the
-> maintainer decided: one jet group `J` of any number of axes in place of `T` and `A`; `order` a tuple of maximum
-> orders (the jet shape), never an integer; the inputs are jets and `pp` leaves every signature; the entries kind
-> is of order 0 only; and he answered the open points O-36 to O-47. These decisions are in the notes of 2026-11-17
-> near the end of this file ("One jet group, of any number of axes"; "The public interface is generalized from the
-> start"; "The open points of the jet-group plan, as the maintainer answers them"), in entries 116 to 122 of
-> `REVIEW_DECISIONS.md`, and worked out in `PART1_PLAN.md`. **Where a row or an older note here speaks of `T`, `A`,
-> the order axis, an integer `order`, `pp`, a five-field `GroupLengths`, 41 strings, or entries with an order
-> (rows 2.1, 2.3 to 2.9, 3.4, 5.4, 6.2, 6.6; the notes on names and N16, on the removed site group, on jets in
-> several variables as a future feature; the answers O-10, O-27, O-28), those notes and the plan win.** The
-> amendments owed are listed in `reviews/jet_group_plan/ACCOUNT.md` section 7 and are made after the maintainer
-> signs off the changed plan (`implementation/ORCHESTRATION.md` section 5). Everything else in this file stands.
+> **Amended for the generalized jets (2026-11-19).** On 2026-11-17 the maintainer decided one jet group `J` of any
+> number of axes in place of `T` and `A`; `order` a tuple of maximum orders (the jet shape); inputs that are jets, with
+> no `pp`; the entries kind of order 0 only; and he answered O-36 to O-47 (the notes of 2026-11-17 near the end of this
+> file; entries 116 to 122 of `REVIEW_DECISIONS.md`; `PART1_PLAN.md`). He signed off the changed plan on 2026-11-19
+> (the note "The changed plan signed off"), and the rows and notes the change reaches were amended that day, each with
+> an amendment marked "Amended 2026-11-19" beside its old text: rows 2.1, 2.3 to 2.9, 3.4, 5.4, 6.2, 6.6 and 9.4; the
+> notes on N16, O-10, O-27 and O-28, the group `A`, and jets in several variables as a future feature; and "Carried to
+> Part 2". Where an older text still speaks of `T`, `A`, an order axis, an integer `order` or `pp`, the amendment and
+> the plan win.
 
 The decisions that define the target design of the sampling layer, in the order they depend on each other. This
 list asks questions. It proposes no answers. It was drafted on 2026-11-15 at the maintainer's request, after he
@@ -202,7 +199,9 @@ go with it"):
   is the order the engine and the oracle already have (`sampling_variables(kind, frame, sample, ...)`,
   `oracle.query(frame, batch, ...)`).
 - **The keywords follow:** `pp=None, order=0`, then `sum_over_samples=True` where there is a sum. `pp` stays a
-  keyword, as 6.6 has it, so a call at order 0 does not pass `None`.
+  keyword, as 6.6 has it, so a call at order 0 does not pass `None`. **Amended 2026-11-19 (the generalized jets; the notes of 2026-11-17 and entries 116 to 122):** the keywords are `order=()`
+  and then `sum_over_samples=True`; there is no `pp`, and the entries functions have no `order`. The sketches below,
+  with `pp=None, order=0`, are superseded; `PART1_PLAN.md` section 2.4 has the forms.
 - **One name for one thing:** `x` for a Tucker tensor train's cores, `frame`, `variations`, `ww` (or `index`),
   `residual`, `core_directions`, on both layouts.
 
@@ -290,7 +289,8 @@ t3_probe_corewise_hessian(x, ww, residual, core_directions, pp=None, order=0)
   `'loop'` (a loop with slices). `jet_contract` reads whether its operands are jax, as every function does, and
   knows nothing of the layout. In Part 1 the engine sets the value: `'scan'` on the uniform layout and `'loop'` on
   the ragged one, which is how the library runs today. In Part 2 it comes from the plan, with no change of
-  signature. `GroupLengths` keeps the five fields of 5.4. Both forms are built and tested in Part 1.
+  signature. `GroupLengths` keeps the five fields of 5.4. **Amended 2026-11-19 (the generalized jets; the notes of 2026-11-17 and entries 116 to 122):** four fields, `J`, `W`, `K`, `C`, and the
+  call takes the output's jet shape: `jet_contract(subscripts, *operands, lens, order, over_orders)`. Both forms are built and tested in Part 1.
   **This corrects the section "The two parts":** "Part 1 has the scan" for 2.9 was wrong against the library,
   whose ragged layout runs the orders in a Python loop. On O-6 the maintainer set the frame: "Backend importing from frontend
   is not acceptable. Perhaps we can put the checking functionality in the backend somewhere, then the frontend
@@ -389,7 +389,9 @@ t3_probe_corewise_hessian(x, ww, residual, core_directions, pp=None, order=0)
     kinds: `dense_probe(T, ww, pp=None, order=0)`, `dense_apply(T, ww, pp=None, order=0)`,
     `dense_entries(T, index, pp=None, order=0)`. The reference module calls them for `z`, so the code for the jets
     of a dense tensor exists once; the examples and tests use them for ground truth. Not wrapped in the frontend,
-    which has no class for a dense array. This amends 6.3, which kept `dense_probe` "as it is".
+    which has no class for a dense array. This amends 6.3, which kept `dense_probe` "as it is". **Amended 2026-11-19 (the generalized jets; the notes of 2026-11-17 and entries 116 to 122):**
+    `dense_probe(T, ww, order=())` and `dense_apply(T, ww, order=())` take input jets; `dense_entries(T, index)` has
+    no jets (P4b).
   - **Every open point of the plan is now answered.** The plan's body is brought in line in one pass and checked
     by the reviewer.
 
@@ -420,6 +422,8 @@ the reviewer. Both implementer and reviewer are Fable 5.2 on medium effort. The 
 the reviewer critiques it, and they go back and forth until the reviewer signs off. Then you look over it. It it
 is good, they can continue and start the next slice. If there are major issues along the way, please consult with
 me. If there are minor issues, I trust you to make good decisions." Nothing is implemented before his sign-off.
+**Amended 2026-11-19:** from P4a on, the two agents are Opus 5.5 on high effort, and the same pair is kept from
+slice to slice; see the note "The changed plan signed off" of that date, below.
 
 - **Memory when running the gate** (the maintainer, 21:02): "one thing to beware of is running sphinx and the
   tests at the same time, especially if the tests are being run in parallel. On my laptop (13GB and 8 cores) we
@@ -449,6 +453,9 @@ question; the library writes that axis as a lowercase `d`, always present in a s
   same thing either way: operating with a single core."
 - **For Part 2 (row 5.3):** if map-type operations are done at all sites at once on the uniform layout, that is
   uniform code of its own, written with the `d` axis, not the shared step with an optional group.
+- **Superseded (2026-11-17, 13:31 to 14:44, by "One jet group, of any number of axes" below; row 5.4 amended
+  2026-11-19): `A` is merged with `T` into the one jet group `J`.** Kept as the record of what was decided at 02:31.
+  The rule on new groups above stands.
 - **The group `A` is kept** (decided 2026-11-17, 02:31, after deliberation: "Ok this is convincing. Let's keep A.
   I see how it has meaning as a jet axis in the same way as T."). The maintainer put three tests to it, and
   Claude's answers are the record of why it stays:
@@ -474,6 +481,10 @@ question; the library writes that axis as a lowercase `d`, always present in a s
     lowercase and uppercase which we could use to distinguish grouped axes from jet axes." What tells them apart
     is that the two letters are reserved and that the string is handed to `jet_contract`; the documentation says
     so in one table of the letters (P19).
+
+**Superseded (2026-11-17, 13:31 to 14:44) by the notes "One jet group, of any number of axes" and "The public
+interface is generalized from the start", below: jets in several variables are built in Part 1 (slices P4a to P4d).
+The ledger entry planned here is replaced by what `PART1_PLAN.md` section 8 lists.**
 
 **A future feature: jets in several variables** (the maintainer, 2026-11-17, 02:35: "Also worth considering
 support for multidimensional jets as a future feature. I don't know if anyone will ever use it, but it would
@@ -646,11 +657,45 @@ Open with him: the structure below, and the letter.
   `order`) and "jet sizes" (the sizes of an array's jet axes); `len_J=0` on `pack_vectors` and `pack_if_ragged`.
   Claude reads the same answer as covering `error_table=True`, the keyword proposed to him in the same message for
   turning the display's table off (beside `verbose` on `newton_cg`, and on `make_newton_display`); to be confirmed
-  when he reviews the plan.
+  when he reviews the plan. **Confirmed 2026-11-19**, on all three places (the frontend `newton_cg`,
+  `make_newton_display`, `format_newton_iter`).
 - **What happens next** (16:26): "Once the plan is complete, please commit it, update the handoff, and pause before
   implementation. ... We will resume in a couple days ... Also, this will give me time to review the updated plan
   more carefully." So the plan change is complete as a text but not signed off as a whole; P4a does not start
-  until he says so.
+  until he says so. **Signed off 2026-11-19** (the next note).
+
+**The changed plan signed off; how the implementation continues** (the maintainer, 2026-11-19, in Claude Code on
+his laptop; his message came before 10:56, the first clock reading after it).
+
+- **Sign-off:** "Part 1 of the plan is confirmed as a whole. But we may encounter issues along the way which require
+  adjusting the plan as we go." So `PART1_PLAN.md` at `48a1af4` is the plan, P4a may start, and a change found
+  necessary while building is made in the plan and recorded, not worked around.
+- **Three planned pauses**, at each of which the work stops for a check-in and a discussion of what happened and
+  what arose: after the jet sub-arc P4a to P4d; after the engine sub-arc P5 to P11; after P15, just before the
+  switch.
+- **Decisions on the way:** "For small issues or things which are clear, please make the decisions and log them.
+  If there are big unforeseen issues or situations where the right decision is uncertain, check in and we can
+  talk through it." And: "Please think from first principles about what we are trying to do here, and use
+  judgement rather than blindly following rules. Please go slow and do things right rather than cutting corners
+  for expediency." (The rule of 2026-11-16 stands beside it: a departure from a decided row, a public name or the
+  order of the slices is raised with him.)
+- **The agents:** two Opus 5.5 agents on high effort, an implementer and a reviewer, **kept from slice to slice**
+  ("Keep the same agents going so they have more context"). The implementer writes a slice, the reviewer reviews
+  it, they iterate until the reviewer signs off and send it to Claude, who commits it or sends it back; then the
+  same pair starts the next slice. This replaces "two new agents, Fable 5.2 on medium effort" of 2026-11-16, 20:51.
+- **Required reading** for Claude and every agent: "pick a handful of methods from the flagship class
+  TuckerTensorTrain in tucker_tensor_train.py, read those methods and the traced functions that they call in the
+  backend. This can give you a sense of the style and conventions of the library."
+- **CI on the branch:** the workflows run only on pushes and pull requests to `main`, so nothing pushed to
+  `graded-messages` had run in CI, and P1 to P4 had never run on the floor (py3.9, numpy 1.x, jax 0.4.30). Asked to
+  choose, he chose a draft pull request: #26, `graded-messages` into `main`, opened 2026-11-19, marked not to be
+  merged before Parts 1 and 2 are done. Both test legs, the examples and the docs build now run on every push.
+- **N42 confirmed:** `error_table=True`, on the frontend `newton_cg` beside `verbose`, on `make_newton_display` and
+  on `format_newton_iter`.
+- **The amendments owed for the jets were made the same day** (`reviews/jet_group_plan/ACCOUNT.md` section 7):
+  rows 2.1, 2.3 to 2.9, 3.4, 5.4, 6.2, 6.6 and 9.4; the notes on N16, O-10, O-27 and O-28, the group `A`, and jets in
+  several variables as a future feature; the section "Carried to Part 2" (items 1, 4 to 6); and sections 4, 6 and 7
+  of `SAMPLE_VARIABLES.md`. Each is an amendment beside the old text, which is kept.
 
 ## Carried to Part 2 from the implementation of Part 1
 
@@ -682,11 +727,28 @@ row and where it is marked in the code. A search for `PART 2 (row` in `t3toolbox
      `tests/test_jet_contract.py` a test marked as an expected failure, which asserts that numpy does not
      contract the carried jet with the core first. It is reported in every run, and it turns into a failure the
      day the order is fixed, so it has to be dealt with then.
+   - **Restated for the one jet group (2026-11-19; P4a):** the 41 strings become 29 and the product strings 12
+     (`mu`, `nu`, `eta`, 4 each). The expected failure is restated on them with the library's operand shapes, 20
+     cases as in P1. The plan's recount (`PART1_PLAN.md`, P4a): at orders 2 and above 16 of the 20 contract the
+     carried jet with the core first, as in P1; at order 1, where a two-slot leaf ties with a full jet of two slots
+     and the leaf of the `nu` strings becomes the carrier, 20 of 20. P4a's implementer confirms the recount.
 2. **Map-type operations on the uniform layout** (row 5.3). Part 1 maps one site at a time through `xmap` (the
    answer to O-19, "must be revisited in Part 2"). There is no site group: if Part 2 does these at all sites at
    once, it is uniform code of its own with the `d` axis (the maintainer, 2026-11-17, 02:23).
 3. **The benchmark** (the answers to O-1 and O-2). Part 1 has none. Part 2 compares the branch with the released
    2026.5.0, on CPU and on a GPU pod, and measures the order-0 condition of 2.7.
+4. **A scan over several jet axes** (rows 2.9 and 5.4; O-38; added 2026-11-19). For `m >= 2` jet variables
+   `jet_contract` loops over the partners' multi-indices under both `over_orders` settings, so the compiled
+   program grows with the box there, and row 2.9's one program size is given up for `m >= 2` until Part 2. The
+   faster algorithms (the order in which a product's multi-indices are taken, a scan over more than one jet
+   axis, transforms) live inside `jet_contract`, behind its signature. **Marker:** `PART 2 (row 5.4, jets in several
+   variables)` in `backend/contractions.py`, at the place where `m >= 2` takes the loop (P4a).
+5. **The zero slots of an input affine in several variables** (added 2026-11-19; Claude to the maintainer,
+   2026-11-17, 14:20). `affine_jet(ww, p_1, ..., p_m)` has a box of `2^m` slots holding `m + 1` nonzero
+   coefficients, and the simple algorithm of Part 1 visits every slot of a partner. A sparse form of such an
+   input, if it matters, is Part 2's.
+6. **Data measured to a total degree** (row 2.5; entry 116; added 2026-11-19). Part 1 has the box only: such data
+   are stored in the box with weight zero on the slots not measured. A cheaper storage, if wanted, is Part 2's.
 
 ## What remains, in groups (2026-11-15, 15:34)
 
@@ -829,15 +891,15 @@ attempts failed.
 
 | # | Question | Status | Depends on |
 | --- | --- | --- | --- |
-| 2.1 | Taylor coefficients replace derivatives everywhere, and jet edge variables are first-class, like the plain ones | Decided | |
+| 2.1 | Taylor coefficients replace derivatives everywhere, and jet edge variables are first-class, like the plain ones **Amended 2026-11-19 (the generalized jets; the notes of 2026-11-17 and entries 116 to 122):** where a later text says "the order axis", read "the jet axes": an array that carries jets has `m = len(order)` leading jet axes, one per jet variable. | Decided | |
 | 2.2 | Taylor coefficients are the only form in the sampling, fitting and optimization layers. Derivative mode is not a mode of the library: a user with derivative data prepares it before fitting, with standalone conversions (amended on 2026-11-16; it had been an adapter at the outer level of fitting) | Decided | 2.1 |
-| 2.3 | The conversions for derivative data are standalone functions and nothing else: derivatives to Taylor coefficients (slot `t` divided by `t!`), the reverse, a derivative-mode weight to a Taylor weight (slot `t` multiplied by `t!`), and one function that prepares the data, the validation data and the weight together and returns the weight `t!` when none is given. No fitting function, oracle, display or sampling method has a keyword for it, and nothing is converted on the way out. The functions are documented with a doctest (amended on 2026-11-16: the opt-in keyword on the fitting functions is removed) | Decided | 2.2, 6.7 |
-| 2.4 | A tilde jet is an adjoint variable: a Lagrange multiplier, a dual object. The data and the residual are of the type of `z`, in forward order. The misfit is the weighted sum of squares slot by slot. The dualization is one step at the seed: the weights, then the turn of the order leg. Tilde variables are stored turned, the ones a user holds included. `w_tilde` names the seed | Decided | 2.1 |
-| 2.5 | The misfit is `1/2 sum omega^2 r^2` over modes, orders and samples, on Taylor coefficient residuals. With no weight given the weight is ones; that default may change in a later release if a more robust method that "just works" is found. The weight has the shape `(d,) + T` for probe and `T` for apply and entries, with no rule for a bare vector | Decided | 2.1, 2.2 |
-| 2.6 | Is an input jet always affine (`w + s p`), or can it be general? This decides whether the two-term banded form is part of the structure | Decided | |
-| 2.7 | Is order 0 the one-coefficient case of the same functions, with no order axis ever created? | Decided | 2.1, 2.6 |
-| 2.8 | There are three sampling kinds, `probe`, `apply` and `entries`, each with an `order` (0 for the plain computation), in place of six. The fitting layer has the same shape as the frontend methods of 6.6 | Decided | 2.7, 6.6 |
-| 2.9 | A term over the orders is the truncated product of its operands' jets. One operand carries the order axis `T` through the contraction; the other is taken one coefficient at a time: two contractions when it is affine. No dense order-by-order form. Where both operands are full jets there are two forms, chosen by the user through the plan (7.1): a scan over one operand's coefficients with the other jet carried and shifted one slot per step, which is the default; and a loop with slices. The block readouts compute only the terms whose orders sum to the top | Decided | 2.4, 2.6, 7.1 |
+| 2.3 | The conversions for derivative data are standalone functions and nothing else: derivatives to Taylor coefficients (slot `t` divided by `t!`), the reverse, a derivative-mode weight to a Taylor weight (slot `t` multiplied by `t!`), and one function that prepares the data, the validation data and the weight together and returns the weight `t!` when none is given. No fitting function, oracle, display or sampling method has a keyword for it, and nothing is converted on the way out. The functions are documented with a doctest (amended on 2026-11-16: the opt-in keyword on the fitting functions is removed) **Amended 2026-11-19 (the generalized jets; the notes of 2026-11-17 and entries 116 to 122):** with the jet shape `order = (n_1, ..., n_m)` the conversions divide (multiply) slot `k` by `k_1! ... k_m!`, and the preparing function returns `k_1! ... k_m!` per slot when no weight is given. The entries kind has no derivative data: at `order = ()` these functions return its data and weight unchanged (O-47). | Decided | 2.2, 6.7 |
+| 2.4 | A tilde jet is an adjoint variable: a Lagrange multiplier, a dual object. The data and the residual are of the type of `z`, in forward order. The misfit is the weighted sum of squares slot by slot. The dualization is one step at the seed: the weights, then the turn of the order leg. Tilde variables are stored turned, the ones a user holds included. `w_tilde` names the seed **Amended 2026-11-19 (the generalized jets; the notes of 2026-11-17 and entries 116 to 122):** the turn is a flip of every jet axis. The pairing of a jet with a dual jet is the corner coefficient `s_1^n_1 ... s_m^n_m` of their product (what the older texts call the top coefficient). The truncation is the box `F = (n_1 + 1, ..., n_m + 1)`, never total degree (entry 116). | Decided | 2.1 |
+| 2.5 | The misfit is `1/2 sum omega^2 r^2` over modes, orders and samples, on Taylor coefficient residuals. With no weight given the weight is ones; that default may change in a later release if a more robust method that "just works" is found. The weight has the shape `(d,) + T` for probe and `T` for apply and entries, with no rule for a bare vector **Amended 2026-11-19 (the generalized jets; the notes of 2026-11-17 and entries 116 to 122):** the weight is `(d,) + F` for probe, `F` for apply and `()` for entries, `F` the full jet sizes. Data measured only up to a total degree are given in the box, with weight zero on the slots not measured (entry 116). | Decided | 2.1, 2.2 |
+| 2.6 | Is an input jet always affine (`w + s p`), or can it be general? This decides whether the two-term banded form is part of the structure **Amended 2026-11-19 (the generalized jets; the notes of 2026-11-17 and entries 116 to 122):** an input jet is general (entries 118, 119): `ww[i]` has jet axes of sizes of its own, `J_in_i + W + (N_i,)`, its slots Taylor coefficients, and there is no `pp`. The line `w + s p` is the common case, built by `affine_jet(ww, pp)`. The two-term banded form is no part of the structure: it is a partner of two slots. | Decided | |
+| 2.7 | Is order 0 the one-coefficient case of the same functions, with no order axis ever created? **Amended 2026-11-19 (the generalized jets; the notes of 2026-11-17 and entries 116 to 122):** order 0 is `order = ()`, `m = 0`, and no jet axis is ever created. `order` is a tuple only; an integer raises (O-36). | Decided | 2.1, 2.6 |
+| 2.8 | There are three sampling kinds, `probe`, `apply` and `entries`, each with an `order` (0 for the plain computation), in place of six. The fitting layer has the same shape as the frontend methods of 6.6 **Amended 2026-11-19 (the generalized jets; the notes of 2026-11-17 and entries 116 to 122):** probe and apply each take a jet shape `order` (a tuple; `()` is the plain computation). The entries kind has no jets (entry 120): its functions take an `index` and no `order`, and its least-squares oracle takes `order = ()`, required as for every kind (O-44, O-46). | Decided | 2.7, 6.6 |
+| 2.9 | A term over the orders is the truncated product of its operands' jets. One operand carries the order axis `T` through the contraction; the other is taken one coefficient at a time: two contractions when it is affine. No dense order-by-order form. Where both operands are full jets there are two forms, chosen by the user through the plan (7.1): a scan over one operand's coefficients with the other jet carried and shifted one slot per step, which is the default; and a loop with slices. The block readouts compute only the terms whose orders sum to the top **Amended 2026-11-19 (the generalized jets; the notes of 2026-11-17 and entries 116 to 122):** the jet group is `J`, of `m` axes, in place of `T` and `A`; "affine" reads "a partner with fewer slots than the box". Which operand is carried and which are taken one coefficient at a time is read off the operands' static jet sizes. A readout computes the corner coefficient. The two forms differ only where a full partner is taken one coefficient at a time at `m = 1`; for `m >= 2` both loop in Part 1 (O-38), and a scan over several jet axes is Part 2's. | Decided | 2.4, 2.6, 7.1 |
 
 Notes:
 
@@ -1262,7 +1324,7 @@ Notes:
 | 3.1 | The primitives of a variable's name are a letter for the side contracted (`mu`, `nu`, `xi`, `eta`), the basis of the cut edge where it is not the usual one, and a grade (plain, dot, tilde, tilde-dot) | Decided | 9.6 |
 | 3.2 | `nu_L` (`gamma` until 2026-11-15, 23:23) stays, as an ordinary variable. It is computed only when `Kp` is wanted, or when the value goes through `D`. No frame convention removes it | Decided | 4.1 |
 | 3.3 | The tilde names always mean the adjoint sweep of the residual. The adjoint sweep of `Jp` has no names in a call that also holds the residual's; its variables are reached by a call with `Jp` given as the residual | Decided | 6.5 |
-| 3.4 | In the sampling layer a kind is closed: a small description (what goes in at a mode edge, what comes out, the order), not a class a user subclasses. The open extension point is in the fitting layer: a protocol for an objective, which the built-in objectives implement by calling the engine | Decided | 1.1 |
+| 3.4 | In the sampling layer a kind is closed: a small description (what goes in at a mode edge, what comes out, the order), not a class a user subclasses. The open extension point is in the fitting layer: a protocol for an objective, which the built-in objectives implement by calling the engine **Amended 2026-11-19 (the generalized jets; the notes of 2026-11-17 and entries 116 to 122):** for the entries kind the order is `()` (O-46). | Decided | 1.1 |
 | 3.5 | The output is `z` for every kind | Decided | |
 | 3.6 | The engine takes the data `y` and an optional `weight` (ones by default). The weight acts on `f`, `g`, `JtJp` and `Kp` alike, through one public helper that turns a jet into a dual jet. The bare transpose takes a seed and no weight. The engine has no other notion of a loss | Decided | 1.1 |
 | 3.7 | What happens to the sample stack `W` on each output. Kept: `z`, `r`, `Jp` and every edge variable. Summed by default, kept on request: the outputs shaped like cores, `g`, `JtJp`, `Kp`. Always summed: `f`, `r_block_sumsq`, `Jp_norm_sq` | Decided | 3.6 |
@@ -1526,7 +1588,7 @@ Notes:
 | 5.1 | One function per variable with explicit arguments, seven terms, no graded containers | Decided | |
 | 5.2 | One set of step functions for the ragged and the uniform layout. The layout is detected from the structure of the inputs, as low as reasonably possible. Sweeps go through `xscan` on both layouts. Masks never reach a step: the uniform cores are masked once on entry. Shapes are read from the operands | Decided | 1.2 |
 | 5.3 | For each variable, are sites scanned or vectorized, what is the default, and which variables admit which? | Reopened | 5.2 |
-| 5.4 | The terms are generic over the stack groups through the groups of the contraction engine: a variable is `[S] + T + W + [K] + C + (size,)`, with `T` and `A` the optional order axes of a full and of an affine jet. Each place a term is used has its own literal contraction string, with `K` on the operand that carries the direction, at the call site in the step function. The call is `jet_contract`: `contract` with the order groups multiplying as truncated polynomials, and exactly `contract` at order 0. Every call passes one record of the axis counts of `S`, `T`, `W`, `K` and `C`, so that an operand of the wrong rank raises. The seven terms are seven families of strings **Amended 2026-11-17, 02:23: the site group `S` is removed.** A variable is `T + W + [K] + C + (size,)` at one site, with a leading `(d,)` on a uniform supercore, written as the library writes it; the record of axis counts has four fields, `T`, `W`, `K`, `C`. The maintainer: a uniform supercore is a different kind of thing than a single ragged core, and reusing one operation for both is a code smell; new groups are introduced only with good reason and after deliberation | Decided | 2.7, 2.9 |
+| 5.4 | The terms are generic over the stack groups through the groups of the contraction engine: a variable is `[S] + T + W + [K] + C + (size,)`, with `T` and `A` the optional order axes of a full and of an affine jet. Each place a term is used has its own literal contraction string, with `K` on the operand that carries the direction, at the call site in the step function. The call is `jet_contract`: `contract` with the order groups multiplying as truncated polynomials, and exactly `contract` at order 0. Every call passes one record of the axis counts of `S`, `T`, `W`, `K` and `C`, so that an operand of the wrong rank raises. The seven terms are seven families of strings **Amended 2026-11-17, 02:23: the site group `S` is removed.** A variable is `T + W + [K] + C + (size,)` at one site, with a leading `(d,)` on a uniform supercore, written as the library writes it; the record of axis counts has four fields, `T`, `W`, `K`, `C`. The maintainer: a uniform supercore is a different kind of thing than a single ragged core, and reusing one operation for both is a code smell; new groups are introduced only with good reason and after deliberation **Amended 2026-11-19 (the generalized jets; the notes of 2026-11-17 and entries 116 to 122):** the groups are `J`, `W`, `K`, `C`. `J` is the one jet group, of any number of axes, each operand with its own sizes along them; `A` is removed, its definition of 2026-11-17, 02:31 superseded (an affine variable is a jet of two slots per axis). The record is `GroupLengths(J, W, K, C)`; the output's jet shape is an argument `order` of every call, `jet_contract(subscripts, *operands, lens, order, over_orders)`. The 41 strings become 29. `J` is not a new group: it is the merger of `T` and `A`. | Decided | 2.7, 2.9 |
 | 5.5 | The contraction order inside a term is in the plan: the user can specify it and tune it on their problem, and the library provides helpers that choose good orders. Held for the performance discussion (group E): the granularity (per term function, or per place a term is used), the form of the plan's field, and the helpers. Proposed, to be confirmed: how an order reads where the operands are jets | Open | 7.6 |
 | 5.6 | The dtype rule is absorbing: jax takes precedence over numpy, and lower precision over higher. The engine creates no array with a default dtype | Decided | |
 
@@ -1839,11 +1901,11 @@ Notes:
 | # | Question | Status | Depends on |
 | --- | --- | --- | --- |
 | 6.1 | `sampling_variables` is a public backend function. It returns a tuple aligned with `want`, and held variables are keyword arguments | Decided | |
-| 6.2 | The arguments of `sampling_variables`: `kind`, `frame`, `sample`, `want`, then `order`, `plan`, `y`, `weight`, the direction `(V, H)`, the lifted direction `(D_dot, L_dot)`, `Vc`, whether `g`, `JtJp`, `Kp` are summed over the samples, and the held variables by name. Decided up to the names of three keywords | Decided | 2.8, 3.4, 4.5 |
+| 6.2 | The arguments of `sampling_variables`: `kind`, `frame`, `sample`, `want`, then `order`, `plan`, `y`, `weight`, the direction `(V, H)`, the lifted direction `(D_dot, L_dot)`, `Vc`, whether `g`, `JtJp`, `Kp` are summed over the samples, and the held variables by name. Decided up to the names of three keywords **Amended 2026-11-19 (the generalized jets; the notes of 2026-11-17 and entries 116 to 122):** `order` is a tuple, the jet shape; the sample is `ww` (input jets) or `index`; there is no `pp`. | Decided | 2.8, 3.4, 4.5 |
 | 6.3 | The public functions of the sampling layer: the engine; the jet-to-dual-jet helper and its inverse; the data preparation functions; and one function behind each frontend method, calling the engine. Every per-variable kernel, every `*_derivatives` function and the sweep functions go. The step and term functions are private | Decided | 1.1 |
 | 6.4 | Every variable of a kind's graph, at every grade, can be wanted and held. The table of variables (name, shape, what it reads, which arguments it needs) is written out in the docstring and the documentation, the engine declares its graph as data, and a test checks that the two agree exactly | Decided | 3.1 to 3.4 |
 | 6.5 | The engine trusts a held variable and checks only its shape, the order included. Whoever holds it vouches for it. The caller may give the engine whatever they want, modified variables included | Decided | |
-| 6.6 | The plain and the jetted sampling function are one function: `probe(ww, pp=None, order=0)`, returning `T + W + C + (Ni,)`. This holds for the frontend methods of the flagship classes and for the backend function behind each, which uses the engine | Decided | 2.6, 2.7 |
+| 6.6 | The plain and the jetted sampling function are one function: `probe(ww, pp=None, order=0)`, returning `T + W + C + (Ni,)`. This holds for the frontend methods of the flagship classes and for the backend function behind each, which uses the engine **Amended 2026-11-19 (the generalized jets; the notes of 2026-11-17 and entries 116 to 122):** entry 118 reverses the `pp` keyword: `probe(ww, order=())`, returning `F + W + C + (Ni,)`, with `ww` input jets; the call that was `probe(ww, pp, order=3)` is `probe(affine_jet(ww, pp), order=(3,))`. The entries functions have no `order` (entry 120). | Decided | 2.6, 2.7 |
 | 6.7 | Preparing the data and creating weights is done by standalone functions that the user calls before fitting, when the batch is made. The fitting functions have no keyword for it: not for derivative data (2.3) and not for the equalizing weight (amended on 2026-11-16; opt-in keywords had been allowed). Should such a keyword be added later, it may do only preparation that changes the loss alone; anything that changes the unknowns or belongs to the problem stays standalone | Decided | 2.5 |
 
 Notes:
@@ -2672,7 +2734,7 @@ Notes:
 | 9.1 | The names settled on 2026-11-14 | Decided | |
 | 9.2 | The kind is one of the three strings `'probe'`, `'apply'`, `'entries'`, everywhere. `'sweep'` as a unit name goes: a `hold` lists variable names. The names of the sizing functions are settled with 7.6 | Decided | 3.4, 6.3, 7.6 |
 | 9.3 | Correct is defined by the definitions, checked on small problems without any of the sweeps: every edge variable against its contracted subnetwork by a dense einsum, `z` against the dense tensor, jets against the Taylor expansion of the same contraction, `Jp` against the dense tangent tensor, the transposes and the tilde variables against the dense Jacobian, `Kp` against the second derivative of the dense objective. The identities are tests in their own right. The generic twin is a second check. Numerical comparisons are to a tolerance, structural ones exact. The old library is a bridge used once during the port. These checks also serve as documentation | Decided | |
-| 9.4 | What is the order axis called as a group, so that it is not taken for a batching axis, and what letter does it have in contraction strings? | Decided | 2.7 |
+| 9.4 | What is the order axis called as a group, so that it is not taken for a batching axis, and what letter does it have in contraction strings? **Amended 2026-11-19 (the generalized jets; the notes of 2026-11-17 and entries 116 to 122):** the jet axes are the one group `J` (entry 120), in place of `T` and `A`. | Decided | 2.7 |
 | 9.5 | The convention for arrows on the edges. An arrow shows the way a vector travels: where it leaves an array the index is plain, where it enters the index is dual. A contraction joins the two ends of one arrow. Every arrow of a frame points away from its store, towards the hole. Arrows are described by the way they point in the diagram: left-to-right, right-to-left, bottom-to-top, top-to-bottom | Decided | |
 | 9.6 | The notation for the sampling variables: four letters and a basis. `mu`, `nu`, `xi`, `eta` name the four sides of a cut edge that can be contracted; the store of the basis follows the letter where the basis is not the usual one (`nu_L`, `eta_D`, `mu_R`, `xi_U`); then the grade. The reference is `SAMPLE_VARIABLES.md` | Decided | |
 | 9.7 | The sampling variables are documented in layers, each kind of fact with one source and every other place generated from it or tested against it. The engine's docstring is the index (the table of 6.4). One page in `docs/`, whose code CI runs, is the home: the naming scheme; an entry per variable with its diagram, definition, recurrence, shape and a doctest; the identities; the dependency structure, as a table and as diagrams; how to use them. One example file is the tour. A `.tex` note is the derivation. The definitions are shipped as a public reference module: one slow, dense function per variable, called by the tests, the page, the example and users | Decided | 6.4, 9.3 |

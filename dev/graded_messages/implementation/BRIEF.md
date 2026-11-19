@@ -23,27 +23,63 @@ it; the next slice starts only after that.
   working. Nothing a backend user needs lives only in the frontend. Scan bodies are module-level functions or
   memoized factories. Code is statically readable: literal contraction strings at the call sites.
 
-## The workspace
+## The workspace (the maintainer's laptop, from P4a on, 2026-11-19)
 
-*(This section describes the cloud workspace in which P0 to P4 were built. On another machine the rules stand
-(one run at a time; never sphinx beside tests; the consumer is read-only) and the particulars differ: the paths, the
-versions, the baseline, the ten-minute limit. See `ORCHESTRATION.md` beside this file, sections 3 and 4.)*
+*(P0 to P4 were built in a cloud workspace: `/home/claude/t3toolbox`, 2 cores, 7 GB, Python 3.13, numpy 2.5, jax 0.12.
+Paths of that form in the older handovers, reviews and the plan's section 9 mean "the repository root" and "the
+maintainer's checkout of T3Polynomial". `ORCHESTRATION.md` section 3 says what else does not carry over.)*
 
-- The repository is `/home/claude/t3toolbox`, on the branch `graded-messages`. Run Python as
-  `PYTHONPATH=/home/claude/t3toolbox python3 ...` from the repository root.
-- Python 3.13, numpy 2.5, jax 0.12. **This is ahead of what CI runs** (CI's current leg is Python 3.11, numpy 2.4,
-  jax 0.10), and `CLAUDE.md` warns that results depending on the BLAS have differed. So the baseline of P0 (what
-  passes and fails here on the unchanged tree) is the reference: a slice must not add a failure, and a failure that
-  is already in the baseline is not the slice's to fix. Record it, do not hide it.
-- The machine has **2 cores and 7 GB**. The maintainer has run out of memory on a larger machine by running sphinx
-  and a parallel test run together. So: **the gate's steps run one after another, never two at once**; do not
-  start a long run while another is going; use the worker count that P0 measured as safe. The implementer and the
-  reviewer never run tests at the same time (they alternate, so this holds if nobody leaves a run in the
-  background at the end of their turn: do not).
-- A foreground command is cut off after ten minutes. Use the gate script that P0 writes
-  (`dev/graded_messages/implementation/run_gate.sh`), which runs the steps in pieces that fit, and writes logs.
-- `/home/claude/t3polynomial` is the consumer. Read it; never change it; do not run its code unless the slice
-  says so (P18).
+- The repository is `/home/nick/repos/T3Toolbox`, on the branch `graded-messages`. Run Python with the project's
+  environment and the repository on the path, from the repository root:
+  `PYTHONPATH=$PWD /home/nick/miniconda3/envs/t3toolbox/bin/python ...` (Python 3.11, numpy 2.4.6, jax 0.10.2: the
+  twin of CI's current leg). The gate script calls `python3`, so put the environment first on `PATH`:
+  `PATH=/home/nick/miniconda3/envs/t3toolbox/bin:$PATH dev/graded_messages/implementation/run_gate.sh -n 3 -l <logdir>`.
+  An agent's shell still stops a foreground command after ten minutes, so run the gate with `--detach` and `wait`
+  (the script's header shows how), and leave nothing running at the end of a turn.
+- **The reference is the laptop baseline**, `BASELINE_laptop.md` beside this file, taken on the untouched head
+  before P4a: what passes and fails here. A slice must not add a failure; one already in the baseline is not the
+  slice's to fix. Record it, do not hide it.
+- **The floor is checked by CI, not locally.** A draft pull request (#26) runs CI on every push of the branch: the
+  current leg and the floor leg (Python 3.9, numpy 1.26, jax 0.4.30), the examples and the docs build. Claude pushes
+  after each commit and reads the result. So write code that runs on Python 3.9 and numpy 1.x: no `X | Y` type unions
+  evaluated at run time, no `match`, nothing new in numpy 2. (A local floor environment exists, `tttt`: Python 3.9,
+  numpy 1.22, jax 0.4.30, no xdist, no optax. Use it only to reproduce a floor failure CI reported.)
+- **The machine has 8 cores and 13 GB**, and memory is the limit: the maintainer has run it out of memory with
+  sphinx beside a parallel test run. So: **at most `-n 3`** test workers; the gate's steps one after another, never
+  two at once; never start a long run while another is going; the implementer and the reviewer never run tests at the
+  same time (they alternate, so this holds if nobody leaves a run in the background at the end of their turn: do not).
+  A quick script that imports jax is fine; a second test run is not.
+- **Disk:** about 19 GB free. Put scratch work (scripts, logs, copies) under
+  `/tmp/claude-1000/-home-nick-repos-T3Toolbox/352ad37b-5ac8-40a1-a326-a7fc3a369cb2/scratchpad/<your role>/`. A copy of
+  the code for mutation testing holds `t3toolbox/` and `tests/` only (about 35 MB), not the repository (377 MB, mostly
+  `docs/`); delete it when done. Delete a gate's `sphinx_html` and `sphinx_doctrees` once its result is read.
+- `/home/nick/repos/T3Polynomial` is the consumer. Read it; never change it; do not run its code before
+  P18.
+
+## Required reading, once, before the first slice
+
+The maintainer (2026-11-19): pick a handful of methods of the flagship class `TuckerTensorTrain`
+(`t3toolbox/tucker_tensor_train.py`), read those methods and the backend functions they call, all the way down.
+This gives the style and the conventions of the library: the frontend as a thin wrapper over the backend; the
+signature shape comments; the module-level scan and map bodies (`xscan`, `xmap` from `common.get_backend`); dispatch
+inferred from the arrays; one literal grouped contraction string per contraction; doctests that check against dense
+ground truth. Choose the methods yourself; `probe` and `probe_derivatives` (the jets of today) are good among them.
+
+## How the two agents work with Claude (from P4a on)
+
+The same implementer and reviewer are kept from slice to slice (the maintainer, 2026-11-19: "Keep the same agents
+going so they have more context"). Claude relays between them: the implementer reports to Claude when its handover
+is written; Claude starts the reviewer on it; the reviewer reports its verdict to Claude; Claude passes the findings
+to the implementer with a ruling on any that needs one; and so on until `SIGN OFF`. Then Claude looks the slice over
+and commits it, or sends it back. Then the same pair takes the next slice. Keep your notes in your files, not only in
+your memory of the conversation: a slice's handover, reviews and responses are the record, and a later slice may be
+read by someone who has not seen the conversation.
+
+The work stops at three planned pauses for the maintainer (after P4d, after P11, after P15). In between, small and
+clear issues are decided (by the implementer where the plan leaves the choice to it, by Claude otherwise) and
+written down; anything large or uncertain is raised (see "Issues"). The maintainer: "think from first principles
+about what we are trying to do here, and use judgement rather than blindly following rules. Please go slow and do
+things right rather than cutting corners for expediency."
 
 ## Rules for both agents
 

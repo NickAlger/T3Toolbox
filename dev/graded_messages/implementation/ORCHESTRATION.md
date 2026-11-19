@@ -6,7 +6,28 @@ orchestrating session did for each slice, what was particular to the cloud works
 machine has to do first. `BRIEF.md` (beside this file) is the brief of the implementer and the reviewer; `LOG.md`
 is the record, slice by slice; `PART1_PLAN.md` section 12 is the process as the maintainer set it.
 
-## 1. Where things stand (2026-11-19)
+## 0. Since the move to the laptop (2026-11-19)
+
+The maintainer signed off the changed plan as a whole and set how the work continues (`../TARGET_DECISIONS.md`, the
+note "The changed plan signed off"; `LOG.md`, the entry of 2026-11-19):
+
+- **The agents:** Opus 5.5 on high effort, and the **same** implementer and reviewer are kept from slice to slice
+  (`BRIEF.md`, "How the two agents work with Claude"). Steps 1 and 2 of section 2 below ("start a fresh ...") hold
+  for the first slice of the pair only; after it, Claude sends the same pair the next slice. If an agent's context
+  grows too large to carry on well, Claude has it write a carry-over note and starts a replacement on that note, and
+  logs it.
+- **Three planned pauses:** after P4d, after P11, after P15. Small or clear issues in between: Claude decides and
+  logs. Big, unforeseen or uncertain ones: the maintainer, at once (he has remote control on; a push notification
+  reaches him).
+- **CI:** draft pull request #26 runs both CI legs on every push of the branch. After each push, Claude checks the
+  run (`gh run list --branch graded-messages`; `gh` is authenticated on the laptop). A floor-leg failure is the
+  slice's to fix if the slice caused it.
+- **Section 4's first steps are done:** the local clone already had the rewritten history (level with the remote
+  at `10e680d`); the laptop baseline is `BASELINE_laptop.md`. **Section 5's amendments are done** (2026-11-19).
+- **Commit trailer on the laptop:** authored by NickAlger; `Co-Authored-By: Claude Opus 5.5
+  <noreply@anthropic.com>` and the session's `Claude-Session:` line, as the session's own settings give them.
+
+## 1. Where things stood (2026-11-19, before the sign-off)
 
 - Branch `graded-messages`. Slices P0 to P4 are built, reviewed, committed and pushed (P4 is `5991725`).
 - The plan was then changed for the generalized jets (one jet group `J`, the tuple `order`, input jets, entries of
@@ -98,7 +119,7 @@ changed, and its code is not run before P18.
 4. **Choose the worker count for that machine** (`-n`): the cloud workspace used 2. Whatever it is, one run at a
    time, and never sphinx beside tests.
 
-## 5. Owed before P4a, after the maintainer's sign-off
+## 5. Owed before P4a, after the maintainer's sign-off (DONE 2026-11-19)
 
 The decided rows of `../TARGET_DECISIONS.md` and three sections of `../SAMPLE_VARIABLES.md` still read as before the
 jet change. Both files carry a banner at the top saying so. The list of amendments is
