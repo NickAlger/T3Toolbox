@@ -830,3 +830,9 @@ takes `core_directions` and refuses `variations` (P8; reversible); (2) on apply 
 `xi_tilde_dot`, `mu_tilde_dot` zeros or unknown names (built: unknown, P9); (3) a public reader of a call's names (P9);
 (4) the structural stack checks of P7 (`K`) and P10 (`W`, `C`) under O-18 ("the engine checks what it needs to run,
 and nothing more"; removable).
+P10 finished before the pause: the implementer's full gate at `-n 2` PASS on its final tree (suite 1,782 passed, 5
+skipped, 1 xfailed; 1,870 s; lowest MemAvailable 3.81 GB; module doctests 314; Sphinx 0 warnings); `P10_HANDOVER.md`
+marked COMPLETE. Not yet reviewed or committed. One departure, accepted by Claude as minor: each of the six unsummed
+readout steps has two bodies (`if keep_W:` and the summed one), each with its literal at its own `jet_contract` call:
+the interpreter test's guard requires every `J` literal to be a call's first argument, and literals at call sites are
+the house rule (a first build that named the literals at the top of the step failed it). Nothing runs.
