@@ -537,3 +537,40 @@ The first of the maintainer's three planned pauses. Pushed and CI checked before
 `dev/HANDOFF.md`, START HERE.
 CI run 44652602834 on `53d525fb` (P4d): both test legs, the examples and the docs build PASS (floor 17 min 32 s).
 Nothing is running; the two agents are idle and are resumed for P5 when the maintainer says so.
+
+### The pause ends: the maintainer's answers; the `subTest` guard; P5 designed (2026-11-20)
+
+- **The maintainer's answers** (recorded in `../TARGET_DECISIONS.md`, the note "The first planned pause"): Claude's
+  minor decisions of P4a to P4d agreed; the plain-integer `order` raising (O-36) confirmed after Claude's
+  explanation; the many-operand einsum order carried to Part 2 (item 7 there); the `subTest` guard approved; the test
+  cut held in reserve, recorded in `dev/HANDOFF.md` with its reasoning, consequences and measured savings (the
+  four-site half of `TestJetsTwoWays`: 122 s -> 48 s on the floor env, 67 s -> 32 s on `t3toolbox`, single process);
+  the same agents continue.
+- **The `subTest` guard** (`tests/conftest.py`, Claude): wraps `unittest.TestCase.subTest` and raises `TypeError` on
+  any label (keyword or `msg`) that execnet cannot send, by exact type as execnet dispatches (`save_<type>`: `None`,
+  `bool`, `int`, `float`, `complex`, `str`, `bytes`, and tuples, lists, sets, frozensets and dicts of them); pinned by
+  `tests/test_conftest_guard.py` (3 tests, both envs). The full suite at `-n 3` with it: 1,665 passed, 5 skipped, 1
+  xfailed: no existing label violates it. Peak 10.4 GB, 1.9 GB left at the lowest: the margin is thinner than at the
+  baseline. `BRIEF.md`'s rule points at it.
+- **P5's design, before any code:** the implementer's sketch (`P5_DESIGN_SKETCH.md`) and the reviewer's critique
+  (`P5_DESIGN_REVIEW.md`: sound, with conditions). **Ruled by Claude** (plan details within decided rows; the plan
+  amended where it said otherwise):
+  - routes as several records per name chosen by `needs`, the precedence declared and tested, a held variable never
+    changing the route; `present_args` the one carrier of a call's static facts, the call type included; the corewise
+    graph (P8) derived from the manifold one by a declared rename table over names and `reads`, frame-form rows
+    dropped (the reviewer's alternative to an alias table on `want`, since the corewise routes differ, not only the
+    names);
+  - **one `GroupLengths` per node**, each graph row declaring the call's record or the same with `K = 0` (a node with
+    no direction), so one tilde step serves the residual's and the `Jp`-seeded sweeps with one literal; every call
+    still passes one whole record and a stray `K` axis still raises (row 5.4). The plan's 2.4 "one record per
+    computation" amended;
+  - `w` is an argument, not a slot of `HeldVariables`; the plan's rule amended to "the computed variables some other
+    record reads";
+  - the `HISTORICAL` table: option (b), `jet_contract` literals out of the interpreter's identifiability sweep, with
+    two guards (every library literal with `J` is a `jet_contract` first argument; every library `jet_contract`
+    literal is in `STRINGS`) (`ORCHESTRATION.md` section 6 left this to Claude);
+  - P5 computes the result dtype by the rule; `Vc` is given, never derived; P6's short form of `eta_tilde` will be a
+    graph record.
+  - **The reviewer's Finding A**, a gap in the plan: `sum_over_samples=False` needs readout strings with `W` in the
+    output (the `V` and `H` families, about nine), not among the 29. Within row 3.7, no new group: a sentence added to
+    the plan's P10 (added to `STRINGS`, chosen by a static flag, as the library's two bodies do today).

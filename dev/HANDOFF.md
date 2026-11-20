@@ -302,6 +302,24 @@ refactor"):
   To consider: a public function for the norm of a difference of two T3s by that route, and whether `-` followed by
   `norm` should use it. Record: `dev/graded_messages/implementation/P4_HANDOVER.md` section 4.1 and `P4_REVIEW_r1.md`.
 
+- **A test cut held in reserve: the four-site half of `TestJetsTwoWays::test_every_variable`**
+  (`tests/test_sampling_definitions.py`; Nick, 2026-11-20: "leave the tests in for now", the suggestion recorded). The
+  test checks the 24 jetted variables of the reference module (`z`, `Jp` and the 22 edge variables) against an
+  independent route: the same variable with no jets, at the input jets evaluated on two real node grids, interpolated
+  into Taylor coefficients. It runs every jet case on three sites, and two cases (the line at order `(3,)` and the
+  mixed modes) on the four-site problem `long()`. *Why it could go:* on four sites it is the most expensive part of
+  the file; and the four-site problem's variables are also checked by `TestRecurrences` (each grade's recurrences),
+  `TestReadouts`, and `TestOutputsAgainstDense` (`z` and `Jp` against the dense functions, at every jet case
+  including the order-3 line), all of which keep running. *What would be lost:* the only check of the 22 EDGE
+  variables against an independent route at full degree. On three sites a line's order-3 output has a structurally
+  zero top coefficient (`z[i]` contracts `d - 1 = 2` line inputs, degree 2), so an error confined to the highest
+  slots of the shared jet machinery (the roots-of-unity grid, the clipping) could pass on three sites and is caught
+  there only on four; the outputs through the same machinery would still be checked. The reviewer of P4c and the
+  implementer both named this as the one cut they would accept. *Measured savings* (2026-11-20, single process): the
+  test takes 122 s on the floor env (`tttt`) and 67 s on `t3toolbox`; without the four-site half 48 s and 32 s: **about
+  74 s on the floor and 35 s on the current env**, of the file's 224 s and 217 s. In the `-n 3` suite it is one test on
+  one worker, so the wall-clock saving there is up to about that much, less when other tests fill the wait.
+
 **From the exact-Hessian arc** (each also in the ledger `docs/contributor/deferred_and_rejected.md`):
 - **float32 end to end.** A float32 fit comes back float64: 38 default-dtype constructors in eight backend modules sit
   upstream of the jet kernels (which preserve float32 since 2026.3.0). A ready follow-up patch is

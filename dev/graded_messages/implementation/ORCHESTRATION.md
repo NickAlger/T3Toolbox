@@ -186,8 +186,8 @@ are things to check when the slice is reached.
   of operands. The house convention "the jax path omits `optimize`" (`CLAUDE.md`) is safe for the library's two- and
   three-operand contractions, and hangs for an einsum of a whole network (the reference module's `_tensor`: the CI
   floor leg ran for hours on the four-site test problem). An einsum of many operands on jax passes `optimize`
-  explicitly (`'greedy'`). A test that pins jax's default must accept both values. Candidate for the contributor
-  docs in P19.
+  explicitly (`'greedy'`). A test that pins jax's default must accept both values. The general question is carried
+  to Part 2 (the maintainer, 2026-11-20; `../TARGET_DECISIONS.md`, "Carried to Part 2", item 7).
 - **The branch had never run in CI** until the draft PR #26 (2026-11-19): the workflows run only on `main` and on PRs
   to it. Two floor failures from P1 and P2 had sat unseen for three days. After every push, read both legs.
 - **`pkill -f PATTERN` from a shell whose own command line contains PATTERN kills that shell too.** Kill by PID.

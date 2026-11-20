@@ -89,7 +89,8 @@ things right rather than cutting corners for expediency."
 - **`subTest` labels are builtins** (`str`, `int`, `float`, `bool`, `None`, and tuples of them): CI's floor leg runs
   xdist on numpy 1.x, which cannot send a numpy scalar or array as a label, and the test then fails there only
   (neither local environment shows it). Write `self.subTest(order=repr(order))` where a value may be numpy. This bit
-  P4a and P4c on 2026-11-19.
+  P4a and P4c on 2026-11-19. Since 2026-11-20 `tests/conftest.py` enforces it everywhere: a label that is not a
+  builtin raises `TypeError` at the `subTest` call.
 - Do not weaken a test to make it pass. Tolerance tests for numerical things, exact tests for structural things.
   Verify a mathematical property with a quick script before asserting it in a test. Doctest output is pasted from
   a real run, never written by hand.

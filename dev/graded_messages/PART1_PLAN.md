@@ -441,7 +441,11 @@ has at least one slot; `over_orders` is `'scan'` or `'loop'`. Nothing numerical.
 have any number of jet operands; the library's strings have one, two or three.
 
 **`GroupLengths`** keeps its role: one record per computation, passed whole to every call, hashable, a key of the
-memoized scan bodies. Its fields are `J`, `W`, `K`, `C`; `J` is the number of jet axes, any nonnegative integer.
+memoized scan bodies. **Amended 2026-11-20 (P5's design review):** one record per NODE of the engine's graph, each
+row of the graph declaring which it uses: the record of the call, or the same record with `K = 0` for a node that
+carries no direction. A step whose terms carry `K` on its tilde operands then serves the residual's adjoint sweep
+(`K = 0`) and the `Jp`-seeded one (`K` of the call) with one literal string; a stray or missing `K` axis still raises,
+node by node. Every call still passes one whole record (row 5.4). Its fields are `J`, `W`, `K`, `C`; `J` is the number of jet axes, any nonnegative integer.
 The output's jet shape is not a field of it: it differs between the calls of one computation (a leaf has the
 input's jet sizes, a sweep variable the full one), so it is an argument of each call. The jet sizes of the
 operands are not in it either: they are read off the arrays, whose shapes are static under `jit`.
@@ -1512,7 +1516,8 @@ axis, no `K` or `C` yet, numpy and jax. What the engine needs to run (section 2.
   jet shape `(n_1, n_2)` restricted to `(n_1, 0)` equals the one-variable call along the first direction; a held variable gives
   the result of a recomputed one; `z` through `D` equals `z` with `Vc`.
 - Structural tests (`tests/test_sampling_graph.py`): the docstring table equals the declared graph row for row,
-  exactly; the slots of `HeldVariables` are exactly the variables some other variable reads; asking for one variable
+  exactly; the slots of `HeldVariables` are exactly the COMPUTED variables some other record reads (the input `w` is an
+  argument, not a slot; P5's design review, 2026-11-20); asking for one variable
   computes only what the graph says it reads (count step calls with a test hook on the private step module); an
   unknown name in `want` raises; every missing argument raises; a held array of a wrong shape raises.
 - `HeldVariables` (`tests/test_held_variables.py`): reads like a dictionary; an unknown name raises at construction
@@ -1575,6 +1580,11 @@ entries call with an order raises (section 2.3 step 1). The engine's graph of th
 **P10. Engine F.** Any number of axes in `W`; the direction stack `K` on `variations` and `core_directions`; the
 base-point stack `C` on every core; `sum_over_samples=False` with the result's stack in the order `W + K + C`; `f`
 keeping `C`, `Jp_norm_sq` keeping `K + C`; the dtype rule over the inputs the call reads (O-11).
+**`sum_over_samples=False` needs readout strings with `W` in the output** (the `V` and `H` families, about nine),
+which are not among the 29 of section 2.4: they are added to `STRINGS` of `tests/_jet_contract_cases.py`, with their
+library shapes, and the step chooses between the summed and the unsummed literal by a static flag, as the library
+does today with two bodies (`_tucker_variation_jets_step_summed` and `_unsummed`). Found by the reviewer in P5's
+design review (2026-11-20); no new group, row 3.7 decides it.
 - Tests: `W` empty, `(3,)`, `(2, 2)`, crossed with the library's stack matrix (`_CONFIGS`,
   `docs/contributor/testing_strategy.md` "The stack matrix": no stack, `C`, `K`, `K + C`, multi-axis `C = (2, 3)`
   and `K = (2, 3)`), against the reference applied element by element; the dtype rule for every output on the four

@@ -697,6 +697,26 @@ his laptop; his message came before 10:56, the first clock reading after it).
   several variables as a future feature; the section "Carried to Part 2" (items 1, 4 to 6); and sections 4, 6 and 7
   of `SAMPLE_VARIABLES.md`. Each is an amendment beside the old text, which is kept.
 
+**The first planned pause, after P4a to P4d: the maintainer's answers** (2026-11-20; the report of 2026-11-19, 19:30,
+`implementation/LOG.md`).
+
+- **Claude's minor decisions of the sub-arc, reviewed:** agreed with (1) the carrier counted after clipping, a
+  string with no `J` raising at every `m`, an input term of `J` alone raising; (3) `index_to_one_hot` following numpy
+  indexing (a numpy index out of range raises, a jax one gives zeros); (4) `rescale_direction` raising for entries.
+  On (2), that a plain integer `order` raises, he asked what it guards against; Claude answered (it is his O-36):
+  `0` is ambiguous between `()` and `(0,)`, which differ in rank, so any integer shorthand makes a natural call
+  mean something other than its author meant; every ported call site passes an integer with the old meaning, and a
+  misread jet shape shifts which axes are read as jet axes (row 6.2: never inferred), a silent misreading where a
+  raise is loud; one canonical form keys the caches. A shorthand can be added later compatibly; removing one could
+  not. **Confirmed** (2026-11-20): "having plain integers order raise per O-36 is correct and makes sense."
+- **The contraction order of an einsum of many operands is Part 2's** ("This is an issue for the performance part
+  of the refactor, Part 2 ... For now, what you have done is good"): item 7 of "Carried to Part 2" below.
+- **A `conftest.py` guard that every `subTest` label is a builtin: approved.**
+- **The test cut** (the four-site half of `TestJetsTwoWays`): the tests stay; the suggestion, its reasoning, its
+  consequences and the measured savings are recorded in `dev/HANDOFF.md` (backlog, "A test cut held in reserve").
+- **The same pair of agents continues** ("Please keep the same agent pair if you can"), on P5. "Good work so far.
+  Please continue on P5."
+
 ## Carried to Part 2 from the implementation of Part 1
 
 Kept here so that nothing found while building Part 1 is forgotten when Part 2 is planned. Each item names its
@@ -749,6 +769,14 @@ row and where it is marked in the code. A search for `PART 2 (row` in `t3toolbox
    input, if it matters, is Part 2's.
 6. **Data measured to a total degree** (row 2.5; entry 116; added 2026-11-19). Part 1 has the box only: such data
    are stored in the box with weight zero on the slots not measured. A cheaper storage, if wanted, is Part 2's.
+7. **The contraction order of an einsum of many operands** (rows 5.5 and 2.9; the maintainer, 2026-11-20; added
+   2026-11-20). `jnp.einsum`'s default `optimize` differs between jax generations: `'auto'` on jax 0.10, `'optimal'`
+   on jax 0.4.30 (CI's floor), an exhaustive path search exponential in the number of operands. The reference module
+   contracts a whole network in one einsum (`sampling_definitions._einsum`), which hung CI's floor leg; Part 1 passes
+   `optimize='greedy'` there (P4b), and the library's two- and three-operand contractions keep the house convention
+   of no `optimize` on jax. The general question, how the order of a many-operand contraction is chosen and whether
+   the house convention needs a caveat in `CLAUDE.md`, is Part 2's. **Marker:** the docstring of
+   `sampling_definitions._einsum`.
 
 ## What remains, in groups (2026-11-15, 15:34)
 
