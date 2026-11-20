@@ -13,7 +13,10 @@
 2. **The declared jet sizes** (`TestDeclaredJetSizes`): every variable the engine returns has the shape of the
    module's table, the leaves the input's jet sizes clipped to ``F``; every ``jet_contract`` call of a step is
    given the jet shape of its output from the table (the calls recorded through ``contractions.jet_contract``).
-3. **The generic twin** (`TestAgainstTheGenericTwin`): the plain and tilde variables against
+3. **The direction stack** (`TestTheDirectionStack`): the dot variables, ``Jp``, ``Jp_norm_sq`` and ``JtJp`` with
+   ``K = (2,)``, element by element against the reference; the structural check that every ``V[i]`` and ``H[i]``
+   shares the ``K + C`` that ``V[0]`` gives, and that a held ``Jp`` has the call's ``K``.
+   **The generic twin** (`TestAgainstTheGenericTwin`): the plain and tilde variables against
    ``_generic_twin.py``, which shares no code with the engine and forms ``V_tilde`` from the full ``eta_tilde``.
    **The short form** (`TestTheShortForm`): the private node ``_eta_tilde_top`` is the slice of the full
    ``eta_tilde``, to rounding; ``g`` does not depend on wanting ``eta_tilde``.
@@ -55,7 +58,9 @@ except ImportError:
 
 TOL = 1e-10
 NAMES = ('w', 'xi', 'mu', 'nu', 'nu_L', 'eta', 'eta_D', 'z', 'r', 'f', 'r_block_sumsq',
-         'w_tilde', 'xi_tilde', 'mu_tilde', 'nu_tilde', 'eta_tilde', 'V_tilde', 'H_tilde', 'g')
+         'w_tilde', 'xi_tilde', 'mu_tilde', 'nu_tilde', 'eta_tilde', 'V_tilde', 'H_tilde', 'g',
+         'xi_U_dot', 'mu_R_dot', 'nu_L_dot', 'eta_D_dot', 'Jp', 'Jp_norm_sq', 'JtJp')
+DOT_NAMES = ('xi_U_dot', 'mu_R_dot', 'nu_L_dot', 'eta_D_dot', 'Jp', 'Jp_norm_sq', 'JtJp')
 
 
 def tails_one_axis():
@@ -68,14 +73,38 @@ PROBLEMS = (('small', defs.small), ('tails, L and R ends differ', tails_one_axis
 
 def engine(problem, case, names, **extra):
     y, weight = problem.data('probe', case)
-    arguments = dict(order=case.order, y=y, weight=weight)
+    arguments = dict(order=case.order, y=y, weight=weight, variations=(problem.V, problem.H))
     arguments.update(extra)
     return sv.sampling_variables('probe', problem.frame, problem.input_jets(case), names, **arguments)
 
 
-def reference(problem, case, name):
+def reference(problem, case, name, variations=None):
     y, weight = problem.data('probe', case)
-    return getattr(sdef, name)('probe', problem.frame, problem.input_jets(case), None, case.order, y=y, weight=weight)
+    variations = (problem.V, problem.H) if variations is None else variations
+    return getattr(sdef, name)('probe', problem.frame, problem.input_jets(case), None, case.order, y=y, weight=weight,
+                               variations=variations)
+
+
+def stacked_directions(problem, seed=0):
+    """A stack of two directions, K = (2,): the problem's own, and a second one."""
+    rng = np.random.default_rng(seed)
+    return ([np.stack([V, rng.standard_normal(V.shape)]) for V in problem.V],
+            [np.stack([H, rng.standard_normal(H.shape)]) for H in problem.H])
+
+
+def direction(variations, k):
+    """Direction ``k`` of a stack of directions."""
+    return [V[k] for V in variations[0]], [H[k] for H in variations[1]]
+
+
+def element(name, value, k, lead):
+    """Element ``k`` of the stack of directions of a variable: its ``K`` axis is after the ``lead`` axes (jets and
+    ``W``) of an indexed variable, first for ``Jp_norm_sq`` and the blocks of ``JtJp``."""
+    if name == 'Jp_norm_sq':
+        return np.asarray(value)[k]
+    if name == 'JtJp':
+        return tuple(tuple(block[k] for block in family) for family in value)
+    return tuple(np.take(array, k, axis=lead) for array in value)
 
 
 def arrays_of(value):
@@ -137,6 +166,49 @@ def consistent_frame(seed):
     x = t3_constructors.t3_corewise_randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
     frame, (Vc, Hc) = fv_conversions.t3_orthogonal_representations(x)
     return tuple(tuple(store) for store in frame), tuple(Vc)
+
+
+class TestTheDirectionStack(unittest.TestCase):
+    """The dot variables, ``Jp``, ``Jp_norm_sq`` and ``JtJp`` with a stack of two directions, ``K = (2,)``: element
+    ``k`` of each is the reference at direction ``k`` (the reference has no ``K``). And the structural check at entry:
+    every ``V[i]`` and ``H[i]`` has the ``K + C`` that ``V[0]`` gives."""
+
+    def test_every_dot_name_with_two_directions(self):
+        for problem_name, make in PROBLEMS:
+            problem = make()
+            variations = stacked_directions(problem)
+            for case in defs.JET_CASES:
+                got = dict(zip(DOT_NAMES, engine(problem, case, DOT_NAMES, variations=variations)))
+                lead = case.m + len(problem.W)
+                for k in range(2):
+                    for name in DOT_NAMES:
+                        expected = reference(problem, case, name, variations=direction(variations, k))
+                        with self.subTest(problem=problem_name, jets=case.label, k=k, name=name):
+                            for a, b in zip(arrays_of(element(name, got[name], k, lead)), arrays_of(expected)):
+                                self.assertLessEqual(defs.relative_error(a, b), TOL)
+
+    def test_the_variations_share_one_stack_of_directions(self):
+        """A size-1 ``K`` on one ``H[i]`` would broadcast silently in a contraction; a wrong count, or another
+        ``C``, are caught at entry too, naming the operand."""
+        problem = defs.small()
+        V, H = stacked_directions(problem)
+        bad = {
+            'a size-1 K on H[1]':      (V, [H[0], H[1][:1], H[2]], r'H\[1\] has shape \(1, 2, 3, 2\)'),
+            'no K on V[2]':            ([V[0], V[1], V[2][0]], H, r'V\[2\] has shape \(3, 5\)'),
+            'one K axis more on H[0]': (V, [H[0][None]] + H[1:], r'H\[0\] has shape \(1, 2, 1, 2, 3\)'),
+            'a C on V[1]':             ([V[0], V[1][:, None], V[2]], H, r'V\[1\] has shape \(2, 1, 2, 3\)'),
+        }
+        for label, (V_, H_, pattern) in bad.items():
+            with self.subTest(case=label):
+                with self.assertRaisesRegex(ValueError, 'the variations must share one stack of directions K'):
+                    sv.sampling_variables('probe', problem.frame, problem.ww, ('Jp',), variations=(V_, H_))
+                with self.assertRaisesRegex(ValueError, pattern):
+                    sv.sampling_variables('probe', problem.frame, problem.ww, ('z',), variations=(V_, H_))
+        # a held Jp must have the call's K
+        (Jp,) = sv.sampling_variables('probe', problem.frame, problem.ww, ('Jp',), variations=(V, H))
+        with self.assertRaisesRegex(ValueError, r'the held Jp\[0\] has shape \(3, 4\); expected \(3, 2, 4\)'):
+            sv.sampling_variables('probe', problem.frame, problem.ww, ('Jp_norm_sq',), variations=(V, H),
+                                  held=sv.HeldVariables(Jp=tuple(a[:, 0] for a in Jp)))
 
 
 class TestAgainstTheGenericTwin(unittest.TestCase):
@@ -226,7 +298,8 @@ class TestDeclaredJetSizes(unittest.TestCase):
             problem = make()
             for case in defs.JET_CASES:
                 sample = problem.input_jets(case)
-                setting = sv._read_setting(dict(zip('DULR', problem.frame)), sample, case.order)
+                setting = sv._read_setting(dict(zip('DULR', problem.frame)), sample, case.order,
+                                           (problem.V, problem.H), sv._PROBE_GRAPH)
                 got = dict(zip(names, engine(problem, case, names)))
                 for name in names:
                     with self.subTest(problem=problem_name, jets=case.label, name=name):
@@ -236,15 +309,18 @@ class TestDeclaredJetSizes(unittest.TestCase):
                             jets = array.shape[:case.m]
                             if sv._SHAPES[name][1] == 'none':           # a block: C + the core's shape
                                 self.assertEqual(array.ndim, 2 if name == 'V_tilde' else 3)
-                            elif name == 'xi':
+                            elif sv._SHAPES[name][1] == 'leaf':         # xi, xi_U_dot
                                 self.assertEqual(jets, tuple(min(a, f) for a, f in
                                                              zip(sample[i].shape[:case.m], case.box)))
                             else:
                                 self.assertEqual(jets, case.box)
-                f, blocks, g = engine(problem, case, ('f', 'r_block_sumsq', 'g'))
-                with self.subTest(problem=problem_name, jets=case.label, name='f, r_block_sumsq, g'):
+                f, blocks, g, norm_sq, JtJp = engine(problem, case, ('f', 'r_block_sumsq', 'g', 'Jp_norm_sq', 'JtJp'))
+                with self.subTest(problem=problem_name, jets=case.label, name='f, r_block_sumsq, g, Jp_norm_sq, JtJp'):
                     self.assertEqual(np.shape(f), ())
+                    self.assertEqual(np.shape(norm_sq), ())
                     self.assertEqual(blocks.shape, (problem.d,) + case.box)
+                    self.assertEqual(sv._expected('JtJp', setting), (tuple(a.shape for a in JtJp[0]),
+                                                                     tuple(a.shape for a in JtJp[1])))
                     self.assertEqual(sv._expected('g', setting), (tuple(a.shape for a in g[0]),
                                                                   tuple(a.shape for a in g[1])))
 
@@ -362,9 +438,12 @@ class TestNoSafetyMode(unittest.TestCase):
         y, weight = problem.data('probe', case)
         sample = problem.input_jets(case)
         names = NAMES[1:]
-        eager = sv.sampling_variables('probe', problem.frame, sample, names, order=case.order, y=y, weight=weight)
-        jitted = jax.jit(lambda frame, sample, y, weight: sv.sampling_variables(
-            'probe', frame, sample, names, order=case.order, y=y, weight=weight))(problem.frame, sample, y, weight)
+        variations = stacked_directions(problem)
+        eager = sv.sampling_variables('probe', problem.frame, sample, names, order=case.order, y=y, weight=weight,
+                                      variations=variations)
+        jitted = jax.jit(lambda frame, sample, y, weight, variations: sv.sampling_variables(
+            'probe', frame, sample, names, order=case.order, y=y, weight=weight, variations=variations))(
+            problem.frame, sample, y, weight, variations)
         tol = 1e-12 if jnp.zeros(()).dtype == jnp.float64 else 1e-5
         for name, a, b in zip(names, eager, jitted):
             with self.subTest(name=name):

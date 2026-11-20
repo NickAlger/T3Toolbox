@@ -274,8 +274,150 @@ def H_tilde_step(
 
 
 ###############################################
+########    The dot grade (5.2)    ############
+###############################################
+# A dot step serves both forms of the direction: the frame's (V, H), and P8's raw (D_dot, L_dot) at the base point.
+# The direction's core carries K in the strings; with the frame's form the core over the leaf of the direction's site
+# is U (over xi_U_dot), with the raw form L (over xi_dot).
+
+def xi_dot_step(
+        B_dot_KCio:  NDArray,               # the direction's Tucker core at site i: V[i], K+C+(n, N)
+        w_JWo:       NDArray,               # the input jet of the site
+        *,
+        lens:        contractions.GroupLengths,
+        order:       typ.Tuple[int, ...],
+        form:        str,
+) -> NDArray:                               # xi_U_dot[i]: min(J_in, F)+W+K+C+(n,), a leaf
+    '''``xi_U_dot[i] = xi_term(V[i], w[i])``: the direction's Tucker core applied to the input jet, a leaf.'''
+    return contractions.jet_contract('JWo,KCio->JWKCi', w_JWo, B_dot_KCio,
+                                     lens=lens, order=_leaf_order(w_JWo, order), over_orders=form)
+
+
+def mu_dot_step(
+        mu_dot_JWKCa:  NDArray,             # the carry at bond i: the direction at one of the sites 0 .. i-1
+        G_Caib:        NDArray,             # the TT core the carry passes: R[i] (frame form)
+        mu_JWCa:       NDArray,             # mu at bond i
+        xi_JWCi:       NDArray,             # the leaf of site i
+        xi_dot_JWKCi:  NDArray,             # the direction's leaf at site i: xi_U_dot[i]
+        G_up_Caib:     NDArray,             # the TT core over it: U[i]
+        H_KCaib:       NDArray,             # the direction's TT core at site i: H[i]
+        *,
+        lens:          contractions.GroupLengths,
+        order:         typ.Tuple[int, ...],
+        form:          str,
+) -> NDArray:                               # the carry at bond i+1, F+W+K+C+(rb,)
+    '''``mu_R_dot[i+1] = mu_term(mu_R_dot[i], R[i], xi[i]) + mu_term(mu[i], H[i], xi[i])
+    + mu_term(mu[i], U[i], xi_U_dot[i])``: the carry, or the direction at site ``i`` (``H``, or ``U`` over ``V``).'''
+    return (contractions.jet_contract('JWKCa,Caib,JWCi->JWKCb', mu_dot_JWKCa, G_Caib, xi_JWCi,
+                                      lens=lens, order=order, over_orders=form)
+            + contractions.jet_contract('JWCa,KCaib,JWCi->JWKCb', mu_JWCa, H_KCaib, xi_JWCi,
+                                        lens=lens, order=order, over_orders=form)
+            + contractions.jet_contract('JWCa,Caib,JWKCi->JWKCb', mu_JWCa, G_up_Caib, xi_dot_JWKCi,
+                                        lens=lens, order=order, over_orders=form))
+
+
+def nu_dot_step(
+        nu_dot_JWKCb:  NDArray,             # the carry at bond i+1: the direction at one of the sites i+1 .. d-1
+        G_Caib:        NDArray,             # the TT core the carry passes: L[i] (frame form)
+        nu_JWCb:       NDArray,             # nu at bond i+1
+        xi_JWCi:       NDArray,             # the leaf of site i
+        xi_dot_JWKCi:  NDArray,             # xi_U_dot[i]
+        G_up_Caib:     NDArray,             # U[i]
+        H_KCaib:       NDArray,             # H[i]
+        *,
+        lens:          contractions.GroupLengths,
+        order:         typ.Tuple[int, ...],
+        form:          str,
+) -> NDArray:                               # the carry at bond i, F+W+K+C+(ra,)
+    '''``nu_L_dot[i] = nu_term(L[i], xi[i], nu_L_dot[i+1]) + nu_term(H[i], xi[i], nu[i+1])
+    + nu_term(U[i], xi_U_dot[i], nu[i+1])``.'''
+    return (contractions.jet_contract('Caib,JWCi,JWKCb->JWKCa', G_Caib, xi_JWCi, nu_dot_JWKCb,
+                                      lens=lens, order=order, over_orders=form)
+            + contractions.jet_contract('KCaib,JWCi,JWCb->JWKCa', H_KCaib, xi_JWCi, nu_JWCb,
+                                        lens=lens, order=order, over_orders=form)
+            + contractions.jet_contract('Caib,JWKCi,JWCb->JWKCa', G_up_Caib, xi_dot_JWKCi, nu_JWCb,
+                                        lens=lens, order=order, over_orders=form))
+
+
+def eta_dot_step(
+        mu_dot_JWKCa:  NDArray,             # mu_R_dot at bond i
+        G_left_Caib:   NDArray,             # R[i]: the core of site i when the direction is to its left
+        mu_JWCa:       NDArray,             # mu at bond i
+        H_KCaib:       NDArray,             # H[i]: the direction at site i itself
+        G_right_Caib:  NDArray,             # L[i]: the core of site i when the direction is to its right
+        nu_dot_JWKCb:  NDArray,             # nu_L_dot at bond i+1
+        nu_JWCb:       NDArray,             # nu at bond i+1
+        *,
+        lens:          contractions.GroupLengths,
+        order:         typ.Tuple[int, ...],
+        form:          str,
+) -> NDArray:                               # eta_D_dot[i], F+W+K+C+(n,)
+    '''``eta_D_dot[i] = eta_term(mu_R_dot[i], R[i], nu[i+1]) + eta_term(mu[i], H[i], nu[i+1])
+    + eta_term(mu[i], L[i], nu_L_dot[i+1])``.'''
+    return (contractions.jet_contract('JWKCa,Caib,JWCb->JWKCi', mu_dot_JWKCa, G_left_Caib, nu_JWCb,
+                                      lens=lens, order=order, over_orders=form)
+            + contractions.jet_contract('JWCa,KCaib,JWCb->JWKCi', mu_JWCa, H_KCaib, nu_JWCb,
+                                        lens=lens, order=order, over_orders=form)
+            + contractions.jet_contract('JWCa,Caib,JWKCb->JWKCi', mu_JWCa, G_right_Caib, nu_dot_JWKCb,
+                                        lens=lens, order=order, over_orders=form))
+
+
+def Jp_step(
+        eta_dot_JWKCi:  NDArray,            # eta_D_dot[i], F+W+K+C+(nD,)
+        B_Cio:          NDArray,            # D[i]
+        eta_JWCi:       NDArray,            # eta[i], F+W+C+(nU,)
+        V_KCio:         NDArray,            # V[i], K+C+(nU, N)
+        *,
+        lens:           contractions.GroupLengths,
+        order:          typ.Tuple[int, ...],
+        form:           str,
+) -> NDArray:                               # Jp[i], F+W+K+C+(N,)
+    '''``Jp[i] = z_term(eta_D_dot[i], D[i]) + z_term(eta[i], V[i])``: the direction's output.'''
+    return (contractions.jet_contract('JWKCi,Cio->JWKCo', eta_dot_JWKCi, B_Cio,
+                                      lens=lens, order=order, over_orders=form)
+            + contractions.jet_contract('JWCi,KCio->JWKCo', eta_JWCi, V_KCio,
+                                        lens=lens, order=order, over_orders=form))
+
+
+###############################################
 ########    The whole steps    ################
 ###############################################
+
+def identity_step(
+        value:  typ.Any,                    # a whole variable
+        *,
+        lens:   contractions.GroupLengths,
+        order:  typ.Tuple[int, ...],
+        form:   str,
+) -> typ.Any:                               # the same object
+    '''A route row over a private node: the public name of a variable whose value another node makes (the frame form
+    of ``nu_L_dot`` and ``eta_D_dot``).'''
+    return value
+
+
+def Jp_norm_sq_step(
+        Jp:      typ.Sequence[NDArray],     # len=d, elm_shape=F+W+K+C+(Ni,)
+        weight:  typ.Optional[NDArray],     # (d,)+F; None = ones
+        *,
+        lens:    contractions.GroupLengths,
+        order:   typ.Tuple[int, ...],
+        form:    str,
+) -> NDArray:                               # <Jp, weight**2 Jp>, keeping K + C. shape=K+C
+    '''The weighted sum of squares of the direction's output: ``<Jp, weight**2 Jp>``, summed over the modes, the
+    slots, the samples and the mode edge, keeping ``K + C`` (no half).'''
+    xnp, _, _ = get_backend(False, tree_contains_jax((Jp, weight)))
+    m, n_W = lens.J, lens.W
+    total = None
+    for i, Jp_FWKCo in enumerate(Jp):
+        Jp_FWKCo = xnp.asarray(Jp_FWKCo)
+        squares = Jp_FWKCo * Jp_FWKCo
+        if weight is not None:
+            weight_F = xnp.asarray(weight)[i]
+            squares = (weight_F * weight_F).reshape(weight_F.shape + (1,) * (Jp_FWKCo.ndim - m)) * squares
+        summed = xnp.sum(squares, axis=tuple(range(m + n_W)) + (Jp_FWKCo.ndim - 1,))
+        total = summed if total is None else total + summed
+    return xnp.asarray(total)
+
 
 def w_tilde_step(
         r:       typ.Sequence[NDArray],     # len=d, elm_shape=F+W+C+(Ni,)
@@ -371,26 +513,27 @@ def r_block_sumsq_step(
 def start_ones(
         box:    typ.Tuple[int, ...],        # F, the full jet sizes
         W:      typ.Tuple[int, ...],        # the sample stack
-        C:      typ.Tuple[int, ...],        # the stack of base points
+        KC:     typ.Tuple[int, ...],        # the stacks after W: K + C for a row that carries K, else C
         size:   int,                        # the end bond, in the basis of the sweep's own store
         dtype:  typ.Any,
         xnp,
-) -> NDArray:                               # F+W+C+(size,): ones in slot (0, ..., 0), zero in every other slot
+) -> NDArray:                               # F+W+[K]+C+(size,): ones in slot (0, ..., 0), zero in every other slot
     '''The start of a sweep of the plain grade: the vector of ones that closes an end bond, as a constant
     polynomial on the full box (a scan carry has one shape at every site).'''
     corner = np.zeros(box)                                         # host: 1 in slot (0, ..., 0)
     corner[(0,) * len(box)] = 1.0
-    slots_F = xnp.asarray(corner, dtype=dtype).reshape(box + (1,) * (len(W) + len(C) + 1))
-    return slots_F * xnp.ones(W + C + (size,), dtype=dtype)
+    slots_F = xnp.asarray(corner, dtype=dtype).reshape(box + (1,) * (len(W) + len(KC) + 1))
+    return slots_F * xnp.ones(W + KC + (size,), dtype=dtype)
 
 
 def start_zeros(
         box:    typ.Tuple[int, ...],        # F
         W:      typ.Tuple[int, ...],
-        C:      typ.Tuple[int, ...],
+        KC:     typ.Tuple[int, ...],        # K + C for a row that carries K, else C
         size:   int,
         dtype:  typ.Any,
         xnp,
-) -> NDArray:                               # F+W+C+(size,), all zero
-    '''The start of a sweep whose variable is zero at its end: a tilde sweep of the probe kind.'''
-    return xnp.zeros(box + W + C + (size,), dtype=dtype)
+) -> NDArray:                               # F+W+[K]+C+(size,), all zero
+    '''The start of a sweep whose variable is zero at its end: a tilde sweep of the probe kind, a dot sweep (the
+    direction is at one of the sites the carry has passed).'''
+    return xnp.zeros(box + W + KC + (size,), dtype=dtype)

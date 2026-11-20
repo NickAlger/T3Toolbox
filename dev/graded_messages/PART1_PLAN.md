@@ -1570,6 +1570,18 @@ axis, no `K` or `C` yet, numpy and jax. What the engine needs to run (section 2.
 
 **P7. Engine C.** The dot steps of the frame form; `xi_U_dot`, `mu_R_dot`, `nu_L_dot`, `eta_D_dot`, `Jp`,
 `Jp_norm_sq`, `JtJp` (the adjoint sweep seeded from `Jp`, its variables unnamed, 3.3).
+- **Design, settled before the build (2026-11-20; `implementation/P7_DESIGN_NOTE.md`, `P7_DESIGN_REVIEW.md`):** the
+  dot rows carry `K` and start at zeros; `JtJp`'s adjoint sweep is private twins of P6's rows on its path, named
+  `'_Jp.' + name.lstrip('_')`, derived mechanically (same step and start, `carries_K=True`, the seed reading `Jp`), with
+  a `_base(name)` helper for a twin's letter, and `JtJp` the twin of `g`; no twin of the full `eta_tilde` or of `g`.
+  **The two names with both dot forms (O-12):** private nodes `_frame.nu_L_dot` and `_frame.eta_D_dot`, which `Jp`
+  reads; the public `nu_L_dot` and `eta_D_dot` are route rows over them needing `variations`, and P8 adds the raw
+  route in front needing `core_directions`, so the precedence rule gives O-12 and no public name moves between
+  slices. **One structural check at entry, ruled by Claude:** every `V[i]` and `H[i]` has the `K + C` prefix the
+  engine reads from `V[0]` (a size-1 `K` on `H` would otherwise broadcast silently in the contraction and give a
+  wrong `Jp`); read as part of what the engine needs to run (O-18: it reads the size of `K` from one operand, and
+  checks the others that carry `K` agree), and `CLAUDE.md`'s rule that structural problems always raise. P10 applies
+  the same rule to `W` and `C` (flagged for the maintainer at the pause after P11).
 - Tests by definition for the new names. Identities: the adjoint identity between `Jp` and `g`; `p` paired with
   `JtJp` equals `Jp_norm_sq`; `JtJp` equals `g` computed with `Jp` held as `r`. Bridge against
   `ProbeDerivativesKind.forward` and `.transpose`.
@@ -1603,7 +1615,8 @@ base-point stack `C` on every core; `sum_over_samples=False` with the result's s
 keeping `C`, `Jp_norm_sq` keeping `K + C`; the dtype rule over the inputs the call reads (O-11).
 **`sum_over_samples=False` needs readout strings with `W` in the output** (the `V` and `H` families, about nine),
 which are not among the 29 of section 2.4: they are added to `STRINGS` of `tests/_jet_contract_cases.py`, with their
-library shapes, and the step chooses between the summed and the unsummed literal by a static flag, as the library
+library shapes (their `K` forms too, for `JtJp` and `Kp`; P7's design review), and the step chooses between the summed
+and the unsummed literal by a static flag, as the library
 does today with two bodies (`_tucker_variation_jets_step_summed` and `_unsummed`). Found by the reviewer in P5's
 design review (2026-11-20); no new group, row 3.7 decides it.
 - Tests: `W` empty, `(3,)`, `(2, 2)`, crossed with the library's stack matrix (`_CONFIGS`,

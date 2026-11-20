@@ -12,7 +12,9 @@
    variable deliberately changed changes what reads it, as the recurrence says (it is used, not recomputed).
 4. **The gradient** (`TestGradient`): ``g`` paired with a direction is the derivative of ``f`` along it, by a
    central difference (exact to rounding: ``f`` is quadratic along the direction).
-5. **The two routes of ``z``** (`TestTwoRoutesOfZ`): ``z`` through ``D`` (the sweep of ``nu_L`` and ``eta_D``)
+5. **The direction** (`TestTheDirection`): per element of a stack of two directions, the adjoint identity
+   ``<Jp, omega^2 r> = <p, g>``, ``<p, JtJp> = Jp_norm_sq``, and ``JtJp`` equal to ``g`` with ``Jp`` held as ``r``.
+6. **The two routes of ``z``** (`TestTwoRoutesOfZ`): ``z`` through ``D`` (the sweep of ``nu_L`` and ``eta_D``)
    equals ``z`` with the Tucker centers ``Vc`` (``eta`` through the frame), on a frame whose stores and centers
    agree.
 
@@ -86,7 +88,8 @@ class TestHeld(unittest.TestCase):
 
     def call(self, names, **extra):
         return sv.sampling_variables('probe', self.problem.frame, self.sample, names, order=self.case.order,
-                                     y=self.y, weight=self.weight, **extra)
+                                     y=self.y, weight=self.weight,
+                                     variations=tsv.stacked_directions(self.problem), **extra)
 
     def test_a_held_variable_gives_the_recomputed_result(self):
         """Each slot held in turn, everything wanted: the same arrays, bit for bit (the held value is the one a
@@ -119,6 +122,20 @@ class TestHeld(unittest.TestCase):
         self.assertEqual(float(f2), float(f))
 
 
+    def test_a_held_public_dot_never_feeds_Jp(self):
+        """``Jp`` reads the private frame nodes, so a held ``nu_L_dot`` or ``eta_D_dot`` (which in P8 may be the raw
+        form) is a leaf for its public name only: ``Jp`` is unchanged, bit for bit, and the public name comes back
+        as held."""
+        Jp, nu_L_dot, eta_D_dot = self.call(('Jp', 'nu_L_dot', 'eta_D_dot'))
+        changed = sv.HeldVariables(nu_L_dot=tuple(2.0 * a for a in nu_L_dot),
+                                   eta_D_dot=tuple(2.0 * a for a in eta_D_dot))
+        Jp2, eta_D_dot2 = self.call(('Jp', 'eta_D_dot'), held=changed)
+        for a, b in zip(Jp2, Jp):
+            self.assertTrue(np.array_equal(a, b))
+        for a, b in zip(eta_D_dot2, eta_D_dot):
+            self.assertTrue(np.array_equal(a, 2.0 * b))
+
+
 class TestGradient(unittest.TestCase):
 
     def test_g_is_the_derivative_of_f(self):
@@ -140,6 +157,41 @@ class TestGradient(unittest.TestCase):
             paired = sum(float(np.sum(a * b)) for a, b in zip(g[0] + g[1], tuple(problem.V) + tuple(problem.H)))
             with self.subTest(jets=case.label):
                 self.assertLessEqual(abs(difference - paired), 1e-9 * max(abs(paired), 1.0))
+
+
+class TestTheDirection(unittest.TestCase):
+    """The identities of the dot grade and of the adjoint seeded by ``Jp``, per element of a stack of two directions,
+    to rounding: ``<Jp, omega^2 r> = <p, g>`` (the adjoint identity; ``<., .>`` sums every slot, sample and entry);
+    ``<p, JtJp> = Jp_norm_sq``; and ``JtJp`` is ``g`` with ``Jp`` held as ``r`` (no data)."""
+
+    def test_the_identities_per_direction(self):
+        for problem_name, make in tsv.PROBLEMS:
+            problem = make()
+            variations = tsv.stacked_directions(problem)
+            for case in defs.JET_CASES:
+                y, weight = problem.data('probe', case)
+                sample = problem.input_jets(case)
+                Jp, JtJp, norm_sq, r, g = sv.sampling_variables(
+                    'probe', problem.frame, sample, ('Jp', 'JtJp', 'Jp_norm_sq', 'r', 'g'), order=case.order, y=y,
+                    weight=weight, variations=variations)
+                lead = case.m + len(problem.W)
+                weights = [np.asarray(weight[i]).reshape(case.box + (1,) * (r[i].ndim - case.m))
+                           for i in range(problem.d)]
+                pair = lambda blocks, p: sum(float(np.sum(a * b)) for a, b in zip(blocks[0] + blocks[1],
+                                                                                   tuple(p[0]) + tuple(p[1])))
+                for k in range(2):
+                    p = tsv.direction(variations, k)
+                    Jp_k = tsv.element('Jp', Jp, k, lead)
+                    JtJp_k = tsv.element('JtJp', JtJp, k, lead)
+                    with self.subTest(problem=problem_name, jets=case.label, k=k):
+                        adjoint = sum(float(np.sum(w_i ** 2 * a * b)) for w_i, a, b in zip(weights, Jp_k, r))
+                        self.assertLessEqual(abs(adjoint - pair(g, p)), TOL * max(abs(adjoint), 1.0))
+                        self.assertLessEqual(abs(pair(JtJp_k, p) - float(norm_sq[k])),
+                                             TOL * max(abs(float(norm_sq[k])), 1.0))
+                        (g_of_Jp,) = sv.sampling_variables('probe', problem.frame, sample, ('g',), order=case.order,
+                                                           weight=weight, held=sv.HeldVariables(r=Jp_k))
+                        for a, b in zip(tsv.arrays_of(g_of_Jp), tsv.arrays_of(JtJp_k)):
+                            self.assertLessEqual(defs.relative_error(a, b), TOL)
 
 
 class TestTwoRoutesOfZ(unittest.TestCase):

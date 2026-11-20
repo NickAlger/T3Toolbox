@@ -18,11 +18,15 @@ conversions, slot by slot (derived in P4c and checked by script for P6):
   ``r`` are ``xi_tilde``, ``mu_tilde``, ``nu_tilde`` at slot ``n - r``, divided by ``r!``; ``dxi_tilde``'s two rows
   ``u = 0, 1`` are ``eta_tilde`` at slot ``n - u`` (``u! = 1``).
 - with no jets (``n = 0``): ``t3_probe`` and ``tv_probe_transpose`` of ``probing``, given ``weight^2 r``.
+- ``Jp`` (P7): ``ProbeDerivativesKind.forward`` (and ``tv_probe_derivatives``) is ``t!`` times the new ``Jp``;
+  ``.transpose`` given ``weight_t^2 Jp_t / t!``, forward, is the new ``JtJp`` (the conversion of ``g``); with no
+  stack of directions and with ``K = (2,)``.
 
 **Old kernels left out, and why:**
 
-- ``compute_sigma_jets``, ``compute_tau_jets``, ``compute_deta_jets`` (the dots of the frame form, ``Jp``): P7's
-  variables, compared there;
+- ``compute_sigma_jets``, ``compute_tau_jets``, ``compute_deta_jets`` (the dots of the frame form): their variables
+  are compared through what reads them, ``Jp`` and ``JtJp`` (the old kernels take derivative-normalized input jets
+  of their own layout; the outputs are the documented interface);
 - ``compute_deta_tilde_tangent_jets``, ``compute_tau_tilde_tangent_jets``, ``compute_sigma_tilde_tangent_jets``,
   ``compute_dxi_tilde_tangent_jets``, ``compute_sigma_hat_tangent_jets`` (the two-hole, ``Kp``): P8's;
 - ``compute_sigma_hat_jets`` (the seed of apply and entries on bond ``d``): P9's;
@@ -144,6 +148,35 @@ class TestOldKernels(unittest.TestCase):
                     self.assertLessEqual(relative_error(turned(got['mu_tilde'][i]), tau[i]), TOL)
                     self.assertLessEqual(relative_error(turned(got['nu_tilde'][i + 1]), sigma[i]), TOL)
                     self.assertLessEqual(relative_error(got['eta_tilde'][i][::-1][:2], dxi[i]), TOL)
+
+
+class TestTheDirection(unittest.TestCase):
+    """``Jp`` and ``JtJp`` against the old derivative kind, at ``n`` = 1 to 3, with no stack of directions and with
+    ``K = (2,)``."""
+
+    def test_forward_and_transpose(self):
+        for name, make in tsv.PROBLEMS:
+            problem = make()
+            for n in (1, 2, 3):
+                rng = np.random.default_rng(20 + n)
+                weight = 0.5 + rng.random((problem.d, n + 1))
+                factorials = np.array([math.factorial(t) for t in range(n + 1)], dtype=float)
+                per_slot = TestOldKernels.per_slot
+                for label, variations in (('K=()', (problem.V, problem.H)),
+                                          ('K=(2,)', tsv.stacked_directions(problem, seed=n))):
+                    Jp, JtJp = sv.sampling_variables('probe', problem.frame, list(jets.affine_jet(problem.ww, problem.pp)),
+                                                     ('Jp', 'JtJp'), order=(n,), weight=weight, variations=variations)
+                    kind = old_fitting.ProbeDerivativesKind(order=n, weight=None, chunk_size=None)
+                    sample = (problem.ww, problem.pp)
+                    sweep = kind.precompute(problem.frame, sample)
+                    with self.subTest(problem=name, order=n, stack=label):
+                        old = kind.forward(variations, sample, problem.frame, sweep)
+                        for a, b in zip(Jp, old):
+                            self.assertLessEqual(relative_error(per_slot(a, factorials), b), TOL)
+                        forward = [per_slot(Jp[i], weight[i] ** 2 / factorials) for i in range(problem.d)]
+                        old = kind.transpose(forward, sample, problem.frame, sweep)
+                        for a, b in zip(list(JtJp[0]) + list(JtJp[1]), list(old[0]) + list(old[1])):
+                            self.assertLessEqual(relative_error(a, b), TOL)
 
 
 if __name__ == '__main__':

@@ -274,6 +274,10 @@ with warnings.catch_warnings():
     line = jets.affine_jet(ww, pp)
     mu, z, f, g = sv.sampling_variables('probe', frame, line, ('mu', 'z', 'f', 'g'), order=(2,), y=y)
     assert all(isinstance(a, np.ndarray) for a in mu + z + g[0] + g[1]) and isinstance(f, np.ndarray), (mu, z, f)
+    variations = ([rng.standard_normal((2, nU[i], N[i])) for i in range(3)],
+                  [rng.standard_normal((2, rL[i], nD[i], rR[i + 1])) for i in range(3)])
+    Jp, JtJp = sv.sampling_variables('probe', frame, line, ('Jp', 'JtJp'), order=(2,), variations=variations)
+    assert all(isinstance(a, np.ndarray) for a in Jp + JtJp[0] + JtJp[1]) and Jp[0].shape == (3, 2, 2, 4)
     held = sv.HeldVariables(mu=mu)
     assert held.keys() == ('mu',) and 'mu' in held and len(held) == 1
     assert held.with_values(z=z).keys() == ('mu', 'z') and held.keys() == ('mu',)

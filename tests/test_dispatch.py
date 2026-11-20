@@ -862,6 +862,33 @@ class TestDispatch(unittest.TestCase):
                 self._leaves_all_jax((closed, g_closed))
                 self.assertLess(abs(float(closed) - float(on_numpy)), 1e-12 * abs(float(on_numpy)))
 
+    def test_jit_sampling_variables_with_a_stack_of_directions(self):
+        """The dot grade and the adjoint seeded by ``Jp`` under ``jax.jit``, ``K = (2,)``: ``('Jp', 'JtJp',
+        'Jp_norm_sq')`` jax in, jax out, the numbers numpy's."""
+        import t3toolbox.backend.jets as jets
+        import t3toolbox.backend.sampling_variables as sv
+        rng = np.random.default_rng(1)
+        N, nD, nU, rL, rR = (4, 5, 3), (2, 3, 2), (3, 2, 3), (1, 2, 3, 1), (1, 3, 2, 1)
+        frame = (tuple(rng.standard_normal((nD[i], N[i])) for i in range(3)),
+                 tuple(rng.standard_normal((rL[i], nU[i], rR[i + 1])) for i in range(3)),
+                 tuple(rng.standard_normal((rL[i], nD[i], rL[i + 1])) for i in range(3)),
+                 tuple(rng.standard_normal((rR[i], nD[i], rR[i + 1])) for i in range(3)))
+        variations = (tuple(rng.standard_normal((2, nU[i], N[i])) for i in range(3)),
+                      tuple(rng.standard_normal((2, rL[i], nD[i], rR[i + 1])) for i in range(3)))
+        ww = [rng.standard_normal((2, n)) for n in N]
+        pp = [rng.standard_normal((2, n)) for n in N]
+        sample = list(jets.affine_jet(ww, pp))
+        weight = 0.5 + rng.random((3, 3))
+        fn = lambda frame, sample, weight, variations: sv.sampling_variables(
+            'probe', frame, sample, ('Jp', 'JtJp', 'Jp_norm_sq'), order=(2,), weight=weight, variations=variations)
+        on_numpy = fn(frame, sample, weight, variations)
+        to_jax = lambda tree: jax.tree_util.tree_map(jnp.asarray, tree)
+        jargs = to_jax((frame, sample, weight, variations))
+        self.assert_jit_jax(fn, *jargs)
+        for a, b in zip(jax.tree_util.tree_leaves(jax.jit(fn)(*jargs)), jax.tree_util.tree_leaves(on_numpy)):
+            self.assertEqual(a.shape, b.shape)
+            self.assertLess(norm(np.asarray(a) - b), 1e-12 * norm(b))
+
     # ---------------------------------------------------- jit bucket: the dense sampling functions
     def test_jit_dense_sampling_functions(self):
         """jit dense_probe and dense_apply with no jets, with the input jets of a line at (3,) and with input jets of

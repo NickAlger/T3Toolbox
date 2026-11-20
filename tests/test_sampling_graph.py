@@ -110,7 +110,8 @@ class TestGraph(unittest.TestCase):
     def test_every_sweep_declares_its_start(self):
         """Each row declares its start (not chosen by grade): the plain sweeps start at ones, the probe kind's tilde
         sweeps at zeros, and a row of another driver declares none."""
-        expected = {'mu': 'ones', 'nu': 'ones', 'nu_L': 'ones', 'mu_tilde': 'zeros', 'nu_tilde': 'zeros'}
+        expected = {'mu': 'ones', 'nu': 'ones', 'nu_L': 'ones', 'mu_tilde': 'zeros', 'nu_tilde': 'zeros',
+                    'mu_R_dot': 'zeros', '_frame.nu_L_dot': 'zeros', '_Jp.mu_tilde': 'zeros', '_Jp.nu_tilde': 'zeros'}
         for rule in sv._PROBE_GRAPH:
             with self.subTest(name=rule.name):
                 self.assertEqual(rule.start, expected.get(rule.name))
@@ -125,17 +126,27 @@ class TestGraph(unittest.TestCase):
 
     def test_the_bond_offsets_and_the_shape_table(self):
         """A site op reads the left of bond ``i`` (``mu``) and the right of bond ``i + 1`` (``nu``); every bond
-        variable is made by a sweep, and every sweep makes a bond variable whose letter has an offset."""
+        variable is made by a sweep (or is a route over one), and every sweep makes a bond variable whose letter, read
+        after a private prefix by ``_base``, has an offset."""
         self.assertEqual(sv._BOND_OFFSET, {'mu': 0, 'nu': 1})
+        self.assertEqual([sv._base(n) for n in ('_Jp.mu_tilde', '_frame.nu_L_dot', '_eta_tilde_top', 'mu_R_dot')],
+                         ['mu_tilde', 'nu_L_dot', 'eta_tilde_top', 'mu_R_dot'])
+        self.assertEqual([sv._letter(n) for n in ('_Jp.mu_tilde', '_frame.nu_L_dot', '_Jp.xi_tilde', 'eta_D_dot')],
+                         ['mu', 'nu', 'xi', 'eta'])
+        rows = {rule.name: rule for rule in sv._PROBE_GRAPH}
         for rule in sv._PROBE_GRAPH:
             with self.subTest(name=rule.name):
                 is_sweep = rule.step[0] in ('left', 'right')
-                if rule.name in sv._SHAPES:
-                    self.assertEqual(sv._SHAPES[rule.name][0] == 'bond', is_sweep)
+                is_bond = sv._SHAPES[sv._table_name(rule.name)][0] == 'bond' if rule.name not in (
+                    'f', 'r_block_sumsq', 'g', 'Jp_norm_sq', 'JtJp') else False
+                if rule.step == ('whole', 'identity_step'):                 # a route over a private node
+                    self.assertEqual(is_bond, rows[rule.reads[0]].step[0] in ('left', 'right'))
+                else:
+                    self.assertEqual(is_bond, is_sweep)
                 if is_sweep:
-                    self.assertIn(rule.name.split('_')[0], sv._BOND_OFFSET)
+                    self.assertIn(sv._letter(rule.name), sv._BOND_OFFSET)
                     self.assertIn(rule.reads[0], sv._STORES)                # the store it sweeps through
-                    self.assertEqual(rule.step[0], 'left' if rule.name.startswith('mu') else 'right')
+                    self.assertEqual(rule.step[0], 'left' if sv._letter(rule.name) == 'mu' else 'right')
         problem = defs.small()
         mu, nu, eta = sv.sampling_variables('probe', problem.frame, problem.ww, ('mu', 'nu', 'eta'))
         U = problem.frame[1]
@@ -145,7 +156,34 @@ class TestGraph(unittest.TestCase):
 
     def test_carries_K_is_a_field_of_every_row(self):
         self.assertIn('carries_K', sv.Rule._fields)
-        self.assertEqual({rule.carries_K for rule in sv._PROBE_GRAPH}, {False})     # no direction yet (JtJp: P7)
+        with_K = {rule.name for rule in sv._PROBE_GRAPH if rule.carries_K}
+        self.assertEqual(with_K, {'xi_U_dot', 'mu_R_dot', '_frame.nu_L_dot', 'nu_L_dot', '_frame.eta_D_dot',
+                                  'eta_D_dot', 'Jp', 'Jp_norm_sq', 'JtJp'} | {sv._twin(n) for n in sv._JP_PATH})
+
+    def test_every_row_on_the_path_of_JtJp_has_its_twin(self):
+        """The adjoint seeded by ``Jp``: every row on the residual's path from ``w_tilde`` to ``V_tilde``, ``H_tilde``
+        and the short node has a twin named ``'_Jp.' + name.lstrip('_')``, with the same step and start, ``carries_K``,
+        each read on the path renamed and ``r`` read as ``Jp``; ``JtJp`` is the twin of ``g``. The full ``eta_tilde``
+        and ``g`` have no ``'_Jp.'`` twin."""
+        rows = {rule.name: rule for rule in sv._PROBE_GRAPH}
+        self.assertEqual(sv._JP_PATH, ('w_tilde', 'xi_tilde', 'mu_tilde', 'nu_tilde', '_eta_tilde_top', 'V_tilde',
+                                       'H_tilde'))
+        rename = lambda read: sv._twin(read) if read in sv._JP_PATH else ('Jp' if read == 'r' else read)
+        for name in sv._JP_PATH + ('g',):
+            base = rows[name]
+            twin = rows['JtJp' if name == 'g' else sv._twin(name)]
+            with self.subTest(name=name):
+                self.assertEqual(twin.name, 'JtJp' if name == 'g' else '_Jp.' + name.lstrip('_'))
+                # JtJp alone also needs the direction itself, so that a call without it names JtJp (P7's review)
+                needs = base.needs | {'variations'} if name == 'g' else base.needs
+                self.assertEqual((twin.step, twin.start, twin.needs, twin.carries_K),
+                                 (base.step, base.start, needs, True))
+                self.assertEqual(twin.reads, tuple(map(rename, base.reads)))
+                self.assertFalse(base.carries_K)
+        self.assertNotIn('_Jp.eta_tilde', rows)
+        self.assertNotIn('_Jp.g', rows)
+        twins = [name for name in rows if name.startswith('_Jp.')]
+        self.assertEqual(len(twins), len(sv._JP_PATH))
 
 
 class CountingSteps:
@@ -247,6 +285,33 @@ class TestClosure(unittest.TestCase):
             ('g', 'eta_tilde'):     plus(sweeps, eta_step=d, eta_tilde_top_step=d, V_tilde_step=d, H_tilde_step=d,
                                          g_step=1, eta_tilde_step=d),
         })
+        # the dot grade (the frame's form) and JtJp: Jp reads the plain mu, nu (through R) and eta (through U), not
+        # nu_L or eta_D; the Jp-seeded adjoint runs each tilde step once more, with no z and no r
+        plain = {'xi_step': d, 'mu_step': d, 'nu_step': d, 'eta_step': d}
+        dots = plus(plain, xi_dot_step=d, mu_dot_step=d, nu_dot_step=d, eta_dot_step=d, Jp_step=d)
+        jp_adjoint = dict(w_tilde_step=1, xi_tilde_step=d, mu_tilde_step=d, nu_tilde_step=d, eta_tilde_top_step=d,
+                          V_tilde_step=d, H_tilde_step=d, g_step=1)
+        with_directions = {
+            ('xi_U_dot',):          {'xi_dot_step': d},
+            ('nu_L_dot',):          {'xi_step': d, 'nu_step': d, 'xi_dot_step': d, 'nu_dot_step': d, 'identity_step': 1},
+            ('eta_D_dot',):         plus(plain, eta_step=-d, xi_dot_step=d, mu_dot_step=d, nu_dot_step=d,
+                                         eta_dot_step=d, identity_step=1),
+            ('Jp',):                dots,
+            ('Jp_norm_sq',):        plus(dots, Jp_norm_sq_step=1),
+            ('JtJp',):              plus(dots, **jp_adjoint),
+            ('g', 'JtJp'):          {'xi_step': d, 'mu_step': d, 'nu_step': 2 * d, 'eta_step': 2 * d, 'z_step': d,
+                                     'r_step': 1, 'w_tilde_step': 2, 'xi_tilde_step': 2 * d, 'mu_tilde_step': 2 * d,
+                                     'nu_tilde_step': 2 * d, 'eta_tilde_top_step': 2 * d, 'V_tilde_step': 2 * d,
+                                     'H_tilde_step': 2 * d, 'g_step': 2, 'xi_dot_step': d, 'mu_dot_step': d,
+                                     'nu_dot_step': d, 'eta_dot_step': d, 'Jp_step': d},
+        }
+        variations = (self.problem.V, self.problem.H)
+        for want, counts in with_directions.items():
+            with self.subTest(want=want, directions=True):
+                with CountingSteps() as steps:
+                    sv.sampling_variables('probe', self.problem.frame, self.sample, want, order=(1,), y=self.y,
+                                          weight=self.weight, variations=variations)
+                self.assertEqual(steps.counts(), {k: v for k, v in counts.items() if v})
         for want, counts in expected.items():
             with self.subTest(want=want):
                 with CountingSteps() as steps:
@@ -292,8 +357,11 @@ class TestChecks(unittest.TestCase):
     def test_an_unknown_kind_or_name_raises(self):
         with self.assertRaisesRegex(ValueError, 'unknown sampling kind'):
             sv.sampling_variables('probes', self.frame, self.ww, ('z',))
-        with self.assertRaisesRegex(ValueError, "unknown variable 'Jp', 'zz' for the probe kind"):
-            sv.sampling_variables('probe', self.frame, self.ww, ('z', 'Jp', 'zz'))
+        with self.assertRaisesRegex(ValueError, "unknown variable 'Kp', 'zz' for the probe kind"):
+            sv.sampling_variables('probe', self.frame, self.ww, ('z', 'Kp', 'zz'))
+        for private in ('_Jp.mu_tilde', '_frame.nu_L_dot'):
+            with self.assertRaisesRegex(ValueError, 'unknown variable %r' % private):
+                sv.sampling_variables('probe', self.frame, self.ww, (private,))
         with self.assertRaisesRegex(ValueError, "unknown variable '_eta_tilde_top'"):     # a private node
             sv.sampling_variables('probe', self.frame, self.ww, ('_eta_tilde_top',))
         with self.assertRaisesRegex(TypeError, 'want is a sequence of names'):
@@ -312,6 +380,13 @@ class TestChecks(unittest.TestCase):
                     sv.sampling_variables('probe', self.frame, self.ww, ('z',), order=bad)
 
     def test_every_missing_argument_raises(self):
+        for want in (('Jp',), ('JtJp',), ('nu_L_dot',), ('Jp_norm_sq',)):
+            with self.subTest(want=want, missing='variations'):
+                with self.assertRaisesRegex(ValueError, "needs the argument variations, which was not given"):
+                    sv.sampling_variables('probe', self.frame, self.ww, want)
+        with self.subTest(want='JtJp', message='names JtJp, not a chain of private nodes'):
+            with self.assertRaisesRegex(ValueError, "'JtJp' needs the argument variations, which was not given$"):
+                sv.sampling_variables('probe', self.frame, self.ww, ('JtJp',))
         for want, pattern in ((('r',), "'r' needs the argument y, which was not given$"),
                               (('f',), r"'r' needs the argument y, which was not given \(needed through f -> r\)"),
                               (('r_block_sumsq',), r'needed through r_block_sumsq -> r')):

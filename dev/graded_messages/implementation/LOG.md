@@ -661,3 +661,46 @@ Nothing is running; the two agents are idle and are resumed for P5 when the main
   value to rounding (1e-13). **Minor 2:** `tests/bridge/` is staged by file name, not with its `__pycache__`.
 - **Gate:** the implementer's full gate at `-n 3`, every step PASS (suite 1,715 passed, 5 skipped, 1 xfailed; peak
   8.9 GB; module doctests 314; Sphinx 0 warnings). After Claude's test change: `TestTheShortForm` 2 passed.
+
+### P7 designed (2026-11-20)
+
+- The implementer's note (`P7_DESIGN_NOTE.md`) and the reviewer's critique (`P7_DESIGN_REVIEW.md`: sound, two changes).
+  The reviewer checked the four dot recurrences term by term against `SAMPLE_VARIABLES.md` 5.2, bases included, and
+  the mechanical derivation of the `Jp`-seeded twins for the seed and the short node.
+- **Ruled by Claude** (written into the plan's P7): the dot rows, `Jp`, `Jp_norm_sq`, the twins (`'_Jp.' +
+  name.lstrip('_')`, mechanical, `JtJp` the twin of `g`, none of the full `eta_tilde` or of `g`) as the implementer
+  proposed, with a `_base(name)` helper; **the reviewer's design for the two names with both dot forms** (private
+  `_frame.nu_L_dot` / `_frame.eta_D_dot` read by `Jp`, the public names identity route rows needing `variations`, P8
+  adding the raw route in front; no public name moves between slices); **one structural check at entry**: every
+  `V[i]`, `H[i]` (and a held `Jp`) has the `K + C` prefix the engine reads from `V[0]`. The reviewer showed that a
+  size-1 `K` on `H` broadcasts silently in the contraction (a wrong `Jp`, no error). Read as within O-18 (the engine
+  reads the size of `K` from one operand; checking that the others agree is part of reading it) and `CLAUDE.md`'s
+  "structural problems always raise". **P10 applies the same rule to `W` and `C`: to raise with the maintainer at
+  the pause after P11**, since it bears on O-18's "nothing more" (the plan's 2.3 step 1 leaves the sample's sizes to
+  the checkers). P10's unsummed readout strings need their `K` forms too (added to the plan's P10).
+
+### P7: Engine C, the frame-form dot grade (2026-11-20, to 05:12)
+
+- **Rounds:** one on the build (`P7_REVIEW_r1.md`: SIGN OFF, one minor finding), after the design (above). Handover
+  `P7_HANDOVER.md`.
+- **What was built:** the dot steps `xi_dot_step`, `mu_dot_step`, `nu_dot_step`, `eta_dot_step` (written for both
+  direction forms, for P8), `Jp_step`, `Jp_norm_sq_step` (keeps `K + C`, no half), `identity_step`; start values with
+  `[K] + C` after `W`. Rows: `xi_U_dot`, `mu_R_dot` (through `R`, zeros), the private frame nodes
+  `_frame.nu_L_dot`/`_frame.eta_D_dot` read by `Jp`, the public route rows `nu_L_dot`/`eta_D_dot` over them,
+  `Jp_norm_sq`; the `Jp`-seeded twins derived from `_JP_PATH` (`JtJp` the twin of `g`); `_base`, `_letter`,
+  `_table_name` for a name's letter; `_read_K` and the structural `K` check (every `V[i]`, `H[i]` exactly `K + C` plus
+  its core axes; a held `Jp` with the call's `K`); `HeldVariables` 25 slots.
+- **The reviewer's checks:** the seven new names against the reference per direction (8.6e-15); `Jp` against a dense
+  tangent tensor built from its definition and probed by its oracle (all four dot recurrences and bases, independent
+  of engine and reference); the identities per direction; a held, changed public `nu_L_dot`/`eta_D_dot` never feeds
+  `Jp`; a size-1 `K` on `H[1]` now raises; floor 52 passed. The implementer's 17 mutants all killed.
+- **Departures accepted:** `Jp_norm_sq` with `carries_K=True`; the `K` check counting total axes (catches a wrong
+  core rank); the bridge checking the frame dots through `Jp` and `JtJp`.
+- **Minor, made by Claude:** without `variations`, `JtJp`'s error named a chain of six private nodes; the `JtJp` twin
+  now carries `needs={'variations'}` itself (the docstring table and the twin test state the one exception), and a
+  test pins the message (`'JtJp' needs the argument variations, which was not given`). Engine tests 48 passed,
+  doctests 2.
+- **Gate:** the implementer's full gate at `-n 3`, every step PASS (suite 1,722 passed, 5 skipped, 1 xfailed; module
+  doctests 314; 48 pages; 14 examples; Sphinx 0 warnings). **Memory: peak 10.4 GB, 1.9 GB left at the lowest.** If it
+  falls further the gate moves to `-n 2`.
+- **P8's design note** (`P8_DESIGN_NOTE.md`) was written while P7 was reviewed; it goes to the reviewer next.
