@@ -43,11 +43,14 @@ changed on the branch since 2026-11-16 (slices P0 to P4 of Part 1); `main` has n
 **START HERE (updated 2026-11-19, 19:30; Claude Code on Nick's laptop, branch `graded-messages`).** Nothing lives
 in a session: everything is in files.
 
-- **Where it stands: AT THE FIRST PLANNED PAUSE, after the jet sub-arc P4a to P4d** (all built, reviewed,
-  committed and pushed on 2026-11-19; the last is `53d525fb`). Nick signed off the changed plan as a whole that
-  morning. Next, when he says so: P5 to P11 (the engine), then the second pause; P12 to P15, then the third pause
-  (before the switch). Between pauses Claude decides small or clear issues and logs them; big or uncertain ones go
-  to Nick at once.
+- **Where it stands (2026-11-20, 11:35): PAUSED by Nick mid-P10** (he needed the laptop; "we will resume in a couple
+  hours"). Committed and pushed, CI green: P4a to P4d (the jet sub-arc; first planned pause passed), P5, P6, P7, P8,
+  P9a, P9b (`9c8bab25`). **P10 is built but NOT reviewed and NOT committed**: its changes are in the working tree, and
+  `dev/graded_messages/implementation/P10_HANDOVER.md` says how far it got. To resume: read `LOG.md`'s last entries,
+  send P10 to the reviewer, then P11, then the SECOND planned pause (after P11), with the list of questions for Nick
+  in `LOG.md` ("For the maintainer at the pause after P11"). The two agents (Opus 5.5, high) are idle and resumable by
+  name, `implementer` and `reviewer`, if the session survives; if not, start fresh ones on `BRIEF.md`, `LOG.md` and the
+  design notes/reviews of the slice in hand. The gate runs at `-n 2` (memory).
 - **What P4a to P4d built:** `jet_contract` over one jet group `J` of any number of axes (`GroupLengths(J, W, K,
   C)`, 29 strings); `affine_jet` and `index_to_one_hot`; the dense functions on input jets (`dense_probe`,
   `dense_apply`, `dense_entries(T, index)`); the reference module `sampling_definitions` in several jet variables;

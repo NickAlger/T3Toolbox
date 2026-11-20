@@ -817,3 +817,16 @@ Nothing is running; the two agents are idle and are resumed for P5 when the main
   found that comparing a multi-axis `W` against the unstacked engine at the same `W` would let a `W` bug cancel;
   multi-axis `W` is compared against the engine with `W` flattened. The `_check_stacks` extension of P7's check to `W`
   and `C` is pending the maintainer (O-18).
+
+### Paused by the maintainer mid-P10 (2026-11-20, 11:31)
+
+"I need to use this laptop for a meeting in 30 minutes from now. Please pause and we will resume in a couple hours.
+You can let any currently running gates complete." P10 is built; the implementer's gate (at `-n 2`) was on its last
+step, Sphinx, and was allowed to finish; the implementer was told to start nothing new and to write
+`P10_HANDOVER.md` at whatever stage it is. The reviewer is idle. P10 is not reviewed or committed. Nothing else runs.
+
+**The questions gathered for the maintainer at the pause after P11** (from the entries above): (1) the corewise call
+takes `core_directions` and refuses `variations` (P8; reversible); (2) on apply and entries, are `xi_tilde`, `mu_tilde`,
+`xi_tilde_dot`, `mu_tilde_dot` zeros or unknown names (built: unknown, P9); (3) a public reader of a call's names (P9);
+(4) the structural stack checks of P7 (`K`) and P10 (`W`, `C`) under O-18 ("the engine checks what it needs to run,
+and nothing more"; removable).
