@@ -9,9 +9,11 @@ Their definitions, one dense function each, and their names are in :py:mod:`t3to
 :py:func:`sampling_variables` computes the ones you ask for by their recurrences, each exactly once, and only those
 that what you ask for reads.
 
-**The declared graph** of a kind is plain data: a tuple of rows ``Rule(name, step, reads, needs, carries_K)``.
+**The declared graph** of a kind is plain data: a tuple of rows ``Rule(name, step, reads, needs, carries_K,
+start)``.
 
-- ``name``: the variable the row makes. A name may have several rows, its *routes*: the first row whose ``needs``
+- ``name``: the variable the row makes; a name with a leading underscore is a private node, which cannot be wanted
+  or held. A name may have several rows, its *routes*: the first row whose ``needs``
   are all present is taken. The rows of a name run from the most specific to the least, so the earlier applicable
   row wins. A held variable never changes the route: it is a leaf of the closure, whatever route is taken.
 - ``step``: ``(driver, step_name)``. ``step_name`` names a function of
@@ -27,29 +29,48 @@ that what you ask for reads.
 - ``needs``: the facts of the call the row requires: the arguments given (``y``, ``Vc``, ...) and the call type
   (``_manifold``).
 - ``carries_K``: whether the row runs with the call's stack of directions ``K``, or with ``K = 0``.
+- ``start``: for a sweep, its start value: ``'ones'`` (the plain grade: the vector of ones that closes the end bond)
+  or ``'zeros'`` (a tilde sweep of the probe kind); ``None`` for the other drivers.
 
 At a site op, a bond variable is read at the bond its letter says: the left of bond ``i`` (the ``mu`` family) and
 the right of bond ``i + 1`` (the ``nu`` family), the table ``_BOND_OFFSET``.
 
 The graph of the probe kind:
 
-| Variable | Driver | Step | Reads | Needs | K |
-| --- | --- | --- | --- | --- | --- |
-| `xi` | site | `xi_step` | `D`, `w` | | no |
-| `mu` | left | `mu_step` | `L`, `xi` | | no |
-| `nu` | right | `nu_step` | `R`, `xi` | | no |
-| `nu_L` | right | `nu_step` | `L`, `xi` | | no |
-| `eta` | site | `eta_step` | `mu`, `U`, `nu` | | no |
-| `eta_D` | site | `eta_step` | `mu`, `L`, `nu_L` | | no |
-| `z` | site | `z_step` | `eta`, `Vc` | `Vc` | no |
-| `z` | site | `z_step` | `eta_D`, `D` | | no |
-| `r` | whole | `r_step` | `z`, `y` | `y` | no |
-| `f` | whole | `f_step` | `r`, `weight` | | no |
-| `r_block_sumsq` | whole | `r_block_sumsq_step` | `r` | | no |
+| Variable | Driver | Step | Reads | Needs | K | Start |
+| --- | --- | --- | --- | --- | --- | --- |
+| `xi` | site | `xi_step` | `D`, `w` | | no | |
+| `mu` | left | `mu_step` | `L`, `xi` | | no | ones |
+| `nu` | right | `nu_step` | `R`, `xi` | | no | ones |
+| `nu_L` | right | `nu_step` | `L`, `xi` | | no | ones |
+| `eta` | site | `eta_step` | `mu`, `U`, `nu` | | no | |
+| `eta_D` | site | `eta_step` | `mu`, `L`, `nu_L` | | no | |
+| `z` | site | `z_step` | `eta`, `Vc` | `Vc` | no | |
+| `z` | site | `z_step` | `eta_D`, `D` | | no | |
+| `r` | whole | `r_step` | `z`, `y` | `y` | no | |
+| `f` | whole | `f_step` | `r`, `weight` | | no | |
+| `r_block_sumsq` | whole | `r_block_sumsq_step` | `r` | | no | |
+| `w_tilde` | whole | `w_tilde_step` | `r`, `weight` | | no | |
+| `xi_tilde` | site | `xi_tilde_step` | `D`, `w_tilde` | | no | |
+| `mu_tilde` | left | `mu_tilde_step` | `L`, `mu`, `xi`, `xi_tilde` | | no | zeros |
+| `nu_tilde` | right | `nu_tilde_step` | `R`, `nu`, `xi`, `xi_tilde` | | no | zeros |
+| `eta_tilde` | site | `eta_tilde_step` | `mu_tilde`, `mu`, `U`, `nu_tilde`, `nu` | | no | |
+| `_eta_tilde_top` | site | `eta_tilde_top_step` | `mu_tilde`, `mu`, `U`, `nu_tilde`, `nu`, `w` | | no | |
+| `V_tilde` | site | `V_tilde_step` | `_eta_tilde_top`, `eta`, `w`, `w_tilde` | | no | |
+| `H_tilde` | site | `H_tilde_step` | `mu_tilde`, `mu`, `xi_tilde`, `xi`, `nu_tilde`, `nu` | | no | |
+| `g` | whole | `g_step` | `V_tilde`, `H_tilde` | | no | |
+
+**The short form of** ``eta_tilde``. ``V_tilde`` reads only the slots of ``eta_tilde`` that meet the input at the
+corner: the top ``a = min(J_in_i, F)`` slots on every jet axis (two for a line). The private node ``_eta_tilde_top``
+holds those slots, ``eta_tilde[i][c - a + 1 : c + 1]`` (``c`` the corner), each made by readouts at a lowered corner,
+and ``V_tilde`` always reads it. The full ``eta_tilde`` has its own row, run only when it is wanted, so what ``g`` is
+never depends on whether ``eta_tilde`` is wanted.
 
 **The shapes** (ragged layout): a variable at index ``i`` is
 ``J + W + C + (size,)``, with ``J`` its declared jet sizes, ``W`` the sample stack and ``C`` the stack of base
-points. ``F = tuple(n + 1 for n in order)`` and ``J_in_i`` are the jet sizes of ``w[i]``.
+points; a block (no jet sizes) is ``C`` and the shape of the core it stands for, summed over the samples.
+``F = tuple(n + 1 for n in order)`` and ``J_in_i`` are the jet sizes of ``w[i]``. The tilde variables are dual jets,
+stored with every jet axis turned.
 
 | Variable | Index | Jet sizes | Size |
 | --- | --- | --- | --- |
@@ -61,9 +82,18 @@ points. ``F = tuple(n + 1 for n in order)`` and ``J_in_i`` are the jet sizes of 
 | `eta_D` | site | F | nD_i |
 | `z` | mode | F | N_i |
 | `r` | mode | F | N_i |
+| `w_tilde` | mode | F | N_i |
+| `xi_tilde` | site | F | nD_i |
+| `mu_tilde` | bond | F | rL_i |
+| `nu_tilde` | bond | F | rR_i |
+| `eta_tilde` | site | F | nU_i |
+| `_eta_tilde_top` | site | min(J_in_i, F) | nU_i |
+| `V_tilde` | site | none | (nU_i, N_i) |
+| `H_tilde` | site | none | (rL_i, nD_i, rR_(i+1)) |
 
-``f`` has the shape ``C``; ``r_block_sumsq`` the shape of the weight, ``(d,) + F``. A bond index runs over
-``0 .. d`` (``d + 1`` arrays), a site or a mode index over ``0 .. d-1``.
+``f`` has the shape ``C``; ``r_block_sumsq`` the shape of the weight, ``(d,) + F``; ``g`` is the pair
+``(V_tilde, H_tilde)``. A bond index runs over ``0 .. d`` (``d + 1`` arrays), a site or a mode index over
+``0 .. d-1``.
 
 **What a call does, in order**: it checks what it needs to run, and nothing more; reads the
 layout and the call type from the structure of the frame; takes the closure of what is wanted over the graph, the
@@ -72,8 +102,9 @@ precision among the arrays the closure reads and the held variables read or want
 ``want``. Every scan and map body is module-level, memoized on ``(step_name, lens, order, form)``: a body closes
 over the record, the box and the form, nothing per site.
 
-Only the probe kind on the ragged layout, a manifold frame, with no stack of directions, is built here; the other
-kinds, the corewise point, the uniform layout and the higher grades are not taken yet.
+Only the probe kind on the ragged layout, a manifold frame, with no stack of directions, at the plain and the tilde
+grades, is built here; the other kinds, the corewise point, the uniform layout and the dot grades are not taken
+yet.
 """
 import dataclasses as dc
 import functools
@@ -106,22 +137,38 @@ class Rule(typ.NamedTuple):
     reads:      typ.Tuple[str, ...]         # the step's arrays, in order: variables, stores, arguments
     needs:      typ.FrozenSet[str]          # the facts of the call the row requires
     carries_K:  bool                        # True: the call's K; False: K = 0
+    start:      typ.Optional[str] = None    # a sweep's start value: 'ones' | 'zeros'; None for the other drivers
 
 
 _NONE = frozenset()
 
 _PROBE_GRAPH = (
-    Rule('xi',            ('site', 'xi_step'),             ('D', 'w'),           _NONE,               False),
-    Rule('mu',            ('left', 'mu_step'),             ('L', 'xi'),          _NONE,               False),
-    Rule('nu',            ('right', 'nu_step'),            ('R', 'xi'),          _NONE,               False),
-    Rule('nu_L',          ('right', 'nu_step'),            ('L', 'xi'),          _NONE,               False),
-    Rule('eta',           ('site', 'eta_step'),            ('mu', 'U', 'nu'),    _NONE,               False),
-    Rule('eta_D',         ('site', 'eta_step'),            ('mu', 'L', 'nu_L'),  _NONE,               False),
-    Rule('z',             ('site', 'z_step'),              ('eta', 'Vc'),        frozenset({'Vc'}),   False),
-    Rule('z',             ('site', 'z_step'),              ('eta_D', 'D'),       _NONE,               False),
-    Rule('r',             ('whole', 'r_step'),             ('z', 'y'),           frozenset({'y'}),    False),
-    Rule('f',             ('whole', 'f_step'),             ('r', 'weight'),      _NONE,               False),
-    Rule('r_block_sumsq', ('whole', 'r_block_sumsq_step'), ('r',),               _NONE,               False),
+    # the plain grade
+    Rule('xi',             ('site', 'xi_step'),             ('D', 'w'),                    _NONE,             False),
+    Rule('mu',             ('left', 'mu_step'),             ('L', 'xi'),                   _NONE,             False, 'ones'),
+    Rule('nu',             ('right', 'nu_step'),            ('R', 'xi'),                   _NONE,             False, 'ones'),
+    Rule('nu_L',           ('right', 'nu_step'),            ('L', 'xi'),                   _NONE,             False, 'ones'),
+    Rule('eta',            ('site', 'eta_step'),            ('mu', 'U', 'nu'),             _NONE,             False),
+    Rule('eta_D',          ('site', 'eta_step'),            ('mu', 'L', 'nu_L'),           _NONE,             False),
+    Rule('z',              ('site', 'z_step'),              ('eta', 'Vc'),                 frozenset({'Vc'}), False),
+    Rule('z',              ('site', 'z_step'),              ('eta_D', 'D'),                _NONE,             False),
+    Rule('r',              ('whole', 'r_step'),             ('z', 'y'),                    frozenset({'y'}),  False),
+    Rule('f',              ('whole', 'f_step'),             ('r', 'weight'),               _NONE,             False),
+    Rule('r_block_sumsq',  ('whole', 'r_block_sumsq_step'), ('r',),                        _NONE,             False),
+    # the tilde grade: the residual's adjoint
+    Rule('w_tilde',        ('whole', 'w_tilde_step'),       ('r', 'weight'),               _NONE,             False),
+    Rule('xi_tilde',       ('site', 'xi_tilde_step'),       ('D', 'w_tilde'),              _NONE,             False),
+    Rule('mu_tilde',       ('left', 'mu_tilde_step'),       ('L', 'mu', 'xi', 'xi_tilde'), _NONE,             False, 'zeros'),
+    Rule('nu_tilde',       ('right', 'nu_tilde_step'),      ('R', 'nu', 'xi', 'xi_tilde'), _NONE,             False, 'zeros'),
+    Rule('eta_tilde',      ('site', 'eta_tilde_step'),      ('mu_tilde', 'mu', 'U', 'nu_tilde', 'nu'),
+                                                                                           _NONE,             False),
+    Rule('_eta_tilde_top', ('site', 'eta_tilde_top_step'),  ('mu_tilde', 'mu', 'U', 'nu_tilde', 'nu', 'w'),
+                                                                                           _NONE,             False),
+    Rule('V_tilde',        ('site', 'V_tilde_step'),        ('_eta_tilde_top', 'eta', 'w', 'w_tilde'),
+                                                                                           _NONE,             False),
+    Rule('H_tilde',        ('site', 'H_tilde_step'),        ('mu_tilde', 'mu', 'xi_tilde', 'xi', 'nu_tilde', 'nu'),
+                                                                                           _NONE,             False),
+    Rule('g',              ('whole', 'g_step'),             ('V_tilde', 'H_tilde'),        _NONE,             False),
 )
 
 _GRAPHS = {'probe': _PROBE_GRAPH}
@@ -130,27 +177,42 @@ _KINDS = ('probe', 'apply', 'entries')
 _STORES = frozenset({'D', 'U', 'L', 'R'})                   # the stores of a manifold frame
 _ARGUMENTS = frozenset({'w', 'y', 'weight', 'Vc'})          # the arguments a row may read; 'w' is the sample
 _DRIVERS = ('site', 'left', 'right', 'whole')
+_STARTS = ('ones', 'zeros')
 
 # A site op at site i reads the left of bond i (the mu family) and the right of bond i + 1 (the nu family).
 _BOND_OFFSET = {'mu': 0, 'nu': 1}
 
-# name: (index, jet sizes, size). The index: 'bond' (0 .. d), 'site' or 'mode' (0 .. d-1). The jet sizes: 'F', or
-# 'leaf' (the input's, clipped to F). The size of the last axis, at index i.
+# name: (index, jet sizes, size). The index: 'bond' (0 .. d), 'site' or 'mode' (0 .. d-1). The jet sizes: 'F';
+# 'leaf' (the input's, clipped to F); or 'none' (a block: no jet axes and no W). The size of the last axis at index i,
+# or for a block the shape of the core it stands for ('V': (nUi, Ni); 'H': (rLi, nDi, rR(i+1))).
 _SHAPES = {
-    'xi':     ('site', 'leaf', 'nD'),
-    'mu':     ('bond', 'F',    'rL'),
-    'nu':     ('bond', 'F',    'rR'),
-    'nu_L':   ('bond', 'F',    'rL'),
-    'eta':    ('site', 'F',    'nU'),
-    'eta_D':  ('site', 'F',    'nD'),
-    'z':      ('mode', 'F',    'N'),
-    'r':      ('mode', 'F',    'N'),
+    'xi':              ('site', 'leaf', 'nD'),
+    'mu':              ('bond', 'F',    'rL'),
+    'nu':              ('bond', 'F',    'rR'),
+    'nu_L':            ('bond', 'F',    'rL'),
+    'eta':             ('site', 'F',    'nU'),
+    'eta_D':           ('site', 'F',    'nD'),
+    'z':               ('mode', 'F',    'N'),
+    'r':               ('mode', 'F',    'N'),
+    'w_tilde':         ('mode', 'F',    'N'),
+    'xi_tilde':        ('site', 'F',    'nD'),
+    'mu_tilde':        ('bond', 'F',    'rL'),
+    'nu_tilde':        ('bond', 'F',    'rR'),
+    'eta_tilde':       ('site', 'F',    'nU'),
+    '_eta_tilde_top':  ('site', 'leaf', 'nU'),
+    'V_tilde':         ('site', 'none', 'V'),
+    'H_tilde':         ('site', 'none', 'H'),
 }
 
 
 def _made(graph: typ.Tuple[Rule, ...]) -> typ.Tuple[str, ...]:
-    '''The variables a graph makes, each once, in the order of their first row.'''
+    '''The variables a graph makes, each once, in the order of their first row; private nodes included.'''
     return tuple(dict.fromkeys(rule.name for rule in graph))
+
+
+def _public(graph: typ.Tuple[Rule, ...]) -> typ.Tuple[str, ...]:
+    '''The public variables a graph makes: those that can be wanted and held.'''
+    return tuple(name for name in _made(graph) if not name.startswith('_'))
 
 
 @functools.lru_cache(maxsize=None)
@@ -198,9 +260,10 @@ def _closure(
 class HeldVariables:
     """Sampling variables kept at one frame, to be handed back to :py:func:`sampling_variables` as ``held=``.
 
-    One slot per computed variable that some other row of the engine's graphs reads; a slot is ``None`` when not
-    held. The slots: ``xi``, ``mu``, ``nu``, ``nu_L``, ``eta``, ``eta_D``, ``z``, ``r``, each a tuple over the
-    variable's index with the shapes of the module's table. It reads like a dictionary over its filled slots: ``held['mu']``, ``'mu' in held``, ``held.keys()``,
+    One slot per public computed variable of the engine's graphs (``w``, the sample, and the private nodes
+    excepted); a slot is ``None`` when not held. Each holds the variable as the engine returns it: a tuple over its
+    index with the shapes of the module's table, one array for ``f`` and ``r_block_sumsq``, the pair of tuples for
+    ``g``. It reads like a dictionary over its filled slots: ``held['mu']``, ``'mu' in held``, ``held.keys()``,
     iteration and ``len``. An unknown name raises, at construction, in :py:meth:`with_values` and at lookup.
     :py:meth:`with_values` returns a new record; a record is never changed in place.
 
@@ -230,6 +293,16 @@ class HeldVariables:
     eta_D:  typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=F+W+C+(nDi,)
     z:      typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=F+W+C+(Ni,)
     r:      typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=F+W+C+(Ni,)
+    f:              typ.Optional[NDArray] = None                    # shape=C
+    r_block_sumsq:  typ.Optional[NDArray] = None                    # shape=(d,)+F
+    w_tilde:        typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=F+W+C+(Ni,), turned
+    xi_tilde:       typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=F+W+C+(nDi,), turned
+    mu_tilde:       typ.Optional[typ.Sequence[NDArray]] = None      # len=d+1, elm_shape=F+W+C+(rLi,), turned
+    nu_tilde:       typ.Optional[typ.Sequence[NDArray]] = None      # len=d+1, elm_shape=F+W+C+(rRi,), turned
+    eta_tilde:      typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=F+W+C+(nUi,), turned
+    V_tilde:        typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=C+(nUi,Ni)
+    H_tilde:        typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=C+(rLi,nDi,rR(i+1))
+    g:              typ.Optional[typ.Tuple] = None                  # (V_tilde, H_tilde)
 
     @classmethod
     def slots(cls) -> typ.Tuple[str, ...]:
@@ -333,29 +406,51 @@ def _shape(
     if name == 'r_block_sumsq':
         return (setting.d,) + setting.box
     _, jets, size = _SHAPES[name]
+    sizes = setting.sizes
+    if jets == 'none':
+        core = ((sizes['nU'][i], sizes['N'][i]) if size == 'V'
+                else (sizes['rL'][i], sizes['nD'][i], sizes['rR'][i + 1]))
+        return setting.C + core
     J = tuple(min(a, f) for a, f in zip(setting.J_in[i], setting.box)) if jets == 'leaf' else setting.box
-    return J + setting.W + setting.C + (setting.sizes[size][i],)
+    return J + setting.W + setting.C + (sizes[size][i],)
 
 
 def _count(name: str, setting: _Setting) -> int:
-    '''How many arrays the variable has: ``d + 1`` for a bond variable, ``d`` otherwise.'''
+    '''How many arrays an indexed variable has: ``d + 1`` for a bond variable, ``d`` otherwise.'''
     return setting.d + 1 if _SHAPES[name][0] == 'bond' else setting.d
 
 
+def _expected(name: str, setting: _Setting) -> typ.Any:
+    '''The shapes of the whole variable ``name``, in its form: a shape for ``f`` and ``r_block_sumsq``, a tuple of
+    shapes over the index for an indexed variable, the pair of those of ``V_tilde`` and ``H_tilde`` for ``g``.'''
+    if name in ('f', 'r_block_sumsq'):
+        return _shape(name, None, setting)
+    if name == 'g':
+        return (_expected('V_tilde', setting), _expected('H_tilde', setting))
+    return tuple(_shape(name, i, setting) for i in range(_count(name, setting)))
+
+
+def _check_form(where: str, value: typ.Any, expected: typ.Any) -> None:
+    '''``value`` has the form of ``expected``: one array of the shape ``expected`` (a tuple of ints), or a
+    sequence of the length of ``expected`` (a tuple of such), entry by entry.'''
+    if all(isinstance(n, int) for n in expected):
+        if isinstance(value, (tuple, list)) or tuple(np.shape(value)) != expected:
+            raise ValueError('sampling_variables: the held %s has shape %s; expected %s'
+                             % (where, type(value).__name__ if isinstance(value, (tuple, list)) else
+                                tuple(np.shape(value)), expected))
+        return
+    if not isinstance(value, (tuple, list)) or len(value) != len(expected):
+        raise ValueError('sampling_variables: the held %s must be a tuple of %d; got %s'
+                         % (where, len(expected), type(value).__name__ if not isinstance(value, (tuple, list))
+                            else 'a %s of length %d' % (type(value).__name__, len(value))))
+    for i, (item, shape) in enumerate(zip(value, expected)):
+        _check_form('%s[%d]' % (where, i), item, shape)
+
+
 def _check_held(held: 'HeldVariables', setting: _Setting) -> None:
-    '''Every filled slot has the shapes of the table. Structural: raises a ``ValueError``.'''
+    '''Every filled slot has the form and the shapes of the table. Structural: raises a ``ValueError``.'''
     for name in held.keys():
-        value = held[name]
-        count = _count(name, setting)
-        if not isinstance(value, (tuple, list)) or len(value) != count:
-            raise ValueError('sampling_variables: the held %r must be a tuple of %d arrays; got %s'
-                             % (name, count, type(value).__name__ if not isinstance(value, (tuple, list))
-                                else 'a %s of length %d' % (type(value).__name__, len(value))))
-        for i, array in enumerate(value):
-            expected = _shape(name, i, setting)
-            if tuple(np.shape(array)) != expected:
-                raise ValueError('sampling_variables: the held %s[%d] has shape %s; expected %s'
-                                 % (name, i, tuple(np.shape(array)), expected))
+        _check_form(name, held[name], _expected(name, setting))
 
 
 #####################################################
@@ -417,7 +512,10 @@ def _run(
     store = args[0]                                         # a sweep's first read: the TT store it sweeps through
     at_start = driver == 'left'
     size = np.shape(store[0])[-3] if at_start else np.shape(store[-1])[-1]
-    start = sampling_steps.start_ones(setting.box, setting.W, tuple(np.shape(store[0])[:-3]), size, dtype, xnp)
+    if rule.start not in _STARTS:
+        raise ValueError('sampling_variables: the sweep %r declares the start %r' % (rule.name, rule.start))
+    start = getattr(sampling_steps, 'start_' + rule.start)(setting.box, setting.W, tuple(np.shape(store[0])[:-3]),
+                                                           size, dtype, xnp)
     body = _sweep_body(step_name, lens, order, form)
     if at_start:
         _, (bonds,) = xscan(body, start, per_site)
@@ -569,7 +667,7 @@ def sampling_variables(
     if isinstance(want, str):
         raise TypeError('sampling_variables: want is a sequence of names, not one name; got %r' % (want,))
     want = tuple(want)
-    names = _made(graph) + ('w',)
+    names = _public(graph) + ('w',)
     unknown = [name for name in want if name not in names]
     if unknown:
         raise ValueError('sampling_variables: unknown variable %s for the %s kind; the names are %s'

@@ -13,16 +13,22 @@
 2. **The declared jet sizes** (`TestDeclaredJetSizes`): every variable the engine returns has the shape of the
    module's table, the leaves the input's jet sizes clipped to ``F``; every ``jet_contract`` call of a step is
    given the jet shape of its output from the table (the calls recorded through ``contractions.jet_contract``).
-3. **The result dtype** (`TestResultDtype`): the lowest floating precision among the arrays the call reads, in its
+3. **The generic twin** (`TestAgainstTheGenericTwin`): the plain and tilde variables against
+   ``_generic_twin.py``, which shares no code with the engine and forms ``V_tilde`` from the full ``eta_tilde``.
+   **The short form** (`TestTheShortForm`): the private node ``_eta_tilde_top`` is the slice of the full
+   ``eta_tilde``, to rounding; ``g`` does not depend on wanting ``eta_tilde``.
+4. **The result dtype** (`TestResultDtype`): the lowest floating precision among the arrays the call reads, in its
    simplest cases (the matrix is P10's).
-4. **The safety mode** (`TestNoSafetyMode`): the numbers and the errors are the same in safe mode, in
+5. **The safety mode** (`TestNoSafetyMode`): the numbers and the errors are the same in safe mode, in
    ``safety.unsafe()`` and under ``jax.jit``.
 
 Numerical comparisons are to a tolerance, structural ones exact. numpy only, by the house convention, except the
-jit case of 4; the engine under jit is in ``test_dispatch.py`` too.
+jit case of 5; the engine under jit is in ``test_dispatch.py`` too.
 """
+import ast
 import contextlib
 import os
+import pathlib
 import sys
 import unittest
 import unittest.mock
@@ -33,10 +39,12 @@ import t3toolbox.safety as safety
 import t3toolbox.backend.contractions as contractions
 import t3toolbox.backend.jets as jets
 import t3toolbox.backend.sampling_definitions as sdef
+import t3toolbox.backend.sampling_steps as sampling_steps
 import t3toolbox.backend.sampling_variables as sv
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import test_sampling_definitions as defs        # the problems and the jet matrix of the reference's tests
+import _generic_twin as generic_twin            # the prototype's one program over a graded algebra: test-only
 
 try:
     import jax
@@ -46,7 +54,8 @@ except ImportError:
     HAS_JAX = False
 
 TOL = 1e-10
-NAMES = ('w', 'xi', 'mu', 'nu', 'nu_L', 'eta', 'eta_D', 'z', 'r', 'f', 'r_block_sumsq')
+NAMES = ('w', 'xi', 'mu', 'nu', 'nu_L', 'eta', 'eta_D', 'z', 'r', 'f', 'r_block_sumsq',
+         'w_tilde', 'xi_tilde', 'mu_tilde', 'nu_tilde', 'eta_tilde', 'V_tilde', 'H_tilde', 'g')
 
 
 def tails_one_axis():
@@ -70,7 +79,10 @@ def reference(problem, case, name):
 
 
 def arrays_of(value):
-    return list(value) if isinstance(value, (tuple, list)) else [value]
+    """The arrays of a value, in order: an array, a tuple over an index, or ``g``'s pair of tuples."""
+    if isinstance(value, (tuple, list)):
+        return [array for item in value for array in arrays_of(item)]
+    return [value]
 
 
 class TestByDefinition(unittest.TestCase):
@@ -127,12 +139,89 @@ def consistent_frame(seed):
     return tuple(tuple(store) for store in frame), tuple(Vc)
 
 
+class TestAgainstTheGenericTwin(unittest.TestCase):
+    """The generic twin (``_generic_twin.py``): the prototype's one message-passing program over a graded algebra,
+    sharing no code with the engine. It forms ``V_tilde`` from the FULL ``eta_tilde``, so it checks the engine's
+    short form the long way round, per jet axis on the mixed-modes case."""
+
+    NAMES = ('z', 'r', 'w_tilde', 'mu', 'nu', 'eta', 'xi_tilde', 'mu_tilde', 'nu_tilde', 'eta_tilde', 'V_tilde',
+             'H_tilde')
+
+    def test_the_twin_and_the_engine_agree(self):
+        for problem_name, make in PROBLEMS[:2]:
+            problem = make()
+            for case in (defs.NO_JETS, defs.LINE_3, defs.PLANE, defs.MIXED_MODES, defs.MIXED_SIZES):
+                y, weight = problem.data('probe', case)
+                sample = problem.input_jets(case)
+                twin = generic_twin.twin(problem.frame, sample, case.order, y, weight)
+                got = dict(zip(self.NAMES, engine(problem, case, self.NAMES)))
+                for name in self.NAMES:
+                    with self.subTest(problem=problem_name, jets=case.label, name=name):
+                        for a, b in zip(arrays_of(got[name]), arrays_of(twin[name])):
+                            self.assertLessEqual(defs.relative_error(a, b), TOL)
+                (xi,) = engine(problem, case, ('xi',))                    # the leaves: the twin lifts them to F
+                with self.subTest(problem=problem_name, jets=case.label, name='xi'):
+                    for a, b in zip(xi, twin['xi']):
+                        self.assertLessEqual(defs.relative_error(a, b[tuple(slice(0, n) for n in a.shape[:case.m])]),
+                                             TOL)
+
+    def test_the_twin_imports_nothing_of_the_library(self):
+        tree = ast.parse(pathlib.Path(generic_twin.__file__).read_text())
+        imported = {alias.name.split('.')[0] for node in ast.walk(tree) if isinstance(node, ast.Import)
+                    for alias in node.names}
+        imported |= {node.module.split('.')[0] for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)}
+        self.assertEqual(imported, {'itertools', 'numpy'})
+
+
+class TestTheShortForm(unittest.TestCase):
+    """The private node ``_eta_tilde_top`` (the slots of ``eta_tilde`` that ``V_tilde`` reads) equals the slice
+    ``eta_tilde[i][c - a + 1 : c + 1]`` of the full one on every jet axis, to rounding; and ``V_tilde`` reads the
+    short node whether ``eta_tilde`` is wanted or not: the route is pinned exactly, the value of ``g`` to rounding (the
+    maintainer's rule of 2026-11-20: the same value is equal to rounding)."""
+
+    def test_the_short_node_is_the_slice_of_the_full_eta_tilde(self):
+        for problem_name, make in PROBLEMS:
+            problem = make()
+            for case in defs.JET_CASES:
+                tops = []
+                step = sampling_steps.eta_tilde_top_step
+                with unittest.mock.patch.object(sampling_steps, 'eta_tilde_top_step',
+                                                side_effect=lambda *a, **k: tops.append(step(*a, **k)) or tops[-1]):
+                    (eta_tilde,) = engine(problem, case, ('eta_tilde', 'g'))[:1]
+                sample = problem.input_jets(case)
+                with self.subTest(problem=problem_name, jets=case.label):
+                    self.assertEqual(len(tops), problem.d)
+                    for i, (top, full) in enumerate(zip(tops, eta_tilde)):
+                        a = tuple(min(s_, f) for s_, f in zip(sample[i].shape[:case.m], case.box))
+                        self.assertEqual(top.shape[:case.m], a)
+                        sliced = full[tuple(slice(f - a_k, f) for f, a_k in zip(case.box, a))]
+                        self.assertLessEqual(defs.relative_error(top, sliced), 1e-13)
+
+    def test_g_does_not_depend_on_wanting_eta_tilde(self):
+        problem = tails_one_axis()
+        step = sampling_steps.eta_tilde_top_step
+        for case in (defs.LINE_3, defs.MIXED_MODES):
+            calls = {}
+            for want in (('g',), ('g', 'eta_tilde')):
+                calls[want] = []
+                with unittest.mock.patch.object(sampling_steps, 'eta_tilde_top_step',
+                                                side_effect=lambda *a, **k: calls[want].append(1) or step(*a, **k)):
+                    calls[want + ('result',)] = engine(problem, case, want)[0]
+            with self.subTest(jets=case.label):
+                # the route, exactly: the short node is made once per site, wanted eta_tilde or not
+                self.assertEqual(len(calls[('g',)]), problem.d)
+                self.assertEqual(len(calls[('g', 'eta_tilde')]), problem.d)
+                # the value, to rounding
+                for a, b in zip(arrays_of(calls[('g', 'result')]), arrays_of(calls[('g', 'eta_tilde', 'result')])):
+                    self.assertLessEqual(defs.relative_error(a, b), 1e-13)
+
+
 class TestDeclaredJetSizes(unittest.TestCase):
 
     def test_the_shapes_are_those_of_the_table(self):
         """Every indexed variable has, at every index, the shape ``_shape`` gives from the table ``_SHAPES``:
         ``J + W + C + (size,)``, ``J`` the input's jet sizes clipped to ``F`` for the leaves and ``F`` otherwise."""
-        names = tuple(sv._SHAPES)
+        names = tuple(name for name in sv._SHAPES if not name.startswith('_'))
         for problem_name, make in PROBLEMS:
             problem = make()
             for case in defs.JET_CASES:
@@ -145,15 +234,19 @@ class TestDeclaredJetSizes(unittest.TestCase):
                         for i, array in enumerate(got[name]):
                             self.assertEqual(array.shape, sv._shape(name, i, setting))
                             jets = array.shape[:case.m]
-                            if name == 'xi':
+                            if sv._SHAPES[name][1] == 'none':           # a block: C + the core's shape
+                                self.assertEqual(array.ndim, 2 if name == 'V_tilde' else 3)
+                            elif name == 'xi':
                                 self.assertEqual(jets, tuple(min(a, f) for a, f in
                                                              zip(sample[i].shape[:case.m], case.box)))
                             else:
                                 self.assertEqual(jets, case.box)
-                f, blocks = engine(problem, case, ('f', 'r_block_sumsq'))
-                with self.subTest(problem=problem_name, jets=case.label, name='f, r_block_sumsq'):
+                f, blocks, g = engine(problem, case, ('f', 'r_block_sumsq', 'g'))
+                with self.subTest(problem=problem_name, jets=case.label, name='f, r_block_sumsq, g'):
                     self.assertEqual(np.shape(f), ())
                     self.assertEqual(blocks.shape, (problem.d,) + case.box)
+                    self.assertEqual(sv._expected('g', setting), (tuple(a.shape for a in g[0]),
+                                                                  tuple(a.shape for a in g[1])))
 
     def test_every_jet_contract_call_is_given_the_output_jet_shape_of_the_table(self):
         """The calls are recorded through ``contractions.jet_contract``. The leaf string ``'JWo,Cio->JWCi'`` is
@@ -256,7 +349,7 @@ class TestNoSafetyMode(unittest.TestCase):
                 with (safety.unsafe() if mode == 'unsafe' else contextlib.nullcontext()):
                     with self.assertRaisesRegex(ValueError, "'r' needs the argument y"):
                         sv.sampling_variables('probe', problem.frame, problem.ww, ('f',))
-                    with self.assertRaisesRegex(ValueError, "the held 'mu' must be a tuple of 4 arrays"):
+                    with self.assertRaisesRegex(ValueError, "the held mu must be a tuple of 4; got"):
                         sv.sampling_variables('probe', problem.frame, problem.ww, ('eta',),
                                               held=sv.HeldVariables(mu=problem.ww))
 

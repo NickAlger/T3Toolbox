@@ -54,11 +54,12 @@ def names_of(cell):
 class TestGraph(unittest.TestCase):
 
     def test_the_docstring_table_is_the_graph_row_for_row(self):
-        rows = doc_table('| Variable | Driver | Step | Reads | Needs | K |')
+        rows = doc_table('| Variable | Driver | Step | Reads | Needs | K | Start |')
         self.assertEqual(len(rows), len(sv._PROBE_GRAPH))
         for row, rule in zip(rows, sv._PROBE_GRAPH):
             with self.subTest(row=' | '.join(row)):
-                name, driver, step, reads, needs, K = row
+                name, driver, step, reads, needs, K, start = row
+                self.assertEqual(start or None, rule.start)
                 self.assertEqual(names_of(name), (rule.name,))
                 self.assertEqual((driver, names_of(step)), (rule.step[0], (rule.step[1],)))
                 self.assertEqual(names_of(reads), rule.reads)
@@ -73,8 +74,8 @@ class TestGraph(unittest.TestCase):
             index, jets, size = sv._SHAPES[name]
             with self.subTest(name=name):
                 self.assertEqual(row[1], index)
-                self.assertEqual(row[2], 'min(J_in_i, F)' if jets == 'leaf' else 'F')
-                self.assertEqual(row[3], size + '_i')
+                self.assertEqual(row[2], {'leaf': 'min(J_in_i, F)', 'F': 'F', 'none': 'none'}[jets])
+                self.assertEqual(row[3], {'V': '(nU_i, N_i)', 'H': '(rL_i, nD_i, rR_(i+1))'}.get(size, size + '_i'))
 
     def test_every_step_name_is_a_function_of_the_step_module(self):
         for rule in sv._PROBE_GRAPH:
@@ -96,11 +97,31 @@ class TestGraph(unittest.TestCase):
                 self.assertTrue(rule.needs <= sv._ARGUMENTS | {'variations', 'core_directions', '_manifold',
                                                                '_corewise'})
 
-    def test_the_held_slots_are_the_computed_variables_another_row_reads(self):
-        made = set(sv._made(sv._PROBE_GRAPH))
-        read_by_another = {name for rule in sv._PROBE_GRAPH for name in rule.reads if name != rule.name} & made
-        self.assertEqual(set(sv.HeldVariables.slots()), read_by_another)
+    def test_the_held_slots_are_the_public_computed_variables(self):
+        """Every public computed variable of the graphs (row 6.4: every variable can be wanted and held); not the
+        sample ``w``, an argument, and not a private node."""
+        public = [name for name in sv._made(sv._PROBE_GRAPH) if not name.startswith('_')]
+        self.assertEqual(sv.HeldVariables.slots(), tuple(public))
+        self.assertEqual(public, list(sv._public(sv._PROBE_GRAPH)))
         self.assertNotIn('w', sv.HeldVariables.slots())                     # an argument, not a slot
+        self.assertNotIn('_eta_tilde_top', sv.HeldVariables.slots())        # a private node
+        self.assertIn('_eta_tilde_top', sv._made(sv._PROBE_GRAPH))
+
+    def test_every_sweep_declares_its_start(self):
+        """Each row declares its start (not chosen by grade): the plain sweeps start at ones, the probe kind's tilde
+        sweeps at zeros, and a row of another driver declares none."""
+        expected = {'mu': 'ones', 'nu': 'ones', 'nu_L': 'ones', 'mu_tilde': 'zeros', 'nu_tilde': 'zeros'}
+        for rule in sv._PROBE_GRAPH:
+            with self.subTest(name=rule.name):
+                self.assertEqual(rule.start, expected.get(rule.name))
+                if rule.start is not None:
+                    self.assertIn(rule.start, sv._STARTS)
+        problem = defs.small()
+        mu_tilde, nu_tilde = sv.sampling_variables('probe', problem.frame, problem.input_jets(defs.LINE_1),
+                                                   ('mu_tilde', 'nu_tilde'), order=(1,),
+                                                   y=problem.data('probe', defs.LINE_1)[0])
+        self.assertFalse(mu_tilde[0].any() or nu_tilde[-1].any())          # the starts: zero
+        self.assertTrue(mu_tilde[1].any() and nu_tilde[-2].any())
 
     def test_the_bond_offsets_and_the_shape_table(self):
         """A site op reads the left of bond ``i`` (``mu``) and the right of bond ``i + 1`` (``nu``); every bond
@@ -124,7 +145,7 @@ class TestGraph(unittest.TestCase):
 
     def test_carries_K_is_a_field_of_every_row(self):
         self.assertIn('carries_K', sv.Rule._fields)
-        self.assertEqual({rule.carries_K for rule in sv._PROBE_GRAPH}, {False})     # no direction yet
+        self.assertEqual({rule.carries_K for rule in sv._PROBE_GRAPH}, {False})     # no direction yet (JtJp: P7)
 
 
 class CountingSteps:
@@ -209,6 +230,23 @@ class TestClosure(unittest.TestCase):
             ('w',):             {},
             ('z', 'z', 'mu'):   {'xi_step': d, 'mu_step': d, 'nu_step': d, 'eta_step': d, 'z_step': d},
         }
+        # the tilde grade: the seed reads r (through z, by D: nu_L and eta_D); nu (through R) is swept for nu_tilde
+        seed = {'xi_step': d, 'mu_step': d, 'nu_step': d, 'eta_step': d, 'z_step': d, 'r_step': 1, 'w_tilde_step': 1}
+        plus = lambda base, **more: dict(base, **{k: base.get(k, 0) + v for k, v in more.items()})
+        sweeps = plus(seed, xi_tilde_step=d, mu_tilde_step=d, nu_tilde_step=d, nu_step=d)
+        expected.update({
+            ('w_tilde',):           seed,
+            ('xi_tilde',):          plus(seed, xi_tilde_step=d),
+            ('mu_tilde',):          plus(seed, xi_tilde_step=d, mu_tilde_step=d),
+            ('nu_tilde',):          plus(seed, xi_tilde_step=d, nu_tilde_step=d, nu_step=d),
+            ('H_tilde',):           plus(sweeps, H_tilde_step=d),
+            ('eta_tilde',):         plus(sweeps, eta_tilde_step=d),
+            ('V_tilde',):           plus(sweeps, eta_step=d, eta_tilde_top_step=d, V_tilde_step=d),
+            ('g',):                 plus(sweeps, eta_step=d, eta_tilde_top_step=d, V_tilde_step=d, H_tilde_step=d,
+                                         g_step=1),
+            ('g', 'eta_tilde'):     plus(sweeps, eta_step=d, eta_tilde_top_step=d, V_tilde_step=d, H_tilde_step=d,
+                                         g_step=1, eta_tilde_step=d),
+        })
         for want, counts in expected.items():
             with self.subTest(want=want):
                 with CountingSteps() as steps:
@@ -254,8 +292,10 @@ class TestChecks(unittest.TestCase):
     def test_an_unknown_kind_or_name_raises(self):
         with self.assertRaisesRegex(ValueError, 'unknown sampling kind'):
             sv.sampling_variables('probes', self.frame, self.ww, ('z',))
-        with self.assertRaisesRegex(ValueError, "unknown variable 'g', 'zz' for the probe kind"):
-            sv.sampling_variables('probe', self.frame, self.ww, ('z', 'g', 'zz'))
+        with self.assertRaisesRegex(ValueError, "unknown variable 'Jp', 'zz' for the probe kind"):
+            sv.sampling_variables('probe', self.frame, self.ww, ('z', 'Jp', 'zz'))
+        with self.assertRaisesRegex(ValueError, "unknown variable '_eta_tilde_top'"):     # a private node
+            sv.sampling_variables('probe', self.frame, self.ww, ('_eta_tilde_top',))
         with self.assertRaisesRegex(TypeError, 'want is a sequence of names'):
             sv.sampling_variables('probe', self.frame, self.ww, 'z')
         for kind in ('apply', 'entries'):
@@ -284,10 +324,9 @@ class TestChecks(unittest.TestCase):
     def test_a_held_variable_of_a_wrong_form_raises(self):
         mu, z = sv.sampling_variables('probe', self.frame, self.ww, ('mu', 'z'))
         bad = {
-            'one array too few':   (sv.HeldVariables(mu=mu[:-1]), r"the held 'mu' must be a tuple of 4 arrays; got a "
-                                                                   r"tuple of length 3"),
-            'one array, not a tuple': (sv.HeldVariables(mu=mu[0]), r"the held 'mu' must be a tuple of 4 arrays; got "
-                                                                   r"ndarray"),
+            'one array too few':   (sv.HeldVariables(mu=mu[:-1]), r"the held mu must be a tuple of 4; got a tuple of "
+                                                                   r"length 3"),
+            'one array, not a tuple': (sv.HeldVariables(mu=mu[0]), r"the held mu must be a tuple of 4; got ndarray"),
             'a wrong bond size':   (sv.HeldVariables(mu=mu[:1] + (np.zeros((3, 5)),) + mu[2:]),
                                     r'the held mu\[1\] has shape \(3, 5\); expected \(3, 2\)'),
             'a jet axis too many': (sv.HeldVariables(z=tuple(z_i[None] for z_i in z)),
@@ -304,6 +343,22 @@ class TestChecks(unittest.TestCase):
         bad_nu = sv.sampling_variables('probe', self.frame, self.ww, ('nu_L',))[0]       # rL sizes where rR go
         with self.assertRaisesRegex(ValueError, r'the held nu\[1\] has shape \(3, 2\); expected \(3, 3\)'):
             sv.sampling_variables('probe', self.frame, self.ww, ('eta_D',), held=sv.HeldVariables(mu=mu, nu=bad_nu))
+        # the slots that are not a tuple over an index: f (one array, shape C), r_block_sumsq ((d,) + F), g (a pair)
+        y = self.problem.data('probe', defs.NO_JETS)[0]
+        f, blocks, g = sv.sampling_variables('probe', self.frame, self.ww, ('f', 'r_block_sumsq', 'g'), y=y)
+        sv.sampling_variables('probe', self.frame, self.ww, ('w',), held=sv.HeldVariables(f=f, r_block_sumsq=blocks, g=g))
+        for label, held, pattern in (
+                ('f as a tuple', sv.HeldVariables(f=(f,)), r'the held f has shape tuple; expected \(\)'),
+                ('f with an axis', sv.HeldVariables(f=f[None]), r'the held f has shape \(1,\); expected \(\)'),
+                ('blocks of a jet axis', sv.HeldVariables(r_block_sumsq=blocks[:, None]),
+                 r'the held r_block_sumsq has shape \(3, 1\); expected \(3,\)'),
+                ('g one family', sv.HeldVariables(g=g[0]), r'the held g must be a tuple of 2; got a tuple of length 3'),
+                ('g a block short', sv.HeldVariables(g=(g[0], g[1][:2])),
+                 r'the held g\[1\] must be a tuple of 3; got a tuple of length 2'),
+                ('g a block of V where H goes', sv.HeldVariables(g=(g[0], g[0])), r'the held g\[1\]\[0\] has shape')):
+            with self.subTest(case=label):
+                with self.assertRaisesRegex(ValueError, pattern):
+                    sv.sampling_variables('probe', self.frame, self.ww, ('w',), held=held)
         with self.assertRaisesRegex(TypeError, 'held is a HeldVariables or None'):
             sv.sampling_variables('probe', self.frame, self.ww, ('z',), held={'mu': mu})
 

@@ -2,8 +2,11 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
-"""Test-only: the 29 literal ``jet_contract`` strings of the sampling terms, the operand shapes the library
+"""Test-only: the 31 literal ``jet_contract`` strings of the sampling terms, the operand shapes the library
 gives them, and a reference that uses neither ``contract`` nor ``jet_contract``.
+
+The 29 strings of the plan's section 2.4, in seven families, and, since P6, the two of ``eta_top``: the short form of
+``eta_tilde`` reads one slot of the eta product as a readout at a lowered corner that keeps ``W``.
 
 A variable has the shape ``J + W + [K] + C + (size,)``:
 
@@ -45,6 +48,7 @@ STRINGS = {
             'JWCi,JWCo->Cio',               'JWKCi,JWCo->KCio',                 'JWCi,JWKCo->KCio'],    # a seed
     'H':   ['JWCa,JWCi,JWCb->Caib',         'JWKCa,JWCi,JWCb->KCaib',           'JWCa,JWKCi,JWCb->KCaib',
             'JWCa,JWCi,JWKCb->KCaib'],
+    'eta_top': ['JWKCa,Caib,JWCb->WKCi',    'JWCa,Caib,JWKCb->WKCi'],          # a slot of eta_tilde (P6)
 }
 ALL_STRINGS = [(family, string) for family, strings in STRINGS.items() for string in strings]
 

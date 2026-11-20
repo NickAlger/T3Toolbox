@@ -272,8 +272,8 @@ y = [rng.standard_normal((3, 2, n)) for n in N]
 with warnings.catch_warnings():
     warnings.simplefilter('error')       # nothing here may ask for jax (the jax-absent warning would be an error)
     line = jets.affine_jet(ww, pp)
-    mu, z, f = sv.sampling_variables('probe', frame, line, ('mu', 'z', 'f'), order=(2,), y=y)
-    assert all(isinstance(a, np.ndarray) for a in mu + z) and isinstance(f, np.ndarray), (mu, z, f)
+    mu, z, f, g = sv.sampling_variables('probe', frame, line, ('mu', 'z', 'f', 'g'), order=(2,), y=y)
+    assert all(isinstance(a, np.ndarray) for a in mu + z + g[0] + g[1]) and isinstance(f, np.ndarray), (mu, z, f)
     held = sv.HeldVariables(mu=mu)
     assert held.keys() == ('mu',) and 'mu' in held and len(held) == 1
     assert held.with_values(z=z).keys() == ('mu', 'z') and held.keys() == ('mu',)

@@ -30,7 +30,13 @@ A step takes its arrays positionally, the carry first for a sweep, and the stati
 - ``form``: ``'loop'`` or ``'scan'``, how ``jet_contract`` takes a full partner one coefficient at a time.
 
 The start values: ``start_ones``, the vector of ones that closes an end bond, as a constant polynomial on the full
-box. (The start of the other grades, zero, comes with them.)
+box; ``start_zeros``, the start of a sweep whose variable has nothing at its end. Each row of the graph declares which.
+
+**The tilde steps** carry ``K`` on their tilde operands in their strings (``'JWKCa,Caib,JWCi->JWKCb'``, ...): with a
+record whose ``K`` is zero (the residual's adjoint) they are the plain strings, and with the call's ``K`` they serve
+the adjoint seeded by a stack of directions. **The readouts** (the blocks ``V_tilde``, ``H_tilde``) are
+``jet_contract`` calls with no ``J`` in the output: the coefficient at the corner of the product, the corner being the
+jet shape passed.
 
 The **whole steps** (``r_step``, ``f_step``, ``r_block_sumsq_step``) act on a whole variable, one array per mode
 for the probe kind, and take the same statics.
@@ -42,6 +48,7 @@ import typing as typ
 import numpy as np
 
 import t3toolbox.backend.contractions as contractions
+import t3toolbox.backend.jets as jets
 from t3toolbox.backend.common import *
 
 __all__ = []
@@ -128,8 +135,172 @@ def z_step(
 
 
 ###############################################
+########    The tilde grade (5.3)    ##########
+###############################################
+
+def xi_tilde_step(
+        B_Cio:          NDArray,            # a Tucker core, C+(n, N): D[i]
+        w_tilde_JWCo:   NDArray,            # the seed of mode i, F+W+[K]+C+(N,), stored turned
+        *,
+        lens:           contractions.GroupLengths,
+        order:          typ.Tuple[int, ...],
+        form:           str,
+) -> NDArray:                               # xi_tilde[i]: F+W+[K]+C+(n,)
+    '''``xi_tilde[i] = xi_term(D[i], w_tilde[i])``: the Tucker core applied to the seed, a full dual jet.'''
+    return contractions.jet_contract('JWKCo,Cio->JWKCi', w_tilde_JWCo, B_Cio,
+                                     lens=lens, order=order, over_orders=form)
+
+
+def mu_tilde_step(
+        mu_tilde_JWCa:  NDArray,            # the carry: mu_tilde at bond i, F+W+[K]+C+(ra,)
+        G_Caib:         NDArray,            # L[i], C+(ra, n, rb)
+        mu_JWCa:        NDArray,            # mu at bond i, F+W+C+(ra,)
+        xi_JWCi:        NDArray,            # the leaf of site i, min(J_in, F)+W+C+(n,)
+        xi_tilde_JWCi:  NDArray,            # xi_tilde[i], F+W+[K]+C+(n,)
+        *,
+        lens:           contractions.GroupLengths,
+        order:          typ.Tuple[int, ...],
+        form:           str,
+) -> NDArray:                               # mu_tilde at bond i+1, F+W+[K]+C+(rb,)
+    '''``mu_tilde[i+1] = mu_term(mu_tilde[i], L[i], xi[i]) + mu_term(mu[i], L[i], xi_tilde[i])``.'''
+    return (contractions.jet_contract('JWKCa,Caib,JWCi->JWKCb', mu_tilde_JWCa, G_Caib, xi_JWCi,
+                                      lens=lens, order=order, over_orders=form)
+            + contractions.jet_contract('JWCa,Caib,JWKCi->JWKCb', mu_JWCa, G_Caib, xi_tilde_JWCi,
+                                        lens=lens, order=order, over_orders=form))
+
+
+def nu_tilde_step(
+        nu_tilde_JWCb:  NDArray,            # the carry: nu_tilde at bond i+1, F+W+[K]+C+(rb,)
+        G_Caib:         NDArray,            # R[i], C+(ra, n, rb)
+        nu_JWCb:        NDArray,            # nu at bond i+1, F+W+C+(rb,)
+        xi_JWCi:        NDArray,            # the leaf of site i
+        xi_tilde_JWCi:  NDArray,            # xi_tilde[i], F+W+[K]+C+(n,)
+        *,
+        lens:           contractions.GroupLengths,
+        order:          typ.Tuple[int, ...],
+        form:           str,
+) -> NDArray:                               # nu_tilde at bond i, F+W+[K]+C+(ra,)
+    '''``nu_tilde[i] = nu_term(R[i], xi[i], nu_tilde[i+1]) + nu_term(R[i], xi_tilde[i], nu[i+1])``.'''
+    return (contractions.jet_contract('Caib,JWCi,JWKCb->JWKCa', G_Caib, xi_JWCi, nu_tilde_JWCb,
+                                      lens=lens, order=order, over_orders=form)
+            + contractions.jet_contract('Caib,JWKCi,JWCb->JWKCa', G_Caib, xi_tilde_JWCi, nu_JWCb,
+                                        lens=lens, order=order, over_orders=form))
+
+
+def eta_tilde_step(
+        mu_tilde_JWCa:  NDArray,            # mu_tilde at bond i, F+W+[K]+C+(ra,)
+        mu_JWCa:        NDArray,            # mu at bond i
+        G_Caib:         NDArray,            # U[i], C+(ra, n, rb)
+        nu_tilde_JWCb:  NDArray,            # nu_tilde at bond i+1, F+W+[K]+C+(rb,)
+        nu_JWCb:        NDArray,            # nu at bond i+1
+        *,
+        lens:           contractions.GroupLengths,
+        order:          typ.Tuple[int, ...],
+        form:           str,
+) -> NDArray:                               # eta_tilde[i], F+W+[K]+C+(n,)
+    '''``eta_tilde[i] = eta_term(mu_tilde[i], U[i], nu[i+1]) + eta_term(mu[i], U[i], nu_tilde[i+1])``, every slot.'''
+    return (contractions.jet_contract('JWKCa,Caib,JWCb->JWKCi', mu_tilde_JWCa, G_Caib, nu_JWCb,
+                                      lens=lens, order=order, over_orders=form)
+            + contractions.jet_contract('JWCa,Caib,JWKCb->JWKCi', mu_JWCa, G_Caib, nu_tilde_JWCb,
+                                        lens=lens, order=order, over_orders=form))
+
+
+def eta_tilde_top_step(
+        mu_tilde_JWCa:  NDArray,            # as for eta_tilde_step
+        mu_JWCa:        NDArray,
+        G_Caib:         NDArray,
+        nu_tilde_JWCb:  NDArray,
+        nu_JWCb:        NDArray,
+        w_JWo:          NDArray,            # the input jet of site i: only its jet sizes are read
+        *,
+        lens:           contractions.GroupLengths,
+        order:          typ.Tuple[int, ...],
+        form:           str,
+) -> NDArray:                               # the top slots of eta_tilde[i]: a+W+[K]+C+(n,), a = min(J_in, F)
+    '''The short form of ``eta_tilde[i]``: only the slots ``V_tilde`` reads, ``eta_tilde[i][c - a + 1 : c + 1]`` on
+    every jet axis (``c`` the corner, ``a`` the input's jet sizes clipped to the box). Each slot is the coefficient of
+    the two terms of ``eta_tilde`` at that slot: two readouts at a lowered corner.'''
+    xnp, _, _ = get_backend(False, tree_contains_jax((mu_tilde_JWCa, mu_JWCa, G_Caib, nu_tilde_JWCb, nu_JWCb)))
+    a = tuple(f + 1 for f in _leaf_order(w_JWo, order))
+    slots = []
+    for j in np.ndindex(*a):
+        corner = tuple(n - a_k + 1 + j_k for n, a_k, j_k in zip(order, a, j))
+        slots.append(contractions.jet_contract('JWKCa,Caib,JWCb->WKCi', mu_tilde_JWCa, G_Caib, nu_JWCb,
+                                               lens=lens, order=corner, over_orders=form)
+                     + contractions.jet_contract('JWCa,Caib,JWKCb->WKCi', mu_JWCa, G_Caib, nu_tilde_JWCb,
+                                                 lens=lens, order=corner, over_orders=form))
+    return xnp.stack(slots).reshape(a + slots[0].shape)
+
+
+def V_tilde_step(
+        top_JWCi:       NDArray,            # the top slots of eta_tilde[i], a+W+[K]+C+(n,)
+        eta_JWCi:       NDArray,            # eta[i], F+W+C+(n,)
+        w_JWo:          NDArray,            # the input jet of site i, J_in+W+(N,)
+        w_tilde_JWCo:   NDArray,            # the seed of mode i, F+W+[K]+C+(N,)
+        *,
+        lens:           contractions.GroupLengths,
+        order:          typ.Tuple[int, ...],
+        form:           str,
+) -> NDArray:                               # V_tilde[i]: [K]+C+(n, N), summed over the samples
+    '''``V_tilde[i]``, the corner of ``V_term(eta_tilde[i], w[i]) + V_term(eta[i], w_tilde[i])``. The first term
+    from the top slots of ``eta_tilde``: with ``S`` those slots, the corner of ``eta_tilde * w`` is the coefficient
+    ``a - 1`` of ``S * w``, so it is a readout at the corner ``a - 1``, the leaf's jet shape.'''
+    return (contractions.jet_contract('JWKCi,JWo->KCio', top_JWCi, w_JWo,
+                                      lens=lens, order=_leaf_order(w_JWo, order), over_orders=form)
+            + contractions.jet_contract('JWCi,JWKCo->KCio', eta_JWCi, w_tilde_JWCo,
+                                        lens=lens, order=order, over_orders=form))
+
+
+def H_tilde_step(
+        mu_tilde_JWCa:  NDArray,            # mu_tilde at bond i
+        mu_JWCa:        NDArray,            # mu at bond i
+        xi_tilde_JWCi:  NDArray,            # xi_tilde[i]
+        xi_JWCi:        NDArray,            # xi[i], the leaf
+        nu_tilde_JWCb:  NDArray,            # nu_tilde at bond i+1
+        nu_JWCb:        NDArray,            # nu at bond i+1
+        *,
+        lens:           contractions.GroupLengths,
+        order:          typ.Tuple[int, ...],
+        form:           str,
+) -> NDArray:                               # H_tilde[i]: [K]+C+(ra, n, rb), summed over the samples
+    '''``H_tilde[i]``, the corner of ``H_term(mu_tilde, xi, nu) + H_term(mu, xi_tilde, nu) + H_term(mu, xi,
+    nu_tilde)`` at site ``i``: three readouts, the tilde on each of the three in turn.'''
+    return (contractions.jet_contract('JWKCa,JWCi,JWCb->KCaib', mu_tilde_JWCa, xi_JWCi, nu_JWCb,
+                                      lens=lens, order=order, over_orders=form)
+            + contractions.jet_contract('JWCa,JWKCi,JWCb->KCaib', mu_JWCa, xi_tilde_JWCi, nu_JWCb,
+                                        lens=lens, order=order, over_orders=form)
+            + contractions.jet_contract('JWCa,JWCi,JWKCb->KCaib', mu_JWCa, xi_JWCi, nu_tilde_JWCb,
+                                        lens=lens, order=order, over_orders=form))
+
+
+###############################################
 ########    The whole steps    ################
 ###############################################
+
+def w_tilde_step(
+        r:       typ.Sequence[NDArray],     # len=d, elm_shape=F+W+C+(Ni,)
+        weight:  typ.Optional[NDArray],     # (d,)+F; None = ones
+        *,
+        lens:    contractions.GroupLengths,
+        order:   typ.Tuple[int, ...],
+        form:    str,
+) -> typ.Tuple[NDArray, ...]:               # the seed. len=d, elm_shape=F+W+C+(Ni,), stored turned
+    '''The seed of the probe kind's adjoint: the residual made a dual jet, ``jet_to_dual_jet``: the weight squared,
+    then every jet axis flipped.'''
+    return jets.jet_to_dual_jet('probe', order, r, weight)
+
+
+def g_step(
+        V_tilde:  typ.Sequence[NDArray],    # len=d, elm_shape=C+(nUi, Ni)
+        H_tilde:  typ.Sequence[NDArray],    # len=d, elm_shape=C+(rLi, nDi, rR(i+1))
+        *,
+        lens:     contractions.GroupLengths,
+        order:    typ.Tuple[int, ...],
+        form:     str,
+) -> typ.Tuple[typ.Tuple[NDArray, ...], typ.Tuple[NDArray, ...]]:   # g = (V_tilde, H_tilde)
+    '''The gradient: the two families of blocks, paired.'''
+    return tuple(V_tilde), tuple(H_tilde)
+
 
 def r_step(
         z:      typ.Sequence[NDArray],      # len=d, elm_shape=F+W+C+(Ni,)
@@ -211,3 +382,15 @@ def start_ones(
     corner[(0,) * len(box)] = 1.0
     slots_F = xnp.asarray(corner, dtype=dtype).reshape(box + (1,) * (len(W) + len(C) + 1))
     return slots_F * xnp.ones(W + C + (size,), dtype=dtype)
+
+
+def start_zeros(
+        box:    typ.Tuple[int, ...],        # F
+        W:      typ.Tuple[int, ...],
+        C:      typ.Tuple[int, ...],
+        size:   int,
+        dtype:  typ.Any,
+        xnp,
+) -> NDArray:                               # F+W+C+(size,), all zero
+    '''The start of a sweep whose variable is zero at its end: a tilde sweep of the probe kind.'''
+    return xnp.zeros(box + W + C + (size,), dtype=dtype)

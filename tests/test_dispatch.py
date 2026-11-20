@@ -831,7 +831,7 @@ class TestDispatch(unittest.TestCase):
 
     # ---------------------------------------------------- jit bucket: the sampling engine
     def test_jit_sampling_variables(self):
-        """The engine under ``jax.jit`` for ``('f',)`` (a stray ``np.`` on a tracer would raise): jax in, jax out;
+        """The engine under ``jax.jit`` for ``('f', 'g')`` (a stray ``np.`` on a tracer would raise): jax in, jax out;
         numpy in under the trace (the frame closed over) gives jax too; the numbers are numpy's; the jet shape
         ``(2,)`` along a line and none."""
         import t3toolbox.backend.jets as jets
@@ -848,16 +848,18 @@ class TestDispatch(unittest.TestCase):
             F = tuple(n + 1 for n in order)
             y = [rng.standard_normal(F + (2, n)) for n in N]
             weight = 0.5 + rng.random((3,) + F)
-            fn = lambda frame, sample, y, weight: sv.sampling_variables('probe', frame, sample, ('f',), order=order,
-                                                                        y=y, weight=weight)
-            (on_numpy,) = fn(frame, sample, y, weight)
+            fn = lambda frame, sample, y, weight: sv.sampling_variables('probe', frame, sample, ('f', 'g'),
+                                                                        order=order, y=y, weight=weight)
+            on_numpy, g_numpy = fn(frame, sample, y, weight)
             to_jax = lambda tree: jax.tree_util.tree_map(jnp.asarray, tree)
             with self.subTest(order=order):
                 self.assert_jit_jax(fn, *to_jax((frame, sample, y, weight)))
-                (jitted,) = jax.jit(fn)(*to_jax((frame, sample, y, weight)))
+                jitted, g_jitted = jax.jit(fn)(*to_jax((frame, sample, y, weight)))
                 self.assertLess(abs(float(jitted) - float(on_numpy)), 1e-12 * abs(float(on_numpy)))
-                (closed,) = jax.jit(lambda sample, y: fn(frame, sample, y, weight))(*to_jax((sample, y)))
-                self.assertTrue(common.is_jax_ndarray(closed))
+                for a, b in zip(jax.tree_util.tree_leaves(g_jitted), jax.tree_util.tree_leaves(g_numpy)):
+                    self.assertLess(norm(np.asarray(a) - b), 1e-12 * norm(b))
+                closed, g_closed = jax.jit(lambda sample, y: fn(frame, sample, y, weight))(*to_jax((sample, y)))
+                self._leaves_all_jax((closed, g_closed))
                 self.assertLess(abs(float(closed) - float(on_numpy)), 1e-12 * abs(float(on_numpy)))
 
     # ---------------------------------------------------- jit bucket: the dense sampling functions

@@ -10,7 +10,9 @@
    slots ``(k, 0)``, is the call at ``(n_1,)`` along the first direction.
 3. **Held variables** (`TestHeld`): a held variable gives the result of a recomputed one, bit for bit; a held
    variable deliberately changed changes what reads it, as the recurrence says (it is used, not recomputed).
-4. **The two routes of ``z``** (`TestTwoRoutesOfZ`): ``z`` through ``D`` (the sweep of ``nu_L`` and ``eta_D``)
+4. **The gradient** (`TestGradient`): ``g`` paired with a direction is the derivative of ``f`` along it, by a
+   central difference (exact to rounding: ``f`` is quadratic along the direction).
+5. **The two routes of ``z``** (`TestTwoRoutesOfZ`): ``z`` through ``D`` (the sweep of ``nu_L`` and ``eta_D``)
    equals ``z`` with the Tucker centers ``Vc`` (``eta`` through the frame), on a frame whose stores and centers
    agree.
 
@@ -24,6 +26,7 @@ import unittest
 import numpy as np
 
 import t3toolbox.backend.jets as jets
+import t3toolbox.backend.sampling_definitions as sdef
 import t3toolbox.backend.sampling_variables as sv
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -88,7 +91,7 @@ class TestHeld(unittest.TestCase):
     def test_a_held_variable_gives_the_recomputed_result(self):
         """Each slot held in turn, everything wanted: the same arrays, bit for bit (the held value is the one a
         recomputation makes, and every later operation is the same)."""
-        names = INDEXED + ('f', 'r_block_sumsq')
+        names = sv.HeldVariables.slots()
         everything = dict(zip(names, self.call(names)))
         for slot in sv.HeldVariables.slots():
             held = sv.HeldVariables(**{slot: everything[slot]})
@@ -114,6 +117,29 @@ class TestHeld(unittest.TestCase):
         (f2,) = sv.sampling_variables('probe', self.problem.frame, self.sample, ('f',), order=self.case.order,
                                       weight=self.weight, held=sv.HeldVariables(r=r))
         self.assertEqual(float(f2), float(f))
+
+
+class TestGradient(unittest.TestCase):
+
+    def test_g_is_the_derivative_of_f(self):
+        """Along a direction ``p = (V, H)`` at the frame, ``f`` is a quadratic in ``t`` (``z`` moves along the
+        reference's ``Jp``, linearly), so the central difference of ``f`` is exact to rounding: it equals ``<g, p>``.
+        A random nonuniform weight, every jet case."""
+        problem = tsv.tails_one_axis()
+        for case in defs.JET_CASES:
+            y, weight = problem.data('probe', case)
+            sample = problem.input_jets(case)
+            g, z = sv.sampling_variables('probe', problem.frame, sample, ('g', 'z'), order=case.order, y=y,
+                                         weight=weight)
+            Jp = sdef.Jp('probe', problem.frame, sample, None, case.order, variations=(problem.V, problem.H))
+            weights = [np.asarray(weight[i]).reshape(case.box + (1,) * (z[i].ndim - case.m)) for i in range(problem.d)]
+            f = lambda t: 0.5 * sum(float(np.sum((w_i * (z_i + t * p_i - y_i)) ** 2))
+                                    for w_i, z_i, p_i, y_i in zip(weights, z, Jp, y))
+            h = 1e-3
+            difference = (f(h) - f(-h)) / (2 * h)
+            paired = sum(float(np.sum(a * b)) for a, b in zip(g[0] + g[1], tuple(problem.V) + tuple(problem.H)))
+            with self.subTest(jets=case.label):
+                self.assertLessEqual(abs(difference - paired), 1e-9 * max(abs(paired), 1.0))
 
 
 class TestTwoRoutesOfZ(unittest.TestCase):

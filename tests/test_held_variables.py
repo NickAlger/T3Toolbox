@@ -22,7 +22,8 @@ try:
 except ImportError:
     HAS_JAX = False
 
-SLOTS = ('xi', 'mu', 'nu', 'nu_L', 'eta', 'eta_D', 'z', 'r')
+SLOTS = ('xi', 'mu', 'nu', 'nu_L', 'eta', 'eta_D', 'z', 'r', 'f', 'r_block_sumsq',
+         'w_tilde', 'xi_tilde', 'mu_tilde', 'nu_tilde', 'eta_tilde', 'V_tilde', 'H_tilde', 'g')
 
 
 def arrays(n, size=2):
@@ -57,12 +58,14 @@ class TestHeldVariables(unittest.TestCase):
         with self.assertRaises(TypeError):
             sv.HeldVariables(muu=arrays(4))
         held = sv.HeldVariables(mu=arrays(4))
-        with self.assertRaisesRegex(KeyError, "'g' is not a variable that can be held"):
-            held['g']
+        with self.assertRaisesRegex(KeyError, "'Jp' is not a variable that can be held"):
+            held['Jp']
+        with self.assertRaisesRegex(KeyError, "'_eta_tilde_top' is not a variable that can be held"):
+            held['_eta_tilde_top']
         with self.assertRaisesRegex(KeyError, "the slot 'nu' is not filled"):
             held['nu']
-        with self.assertRaisesRegex(TypeError, "'g', 'w' are not a variable that can be held"):
-            held.with_values(g=1, w=2)
+        with self.assertRaisesRegex(TypeError, "'Jp', 'w' are not a variable that can be held"):
+            held.with_values(Jp=1, w=2)
 
     def test_with_values_returns_a_new_record(self):
         mu, nu = arrays(4), arrays(4, 3)

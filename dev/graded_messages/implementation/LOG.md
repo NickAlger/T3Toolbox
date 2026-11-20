@@ -629,3 +629,35 @@ Nothing is running; the two agents are idle and are resumed for P5 when the main
   seed, P9); `HeldVariables`' slots are every public computed variable (row 6.4), `w` and private nodes excepted; P7's
   `Jp`-seeded rows are private twins named by a rule, with a test; the bridge lists the old tilde kernels it leaves
   out; the generic twin computes `V_tilde` from the full `eta_tilde`; the new readout string goes into `STRINGS`.
+
+### P6: Engine B, the tilde grade (2026-11-20, to 04:07)
+
+- **Rounds:** one on the build (`P6_REVIEW_r1.md`: SIGN OFF, two minor findings), after the design note and its review
+  (above). Handover `P6_HANDOVER.md`.
+- **What was built:** the steps `xi_tilde`, `mu_tilde`, `nu_tilde`, the full `eta_tilde`, the private short node
+  `_eta_tilde_top` (`eta_tilde_top_step`: the top `a = min(J_in, F)` slots per jet axis, two readouts each at a
+  lowered corner), `V_tilde` (reads the short node, by one row), `H_tilde` (three corner readouts), the seed
+  `w_tilde_step` (probe; `jet_to_dual_jet`), `g_step`, `start_zeros`. The row type gains `start`, declared per row; 9
+  new rows, all `carries_K=False`; private nodes (leading underscore) can be neither wanted nor held.
+  `HeldVariables`: 18 slots, every public computed variable; the held-shape check covers one array, a tuple over the
+  index, and `g`'s pair, its messages naming the entry (`g[1][0]`). `STRINGS` gains the family `eta_top` (two
+  `W`-keeping readout strings, written with `K`); the pinned counts updated. Tests: every new name against the
+  reference over the jet matrix with nonuniform weights; the generic twin (`tests/_generic_twin.py`, numpy and
+  itertools only, AST-pinned, `V_tilde` from the full `eta_tilde`, five jet cases incl. mixed modes); the short node
+  against the slice of the full `eta_tilde`; `g` against central differences of `f`; the graph tables, slots,
+  starts and step counts; the temporary bridge (`tests/bridge/test_old_kernels_bridge.py`, deleted in P20).
+- **The bridge's conversion of the old adjoint variables, derived by the reviewer** (the implementer had found it by
+  script, the only one of five candidates that held): the old objective is `sum_t t! <c_t, z_t>`, its adjoint taken
+  against `X^(r) = r! X_r`, so it is `(1/r!) dL/dX_r`; the new multiplier, stored turned and read at the corner, is
+  `dL/dX_r` at slot `n - r`. So old slot `r` = new slot `n - r` divided by `r!`, with `deta -> xi_tilde`, `tau ->
+  mu_tilde`, `sigma -> nu_tilde`, `dxi -> eta_tilde`.
+- **The reviewer's own checks:** the short node against the full slice by calling the step on the engine's own
+  variables (mixed modes at `(1, 2)`, mixed sizes at `(2,)` and `(1, 1, 1)`, 1e-15); `g` against a dense transposed
+  Jacobian built from a dense tangent tensor per coordinate and probed by its roots-of-unity oracle, no engine or
+  reference code (1e-15, four jet cases, two seeds); seven jet cases with `d = 3, 4` and tails, worst 2.6e-15;
+  floor env 46 passed. Mutants: the implementer's 17 of 17 (the reviewer's four among them), the reviewer's 2 of 2.
+- **Minor 1, made by Claude:** the test that `g` does not depend on wanting `eta_tilde` asserted bit-identity;
+  under the maintainer's rule it now pins the ROUTE exactly (the short node made once per site in both calls) and the
+  value to rounding (1e-13). **Minor 2:** `tests/bridge/` is staged by file name, not with its `__pycache__`.
+- **Gate:** the implementer's full gate at `-n 3`, every step PASS (suite 1,715 passed, 5 skipped, 1 xfailed; peak
+  8.9 GB; module doctests 314; Sphinx 0 warnings). After Claude's test change: `TestTheShortForm` 2 passed.
