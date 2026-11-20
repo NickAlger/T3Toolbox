@@ -26,72 +26,124 @@ start)``.
   ``weight``; ``Vc``). A sweep's carry is its first argument and is not listed; its first read is the TT store it
   sweeps through, and that store's end bond sizes its start value (``R`` for ``nu``, ``L`` for ``nu_L``: with tails
   they differ).
-- ``needs``: the facts of the call the row requires: the arguments given (``y``, ``Vc``, ...) and the call type
-  (``_manifold``).
+- ``needs``: the facts of the call the row requires: the arguments given (``y``, ``Vc``, ``variations``,
+  ``core_directions``) and the call type (``_manifold``, ``_corewise``).
 - ``carries_K``: whether the row runs with the call's stack of directions ``K``, or with ``K = 0``.
 - ``start``: for a sweep, its start value: ``'ones'`` (the plain grade: the vector of ones that closes the end bond)
-  or ``'zeros'`` (a tilde sweep of the probe kind); ``None`` for the other drivers.
+  or ``'zeros'`` (a tilde, dot or tilde-dot sweep); ``None`` for the other drivers.
 
 At a site op, a bond variable is read at the bond its letter says: the left of bond ``i`` (the ``mu`` family) and
 the right of bond ``i + 1`` (the ``nu`` family), the table ``_BOND_OFFSET``.
 
-The graph of the probe kind:
+The graph of the probe kind on a manifold frame (the graph of a corewise point is derived from it, below):
 
 | Variable | Driver | Step | Reads | Needs | K | Start |
 | --- | --- | --- | --- | --- | --- | --- |
-| `xi` | site | `xi_step` | `D`, `w` | | no | |
-| `mu` | left | `mu_step` | `L`, `xi` | | no | ones |
-| `nu` | right | `nu_step` | `R`, `xi` | | no | ones |
-| `nu_L` | right | `nu_step` | `L`, `xi` | | no | ones |
-| `eta` | site | `eta_step` | `mu`, `U`, `nu` | | no | |
-| `eta_D` | site | `eta_step` | `mu`, `L`, `nu_L` | | no | |
-| `z` | site | `z_step` | `eta`, `Vc` | `Vc` | no | |
-| `z` | site | `z_step` | `eta_D`, `D` | | no | |
-| `r` | whole | `r_step` | `z`, `y` | `y` | no | |
-| `f` | whole | `f_step` | `r`, `weight` | | no | |
-| `r_block_sumsq` | whole | `r_block_sumsq_step` | `r` | | no | |
-| `w_tilde` | whole | `w_tilde_step` | `r`, `weight` | | no | |
-| `xi_tilde` | site | `xi_tilde_step` | `D`, `w_tilde` | | no | |
-| `mu_tilde` | left | `mu_tilde_step` | `L`, `mu`, `xi`, `xi_tilde` | | no | zeros |
-| `nu_tilde` | right | `nu_tilde_step` | `R`, `nu`, `xi`, `xi_tilde` | | no | zeros |
-| `eta_tilde` | site | `eta_tilde_step` | `mu_tilde`, `mu`, `U`, `nu_tilde`, `nu` | | no | |
-| `_eta_tilde_top` | site | `eta_tilde_top_step` | `mu_tilde`, `mu`, `U`, `nu_tilde`, `nu`, `w` | | no | |
-| `V_tilde` | site | `V_tilde_step` | `_eta_tilde_top`, `eta`, `w`, `w_tilde` | | no | |
-| `H_tilde` | site | `H_tilde_step` | `mu_tilde`, `mu`, `xi_tilde`, `xi`, `nu_tilde`, `nu` | | no | |
-| `g` | whole | `g_step` | `V_tilde`, `H_tilde` | | no | |
-| `xi_U_dot` | site | `xi_dot_step` | `V`, `w` | `variations` | yes | |
+| `xi` | site | `xi_step` | `D`, `w` |  | no |  |
+| `mu` | left | `mu_step` | `L`, `xi` |  | no | ones |
+| `nu` | right | `nu_step` | `R`, `xi` |  | no | ones |
+| `nu_L` | right | `nu_step` | `L`, `xi` |  | no | ones |
+| `eta` | site | `eta_step` | `mu`, `U`, `nu` |  | no |  |
+| `eta_D` | site | `eta_step` | `mu`, `L`, `nu_L` |  | no |  |
+| `z` | site | `z_step` | `eta`, `Vc` | `Vc` | no |  |
+| `z` | site | `z_step` | `eta_D`, `D` |  | no |  |
+| `r` | whole | `r_step` | `z`, `y` | `y` | no |  |
+| `f` | whole | `f_step` | `r`, `weight` |  | no |  |
+| `r_block_sumsq` | whole | `r_block_sumsq_step` | `r` |  | no |  |
+| `w_tilde` | whole | `w_tilde_step` | `r`, `weight` |  | no |  |
+| `xi_tilde` | site | `xi_tilde_step` | `D`, `w_tilde` |  | no |  |
+| `mu_tilde` | left | `mu_tilde_step` | `L`, `mu`, `xi`, `xi_tilde` |  | no | zeros |
+| `nu_tilde` | right | `nu_tilde_step` | `R`, `nu`, `xi`, `xi_tilde` |  | no | zeros |
+| `eta_tilde` | site | `eta_tilde_step` | `mu_tilde`, `mu`, `U`, `nu_tilde`, `nu` |  | no |  |
+| `_eta_tilde_top` | site | `eta_tilde_top_step` | `mu_tilde`, `mu`, `U`, `nu_tilde`, `nu`, `w` |  | no |  |
+| `nu_L_tilde` | right | `nu_tilde_step` | `L`, `nu_L`, `xi`, `xi_tilde` |  | no | zeros |
+| `eta_D_tilde` | site | `eta_tilde_step` | `mu_tilde`, `mu`, `L`, `nu_L_tilde`, `nu_L` |  | no |  |
+| `_eta_D_tilde_top` | site | `eta_tilde_top_step` | `mu_tilde`, `mu`, `L`, `nu_L_tilde`, `nu_L`, `w` |  | no |  |
+| `V_tilde` | site | `V_tilde_step` | `_eta_D_tilde_top`, `eta_D`, `w`, `w_tilde` | `_corewise` | no |  |
+| `V_tilde` | site | `V_tilde_step` | `_eta_tilde_top`, `eta`, `w`, `w_tilde` |  | no |  |
+| `H_tilde` | site | `H_tilde_step` | `mu_tilde`, `mu`, `xi_tilde`, `xi`, `nu_L_tilde`, `nu_L` | `_corewise` | no |  |
+| `H_tilde` | site | `H_tilde_step` | `mu_tilde`, `mu`, `xi_tilde`, `xi`, `nu_tilde`, `nu` |  | no |  |
+| `g` | whole | `g_step` | `V_tilde`, `H_tilde` |  | no |  |
+| `xi_U_dot` | site | `xi_dot_step` | `V`, `w` | `variations` | yes |  |
 | `mu_R_dot` | left | `mu_dot_step` | `R`, `mu`, `xi`, `xi_U_dot`, `U`, `H` | `variations` | yes | zeros |
 | `_frame.nu_L_dot` | right | `nu_dot_step` | `L`, `nu`, `xi`, `xi_U_dot`, `U`, `H` | `variations` | yes | zeros |
-| `nu_L_dot` | whole | `identity_step` | `_frame.nu_L_dot` | `variations` | yes | |
-| `_frame.eta_D_dot` | site | `eta_dot_step` | `mu_R_dot`, `R`, `mu`, `H`, `L`, `_frame.nu_L_dot`, `nu` | `variations` | yes | |
-| `eta_D_dot` | whole | `identity_step` | `_frame.eta_D_dot` | `variations` | yes | |
-| `Jp` | site | `Jp_step` | `_frame.eta_D_dot`, `D`, `eta`, `V` | `variations` | yes | |
-| `Jp_norm_sq` | whole | `Jp_norm_sq_step` | `Jp`, `weight` | | yes | |
-| `_Jp.w_tilde` | whole | `w_tilde_step` | `Jp`, `weight` | | yes | |
-| `_Jp.xi_tilde` | site | `xi_tilde_step` | `D`, `_Jp.w_tilde` | | yes | |
-| `_Jp.mu_tilde` | left | `mu_tilde_step` | `L`, `mu`, `xi`, `_Jp.xi_tilde` | | yes | zeros |
-| `_Jp.nu_tilde` | right | `nu_tilde_step` | `R`, `nu`, `xi`, `_Jp.xi_tilde` | | yes | zeros |
-| `_Jp.eta_tilde_top` | site | `eta_tilde_top_step` | `_Jp.mu_tilde`, `mu`, `U`, `_Jp.nu_tilde`, `nu`, `w` | | yes | |
-| `_Jp.V_tilde` | site | `V_tilde_step` | `_Jp.eta_tilde_top`, `eta`, `w`, `_Jp.w_tilde` | | yes | |
-| `_Jp.H_tilde` | site | `H_tilde_step` | `_Jp.mu_tilde`, `mu`, `_Jp.xi_tilde`, `xi`, `_Jp.nu_tilde`, `nu` | | yes | |
-| `JtJp` | whole | `g_step` | `_Jp.V_tilde`, `_Jp.H_tilde` | `variations` | yes | |
+| `_frame.eta_D_dot` | site | `eta_dot_step` | `mu_R_dot`, `R`, `mu`, `H`, `L`, `_frame.nu_L_dot`, `nu` | `variations` | yes |  |
+| `xi_dot` | site | `xi_dot_step` | `D_dot`, `w` | `core_directions` | yes |  |
+| `mu_dot` | left | `mu_dot_step` | `L`, `mu`, `xi`, `xi_dot`, `L`, `L_dot` | `core_directions` | yes | zeros |
+| `_raw.nu_L_dot` | right | `nu_dot_step` | `L`, `nu_L`, `xi`, `xi_dot`, `L`, `L_dot` | `core_directions` | yes | zeros |
+| `_raw.eta_D_dot` | site | `eta_dot_step` | `mu_dot`, `L`, `mu`, `L_dot`, `L`, `_raw.nu_L_dot`, `nu_L` | `core_directions` | yes |  |
+| `nu_L_dot` | whole | `identity_step` | `_raw.nu_L_dot` | `core_directions` | yes |  |
+| `nu_L_dot` | whole | `identity_step` | `_frame.nu_L_dot` | `variations` | yes |  |
+| `eta_D_dot` | whole | `identity_step` | `_raw.eta_D_dot` | `core_directions` | yes |  |
+| `eta_D_dot` | whole | `identity_step` | `_frame.eta_D_dot` | `variations` | yes |  |
+| `Jp` | site | `Jp_step` | `_frame.eta_D_dot`, `D`, `eta`, `V` | `variations` | yes |  |
+| `Jp` | site | `Jp_step` | `_raw.eta_D_dot`, `D`, `eta_D`, `D_dot` | `core_directions` | yes |  |
+| `Jp_norm_sq` | whole | `Jp_norm_sq_step` | `Jp`, `weight` |  | yes |  |
+| `xi_tilde_dot` | site | `xi_tilde_dot_step` | `D_dot`, `w_tilde` | `core_directions` | yes |  |
+| `mu_tilde_dot` | left | `mu_tilde_dot_step` | `L`, `mu_dot`, `mu_tilde`, `mu`, `xi_tilde_dot`, `xi_dot`, `xi_tilde`, `xi`, `L_dot` | `core_directions` | yes | zeros |
+| `nu_L_tilde_dot` | right | `nu_tilde_dot_step` | `L`, `_raw.nu_L_dot`, `nu_L_tilde`, `nu_L`, `xi_tilde_dot`, `xi_dot`, `xi_tilde`, `xi`, `L_dot` | `core_directions` | yes | zeros |
+| `eta_D_tilde_dot` | site | `eta_tilde_dot_step` | `mu_tilde_dot`, `mu_dot`, `mu_tilde`, `mu`, `L`, `nu_L_tilde_dot`, `_raw.nu_L_dot`, `nu_L_tilde`, `nu_L`, `L_dot` | `core_directions` | yes |  |
+| `_eta_D_tilde_dot_top` | site | `eta_tilde_dot_top_step` | `mu_tilde_dot`, `mu_dot`, `mu_tilde`, `mu`, `L`, `nu_L_tilde_dot`, `_raw.nu_L_dot`, `nu_L_tilde`, `nu_L`, `L_dot`, `w` | `core_directions` | yes |  |
+| `V_tilde_dot` | site | `V_tilde_dot_step` | `_eta_D_tilde_dot_top`, `_raw.eta_D_dot`, `w`, `w_tilde` | `core_directions` | yes |  |
+| `H_tilde_dot` | site | `H_tilde_dot_step` | `mu_tilde_dot`, `mu_dot`, `mu_tilde`, `mu`, `xi_tilde_dot`, `xi_dot`, `xi_tilde`, `xi`, `nu_L_tilde_dot`, `_raw.nu_L_dot`, `nu_L_tilde`, `nu_L` | `core_directions` | yes |  |
+| `Kp` | whole | `g_step` | `V_tilde_dot`, `H_tilde_dot` | `core_directions` | yes |  |
+| `_Jp.w_tilde` | whole | `w_tilde_step` | `Jp`, `weight` |  | yes |  |
+| `_Jp.xi_tilde` | site | `xi_tilde_step` | `D`, `_Jp.w_tilde` |  | yes |  |
+| `_Jp.mu_tilde` | left | `mu_tilde_step` | `L`, `mu`, `xi`, `_Jp.xi_tilde` |  | yes | zeros |
+| `_Jp.nu_tilde` | right | `nu_tilde_step` | `R`, `nu`, `xi`, `_Jp.xi_tilde` |  | yes | zeros |
+| `_Jp.eta_tilde_top` | site | `eta_tilde_top_step` | `_Jp.mu_tilde`, `mu`, `U`, `_Jp.nu_tilde`, `nu`, `w` |  | yes |  |
+| `_Jp.V_tilde` | site | `V_tilde_step` | `_Jp.eta_tilde_top`, `eta`, `w`, `_Jp.w_tilde` |  | yes |  |
+| `_Jp.H_tilde` | site | `H_tilde_step` | `_Jp.mu_tilde`, `mu`, `_Jp.xi_tilde`, `xi`, `_Jp.nu_tilde`, `nu` |  | yes |  |
+| `JtJp` | whole | `g_step` | `_Jp.V_tilde`, `_Jp.H_tilde` | `variations` | yes |  |
 
-**The dot grade and the direction stack.** ``variations = (V, H)`` is the direction in the frame's form; its leading
-axes before the frame's ``C`` are the stack of directions ``K``, read off ``V[0]`` (every ``V[i]`` and ``H[i]`` must
-share that ``K + C``: a structural check at entry). A row with ``K = yes`` runs with the call's ``K``, and its variable
-carries ``K`` after ``W``; the others run with ``K = 0``. The two names with both dot forms, ``nu_L_dot`` and
-``eta_D_dot``, are route rows over the private frame nodes ``_frame.nu_L_dot`` and ``_frame.eta_D_dot``, which ``Jp``
-reads: a held ``nu_L_dot`` is a leaf for the public name only, never for ``Jp``.
+**The dot grades and the direction stack.** A direction comes in two forms: ``variations = (V, H)``, the frame's form,
+and ``core_directions = (D_dot, L_dot)``, the raw form at the base point ``(D, L)``. Their leading axes before the
+frame's ``C`` are the one stack of directions ``K`` of the call, read off ``V[0]`` (or ``D_dot[0]``): every ``V[i]``,
+``H[i]``, ``D_dot[i]`` and ``L_dot[i]`` must share that ``K + C`` (a structural check at entry; the curvature pairs
+element ``k`` of a direction with element ``k`` of its lift). A row with ``K = yes`` runs with the call's ``K``, and its
+variable carries ``K`` after ``W``; the others run with ``K = 0``. The two names with both dot forms, ``nu_L_dot`` and
+``eta_D_dot``, are route rows over private nodes: the raw ``_raw.*`` when ``core_directions`` is given, else the
+frame's ``_frame.*`` (O-12). ``Jp`` reads the frame nodes, ``Kp`` the raw ones; so a call with both directions computes
+each family once, ``Jp`` along ``(V, H)`` and the public names along ``(D_dot, L_dot)``, and a held ``nu_L_dot`` is a
+leaf for the public name only. ``Jp`` has a raw route too, the direction's output at the base point, taken without
+``variations``. ``JtJp`` needs ``variations`` itself and is not reached from ``core_directions`` alone on a manifold
+call: its blocks are the frame's (``V_tilde`` in the ``U`` basis, ``H`` between ``L`` and ``R`` cores), and seeding them
+from a raw ``Jp`` would give a mixed product with no use.
 
 **The adjoint seeded by** ``Jp`` (``JtJp``) is the private twin of each row on the residual's path from ``w_tilde`` to
 ``V_tilde``, ``H_tilde`` and the short node, named ``'_Jp.' + name.lstrip('_')``: the same step and start, the call's
 ``K``, the seed reading ``Jp`` for ``r``. ``JtJp`` is the twin of ``g``. The full ``eta_tilde`` has no twin.
 
+**The corewise point** ``(B, G)``: one basis on each edge. It binds the stores ``D = B`` and ``L = G``, and its graph
+is derived from the manifold one: every row that reads ``U``, ``R``, ``V``, ``H`` or ``Vc``, or a ``_frame.*`` node, is
+dropped, with every row that reads a dropped name; the rest are renamed, in their names, reads and needs, by one table
+(the base point's basis is the only one, so a name loses its basis; the direction is ``core_directions``); then the
+twins are derived. The rows of a name that need ``_corewise`` (the gradient in the base point's basis) are taken only
+there. So each sweep runs once, and a name with a basis is unknown there (O-13). On a corewise point a direction is
+passed as ``core_directions``; ``variations`` raises.
+
+| On a manifold frame | On a corewise point |
+| --- | --- |
+| `nu_L` | `nu` |
+| `eta_D` | `eta` |
+| `nu_L_tilde` | `nu_tilde` |
+| `eta_D_tilde` | `eta_tilde` |
+| `nu_L_dot` | `nu_dot` |
+| `eta_D_dot` | `eta_dot` |
+| `nu_L_tilde_dot` | `nu_tilde_dot` |
+| `eta_D_tilde_dot` | `eta_tilde_dot` |
+| `_raw.nu_L_dot` | `_raw.nu_dot` |
+| `_raw.eta_D_dot` | `_raw.eta_dot` |
+| `_eta_D_tilde_top` | `_eta_tilde_top` |
+| `_eta_D_tilde_dot_top` | `_eta_tilde_dot_top` |
+| `variations` | `core_directions` |
+
 **The short form of** ``eta_tilde``. ``V_tilde`` reads only the slots of ``eta_tilde`` that meet the input at the
 corner: the top ``a = min(J_in_i, F)`` slots on every jet axis (two for a line). The private node ``_eta_tilde_top``
 holds those slots, ``eta_tilde[i][c - a + 1 : c + 1]`` (``c`` the corner), each made by readouts at a lowered corner,
 and ``V_tilde`` always reads it. The full ``eta_tilde`` has its own row, run only when it is wanted, so what ``g`` is
-never depends on whether ``eta_tilde`` is wanted.
+never depends on whether ``eta_tilde`` is wanted. ``eta_D_tilde`` (read by the corewise gradient) and
+``eta_D_tilde_dot`` (read by ``V_tilde_dot``) have short nodes in the same way.
 
 **The shapes** (ragged layout): a variable at index ``i`` is
 ``J + W + C + (size,)``, with ``J`` its declared jet sizes, ``W`` the sample stack and ``C`` the stack of base
@@ -122,11 +174,29 @@ stored with every jet axis turned.
 | `nu_L_dot` | bond | F | rL_i |
 | `eta_D_dot` | site | F | nD_i |
 | `Jp` | mode | F | N_i |
+| `xi_dot` | site | min(J_in_i, F) | nD_i |
+| `mu_dot` | bond | F | rL_i |
+| `nu_L_tilde` | bond | F | rL_i |
+| `eta_D_tilde` | site | F | nD_i |
+| `_eta_D_tilde_top` | site | min(J_in_i, F) | nD_i |
+| `xi_tilde_dot` | site | F | nD_i |
+| `mu_tilde_dot` | bond | F | rL_i |
+| `nu_L_tilde_dot` | bond | F | rL_i |
+| `eta_D_tilde_dot` | site | F | nD_i |
+| `_eta_D_tilde_dot_top` | site | min(J_in_i, F) | nD_i |
+| `V_tilde_dot` | site | none | (nD_i, N_i) |
+| `H_tilde_dot` | site | none | (rL_i, nD_i, rL_(i+1)) |
+| `nu_dot` | bond | F | rL_i |
+| `eta_dot` | site | F | nD_i |
+| `nu_tilde_dot` | bond | F | rL_i |
+| `eta_tilde_dot` | site | F | nD_i |
+| `_eta_tilde_dot_top` | site | min(J_in_i, F) | nD_i |
 
 A variable made by a row with ``K = yes`` has ``K`` after ``W`` (``J + W + K + C + (size,)``; a block ``K + C`` and the
 core's shape); a private node's shape is its base's. ``f`` has the shape ``C``; ``r_block_sumsq`` the shape of the
-weight, ``(d,) + F``; ``Jp_norm_sq`` the shape ``K + C``; ``g`` is the pair ``(V_tilde, H_tilde)`` and ``JtJp`` the
-pair of their twins. A bond index runs over ``0 .. d`` (``d + 1`` arrays), a site or a mode index over
+weight, ``(d,) + F``; ``Jp_norm_sq`` the shape ``K + C``; ``g`` is the pair ``(V_tilde, H_tilde)``, ``JtJp`` the
+pair of their twins and ``Kp`` the pair ``(V_tilde_dot, H_tilde_dot)``. On a corewise point the sizes of ``R`` and ``U``
+are those of ``L`` and ``D``. A bond index runs over ``0 .. d`` (``d + 1`` arrays), a site or a mode index over
 ``0 .. d-1``.
 
 **What a call does, in order**: it checks what it needs to run, and nothing more; reads the
@@ -136,9 +206,8 @@ precision among the arrays the closure reads and the held variables read or want
 ``want``. Every scan and map body is module-level, memoized on ``(step_name, lens, order, form)``: a body closes
 over the record, the box and the form, nothing per site.
 
-Only the probe kind on the ragged layout, a manifold frame, at the plain, tilde and frame-form dot grades, is built
-here; the other kinds, the corewise point, the uniform layout and the raw dot and tilde-dot grades are not taken
-yet.
+Only the probe kind on the ragged layout, on a manifold frame and on a corewise point, is built here; the other
+kinds and the uniform layout are not taken yet.
 """
 import dataclasses as dc
 import functools
@@ -176,8 +245,10 @@ class Rule(typ.NamedTuple):
 
 _NONE = frozenset()
 _VAR = frozenset({'variations'})
+_COR = frozenset({'core_directions'})
+_COREWISE = frozenset({'_corewise'})
 
-_PROBE_GRAPH = (
+_PROBE_ROWS = (
     # the plain grade
     Rule('xi',             ('site', 'xi_step'),             ('D', 'w'),                    _NONE,             False),
     Rule('mu',             ('left', 'mu_step'),             ('L', 'xi'),                   _NONE,             False, 'ones'),
@@ -199,8 +270,19 @@ _PROBE_GRAPH = (
                                                                                            _NONE,             False),
     Rule('_eta_tilde_top', ('site', 'eta_tilde_top_step'),  ('mu_tilde', 'mu', 'U', 'nu_tilde', 'nu', 'w'),
                                                                                            _NONE,             False),
+    Rule('nu_L_tilde',     ('right', 'nu_tilde_step'),      ('L', 'nu_L', 'xi', 'xi_tilde'),
+                                                                                           _NONE,             False, 'zeros'),
+    Rule('eta_D_tilde',    ('site', 'eta_tilde_step'),      ('mu_tilde', 'mu', 'L', 'nu_L_tilde', 'nu_L'),
+                                                                                           _NONE,             False),
+    Rule('_eta_D_tilde_top', ('site', 'eta_tilde_top_step'), ('mu_tilde', 'mu', 'L', 'nu_L_tilde', 'nu_L', 'w'),
+                                                                                           _NONE,             False),
+    # the blocks: on a corewise point in the base point's basis (the routes renamed into its g), else the frame's
+    Rule('V_tilde',        ('site', 'V_tilde_step'),        ('_eta_D_tilde_top', 'eta_D', 'w', 'w_tilde'),
+                                                                                           _COREWISE,         False),
     Rule('V_tilde',        ('site', 'V_tilde_step'),        ('_eta_tilde_top', 'eta', 'w', 'w_tilde'),
                                                                                            _NONE,             False),
+    Rule('H_tilde',        ('site', 'H_tilde_step'),        ('mu_tilde', 'mu', 'xi_tilde', 'xi', 'nu_L_tilde', 'nu_L'),
+                                                                                           _COREWISE,         False),
     Rule('H_tilde',        ('site', 'H_tilde_step'),        ('mu_tilde', 'mu', 'xi_tilde', 'xi', 'nu_tilde', 'nu'),
                                                                                            _NONE,             False),
     Rule('g',              ('whole', 'g_step'),             ('V_tilde', 'H_tilde'),        _NONE,             False),
@@ -210,19 +292,56 @@ _PROBE_GRAPH = (
                                                                                            _VAR,              True, 'zeros'),
     Rule('_frame.nu_L_dot', ('right', 'nu_dot_step'),       ('L', 'nu', 'xi', 'xi_U_dot', 'U', 'H'),
                                                                                            _VAR,              True, 'zeros'),
-    Rule('nu_L_dot',       ('whole', 'identity_step'),      ('_frame.nu_L_dot',),          _VAR,              True),
     Rule('_frame.eta_D_dot', ('site', 'eta_dot_step'),      ('mu_R_dot', 'R', 'mu', 'H', 'L', '_frame.nu_L_dot', 'nu'),
                                                                                            _VAR,              True),
+    # the dot grade, the raw form: the direction (D_dot, L_dot) at the base point, every other core an L core
+    Rule('xi_dot',         ('site', 'xi_dot_step'),         ('D_dot', 'w'),                _COR,              True),
+    Rule('mu_dot',         ('left', 'mu_dot_step'),         ('L', 'mu', 'xi', 'xi_dot', 'L', 'L_dot'),
+                                                                                           _COR,              True, 'zeros'),
+    Rule('_raw.nu_L_dot',  ('right', 'nu_dot_step'),        ('L', 'nu_L', 'xi', 'xi_dot', 'L', 'L_dot'),
+                                                                                           _COR,              True, 'zeros'),
+    Rule('_raw.eta_D_dot', ('site', 'eta_dot_step'),        ('mu_dot', 'L', 'mu', 'L_dot', 'L', '_raw.nu_L_dot', 'nu_L'),
+                                                                                           _COR,              True),
+    # the two names with both forms (O-12): the raw form when core_directions is given, else the frame's
+    Rule('nu_L_dot',       ('whole', 'identity_step'),      ('_raw.nu_L_dot',),            _COR,              True),
+    Rule('nu_L_dot',       ('whole', 'identity_step'),      ('_frame.nu_L_dot',),          _VAR,              True),
+    Rule('eta_D_dot',      ('whole', 'identity_step'),      ('_raw.eta_D_dot',),           _COR,              True),
     Rule('eta_D_dot',      ('whole', 'identity_step'),      ('_frame.eta_D_dot',),         _VAR,              True),
+    # the direction's output: through the frame's form when variations is given, else the raw form at the base point
     Rule('Jp',             ('site', 'Jp_step'),             ('_frame.eta_D_dot', 'D', 'eta', 'V'),
                                                                                            _VAR,              True),
+    Rule('Jp',             ('site', 'Jp_step'),             ('_raw.eta_D_dot', 'D', 'eta_D', 'D_dot'),
+                                                                                           _COR,              True),
     Rule('Jp_norm_sq',     ('whole', 'Jp_norm_sq_step'),    ('Jp', 'weight'),              _NONE,             True),
+    # the tilde-dot grade: the direction (raw form) and the residual's seed, both, at the base point
+    Rule('xi_tilde_dot',   ('site', 'xi_tilde_dot_step'),   ('D_dot', 'w_tilde'),          _COR,              True),
+    Rule('mu_tilde_dot',   ('left', 'mu_tilde_dot_step'),   ('L', 'mu_dot', 'mu_tilde', 'mu', 'xi_tilde_dot', 'xi_dot',
+                                                             'xi_tilde', 'xi', 'L_dot'),   _COR,              True, 'zeros'),
+    Rule('nu_L_tilde_dot', ('right', 'nu_tilde_dot_step'),  ('L', '_raw.nu_L_dot', 'nu_L_tilde', 'nu_L', 'xi_tilde_dot',
+                                                             'xi_dot', 'xi_tilde', 'xi', 'L_dot'),
+                                                                                           _COR,              True, 'zeros'),
+    Rule('eta_D_tilde_dot', ('site', 'eta_tilde_dot_step'), ('mu_tilde_dot', 'mu_dot', 'mu_tilde', 'mu', 'L',
+                                                             'nu_L_tilde_dot', '_raw.nu_L_dot', 'nu_L_tilde', 'nu_L',
+                                                             'L_dot'),                     _COR,              True),
+    Rule('_eta_D_tilde_dot_top', ('site', 'eta_tilde_dot_top_step'),
+                                                            ('mu_tilde_dot', 'mu_dot', 'mu_tilde', 'mu', 'L',
+                                                             'nu_L_tilde_dot', '_raw.nu_L_dot', 'nu_L_tilde', 'nu_L',
+                                                             'L_dot', 'w'),                _COR,              True),
+    Rule('V_tilde_dot',    ('site', 'V_tilde_dot_step'),    ('_eta_D_tilde_dot_top', '_raw.eta_D_dot', 'w', 'w_tilde'),
+                                                                                           _COR,              True),
+    Rule('H_tilde_dot',    ('site', 'H_tilde_dot_step'),    ('mu_tilde_dot', 'mu_dot', 'mu_tilde', 'mu', 'xi_tilde_dot',
+                                                             'xi_dot', 'xi_tilde', 'xi', 'nu_L_tilde_dot',
+                                                             '_raw.nu_L_dot', 'nu_L_tilde', 'nu_L'),
+                                                                                           _COR,              True),
+    Rule('Kp',             ('whole', 'g_step'),             ('V_tilde_dot', 'H_tilde_dot'), _COR,             True),
 )
 
 # The adjoint seeded by Jp (row 3.3; JtJp): a private twin of every row on the path from the seed to the blocks,
 # named twin(name), with the same step and start and the call's K; JtJp is the twin of g. No twin of the full
-# eta_tilde (nothing reads it, and a private name cannot be wanted).
+# eta_tilde (nothing reads it, and a private name cannot be wanted). The path is given by role, per call type: on a
+# corewise point it is the manifold path of the base point's basis, through the rename below.
 _JP_PATH = ('w_tilde', 'xi_tilde', 'mu_tilde', 'nu_tilde', '_eta_tilde_top', 'V_tilde', 'H_tilde')
+_JP_PATH_COREWISE = ('w_tilde', 'xi_tilde', 'mu_tilde', 'nu_L_tilde', '_eta_D_tilde_top', 'V_tilde', 'H_tilde')
 
 
 def _twin(name: str) -> str:
@@ -230,29 +349,83 @@ def _twin(name: str) -> str:
     return '_Jp.' + name.lstrip('_')
 
 
-def _jp_twins(graph: typ.Tuple[Rule, ...]) -> typ.Tuple[Rule, ...]:
+def _jp_twins(
+        graph:      typ.Tuple[Rule, ...],
+        path:       typ.Tuple[str, ...],    # the residual's rows on the path to the blocks, in this graph's names
+        direction:  str,                    # the argument the direction comes in: 'variations' | 'core_directions'
+        call:       str,                    # the call type of this graph: '_manifold' | '_corewise'
+) -> typ.Tuple[Rule, ...]:
     '''The rows of the adjoint seeded by ``Jp``, derived from the residual's: each read on the path renamed by
-    ``_twin``, the seed reading ``Jp`` for ``r``, the call's ``K``; and ``JtJp``, the twin of ``g``.'''
-    rename = lambda read: _twin(read) if read in _JP_PATH else ('Jp' if read == 'r' else read)
-    out = []
+    ``_twin``, the seed reading ``Jp`` for ``r``, the call's ``K``; and ``JtJp``, the twin of ``g``, which needs the
+    direction itself (so that a call without it names ``JtJp``, not a chain of private nodes).'''
+    rename = lambda read: _twin(read) if read in path else ('Jp' if read == 'r' else read)
+    out, jtjp = [], None
+    other = '_corewise' if call == '_manifold' else '_manifold'
     for rule in graph:
-        if rule.name in _JP_PATH:
+        if other in rule.needs:                         # a route of the other call type has no twin here
+            continue
+        if rule.name in path:
             out.append(rule._replace(name=_twin(rule.name), reads=tuple(map(rename, rule.reads)), carries_K=True))
         elif rule.name == 'g':
-            # JtJp needs the direction itself, so a call without it names JtJp, not a chain of private nodes
             jtjp = rule._replace(name='JtJp', reads=tuple(map(rename, rule.reads)), carries_K=True,
-                                 needs=rule.needs | {'variations'})
+                                 needs=rule.needs | {direction})
     return tuple(out) + (jtjp,)
 
 
-_PROBE_GRAPH = _PROBE_GRAPH + _jp_twins(_PROBE_GRAPH)
+# The corewise point (B, G): one basis on each edge. Its graph is derived from the manifold one: every row that reads
+# the frame's other stores (U, R), the frame's form of a direction (V, H), the Tucker centers or a frame node is
+# dropped, with every row that reads a dropped name; the rest are renamed, in their names, reads AND needs, by one
+# table (the base point's basis is the only one, so its names lose their basis; the direction is core_directions);
+# then the twins are derived from the result.
+_COREWISE_RENAME = {
+    'nu_L': 'nu', 'eta_D': 'eta', 'nu_L_tilde': 'nu_tilde', 'eta_D_tilde': 'eta_tilde',
+    'nu_L_dot': 'nu_dot', 'eta_D_dot': 'eta_dot', 'nu_L_tilde_dot': 'nu_tilde_dot', 'eta_D_tilde_dot': 'eta_tilde_dot',
+    '_raw.nu_L_dot': '_raw.nu_dot', '_raw.eta_D_dot': '_raw.eta_dot',
+    '_eta_D_tilde_top': '_eta_tilde_top', '_eta_D_tilde_dot_top': '_eta_tilde_dot_top',
+    'variations': 'core_directions',
+}
+_COREWISE_DROP = frozenset({'U', 'R', 'V', 'H', 'Vc'})
 
-_GRAPHS = {'probe': _PROBE_GRAPH}
+
+def _corewise(rows: typ.Tuple[Rule, ...]) -> typ.Tuple[Rule, ...]:
+    '''The graph of a corewise call, derived from the manifold rows (without their twins).'''
+    dropped_rows = set()
+    while True:
+        alive = {rule.name for k, rule in enumerate(rows) if k not in dropped_rows}
+        more = {k for k, rule in enumerate(rows) if k not in dropped_rows and (
+            rule.name.startswith('_frame.') or '_manifold' in rule.needs or set(rule.reads) & _COREWISE_DROP
+            or any(read not in alive and read in {r.name for r in rows} for read in rule.reads))}
+        if not more:
+            break
+        dropped_rows |= more
+    kept = [rule for k, rule in enumerate(rows) if k not in dropped_rows]
+    rename = lambda name: _COREWISE_RENAME.get(name, name)
+    unrenamed = {rule.name for rule in kept if rule.name not in _COREWISE_RENAME}
+    for rule in kept:                                    # a rename never lands on a name a surviving row keeps
+        if rule.name in _COREWISE_RENAME and rename(rule.name) in unrenamed:     # raise, not assert: python -O
+            raise RuntimeError('the corewise rename of %r lands on the surviving %r' % (rule.name, rename(rule.name)))
+    renamed = tuple(rule._replace(name=rename(rule.name), reads=tuple(map(rename, rule.reads)),
+                                  needs=frozenset(map(rename, rule.needs))) for rule in kept)
+    path = tuple(map(rename, _JP_PATH_COREWISE))
+    if not set(path) <= {rule.name for rule in renamed}:
+        raise RuntimeError('the corewise path of the adjoint seeded by Jp is incomplete')
+    return renamed + _jp_twins(renamed, path, 'core_directions', '_corewise')
+
+
+_PROBE_GRAPH = _PROBE_ROWS + _jp_twins(_PROBE_ROWS, _JP_PATH, 'variations', '_manifold')
+_PROBE_COREWISE_GRAPH = _corewise(_PROBE_ROWS)
+
+_GRAPHS = {('probe', '_manifold'): _PROBE_GRAPH, ('probe', '_corewise'): _PROBE_COREWISE_GRAPH}
 _KINDS = ('probe', 'apply', 'entries')
 
 _STORES = frozenset({'D', 'U', 'L', 'R'})                   # the stores of a manifold frame
-_ARGUMENTS = frozenset({'w', 'y', 'weight', 'Vc', 'V', 'H'}) # the arguments a row may read; 'w' is the sample,
-                                                                # V and H the variations
+_ARGUMENTS = frozenset({'w', 'y', 'weight', 'Vc', 'V', 'H', 'D_dot', 'L_dot'})   # what a row may read but the stores:
+                                                    # 'w' the sample; V, H the variations; D_dot, L_dot the core directions
+
+# The direction operands and the masks P11 masks each with on the uniform layout: the frame's variation masks for the
+# frame's form and the Tucker centers, the store's own masks for a core direction (the frame's D and L, never the
+# point's, which are a superset at TT slack).
+_DIRECTION_MASKS = {'V': 'variations', 'H': 'variations', 'Vc': 'variations', 'D_dot': 'D', 'L_dot': 'L'}
 _DRIVERS = ('site', 'left', 'right', 'whole')
 _STARTS = ('ones', 'zeros')
 
@@ -304,6 +477,24 @@ _SHAPES = {
     'nu_L_dot':        ('bond', 'F',    'rL'),
     'eta_D_dot':       ('site', 'F',    'nD'),
     'Jp':              ('mode', 'F',    'N'),
+    'xi_dot':          ('site', 'leaf', 'nD'),
+    'mu_dot':          ('bond', 'F',    'rL'),
+    'nu_L_tilde':      ('bond', 'F',    'rL'),
+    'eta_D_tilde':     ('site', 'F',    'nD'),
+    '_eta_D_tilde_top': ('site', 'leaf', 'nD'),
+    'xi_tilde_dot':    ('site', 'F',    'nD'),
+    'mu_tilde_dot':    ('bond', 'F',    'rL'),
+    'nu_L_tilde_dot':  ('bond', 'F',    'rL'),
+    'eta_D_tilde_dot': ('site', 'F',    'nD'),
+    '_eta_D_tilde_dot_top': ('site', 'leaf', 'nD'),
+    'V_tilde_dot':     ('site', 'none', 'VD'),
+    'H_tilde_dot':     ('site', 'none', 'HL'),
+    # the names of a corewise point (its sizes: the R and U sizes are those of L and D there)
+    'nu_dot':          ('bond', 'F',    'rL'),
+    'eta_dot':         ('site', 'F',    'nD'),
+    'nu_tilde_dot':    ('bond', 'F',    'rL'),
+    'eta_tilde_dot':   ('site', 'F',    'nD'),
+    '_eta_tilde_dot_top': ('site', 'leaf', 'nD'),
 }
 
 
@@ -327,7 +518,7 @@ def _closure(
     '''The rows that make what is wanted, from the declared graph of ``kind``: for each name not held, its first
     row whose ``needs`` are present, after the rows of the variables it reads. Raises a ``ValueError`` when no row
     of a needed name applies, naming what is missing and through which variables it was needed.'''
-    graph = _GRAPHS[kind]
+    graph = _GRAPHS[kind, '_corewise' if '_corewise' in present else '_manifold']
     rows: typ.Dict[str, typ.List[Rule]] = {}
     for rule in graph:
         rows.setdefault(rule.name, []).append(rule)
@@ -352,6 +543,12 @@ def _closure(
     for name in want:
         visit(name, ())
     return tuple(out)
+
+
+# Every public name of a corewise point is reachable there, with the direction as core_directions and data.
+for _name in _public(_PROBE_COREWISE_GRAPH):
+    _closure('probe', (_name,), frozenset(), frozenset({'_corewise', 'y', 'core_directions'}))
+del _name
 
 
 #####################################################
@@ -387,14 +584,14 @@ class HeldVariables:
         ...
     KeyError: "HeldVariables: the slot 'nu' is not filled"
     """
-    xi:     typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=min(J_in_i,F)+W+C+(nDi,)
-    mu:     typ.Optional[typ.Sequence[NDArray]] = None      # len=d+1, elm_shape=F+W+C+(rLi,)
-    nu:     typ.Optional[typ.Sequence[NDArray]] = None      # len=d+1, elm_shape=F+W+C+(rRi,)
-    nu_L:   typ.Optional[typ.Sequence[NDArray]] = None      # len=d+1, elm_shape=F+W+C+(rLi,)
-    eta:    typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=F+W+C+(nUi,)
-    eta_D:  typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=F+W+C+(nDi,)
-    z:      typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=F+W+C+(Ni,)
-    r:      typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=F+W+C+(Ni,)
+    xi:             typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=min(J_in_i,F)+W+C+(nDi,)
+    mu:             typ.Optional[typ.Sequence[NDArray]] = None      # len=d+1, elm_shape=F+W+C+(rLi,)
+    nu:             typ.Optional[typ.Sequence[NDArray]] = None      # len=d+1, elm_shape=F+W+C+(rRi,)
+    nu_L:           typ.Optional[typ.Sequence[NDArray]] = None      # len=d+1, elm_shape=F+W+C+(rLi,)
+    eta:            typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=F+W+C+(nUi,)
+    eta_D:          typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=F+W+C+(nDi,)
+    z:              typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=F+W+C+(Ni,)
+    r:              typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=F+W+C+(Ni,)
     f:              typ.Optional[NDArray] = None                    # shape=C
     r_block_sumsq:  typ.Optional[NDArray] = None                    # shape=(d,)+F
     w_tilde:        typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=F+W+C+(Ni,), turned
@@ -402,16 +599,32 @@ class HeldVariables:
     mu_tilde:       typ.Optional[typ.Sequence[NDArray]] = None      # len=d+1, elm_shape=F+W+C+(rLi,), turned
     nu_tilde:       typ.Optional[typ.Sequence[NDArray]] = None      # len=d+1, elm_shape=F+W+C+(rRi,), turned
     eta_tilde:      typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=F+W+C+(nUi,), turned
+    nu_L_tilde:     typ.Optional[typ.Sequence[NDArray]] = None      # len=d+1, elm_shape=F+W+C+(rLi,), turned
+    eta_D_tilde:    typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=F+W+C+(nDi,), turned
     V_tilde:        typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=C+(nUi,Ni)
     H_tilde:        typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=C+(rLi,nDi,rR(i+1))
     g:              typ.Optional[typ.Tuple] = None                  # (V_tilde, H_tilde)
     xi_U_dot:       typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=min(J_in_i,F)+W+K+C+(nUi,)
     mu_R_dot:       typ.Optional[typ.Sequence[NDArray]] = None      # len=d+1, elm_shape=F+W+K+C+(rRi,)
+    xi_dot:         typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=min(J_in_i,F)+W+K+C+(nDi,)
+    mu_dot:         typ.Optional[typ.Sequence[NDArray]] = None      # len=d+1, elm_shape=F+W+K+C+(rLi,)
     nu_L_dot:       typ.Optional[typ.Sequence[NDArray]] = None      # len=d+1, elm_shape=F+W+K+C+(rLi,)
     eta_D_dot:      typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=F+W+K+C+(nDi,)
     Jp:             typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=F+W+K+C+(Ni,)
     Jp_norm_sq:     typ.Optional[NDArray] = None                    # shape=K+C
+    xi_tilde_dot:   typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=F+W+K+C+(nDi,), turned
+    mu_tilde_dot:   typ.Optional[typ.Sequence[NDArray]] = None      # len=d+1, elm_shape=F+W+K+C+(rLi,), turned
+    nu_L_tilde_dot: typ.Optional[typ.Sequence[NDArray]] = None      # len=d+1, elm_shape=F+W+K+C+(rLi,), turned
+    eta_D_tilde_dot: typ.Optional[typ.Sequence[NDArray]] = None     # len=d,   elm_shape=F+W+K+C+(nDi,), turned
+    V_tilde_dot:    typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=K+C+(nDi,Ni)
+    H_tilde_dot:    typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=K+C+(rLi,nDi,rL(i+1))
+    Kp:             typ.Optional[typ.Tuple] = None                  # (V_tilde_dot, H_tilde_dot)
     JtJp:           typ.Optional[typ.Tuple] = None                  # the pair of blocks, K+C+(nUi,Ni), K+C+(rLi,nDi,rR(i+1))
+    # the names of a corewise point that a manifold call spells with a basis
+    nu_dot:         typ.Optional[typ.Sequence[NDArray]] = None      # len=d+1, elm_shape=F+W+K+C+(ri,)
+    eta_dot:        typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=F+W+K+C+(ni,)
+    nu_tilde_dot:   typ.Optional[typ.Sequence[NDArray]] = None      # len=d+1, elm_shape=F+W+K+C+(ri,), turned
+    eta_tilde_dot:  typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=F+W+K+C+(ni,), turned
 
     @classmethod
     def slots(cls) -> typ.Tuple[str, ...]:
@@ -491,36 +704,45 @@ def _bonds(tt: typ.Sequence[NDArray]) -> typ.Tuple[int, ...]:
 
 
 def _read_K(
-        variations:  typ.Optional[typ.Tuple],   # (V, H), elm_shapes K+C+(nUi,Ni), K+C+(rLi,nDi,rR(i+1)); or None
-        C:           typ.Tuple[int, ...],       # the stack of base points, read off the frame
-) -> typ.Tuple[int, ...]:                       # K, the stack of directions; () with no variations
-    '''The stack of directions, read off ``V[0]``; every ``V[i]`` and ``H[i]`` must have the prefix ``K + C`` and
-    the rank of its core (structural: a ``ValueError``, naming the operand). A size-1 axis where ``V[0]`` has more
-    would otherwise broadcast in a contraction and give a wrong answer with no error.'''
-    if variations is None:
+        variations:       typ.Optional[typ.Tuple],  # (V, H), elm_shapes K+C+(nUi,Ni), K+C+(rLi,nDi,rR(i+1)); or None
+        core_directions:  typ.Optional[typ.Tuple],  # (D_dot, L_dot), the shapes of D and L with K+C; or None
+        C:                typ.Tuple[int, ...],      # the stack of base points, read off the frame
+) -> typ.Tuple[int, ...]:                           # K, the stack of directions; () with no direction
+    '''The one stack of directions of the call, read off ``V[0]`` (or ``D_dot[0]`` with no variations); every
+    ``V[i]``, ``H[i]``, ``D_dot[i]`` and ``L_dot[i]`` must have the prefix ``K + C`` and the rank of its core
+    (structural: a ``ValueError``, naming the operand). A size-1 axis where another operand has more would otherwise
+    broadcast in a contraction and give a wrong answer with no error; and the curvature pairs element ``k`` of a
+    direction with element ``k`` of its lift, so both directions share one ``K``.'''
+    operands = []
+    if variations is not None:
+        operands += [('V', variations[0], 2), ('H', variations[1], 3)]
+    if core_directions is not None:
+        operands += [('D_dot', core_directions[0], 2), ('L_dot', core_directions[1], 3)]
+    if not operands:
         return ()
-    V, H = variations
-    n_K = np.ndim(V[0]) - 2 - len(C)
-    K = tuple(np.shape(V[0])[:max(n_K, 0)])
-    for name, cores, core_ndim in (('V', V, 2), ('H', H, 3)):
+    name0, cores0, core_ndim0 = operands[0]
+    K = tuple(np.shape(cores0[0])[:max(np.ndim(cores0[0]) - core_ndim0 - len(C), 0)])
+    for name, cores, core_ndim in operands:
         for i, core in enumerate(cores):
             shape = tuple(np.shape(core))
             if len(shape) != len(K) + len(C) + core_ndim or shape[:len(K) + len(C)] != K + C:
-                raise ValueError('sampling_variables: the variations must share one stack of directions K and the '
-                                 "frame's stack C: %s[%d] has shape %s, where V[0] gives K = %s and the frame C = %s, "
+                raise ValueError('sampling_variables: the directions must share one stack of directions K and the '
+                                 "frame's stack C: %s[%d] has shape %s, where %s[0] gives K = %s and the frame C = %s, "
                                  'so K + C + (the %d axes of the core) is expected'
-                                 % (name, i, shape, K, C, core_ndim))
+                                 % (name, i, shape, name0, K, C, core_ndim))
     return K
 
 
 def _read_setting(
-        stores:      typ.Dict[str, typ.Sequence[NDArray]],
-        sample:      typ.Sequence[NDArray],
-        order:       typ.Tuple[int, ...],
-        variations:  typ.Optional[typ.Tuple] = None,
-        graph:       typ.Tuple[Rule, ...] = (),
+        stores:           typ.Dict[str, typ.Sequence[NDArray]],   # D, U, L, R; or on a corewise point D, L only
+        sample:           typ.Sequence[NDArray],
+        order:            typ.Tuple[int, ...],
+        variations:       typ.Optional[typ.Tuple] = None,
+        graph:            typ.Tuple[Rule, ...] = (),
+        core_directions:  typ.Optional[typ.Tuple] = None,
 ) -> _Setting:
-    D, U, L, R = (stores[name] for name in ('D', 'U', 'L', 'R'))
+    D, L = stores['D'], stores['L']
+    U, R = stores.get('U', L), stores.get('R', L)       # a corewise point: one basis on each edge
     m = len(order)
     C = tuple(np.shape(D[0])[:-2])
     return _Setting(
@@ -529,7 +751,7 @@ def _read_setting(
         W=tuple(np.shape(sample[0])[m:-1]), C=C,
         sizes=dict(rL=_bonds(L), rR=_bonds(R), nD=tuple(np.shape(B)[-2] for B in D),
                    nU=tuple(np.shape(G)[-2] for G in U), N=tuple(np.shape(B)[-1] for B in D)),
-        K=_read_K(variations, C), with_K=frozenset(rule.name for rule in graph if rule.carries_K))
+        K=_read_K(variations, core_directions, C), with_K=frozenset(rule.name for rule in graph if rule.carries_K))
 
 
 def _shape(
@@ -549,8 +771,10 @@ def _shape(
     _, jets, size = _SHAPES[_table_name(name)]
     sizes = setting.sizes
     if jets == 'none':
-        core = ((sizes['nU'][i], sizes['N'][i]) if size == 'V'
-                else (sizes['rL'][i], sizes['nD'][i], sizes['rR'][i + 1]))
+        core = {'V':  lambda: (sizes['nU'][i], sizes['N'][i]),
+                'H':  lambda: (sizes['rL'][i], sizes['nD'][i], sizes['rR'][i + 1]),
+                'VD': lambda: (sizes['nD'][i], sizes['N'][i]),
+                'HL': lambda: (sizes['rL'][i], sizes['nD'][i], sizes['rL'][i + 1])}[size]()
         return K + setting.C + core
     J = tuple(min(a, f) for a, f in zip(setting.J_in[i], setting.box)) if jets == 'leaf' else setting.box
     return J + setting.W + K + setting.C + (sizes[size][i],)
@@ -566,8 +790,9 @@ def _expected(name: str, setting: _Setting) -> typ.Any:
     shapes over the index for an indexed variable, the pair of those of ``V_tilde`` and ``H_tilde`` for ``g``.'''
     if name in ('f', 'r_block_sumsq', 'Jp_norm_sq'):
         return _shape(name, None, setting)
-    if name in ('g', 'JtJp'):
-        blocks = ('V_tilde', 'H_tilde') if name == 'g' else (_twin('V_tilde'), _twin('H_tilde'))
+    if name in ('g', 'JtJp', 'Kp'):
+        blocks = {'g': ('V_tilde', 'H_tilde'), 'JtJp': (_twin('V_tilde'), _twin('H_tilde')),
+                  'Kp': ('V_tilde_dot', 'H_tilde_dot')}[name]
         return tuple(_expected(block, setting) for block in blocks)
     return tuple(_shape(name, i, setting) for i in range(_count(name, setting)))
 
@@ -690,7 +915,7 @@ def _cast(value: typ.Any, dtype: typ.Any, xnp) -> typ.Any:
 
 def sampling_variables(
         kind:              str,                              # 'probe' | 'apply' | 'entries'
-        frame:             typ.Tuple,                        # (D, U, L, R): four tuples of d arrays
+        frame:             typ.Tuple,                        # (D, U, L, R), four tuples of d arrays; or (B, G)
         sample:            typ.Any,                          # ww: the input jets, len=d, elm_shape=J_in_i+W+(Ni,)
         want:              typ.Sequence[str],                # variable names; the return is aligned with them
 
@@ -698,7 +923,7 @@ def sampling_variables(
         y:                 typ.Optional[typ.Any] = None,     # the data: len=d, elm_shape=F+W+(Ni,); for r
         weight:            typ.Optional[NDArray] = None,     # (d,)+F; None = ones
         variations:        typ.Optional[typ.Tuple] = None,   # (V, H), elm_shapes K+C+(nUi,Ni), K+C+(rLi,nDi,rR(i+1))
-        core_directions:   typ.Optional[typ.Tuple] = None,   # (D_dot, L_dot): not read yet
+        core_directions:   typ.Optional[typ.Tuple] = None,   # (D_dot, L_dot), the shapes of D, L with K+C
         Vc:                typ.Optional[typ.Sequence[NDArray]] = None,   # len=d, elm_shape=C+(nUi,Ni)
         sum_over_samples:  bool = True,                      # on the blocks: not read yet
         held:              typ.Optional[HeldVariables] = None,   # held variables; shapes checked, values trusted
@@ -729,6 +954,8 @@ def sampling_variables(
     frame: tuple
         ``(D, U, L, R)``, each ``len=d``: ``D[i]`` of shape ``C+(nDi, Ni)``, ``U[i]`` ``C+(rLi, nUi, rR(i+1))``,
         ``L[i]`` ``C+(rLi, nDi, rL(i+1))``, ``R[i]`` ``C+(rRi, nDi, rR(i+1))``. The base point is ``(D, L)``.
+        Or a corewise point ``(B, G)``, the cores of a Tucker tensor train: one basis on each edge, and the names
+        without a basis (the module docstring).
     sample: sequence of NDArray
         The input jets ``ww``: ``len=d``, ``elm_shape=J_in_i+W+(Ni,)``, with ``len(order)`` leading jet axes.
     want: sequence of str
@@ -743,7 +970,11 @@ def sampling_variables(
         The direction in the frame's form, ``(V, H)``: ``V[i]`` of shape ``K+C+(nUi, Ni)``, ``H[i]``
         ``K+C+(rLi, nDi, rR(i+1))``, the stack of directions ``K`` the same for all. Needed for the dot variables,
         ``Jp``, ``Jp_norm_sq`` and ``JtJp``.
-    core_directions, sum_over_samples
+    core_directions: tuple, optional
+        The direction in the raw form at the base point, ``(D_dot, L_dot)``, with the shapes of ``D`` and ``L`` and the
+        stack ``K`` in front (the same ``K`` as ``variations``). Needed for the raw dots, the tilde-dot variables and
+        ``Kp``; on a corewise point, the only form of a direction.
+    sum_over_samples
         Not read by the variables built so far.
     Vc: sequence of NDArray, optional
         The Tucker centers, ``len=d``, ``elm_shape=C+(nUi, Ni)``: ``z`` is then read off the frame through them,
@@ -807,17 +1038,11 @@ def sampling_variables(
     order = contractions._read_order(order, 'sampling_variables')
     if kind == 'entries' and order != ():
         raise ValueError('sampling_variables: the entries kind has no jets: its order is (), got %r' % (order,))
-    if kind not in _GRAPHS:
+    if (kind, '_manifold') not in _GRAPHS:
         raise NotImplementedError('sampling_variables: the %s kind is not built yet' % kind)
-    graph = _GRAPHS[kind]
     if isinstance(want, str):
         raise TypeError('sampling_variables: want is a sequence of names, not one name; got %r' % (want,))
     want = tuple(want)
-    names = _public(graph) + ('w',)
-    unknown = [name for name in want if name not in names]
-    if unknown:
-        raise ValueError('sampling_variables: unknown variable %s for the %s kind; the names are %s'
-                         % (', '.join(map(repr, unknown)), kind, ', '.join(names)))
     if held is not None and not isinstance(held, HeldVariables):
         raise TypeError('sampling_variables: held is a HeldVariables or None; got a %s' % type(held).__name__)
 
@@ -826,18 +1051,31 @@ def sampling_variables(
         raise ValueError('sampling_variables: the frame is a tuple of stores; got a %s' % type(frame).__name__)
     if is_ndarray(frame[0]):
         raise NotImplementedError('sampling_variables: the uniform layout is not built yet')
-    if len(frame) == 2:
-        raise NotImplementedError('sampling_variables: a corewise point (B, G) is not taken yet')
-    if len(frame) != 4:
-        raise ValueError('sampling_variables: a ragged frame has four stores (D, U, L, R); got %d' % len(frame))
-    stores = dict(zip(('D', 'U', 'L', 'R'), frame))
-    setting = _read_setting(stores, sample, order, variations, graph)
+    if len(frame) == 2:                                 # a corewise point (B, G): it binds the stores D and L
+        call = '_corewise'
+        stores = dict(zip(('D', 'L'), frame))
+        if variations is not None:
+            raise ValueError('sampling_variables: a corewise point has one form of a direction, the raw one: pass it '
+                             'as core_directions, not variations')
+    elif len(frame) == 4:
+        call = '_manifold'
+        stores = dict(zip(('D', 'U', 'L', 'R'), frame))
+    else:
+        raise ValueError('sampling_variables: a ragged frame has four stores (D, U, L, R), or a corewise point two '
+                         '(B, G); got %d' % len(frame))
+    graph = _GRAPHS[kind, call]
+    names = _public(graph) + ('w',)
+    unknown = [name for name in want if name not in names]
+    if unknown:
+        raise ValueError('sampling_variables: unknown variable %s for the %s kind on a %s call; the names are %s'
+                         % (', '.join(map(repr, unknown)), kind, call.lstrip('_'), ', '.join(names)))
+    setting = _read_setting(stores, sample, order, variations, graph, core_directions)
     if held is not None:
         _check_held(held, setting)
 
     # 3. the closure
     given = {'y': y, 'Vc': Vc, 'variations': variations, 'core_directions': core_directions}
-    present = frozenset(name for name, value in given.items() if value is not None) | {'_manifold'}
+    present = frozenset(name for name, value in given.items() if value is not None) | {call}
     held_names = frozenset(held.keys()) if held is not None else frozenset()
     rules = _closure(kind, tuple(name for name in want if name != 'w'), held_names, present)
 
@@ -847,7 +1085,8 @@ def sampling_variables(
                                  tuple(held_values.values())))
     xnp, xmap, xscan = get_backend(False, use_jax)
     V, H = variations if variations is not None else (None, None)
-    inputs = dict(stores, w=sample, y=y, weight=weight, Vc=Vc, V=V, H=H)
+    D_dot, L_dot = core_directions if core_directions is not None else (None, None)
+    inputs = dict(stores, w=sample, y=y, weight=weight, Vc=Vc, V=V, H=H, D_dot=D_dot, L_dot=L_dot)
     read = {name for rule in rules for name in rule.reads}
     held_counted = held_names & (read | set(want))         # a held variable read by a row, or wanted (an output)
     counted = [inputs[name] for name in sorted(read & set(inputs))] + [held_values[name] for name in

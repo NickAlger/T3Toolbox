@@ -889,6 +889,36 @@ class TestDispatch(unittest.TestCase):
             self.assertEqual(a.shape, b.shape)
             self.assertLess(norm(np.asarray(a) - b), 1e-12 * norm(b))
 
+    def test_jit_sampling_variables_curvature_and_the_corewise_point(self):
+        """``Kp`` under ``jax.jit`` with ``K = (2,)``, on a manifold frame and on a corewise point ``(B, G)``, with
+        ``g`` and ``JtJp`` there: jax in, jax out, the numbers numpy's."""
+        import t3toolbox.backend.jets as jets
+        import t3toolbox.backend.sampling_variables as sv
+        rng = np.random.default_rng(2)
+        N, nD, nU, rL, rR = (4, 5, 3), (2, 3, 2), (3, 2, 3), (1, 2, 3, 1), (1, 3, 2, 1)
+        frame = (tuple(rng.standard_normal((nD[i], N[i])) for i in range(3)),
+                 tuple(rng.standard_normal((rL[i], nU[i], rR[i + 1])) for i in range(3)),
+                 tuple(rng.standard_normal((rL[i], nD[i], rL[i + 1])) for i in range(3)),
+                 tuple(rng.standard_normal((rR[i], nD[i], rR[i + 1])) for i in range(3)))
+        core_directions = (tuple(rng.standard_normal((2, nD[i], N[i])) for i in range(3)),
+                           tuple(rng.standard_normal((2, rL[i], nD[i], rL[i + 1])) for i in range(3)))
+        ww = [rng.standard_normal((2, n)) for n in N]
+        pp = [rng.standard_normal((2, n)) for n in N]
+        sample = list(jets.affine_jet(ww, pp))
+        y = [rng.standard_normal((3, 2, n)) for n in N]
+        weight = 0.5 + rng.random((3, 3))
+        to_jax = lambda tree: jax.tree_util.tree_map(jnp.asarray, tree)
+        for label, at, want in (('manifold', frame, ('Kp',)), ('corewise', (frame[0], frame[2]), ('Kp', 'g', 'JtJp'))):
+            fn = lambda at, sample, y, weight, core_directions: sv.sampling_variables(
+                'probe', at, sample, want, order=(2,), y=y, weight=weight, core_directions=core_directions)
+            on_numpy = fn(at, sample, y, weight, core_directions)
+            jargs = to_jax((at, sample, y, weight, core_directions))
+            with self.subTest(call=label):
+                self.assert_jit_jax(fn, *jargs)
+                for a, b in zip(jax.tree_util.tree_leaves(jax.jit(fn)(*jargs)), jax.tree_util.tree_leaves(on_numpy)):
+                    self.assertEqual(a.shape, b.shape)
+                    self.assertLess(norm(np.asarray(a) - b), 1e-12 * norm(b))
+
     # ---------------------------------------------------- jit bucket: the dense sampling functions
     def test_jit_dense_sampling_functions(self):
         """jit dense_probe and dense_apply with no jets, with the input jets of a line at (3,) and with input jets of

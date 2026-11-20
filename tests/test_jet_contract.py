@@ -9,7 +9,7 @@ variables: each operand with ``J`` is a polynomial with jet sizes of its own (ze
 is the product on the box ``order + 1``, or its corner coefficient when the output has no ``J``. Lines of
 evidence, each independent of the others:
 
-1. **The reference** (`TestAgainstReference`): every one of the 31 strings of the sampling terms against a
+1. **The reference** (`TestAgainstReference`): every one of the 32 strings of the sampling terms against a
    reference that uses neither ``contract`` nor ``jet_contract`` (``_jet_contract_cases.reference``: every
    stack flattened to one axis, explicit loops over the multi-indices of every jet operand), at ``m = 0, 1, 2``
    and on a few strings at ``m = 3``; with the library's operand shapes and with random jet sizes per operand
@@ -53,7 +53,7 @@ import t3toolbox.backend.contractions as contractions
 from t3toolbox.backend.contractions import GroupLengths, jet_contract
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import _jet_contract_cases as cases     # the 31 strings, their operand shapes and their reference: test-only
+import _jet_contract_cases as cases     # the 32 strings, their operand shapes and their reference: test-only
 
 W_SHAPES = ((), (3,), (2, 2))
 K_SHAPES = ((), (2,), (2, 2))
@@ -84,18 +84,19 @@ def random_sizes(rng, string, order):
 
 
 class TestTheStrings(unittest.TestCase):
-    """The table of strings is the one the terms have: the 29 strings of the seven families, and the two readouts
-    of ``eta_top`` (the short form of ``eta_tilde``, P6), over the groups J, W, K, C and no others."""
+    """The table of strings is the one the terms have: the 29 strings of the seven families, and the three readouts
+    of ``eta_top`` (the short forms of ``eta_tilde``, P6, and ``eta_D_tilde_dot``, P8), over the groups J, W, K, C and
+    no others."""
 
     def test_29_strings_in_seven_families_and_two_slot_readouts(self):
-        self.assertEqual({'xi': 5, 'z': 3, 'mu': 4, 'nu': 4, 'eta': 4, 'V': 5, 'H': 4, 'eta_top': 2},
+        self.assertEqual({'xi': 5, 'z': 3, 'mu': 4, 'nu': 4, 'eta': 4, 'V': 5, 'H': 4, 'eta_top': 3},
                          {family: len(strings) for family, strings in cases.STRINGS.items()})
         strings = [string for _, string in cases.ALL_STRINGS]
-        self.assertEqual(31, len(strings))
-        self.assertEqual(31, len(set(strings)))
+        self.assertEqual(32, len(strings))
+        self.assertEqual(32, len(set(strings)))
         self.assertEqual(set('JWKC'), {ch for s in strings for ch in s if ch.isupper()})
         self.assertEqual(12, sum(cases.is_product(s) for s in strings))         # mu, nu, eta
-        self.assertEqual(11, sum(cases.is_readout(s) for s in strings))         # V, H, eta_top
+        self.assertEqual(12, sum(cases.is_readout(s) for s in strings))         # V, H, eta_top
         self.assertEqual(8, sum(len(cases.jet_operands(s)) == 1 and not cases.is_readout(s) for s in strings))
         for s in strings:                                                       # J leads every term that has it
             for term in cases.input_terms(s) + [cases.output_term(s)]:
@@ -405,7 +406,7 @@ class TestTheTwoForms(unittest.TestCase):
                         jet_contract(string, *arrays, lens=lens, order=out_order, over_orders='scan'),
                         jet_contract(string, *arrays, lens=lens, order=out_order, over_orders='loop')))
                     n_checked += 1
-        self.assertEqual(27, n_checked)     # every string but the 4 eta strings, once, at its line or leaf shape
+        self.assertEqual(28, n_checked)     # every string but the 4 eta strings, once, at its line or leaf shape
 
     def test_with_two_variables_both_forms_run_the_same_loop(self):
         """m = 2: 'scan' takes the loop (Part 2 may scan over several jet axes), so the arrays are equal, exactly."""

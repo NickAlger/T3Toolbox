@@ -59,8 +59,12 @@ except ImportError:
 TOL = 1e-10
 NAMES = ('w', 'xi', 'mu', 'nu', 'nu_L', 'eta', 'eta_D', 'z', 'r', 'f', 'r_block_sumsq',
          'w_tilde', 'xi_tilde', 'mu_tilde', 'nu_tilde', 'eta_tilde', 'V_tilde', 'H_tilde', 'g',
-         'xi_U_dot', 'mu_R_dot', 'nu_L_dot', 'eta_D_dot', 'Jp', 'Jp_norm_sq', 'JtJp')
-DOT_NAMES = ('xi_U_dot', 'mu_R_dot', 'nu_L_dot', 'eta_D_dot', 'Jp', 'Jp_norm_sq', 'JtJp')
+         'xi_U_dot', 'mu_R_dot', 'nu_L_dot', 'eta_D_dot', 'Jp', 'Jp_norm_sq', 'JtJp',
+         'xi_dot', 'mu_dot', 'nu_L_tilde', 'eta_D_tilde', 'xi_tilde_dot', 'mu_tilde_dot', 'nu_L_tilde_dot',
+         'eta_D_tilde_dot', 'V_tilde_dot', 'H_tilde_dot', 'Kp')
+DOT_NAMES = ('xi_U_dot', 'mu_R_dot', 'nu_L_dot', 'eta_D_dot', 'Jp', 'Jp_norm_sq', 'JtJp',
+             'xi_dot', 'mu_dot', 'xi_tilde_dot', 'mu_tilde_dot', 'nu_L_tilde_dot', 'eta_D_tilde_dot', 'V_tilde_dot',
+             'H_tilde_dot', 'Kp')
 
 
 def tails_one_axis():
@@ -72,24 +76,34 @@ PROBLEMS = (('small', defs.small), ('tails, L and R ends differ', tails_one_axis
 
 
 def engine(problem, case, names, **extra):
+    """The engine on the problem's frame and the case's input jets, with data, a weight and both directions."""
     y, weight = problem.data('probe', case)
-    arguments = dict(order=case.order, y=y, weight=weight, variations=(problem.V, problem.H))
+    arguments = dict(order=case.order, y=y, weight=weight, variations=(problem.V, problem.H),
+                     core_directions=(problem.D_dot, problem.L_dot))
     arguments.update(extra)
     return sv.sampling_variables('probe', problem.frame, problem.input_jets(case), names, **arguments)
 
 
-def reference(problem, case, name, variations=None):
+def reference(problem, case, name, variations=None, core_directions=None):
     y, weight = problem.data('probe', case)
     variations = (problem.V, problem.H) if variations is None else variations
+    core_directions = (problem.D_dot, problem.L_dot) if core_directions is None else core_directions
     return getattr(sdef, name)('probe', problem.frame, problem.input_jets(case), None, case.order, y=y, weight=weight,
-                               variations=variations)
+                               variations=variations, core_directions=core_directions)
 
 
 def stacked_directions(problem, seed=0):
-    """A stack of two directions, K = (2,): the problem's own, and a second one."""
+    """A stack of two directions in the frame's form, K = (2,): the problem's own, and a second one."""
     rng = np.random.default_rng(seed)
     return ([np.stack([V, rng.standard_normal(V.shape)]) for V in problem.V],
             [np.stack([H, rng.standard_normal(H.shape)]) for H in problem.H])
+
+
+def stacked_core_directions(problem, seed=1):
+    """A stack of two directions in the raw form, K = (2,): the problem's own, and a second one."""
+    rng = np.random.default_rng(seed)
+    return ([np.stack([B, rng.standard_normal(B.shape)]) for B in problem.D_dot],
+            [np.stack([G, rng.standard_normal(G.shape)]) for G in problem.L_dot])
 
 
 def direction(variations, k):
@@ -102,8 +116,10 @@ def element(name, value, k, lead):
     ``W``) of an indexed variable, first for ``Jp_norm_sq`` and the blocks of ``JtJp``."""
     if name == 'Jp_norm_sq':
         return np.asarray(value)[k]
-    if name == 'JtJp':
+    if name in ('JtJp', 'Kp'):
         return tuple(tuple(block[k] for block in family) for family in value)
+    if name in ('V_tilde_dot', 'H_tilde_dot'):
+        return tuple(block[k] for block in value)
     return tuple(np.take(array, k, axis=lead) for array in value)
 
 
@@ -176,13 +192,15 @@ class TestTheDirectionStack(unittest.TestCase):
     def test_every_dot_name_with_two_directions(self):
         for problem_name, make in PROBLEMS:
             problem = make()
-            variations = stacked_directions(problem)
+            variations, core_directions = stacked_directions(problem), stacked_core_directions(problem)
             for case in defs.JET_CASES:
-                got = dict(zip(DOT_NAMES, engine(problem, case, DOT_NAMES, variations=variations)))
+                got = dict(zip(DOT_NAMES, engine(problem, case, DOT_NAMES, variations=variations,
+                                                 core_directions=core_directions)))
                 lead = case.m + len(problem.W)
                 for k in range(2):
                     for name in DOT_NAMES:
-                        expected = reference(problem, case, name, variations=direction(variations, k))
+                        expected = reference(problem, case, name, variations=direction(variations, k),
+                                             core_directions=direction(core_directions, k))
                         with self.subTest(problem=problem_name, jets=case.label, k=k, name=name):
                             for a, b in zip(arrays_of(element(name, got[name], k, lead)), arrays_of(expected)):
                                 self.assertLessEqual(defs.relative_error(a, b), TOL)
@@ -200,10 +218,24 @@ class TestTheDirectionStack(unittest.TestCase):
         }
         for label, (V_, H_, pattern) in bad.items():
             with self.subTest(case=label):
-                with self.assertRaisesRegex(ValueError, 'the variations must share one stack of directions K'):
+                with self.assertRaisesRegex(ValueError, 'the directions must share one stack of directions K'):
                     sv.sampling_variables('probe', problem.frame, problem.ww, ('Jp',), variations=(V_, H_))
                 with self.assertRaisesRegex(ValueError, pattern):
                     sv.sampling_variables('probe', problem.frame, problem.ww, ('z',), variations=(V_, H_))
+        # the two forms of a direction share the one K of the call
+        D_dot, L_dot = stacked_core_directions(problem)
+        bad = {
+            'raw K of another size':  ((V, H), ([B[:1] for B in D_dot], [G[:1] for G in L_dot]),
+                                       r'D_dot\[0\] has shape \(1, 2, 4\), where V\[0\] gives K = \(2,\)'),
+            'a size-1 K on L_dot[2]': ((V, H), (D_dot, L_dot[:2] + [L_dot[2][:1]]), r'L_dot\[2\] has shape \(1, '),
+            'no K on D_dot[0]':       (None, ([D_dot[0][0]] + D_dot[1:], L_dot), r'D_dot\[1\] has shape \(2, 3, 3\), '
+                                                                                 r'where D_dot\[0\] gives K = \(\)'),
+        }
+        for label, (variations, core_directions, pattern) in bad.items():
+            with self.subTest(case=label):
+                with self.assertRaisesRegex(ValueError, pattern):
+                    sv.sampling_variables('probe', problem.frame, problem.ww, ('z',), variations=variations,
+                                          core_directions=core_directions)
         # a held Jp must have the call's K
         (Jp,) = sv.sampling_variables('probe', problem.frame, problem.ww, ('Jp',), variations=(V, H))
         with self.assertRaisesRegex(ValueError, r'the held Jp\[0\] has shape \(3, 4\); expected \(3, 2, 4\)'):
@@ -293,13 +325,13 @@ class TestDeclaredJetSizes(unittest.TestCase):
     def test_the_shapes_are_those_of_the_table(self):
         """Every indexed variable has, at every index, the shape ``_shape`` gives from the table ``_SHAPES``:
         ``J + W + C + (size,)``, ``J`` the input's jet sizes clipped to ``F`` for the leaves and ``F`` otherwise."""
-        names = tuple(name for name in sv._SHAPES if not name.startswith('_'))
+        names = tuple(name for name in sv._SHAPES if name in sv._public(sv._PROBE_GRAPH))
         for problem_name, make in PROBLEMS:
             problem = make()
             for case in defs.JET_CASES:
                 sample = problem.input_jets(case)
                 setting = sv._read_setting(dict(zip('DULR', problem.frame)), sample, case.order,
-                                           (problem.V, problem.H), sv._PROBE_GRAPH)
+                                           (problem.V, problem.H), sv._PROBE_GRAPH, (problem.D_dot, problem.L_dot))
                 got = dict(zip(names, engine(problem, case, names)))
                 for name in names:
                     with self.subTest(problem=problem_name, jets=case.label, name=name):
@@ -308,13 +340,14 @@ class TestDeclaredJetSizes(unittest.TestCase):
                             self.assertEqual(array.shape, sv._shape(name, i, setting))
                             jets = array.shape[:case.m]
                             if sv._SHAPES[name][1] == 'none':           # a block: C + the core's shape
-                                self.assertEqual(array.ndim, 2 if name == 'V_tilde' else 3)
+                                self.assertEqual(array.ndim, 2 if name.startswith('V_') else 3)
                             elif sv._SHAPES[name][1] == 'leaf':         # xi, xi_U_dot
                                 self.assertEqual(jets, tuple(min(a, f) for a, f in
                                                              zip(sample[i].shape[:case.m], case.box)))
                             else:
                                 self.assertEqual(jets, case.box)
-                f, blocks, g, norm_sq, JtJp = engine(problem, case, ('f', 'r_block_sumsq', 'g', 'Jp_norm_sq', 'JtJp'))
+                f, blocks, g, norm_sq, JtJp, Kp = engine(problem, case, ('f', 'r_block_sumsq', 'g', 'Jp_norm_sq', 'JtJp',
+                                                                         'Kp'))
                 with self.subTest(problem=problem_name, jets=case.label, name='f, r_block_sumsq, g, Jp_norm_sq, JtJp'):
                     self.assertEqual(np.shape(f), ())
                     self.assertEqual(np.shape(norm_sq), ())
@@ -323,6 +356,8 @@ class TestDeclaredJetSizes(unittest.TestCase):
                                                                      tuple(a.shape for a in JtJp[1])))
                     self.assertEqual(sv._expected('g', setting), (tuple(a.shape for a in g[0]),
                                                                   tuple(a.shape for a in g[1])))
+                    self.assertEqual(sv._expected('Kp', setting), (tuple(a.shape for a in Kp[0]),
+                                                                   tuple(a.shape for a in Kp[1])))
 
     def test_every_jet_contract_call_is_given_the_output_jet_shape_of_the_table(self):
         """The calls are recorded through ``contractions.jet_contract``. The leaf string ``'JWo,Cio->JWCi'`` is
@@ -438,12 +473,12 @@ class TestNoSafetyMode(unittest.TestCase):
         y, weight = problem.data('probe', case)
         sample = problem.input_jets(case)
         names = NAMES[1:]
-        variations = stacked_directions(problem)
+        variations, core_directions = stacked_directions(problem), stacked_core_directions(problem)
         eager = sv.sampling_variables('probe', problem.frame, sample, names, order=case.order, y=y, weight=weight,
-                                      variations=variations)
-        jitted = jax.jit(lambda frame, sample, y, weight, variations: sv.sampling_variables(
-            'probe', frame, sample, names, order=case.order, y=y, weight=weight, variations=variations))(
-            problem.frame, sample, y, weight, variations)
+                                      variations=variations, core_directions=core_directions)
+        jitted = jax.jit(lambda frame, sample, y, weight, variations, core_directions: sv.sampling_variables(
+            'probe', frame, sample, names, order=case.order, y=y, weight=weight, variations=variations,
+            core_directions=core_directions))(problem.frame, sample, y, weight, variations, core_directions)
         tol = 1e-12 if jnp.zeros(()).dtype == jnp.float64 else 1e-5
         for name, a, b in zip(names, eager, jitted):
             with self.subTest(name=name):

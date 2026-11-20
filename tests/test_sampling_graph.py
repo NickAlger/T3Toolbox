@@ -75,7 +75,8 @@ class TestGraph(unittest.TestCase):
             with self.subTest(name=name):
                 self.assertEqual(row[1], index)
                 self.assertEqual(row[2], {'leaf': 'min(J_in_i, F)', 'F': 'F', 'none': 'none'}[jets])
-                self.assertEqual(row[3], {'V': '(nU_i, N_i)', 'H': '(rL_i, nD_i, rR_(i+1))'}.get(size, size + '_i'))
+                self.assertEqual(row[3], {'V': '(nU_i, N_i)', 'H': '(rL_i, nD_i, rR_(i+1))', 'VD': '(nD_i, N_i)',
+                                          'HL': '(rL_i, nD_i, rL_(i+1))'}.get(size, size + '_i'))
 
     def test_every_step_name_is_a_function_of_the_step_module(self):
         for rule in sv._PROBE_GRAPH:
@@ -101,8 +102,11 @@ class TestGraph(unittest.TestCase):
         """Every public computed variable of the graphs (row 6.4: every variable can be wanted and held); not the
         sample ``w``, an argument, and not a private node."""
         public = [name for name in sv._made(sv._PROBE_GRAPH) if not name.startswith('_')]
+        public += [name for name in sv._made(sv._PROBE_COREWISE_GRAPH) if not name.startswith('_') and name not in public]
         self.assertEqual(sv.HeldVariables.slots(), tuple(public))
-        self.assertEqual(public, list(sv._public(sv._PROBE_GRAPH)))
+        self.assertEqual(public[:len(sv._public(sv._PROBE_GRAPH))], list(sv._public(sv._PROBE_GRAPH)))
+        self.assertEqual(public[len(sv._public(sv._PROBE_GRAPH)):], ['nu_dot', 'eta_dot', 'nu_tilde_dot',
+                                                                    'eta_tilde_dot'])   # a corewise point's own
         self.assertNotIn('w', sv.HeldVariables.slots())                     # an argument, not a slot
         self.assertNotIn('_eta_tilde_top', sv.HeldVariables.slots())        # a private node
         self.assertIn('_eta_tilde_top', sv._made(sv._PROBE_GRAPH))
@@ -111,7 +115,9 @@ class TestGraph(unittest.TestCase):
         """Each row declares its start (not chosen by grade): the plain sweeps start at ones, the probe kind's tilde
         sweeps at zeros, and a row of another driver declares none."""
         expected = {'mu': 'ones', 'nu': 'ones', 'nu_L': 'ones', 'mu_tilde': 'zeros', 'nu_tilde': 'zeros',
-                    'mu_R_dot': 'zeros', '_frame.nu_L_dot': 'zeros', '_Jp.mu_tilde': 'zeros', '_Jp.nu_tilde': 'zeros'}
+                    'mu_R_dot': 'zeros', '_frame.nu_L_dot': 'zeros', '_Jp.mu_tilde': 'zeros', '_Jp.nu_tilde': 'zeros',
+                    'nu_L_tilde': 'zeros', 'mu_dot': 'zeros', '_raw.nu_L_dot': 'zeros', 'mu_tilde_dot': 'zeros',
+                    'nu_L_tilde_dot': 'zeros'}
         for rule in sv._PROBE_GRAPH:
             with self.subTest(name=rule.name):
                 self.assertEqual(rule.start, expected.get(rule.name))
@@ -138,7 +144,7 @@ class TestGraph(unittest.TestCase):
             with self.subTest(name=rule.name):
                 is_sweep = rule.step[0] in ('left', 'right')
                 is_bond = sv._SHAPES[sv._table_name(rule.name)][0] == 'bond' if rule.name not in (
-                    'f', 'r_block_sumsq', 'g', 'Jp_norm_sq', 'JtJp') else False
+                    'f', 'r_block_sumsq', 'g', 'Jp_norm_sq', 'JtJp', 'Kp') else False
                 if rule.step == ('whole', 'identity_step'):                 # a route over a private node
                     self.assertEqual(is_bond, rows[rule.reads[0]].step[0] in ('left', 'right'))
                 else:
@@ -154,11 +160,22 @@ class TestGraph(unittest.TestCase):
             expected = np.einsum('Wa,aib,Wb->Wi', mu[i], U[i], nu[i + 1])
             self.assertLessEqual(defs.relative_error(eta[i], expected), 1e-12)
 
+    def test_the_direction_operands_and_their_masks(self):
+        """P11's attach point: every core-shaped argument a row reads (the two forms of a direction and the Tucker
+        centers) is in ``_DIRECTION_MASKS``, mapped to the frame's variation masks or to a store's own masks."""
+        read = {name for graph in (sv._PROBE_GRAPH, sv._PROBE_COREWISE_GRAPH) for rule in graph for name in rule.reads}
+        self.assertEqual(set(sv._DIRECTION_MASKS), read & sv._ARGUMENTS - {'w', 'y', 'weight'})
+        self.assertEqual(sv._DIRECTION_MASKS, {'V': 'variations', 'H': 'variations', 'Vc': 'variations',
+                                               'D_dot': 'D', 'L_dot': 'L'})
+
     def test_carries_K_is_a_field_of_every_row(self):
         self.assertIn('carries_K', sv.Rule._fields)
         with_K = {rule.name for rule in sv._PROBE_GRAPH if rule.carries_K}
         self.assertEqual(with_K, {'xi_U_dot', 'mu_R_dot', '_frame.nu_L_dot', 'nu_L_dot', '_frame.eta_D_dot',
-                                  'eta_D_dot', 'Jp', 'Jp_norm_sq', 'JtJp'} | {sv._twin(n) for n in sv._JP_PATH})
+                                  'eta_D_dot', 'Jp', 'Jp_norm_sq', 'JtJp', 'xi_dot', 'mu_dot', '_raw.nu_L_dot',
+                                  '_raw.eta_D_dot', 'xi_tilde_dot', 'mu_tilde_dot', 'nu_L_tilde_dot', 'eta_D_tilde_dot',
+                                  '_eta_D_tilde_dot_top', 'V_tilde_dot', 'H_tilde_dot', 'Kp'}
+                         | {sv._twin(n) for n in sv._JP_PATH})
 
     def test_every_row_on_the_path_of_JtJp_has_its_twin(self):
         """The adjoint seeded by ``Jp``: every row on the residual's path from ``w_tilde`` to ``V_tilde``, ``H_tilde``
@@ -219,19 +236,24 @@ class TestClosure(unittest.TestCase):
         self.ww = [rng.standard_normal((2, D.shape[-1])) for D in self.frame[0]]
 
     def test_the_earlier_applicable_row_wins(self):
-        """For every name with two rows or more, a call whose facts satisfy every row takes the first."""
+        """For every name with two rows or more on a manifold call, a call whose facts satisfy every row takes the
+        first; a call with only the last row's facts takes the last. (The routes needing ``_corewise`` are never taken
+        on a manifold call.)"""
         rows = {}
         for rule in sv._PROBE_GRAPH:
-            rows.setdefault(rule.name, []).append(rule)
+            if '_corewise' not in rule.needs:
+                rows.setdefault(rule.name, []).append(rule)
         several = {name: rules for name, rules in rows.items() if len(rules) > 1}
-        self.assertEqual(set(several), {'z'})
+        self.assertEqual(set(several), {'z', 'nu_L_dot', 'eta_D_dot', 'Jp'})
         for name, rules in several.items():
-            every_fact = frozenset().union(*(rule.needs for rule in rules)) | {'_manifold'}
-            chosen = [rule for rule in sv._closure('probe', (name,), frozenset(), every_fact) if rule.name == name]
-            self.assertEqual(chosen, [rules[0]])
-            fewer = frozenset({'_manifold'})
-            chosen = [rule for rule in sv._closure('probe', (name,), frozenset(), fewer) if rule.name == name]
-            self.assertEqual(chosen, [rules[-1]])
+            with self.subTest(name=name):
+                every_fact = frozenset().union(*(rule.needs for rule in rules)) | {'_manifold'}
+                chosen = [rule for rule in sv._closure('probe', (name,), frozenset(), every_fact) if rule.name == name]
+                self.assertEqual(chosen, [rules[0]])
+                fewer = rules[-1].needs | {'_manifold'}
+                chosen = [rule for rule in sv._closure('probe', (name,), frozenset(), fewer) if rule.name == name]
+                self.assertEqual(chosen, [rules[-1]])
+        self.assertEqual({rule.name for rule in sv._PROBE_GRAPH if '_corewise' in rule.needs}, {'V_tilde', 'H_tilde'})
 
     def test_a_held_variable_does_not_change_the_route(self):
         """With ``Vc`` given and ``eta_D`` held, ``z`` still takes the route of ``Vc``, and ``eta`` is computed."""
@@ -357,8 +379,8 @@ class TestChecks(unittest.TestCase):
     def test_an_unknown_kind_or_name_raises(self):
         with self.assertRaisesRegex(ValueError, 'unknown sampling kind'):
             sv.sampling_variables('probes', self.frame, self.ww, ('z',))
-        with self.assertRaisesRegex(ValueError, "unknown variable 'Kp', 'zz' for the probe kind"):
-            sv.sampling_variables('probe', self.frame, self.ww, ('z', 'Kp', 'zz'))
+        with self.assertRaisesRegex(ValueError, "unknown variable 'Hp', 'zz' for the probe kind"):
+            sv.sampling_variables('probe', self.frame, self.ww, ('z', 'Hp', 'zz'))
         for private in ('_Jp.mu_tilde', '_frame.nu_L_dot'):
             with self.assertRaisesRegex(ValueError, 'unknown variable %r' % private):
                 sv.sampling_variables('probe', self.frame, self.ww, (private,))
@@ -382,7 +404,8 @@ class TestChecks(unittest.TestCase):
     def test_every_missing_argument_raises(self):
         for want in (('Jp',), ('JtJp',), ('nu_L_dot',), ('Jp_norm_sq',)):
             with self.subTest(want=want, missing='variations'):
-                with self.assertRaisesRegex(ValueError, "needs the argument variations, which was not given"):
+                with self.assertRaisesRegex(ValueError, "needs the argument (core_directions or )?variations, which "
+                                                        "was not given"):
                     sv.sampling_variables('probe', self.frame, self.ww, want)
         with self.subTest(want='JtJp', message='names JtJp, not a chain of private nodes'):
             with self.assertRaisesRegex(ValueError, "'JtJp' needs the argument variations, which was not given$"):
@@ -440,8 +463,10 @@ class TestChecks(unittest.TestCase):
     def test_a_frame_of_neither_form(self):
         with self.assertRaisesRegex(ValueError, 'a ragged frame has four stores'):
             sv.sampling_variables('probe', self.frame[:3], self.ww, ('z',))
-        with self.assertRaisesRegex(NotImplementedError, 'a corewise point'):
-            sv.sampling_variables('probe', (self.frame[0], self.frame[2]), self.ww, ('z',))
+        with self.assertRaisesRegex(ValueError, 'a corewise point has one form of a direction, the raw one: pass it as '
+                                                'core_directions'):
+            sv.sampling_variables('probe', (self.frame[0], self.frame[2]), self.ww, ('z',),
+                                  variations=(self.problem.V, self.problem.H))
         with self.assertRaisesRegex(NotImplementedError, 'the uniform layout'):
             sv.sampling_variables('probe', (np.zeros((3, 2, 2)),) * 6, self.ww, ('z',))
 

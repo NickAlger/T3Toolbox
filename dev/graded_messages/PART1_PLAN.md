@@ -756,7 +756,9 @@ class LeastSquaresOracle(ValueHashedFields):
     # n_measurements(batch) -> int;  take(batch, indices) -> LeastSquaresBatch (traceable, static len(indices))
 ```
 
-The least-squares oracle's `query` asks the engine for `want` plus the names of its hold list that the declared
+On a corewise frame (two cores, told from its structure, section 2.2) the least-squares oracle passes the direction
+it is given as `core_directions`, the engine refusing `variations` there (P8; ruled 2026-11-20). The least-squares
+oracle's `query` asks the engine for `want` plus the names of its hold list that the declared
 graph says the call computes anyway, and returns those as `held`; a call never computes a variable only to hold
 it (8.3). Part 1's hold list is fixed: `xi`, `mu`, `nu`, `eta`, `r` (7.2 "as today"). `y_block_sumsq` needs no
 frame (the display asks once). `f_resolution` is `eps (|omega y| |omega r| + |f|)`, the formula of
@@ -1597,6 +1599,29 @@ with both directions the public `nu_L_dot` and `eta_D_dot` are the raw form (O-1
   `eta_D_dot` are the same arrays (`subtree_gauge_check.py`). Bridge against `corewise_hessian` of the old
   derivative kinds.
 - A count test: a corewise call wanting `('z', 'g')` runs each sweep once. A corewise call wanting `nu_L` raises.
+- **Design, settled before the build (2026-11-20; `implementation/P8_DESIGN_NOTE.md`, `P8_DESIGN_REVIEW.md`):** the raw
+  dots (`xi_dot`, `mu_dot`, private `_raw.nu_L_dot`/`_raw.eta_D_dot`) reuse P7's dot steps; `nu_L_tilde`,
+  `eta_D_tilde` reuse P6's, with a short node `_eta_D_tilde_top`; the tilde-dot grade adds `xi_tilde_dot`, the six-term
+  `mu_tilde_dot` and `nu_L_tilde_dot`, the full `eta_D_tilde_dot` (run only when wanted) and a short node read by
+  `V_tilde_dot`; `H_tilde_dot` is nine readouts; `Kp` pairs the blocks. **O-12:** raw route rows in front of P7's
+  frame routes, needing `core_directions`; `Jp`/`JtJp` read the frame nodes, `Kp` the raw ones; a raw route for `Jp`
+  after the frame route (for the corewise call); `JtJp` unreachable with only `core_directions` on a manifold call,
+  the docstring saying why. **One shared `K`** for `V`, `H`, `D_dot`, `L_dot` (the curvature pairs element `k` of a
+  direction with element `k` of its lift); a mismatch raises, the structural check of P7 extended to the four. **The
+  corewise call:** its graph derived at import from the manifold one (drop the rows reading `U`, `R`, `V`, `H`, `Vc` or
+  a frame node; one rename table over names, `reads` AND `needs`, `'variations'` to `'core_directions'`; then the
+  twins, derived through the rename), with two import-time assertions (the rename never lands on a name a surviving
+  row uses; every public corewise name is reachable) and a test of corewise `JtJp` against `g` with `Jp` held as `r`;
+  "each sweep once" and O-13 follow by construction. **On a corewise call the direction argument is
+  `core_directions`, and `variations` raises** (ruled by Claude, option (a) of the review; to be shown the maintainer
+  at the pause after P11): at the frame `(B, G, G, G)` the frame form of a direction is its raw form, so accepting both
+  would run two identical families of raw dots when both are given (the exact Hessian on a corewise geometry, whose
+  lift is the identity); the least-squares oracle passes the direction as `core_directions` on a corewise frame,
+  telling the call type from the frame's structure (section 2.2), not from the geometry (section 2.4, P14). **One
+  table of the direction operands for P11's masks** (`V`, `H` to the variation masks; `D_dot`, `L_dot` to the
+  stores' masks; `Vc`). **Tests:** `Kp` against the reference (exact), not a central difference of `g` (exact only to
+  degree 2, and `g` has degree `d - 1`); a step-count test for a corewise `('Kp',)`; the bridge to the old
+  `corewise_hessian` given forward `omega^2 r / t!` (derived: the old Hessian is of `sum_t t! <c_t, z_t>`).
 - Gate: the full gate.
 
 **P9. Engine E.** Apply and entries: their graphs (the forward needs only `xi` and `mu`; the adjoint only `nu_tilde`

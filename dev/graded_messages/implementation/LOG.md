@@ -704,3 +704,48 @@ Nothing is running; the two agents are idle and are resumed for P5 when the main
   doctests 314; 48 pages; 14 examples; Sphinx 0 warnings). **Memory: peak 10.4 GB, 1.9 GB left at the lowest.** If it
   falls further the gate moves to `-n 2`.
 - **P8's design note** (`P8_DESIGN_NOTE.md`) was written while P7 was reviewed; it goes to the reviewer next.
+
+### P8 designed (2026-11-20)
+
+- The implementer's note (`P8_DESIGN_NOTE.md`, written while P7 was reviewed) and the reviewer's critique
+  (`P8_DESIGN_REVIEW.md`: sound, one must-fix for the corewise derivation). The reviewer confirmed the tilde-dot
+  terms (`mu_tilde_dot`'s six = 3 places of the direction x 2 of the seed, both-in-the-leaf being `xi_tilde_dot`;
+  `H_tilde_dot`'s nine) and the cost (12 readouts against `6(n + 1)` contractions per site for a line), and derived
+  the bridge to the old `corewise_hessian` (forward `omega^2 r / t!`).
+- **Ruled by Claude** (written into the plan's P8 and section 2.4): the rows and O-12 routes as proposed; one shared
+  `K` for the four direction operands, a mismatch raising; the corewise graph derived at import with the rename
+  applied to `needs` too (Finding A: else `JtJp` is unreachable there), two import-time assertions, the twin path
+  derived through the rename; one table of direction operands for P11's masks; `Kp` tested against the reference
+  (exact), not a central difference of `g`.
+- **For the maintainer at the pause after P11:** on a corewise call the direction argument is `core_directions` and
+  `variations` raises (option (a) of the review; both agents recommended it, against Claude's first lean to accept
+  `variations` there). Reason: at `(B, G, G, G)` the frame form of a direction is its raw form, so accepting both would
+  run two identical families of raw dots when both are given (the exact Hessian on a corewise geometry, lift = the
+  identity); the least-squares oracle passes the direction as `core_directions` on a corewise frame, told from the
+  frame's structure, not the geometry. No decided row changes in letter (4.5, 8.2, 8.3); it is a rule on one call
+  type of a public backend function, like O-13. Reversible inside P8.
+
+### P8: Engine D, the raw dots, the tilde-dot grade, `Kp`, the corewise call (2026-11-20, to 06:33)
+
+- **Rounds:** one on the build (`P8_REVIEW_r1.md`: SIGN OFF, one minor), after the design (above). Handover
+  `P8_HANDOVER.md`.
+- **What was built:** the tilde-dot steps (`xi_tilde_dot`, `mu_tilde_dot`, `nu_tilde_dot`, `eta_tilde_dot`, a short
+  node with the new literal `'JWCa,KCaib,JWCb->WKCi'`, `V_tilde_dot`, `H_tilde_dot` of nine readouts); `STRINGS` at 32;
+  the raw dot rows, the O-12 routes, a raw route for `Jp`, the tilde-dot rows and `Kp`; one shared `K` checked across
+  `V`, `H`, `D_dot`, `L_dot`; the corewise `(B, G)` graph derived at import (drop, rename over names, reads and needs,
+  twins through the renamed path) with import-time invariants and a reachability loop; `variations` refused on a
+  corewise call (one `if`); `_DIRECTION_MASKS`, the one table of direction operands for P11; `HeldVariables` 40
+  slots. Tests: `tests/test_sampling_corewise.py` (8) and additions elsewhere; `Kp` against the reference exactly;
+  the bridge to the old `corewise_hessian`.
+- **The reviewer's checks:** `Kp` against its own dense second derivative (the `eps^1` coefficient of
+  `Phi(x + eps xdot + e) - Phi(x + eps xdot)`, exact at `2d + 1` points), 8.8e-15, covering the raw dots, the tilde-dot
+  grade, the short node and the nine readouts; the corewise call at `(D, L)` against the manifold call; corewise `JtJp`
+  as `g` with `Jp_k` held; each sweep exactly `d` times on corewise `('z', 'g')` and `('Kp',)`; the refusals (a `K`
+  mismatch, O-13, `variations` on corewise). The implementer's mutants: 20 non-equivalent, all killed.
+- **Minor, made by Claude:** `_corewise`'s import-time invariants were `assert`s (stripped by `python -O`); now `raise
+  RuntimeError`, its test updated; the module imports under `-O`. Corewise, graph and variable tests 42 passed.
+- **Gate:** the implementer's full gate at `-n 3`, every step PASS (suite 1,734 passed; module doctests 314; Sphinx 0
+  warnings). Memory: the summed peak RSS of the run rose to 13.4 GB (it counts pages shared between workers more than
+  once); the lowest MemAvailable stayed 1.9 GB, the real margin. P8's own files peak at 0.68 GB in one process (the
+  reviewer). Rule from here: if the lowest MemAvailable of a gate falls below 1.5 GB, the gate moves to `-n 2`.
+- **P9's design note** (`P9_DESIGN_NOTE.md`) was written while P8 was reviewed; to the reviewer next.

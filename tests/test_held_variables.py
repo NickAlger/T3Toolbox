@@ -23,8 +23,10 @@ except ImportError:
     HAS_JAX = False
 
 SLOTS = ('xi', 'mu', 'nu', 'nu_L', 'eta', 'eta_D', 'z', 'r', 'f', 'r_block_sumsq',
-         'w_tilde', 'xi_tilde', 'mu_tilde', 'nu_tilde', 'eta_tilde', 'V_tilde', 'H_tilde', 'g',
-         'xi_U_dot', 'mu_R_dot', 'nu_L_dot', 'eta_D_dot', 'Jp', 'Jp_norm_sq', 'JtJp')
+         'w_tilde', 'xi_tilde', 'mu_tilde', 'nu_tilde', 'eta_tilde',
+         'nu_L_tilde', 'eta_D_tilde', 'V_tilde', 'H_tilde', 'g', 'xi_U_dot', 'mu_R_dot', 'xi_dot', 'mu_dot', 'nu_L_dot',
+         'eta_D_dot', 'Jp', 'Jp_norm_sq', 'xi_tilde_dot', 'mu_tilde_dot', 'nu_L_tilde_dot', 'eta_D_tilde_dot',
+         'V_tilde_dot', 'H_tilde_dot', 'Kp', 'JtJp', 'nu_dot', 'eta_dot', 'nu_tilde_dot', 'eta_tilde_dot')
 
 
 def arrays(n, size=2):
@@ -59,16 +61,16 @@ class TestHeldVariables(unittest.TestCase):
         with self.assertRaises(TypeError):
             sv.HeldVariables(muu=arrays(4))
         held = sv.HeldVariables(mu=arrays(4))
-        with self.assertRaisesRegex(KeyError, "'Kp' is not a variable that can be held"):
-            held['Kp']
+        with self.assertRaisesRegex(KeyError, "'Hp' is not a variable that can be held"):
+            held['Hp']
         with self.assertRaisesRegex(KeyError, "'_Jp.mu_tilde' is not a variable that can be held"):
             held['_Jp.mu_tilde']
         with self.assertRaisesRegex(KeyError, "'_eta_tilde_top' is not a variable that can be held"):
             held['_eta_tilde_top']
         with self.assertRaisesRegex(KeyError, "the slot 'nu' is not filled"):
             held['nu']
-        with self.assertRaisesRegex(TypeError, "'Kp', 'w' are not a variable that can be held"):
-            held.with_values(Kp=1, w=2)
+        with self.assertRaisesRegex(TypeError, "'Hp', 'w' are not a variable that can be held"):
+            held.with_values(Hp=1, w=2)
 
     def test_with_values_returns_a_new_record(self):
         mu, nu = arrays(4), arrays(4, 3)

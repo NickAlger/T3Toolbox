@@ -14,7 +14,10 @@
    central difference (exact to rounding: ``f`` is quadratic along the direction).
 5. **The direction** (`TestTheDirection`): per element of a stack of two directions, the adjoint identity
    ``<Jp, omega^2 r> = <p, g>``, ``<p, JtJp> = Jp_norm_sq``, and ``JtJp`` equal to ``g`` with ``Jp`` held as ``r``.
-6. **The two routes of ``z``** (`TestTwoRoutesOfZ`): ``z`` through ``D`` (the sweep of ``nu_L`` and ``eta_D``)
+6. **The two forms of a direction** (`TestTheTwoFormsOfADirection`): along the undamped lift of a gauged ``(V, H)``
+   the raw and frame ``nu_L_dot``, ``eta_D_dot`` and ``Jp`` are equal; with both directions, the public names are
+   the raw form and ``Jp`` the frame's (O-12).
+7. **The two routes of ``z``** (`TestTwoRoutesOfZ`): ``z`` through ``D`` (the sweep of ``nu_L`` and ``eta_D``)
    equals ``z`` with the Tucker centers ``Vc`` (``eta`` through the frame), on a frame whose stores and centers
    agree.
 
@@ -88,15 +91,15 @@ class TestHeld(unittest.TestCase):
 
     def call(self, names, **extra):
         return sv.sampling_variables('probe', self.problem.frame, self.sample, names, order=self.case.order,
-                                     y=self.y, weight=self.weight,
-                                     variations=tsv.stacked_directions(self.problem), **extra)
+                                     y=self.y, weight=self.weight, variations=tsv.stacked_directions(self.problem),
+                                     core_directions=tsv.stacked_core_directions(self.problem), **extra)
 
     def test_a_held_variable_gives_the_recomputed_result(self):
         """Each slot held in turn, everything wanted: the same arrays, bit for bit (the held value is the one a
         recomputation makes, and every later operation is the same)."""
-        names = sv.HeldVariables.slots()
+        names = sv._public(sv._PROBE_GRAPH)                     # the slots of a manifold call
         everything = dict(zip(names, self.call(names)))
-        for slot in sv.HeldVariables.slots():
+        for slot in names:
             held = sv.HeldVariables(**{slot: everything[slot]})
             again = dict(zip(names, self.call(names, held=held)))
             with self.subTest(held=slot):
@@ -192,6 +195,45 @@ class TestTheDirection(unittest.TestCase):
                                                            weight=weight, held=sv.HeldVariables(r=Jp_k))
                         for a, b in zip(tsv.arrays_of(g_of_Jp), tsv.arrays_of(JtJp_k)):
                             self.assertLessEqual(defs.relative_error(a, b), TOL)
+
+
+class TestTheTwoFormsOfADirection(unittest.TestCase):
+    """The raw form of a direction is the frame's form along its lift (``subtree_gauge_check.py``): on a frame the
+    library builds, with a gauged ``(V, H)`` and its undamped lift ``(D_dot, L_dot)``, the raw and the frame's
+    ``nu_L_dot``, ``eta_D_dot`` and ``Jp`` are the same arrays, to rounding. And O-12: with both directions given, the
+    public ``nu_L_dot`` and ``eta_D_dot`` are the raw form and ``Jp`` the frame's."""
+
+    def test_along_the_lift_and_with_both(self):
+        import t3toolbox.backend.fv_operations as fvo
+        import t3toolbox.backend.tv_operations as tvo
+        frame, _ = tsv.consistent_frame(seed=21)
+        np.random.seed(22)
+        v = tvo.tv_orthogonal_gauge_projection(frame, fvo.fv_variations_randn(fvo.fv_variation_shapes(frame), ()))
+        lift = tuple(tuple(c) for c in tvo.tv_corewise_lift(frame, v, fvo.fv_lift_factors(frame, 0.0)))
+        variations = tuple(tuple(c) for c in v)
+        rng = np.random.default_rng(23)
+        ww = [rng.standard_normal((3, D.shape[-1])) for D in frame[0]]
+        pp = [rng.standard_normal((3, D.shape[-1])) for D in frame[0]]
+        names = ('nu_L_dot', 'eta_D_dot', 'Jp')
+        for order, sample in (((), ww), ((3,), jets.affine_jet(ww, pp))):
+            frame_form = sv.sampling_variables('probe', frame, sample, names, order=order, variations=variations)
+            raw_form = sv.sampling_variables('probe', frame, sample, names, order=order, core_directions=lift)
+            for name, a, b in zip(names, frame_form, raw_form):
+                with self.subTest(order=order, name=name):
+                    for x, y in zip(a, b):
+                        self.assertLessEqual(defs.relative_error(x, y), TOL)
+        # O-12, on arbitrary directions (where the two forms differ): the public names raw, Jp the frame's
+        problem = tsv.tails_one_axis()
+        raw = sv.sampling_variables('probe', problem.frame, problem.ww, names,
+                                    core_directions=(problem.D_dot, problem.L_dot))
+        framed = sv.sampling_variables('probe', problem.frame, problem.ww, names, variations=(problem.V, problem.H))
+        both = sv.sampling_variables('probe', problem.frame, problem.ww, names, variations=(problem.V, problem.H),
+                                     core_directions=(problem.D_dot, problem.L_dot))
+        for name, a, b in zip(names, both, [raw[0], raw[1], framed[2]]):
+            with self.subTest(both=True, name=name):
+                for x, y in zip(a, b):
+                    self.assertTrue(np.array_equal(x, y))
+        self.assertGreater(defs.relative_error(raw[0][1], framed[0][1]), 1e-3)           # the forms differ here
 
 
 class TestTwoRoutesOfZ(unittest.TestCase):

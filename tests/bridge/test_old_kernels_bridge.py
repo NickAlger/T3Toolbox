@@ -18,6 +18,9 @@ conversions, slot by slot (derived in P4c and checked by script for P6):
   ``r`` are ``xi_tilde``, ``mu_tilde``, ``nu_tilde`` at slot ``n - r``, divided by ``r!``; ``dxi_tilde``'s two rows
   ``u = 0, 1`` are ``eta_tilde`` at slot ``n - u`` (``u! = 1``).
 - with no jets (``n = 0``): ``t3_probe`` and ``tv_probe_transpose`` of ``probing``, given ``weight^2 r``.
+- ``Kp`` (P8): ``ProbeDerivativesKind.corewise_hessian`` at the base point ``(D, L)`` along ``(D_dot, L_dot)``,
+  given the forward ``weight_t^2 r_t / t!`` (with no weight of its own), is the new ``Kp``: the old Hessian is of
+  ``sum_t t! <c_t, z_t>``, which with that ``c`` is the new ``sum_t weight_t^2 <r_t, z_t>``, the seed held.
 - ``Jp`` (P7): ``ProbeDerivativesKind.forward`` (and ``tv_probe_derivatives``) is ``t!`` times the new ``Jp``;
   ``.transpose`` given ``weight_t^2 Jp_t / t!``, forward, is the new ``JtJp`` (the conversion of ``g``); with no
   stack of directions and with ``K = (2,)``.
@@ -28,7 +31,8 @@ conversions, slot by slot (derived in P4c and checked by script for P6):
   are compared through what reads them, ``Jp`` and ``JtJp`` (the old kernels take derivative-normalized input jets
   of their own layout; the outputs are the documented interface);
 - ``compute_deta_tilde_tangent_jets``, ``compute_tau_tilde_tangent_jets``, ``compute_sigma_tilde_tangent_jets``,
-  ``compute_dxi_tilde_tangent_jets``, ``compute_sigma_hat_tangent_jets`` (the two-hole, ``Kp``): P8's;
+  ``compute_dxi_tilde_tangent_jets``, ``compute_sigma_hat_tangent_jets`` (the two-hole): compared through what reads
+  them, ``Kp`` (the outputs are the documented interface);
 - ``compute_sigma_hat_jets`` (the seed of apply and entries on bond ``d``): P9's;
 - ``dense_*_derivatives``: the dense functions are already compared with them in ``test_sampling_definitions.py``
   (``TestAgainstTheOldKernels`` and ``TestDenseFunctions``), through the same conversions; the bridge does not repeat
@@ -176,6 +180,31 @@ class TestTheDirection(unittest.TestCase):
                         forward = [per_slot(Jp[i], weight[i] ** 2 / factorials) for i in range(problem.d)]
                         old = kind.transpose(forward, sample, problem.frame, sweep)
                         for a, b in zip(list(JtJp[0]) + list(JtJp[1]), list(old[0]) + list(old[1])):
+                            self.assertLessEqual(relative_error(a, b), TOL)
+
+
+class TestTheCurvature(unittest.TestCase):
+
+    def test_Kp_against_the_old_corewise_hessian(self):
+        for name, make in tsv.PROBLEMS:
+            problem = make()
+            for n in (1, 2, 3):
+                rng = np.random.default_rng(30 + n)
+                weight = 0.5 + rng.random((problem.d, n + 1))
+                y = [rng.standard_normal((n + 1,) + problem.W + (N,)) for N in problem.shape]
+                factorials = np.array([math.factorial(t) for t in range(n + 1)], dtype=float)
+                for label, core_directions in (('K=()', (problem.D_dot, problem.L_dot)),
+                                               ('K=(2,)', tsv.stacked_core_directions(problem, seed=n))):
+                    Kp, r = sv.sampling_variables('probe', problem.frame, list(jets.affine_jet(problem.ww, problem.pp)),
+                                                  ('Kp', 'r'), order=(n,), y=y, weight=weight,
+                                                  core_directions=core_directions)
+                    kind = old_fitting.ProbeDerivativesKind(order=n, weight=None, chunk_size=None)
+                    sample = (problem.ww, problem.pp)
+                    forward = [TestOldKernels.per_slot(r[i], weight[i] ** 2 / factorials) for i in range(problem.d)]
+                    old = kind.corewise_hessian(core_directions, forward, sample, problem.frame,
+                                                kind.precompute(problem.frame, sample), (problem.D, problem.L))
+                    with self.subTest(problem=name, order=n, stack=label):
+                        for a, b in zip(list(Kp[0]) + list(Kp[1]), list(old[0]) + list(old[1])):
                             self.assertLessEqual(relative_error(a, b), TOL)
 
 
