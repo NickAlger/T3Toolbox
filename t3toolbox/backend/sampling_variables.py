@@ -211,7 +211,8 @@ never depends on whether ``eta_tilde`` is wanted. ``eta_D_tilde`` (read by the c
 
 **The shapes** (ragged layout): a variable at index ``i`` is
 ``J + W + C + (size,)``, with ``J`` its declared jet sizes, ``W`` the sample stack and ``C`` the stack of base
-points; a block (no jet sizes) is ``C`` and the shape of the core it stands for, summed over the samples.
+points; a block (no jet sizes) is ``C`` and the shape of the core it stands for, summed over the samples (with
+``sum_over_samples=False``, ``W`` first: ``W + [K] + C`` and the core's shape).
 ``F = tuple(n + 1 for n in order)`` and ``J_in_i`` are the jet sizes of ``w[i]``. The tilde variables are dual jets,
 stored with every jet axis turned. For the apply kind ``z``, ``r``, ``w_tilde`` and ``Jp`` are one array each,
 ``F + W + [K] + C``, with no index and no mode edge, and ``r_block_sumsq`` has the shape of its weight, ``F``.
@@ -267,9 +268,18 @@ are those of ``L`` and ``D``. A bond index runs over ``0 .. d`` (``d + 1`` array
 **What a call does, in order**: it checks what it needs to run, and nothing more; reads the
 layout and the call type from the structure of the frame; takes the closure of what is wanted over the graph, the
 held variables its leaves; chooses numpy or jax over every array input and the result dtype, the lowest floating
-precision among the arrays the closure reads and the held variables read or wanted, and casts those once; runs the rows; returns a tuple aligned with
-``want``. Every scan and map body is module-level, memoized on ``(step_name, lens, order, form)``: a body closes
-over the record, the box and the form, nothing per site.
+precision among the arrays the closure reads and the held variables read or wanted, and casts those once; runs the
+rows; returns a tuple aligned with ``want``. Every scan and map body is module-level, memoized on ``(step_name, lens,
+order, form)`` and, for a block row, its ``keep_W``: a body closes over the record, the box and the form, nothing per
+site.
+
+**The stacks.** ``W`` is read once off ``w[0]`` (after its jet axes; for entries off ``index``), ``C`` off ``D[0]`` and
+``K`` off ``V[0]`` or ``D_dot[0]``; the steps see only their lengths (``GroupLengths``), and every variable is laid out
+``J + W + [K] + C`` and its edge, a block ``[W] + [K] + C`` and its core. Every other operand that carries a stack must
+have exactly it (``_check_stacks`` for ``W`` and ``C``, ``_read_K`` for ``K``: tuple equality, not broadcast
+compatibility), since a size-1 axis would broadcast silently. With ``sum_over_samples=False`` the block rows (read off
+the shape table) keep ``W``: ``g``, ``JtJp`` and ``Kp`` are then ``W + [K] + C``; ``f``, ``r_block_sumsq`` and
+``Jp_norm_sq`` are sums, and stay summed over ``W``.
 
 The three kinds on the ragged layout, on a manifold frame and on a corewise point, are built here; the uniform layout
 is not taken yet.
@@ -953,6 +963,7 @@ class _Setting(typ.NamedTuple):
     K:      typ.Tuple[int, ...] = ()        # the stack of directions, read off variations
     with_K: typ.FrozenSet[str] = frozenset()        # the variables whose rows carry K
     kind:   str = 'probe'
+    keep_W: bool = False                    # sum_over_samples=False: a block keeps W, W+[K]+C+core
 
 
 def _bonds(tt: typ.Sequence[NDArray]) -> typ.Tuple[int, ...]:
@@ -998,6 +1009,7 @@ def _read_setting(
         variations:       typ.Optional[typ.Tuple] = None,
         graph:            typ.Tuple[Rule, ...] = (),
         core_directions:  typ.Optional[typ.Tuple] = None,
+        keep_W:           bool = False,
 ) -> _Setting:
     D, L = stores['D'], stores['L']
     U, R = stores.get('U', L), stores.get('R', L)       # a corewise point: one basis on each edge
@@ -1013,7 +1025,42 @@ def _read_setting(
         sizes=dict(rL=_bonds(L), rR=_bonds(R), nD=tuple(np.shape(B)[-2] for B in D),
                    nU=tuple(np.shape(G)[-2] for G in U), N=tuple(np.shape(B)[-1] for B in D)),
         K=_read_K(variations, core_directions, C), with_K=frozenset(rule.name for rule in graph if rule.carries_K),
-        kind=kind)
+        kind=kind, keep_W=keep_W)
+
+
+def _check_stacks(
+        setting:  _Setting,
+        stores:   typ.Dict[str, typ.Sequence[NDArray]],     # D, U, L, R; or on a corewise point D, L
+        sample:   typ.Any,                                  # the input jets; or the entries kind's index
+        Vc:       typ.Optional[typ.Sequence[NDArray]],
+) -> None:
+    '''The stacks ``W`` and ``C`` are read once, ``W`` from ``w[0]`` and ``C`` from ``D[0]``; every other operand that
+    carries one must have exactly it (tuple equality, not broadcast compatibility): ``C`` as the prefix of every core
+    of every store and of every ``Vc[i]``, ``W`` after the jet axes of every ``w[i]``. A size-1 axis where another
+    operand has more would otherwise broadcast in a contraction and give a wrong answer with no error (as for ``K``,
+    ``_read_K``). Structural: a ``ValueError`` naming the operand. ``y``, the weight and the jet sizes are the
+    checkers' of :py:mod:`t3toolbox.backend.jets`. Its cost is about ``5d`` comparisons of short integer tuples per
+    call, at trace time only under ``jit``. (A removable check, pending O-18: delete this function, its one call and
+    its test class.)'''
+    C, W, m = setting.C, setting.W, len(setting.order)
+    core_ndim = {'D': 2, 'U': 3, 'L': 3, 'R': 3}
+    operands = [(name, cores, core_ndim[name]) for name, cores in stores.items()]
+    if Vc is not None:
+        operands.append(('Vc', Vc, 2))
+    for name, cores, ndim in operands:
+        for i, core in enumerate(cores):
+            shape = tuple(np.shape(core))
+            if len(shape) != len(C) + ndim or shape[:len(C)] != C:
+                raise ValueError('sampling_variables: every core must have the stack C of the frame, read off D[0]: '
+                                 '%s[%d] has shape %s, where C = %s, so C + (the %d axes of the core) is expected'
+                                 % (name, i, shape, C, ndim))
+    if setting.kind != 'entries':
+        for i, w in enumerate(sample):
+            shape = tuple(np.shape(w))
+            if len(shape) != m + len(W) + 1 or shape[m:-1] != W:
+                raise ValueError('sampling_variables: every input must have the sample stack W, read off w[0]: w[%d] '
+                                 'has shape %s, where W = %s, so %d jet axes, W and the mode edge are expected'
+                                 % (i, shape, W, m))
 
 
 def _entry(name: str, kind: str) -> typ.Tuple[str, str, typ.Optional[str]]:
@@ -1045,7 +1092,7 @@ def _shape(
                 'H':  lambda: (sizes['rL'][i], sizes['nD'][i], sizes['rR'][i + 1]),
                 'VD': lambda: (sizes['nD'][i], sizes['N'][i]),
                 'HL': lambda: (sizes['rL'][i], sizes['nD'][i], sizes['rL'][i + 1])}[size]()
-        return K + setting.C + core
+        return (setting.W if setting.keep_W else ()) + K + setting.C + core
     J = tuple(min(a, f) for a, f in zip(setting.J_in[i], setting.box)) if jets == 'leaf' else setting.box
     return J + setting.W + K + setting.C + (sizes[size][i],)
 
@@ -1066,6 +1113,13 @@ def _expected(name: str, setting: _Setting) -> typ.Any:
     if name in ('f', 'r_block_sumsq', 'Jp_norm_sq') or _entry(name, setting.kind)[0] == 'one':
         return _shape(name, None, setting)
     return tuple(_shape(name, i, setting) for i in range(_count(name, setting)))
+
+
+def _is_block(name: str, kind: str) -> bool:
+    '''Whether a variable is a block (no jet axes; summed over the samples unless ``sum_over_samples=False``): read off
+    the shape table, so the rows a ``keep_W`` reaches are not a declared set of their own.'''
+    table = _table_name(name)
+    return table in _SHAPES and _entry(name, kind)[1] == 'none'
 
 
 def _check_form(where: str, value: typ.Any, expected: typ.Any) -> None:
@@ -1096,11 +1150,19 @@ def _check_held(held: 'HeldVariables', setting: _Setting) -> None:
 #####################################################
 
 @functools.lru_cache(maxsize=None)
-def _site_body(step_name: str, lens: contractions.GroupLengths, order: typ.Tuple[int, ...], form: str):
+def _site_body(
+        step_name:  str,
+        lens:       contractions.GroupLengths,
+        order:      typ.Tuple[int, ...],
+        form:       str,
+        keep_W:     typ.Optional[bool] = None,  # a block row's flag; None for any other row (not passed)
+):
     '''The map body of a site step: one stable object per statics (scan and map bodies close over hashable
-    statics only: the record, the box and the form, nothing per site).'''
+    statics only: the record, the box, the form and a block's ``keep_W``, nothing per site).'''
+    statics = dict(lens=lens, order=order, form=form) if keep_W is None else dict(lens=lens, order=order, form=form,
+                                                                                    keep_W=keep_W)
     def body(x):
-        return (getattr(sampling_steps, step_name)(*x, lens=lens, order=order, form=form),)
+        return (getattr(sampling_steps, step_name)(*x, **statics),)
     return body
 
 
@@ -1146,7 +1208,8 @@ def _run(
         return getattr(sampling_steps, step_name)(*args, lens=lens, order=order, form=form, kind=setting.kind)
     per_site = tuple(_at_sites(name, arg, setting.d) for name, arg in zip(rule.reads, args))
     if driver == 'site':
-        return xmap(_site_body(step_name, lens, order, form), per_site)[0]
+        keep_W = setting.keep_W if _is_block(rule.name, setting.kind) else None     # a block row: summed or not
+        return xmap(_site_body(step_name, lens, order, form, keep_W), per_site)[0]
     store = args[0]                                         # a sweep's first read: the TT store it sweeps through
     at_start = driver == 'left'
     size = np.shape(store[0])[-3] if at_start else np.shape(store[-1])[-1]
@@ -1201,7 +1264,7 @@ def sampling_variables(
         variations:        typ.Optional[typ.Tuple] = None,   # (V, H), elm_shapes K+C+(nUi,Ni), K+C+(rLi,nDi,rR(i+1))
         core_directions:   typ.Optional[typ.Tuple] = None,   # (D_dot, L_dot), the shapes of D, L with K+C
         Vc:                typ.Optional[typ.Sequence[NDArray]] = None,   # len=d, elm_shape=C+(nUi,Ni)
-        sum_over_samples:  bool = True,                      # on the blocks: not read yet
+        sum_over_samples:  bool = True,                      # on the blocks; False: W joins their stack, W+K+C
         held:              typ.Optional[HeldVariables] = None,   # held variables; shapes checked, values trusted
 ) -> typ.Tuple[typ.Any, ...]:                                # aligned with want; shapes in the module's table
     """The sampling variables ``want`` of a Tucker tensor train at a frame, sampled at input jets.
@@ -1213,9 +1276,11 @@ def sampling_variables(
     The engine checks what it needs in order to run, and nothing more: an unknown kind or name raises; a jet shape
     that is not a tuple of nonnegative integers raises; an entries call with jets raises; a wanted variable whose
     argument is missing raises (``r`` without ``y`` or a held ``r``), and so does a held variable of the wrong
-    shape. It does not check the form of the sample, its sizes against the frame's, ``y`` or the weight (those are
-    the checkers of :py:mod:`t3toolbox.backend.jets`), and nothing numerical: four inconsistent stores give a wrong
-    answer, with no error.
+    shape. The stacks are checked: every core, ``Vc`` and every input has exactly the ``C`` of ``D[0]`` and the ``W`` of
+    ``w[0]``, and every direction the ``K + C`` of the first (a size-1 axis would broadcast silently). It does not check
+    the mode sizes of the sample against the frame's, the jet sizes, ``y`` or the weight (those are the checkers of
+    :py:mod:`t3toolbox.backend.jets`), and nothing numerical: four inconsistent stores give a wrong answer, with no
+    error.
 
     Numpy or jax is read off every array input. Every output is in one dtype: the lowest floating precision among the
     counted inputs (jax over numpy), which are cast to it once. The counted inputs are the arrays the computation
@@ -1257,8 +1322,10 @@ def sampling_variables(
         The direction in the raw form at the base point, ``(D_dot, L_dot)``, with the shapes of ``D`` and ``L`` and the
         stack ``K`` in front (the same ``K`` as ``variations``). Needed for the raw dots, the tilde-dot variables and
         ``Kp``; on a corewise point, the only form of a direction.
-    sum_over_samples
-        Not read by the variables built so far.
+    sum_over_samples: bool
+        On the blocks (``V_tilde``, ``H_tilde``, ``V_tilde_dot``, ``H_tilde_dot``, and so ``g``, ``JtJp``, ``Kp``):
+        ``True`` sums them over the samples; ``False`` keeps one block per sample, ``W`` first, ``W + [K] + C`` and the
+        core's shape. ``f``, ``r_block_sumsq`` and ``Jp_norm_sq`` are sums and ignore it.
     Vc: sequence of NDArray, optional
         The Tucker centers, ``len=d``, ``elm_shape=C+(nUi, Ni)``: the probe kind's ``z`` is then read off the frame
         through them, with no sweep through the base point's ``L`` cores. Only the probe kind's ``z`` reads it; given
@@ -1384,7 +1451,9 @@ def sampling_variables(
                                                        kind, _ZERO_REASON[kind])) if zero else ''
         raise ValueError('sampling_variables: unknown variable %s for the %s kind on a %s call%s; the names are %s'
                          % (', '.join(map(repr, unknown)), kind, call.lstrip('_'), why, ', '.join(names)))
-    setting = _read_setting(kind, stores, sample, order, variations, graph, core_directions)
+    setting = _read_setting(kind, stores, sample, order, variations, graph, core_directions,
+                            keep_W=not sum_over_samples)
+    _check_stacks(setting, stores, sample, Vc)
     if held is not None:
         _check_held(held, setting)
 

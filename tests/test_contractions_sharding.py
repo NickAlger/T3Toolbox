@@ -193,8 +193,8 @@ class TestInterpreterAnyAxisSharding(unittest.TestCase):
                                     "%d of W sharded -- it slices the jet axes only, so every sample axis must "
                                     "shard free." % (string, out_order, form, n, ax))
                                 checked += 1
-        # (2,): 32 strings, 12 of them (mu, nu, H) in two shapes; (1, 2): 5 strings, 3 in two shapes
-        self.assertEqual(checked, (32 + 12 + 5 + 3) * 2 * 2)
+        # (2,): 38 strings, 15 of them (mu, nu, H, the three H keeping W) in two shapes; (1, 2): 5 strings, 3 in two
+        self.assertEqual(checked, (38 + 15 + 5 + 3) * 2 * 2)
 
 
 @unittest.skipUnless(common.jax_available, 'jax not available')

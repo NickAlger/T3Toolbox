@@ -252,10 +252,16 @@ def V_tilde_step(
         lens:           contractions.GroupLengths,
         order:          typ.Tuple[int, ...],
         form:           str,
-) -> NDArray:                               # V_tilde[i]: [K]+C+(n, N), summed over the samples
+        keep_W:         bool = False,       # True: W kept, one block per sample (sum_over_samples=False)
+) -> NDArray:                               # V_tilde[i]: [K]+C+(n, N), summed over W ([W]+...: keep_W)
     '''``V_tilde[i]``, the corner of ``V_term(eta_tilde[i], w[i]) + V_term(eta[i], w_tilde[i])``. The first term
     from the top slots of ``eta_tilde``: with ``S`` those slots, the corner of ``eta_tilde * w`` is the coefficient
     ``a - 1`` of ``S * w``, so it is a readout at the corner ``a - 1``, the leaf's jet shape.'''
+    if keep_W:                              # W kept: the readouts with W first
+        return (contractions.jet_contract('JWKCi,JWo->WKCio', top_JWCi, w_JWo,
+                                          lens=lens, order=_leaf_order(w_JWo, order), over_orders=form)
+                + contractions.jet_contract('JWCi,JWKCo->WKCio', eta_JWCi, w_tilde_JWCo,
+                                            lens=lens, order=order, over_orders=form))
     return (contractions.jet_contract('JWKCi,JWo->KCio', top_JWCi, w_JWo,
                                       lens=lens, order=_leaf_order(w_JWo, order), over_orders=form)
             + contractions.jet_contract('JWCi,JWKCo->KCio', eta_JWCi, w_tilde_JWCo,
@@ -273,9 +279,37 @@ def H_tilde_step(
         lens:           contractions.GroupLengths,
         order:          typ.Tuple[int, ...],
         form:           str,
-) -> NDArray:                               # H_tilde[i]: [K]+C+(ra, n, rb), summed over the samples
+        keep_W:         bool = False,       # True: W kept, one block per sample (sum_over_samples=False)
+) -> NDArray:                               # H_tilde[i]: [K]+C+(ra, n, rb), summed over W ([W]+...: keep_W)
     '''``H_tilde[i]``, the corner of ``H_term(mu_tilde, xi, nu) + H_term(mu, xi_tilde, nu) + H_term(mu, xi,
     nu_tilde)`` at site ``i``: three readouts, the tilde on each of the three in turn.'''
+    if keep_W:                              # W kept: the readouts with W first
+        return (contractions.jet_contract('JWKCa,JWCi,JWCb->WKCaib', mu_tilde_JWCa, xi_JWCi, nu_JWCb,
+                                          lens=lens, order=order, over_orders=form)
+                + contractions.jet_contract('JWCa,JWKCi,JWCb->WKCaib', mu_JWCa, xi_tilde_JWCi, nu_JWCb,
+                                            lens=lens, order=order, over_orders=form)
+                + contractions.jet_contract('JWCa,JWCi,JWKCb->WKCaib', mu_JWCa, xi_JWCi, nu_tilde_JWCb,
+                                            lens=lens, order=order, over_orders=form))
+
+
+    ###############################################
+    ########    The dot grade (5.2)    ############
+    ###############################################
+    # A dot step serves both forms of the direction: the frame's (V, H), and P8's raw (D_dot, L_dot) at the base point.
+    # The direction's core carries K in the strings; with the frame's form the core over the leaf of the direction's site
+    # is U (over xi_U_dot), with the raw form L (over xi_dot).
+
+    def xi_dot_step(
+            B_dot_KCio:  NDArray,               # the direction's Tucker core at site i: V[i], K+C+(n, N)
+            w_JWo:       NDArray,               # the input jet of the site
+            *,
+            lens:        contractions.GroupLengths,
+            order:       typ.Tuple[int, ...],
+            form:        str,
+    ) -> NDArray:                               # xi_U_dot[i]: min(J_in, F)+W+K+C+(n,), a leaf
+        '''``xi_U_dot[i] = xi_term(V[i], w[i])``: the direction's Tucker core applied to the input jet, a leaf.'''
+        return contractions.jet_contract('JWo,KCio->JWKCi', w_JWo, B_dot_KCio,
+                                         lens=lens, order=_leaf_order(w_JWo, order), over_orders=form)
     return (contractions.jet_contract('JWKCa,JWCi,JWCb->KCaib', mu_tilde_JWCa, xi_JWCi, nu_JWCb,
                                       lens=lens, order=order, over_orders=form)
             + contractions.jet_contract('JWCa,JWKCi,JWCb->KCaib', mu_JWCa, xi_tilde_JWCi, nu_JWCb,
@@ -558,9 +592,15 @@ def V_tilde_dot_step(
         lens:           contractions.GroupLengths,
         order:          typ.Tuple[int, ...],
         form:           str,
-) -> NDArray:                               # V_tilde_dot[i]: K+C+(nD, N), summed over the samples
+        keep_W:         bool = False,       # True: W kept, one block per sample (sum_over_samples=False)
+) -> NDArray:                               # V_tilde_dot[i]: K+C+(nD, N), summed over W ([W]+...: keep_W)
     '''``V_tilde_dot[i]``, the corner of ``V_term(eta_D_tilde_dot[i], w[i]) + V_term(eta_D_dot[i], w_tilde[i])``,
     the first from the top slots at the corner ``a - 1``.'''
+    if keep_W:                              # W kept: the readouts with W first
+        return (contractions.jet_contract('JWKCi,JWo->WKCio', top_JWKCi, w_JWo,
+                                          lens=lens, order=_leaf_order(w_JWo, order), over_orders=form)
+                + contractions.jet_contract('JWKCi,JWCo->WKCio', eta_dot_JWKCi, w_tilde_JWCo,
+                                            lens=lens, order=order, over_orders=form))
     return (contractions.jet_contract('JWKCi,JWo->KCio', top_JWKCi, w_JWo,
                                       lens=lens, order=_leaf_order(w_JWo, order), over_orders=form)
             + contractions.jet_contract('JWKCi,JWCo->KCio', eta_dot_JWKCi, w_tilde_JWCo,
@@ -584,9 +624,60 @@ def H_tilde_dot_step(
         lens:                contractions.GroupLengths,
         order:               typ.Tuple[int, ...],
         form:                str,
-) -> NDArray:                               # H_tilde_dot[i]: K+C+(rL_i, nD_i, rL_(i+1)), summed over the samples
+        keep_W:              bool = False,  # True: W kept, one block per sample (sum_over_samples=False)
+) -> NDArray:                               # H_tilde_dot[i]: K+C+(rL_i,nD_i,rL_(i+1)), summed over W ([W]+...: keep_W)
     '''``H_tilde_dot[i]``, nine readouts of ``(mu, xi, nu_L)``: the tilde on one and the dot on one, both on one
     (its tilde-dot) in three, on two different ones in six.'''
+    if keep_W:                              # W kept: the readouts with W first
+        return (contractions.jet_contract('JWKCa,JWCi,JWCb->WKCaib', mu_tilde_dot_JWKCa, xi_JWCi, nu_JWCb,
+                                          lens=lens, order=order, over_orders=form)
+                + contractions.jet_contract('JWCa,JWKCi,JWCb->WKCaib', mu_JWCa, xi_tilde_dot_JWKCi, nu_JWCb,
+                                            lens=lens, order=order, over_orders=form)
+                + contractions.jet_contract('JWCa,JWCi,JWKCb->WKCaib', mu_JWCa, xi_JWCi, nu_tilde_dot_JWKCb,
+                                            lens=lens, order=order, over_orders=form)
+                + contractions.jet_contract('JWKCa,JWCi,JWCb->WKCaib', mu_dot_JWKCa, xi_tilde_JWCi, nu_JWCb,
+                                            lens=lens, order=order, over_orders=form)
+                + contractions.jet_contract('JWKCa,JWCi,JWCb->WKCaib', mu_dot_JWKCa, xi_JWCi, nu_tilde_JWCb,
+                                            lens=lens, order=order, over_orders=form)
+                + contractions.jet_contract('JWCa,JWKCi,JWCb->WKCaib', mu_tilde_JWCa, xi_dot_JWKCi, nu_JWCb,
+                                            lens=lens, order=order, over_orders=form)
+                + contractions.jet_contract('JWCa,JWKCi,JWCb->WKCaib', mu_JWCa, xi_dot_JWKCi, nu_tilde_JWCb,
+                                            lens=lens, order=order, over_orders=form)
+                + contractions.jet_contract('JWCa,JWCi,JWKCb->WKCaib', mu_tilde_JWCa, xi_JWCi, nu_dot_JWKCb,
+                                            lens=lens, order=order, over_orders=form)
+                + contractions.jet_contract('JWCa,JWCi,JWKCb->WKCaib', mu_JWCa, xi_tilde_JWCi, nu_dot_JWKCb,
+                                            lens=lens, order=order, over_orders=form))
+
+
+    #####################################################
+    ########    The adjoint of apply (5.3)    ###########
+    #####################################################
+    # For the apply kind the seed sits on the ones that close bond d: a right side or a trunk is the plain recurrence
+    # started from the seed (nu_step, eta_step; the tilde-dot: nu_dot_step, eta_dot_step and H_tilde_step with the tilde
+    # forms in the plain ones' places), and a left side or a leaf has no tilde. What is new are the readouts of one
+    # term: the short forms of eta_step and eta_dot_step, and the blocks with no seed at a leaf.
+
+    def eta_top_step(
+            mu_JWCa:   NDArray,                 # mu at bond i, F+W+C+(ra,)
+            G_Caib:    NDArray,                 # U[i], or L[i] for eta_D_tilde
+            nu_JWKCb:  NDArray,                 # the apply kind's nu_tilde at bond i+1, F+W+[K]+C+(rb,)
+            w_JWo:     NDArray,                 # the input jet of site i: only its jet sizes are read
+            *,
+            lens:      contractions.GroupLengths,
+            order:     typ.Tuple[int, ...],
+            form:      str,
+    ) -> NDArray:                               # the top slots of eta_tilde[i]: a+W+[K]+C+(n,), a = min(J_in, F)
+        '''The short form of ``eta_step``: the slots ``[c - a + 1 : c + 1]`` of ``eta_term(mu[i], G[i], nu[i+1])`` on
+        every jet axis (``c`` the corner, ``a`` the input's jet sizes clipped to the box), each a readout at a lowered
+        corner. With the apply kind's ``nu_tilde`` it is the short form of its ``eta_tilde``.'''
+        xnp, _, _ = get_backend(False, tree_contains_jax((mu_JWCa, G_Caib, nu_JWKCb)))
+        a = tuple(f + 1 for f in _leaf_order(w_JWo, order))
+        slots = []
+        for j in np.ndindex(*a):
+            corner = tuple(n - a_k + 1 + j_k for n, a_k, j_k in zip(order, a, j))
+            slots.append(contractions.jet_contract('JWCa,Caib,JWKCb->WKCi', mu_JWCa, G_Caib, nu_JWKCb,
+                                                   lens=lens, order=corner, over_orders=form))
+        return xnp.stack(slots).reshape(a + slots[0].shape)
     return (contractions.jet_contract('JWKCa,JWCi,JWCb->KCaib', mu_tilde_dot_JWKCa, xi_JWCi, nu_JWCb,
                                       lens=lens, order=order, over_orders=form)
             + contractions.jet_contract('JWCa,JWKCi,JWCb->KCaib', mu_JWCa, xi_tilde_dot_JWKCi, nu_JWCb,
@@ -677,9 +768,13 @@ def V_top_step(
         lens:       contractions.GroupLengths,
         order:      typ.Tuple[int, ...],
         form:       str,
-) -> NDArray:                               # the block: [K]+C+(n, N), summed over the samples
+        keep_W:     bool = False,           # True: W kept, one block per sample (sum_over_samples=False)
+) -> NDArray:                               # the block: [K]+C+(n, N), summed over W ([W]+...: keep_W)
     '''The block ``V_term`` of a trunk's tilde and the input, read at the corner: from the top slots, a readout at
     the corner ``a - 1``. The apply kind's ``V_tilde`` and ``V_tilde_dot`` (no seed at a leaf: one term).'''
+    if keep_W:                              # W kept: the readouts with W first
+        return contractions.jet_contract('JWKCi,JWo->WKCio', top_JWKCi, w_JWo,
+                                         lens=lens, order=_leaf_order(w_JWo, order), over_orders=form)
     return contractions.jet_contract('JWKCi,JWo->KCio', top_JWKCi, w_JWo,
                                      lens=lens, order=_leaf_order(w_JWo, order), over_orders=form)
 
@@ -692,9 +787,36 @@ def H_readout_step(
         lens:      contractions.GroupLengths,
         order:     typ.Tuple[int, ...],
         form:      str,
-) -> NDArray:                               # H_tilde[i]: [K]+C+(ra, n, rb), summed over the samples
+        keep_W:    bool = False,            # True: W kept, one block per sample (sum_over_samples=False)
+) -> NDArray:                               # H_tilde[i]: [K]+C+(ra, n, rb), summed over W ([W]+...: keep_W)
     '''The apply kind's ``H_tilde[i]``, the corner of ``H_term(mu[i], xi[i], nu_tilde[i+1])``: one readout, the
     seed being only on the right.'''
+    if keep_W:                              # W kept: the readouts with W first
+        return contractions.jet_contract('JWCa,JWCi,JWKCb->WKCaib', mu_JWCa, xi_JWCi, nu_JWKCb,
+                                         lens=lens, order=order, over_orders=form)
+
+
+    #####################################################
+    ########    The entries kind's leaf (5.1, 6)    #####
+    #####################################################
+    # The entries kind's input at a site is the unit vector e_index: the leaf is a gather (a slice of the Tucker core,
+    # not a product), and a block of the Tucker core's shape is a scatter-add of the trunk's tilde into the columns
+    # index. No jets: the entries kind has order () only.
+
+    def xi_gather_step(
+            B_Cio:     NDArray,                 # a Tucker core, or a direction in its shape: [K]+C+(n, N)
+            index_W:   NDArray,                 # the grid points' coordinate at this site, int, shape=W
+            *,
+            lens:      contractions.GroupLengths,
+            order:     typ.Tuple[int, ...],     # () (the entries kind has no jets)
+            form:      str,
+    ) -> NDArray:                               # the leaf: W+[K]+C+(n,)
+        '''The entries kind's leaf, ``xi[i] = D[i][..., index[i]]`` moved to ``W + C + (n,)``: the columns of the core at
+        the grid points (a gather, no contraction). Of ``V`` it is ``xi_U_dot``, of ``D_dot`` the raw ``xi_dot``.'''
+        xnp, _, _ = get_backend(False, tree_contains_jax((B_Cio, index_W)))
+        n_W = np.ndim(index_W)
+        taken = B_Cio[..., index_W]                                     # [K]+C+(n,)+W
+        return xnp.moveaxis(taken, tuple(range(taken.ndim - n_W, taken.ndim)), tuple(range(n_W)))
     return contractions.jet_contract('JWCa,JWCi,JWKCb->KCaib', mu_JWCa, xi_JWCi, nu_JWKCb,
                                      lens=lens, order=order, over_orders=form)
 

@@ -2,12 +2,13 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
-"""Test-only: the 32 literal ``jet_contract`` strings of the sampling terms, the operand shapes the library
+"""Test-only: the 38 literal ``jet_contract`` strings of the sampling terms, the operand shapes the library
 gives them, and a reference that uses neither ``contract`` nor ``jet_contract``.
 
 The 29 strings of the plan's section 2.4, in seven families, and the three of ``eta_top`` (two since P6, one since
 P8): the short forms of ``eta_tilde`` and ``eta_D_tilde_dot`` read one slot of the eta product as a readout at a
-lowered corner that keeps ``W``.
+lowered corner that keeps ``W``. And the six readouts of P10 with ``sum_over_samples=False``: the ``V`` and ``H`` blocks
+with ``W`` first in their output (``K`` being a group, its placements are the same six).
 
 A variable has the shape ``J + W + [K] + C + (size,)``:
 
@@ -46,9 +47,11 @@ STRINGS = {
     'eta': ['JWCa,Caib,JWCb->JWCi',         'JWKCa,Caib,JWCb->JWKCi',           'JWCa,KCaib,JWCb->JWKCi',
             'JWCa,Caib,JWKCb->JWKCi'],
     'V':   ['JWCi,JWo->Cio',                'JWKCi,JWo->KCio',                  # an input
-            'JWCi,JWCo->Cio',               'JWKCi,JWCo->KCio',                 'JWCi,JWKCo->KCio'],    # a seed
+            'JWCi,JWCo->Cio',               'JWKCi,JWCo->KCio',                 'JWCi,JWKCo->KCio',     # a seed
+            'JWKCi,JWo->WKCio',             'JWKCi,JWCo->WKCio',                'JWCi,JWKCo->WKCio'],   # W kept (P10)
     'H':   ['JWCa,JWCi,JWCb->Caib',         'JWKCa,JWCi,JWCb->KCaib',           'JWCa,JWKCi,JWCb->KCaib',
-            'JWCa,JWCi,JWKCb->KCaib'],
+            'JWCa,JWCi,JWKCb->KCaib',
+            'JWKCa,JWCi,JWCb->WKCaib',      'JWCa,JWKCi,JWCb->WKCaib',          'JWCa,JWCi,JWKCb->WKCaib'],   # W kept
     'eta_top': ['JWKCa,Caib,JWCb->WKCi',    'JWCa,Caib,JWKCb->WKCi',            # a slot of eta_tilde (P6)
                 'JWCa,KCaib,JWCb->WKCi'],                                       # ... of eta_D_tilde_dot (P8)
 }

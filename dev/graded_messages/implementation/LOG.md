@@ -836,3 +836,28 @@ marked COMPLETE. Not yet reviewed or committed. One departure, accepted by Claud
 readout steps has two bodies (`if keep_W:` and the summed one), each with its literal at its own `jet_contract` call:
 the interpreter test's guard requires every `J` literal to be a call's first argument, and literals at call sites are
 the house rule (a first build that named the literals at the top of the step failed it). Nothing runs.
+
+### Resumed (2026-11-20, 14:10); P10: Engine F, the stacks (to 14:14+)
+
+- **Resumed** at the maintainer's word ("The laptop is free. Let's continue").
+- **P10, rounds:** one (`P10_REVIEW_r1.md`: SIGN OFF, no findings). Handover `P10_HANDOVER.md` (COMPLETE).
+- **What was built:** six unsummed readout literals (three `V`, three `H`, `W`-first); `sum_over_samples=False` wired
+  through `keep_W` to block rows only (read off the shape table, `_Jp` twins included), joining the memo key; `g`,
+  `JtJp`, `Kp` as `W + [K] + C` unsummed; `f`, `r_block_sumsq`, `Jp_norm_sq` always summed; `_check_stacks` (one
+  function, one call, one test class; exact tuple equality of `C` on every store core and `Vc`, of `W` on every
+  `w[i]`; removable, pending the maintainer under O-18). Tests: `tests/test_sampling_stacks.py` (11): the covering
+  design against the unstacked engine, multi-axis `W` against the engine with `W` FLATTENED, a maximal case per kind,
+  held stacked variables, the unsummed tier (a multi-axis `K`; a non-square `W` with an off-diagonal sample), a thin
+  reference anchor, the stack check, the dtype matrix over four backends (jax under `jit`).
+- **Departure, accepted by Claude:** each unsummed readout step has two bodies, each literal at its own `jet_contract`
+  call (the interpreter guard; the house rule). The reviewer: the right price, since a literal held in a name would be
+  hidden from the AST sweeps.
+- **The reviewer's checks:** the flattening is real (`(2, 2)` against `(4,)`, different expanded strings and offsets;
+  the `W`-offset mutant killed); on `C = (2,)`, `K = (2,)`, a non-square `W = (2, 3)`, probe at `(1, 1)` mixed jets and
+  apply at `(2,)`: `z` and `f` per frame element against its dense oracle; each sample's unsummed `g`, `JtJp`, `Kp`
+  equals the summed call on that sample alone at diagonal and off-diagonal samples, the blocks summing back; the
+  stack check raising on a size-1 `C`, a size-1 `W` axis, a `Vc` without `C`, and passing a consistent size-1 stack.
+  Worst 4.1e-16 (4.8e-16 on the floor). The implementer's 13 mutants killed.
+- **Gate:** the implementer's full gate at `-n 2` before the pause, every step PASS (suite 1,782 passed; 1,870 s;
+  lowest MemAvailable 3.81 GB).
+- **P11's design note** (`P11_DESIGN_NOTE.md`) was written while P10 was reviewed; to the reviewer next.

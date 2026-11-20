@@ -848,11 +848,12 @@ class TestJetContractDerivedStrings(unittest.TestCase):
         # mu and per eta string (the carrier is the first operand, whatever the leaf), two per nu string (a leaf
         # of two slots is taken one coefficient at a time; a full leaf ties with nu and, first in the string,
         # carries), two per H string (with a leaf of two slots the pair is mu and nu, with a full leaf mu and the
-        # leaf).
+        # leaf). P10's six readouts that keep W add the three V (folded on the literal) and 6 strings from the
+        # three H, two each: 30.
         self.assertEqual(set(literals), derived & set(literals))
         from_the_29 = {made for made in derived - set(literals)
                        if any(made.replace('J', '') == string.replace('J', '') for _, string in jet_cases.ALL_STRINGS)}
-        self.assertEqual(24, len(from_the_29))
+        self.assertEqual(30, len(from_the_29))
 
     def test_the_literal_call_sites_pass_the_record_and_the_form(self):
         """Every ``jet_contract`` call site in the library passes ``lens=`` and ``over_orders=`` by keyword
