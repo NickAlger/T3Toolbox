@@ -281,8 +281,28 @@ compatibility), since a size-1 axis would broadcast silently. With ``sum_over_sa
 the shape table) keep ``W``: ``g``, ``JtJp`` and ``Kp`` are then ``W + [K] + C``; ``f``, ``r_block_sumsq`` and
 ``Jp_norm_sq`` are sums, and stay summed over ``W``.
 
-The three kinds on the ragged layout, on a manifold frame and on a corewise point, are built here; the uniform layout
-is not taken yet.
+**The uniform layout.** A uniform frame is ``(D, U, L, R, shape, masks)``, today's uniform frame ``.data``, and a
+uniform point ``(B, G, shape, masks)``, ``UniformTuckerTensorTrain.data`` (the layout first, by ``is_ndarray``, then the
+count). The supercores have the site index ``d`` leading; the masks and ``shape`` are host values, static: a traced
+mask raises (under ``jit``, pass the frame inside its object, where the masks and ``shape`` are ``aux_data``, or close
+over them). The engine
+masks once on entry, every input with the masks of the object it is defined at (``_UNIFORM_MASKS``): the stores with
+their own; ``V``, ``H`` and ``Vc`` with the frame's variation masks; ``D_dot`` and ``L_dot`` with the frame's ``D`` and
+``L`` masks, never the point's (a superset at TT slack); every Tucker-shaped input, the sample and probe's ``y``
+with the shape mask on the mode axis ``N`` (the sample's jet axes untouched: their slots are coefficients); a held
+variable with its table's masks (padding is not a value). The start values carry ones on the real slots of their end
+bond only. The sample is packed (``pack_if_ragged`` with ``len_J=len(order)``: the modes' jet axes brought to their
+largest size by zero coefficients, which are data). The entries kind's numpy index outside ``[-N_i, N_i)`` raises an
+``IndexError`` as on ragged, and a negative one counts from ``N_i``; a jax index is not checked (out of range it reads
+a zero column). The steps see no mask: the site rows go through ``xmap`` and the sweeps through ``xscan`` over the
+leading ``d``, the terms with ``over_orders='scan'``; the whole steps act on the representation they are given. On
+exit every output but a ``'w'`` the caller passed (returned as given, its padding included) is masked by its table
+(``_mask_variable``): the variables and the blocks have exactly zero padding.
+The masks are layered (each family alone keeps the real parts right when every other operand is masked). A uniform
+call returns the uniform layout: a variable is one array, its index leading (``(d,)`` or ``(d + 1,)``); mirroring a
+ragged sample's form is the business of the functions built on the engine.
+
+The three kinds are built here, on both layouts, on a manifold frame and on a corewise point.
 """
 import dataclasses as dc
 import functools
@@ -292,6 +312,7 @@ import numpy as np
 
 import t3toolbox.backend.contractions as contractions
 import t3toolbox.backend.sampling_steps as sampling_steps
+import t3toolbox.backend.ut3_operations as ut3_operations
 from t3toolbox.backend.common import *
 from t3toolbox.backend.jets import _lowest_precision_dtype
 
@@ -964,6 +985,7 @@ class _Setting(typ.NamedTuple):
     with_K: typ.FrozenSet[str] = frozenset()        # the variables whose rows carry K
     kind:   str = 'probe'
     keep_W: bool = False                    # sum_over_samples=False: a block keeps W, W+[K]+C+core
+    masks:  typ.Optional[typ.Dict[str, NDArray]] = None    # the uniform layout's mask families; None on ragged
 
 
 def _bonds(tt: typ.Sequence[NDArray]) -> typ.Tuple[int, ...]:
@@ -1010,6 +1032,7 @@ def _read_setting(
         graph:            typ.Tuple[Rule, ...] = (),
         core_directions:  typ.Optional[typ.Tuple] = None,
         keep_W:           bool = False,
+        masks:            typ.Optional[typ.Dict[str, NDArray]] = None,
 ) -> _Setting:
     D, L = stores['D'], stores['L']
     U, R = stores.get('U', L), stores.get('R', L)       # a corewise point: one basis on each edge
@@ -1025,7 +1048,7 @@ def _read_setting(
         sizes=dict(rL=_bonds(L), rR=_bonds(R), nD=tuple(np.shape(B)[-2] for B in D),
                    nU=tuple(np.shape(G)[-2] for G in U), N=tuple(np.shape(B)[-1] for B in D)),
         K=_read_K(variations, core_directions, C), with_K=frozenset(rule.name for rule in graph if rule.carries_K),
-        kind=kind, keep_W=keep_W)
+        kind=kind, keep_W=keep_W, masks=masks)
 
 
 def _check_stacks(
@@ -1061,6 +1084,16 @@ def _check_stacks(
                 raise ValueError('sampling_variables: every input must have the sample stack W, read off w[0]: w[%d] '
                                  'has shape %s, where W = %s, so %d jet axes, W and the mode edge are expected'
                                  % (i, shape, W, m))
+    if setting.masks is not None:                       # uniform: the masks' C, the packed sample's d and N
+        for family, mask in setting.masks.items():
+            if family != 'N' and tuple(np.shape(mask)[1:-1]) != C:
+                raise ValueError('sampling_variables: every mask must have the stack C of the frame: the %s mask has '
+                                 'shape %s, where C = %s' % (family, np.shape(mask), C))
+        if setting.kind != 'entries':
+            d, N = setting.d, np.shape(stores['D'])[-1]
+            if np.shape(sample)[0] != d or np.shape(sample)[-1] != N:
+                raise ValueError("sampling_variables: the packed sample must have the frame's d and N: it has shape "
+                                 '%s, where d = %d and N = %d' % (np.shape(sample), d, N))
 
 
 def _entry(name: str, kind: str) -> typ.Tuple[str, str, typ.Optional[str]]:
@@ -1112,6 +1145,8 @@ def _expected(name: str, setting: _Setting) -> typ.Any:
         return tuple(_expected(block, setting) for block in blocks)
     if name in ('f', 'r_block_sumsq', 'Jp_norm_sq') or _entry(name, setting.kind)[0] == 'one':
         return _shape(name, None, setting)
+    if setting.masks is not None:                       # uniform: one array, the index leading
+        return (_count(name, setting),) + _shape(name, 0, setting)
     return tuple(_shape(name, i, setting) for i in range(_count(name, setting)))
 
 
@@ -1220,6 +1255,9 @@ def _run(
         start = getattr(sampling_steps, 'start_' + rule.start)(setting.box, setting.W, stacks, size, dtype, xnp)
     else:                                                   # a start that names a node: it times the closing ones
         start = sampling_steps.start_node(values[rule.start], size, xnp)
+    if setting.masks is not None:                           # uniform: ones on the real slots of the end bond only
+        bond = setting.masks[_STORE_FAMILY[rule.reads[0]]][0 if at_start else -1]       # C+(size,)
+        start = start * bond.reshape((1,) * (np.ndim(start) - bond.ndim) + bond.shape)
     body = _sweep_body(step_name, lens, order, form)
     if at_start:
         _, (bonds,) = xscan(body, start, per_site)
@@ -1244,6 +1282,113 @@ def _cast(value: typ.Any, dtype: typ.Any, xnp) -> typ.Any:
     if isinstance(value, (tuple, list)):
         return tuple(_cast(item, dtype, xnp) for item in value)
     return xnp.asarray(value, dtype=dtype)
+
+
+#####################################################
+########    The uniform layout    ###################
+#####################################################
+# A uniform call masks once on entry, every input with the masks of the object it is defined at, and re-masks the
+# core-shaped outputs on exit; the steps between see no mask. The masks are host numpy, static structure, never
+# traced (docs/contributor/uniform_pytree_composition.md). A family is a mask over one kind of edge: 'down', 'up'
+# (the Tucker edges, (d,)+C+(n,)), 'left', 'right' (the bonds, (d+1,)+C+(r,)), and 'N' (the mode axis, (d, N), from
+# the static shape). On a corewise point (B, G) the up family is the down one and the right the left one.
+
+# The masks of each input, one per trailing (core) axis: (family, part), the part of a bond family 'lo' (bonds
+# 0 .. d-1, the left leg of a TT core) or 'hi' (bonds 1 .. d); a site family whole. Every Tucker-shaped input has the
+# shape mask on N beside its rank mask (the variation masks are rank masks only).
+_TUCKER = (('down', None), ('N', None))
+_UNIFORM_MASKS = {
+    'D': _TUCKER, 'D_dot': _TUCKER,
+    'U': (('left', 'lo'), ('up', None), ('right', 'hi')),
+    'L': (('left', 'lo'), ('down', None), ('left', 'hi')), 'L_dot': (('left', 'lo'), ('down', None), ('left', 'hi')),
+    'R': (('right', 'lo'), ('down', None), ('right', 'hi')),
+    'V': (('up', None), ('N', None)), 'Vc': (('up', None), ('N', None)),
+    'H': (('left', 'lo'), ('down', None), ('right', 'hi')),
+    'w': (('N', None),), 'y': (('N', None),),
+}
+# A variable's mask, by the size of its table entry: a bond, site or mode variable over its edge; a block over the
+# axes of the core it stands for ('V' and 'VD' with the shape mask on N).
+_SIZE_MASKS = {
+    'rL': (('left', None),), 'rR': (('right', None),), 'nD': (('down', None),), 'nU': (('up', None),),
+    'N': (('N', None),),
+    'V': _UNIFORM_MASKS['V'], 'H': _UNIFORM_MASKS['H'], 'VD': _TUCKER, 'HL': _UNIFORM_MASKS['L'],
+}
+_STORE_FAMILY = {'L': 'left', 'R': 'right'}         # the bond family of the store a sweep goes through
+
+
+def _families(
+        frame:  typ.Tuple,                  # (D, U, L, R, shape, masks) or (B, G, shape, masks)
+) -> typ.Dict[str, NDArray]:                # the mask families, host numpy
+    """The mask families of a uniform frame or point, checked to be concrete (a traced mask raises)."""
+    if len(frame) == 6:
+        shape, (down, up, left, right) = frame[4], frame[5]
+    else:
+        shape, (down, left) = frame[2], frame[3]
+        up, right = down, left
+    require_concrete_masks(down, up, left, right)
+    return dict(down=down, up=up, left=left, right=right, N=prefix_mask(np.asarray(shape), np.shape(frame[0])[-1]))
+
+
+def _masked(
+        x:      NDArray,                    # (lead,) + stacks + core: lead d or d+1, the stacks ending in C
+        spec:   typ.Tuple,                  # one (family, part) per trailing core axis
+        masks:  typ.Dict[str, NDArray],     # the families
+) -> NDArray:                               # x with its padding zero
+    """``x`` times its masks, each a host array ``(lead,) + C + (size,)`` (``N``'s with no ``C``) placed on its axis,
+    right-aligned against the stacks so that a ``W`` or ``K`` before ``C`` broadcasts."""
+    if not spec:
+        return x
+    n_core = len(spec)
+    n_stack = np.ndim(x) - 1 - n_core
+    total = None
+    for j, (family, part) in enumerate(spec):
+        mask = masks[family]
+        mask = mask[:-1] if part == 'lo' else (mask[1:] if part == 'hi' else mask)
+        stack = mask.shape[1:-1]
+        mask = mask.reshape(mask.shape[:1] + (1,) * (n_stack - len(stack)) + stack + (1,) * j + mask.shape[-1:]
+                            + (1,) * (n_core - 1 - j))
+        total = mask if total is None else total * mask
+    return x * total
+
+
+def _mask_variable(
+        name:     str,
+        value:    typ.Any,                  # a variable of the uniform layout, or a pair of blocks
+        setting:  _Setting,
+) -> typ.Any:
+    """A variable, a block or a pair of blocks with its padding zero, by its table entry; a variable of no index or
+    with no padded axis (the apply kind's ``z``, ``f``, the sums) as it is."""
+    if name in ('g', 'JtJp', 'Kp'):
+        blocks = {'g': ('V_tilde', 'H_tilde'), 'JtJp': (_twin('V_tilde'), _twin('H_tilde')),
+                  'Kp': ('V_tilde_dot', 'H_tilde_dot')}[name]
+        return tuple(_mask_variable(block, part, setting) for block, part in zip(blocks, value))
+    if name in ('f', 'r_block_sumsq', 'Jp_norm_sq', 'w') or _table_name(name) not in _SHAPES:
+        return value
+    index, _, size = _entry(name, setting.kind)
+    if index == 'one':
+        return value
+    return _masked(value, _SIZE_MASKS[size], setting.masks)
+
+
+def _uniform_index(
+        index:  NDArray,                    # the entries kind's grid points, int, (d,)+W
+        shape:  typ.Sequence[int],          # the real mode sizes N_i
+) -> NDArray:                               # the index, a negative one wrapped by its real N_i
+    """The entries kind's index on a padded ``D``: as on the ragged layout, a numpy index outside ``[-N_i, N_i)``
+    raises an ``IndexError`` (on the padded layout it would read a masked column, a silent zero), and a negative one
+    counts from ``N_i``, not from the padded ``N``. A jax index (maybe traced) cannot be checked: one out of range
+    reads a zero column."""
+    sizes = np.asarray(shape).reshape((len(shape),) + (1,) * (np.ndim(index) - 1))
+    if not is_jax_ndarray(index):
+        array = np.asarray(index)
+        bad = (array >= sizes) | (array < -sizes)
+        if bad.any():
+            mode = int(np.argwhere(bad)[0][0])
+            raise IndexError('sampling_variables: index %d is out of range for mode %d of size %d'
+                             % (int(array[bad][0]), mode, int(shape[mode])))
+        return np.where(array < 0, array + sizes, array)
+    import jax.numpy as jnp
+    return jnp.where(index < 0, index + sizes, index)
 
 
 #####################################################
@@ -1298,11 +1443,13 @@ def sampling_variables(
         ``(D, U, L, R)``, each ``len=d``: ``D[i]`` of shape ``C+(nDi, Ni)``, ``U[i]`` ``C+(rLi, nUi, rR(i+1))``,
         ``L[i]`` ``C+(rLi, nDi, rL(i+1))``, ``R[i]`` ``C+(rRi, nDi, rR(i+1))``. The base point is ``(D, L)``.
         Or a corewise point ``(B, G)``, the cores of a Tucker tensor train: one basis on each edge, and the names
-        without a basis (the module docstring).
+        without a basis (the module docstring). On the uniform layout ``(D, U, L, R, shape, masks)`` or
+        ``(B, G, shape, masks)``: supercores with ``d`` leading, the static ``shape`` and host masks.
     sample: sequence of NDArray, or NDArray
         The input jets ``ww``: ``len=d``, ``elm_shape=J_in_i+W+(Ni,)``, with ``len(order)`` leading jet axes. For
         ``'entries'``, the grid points ``index``: integer, ``shape=(d,)+W`` (never cast, and not counted for the
-        dtype).
+        dtype). On the uniform layout the input jets may come packed, ``(d,)+J+W+(N,)``, or ragged (the engine packs
+        them).
     want: sequence of str
         The names wanted (the module's graph, and ``'w'``, the input vectors: for probe and apply the sample as
         given; for entries the one-hot vectors ``e_index`` of its definition, made only when wanted, in the result
@@ -1331,7 +1478,7 @@ def sampling_variables(
         through them, with no sweep through the base point's ``L`` cores. Only the probe kind's ``z`` reads it; given
         to apply or entries it is read by nothing and accepted, as any argument nothing wanted reads.
     held: HeldVariables, optional
-        Variables computed earlier at this frame and sample.
+        Variables computed earlier at this frame and sample (on the uniform layout one array each, masked on entry).
 
     Returns
     -------
@@ -1428,20 +1575,34 @@ def sampling_variables(
     # 2. the layout and the call type, from the structure of the frame
     if not isinstance(frame, (tuple, list)) or not frame:
         raise ValueError('sampling_variables: the frame is a tuple of stores; got a %s' % type(frame).__name__)
-    if is_ndarray(frame[0]):
-        raise NotImplementedError('sampling_variables: the uniform layout is not built yet')
-    if len(frame) == 2:                                 # a corewise point (B, G): it binds the stores D and L
-        call = '_corewise'
-        stores = dict(zip(('D', 'L'), frame))
-        if variations is not None:
-            raise ValueError('sampling_variables: a corewise point has one form of a direction, the raw one: pass it '
-                             'as core_directions, not variations')
-    elif len(frame) == 4:
-        call = '_manifold'
-        stores = dict(zip(('D', 'U', 'L', 'R'), frame))
-    else:
+    uniform = is_ndarray(frame[0])                      # the layout first, then the count
+    counts = {(False, 2): '_corewise', (False, 4): '_manifold', (True, 4): '_corewise', (True, 6): '_manifold'}
+    if (uniform, len(frame)) not in counts:
         raise ValueError('sampling_variables: a ragged frame has four stores (D, U, L, R), or a corewise point two '
-                         '(B, G); got %d' % len(frame))
+                         '(B, G); a uniform frame six elements (D, U, L, R, shape, masks), or a uniform point four '
+                         '(B, G, shape, masks); got %d on the %s layout'
+                         % (len(frame), 'uniform' if uniform else 'ragged'))
+    call = counts[uniform, len(frame)]
+    stores = dict(zip(('D', 'L') if call == '_corewise' else ('D', 'U', 'L', 'R'), frame))
+    if call == '_corewise' and variations is not None:
+        raise ValueError('sampling_variables: a corewise point has one form of a direction, the raw one: pass it as '
+                         'core_directions, not variations')
+    if kind == 'entries':                               # the index's length d: what the engine reads the sample by
+        d = len(frame[0])
+        if np.ndim(sample) < 1 or np.shape(sample)[0] != d:
+            raise ValueError('sampling_variables: the entries kind\'s index has one row per mode, shape (d,) + W with '
+                             'd = %d; got shape %s' % (d, np.shape(sample)))
+    masks = None
+    if uniform:                                         # the families; the sample packed (zero jet coefficients and
+        masks = _families(frame)                        # zero mode padding), its index checked as on ragged
+        shape = frame[-2]
+        N = np.shape(frame[0])[-1]
+        if kind == 'entries':
+            sample = _uniform_index(sample, shape)
+        else:
+            sample = ut3_operations.pack_if_ragged(sample, N, len_J=len(order))
+        if kind == 'probe' and y is not None:
+            y = ut3_operations.pack_if_ragged(y, N)
     graph = _GRAPHS[kind, call]
     names = _names(kind, call)
     unknown = [name for name in want if name not in names]
@@ -1452,7 +1613,7 @@ def sampling_variables(
         raise ValueError('sampling_variables: unknown variable %s for the %s kind on a %s call%s; the names are %s'
                          % (', '.join(map(repr, unknown)), kind, call.lstrip('_'), why, ', '.join(names)))
     setting = _read_setting(kind, stores, sample, order, variations, graph, core_directions,
-                            keep_W=not sum_over_samples)
+                            keep_W=not sum_over_samples, masks=masks)
     _check_stacks(setting, stores, sample, Vc)
     if held is not None:
         _check_held(held, setting)
@@ -1468,7 +1629,7 @@ def sampling_variables(
     held_values = {name: held[name] for name in held_names}
     use_jax = tree_contains_jax((frame, sample, y, weight, variations, core_directions, Vc,
                                  tuple(held_values.values())))
-    xnp, xmap, xscan = get_backend(False, use_jax)
+    xnp, xmap, xscan = get_backend(uniform, use_jax)
     V, H = variations if variations is not None else (None, None)
     D_dot, L_dot = core_directions if core_directions is not None else (None, None)
     inputs = dict(stores, y=y, weight=weight, Vc=Vc, V=V, H=H, D_dot=D_dot, L_dot=L_dot,
@@ -1483,15 +1644,25 @@ def sampling_variables(
     values = {name: _cast(inputs[name], dtype, xnp) for name in floating}
     values.update({name: xnp.asarray(inputs[name]) for name in (read & set(inputs)) & _INTEGER_ARGUMENTS})
     values.update({name: _cast(held_values[name], dtype, xnp) for name in held_counted})
+    if uniform:                                         # mask once: every input by the object it is defined at,
+        for name in floating:                           # a held variable by its table (padding is not a value)
+            if name in _UNIFORM_MASKS and not (name == 'y' and kind != 'probe'):   # apply's y has no N
+                values[name] = _masked(values[name], _UNIFORM_MASKS[name], masks)
+        for name in held_counted:
+            values[name] = _mask_variable(name, values[name], setting)
 
     # 5. to 7. run the rows
     m = len(order)
     lens = contractions.GroupLengths(J=m, W=len(setting.W), K=len(setting.K), C=len(setting.C))
     lens_no_K = dc.replace(lens, K=0)
-    form = 'loop'                                           # the ragged layout
+    form = 'scan' if uniform else 'loop'                   # over the orders: a real scan on the uniform layout
     for rule in rules:
         values[rule.name] = _run(rule, values, lens if rule.carries_K else lens_no_K, setting, form, dtype,
                                  xnp, xmap, xscan)
 
-    # 8. the return, aligned with want
-    return tuple(sample if (name == 'w' and w_given) else values[name] for name in want)
+    # 8. the return, aligned with want; on the uniform layout the core-shaped outputs re-masked
+    out = tuple(sample if (name == 'w' and w_given) else values[name] for name in want)
+    if uniform:
+        out = tuple(value if (name == 'w' and w_given) else _mask_variable(name, value, setting)
+                    for name, value in zip(want, out))
+    return out

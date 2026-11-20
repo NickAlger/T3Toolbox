@@ -861,3 +861,60 @@ the house rule (a first build that named the literals at the top of the step fai
 - **Gate:** the implementer's full gate at `-n 2` before the pause, every step PASS (suite 1,782 passed; 1,870 s;
   lowest MemAvailable 3.81 GB).
 - **P11's design note** (`P11_DESIGN_NOTE.md`) was written while P10 was reviewed; to the reviewer next.
+
+### P11 designed (2026-11-20)
+
+- The implementer's note (`P11_DESIGN_NOTE.md`, written while P10 was reviewed) and the reviewer's critique
+  (`P11_DESIGN_REVIEW.md`: the structure right, three findings, one change).
+- **Ruled by Claude** (written into the plan's P11), all the reviewer's: **A** the shape mask on `N` for every
+  Tucker-shaped input and `V`-type block, and the sample's `N` masked on entry (jet axes untouched): "the sample needs
+  no mask" held only because `D` carries the shape mask, while `w` also meets `V`, `D_dot`, `Vc` and the `V` readouts,
+  whose masks are rank masks; **B** held variables masked on entry by their table's masks (a held `z` or `r` with
+  garbage padding would give a wrong `f`; padding is not a value); **no `layout` static** on the whole steps, which infer
+  the layout from their operands (the house rule); **C** a concrete numpy `index >= N_i` raises `IndexError` on uniform
+  as on ragged (the equivalence contract; one comparison, as for `index_to_one_hot`), a jax index reading a zero,
+  documented. Tests: garbage everywhere on a covering design, negative controls by mask family, the uniform maximal
+  case unsummed.
+
+### P11: Engine G, the uniform layout and sharding over `W`; the additive phase closes (2026-11-20)
+
+- **Rounds:** two (`P11_REVIEW_r1.md` NOT YET, two should-fix; `P11_REVIEW_r2.md` SIGN OFF; `P11_RESPONSE_r1.md`;
+  handover `P11_HANDOVER.md`), after the design (above).
+- **What was built:** the engine tells ragged from uniform by `is_ndarray`, then the element count (6 a frame, 4 a
+  point), a traced mask raising; one table of entry masks `_UNIFORM_MASKS` (each store, `V`/`H`/`Vc`, `D_dot`/`L_dot` by
+  the masks of the object they are defined at, the directions by the frame's `D`/`L` masks; the shape mask on `N` for
+  every Tucker-shaped input, the sample (jet axes untouched) and probe's `y`; held variables by their own table; start
+  values with ones on the real slots of their end bond); every output masked on exit; the engine packs a ragged sample
+  itself (`len_J`); a numpy index outside `[-N_i, N_i)` raises on uniform as on ragged; the whole steps infer the layout
+  from their operands; `_check_stacks`' uniform branch (the masks' `C`, the packed sample's `d` and `N`);
+  `pack_vectors`/`pack_if_ragged` with `len_J=0` (a `W` mismatch now a named `ValueError`). Tests:
+  `tests/test_sampling_uniform.py` (14+: the covering design of 81 uniform calls with garbage in every masked slot,
+  every name per element and per site against ragged, the real block read off the ragged shape and the rest exactly
+  zero; the maximal case per kind unsummed; packed jet zeros as data; held garbage; the index; `Kp` at TT slack with
+  permanent negative controls; the uniform stack check per family); dispatch (a jitted uniform call; jaxpr size equal
+  at `(2,)` and `(6,)`; a second eager call compiles nothing); sharding (`g` and `Kp`, 4 programs, no all-gather).
+- **Departures accepted:** every output masked on exit; the program-size test counts jaxpr lines (the HLO text shifted
+  with what the process had compiled before); a user who jits the engine on raw `.data` keeps the masks and `shape`
+  static (docstring).
+- **Review round 1** (the reviewer's checks: a TT-slack point built by the library with garbage in every padding slot,
+  every name equal to ragged with exactly zero padding, `z` and `f` against its dense oracle to 1e-12; all 98 holdable
+  variables held with garbage padding give the clean call; sharding on 4 virtual devices, zero all-gathers; 25
+  mutants, 24 killed). **Finding 1, a silent wrong answer:** the entries index's leading `d` was never checked; on
+  uniform an index of shape `(1,) + W` broadcast to every mode and returned `T[i, i, i]`, and ragged silently ignored an
+  extra row (since P9b). **Fixed, ruled by Claude:** one structural check on both layouts, outside `_check_stacks` (the
+  sample's length `d`, which the engine needs to read the sample at all). Finding 2: a mutant returning the uniform
+  one-hot `'w'` as a tuple survived; an `isinstance` assertion kills it. The masking's three redundant layers (the
+  sample's `N` mask, the start mask, the exit masks) judged sound by the reviewer: they protect only the padding, each
+  pinned alone by a permanent test; kept.
+- **Round 2:** SIGN OFF; the reviewer's 26 mutants over two rounds all caught.
+- **Gate:** the implementer's full gate at `-n 2` before round 1, every step PASS (suite 1,799 passed; 1,936 s; lowest
+  MemAvailable 3.69 GB; module doctests 315; Sphinx 0 warnings). **Claude's run on the final tree** (after round 1's
+  engine change): below.
+  Suite 1,800 passed, 5 skipped, 1 xfailed (1,886 s at `-n 2`; lowest MemAvailable 4.0 GB); module doctests 315.
+
+### The engine sub-arc P5 to P11 is complete: the second planned pause (2026-11-20, 17:13)
+
+The additive phase is closed: the engine `sampling_variables` computes every variable of the three kinds, on manifold
+and corewise calls, ragged and uniform, with jets in any number of variables, the stacks `W`, `K`, `C`, and
+`sum_over_samples`. Nothing of the old sampling layer is rerouted or deleted yet (P12 on). Summary and the questions
+for the maintainer: `dev/HANDOFF.md`, START HERE.

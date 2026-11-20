@@ -1739,6 +1739,23 @@ leaves then have the packed jet sizes, clipped to `F`, and equal the ragged leav
   class's note on the varying-axes check (`check_vma` / `check_rep` off) applies to the engine's scan carries too.
 - `tests/test_dispatch.py`: jit the engine on uniform data; an eager call twice adds no compilation (the scan
   bodies' identity is stable).
+- **Design, settled before the build (2026-11-20; `implementation/P11_DESIGN_NOTE.md`, `P11_DESIGN_REVIEW.md`):** one
+  table of entry masks, each input masked by the object it is defined at: the stores by their own masks; `V`, `H`,
+  `Vc` by the frame's variation masks; `D_dot`, `L_dot` by the frame's `D` and `L` masks, never the point's; and
+  **the shape mask on `N` for every Tucker-shaped input and every `V`-type block** (the variation masks are rank masks
+  only; the reviewer's Finding A); **the sample's `N` masked on entry** (its jet axes untouched: their slots are data,
+  O-45); probe's `y` by the mode-shape mask; the start values by their end bond's mask; **held variables masked on
+  entry by their table's masks** (padding is not a value; a held `z` or `r` with garbage padding would otherwise give
+  a wrong `f`; Finding B; row 6.5's trust covers the real slots). Exit masks read off each block's size in the shape
+  table, the `V`-type blocks with the shape mask on `N` too. **The whole steps infer the layout from their operands**
+  (`is_ndarray`; the house rule, `docs/contributor/uniform_polymorphism.md`), with no `layout` flag. `_check_stacks`'s
+  uniform branch checks the packed sample's `d` and `N` against `D` (each family tested alone). **A concrete numpy
+  `index >= N_i` raises `IndexError` on uniform as on ragged** (Finding C: the equivalence contract; one comparison,
+  as for `index_to_one_hot`); a jax index reads a zero, documented. The engine returns the uniform layout on a uniform
+  call; mirroring the sample's form is P12's twins'. Tests on a covering design with garbage in every masked slot
+  (the `N` padding of `V`, `Vc`, `D_dot` and held variables included) and masks derived from the ragged ranks; negative
+  controls by mask family (stores, `V`/`H`/`Vc`, `D_dot`/`L_dot`, `y`, starts, exit) in the mutation pass, permanent
+  where load-bearing (`Kp` at TT slack); the uniform maximal case with `sum_over_samples=False`; sharding in 4 programs.
 - Gate: the full gate. This closes the additive phase.
 
 **P12. The backend sampling functions on the engine.** The 30 changed names

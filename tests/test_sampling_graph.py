@@ -580,8 +580,10 @@ class TestChecks(unittest.TestCase):
                                                 'core_directions'):
             sv.sampling_variables('probe', (self.frame[0], self.frame[2]), self.ww, ('z',),
                                   variations=(self.problem.V, self.problem.H))
-        with self.assertRaisesRegex(NotImplementedError, 'the uniform layout'):
-            sv.sampling_variables('probe', (np.zeros((3, 2, 2)),) * 6, self.ww, ('z',))
+        for count in (3, 5):                                    # a uniform frame has six elements, a point four
+            with self.subTest(uniform=count):
+                with self.assertRaisesRegex(ValueError, 'got %d on the uniform layout' % count):
+                    sv.sampling_variables('probe', (np.zeros((3, 2, 2)),) * count, self.ww, ('z',))
 
 
 if __name__ == '__main__':

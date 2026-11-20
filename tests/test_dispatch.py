@@ -985,6 +985,67 @@ class TestDispatch(unittest.TestCase):
                     self.assertEqual(a.shape, b.shape)
                     self.assertLess(norm(np.asarray(a) - b), 1e-12 * norm(b))
 
+    def test_jit_sampling_variables_on_the_uniform_layout(self):
+        """The engine on uniform data under ``jax.jit`` (the masks closed over, static), a manifold frame with forced
+        padding and ranks varying across ``C = (2,)``, ``K = (2,)``, a line at ``(2,)``: jax in, jax out, the numbers
+        numpy's; and the program has the same size at ``(2,)`` and ``(6,)`` (a real scan over the orders, ``m = 1``):
+        the lines of its jaxpr."""
+        import test_sampling_uniform as tsu
+        import t3toolbox.backend.sampling_variables as sv
+
+        def jitted(order, C, K, varying):
+            case = tsu.UniformCase('probe', C, K, True, varying, order, (2,), '_manifold', seed=3)
+            shape, masks, s = case.frame[4], case.frame[5], case.supercores
+
+            def fn(D, U, L, R, sample, y, V, H, D_dot, L_dot):
+                return sv.sampling_variables('probe', (D, U, L, R, shape, masks), sample, ('z', 'g', 'Kp', 'JtJp'),
+                                             order=order, y=y, weight=case.weight, variations=(V, H),
+                                             core_directions=(D_dot, L_dot))
+            args = (s['D'], s['U'], s['L'], s['R'], case.sample, case.y, s['V'], s['H'], s['D_dot'], s['L_dot'])
+            return fn, args
+
+        fn, args = jitted((2,), (2,), (2,), True)
+        jargs = [jnp.asarray(a) for a in args]
+        self.assert_jit_jax(fn, *jargs)
+        for a, b in zip(jax.tree_util.tree_leaves(jax.jit(fn)(*jargs)), jax.tree_util.tree_leaves(fn(*args))):
+            self.assertEqual(a.shape, b.shape)
+            self.assertLess(norm(np.asarray(a) - b), 1e-12 * norm(b))
+        sizes = []                                      # the traced program: its lines (the compiled text also
+        for order in ((2,), (6,)):                      # depends on what the process compiled before)
+            fn, args = jitted(order, (), (), False)
+            sizes.append(str(jax.make_jaxpr(fn)(*[jnp.asarray(a) for a in args])).count('\n'))
+        self.assertEqual(sizes[0], sizes[1])
+
+    def test_an_eager_uniform_call_twice_compiles_nothing_the_second_time(self):
+        """Eager jax on the uniform layout: the scan and map bodies are module-level and memoized, so a second call
+        with the same statics and shapes compiles nothing (counted through ``jax.monitoring``)."""
+        import jax.monitoring as monitoring
+        import test_sampling_uniform as tsu
+        import t3toolbox.backend.sampling_variables as sv
+        events, listening = [], [True]
+
+        def listener(name, *args, **kwargs):            # collects only while this test listens
+            if listening[0]:
+                events.append(name)
+        monitoring.register_event_duration_secs_listener(listener)
+        try:
+            case = tsu.UniformCase('apply', (), (), True, False, (2,), (2,), '_manifold', seed=4)
+            frame = tuple(jnp.asarray(a) for a in case.frame[:4]) + case.frame[4:]
+            call = lambda: sv.sampling_variables('apply', frame, jnp.asarray(case.sample), ('g',), order=case.order,
+                                                 y=jnp.asarray(case.y), weight=jnp.asarray(case.weight))
+            call()
+            compiles = lambda: sum('backend_compile' in name for name in events)
+            if not compiles():
+                self.skipTest('this jax records no compile events through jax.monitoring')
+            before = compiles()
+            call()
+            self.assertEqual(compiles(), before)
+        finally:
+            listening[0] = False
+            unregister = getattr(monitoring, 'unregister_event_duration_listener', None)   # not in older jax
+            if unregister is not None:
+                unregister(listener)
+
     # ---------------------------------------------------- jit bucket: the dense sampling functions
     def test_jit_dense_sampling_functions(self):
         """jit dense_probe and dense_apply with no jets, with the input jets of a line at (3,) and with input jets of

@@ -859,6 +859,8 @@ def w_one_hot_step(
     when ``'w'`` is wanted: nothing else reads it.'''
     xnp, _, _ = get_backend(False, tree_contains_jax((index, D)))
     vectors = jets.index_to_one_hot(index, [np.shape(B)[-1] for B in D])
+    if is_ndarray(D):                                   # the uniform layout: the padded N, packed (the index is real)
+        return xnp.stack([xnp.asarray(e, dtype=D.dtype) for e in vectors])
     return tuple(xnp.asarray(e, dtype=D[0].dtype) for e in vectors)
 
 
@@ -983,7 +985,11 @@ def w_tilde_step(
     '''The seed of the adjoint: the residual made a dual jet, ``jet_to_dual_jet``: the weight squared, then every jet
     axis flipped. The probe kind's is one array per mode; the apply kind's one number per sample and slot, which sits
     on the ones that close bond ``d``.'''
-    return jets.jet_to_dual_jet(kind, order, r, weight)
+    seed = jets.jet_to_dual_jet(kind, order, r, weight)
+    if kind == 'probe' and is_ndarray(r):               # the uniform layout: packed in, packed out
+        xnp, _, _ = get_backend(False, tree_contains_jax(seed))
+        return xnp.stack(seed)
+    return seed
 
 
 def g_step(
@@ -995,7 +1001,10 @@ def g_step(
         form:     str,
         kind:     str,
 ) -> typ.Tuple[typ.Tuple[NDArray, ...], typ.Tuple[NDArray, ...]]:   # g = (V_tilde, H_tilde)
-    '''The gradient: the two families of blocks, paired.'''
+    '''The gradient: the two families of blocks, paired (a tuple of ``d`` blocks each on ragged, a supercore each on
+    the uniform layout, as given).'''
+    if is_ndarray(V_tilde):
+        return V_tilde, H_tilde
     return tuple(V_tilde), tuple(H_tilde)
 
 
@@ -1013,6 +1022,9 @@ def r_step(
     if kind != 'probe':
         y_FW = xnp.asarray(y)
         return xnp.asarray(z) - y_FW.reshape(y_FW.shape + (1,) * lens.C)
+    if is_ndarray(z):                                   # the uniform layout: (d,)+F+W+C+(N,) and (d,)+F+W+(N,)
+        y_dFWo = xnp.asarray(y)
+        return z - y_dFWo.reshape(y_dFWo.shape[:-1] + (1,) * lens.C + y_dFWo.shape[-1:])
     out = []
     for z_FWCo, y_FWo in zip(z, y):
         y_FWo = xnp.asarray(y_FWo)
