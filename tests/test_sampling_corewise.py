@@ -144,7 +144,7 @@ class TestTheDerivedGraph(unittest.TestCase):
                 self.assertNotIn(rule.name, sv._COREWISE_RENAME)                     # every name renamed
                 self.assertTrue(set(rule.reads) <= made | {'D', 'L'} | sv._ARGUMENTS)
         self.assertEqual({r.name for r in sv._PROBE_COREWISE_GRAPH if r.name.startswith('_Jp.')},
-                         {sv._twin(n) for n in sv._JP_PATH})
+                         {sv._twin(n) for n in sv._JP_PATHS['probe', '_corewise']})
         jtjp = [r for r in sv._PROBE_COREWISE_GRAPH if r.name == 'JtJp']
         self.assertEqual([r.needs for r in jtjp], [frozenset({'core_directions'})])
 
@@ -153,11 +153,11 @@ class TestTheDerivedGraph(unittest.TestCase):
         ``core_directions`` and data (asserted at import, and again here)."""
         colliding = sv._PROBE_ROWS + (sv.Rule('nu', ('right', 'nu_step'), ('L', 'xi'), sv._NONE, False, 'ones'),)
         with self.assertRaisesRegex(RuntimeError, "the corewise rename of 'nu_L' lands on the surviving 'nu'"):
-            sv._corewise(colliding)
+            sv._corewise(colliding, 'probe')
         # no surviving probe row needs variations today; a later one (a route reading only D, L and data) must come
         # out needing core_directions, the one form of a direction at a corewise point
         later = sv._PROBE_ROWS + (sv.Rule('later', ('whole', 'identity_step'), ('z',), sv._VAR, True),)
-        self.assertEqual([r.needs for r in sv._corewise(later) if r.name == 'later'], [sv._COR])
+        self.assertEqual([r.needs for r in sv._corewise(later, 'probe') if r.name == 'later'], [sv._COR])
         for name in sv._public(sv._PROBE_COREWISE_GRAPH):
             with self.subTest(name=name):
                 sv._closure('probe', (name,), frozenset(), frozenset({'_corewise', 'y', 'core_directions'}))

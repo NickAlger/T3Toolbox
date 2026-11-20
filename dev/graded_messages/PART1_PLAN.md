@@ -1635,6 +1635,24 @@ entries call with an order raises (section 2.3 step 1). The engine's graph of th
   migration of entry 120.
 - Gate: the full gate.
 
+- **Design, settled before the build (2026-11-20; `implementation/P9_DESIGN_NOTE.md`, `P9_DESIGN_REVIEW.md`):** for
+  apply and entries the seed sits on the ones closing bond `d`, so the right-side tilde variables are the plain
+  recurrences started from the seed (a row's start may name a node; `_deps(rule)` = its reads plus its start node,
+  used by the closure, the last-read drop, the dtype count and both renames), and `xi_tilde`, `mu_tilde`,
+  `xi_tilde_dot`, `mu_tilde_dot` are zero. The rows split into a plain and a dot block shared by every kind, plus
+  each kind's own; apply built, entries derived from apply by a declared table of steps (a gather for the leaves, a
+  **scatter-add** for `V`: `W x n` memory, not the one-hot product's `W x N`; written with a static "keep `W`" option for
+  P10; duplicate indices tested); corewise by the same derivation per kind; `_GRAPHS` and the twin paths keyed
+  `(kind, call)`; apply's `z` and `Jp` by a `close_step` that SUMS over the end bond (with tails `z` closes with `rL_d`
+  ones and `Jp` with `rR_d`); `nu_step`/`eta_step` carry `K` on the carry; the whole steps take `kind` as a static;
+  import-time invariants raise, never assert; a `Vc` given to apply or entries is read by nothing and accepted, as any
+  unread argument (the docstring says so). **The zero tilde names are left off the apply and entries graphs** (an
+  unknown name, its message saying it is zero there; zeros rows would need a false shape read or a new driver),
+  **pending the maintainer at the pause after P11**, with the proposal of a public reader of a call's names (a private
+  one meanwhile, used by the test that compares the engine's names with the reference module's per kind).
+  **P9 is split in two commits** (in place; the order and scope unchanged): **P9a** apply on both call types with
+  `_deps`, the starts, the paths, `close_step` and its bridge; **P9b** entries.
+
 **P10. Engine F.** Any number of axes in `W`; the direction stack `K` on `variations` and `core_directions`; the
 base-point stack `C` on every core; `sum_over_samples=False` with the result's stack in the order `W + K + C`; `f`
 keeping `C`, `Jp_norm_sq` keeping `K + C`; the dtype rule over the inputs the call reads (O-11).

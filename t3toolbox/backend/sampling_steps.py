@@ -30,7 +30,8 @@ A step takes its arrays positionally, the carry first for a sweep, and the stati
 - ``form``: ``'loop'`` or ``'scan'``, how ``jet_contract`` takes a full partner one coefficient at a time.
 
 The start values: ``start_ones``, the vector of ones that closes an end bond, as a constant polynomial on the full
-box; ``start_zeros``, the start of a sweep whose variable has nothing at its end. Each row of the graph declares which.
+box; ``start_zeros``, the start of a sweep whose variable has nothing at its end; ``start_node``, a node of the graph
+times the ones that close the end bond (the apply kind's seed, on bond ``d``). Each row of the graph declares which.
 
 **The tilde steps** carry ``K`` on their tilde operands in their strings (``'JWKCa,Caib,JWCi->JWKCb'``, ...): with a
 record whose ``K`` is zero (the residual's adjoint) they are the plain strings, and with the call's ``K`` they serve
@@ -38,8 +39,15 @@ the adjoint seeded by a stack of directions. **The readouts** (the blocks ``V_ti
 ``jet_contract`` calls with no ``J`` in the output: the coefficient at the corner of the product, the corner being the
 jet shape passed.
 
-The **whole steps** (``r_step``, ``f_step``, ``r_block_sumsq_step``) act on a whole variable, one array per mode
-for the probe kind, and take the same statics.
+The **whole steps** (``r_step``, ``f_step``, ``close_step``, ...) act on a whole variable, of the type of ``z``
+where it is the kind's output (one array per mode with a mode edge for the probe kind, one array for apply), and take
+one static more, ``kind``.
+
+**The apply kind** reuses the steps of the plain and dot grades for its adjoint: the seed sits on the ones that close
+bond ``d``, so a right side or a trunk is the plain recurrence started from the seed, and its tilde-dot the dot
+recurrence with the tilde forms in the plain ones' places. Its own steps are readouts of one term (``eta_top_step``,
+``eta_dot_top_step``, ``V_top_step``, ``H_readout_step``) and ``close_step``. ``nu_step`` and ``eta_step`` carry ``K``
+on the right side, for the adjoint seeded by ``Jp``.
 
 Every name here is private: the module is the engine's, and its ``__all__`` is empty.
 """
@@ -94,30 +102,33 @@ def mu_step(
 
 
 def nu_step(
-        nu_JWCb:  NDArray,                  # the carry: the right of bond i+1, F+W+C+(rb,)
-        G_Caib:   NDArray,                  # a TT core, C+(ra, n, rb): R[i] for nu, L[i] for nu_L
-        xi_JWCi:  NDArray,                  # the leaf of site i, min(J_in, F)+W+C+(n,)
+        nu_JWKCb:  NDArray,                 # the carry: the right of bond i+1, F+W+[K]+C+(rb,)
+        G_Caib:    NDArray,                 # a TT core, C+(ra, n, rb): R[i] for nu, L[i] for nu_L
+        xi_JWCi:   NDArray,                 # the leaf of site i, min(J_in, F)+W+C+(n,)
         *,
-        lens:     contractions.GroupLengths,
-        order:    typ.Tuple[int, ...],
-        form:     str,
-) -> NDArray:                               # the right of bond i, F+W+C+(ra,)
-    '''``nu[i] = nu_term(R[i], xi[i], nu[i+1])``; with the ``L`` cores, ``nu_L``.'''
-    return contractions.jet_contract('Caib,JWCi,JWCb->JWCa', G_Caib, xi_JWCi, nu_JWCb,
+        lens:      contractions.GroupLengths,
+        order:     typ.Tuple[int, ...],
+        form:      str,
+) -> NDArray:                               # the right of bond i, F+W+[K]+C+(ra,)
+    '''``nu[i] = nu_term(R[i], xi[i], nu[i+1])``; with the ``L`` cores, ``nu_L``. Started from the seed instead of
+    ones it is the apply kind's ``nu_tilde`` (or ``nu_L_tilde``), the seed sitting on the ones that close bond
+    ``d``; the carry has ``K`` there in the adjoint seeded by ``Jp``.'''
+    return contractions.jet_contract('Caib,JWCi,JWKCb->JWKCa', G_Caib, xi_JWCi, nu_JWKCb,
                                      lens=lens, order=order, over_orders=form)
 
 
 def eta_step(
-        mu_JWCa:  NDArray,                  # the left of bond i, F+W+C+(ra,)
-        G_Caib:   NDArray,                  # a TT core, C+(ra, n, rb): U[i] for eta, L[i] for eta_D
-        nu_JWCb:  NDArray,                  # the right of bond i+1, F+W+C+(rb,)
+        mu_JWCa:   NDArray,                 # the left of bond i, F+W+C+(ra,)
+        G_Caib:    NDArray,                 # a TT core, C+(ra, n, rb): U[i] for eta, L[i] for eta_D
+        nu_JWKCb:  NDArray,                 # the right of bond i+1, F+W+[K]+C+(rb,)
         *,
-        lens:     contractions.GroupLengths,
-        order:    typ.Tuple[int, ...],
-        form:     str,
-) -> NDArray:                               # the trunk above Tucker edge i, F+W+C+(n,)
-    '''``eta[i] = eta_term(mu[i], U[i], nu[i+1])``; with ``L[i]`` and ``nu_L``, ``eta_D``.'''
-    return contractions.jet_contract('JWCa,Caib,JWCb->JWCi', mu_JWCa, G_Caib, nu_JWCb,
+        lens:      contractions.GroupLengths,
+        order:     typ.Tuple[int, ...],
+        form:      str,
+) -> NDArray:                               # the trunk above Tucker edge i, F+W+[K]+C+(n,)
+    '''``eta[i] = eta_term(mu[i], U[i], nu[i+1])``; with ``L[i]`` and ``nu_L``, ``eta_D``. With the apply kind's
+    ``nu_tilde`` (``K`` on it in the adjoint seeded by ``Jp``), the apply kind's ``eta_tilde``.'''
+    return contractions.jet_contract('JWCa,Caib,JWKCb->JWKCi', mu_JWCa, G_Caib, nu_JWKCb,
                                      lens=lens, order=order, over_orders=form)
 
 
@@ -596,9 +607,117 @@ def H_tilde_dot_step(
                                         lens=lens, order=order, over_orders=form))
 
 
+#####################################################
+########    The adjoint of apply (5.3)    ###########
+#####################################################
+# For the apply kind the seed sits on the ones that close bond d: a right side or a trunk is the plain recurrence
+# started from the seed (nu_step, eta_step; the tilde-dot: nu_dot_step, eta_dot_step and H_tilde_step with the tilde
+# forms in the plain ones' places), and a left side or a leaf has no tilde. What is new are the readouts of one
+# term: the short forms of eta_step and eta_dot_step, and the blocks with no seed at a leaf.
+
+def eta_top_step(
+        mu_JWCa:   NDArray,                 # mu at bond i, F+W+C+(ra,)
+        G_Caib:    NDArray,                 # U[i], or L[i] for eta_D_tilde
+        nu_JWKCb:  NDArray,                 # the apply kind's nu_tilde at bond i+1, F+W+[K]+C+(rb,)
+        w_JWo:     NDArray,                 # the input jet of site i: only its jet sizes are read
+        *,
+        lens:      contractions.GroupLengths,
+        order:     typ.Tuple[int, ...],
+        form:      str,
+) -> NDArray:                               # the top slots of eta_tilde[i]: a+W+[K]+C+(n,), a = min(J_in, F)
+    '''The short form of ``eta_step``: the slots ``[c - a + 1 : c + 1]`` of ``eta_term(mu[i], G[i], nu[i+1])`` on
+    every jet axis (``c`` the corner, ``a`` the input's jet sizes clipped to the box), each a readout at a lowered
+    corner. With the apply kind's ``nu_tilde`` it is the short form of its ``eta_tilde``.'''
+    xnp, _, _ = get_backend(False, tree_contains_jax((mu_JWCa, G_Caib, nu_JWKCb)))
+    a = tuple(f + 1 for f in _leaf_order(w_JWo, order))
+    slots = []
+    for j in np.ndindex(*a):
+        corner = tuple(n - a_k + 1 + j_k for n, a_k, j_k in zip(order, a, j))
+        slots.append(contractions.jet_contract('JWCa,Caib,JWKCb->WKCi', mu_JWCa, G_Caib, nu_JWKCb,
+                                               lens=lens, order=corner, over_orders=form))
+    return xnp.stack(slots).reshape(a + slots[0].shape)
+
+
+def eta_dot_top_step(
+        mu_dot_JWKCa:  NDArray,             # as for eta_dot_step
+        G_left_Caib:   NDArray,
+        mu_JWCa:       NDArray,
+        H_KCaib:       NDArray,
+        G_right_Caib:  NDArray,
+        nu_dot_JWKCb:  NDArray,
+        nu_JWCb:       NDArray,
+        w_JWo:         NDArray,             # the input jet of site i: only its jet sizes are read
+        *,
+        lens:          contractions.GroupLengths,
+        order:         typ.Tuple[int, ...],
+        form:          str,
+) -> NDArray:                               # the top slots: a+W+K+C+(n,), a = min(J_in, F)
+    '''The short form of ``eta_dot_step``: its three terms read at the slots ``[c - a + 1 : c + 1]``. With the
+    apply kind's ``nu_L_tilde`` and ``nu_L_tilde_dot`` in the places of ``nu`` and ``nu_dot``, the short form of its
+    ``eta_D_tilde_dot``.'''
+    xnp, _, _ = get_backend(False, tree_contains_jax((mu_dot_JWKCa, G_left_Caib, mu_JWCa, H_KCaib, G_right_Caib,
+                                                      nu_dot_JWKCb, nu_JWCb)))
+    a = tuple(f + 1 for f in _leaf_order(w_JWo, order))
+    slots = []
+    for j in np.ndindex(*a):
+        corner = tuple(n - a_k + 1 + j_k for n, a_k, j_k in zip(order, a, j))
+        slots.append(contractions.jet_contract('JWKCa,Caib,JWCb->WKCi', mu_dot_JWKCa, G_left_Caib, nu_JWCb,
+                                               lens=lens, order=corner, over_orders=form)
+                     + contractions.jet_contract('JWCa,KCaib,JWCb->WKCi', mu_JWCa, H_KCaib, nu_JWCb,
+                                                 lens=lens, order=corner, over_orders=form)
+                     + contractions.jet_contract('JWCa,Caib,JWKCb->WKCi', mu_JWCa, G_right_Caib, nu_dot_JWKCb,
+                                                 lens=lens, order=corner, over_orders=form))
+    return xnp.stack(slots).reshape(a + slots[0].shape)
+
+
+def V_top_step(
+        top_JWKCi:  NDArray,                # the top slots of a trunk's tilde, a+W+[K]+C+(n,)
+        w_JWo:      NDArray,                # the input jet of site i, J_in+W+(N,)
+        *,
+        lens:       contractions.GroupLengths,
+        order:      typ.Tuple[int, ...],
+        form:       str,
+) -> NDArray:                               # the block: [K]+C+(n, N), summed over the samples
+    '''The block ``V_term`` of a trunk's tilde and the input, read at the corner: from the top slots, a readout at
+    the corner ``a - 1``. The apply kind's ``V_tilde`` and ``V_tilde_dot`` (no seed at a leaf: one term).'''
+    return contractions.jet_contract('JWKCi,JWo->KCio', top_JWKCi, w_JWo,
+                                     lens=lens, order=_leaf_order(w_JWo, order), over_orders=form)
+
+
+def H_readout_step(
+        mu_JWCa:   NDArray,                 # mu at bond i
+        xi_JWCi:   NDArray,                 # xi[i], the leaf
+        nu_JWKCb:  NDArray,                 # the apply kind's nu_tilde at bond i+1, F+W+[K]+C+(rb,)
+        *,
+        lens:      contractions.GroupLengths,
+        order:     typ.Tuple[int, ...],
+        form:      str,
+) -> NDArray:                               # H_tilde[i]: [K]+C+(ra, n, rb), summed over the samples
+    '''The apply kind's ``H_tilde[i]``, the corner of ``H_term(mu[i], xi[i], nu_tilde[i+1])``: one readout, the
+    seed being only on the right.'''
+    return contractions.jet_contract('JWCa,JWCi,JWKCb->KCaib', mu_JWCa, xi_JWCi, nu_JWKCb,
+                                     lens=lens, order=order, over_orders=form)
+
+
 ###############################################
 ########    The whole steps    ################
 ###############################################
+
+# A whole step takes the kind as a static too, a string: the probe kind's type of z is one array per mode with a mode
+# edge, the apply kind's one array with neither. _modes gives the arrays of a value of the type of z, each with the
+# weight's row it is read with and the number of mode-edge axes after its stacks.
+
+def _modes(
+        kind:    str,                       # 'probe' | 'apply'
+        value:   typ.Any,                   # of the type of z: probe len=d, elm_shape=F+W+[K]+C+(Ni,); apply F+W+[K]+C
+        weight:  typ.Optional[NDArray],     # probe (d,)+F; apply F; None = ones
+        xnp,
+) -> typ.List[typ.Tuple[NDArray, typ.Optional[NDArray], int]]:     # (array, its weight F or None, mode-edge axes)
+    if kind == 'probe':
+        return [(xnp.asarray(array), None if weight is None else xnp.asarray(weight)[i], 1)
+                for i, array in enumerate(value)]
+    return [(xnp.asarray(value), None if weight is None else xnp.asarray(weight), 0)]
+
 
 def identity_step(
         value:  typ.Any,                    # a whole variable
@@ -606,47 +725,64 @@ def identity_step(
         lens:   contractions.GroupLengths,
         order:  typ.Tuple[int, ...],
         form:   str,
+        kind:   str,
 ) -> typ.Any:                               # the same object
     '''A route row over a private node: the public name of a variable whose value another node makes (the frame form
     of ``nu_L_dot`` and ``eta_D_dot``).'''
     return value
 
 
+def close_step(
+        bonds:  typ.Sequence[NDArray],      # a left side, len=d+1, elm_shape=F+W+[K]+C+(r_i,)
+        *,
+        lens:   contractions.GroupLengths,
+        order:  typ.Tuple[int, ...],
+        form:   str,
+        kind:   str,
+) -> NDArray:                               # bond d closed by the ones: F+W+[K]+C
+    '''The apply kind's output: the left side at bond ``d`` closed by the vector of ones of its end bond, a SUM over
+    the last axis (with tails the end bond is larger than one). Of ``mu`` it is ``z``, closed with ``rL_d`` ones; of
+    ``mu_R_dot`` (or ``mu_dot``) it is ``Jp``, closed with the ones of the end bond of the store the sweep ends in.'''
+    xnp, _, _ = get_backend(False, tree_contains_jax((bonds[-1],)))
+    return xnp.sum(bonds[-1], axis=-1)
+
+
 def Jp_norm_sq_step(
-        Jp:      typ.Sequence[NDArray],     # len=d, elm_shape=F+W+K+C+(Ni,)
-        weight:  typ.Optional[NDArray],     # (d,)+F; None = ones
+        Jp:      typ.Any,                   # of the type of z: probe len=d, elm_shape=F+W+K+C+(Ni,); apply F+W+K+C
+        weight:  typ.Optional[NDArray],     # probe (d,)+F; apply F; None = ones
         *,
         lens:    contractions.GroupLengths,
         order:   typ.Tuple[int, ...],
         form:    str,
+        kind:    str,
 ) -> NDArray:                               # <Jp, weight**2 Jp>, keeping K + C. shape=K+C
     '''The weighted sum of squares of the direction's output: ``<Jp, weight**2 Jp>``, summed over the modes, the
     slots, the samples and the mode edge, keeping ``K + C`` (no half).'''
     xnp, _, _ = get_backend(False, tree_contains_jax((Jp, weight)))
     m, n_W = lens.J, lens.W
     total = None
-    for i, Jp_FWKCo in enumerate(Jp):
-        Jp_FWKCo = xnp.asarray(Jp_FWKCo)
+    for Jp_FWKCo, weight_F, edge in _modes(kind, Jp, weight, xnp):
         squares = Jp_FWKCo * Jp_FWKCo
-        if weight is not None:
-            weight_F = xnp.asarray(weight)[i]
+        if weight_F is not None:
             squares = (weight_F * weight_F).reshape(weight_F.shape + (1,) * (Jp_FWKCo.ndim - m)) * squares
-        summed = xnp.sum(squares, axis=tuple(range(m + n_W)) + (Jp_FWKCo.ndim - 1,))
+        summed = xnp.sum(squares, axis=tuple(range(m + n_W)) + tuple(range(Jp_FWKCo.ndim - edge, Jp_FWKCo.ndim)))
         total = summed if total is None else total + summed
     return xnp.asarray(total)
 
 
 def w_tilde_step(
-        r:       typ.Sequence[NDArray],     # len=d, elm_shape=F+W+C+(Ni,)
-        weight:  typ.Optional[NDArray],     # (d,)+F; None = ones
+        r:       typ.Any,                   # of the type of z: probe len=d, elm_shape=F+W+C+(Ni,); apply F+W+C
+        weight:  typ.Optional[NDArray],     # probe (d,)+F; apply F; None = ones
         *,
         lens:    contractions.GroupLengths,
         order:   typ.Tuple[int, ...],
         form:    str,
-) -> typ.Tuple[NDArray, ...]:               # the seed. len=d, elm_shape=F+W+C+(Ni,), stored turned
-    '''The seed of the probe kind's adjoint: the residual made a dual jet, ``jet_to_dual_jet``: the weight squared,
-    then every jet axis flipped.'''
-    return jets.jet_to_dual_jet('probe', order, r, weight)
+        kind:    str,
+) -> typ.Any:                               # the seed, of the type of z, stored turned
+    '''The seed of the adjoint: the residual made a dual jet, ``jet_to_dual_jet``: the weight squared, then every jet
+    axis flipped. The probe kind's is one array per mode; the apply kind's one number per sample and slot, which sits
+    on the ones that close bond ``d``.'''
+    return jets.jet_to_dual_jet(kind, order, r, weight)
 
 
 def g_step(
@@ -656,21 +792,26 @@ def g_step(
         lens:     contractions.GroupLengths,
         order:    typ.Tuple[int, ...],
         form:     str,
+        kind:     str,
 ) -> typ.Tuple[typ.Tuple[NDArray, ...], typ.Tuple[NDArray, ...]]:   # g = (V_tilde, H_tilde)
     '''The gradient: the two families of blocks, paired.'''
     return tuple(V_tilde), tuple(H_tilde)
 
 
 def r_step(
-        z:      typ.Sequence[NDArray],      # len=d, elm_shape=F+W+C+(Ni,)
-        y:      typ.Sequence[NDArray],      # len=d, elm_shape=F+W+(Ni,): the data, broadcast over C
+        z:      typ.Any,                    # of the type of z: probe len=d, elm_shape=F+W+C+(Ni,); apply F+W+C
+        y:      typ.Any,                    # the data, broadcast over C: probe len=d, elm_shape=F+W+(Ni,); apply F+W
         *,
         lens:   contractions.GroupLengths,
         order:  typ.Tuple[int, ...],
         form:   str,
-) -> typ.Tuple[NDArray, ...]:               # r = z - y. len=d, elm_shape=F+W+C+(Ni,)
-    '''The residual of the probe kind, the library's sign: ``r = z - y``, mode by mode.'''
+        kind:   str,
+) -> typ.Any:                               # r = z - y, of the type of z
+    '''The residual, the library's sign: ``r = z - y``, mode by mode for the probe kind.'''
     xnp, _, _ = get_backend(False, tree_contains_jax((z, y)))
+    if kind != 'probe':
+        y_FW = xnp.asarray(y)
+        return xnp.asarray(z) - y_FW.reshape(y_FW.shape + (1,) * lens.C)
     out = []
     for z_FWCo, y_FWo in zip(z, y):
         y_FWo = xnp.asarray(y_FWo)
@@ -680,25 +821,24 @@ def r_step(
 
 
 def f_step(
-        r:       typ.Sequence[NDArray],     # len=d, elm_shape=F+W+C+(Ni,)
-        weight:  typ.Optional[NDArray],     # (d,)+F; None = ones
+        r:       typ.Any,                   # of the type of z: probe len=d, elm_shape=F+W+C+(Ni,); apply F+W+C
+        weight:  typ.Optional[NDArray],     # probe (d,)+F; apply F; None = ones
         *,
         lens:    contractions.GroupLengths,
         order:   typ.Tuple[int, ...],
         form:    str,
+        kind:    str,
 ) -> NDArray:                               # f = 1/2 <r, weight**2 r>, keeping C. shape=C
-    '''The misfit of the probe kind: half the sum, over the modes, the slots, the samples and the mode edge, of the
-    squared weighted residual. The stack ``C`` is kept.'''
+    '''The misfit: half the sum, over the modes, the slots, the samples and the mode edge, of the squared weighted
+    residual. The stack ``C`` is kept.'''
     xnp, _, _ = get_backend(False, tree_contains_jax((r, weight)))
     m, n_W = lens.J, lens.W
     total = None
-    for i, r_FWCo in enumerate(r):
-        r_FWCo = xnp.asarray(r_FWCo)
+    for r_FWCo, weight_F, edge in _modes(kind, r, weight, xnp):
         squares = r_FWCo * r_FWCo
-        if weight is not None:
-            weight_F = xnp.asarray(weight)[i]
+        if weight_F is not None:
             squares = (weight_F * weight_F).reshape(weight_F.shape + (1,) * (r_FWCo.ndim - m)) * squares
-        axes = tuple(range(m + n_W)) + (r_FWCo.ndim - 1,)
+        axes = tuple(range(m + n_W)) + tuple(range(r_FWCo.ndim - edge, r_FWCo.ndim))
         summed = xnp.sum(squares, axis=axes)
         total = summed if total is None else total + summed
     half = xnp.asarray(0.5, dtype=xnp.asarray(total).dtype)    # numpy 1.x: a Python float lifts a float32 sum
@@ -706,21 +846,19 @@ def f_step(
 
 
 def r_block_sumsq_step(
-        r:      typ.Sequence[NDArray],      # len=d, elm_shape=F+W+C+(Ni,)
+        r:      typ.Any,                    # of the type of z: probe len=d, elm_shape=F+W+C+(Ni,); apply F+W+C
         *,
         lens:   contractions.GroupLengths,
         order:  typ.Tuple[int, ...],
         form:   str,
-) -> NDArray:                               # the unweighted sum of squares per mode and slot. shape=(d,)+F
-    '''The sums of squares of the residual of the probe kind, unweighted, per mode and slot: the shape of the
-    weight, ``(d,) + F``. Summed over the samples, the stack ``C`` and the mode edge.'''
+        kind:   str,
+) -> NDArray:                               # the unweighted sums of squares per block: the weight's shape
+    '''The sums of squares of the residual, unweighted, per block: per mode and slot for the probe kind (the shape
+    ``(d,) + F``), per slot for the apply kind (``F``). Summed over the samples, the stack ``C`` and the mode edge.'''
     xnp, _, _ = get_backend(False, tree_contains_jax(r))
     m = lens.J
-    out = []
-    for r_FWCo in r:
-        r_FWCo = xnp.asarray(r_FWCo)
-        out.append(xnp.sum(r_FWCo * r_FWCo, axis=tuple(range(m, r_FWCo.ndim))))
-    return xnp.stack(out)
+    sums = [xnp.sum(r_FWCo * r_FWCo, axis=tuple(range(m, r_FWCo.ndim))) for r_FWCo, _, _ in _modes(kind, r, None, xnp)]
+    return xnp.stack(sums) if kind == 'probe' else sums[0]
 
 
 ###############################################
@@ -754,3 +892,13 @@ def start_zeros(
     '''The start of a sweep whose variable is zero at its end: a tilde sweep of the probe kind, a dot sweep (the
     direction is at one of the sites the carry has passed).'''
     return xnp.zeros(box + W + KC + (size,), dtype=dtype)
+
+
+def start_node(
+        node:   NDArray,                    # a whole variable of the graph: the apply kind's seed, F+W+[K]+C
+        size:   int,                        # the end bond, in the basis of the sweep's own store
+        xnp,
+) -> NDArray:                               # F+W+[K]+C+(size,)
+    '''The start of a sweep that names a node: the node times the vector of ones that closes the end bond. The apply
+    kind's seed sits there, so its right sides start from it.'''
+    return node[..., None] * xnp.ones((size,), dtype=node.dtype)

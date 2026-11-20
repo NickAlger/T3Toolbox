@@ -330,7 +330,7 @@ class TestDeclaredJetSizes(unittest.TestCase):
             problem = make()
             for case in defs.JET_CASES:
                 sample = problem.input_jets(case)
-                setting = sv._read_setting(dict(zip('DULR', problem.frame)), sample, case.order,
+                setting = sv._read_setting('probe', dict(zip('DULR', problem.frame)), sample, case.order,
                                            (problem.V, problem.H), sv._PROBE_GRAPH, (problem.D_dot, problem.L_dot))
                 got = dict(zip(names, engine(problem, case, names)))
                 for name in names:

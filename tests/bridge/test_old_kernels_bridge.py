@@ -21,6 +21,12 @@ conversions, slot by slot (derived in P4c and checked by script for P6):
 - ``Kp`` (P8): ``ProbeDerivativesKind.corewise_hessian`` at the base point ``(D, L)`` along ``(D_dot, L_dot)``,
   given the forward ``weight_t^2 r_t / t!`` (with no weight of its own), is the new ``Kp``: the old Hessian is of
   ``sum_t t! <c_t, z_t>``, which with that ``c`` is the new ``sum_t weight_t^2 <r_t, z_t>``, the seed held.
+- **the apply kind** (P9a): with no jets, ``apply.t3_apply`` is ``z``, ``tv_apply`` is ``Jp``,
+  ``tv_apply_transpose`` (and ``ApplyKind.transpose``) given ``weight^2 r`` is ``g`` and given ``weight^2 Jp`` is
+  ``JtJp``, and ``t3_apply_corewise_hessian`` given ``weight^2 r`` is ``Kp``; at ``n`` = 1 to 3,
+  ``t3_apply_derivatives`` and ``ApplyDerivativesKind.point_forward`` are ``t!`` times ``z``, ``.forward`` is ``t!``
+  times ``Jp``, and ``.transpose`` and ``.corewise_hessian`` given the forward ``weight_t^2 r_t / t!`` (and
+  ``weight_t^2 Jp_t / t!``) are ``g``, ``Kp`` (and ``JtJp``), the conversions of the probe kind;
 - ``Jp`` (P7): ``ProbeDerivativesKind.forward`` (and ``tv_probe_derivatives``) is ``t!`` times the new ``Jp``;
   ``.transpose`` given ``weight_t^2 Jp_t / t!``, forward, is the new ``JtJp`` (the conversion of ``g``); with no
   stack of directions and with ``K = (2,)``.
@@ -33,7 +39,8 @@ conversions, slot by slot (derived in P4c and checked by script for P6):
 - ``compute_deta_tilde_tangent_jets``, ``compute_tau_tilde_tangent_jets``, ``compute_sigma_tilde_tangent_jets``,
   ``compute_dxi_tilde_tangent_jets``, ``compute_sigma_hat_tangent_jets`` (the two-hole): compared through what reads
   them, ``Kp`` (the outputs are the documented interface);
-- ``compute_sigma_hat_jets`` (the seed of apply and entries on bond ``d``): P9's;
+- ``compute_sigma_hat_jets`` (the seed of apply and entries on bond ``d``) and the apply kernels' other private
+  sweeps: compared through what reads them, the apply kind's outputs (below);
 - ``dense_*_derivatives``: the dense functions are already compared with them in ``test_sampling_definitions.py``
   (``TestAgainstTheOldKernels`` and ``TestDenseFunctions``), through the same conversions; the bridge does not repeat
   it.
@@ -48,6 +55,7 @@ import unittest
 
 import numpy as np
 
+import t3toolbox.backend.apply as old_apply
 import t3toolbox.backend.fitting as old_fitting
 import t3toolbox.backend.jets as jets
 import t3toolbox.backend.probing as probing
@@ -206,6 +214,74 @@ class TestTheCurvature(unittest.TestCase):
                     with self.subTest(problem=name, order=n, stack=label):
                         for a, b in zip(list(Kp[0]) + list(Kp[1]), list(old[0]) + list(old[1])):
                             self.assertLessEqual(relative_error(a, b), TOL)
+
+
+
+class TestTheApplyKind(unittest.TestCase):
+    """The apply kind against the old apply kernels and kinds: ``z``, ``g``, ``Jp``, ``JtJp`` and ``Kp``, with no jets
+    and at ``n`` = 1 to 3, with ``K = ()`` and ``K = (2,)``, a nonuniform weight, on three problems (one with end bonds
+    that differ between ``L`` and ``R``)."""
+
+    @staticmethod
+    def blocks(pair):
+        return list(pair[0]) + list(pair[1])
+
+    def assert_blocks(self, new, old):
+        for a, b in zip(self.blocks(new), self.blocks(old)):
+            self.assertLessEqual(relative_error(a, b), TOL)
+
+    def test_against_the_old_kernels(self):
+        per_slot = TestOldKernels.per_slot
+        for name, make in tsv.PROBLEMS:
+            problem = make()
+            for n in (0, 1, 2, 3):
+                rng = np.random.default_rng(40 + n)
+                box = (n + 1,) if n else ()
+                y = rng.standard_normal(box + problem.W)
+                weight = 0.5 + rng.random(box)
+                sample = list(jets.affine_jet(problem.ww, problem.pp)) if n else problem.ww
+                factorials = np.array([math.factorial(t) for t in range(n + 1)], dtype=float)
+                for label, variations, core_directions in (
+                        ('K=()', (problem.V, problem.H), (problem.D_dot, problem.L_dot)),
+                        ('K=(2,)', tsv.stacked_directions(problem, seed=n),
+                         tsv.stacked_core_directions(problem, seed=n))):
+                    z, r, g, Jp, JtJp, Kp = sv.sampling_variables(
+                        'apply', problem.frame, sample, ('z', 'r', 'g', 'Jp', 'JtJp', 'Kp'), order=box and (n,), y=y,
+                        weight=weight, variations=variations, core_directions=core_directions)
+                    with self.subTest(problem=name, order=n, stack=label):
+                        if n == 0:
+                            weight_2 = weight ** 2
+                            self.assertLessEqual(relative_error(z, old_apply.t3_apply((problem.D, problem.L),
+                                                                                      problem.ww)), TOL)
+                            self.assertLessEqual(relative_error(Jp, old_apply.tv_apply(problem.ww, variations,
+                                                                                       problem.frame)), TOL)
+                            self.assert_blocks(g, old_apply.tv_apply_transpose(weight_2 * r, problem.ww, problem.frame,
+                                                                               sum_over_probes=True))
+                            self.assert_blocks(JtJp, old_apply.tv_apply_transpose(weight_2 * Jp, problem.ww,
+                                                                                  problem.frame, sum_over_probes=True))
+                            self.assert_blocks(Kp, old_apply.t3_apply_corewise_hessian(
+                                weight_2 * r, problem.ww, (problem.D, problem.L), core_directions))
+                            kind = old_fitting.ApplyKind()
+                            self.assert_blocks(g, kind.transpose(weight_2 * r, problem.ww, problem.frame,
+                                                                 kind.precompute(problem.frame, problem.ww)))
+                            continue
+                        old_sample = (problem.ww, problem.pp)
+                        old_z = sampling_derivatives.t3_apply_derivatives(problem.ww, problem.pp,
+                                                                          (problem.D, problem.L), n)
+                        self.assertLessEqual(relative_error(per_slot(z, factorials), old_z), TOL)
+                        kind = old_fitting.ApplyDerivativesKind(order=n, weight=None)
+                        sweep = kind.precompute(problem.frame, old_sample)
+                        old_z = kind.point_forward((problem.D, problem.L), old_sample)
+                        self.assertLessEqual(relative_error(per_slot(z, factorials), old_z), TOL)
+                        self.assertLessEqual(relative_error(per_slot(Jp, factorials),
+                                                            kind.forward(variations, old_sample, problem.frame, sweep)),
+                                             TOL)
+                        forward = per_slot(r, weight ** 2 / factorials)
+                        self.assert_blocks(g, kind.transpose(forward, old_sample, problem.frame, sweep))
+                        self.assert_blocks(JtJp, kind.transpose(per_slot(Jp, weight ** 2 / factorials), old_sample,
+                                                                problem.frame, sweep))
+                        self.assert_blocks(Kp, kind.corewise_hessian(core_directions, forward, old_sample,
+                                                                     problem.frame, sweep, (problem.D, problem.L)))
 
 
 if __name__ == '__main__':

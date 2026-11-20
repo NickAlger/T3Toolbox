@@ -4,8 +4,10 @@
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
 """``backend.sampling_variables``: the declared graph, the closure, and what the engine checks. Structural.
 
-1. **The graph as data** (`TestGraph`): the docstring's table equals the graph row for row, and the shape table
-   equals ``_SHAPES``; every step name is a function of ``sampling_steps``; the three namespaces of ``reads`` are
+1. **The graph as data** (`TestGraph`): the docstring's table equals the graph row for row (the probe kind's, and the
+   apply kind's own rows), and the shape table equals ``_SHAPES``; every graph is made of the shared blocks and its
+   kind's rows, and depends only on what it makes, the stores and the arguments; one table of the paths of ``JtJp``,
+   the twins of a start node; the starts and the routes of the apply kind; every step name is a function of ``sampling_steps``; the three namespaces of ``reads`` are
    disjoint and cover every read; the slots of ``HeldVariables`` are exactly the computed variables some other row
    reads; the table of bond offsets; the row type's ``carries_K``.
 2. **The closure** (`TestClosure`): the earlier applicable row of a name wins; a held variable does not change the
@@ -163,7 +165,7 @@ class TestGraph(unittest.TestCase):
     def test_the_direction_operands_and_their_masks(self):
         """P11's attach point: every core-shaped argument a row reads (the two forms of a direction and the Tucker
         centers) is in ``_DIRECTION_MASKS``, mapped to the frame's variation masks or to a store's own masks."""
-        read = {name for graph in (sv._PROBE_GRAPH, sv._PROBE_COREWISE_GRAPH) for rule in graph for name in rule.reads}
+        read = {name for graph in sv._GRAPHS.values() for rule in graph for name in sv._deps(rule)}
         self.assertEqual(set(sv._DIRECTION_MASKS), read & sv._ARGUMENTS - {'w', 'y', 'weight'})
         self.assertEqual(sv._DIRECTION_MASKS, {'V': 'variations', 'H': 'variations', 'Vc': 'variations',
                                                'D_dot': 'D', 'L_dot': 'L'})
@@ -175,7 +177,7 @@ class TestGraph(unittest.TestCase):
                                   'eta_D_dot', 'Jp', 'Jp_norm_sq', 'JtJp', 'xi_dot', 'mu_dot', '_raw.nu_L_dot',
                                   '_raw.eta_D_dot', 'xi_tilde_dot', 'mu_tilde_dot', 'nu_L_tilde_dot', 'eta_D_tilde_dot',
                                   '_eta_D_tilde_dot_top', 'V_tilde_dot', 'H_tilde_dot', 'Kp'}
-                         | {sv._twin(n) for n in sv._JP_PATH})
+                         | {sv._twin(n) for n in sv._JP_PATHS['probe', '_manifold']})
 
     def test_every_row_on_the_path_of_JtJp_has_its_twin(self):
         """The adjoint seeded by ``Jp``: every row on the residual's path from ``w_tilde`` to ``V_tilde``, ``H_tilde``
@@ -183,10 +185,10 @@ class TestGraph(unittest.TestCase):
         each read on the path renamed and ``r`` read as ``Jp``; ``JtJp`` is the twin of ``g``. The full ``eta_tilde``
         and ``g`` have no ``'_Jp.'`` twin."""
         rows = {rule.name: rule for rule in sv._PROBE_GRAPH}
-        self.assertEqual(sv._JP_PATH, ('w_tilde', 'xi_tilde', 'mu_tilde', 'nu_tilde', '_eta_tilde_top', 'V_tilde',
-                                       'H_tilde'))
-        rename = lambda read: sv._twin(read) if read in sv._JP_PATH else ('Jp' if read == 'r' else read)
-        for name in sv._JP_PATH + ('g',):
+        path = sv._JP_PATHS['probe', '_manifold']
+        self.assertEqual(path, ('w_tilde', 'xi_tilde', 'mu_tilde', 'nu_tilde', '_eta_tilde_top', 'V_tilde', 'H_tilde'))
+        rename = lambda read: sv._twin(read) if read in path else ('Jp' if read == 'r' else read)
+        for name in path + ('g',):
             base = rows[name]
             twin = rows['JtJp' if name == 'g' else sv._twin(name)]
             with self.subTest(name=name):
@@ -200,7 +202,91 @@ class TestGraph(unittest.TestCase):
         self.assertNotIn('_Jp.eta_tilde', rows)
         self.assertNotIn('_Jp.g', rows)
         twins = [name for name in rows if name.startswith('_Jp.')]
-        self.assertEqual(len(twins), len(sv._JP_PATH))
+        self.assertEqual(len(twins), len(path))
+
+    def test_the_apply_docstring_table_is_its_own_rows(self):
+        """The apply kind's table lists the rows of its manifold graph that are not in the shared blocks, row for
+        row, its twins included; a start node is written by its name."""
+        shared = set(sv._PLAIN_ROWS + sv._RESIDUAL_ROWS + sv._DOT_ROWS + sv._DOT_SUM_ROWS)
+        own = [rule for rule in sv._GRAPHS['apply', '_manifold'] if rule not in shared]
+        rows = doc_table("| Apply's own row | Driver | Step | Reads | Needs | K | Start |")
+        self.assertEqual(len(rows), len(own))
+        for row, rule in zip(rows, own):
+            with self.subTest(row=' | '.join(row)):
+                name, driver, step, reads, needs, K, start = row
+                self.assertEqual((names_of(name), driver, names_of(step)),
+                                 ((rule.name,), rule.step[0], (rule.step[1],)))
+                self.assertEqual((names_of(reads), frozenset(names_of(needs))), (rule.reads, rule.needs))
+                self.assertEqual((K, start or None), ('yes' if rule.carries_K else 'no', rule.start))
+
+    def test_every_graph_is_made_of_the_blocks(self):
+        """The probe and apply rows are the shared blocks and each kind's own, in order; every graph's reads and
+        start nodes are made by it, a store or an argument; every step is a function of the step module; every
+        sweep's start is a named value or a node the graph makes."""
+        self.assertEqual(sv._PROBE_ROWS, sv._PLAIN_ROWS + sv._PROBE_Z_ROWS + sv._RESIDUAL_ROWS + sv._PROBE_ADJOINT_ROWS
+                         + sv._DOT_ROWS + sv._PROBE_JP_ROWS + sv._DOT_SUM_ROWS + sv._PROBE_CURVATURE_ROWS)
+        self.assertEqual(sv._APPLY_ROWS, sv._PLAIN_ROWS + sv._APPLY_Z_ROWS + sv._RESIDUAL_ROWS + sv._APPLY_ADJOINT_ROWS
+                         + sv._DOT_ROWS + sv._APPLY_JP_ROWS + sv._DOT_SUM_ROWS + sv._APPLY_CURVATURE_ROWS)
+        self.assertEqual(set(sv._GRAPHS), {(kind, call) for kind in ('probe', 'apply')
+                                           for call in ('_manifold', '_corewise')})
+        for key, graph in sv._GRAPHS.items():
+            made = set(sv._made(graph))
+            stores = sv._STORES if key[1] == '_manifold' else {'D', 'L'}
+            for rule in graph:
+                with self.subTest(graph=repr(key), name=rule.name):
+                    self.assertTrue(set(sv._deps(rule)) <= made | stores | sv._ARGUMENTS)
+                    self.assertTrue(callable(getattr(sampling_steps, rule.step[1], None)))
+                    if rule.step[0] in ('left', 'right'):
+                        self.assertTrue(rule.start in sv._STARTS or rule.start in made)
+                    else:
+                        self.assertIsNone(rule.start)
+
+    def test_one_table_of_the_paths_of_JtJp(self):
+        """``_JP_PATHS`` is keyed like ``_GRAPHS``; each path's names are made by its graph, and each graph has one
+        twin per name of its path and ``JtJp``; the twin of a sweep that starts from a node on the path starts from
+        that node's twin."""
+        self.assertEqual(set(sv._JP_PATHS), set(sv._GRAPHS))
+        for key, graph in sv._GRAPHS.items():
+            path = sv._JP_PATHS[key]
+            rows = {}
+            for rule in graph:
+                rows.setdefault(rule.name, rule)
+            with self.subTest(graph=repr(key)):
+                self.assertTrue(set(path) <= set(rows))
+                self.assertEqual({name for name in rows if name.startswith('_Jp.')}, {sv._twin(n) for n in path})
+                self.assertIn('JtJp', rows)
+                for name in path:
+                    start = rows[name].start
+                    if start is not None and start not in sv._STARTS:
+                        self.assertEqual(rows[sv._twin(name)].start, sv._twin(start))
+        with self.assertRaisesRegex(RuntimeError, 'the path of the adjoint seeded by Jp of the apply kind'):
+            sv._manifold(tuple(rule for rule in sv._APPLY_ROWS if rule.name != 'H_tilde'), 'apply')
+
+    def test_the_starts_of_the_apply_kind(self):
+        """The apply kind's right tilde sweeps start from the seed, a node; its tilde-dot sweep from zeros."""
+        starts = {rule.name: rule.start for rule in sv._GRAPHS['apply', '_manifold'] if rule.start is not None}
+        self.assertEqual(starts, {'mu': 'ones', 'nu': 'ones', 'nu_L': 'ones', 'nu_tilde': 'w_tilde',
+                                  'nu_L_tilde': 'w_tilde', 'mu_R_dot': 'zeros', '_frame.nu_L_dot': 'zeros',
+                                  'mu_dot': 'zeros', '_raw.nu_L_dot': 'zeros', 'nu_L_tilde_dot': 'zeros',
+                                  '_Jp.nu_tilde': '_Jp.w_tilde'})
+
+    def test_the_earlier_applicable_row_wins_on_apply(self):
+        rows = {}
+        for rule in sv._GRAPHS['apply', '_manifold']:
+            if '_corewise' not in rule.needs:
+                rows.setdefault(rule.name, []).append(rule)
+        several = {name: rules for name, rules in rows.items() if len(rules) > 1}
+        self.assertEqual(set(several), {'nu_L_dot', 'eta_D_dot', 'Jp'})
+        for name, rules in several.items():
+            with self.subTest(name=name):
+                every_fact = frozenset().union(*(rule.needs for rule in rules)) | {'_manifold'}
+                chosen = [rule for rule in sv._closure('apply', (name,), frozenset(), every_fact) if rule.name == name]
+                self.assertEqual(chosen, [rules[0]])
+        self.assertEqual([rule.reads for rule in rows['Jp']], [('mu_R_dot',), ('mu_dot',)])
+
+    def test_a_zero_name_is_not_made(self):
+        for call in ('_manifold', '_corewise'):
+            self.assertFalse(sv._ZERO_NAMES['apply'] & set(sv._made(sv._GRAPHS['apply', call])))
 
 
 class CountingSteps:
@@ -208,7 +294,7 @@ class CountingSteps:
 
     def __enter__(self):
         self.patches = {}
-        for rule in sv._PROBE_GRAPH:
+        for rule in (rule for graph in sv._GRAPHS.values() for rule in graph):
             name = rule.step[1]
             if name not in self.patches:
                 patch = unittest.mock.patch.object(sampling_steps, name, wraps=getattr(sampling_steps, name))
@@ -388,10 +474,8 @@ class TestChecks(unittest.TestCase):
             sv.sampling_variables('probe', self.frame, self.ww, ('_eta_tilde_top',))
         with self.assertRaisesRegex(TypeError, 'want is a sequence of names'):
             sv.sampling_variables('probe', self.frame, self.ww, 'z')
-        for kind in ('apply', 'entries'):
-            with self.subTest(kind=kind):
-                with self.assertRaisesRegex(NotImplementedError, 'not built yet'):
-                    sv.sampling_variables(kind, self.frame, self.ww, ('z',))
+        with self.assertRaisesRegex(NotImplementedError, 'not built yet'):
+            sv.sampling_variables('entries', self.frame, self.problem.index, ('z',))
 
     def test_the_jet_shape(self):
         with self.assertRaisesRegex(ValueError, 'the entries kind has no jets'):

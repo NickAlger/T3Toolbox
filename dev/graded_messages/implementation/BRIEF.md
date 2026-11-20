@@ -45,7 +45,8 @@ maintainer's checkout of T3Polynomial". `ORCHESTRATION.md` section 3 says what e
   evaluated at run time, no `match`, nothing new in numpy 2. (A local floor environment exists, `tttt`: Python 3.9,
   numpy 1.22, jax 0.4.30, no xdist, no optax. Use it only to reproduce a floor failure CI reported.)
 - **The machine has 8 cores and 13 GB**, and memory is the limit: the maintainer has run it out of memory with
-  sphinx beside a parallel test run. So: **at most `-n 3`** test workers; the gate's steps one after another, never
+  sphinx beside a parallel test run. So: **at most `-n 3`** test workers, **and `-n 2` from P9b on** (2026-11-20: the
+  lowest MemAvailable of P9a's gate at `-n 3` was 1.56 GB, and every slice adds tests; report it after every gate); the gate's steps one after another, never
   two at once; never start a long run while another is going; the implementer and the reviewer never run tests at the
   same time (they alternate, so this holds if nobody leaves a run in the background at the end of their turn: do not).
   A quick script that imports jax is fine; a second test run is not.

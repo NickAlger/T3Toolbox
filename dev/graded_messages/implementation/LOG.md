@@ -749,3 +749,44 @@ Nothing is running; the two agents are idle and are resumed for P5 when the main
   once); the lowest MemAvailable stayed 1.9 GB, the real margin. P8's own files peak at 0.68 GB in one process (the
   reviewer). Rule from here: if the lowest MemAvailable of a gate falls below 1.5 GB, the gate moves to `-n 2`.
 - **P9's design note** (`P9_DESIGN_NOTE.md`) was written while P8 was reviewed; to the reviewer next.
+
+### P9 designed, and split into P9a and P9b (2026-11-20)
+
+- The implementer's note (`P9_DESIGN_NOTE.md`, written while P8 was reviewed) and the reviewer's critique
+  (`P9_DESIGN_REVIEW.md`: sound). The reviewer confirmed the founding fact with tails (apply's value is `<mu[d], 1>`,
+  so every side reaching bond `d` is the plain recurrence started from `s (x) 1`; `close_step` must sum, `z` closing with
+  `rL_d` ones and `Jp` with `rR_d`), and that `H_tilde_step` on the dot and tilde-dot arguments gives exactly the three
+  surviving terms of apply's `H_tilde_dot`.
+- **Ruled by Claude** (written at the end of the plan's P9): the design as proposed with the reviewer's requests
+  (twin paths keyed with `_GRAPHS`; invariants raise; scatter-add for entries' `V`, low memory, duplicates tested, a
+  static "keep `W`" option for P10; a `Vc` given to apply/entries accepted, as any unread argument). **P9 split in two
+  commits in place, P9a (apply, both call types, the shared machinery) and P9b (entries):** granularity, not scope or
+  order.
+- **For the maintainer at the pause after P11:** (1) on apply and entries, do `xi_tilde`, `mu_tilde`,
+  `xi_tilde_dot`, `mu_tilde_dot` return zeros, or are they unknown names whose message says they are zero? (Default
+  built: unknown, both agents' lean; zeros rows would need a false shape read or a new "zero" driver. The reference
+  module returns zeros, so the engine's names and the reference's differ by exactly these, and a test says so.)
+  (2) A public reader of a call's names, so generic code can discover them (a new public name; private meanwhile).
+
+### P9a: Engine E, the apply kind on both call types (2026-11-20, to 07:59)
+
+- **Rounds:** one (`P9a_REVIEW_r1.md`: SIGN OFF, no findings). Handover `P9a_HANDOVER.md`.
+- **What was built:** the rows split into shared plain, residual, dot and `Jp_norm_sq` blocks plus each kind's own;
+  apply's rows (`z` and `Jp` by `close_step`, summing over the end bond: `rL_d` ones for `z`, `rR_d` for `Jp`;
+  `nu_tilde`/`nu_L_tilde` as `nu_step` started from the node `w_tilde`; `eta_tilde` by `eta_step`; the tilde-dots
+  reusing `nu_dot_step`, `eta_dot_step`, `H_tilde_step`; one-term readouts `eta_top_step`, `eta_dot_top_step`,
+  `V_top_step`, `H_readout_step`; no new literal); `_deps` and `start_node`; `_JP_PATHS` keyed `(kind, call)`;
+  `_corewise(rows, kind)` and a new `_manifold(rows, kind)`, both raising on a broken invariant; `K` on the carry of
+  `nu_step`/`eta_step`; every whole step takes `kind`; the zero names off apply's graphs (`_ZERO_NAMES`, a message
+  saying they are zero there); a private `_names(kind, call)`; a `Vc` given to apply accepted and unread. Tests:
+  `tests/test_sampling_apply.py` (13) incl. the names comparison against the reference (the difference exactly the
+  four zero names), tails with `rL_d != rR_d`, the corewise rename carrying a start node.
+- **The reviewer's checks:** on a frame with tails `rL_d = 2`, `rR_d = 4` at both ends, `()`, `(3,)` mixed sizes,
+  `(1, 2)` mixed modes, nonuniform weight, `K = (2,)`: `z` against the full dense contraction, `g` against the
+  transposed dense Jacobian (pins `close_step` and the seed start), `Jp` against the dense tangent tensor, `Kp`
+  against its dense second derivative; worst 8.5e-15 (8.1e-15 on the floor). **The probe graphs unchanged row for
+  row** (both call types, 97 rows, all six fields, against `HEAD` by `git archive`). A wrong-shape `Vc` changes
+  nothing. The implementer's 20 mutants killed (two equivalent for apply, now killed by a test on synthetic rows the
+  reviewer judged meaningful).
+- **Gate:** the implementer's full gate at `-n 3`, every step PASS (suite 1,755 passed; 1,367 s). **The lowest
+  MemAvailable fell to 1.56 GB**: from P9b the gate runs at `-n 2` (`BRIEF.md` updated).
