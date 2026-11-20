@@ -40,25 +40,34 @@ moment. **From then on the work, that folder included, continues on the branch `
 severely breaking"); it is merged when it is done. Look on the branch for the live state. Library code has been
 changed on the branch since 2026-11-16 (slices P0 to P4 of Part 1); `main` has none of it.
 
-**START HERE (updated 2026-11-19, 11:45; Claude Code on Nick's laptop, branch `graded-messages`).** Nothing lives
+**START HERE (updated 2026-11-19, 19:30; Claude Code on Nick's laptop, branch `graded-messages`).** Nothing lives
 in a session: everything is in files.
 
-- **Where it stands.** Part 1 of the refactor is being implemented, slice by slice. P0 to P4 are built and
-  committed. On 2026-11-19 Nick **signed off the changed plan as a whole** (`PART1_PLAN.md`; "we may encounter
-  issues along the way which require adjusting the plan as we go"), and the slices **P4a to P4d** (the generalized
-  jets) are being built by two Opus 5.5 agents on high effort, an implementer and a reviewer kept from slice to
-  slice, with Claude orchestrating and committing. **Planned pauses** for a check-in with Nick: after P4d, after P11,
-  after P15. Between them Claude decides small or clear issues and logs them; big or uncertain ones go to Nick at
-  once. The amendments to the decision records for the jets are made; the laptop's gate baseline is
-  `dev/graded_messages/implementation/BASELINE_laptop.md`; CI runs on the branch through the draft PR #26 (never
-  merge it before Parts 1 and 2 are done). The live record is `dev/graded_messages/implementation/LOG.md`.
-- **Machine:** the suite at `-n 3` peaks at 9.8 GB of the 13; nothing may run beside it.
+- **Where it stands: AT THE FIRST PLANNED PAUSE, after the jet sub-arc P4a to P4d** (all built, reviewed,
+  committed and pushed on 2026-11-19; the last is `53d525fb`). Nick signed off the changed plan as a whole that
+  morning. Next, when he says so: P5 to P11 (the engine), then the second pause; P12 to P15, then the third pause
+  (before the switch). Between pauses Claude decides small or clear issues and logs them; big or uncertain ones go
+  to Nick at once.
+- **What P4a to P4d built:** `jet_contract` over one jet group `J` of any number of axes (`GroupLengths(J, W, K,
+  C)`, 29 strings); `affine_jet` and `index_to_one_hot`; the dense functions on input jets (`dense_probe`,
+  `dense_apply`, `dense_entries(T, index)`); the reference module `sampling_definitions` in several jet variables;
+  `jets` and `data_preparation` in the jet shape, with their frontend reach. Nothing of P1 to P4 takes `pp` or an
+  integer order any more. The per-slice record is `dev/graded_messages/implementation/LOG.md`.
+- **The agents:** two Opus 5.5 agents on high effort, an implementer and a reviewer, kept from slice to slice
+  (Nick's choice); Claude relays, rules on findings, looks each slice over and commits. Each slice: an independent
+  oracle by the reviewer, mutation passes by both, the full gate at `-n 3`. Rounds: P4a 2, P4b 2, P4c 1, P4d 1.
+- **CI:** the draft PR #26 runs both legs on every push (never merge it before Parts 1 and 2 are done). It found
+  two floor bugs from P1/P2 that had never been run in CI (fixed: jax 0.4.30's `jnp.einsum` default
+  `optimize='optimal'` is exponential in the operand count; numpy `subTest` labels that xdist cannot send on numpy
+  1.x). Green on the floor since `3ccff5da`.
+- **The laptop baseline** is `dev/graded_messages/implementation/BASELINE_laptop.md`; the suite at `-n 3` peaks near
+  10 GB of the 13, so nothing may run beside it.
 - **Read, in this order:** (1) `CLAUDE.md`; (2) this section down to the end of the block "STATE AT THE PAUSE OF
   2026-11-17" (the blocks after it are older states, kept as history); (3)
   `dev/graded_messages/implementation/ORCHESTRATION.md`: how a slice is run, what was particular to the cloud
   session, section 0 (the process since the laptop), and the notes carried to later slices;
-  (4) `dev/graded_messages/PART1_PLAN.md`: the head, section 2.4 (`jet_contract`), section 5 (the slices; P4a to
-  P4d are next), section 11.1 (Nick's answers) and 11.4 (the names), section 12 (the process); (5)
+  (4) `dev/graded_messages/PART1_PLAN.md`: the head, section 2.4 (`jet_contract`), section 5 (the slices; P5 is
+  next), section 11.1 (Nick's answers) and 11.4 (the names), section 12 (the process); (5)
   `dev/graded_messages/implementation/BRIEF.md` (the agents' brief) and `LOG.md` (the record, slice by slice);
   (6) as reference: `dev/graded_messages/TARGET_DECISIONS.md` (the decisions; amended for the jets on 2026-11-19,
   see the banner at its top; its notes of 2026-11-17 and 2026-11-19 are the newest decisions) and

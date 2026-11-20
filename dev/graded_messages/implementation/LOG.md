@@ -535,3 +535,5 @@ builtin, so the trap fails on any environment) is a candidate for the maintainer
 
 The first of the maintainer's three planned pauses. Pushed and CI checked before the report to him. Summary in
 `dev/HANDOFF.md`, START HERE.
+CI run 44652602834 on `53d525fb` (P4d): both test legs, the examples and the docs build PASS (floor 17 min 32 s).
+Nothing is running; the two agents are idle and are resumed for P5 when the maintainer says so.
