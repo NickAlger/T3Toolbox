@@ -422,13 +422,35 @@ SUBS_RE = re.compile(r'^[A-Za-z]+(,[A-Za-z]+)*->[A-Za-z]*$')
 LIBRARY_ROOT = pathlib.Path(t3toolbox.__file__).parent
 
 
+def _jet_contract_literals(tree):
+    """The string constants that are the first positional argument of a ``jet_contract`` call in ``tree``."""
+    out = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and node.args:
+            fname = node.func.attr if isinstance(node.func, ast.Attribute) else (
+                node.func.id if isinstance(node.func, ast.Name) else None)
+            first = node.args[0]
+            if fname == 'jet_contract' and isinstance(first, ast.Constant) and isinstance(first.value, str):
+                out.add(id(first))
+    return out
+
+
 def scan_vocabulary():
-    """Every grouped-subscript string literal in the library source (whitespace-stripped).
-    Self-maintaining: a new call site's string is swept into the oracle the moment it is written,
-    whether it appears inline in the call or assigned to a variable first."""
+    """Every grouped-subscript string literal in the library source (whitespace-stripped), but the literals of
+    ``jet_contract`` calls. Self-maintaining: a new call site's string is swept into the oracle the moment it is
+    written, whether it appears inline in the call or assigned to a variable first.
+
+    The first argument of a ``jet_contract`` call is left out (P5, option (b) of the P1 handover, decided by the
+    orchestrator 2026-11-20): ``jet_contract`` never hands it to ``contract`` without the length of every group, so
+    its identifiability is moot, and ``TestJetContractDerivedStrings`` checks every string it hands over against
+    the loop oracle. ``TestJetLiteralsStayInJetContract`` pins that no other literal names ``J``."""
     vocab = set()
     for path in sorted(LIBRARY_ROOT.rglob('*.py')):
-        for node in ast.walk(ast.parse(path.read_text())):
+        tree = ast.parse(path.read_text())
+        jet_literals = _jet_contract_literals(tree)
+        for node in ast.walk(tree):
+            if id(node) in jet_literals:
+                continue
             if isinstance(node, ast.Constant) and isinstance(node.value, str):
                 s = node.value.replace(' ', '')
                 if SUBS_RE.match(s) and any(ch.isupper() for ch in s):
@@ -723,6 +745,30 @@ def scan_literal_jet_call_sites():
             if fname == 'jet_contract' and isinstance(first, ast.Constant) and isinstance(first.value, str):
                 strings.add(first.value.replace(' ', ''))
     return strings
+
+
+class TestJetLiteralsStayInJetContract(unittest.TestCase):
+    """The two guards of leaving the ``jet_contract`` literals out of ``scan_vocabulary``: (i) a grouped string
+    literal of the library that names the jet group ``J`` is the first argument of a ``jet_contract`` call (so no
+    such string reaches ``contract`` unswept); (ii) every literal of a ``jet_contract`` call is in
+    ``_jet_contract_cases.STRINGS`` (so the case file stays the list of what the library writes)."""
+
+    def test_every_J_literal_is_a_jet_contract_literal(self):
+        for path in sorted(LIBRARY_ROOT.rglob('*.py')):
+            tree = ast.parse(path.read_text())
+            jet_literals = _jet_contract_literals(tree)
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                    s = node.value.replace(' ', '')
+                    if SUBS_RE.match(s) and 'J' in s:
+                        with self.subTest(site='%s:%d' % (path.relative_to(LIBRARY_ROOT), node.lineno), subs=s):
+                            self.assertIn(id(node), jet_literals)
+
+    def test_every_jet_contract_literal_is_in_the_cases(self):
+        strings = {string for _, string in jet_cases.ALL_STRINGS}
+        for literal in sorted(scan_literal_jet_call_sites()):
+            with self.subTest(literal=literal):
+                self.assertIn(literal, strings)
 
 
 class TestJetContractDerivedStrings(unittest.TestCase):

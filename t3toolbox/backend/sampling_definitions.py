@@ -865,7 +865,8 @@ def w(
 
     Returns
     -------
-    NDArray, or a tuple of d of them if ``i`` is None
+    NDArray or tuple of NDArray
+        One array; with ``i`` None, a tuple of ``d`` of them.
         ``w[i]``. shape=J_in_i+W+(Ni,)
 
     Examples
@@ -937,7 +938,8 @@ def w_tilde(
 
     Returns
     -------
-    NDArray, or for probe with ``i`` None a tuple of d of them
+    NDArray or tuple of NDArray
+        One array; for probe with ``i`` None, a tuple of ``d`` of them.
         The seed. probe: ``w_tilde[i]``, shape=F+W+(Ni,); apply: shape=F+W; entries: shape=W
 
     Examples
@@ -1013,7 +1015,8 @@ def xi(
 
     Returns
     -------
-    NDArray, or a tuple of d of them if ``i`` is None
+    NDArray or tuple of NDArray
+        One array; with ``i`` None, a tuple of ``d`` of them.
         ``xi[i]``. shape=min(J_in_i,F)+W+(nDi,)
 
     Examples
@@ -1059,7 +1062,8 @@ def mu(
 
     Returns
     -------
-    NDArray, or a tuple of d+1 of them if ``i`` is None
+    NDArray or tuple of NDArray
+        One array; with ``i`` None, a tuple of ``d + 1`` of them.
         ``mu[i]``. shape=F+W+(rLi,)
 
     Examples
@@ -1143,7 +1147,8 @@ def nu(
 
     Returns
     -------
-    NDArray, or a tuple of d+1 of them if ``i`` is None
+    NDArray or tuple of NDArray
+        One array; with ``i`` None, a tuple of ``d + 1`` of them.
         ``nu[i]``. shape=F+W+(rRi,)
 
     Examples
@@ -1189,7 +1194,8 @@ def eta(
 
     Returns
     -------
-    NDArray, or a tuple of d of them if ``i`` is None
+    NDArray or tuple of NDArray
+        One array; with ``i`` None, a tuple of ``d`` of them.
         ``eta[i]``. shape=F+W+(nUi,)
 
     Examples
@@ -1238,7 +1244,8 @@ def nu_L(
 
     Returns
     -------
-    NDArray, or a tuple of d+1 of them if ``i`` is None
+    NDArray or tuple of NDArray
+        One array; with ``i`` None, a tuple of ``d + 1`` of them.
         ``nu_L[i]``. shape=F+W+(rLi,)
 
     Examples
@@ -1285,7 +1292,8 @@ def eta_D(
 
     Returns
     -------
-    NDArray, or a tuple of d of them if ``i`` is None
+    NDArray or tuple of NDArray
+        One array; with ``i`` None, a tuple of ``d`` of them.
         ``eta_D[i]``. shape=F+W+(nDi,)
 
     Examples
@@ -1338,7 +1346,8 @@ def xi_U_dot(
 
     Returns
     -------
-    NDArray, or a tuple of d of them if ``i`` is None
+    NDArray or tuple of NDArray
+        One array; with ``i`` None, a tuple of ``d`` of them.
         ``xi_U_dot[i]``. shape=min(J_in_i,F)+W+(nUi,)
 
     Examples
@@ -1390,7 +1399,8 @@ def mu_R_dot(
 
     Returns
     -------
-    NDArray, or a tuple of d+1 of them if ``i`` is None
+    NDArray or tuple of NDArray
+        One array; with ``i`` None, a tuple of ``d + 1`` of them.
         ``mu_R_dot[i]``. shape=F+W+(rRi,)
 
     Examples
@@ -1456,7 +1466,8 @@ def nu_L_dot(
 
     Returns
     -------
-    NDArray, or a tuple of d+1 of them if ``i`` is None
+    NDArray or tuple of NDArray
+        One array; with ``i`` None, a tuple of ``d + 1`` of them.
         ``nu_L_dot[i]``. shape=F+W+(rLi,)
 
     Examples
@@ -1561,7 +1572,8 @@ def eta_D_dot(
 
     Returns
     -------
-    NDArray, or a tuple of d of them if ``i`` is None
+    NDArray or tuple of NDArray
+        One array; with ``i`` None, a tuple of ``d`` of them.
         ``eta_D_dot[i]``. shape=F+W+(nDi,)
 
     Examples
@@ -1628,7 +1640,8 @@ def xi_dot(
 
     Returns
     -------
-    NDArray, or a tuple of d of them if ``i`` is None
+    NDArray or tuple of NDArray
+        One array; with ``i`` None, a tuple of ``d`` of them.
         ``xi_dot[i]``. shape=min(J_in_i,F)+W+(nDi,)
 
     Examples
@@ -1680,7 +1693,8 @@ def mu_dot(
 
     Returns
     -------
-    NDArray, or a tuple of d+1 of them if ``i`` is None
+    NDArray or tuple of NDArray
+        One array; with ``i`` None, a tuple of ``d + 1`` of them.
         ``mu_dot[i]``. shape=F+W+(rLi,)
 
     Examples
@@ -1756,7 +1770,8 @@ def xi_tilde(
 
     Returns
     -------
-    NDArray, or a tuple of d of them if ``i`` is None
+    NDArray or tuple of NDArray
+        One array; with ``i`` None, a tuple of ``d`` of them.
         ``xi_tilde[i]``. shape=F+W+(nDi,)
 
     Examples
@@ -1819,7 +1834,8 @@ def mu_tilde(
 
     Returns
     -------
-    NDArray, or a tuple of d+1 of them if ``i`` is None
+    NDArray or tuple of NDArray
+        One array; with ``i`` None, a tuple of ``d + 1`` of them.
         ``mu_tilde[i]``. shape=F+W+(rLi,)
 
     Examples
@@ -1884,7 +1900,8 @@ def nu_tilde(
 
     Returns
     -------
-    NDArray, or a tuple of d+1 of them if ``i`` is None
+    NDArray or tuple of NDArray
+        One array; with ``i`` None, a tuple of ``d + 1`` of them.
         ``nu_tilde[i]``. shape=F+W+(rRi,)
 
     Examples
@@ -1967,7 +1984,8 @@ def eta_tilde(
 
     Returns
     -------
-    NDArray, or a tuple of d of them if ``i`` is None
+    NDArray or tuple of NDArray
+        One array; with ``i`` None, a tuple of ``d`` of them.
         ``eta_tilde[i]``. shape=F+W+(nUi,)
 
     Examples
@@ -2031,7 +2049,8 @@ def nu_L_tilde(
 
     Returns
     -------
-    NDArray, or a tuple of d+1 of them if ``i`` is None
+    NDArray or tuple of NDArray
+        One array; with ``i`` None, a tuple of ``d + 1`` of them.
         ``nu_L_tilde[i]``. shape=F+W+(rLi,)
 
     Examples
@@ -2094,7 +2113,8 @@ def eta_D_tilde(
 
     Returns
     -------
-    NDArray, or a tuple of d of them if ``i`` is None
+    NDArray or tuple of NDArray
+        One array; with ``i`` None, a tuple of ``d`` of them.
         ``eta_D_tilde[i]``. shape=F+W+(nDi,)
 
     Examples
@@ -2162,7 +2182,8 @@ def xi_tilde_dot(
 
     Returns
     -------
-    NDArray, or a tuple of d of them if ``i`` is None
+    NDArray or tuple of NDArray
+        One array; with ``i`` None, a tuple of ``d`` of them.
         ``xi_tilde_dot[i]``. shape=F+W+(nDi,)
 
     Examples
@@ -2228,7 +2249,8 @@ def mu_tilde_dot(
 
     Returns
     -------
-    NDArray, or a tuple of d+1 of them if ``i`` is None
+    NDArray or tuple of NDArray
+        One array; with ``i`` None, a tuple of ``d + 1`` of them.
         ``mu_tilde_dot[i]``. shape=F+W+(rLi,)
 
     Examples
@@ -2301,7 +2323,8 @@ def nu_L_tilde_dot(
 
     Returns
     -------
-    NDArray, or a tuple of d+1 of them if ``i`` is None
+    NDArray or tuple of NDArray
+        One array; with ``i`` None, a tuple of ``d + 1`` of them.
         ``nu_L_tilde_dot[i]``. shape=F+W+(rLi,)
 
     Examples
@@ -2375,7 +2398,8 @@ def eta_D_tilde_dot(
 
     Returns
     -------
-    NDArray, or a tuple of d of them if ``i`` is None
+    NDArray or tuple of NDArray
+        One array; with ``i`` None, a tuple of ``d`` of them.
         ``eta_D_tilde_dot[i]``. shape=F+W+(nDi,)
 
     Examples
@@ -2455,7 +2479,8 @@ def z(
 
     Returns
     -------
-    NDArray, or for probe with ``i`` None a tuple of d of them
+    NDArray or tuple of NDArray
+        One array; for probe with ``i`` None, a tuple of ``d`` of them.
         The value. probe: ``z[i]``, shape=F+W+(Ni,); apply: shape=F+W; entries: shape=W
 
     Examples
@@ -2540,7 +2565,8 @@ def r(
 
     Returns
     -------
-    NDArray, or for probe with ``i`` None a tuple of d of them
+    NDArray or tuple of NDArray
+        One array; for probe with ``i`` None, a tuple of ``d`` of them.
         The residual. probe: ``r[i]``, shape=F+W+(Ni,); apply and entries: shape=F+W
 
     Examples
@@ -2592,7 +2618,8 @@ def Jp(
 
     Returns
     -------
-    NDArray, or for probe with ``i`` None a tuple of d of them
+    NDArray or tuple of NDArray
+        One array; for probe with ``i`` None, a tuple of ``d`` of them.
         The direction's output. probe: ``Jp[i]``, shape=F+W+(Ni,); apply and entries: shape=F+W
 
     Examples
@@ -2832,7 +2859,8 @@ def V_tilde(
 
     Returns
     -------
-    NDArray, or a tuple of d of them if ``i`` is None
+    NDArray or tuple of NDArray
+        One array; with ``i`` None, a tuple of ``d`` of them.
         ``V_tilde[i]``. shape=(nUi,Ni)
 
     Examples
@@ -2888,7 +2916,8 @@ def H_tilde(
 
     Returns
     -------
-    NDArray, or a tuple of d of them if ``i`` is None
+    NDArray or tuple of NDArray
+        One array; with ``i`` None, a tuple of ``d`` of them.
         ``H_tilde[i]``. shape=(rLi,nDi,rR(i+1))
 
     Examples
@@ -2944,7 +2973,8 @@ def V_tilde_dot(
 
     Returns
     -------
-    NDArray, or a tuple of d of them if ``i`` is None
+    NDArray or tuple of NDArray
+        One array; with ``i`` None, a tuple of ``d`` of them.
         ``V_tilde_dot[i]``. shape=(nDi,Ni)
 
     Examples
@@ -3004,7 +3034,8 @@ def H_tilde_dot(
 
     Returns
     -------
-    NDArray, or a tuple of d of them if ``i`` is None
+    NDArray or tuple of NDArray
+        One array; with ``i`` None, a tuple of ``d`` of them.
         ``H_tilde_dot[i]``. shape=(rLi,nDi,rL(i+1))
 
     Examples

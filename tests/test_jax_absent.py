@@ -248,6 +248,40 @@ with warnings.catch_warnings():
 print('JAX_ABSENT_OK')
 '''
 
+# Graded messages, P5: the sampling engine and HeldVariables import and run with no jax, on numpy arrays, and ask
+# for no jax (HeldVariables is then an ordinary object: no pytree registration).
+_ENGINE_SCRIPT = r'''
+import sys, warnings
+sys.modules['jax'] = None            # make `import jax` raise ImportError
+sys.modules['jax.numpy'] = None
+import numpy as np
+import t3toolbox.backend.common as common
+import t3toolbox.backend.jets as jets
+import t3toolbox.backend.sampling_variables as sv
+assert not common.jax_available
+
+rng = np.random.default_rng(0)
+N, nD, nU, rL, rR = (4, 5, 3), (2, 3, 2), (3, 2, 3), (1, 2, 3, 1), (1, 3, 2, 1)
+frame = ([rng.standard_normal((nD[i], N[i])) for i in range(3)],
+         [rng.standard_normal((rL[i], nU[i], rR[i + 1])) for i in range(3)],
+         [rng.standard_normal((rL[i], nD[i], rL[i + 1])) for i in range(3)],
+         [rng.standard_normal((rR[i], nD[i], rR[i + 1])) for i in range(3)])
+ww = [rng.standard_normal((2, n)) for n in N]
+pp = [rng.standard_normal((2, n)) for n in N]
+y = [rng.standard_normal((3, 2, n)) for n in N]
+with warnings.catch_warnings():
+    warnings.simplefilter('error')       # nothing here may ask for jax (the jax-absent warning would be an error)
+    line = jets.affine_jet(ww, pp)
+    mu, z, f = sv.sampling_variables('probe', frame, line, ('mu', 'z', 'f'), order=(2,), y=y)
+    assert all(isinstance(a, np.ndarray) for a in mu + z) and isinstance(f, np.ndarray), (mu, z, f)
+    held = sv.HeldVariables(mu=mu)
+    assert held.keys() == ('mu',) and 'mu' in held and len(held) == 1
+    assert held.with_values(z=z).keys() == ('mu', 'z') and held.keys() == ('mu',)
+    (f2,) = sv.sampling_variables('probe', frame, line, ('f',), order=(2,), y=y, held=held.with_values(z=z))
+    assert float(f2) == float(f), (f2, f)
+print('JAX_ABSENT_OK')
+'''
+
 
 class TestJaxAbsentPolicy(unittest.TestCase):
     def test_requests_for_jax_run_on_numpy_with_a_warning(self):
@@ -267,6 +301,11 @@ class TestJaxAbsentPolicy(unittest.TestCase):
 
     def test_the_frame_checkers_run_without_jax(self):
         out = subprocess.run([sys.executable, '-c', _FRAME_CHECKERS_SCRIPT], capture_output=True, text=True,
+                             env={**os.environ, 'PYTHONPATH': os.getcwd()})
+        self.assertIn('JAX_ABSENT_OK', out.stdout, out.stderr[-2000:])
+
+    def test_the_sampling_engine_and_held_variables_run_without_jax(self):
+        out = subprocess.run([sys.executable, '-c', _ENGINE_SCRIPT], capture_output=True, text=True,
                              env={**os.environ, 'PYTHONPATH': os.getcwd()})
         self.assertIn('JAX_ABSENT_OK', out.stdout, out.stderr[-2000:])
 

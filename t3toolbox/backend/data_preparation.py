@@ -150,7 +150,8 @@ def data_block_norms(
         ``'probe'``, ``'apply'`` or ``'entries'``.
     order: tuple of int
         The jet shape. ``()`` for no jets, and the only one the entries kind takes.
-    y: of the type of z
+    y: tuple of NDArray or NDArray
+        Of the type of ``z`` (a tuple of ``d`` arrays for probe, one array otherwise).
         The data. probe: ``len=d``, ``elm_shape=F+W+(Ni,)``. apply: ``shape=F+W``. entries: ``shape=W``.
 
     Returns
@@ -311,7 +312,8 @@ def rescale_direction(
         The jet shape, with at least one jet variable (with none a sample has no direction).
     sample
         The input jets ``ww``.
-    y: of the type of z
+    y: tuple of NDArray or NDArray
+        Of the type of ``z`` (a tuple of ``d`` arrays for probe, one array otherwise).
         The data, in Taylor coefficients or in derivatives (slot ``k`` scales the same way in both).
     length: float, 0-dimensional NDArray, or ``m`` of them
         The factor on each jet variable.
@@ -320,7 +322,8 @@ def rescale_direction(
     -------
     sample
         The input jets for the new variables: a tuple, one array per mode.
-    y: of the type of z
+    y: tuple of NDArray or NDArray
+        Of the type of ``z`` (a tuple of ``d`` arrays for probe, one array otherwise).
         The data for the new sample.
 
     Raises
@@ -425,7 +428,8 @@ def rescale_coordinates(
         The jet shape (``()`` for no jets).
     sample
         The input jets ``ww``.
-    y: of the type of z
+    y: tuple of NDArray or NDArray
+        Of the type of ``z`` (a tuple of ``d`` arrays for probe, one array otherwise).
         The data. probe: ``len=d``, ``elm_shape=F+W+(Ni,)``. apply: ``shape=F+W``.
     scales: Sequence[NDArray]
         One positive scale per coordinate: ``len=d``, ``elm_shape=(Ni,)``.
@@ -434,7 +438,8 @@ def rescale_coordinates(
     -------
     sample
         The rescaled input jets, a tuple.
-    y: of the type of z
+    y: tuple of NDArray or NDArray
+        Of the type of ``z`` (a tuple of ``d`` arrays for probe, one array otherwise).
         The data for the rescaled sample.
 
     Raises

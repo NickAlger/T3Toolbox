@@ -829,6 +829,37 @@ class TestDispatch(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'the weight of the %s kind' % kind):
                     jax.jit(lambda sample, y, weight: check(kind, order, sample, y, jnp.ones((1,))))(sample, y, weight)
 
+    # ---------------------------------------------------- jit bucket: the sampling engine
+    def test_jit_sampling_variables(self):
+        """The engine under ``jax.jit`` for ``('f',)`` (a stray ``np.`` on a tracer would raise): jax in, jax out;
+        numpy in under the trace (the frame closed over) gives jax too; the numbers are numpy's; the jet shape
+        ``(2,)`` along a line and none."""
+        import t3toolbox.backend.jets as jets
+        import t3toolbox.backend.sampling_variables as sv
+        rng = np.random.default_rng(0)
+        N, nD, nU, rL, rR = (4, 5, 3), (2, 3, 2), (3, 2, 3), (1, 2, 3, 1), (1, 3, 2, 1)
+        frame = (tuple(rng.standard_normal((nD[i], N[i])) for i in range(3)),
+                 tuple(rng.standard_normal((rL[i], nU[i], rR[i + 1])) for i in range(3)),
+                 tuple(rng.standard_normal((rL[i], nD[i], rL[i + 1])) for i in range(3)),
+                 tuple(rng.standard_normal((rR[i], nD[i], rR[i + 1])) for i in range(3)))
+        ww = [rng.standard_normal((2, n)) for n in N]
+        pp = [rng.standard_normal((2, n)) for n in N]
+        for order, sample in (((), ww), ((2,), list(jets.affine_jet(ww, pp)))):
+            F = tuple(n + 1 for n in order)
+            y = [rng.standard_normal(F + (2, n)) for n in N]
+            weight = 0.5 + rng.random((3,) + F)
+            fn = lambda frame, sample, y, weight: sv.sampling_variables('probe', frame, sample, ('f',), order=order,
+                                                                        y=y, weight=weight)
+            (on_numpy,) = fn(frame, sample, y, weight)
+            to_jax = lambda tree: jax.tree_util.tree_map(jnp.asarray, tree)
+            with self.subTest(order=order):
+                self.assert_jit_jax(fn, *to_jax((frame, sample, y, weight)))
+                (jitted,) = jax.jit(fn)(*to_jax((frame, sample, y, weight)))
+                self.assertLess(abs(float(jitted) - float(on_numpy)), 1e-12 * abs(float(on_numpy)))
+                (closed,) = jax.jit(lambda sample, y: fn(frame, sample, y, weight))(*to_jax((sample, y)))
+                self.assertTrue(common.is_jax_ndarray(closed))
+                self.assertLess(abs(float(closed) - float(on_numpy)), 1e-12 * abs(float(on_numpy)))
+
     # ---------------------------------------------------- jit bucket: the dense sampling functions
     def test_jit_dense_sampling_functions(self):
         """jit dense_probe and dense_apply with no jets, with the input jets of a line at (3,) and with input jets of

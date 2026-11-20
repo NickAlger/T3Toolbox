@@ -35,8 +35,10 @@ import _jet_contract_cases as jet_cases     # the 29 literal jet_contract string
 
 
 def _scan_vocabulary():
-    """Every grouped-subscript string literal in the library source (the same self-maintaining
-    scan as test_contractions_interpreter.py -- duplicated so the test modules stay standalone)."""
+    """Every grouped-subscript string literal in the library source but the first arguments of ``jet_contract``
+    calls (the same self-maintaining scan as test_contractions_interpreter.py -- duplicated so the test modules stay
+    standalone; the ``jet_contract`` literals are swept by ``test_jet_contract_shards_free_over_every_W_sub_axis``
+    below, through the 29 strings of the case file, which holds every one of them)."""
     import ast
     import pathlib
     import re
@@ -44,7 +46,13 @@ def _scan_vocabulary():
     subs_re = re.compile(r'^[A-Za-z]+(,[A-Za-z]+)*->[A-Za-z]*$')
     vocab = set()
     for path in sorted(pathlib.Path(t3toolbox.__file__).parent.rglob('*.py')):
-        for node in ast.walk(ast.parse(path.read_text())):
+        tree = ast.parse(path.read_text())
+        jet_literals = {id(node.args[0]) for node in ast.walk(tree)
+                        if isinstance(node, ast.Call) and node.args and isinstance(node.args[0], ast.Constant)
+                        and (getattr(node.func, 'attr', None) or getattr(node.func, 'id', None)) == 'jet_contract'}
+        for node in ast.walk(tree):
+            if id(node) in jet_literals:
+                continue
             if isinstance(node, ast.Constant) and isinstance(node.value, str):
                 s = node.value.replace(' ', '')
                 if subs_re.match(s) and any(ch.isupper() for ch in s):

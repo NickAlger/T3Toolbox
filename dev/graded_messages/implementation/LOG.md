@@ -574,3 +574,58 @@ Nothing is running; the two agents are idle and are resumed for P5 when the main
   - **The reviewer's Finding A**, a gap in the plan: `sum_over_samples=False` needs readout strings with `W` in the
     output (the `V` and `H` families, about nine), not among the 29. Within row 3.7, no new group: a sentence added to
     the plan's P10 (added to `STRINGS`, chosen by a static flag, as the library's two bodies do today).
+
+### P5: Engine A (2026-11-20, from the design to 02:57)
+
+- **Rounds:** a design sketch and its review before any code (above), then two review rounds on the build
+  (`P5_REVIEW_r1.md` NOT YET, one should-fix; `P5_REVIEW_r2.md` SIGN OFF; `P5_RESPONSE_r1.md`; `P5_HANDOVER.md`).
+- **What was built:** `backend/sampling_steps.py` (private: `xi_step`, `mu_step`, `nu_step`, `eta_step`, `z_step`,
+  the whole steps `r_step`, `f_step`, `r_block_sumsq_step`, `start_ones`; each term one `jet_contract` on a literal
+  in `STRINGS`, `C` written); `backend/sampling_variables.py` (`sampling_variables`, `HeldVariables`; the probe graph,
+  11 rows of `Rule(name, step, reads, needs, carries_K)`, two routes for `z`; the declared tables `_BOND_OFFSET`,
+  `_SHAPES`, checked against the docstring by a test; `_closure` cached on hashables, `present` carrying the call
+  type; bodies memoized on `(step_name, lens, order, form)`; the start joined to a sweep in `_with_end`; the result
+  dtype over what the closure reads; the checks of section 2.3 step 1 and nothing more). Tests: four new files (36
+  tests) and option (b) in the interpreter test with the two guards. The parts not yet built raise
+  `NotImplementedError`.
+- **The floor env caught a real bug in the build** (the implementer): numpy 1.x promotes `0.5 *` a float32 scalar to
+  float64, and `f` came back as a numpy scalar; fixed, and a mutant reverting it is caught on `tttt`.
+- **Sphinx, ruled by Claude:** the implementer had first silenced 18 ambiguous-`z` warnings with an
+  `autoapi-skip-member` hook hiding `HeldVariables`' fields. The cause was prose in numpy-style type fields (`y: of
+  the type of z`), which Sphinx turns into cross-references, until then resolving silently to
+  `ManifoldCurvatureData.z`, a wrong link. Fixed at the source instead: `docs/conf.py` unchanged; 22 type fields in
+  `jets`, `data_preparation`, `fitting` and one in `sampling_variables` are real types with the prose in the
+  description; the implementer found 31 more return types in `sampling_definitions` naming `d`, fixed alike. Sphinx 0
+  warnings with the fields rendered; no page links to `ManifoldCurvatureData.z` but its own.
+- **Review round 1:** the engine checked against the P4c reference over eight jet cases with a nonuniform weight, `d =
+  3` and `d = 4` with tails of different `L` and `R` end bonds, and against the reviewer's own dense oracle (worst
+  2.7e-15; 2.9e-15 on the floor); a deliberately modified held `mu` changes exactly what the recurrences predict;
+  step counts from the reviewer's own reading. Should-fix: the held-shape check was pinned on one slot only (fixed:
+  two slots, the bad one second and unread). **Ruled by Claude (from rows 5.6 and O-11):** every output of a call but
+  the sample `w` is in the result dtype; a held variable counts when a row reads it or it is wanted, and is cast once;
+  one neither read nor wanted is not counted. Written into the plan's section 2.3 step 4.
+- **Round 2:** SIGN OFF, with three wording notes, made by Claude (the engine docstring "used, not recomputed (cast
+  once ...)"; the plan's step 4 "every output but `w`"; P10 states that `use_jax` reads every held value).
+- **Gate:** the implementer's full gate before round 1 (suite 1,705 passed; Sphinx after the fix 0 warnings; module
+  doctests 314); **Claude's run on the final tree:** suite 1,706 passed, 5 skipped, 1 xfailed (27.5 min, peak 8.9 GB),
+  module doctests 314. Floor env: the four new files pass (implementer, reviewer).
+- **A stuck wait loop** (`while pgrep -f "pytest tests/ -q -rfEs"; do sleep 20; done`, the implementer's, matching its
+  own command line) ran two hours and kept the implementer's reports from being delivered; killed by PID. The rule
+  is in `BRIEF.md`.
+
+### P6 designed (2026-11-20)
+
+- The implementer's note (`P6_DESIGN_NOTE.md`) and the reviewer's critique (`P6_DESIGN_REVIEW.md`). The reviewer
+  confirmed the short form of `eta_tilde` in any number of variables (`V_tilde` at the corner reads exactly the
+  slots `[c - a + 1, c]` of `eta_tilde` per axis, `a = min(J_in, F)`) and its worth (for a line at order `n`: 2 calls and
+  `2n + 1` slot pairs per site and term, against `n + 1` calls and `(n + 1)(n + 2)/2` or `(n + 1)^2`).
+- **The maintainer's rule, given during this design** (recorded in `../TARGET_DECISIONS.md`): "the same value" means
+  equal to within rounding; two algorithms equal to rounding and roughly equally stable are both acceptable; bitwise
+  identity has low weight. In `BRIEF.md` too.
+- **Ruled by Claude** (written into the plan's P6 and section 2.2): `V_tilde` always reads the private short node, by
+  one row, and the full `eta_tilde` has its own row, run only when wanted (the reviewer's alternative to two routes
+  chosen by a "wanted" fact; chosen for simplicity, at a negligible cost: `2 prod(a)` readouts per site when both are
+  wanted); each row declares its own start value (`'ones'`, `'zeros'` or a node: apply's `nu_tilde[d]` starts at the
+  seed, P9); `HeldVariables`' slots are every public computed variable (row 6.4), `w` and private nodes excepted; P7's
+  `Jp`-seeded rows are private twins named by a rule, with a test; the bridge lists the old tilde kernels it leaves
+  out; the generic twin computes `V_tilde` from the full `eta_tilde`; the new readout string goes into `STRINGS`.

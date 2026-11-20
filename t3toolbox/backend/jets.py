@@ -331,7 +331,8 @@ def jet_to_dual_jet(
         ``'probe'``, ``'apply'`` or ``'entries'``.
     order: tuple of int
         The jet shape. ``()`` for no jets, and the only one the entries kind takes.
-    jet: of the type of z
+    jet: tuple of NDArray or NDArray
+        Of the type of ``z`` (a tuple of ``d`` arrays for probe, one array otherwise).
         probe: ``len=d``, ``elm_shape=F+W+[K]+C+(Ni,)``. apply: ``shape=F+W+[K]+C``. entries: ``shape=W+[K]+C``.
     weight: NDArray or None
         probe: ``shape=(d,)+F``. apply: ``shape=F``. entries: ``shape=()``. ``None`` is ones, the library's
@@ -340,7 +341,8 @@ def jet_to_dual_jet(
 
     Returns
     -------
-    of the type of z
+    tuple of NDArray or NDArray
+        Of the type of ``z`` (a tuple of ``d`` arrays for probe, one array otherwise).
         The dual jet, with the shapes of ``jet``. probe: a tuple, one array per mode.
 
     Raises
@@ -447,7 +449,8 @@ def dual_jet_to_jet(
         ``'probe'``, ``'apply'`` or ``'entries'``.
     order: tuple of int
         The jet shape. ``()`` for no jets, and the only one the entries kind takes.
-    dual_jet: of the type of z
+    dual_jet: tuple of NDArray or NDArray
+        Of the type of ``z`` (a tuple of ``d`` arrays for probe, one array otherwise).
         probe: ``len=d``, ``elm_shape=F+W+[K]+C+(Ni,)``. apply: ``shape=F+W+[K]+C``. entries: ``shape=W+[K]+C``.
     weight: NDArray or None
         probe: ``shape=(d,)+F``. apply: ``shape=F``. entries: ``shape=()``. ``None`` is ones, the library's
@@ -456,7 +459,8 @@ def dual_jet_to_jet(
 
     Returns
     -------
-    of the type of z
+    tuple of NDArray or NDArray
+        Of the type of ``z`` (a tuple of ``d`` arrays for probe, one array otherwise).
         The jet, with the shapes of ``dual_jet``. probe: a tuple, one array per mode.
 
     Raises
@@ -532,13 +536,15 @@ def derivatives_to_taylor(
         ``'probe'``, ``'apply'`` or ``'entries'``.
     order: tuple of int
         The jet shape. ``()`` for no jets, and the only one the entries kind takes.
-    jets: of the type of z
+    jets: tuple of NDArray or NDArray
+        Of the type of ``z`` (a tuple of ``d`` arrays for probe, one array otherwise).
         Derivatives. probe: ``len=d``, ``elm_shape=F+W+(Ni,)``. apply: ``shape=F+W``. entries: ``shape=W``. Any
         axes after the jet axes are carried along.
 
     Returns
     -------
-    of the type of z
+    tuple of NDArray or NDArray
+        Of the type of ``z`` (a tuple of ``d`` arrays for probe, one array otherwise).
         Taylor coefficients, with the shapes of ``jets``. probe: a tuple, one array per mode.
 
     Raises
@@ -606,13 +612,15 @@ def taylor_to_derivatives(
         ``'probe'``, ``'apply'`` or ``'entries'``.
     order: tuple of int
         The jet shape. ``()`` for no jets, and the only one the entries kind takes.
-    jets: of the type of z
+    jets: tuple of NDArray or NDArray
+        Of the type of ``z`` (a tuple of ``d`` arrays for probe, one array otherwise).
         Taylor coefficients. probe: ``len=d``, ``elm_shape=F+W+(Ni,)``. apply: ``shape=F+W``. entries:
         ``shape=W``.
 
     Returns
     -------
-    of the type of z
+    tuple of NDArray or NDArray
+        Of the type of ``z`` (a tuple of ``d`` arrays for probe, one array otherwise).
         Derivatives, with the shapes of ``jets``. probe: a tuple, one array per mode.
 
     Raises
@@ -723,7 +731,8 @@ def prepare_derivative_data(
         ``'probe'``, ``'apply'`` or ``'entries'``.
     order: tuple of int
         The jet shape. With no jets, ``()``, there is nothing to convert and the weight returned is ones.
-    y: of the type of z
+    y: tuple of NDArray or NDArray
+        Of the type of ``z`` (a tuple of ``d`` arrays for probe, one array otherwise).
         The data, as derivatives. probe: ``len=d``, ``elm_shape=F+W+(Ni,)``. apply: ``shape=F+W``. entries:
         ``shape=W``.
     weight: NDArray or None
@@ -731,16 +740,19 @@ def prepare_derivative_data(
         ``shape=()``. ``None`` is ones on the derivatives, which is NOT the fit's own default: a fit given no
         weight uses ones on the Taylor coefficients (a default that may change in a later release), so always
         pass the weight this function returns.
-    validation: of the type of z, or None
+    validation: tuple of NDArray or NDArray, or None
+        Of the type of ``z`` (a tuple of ``d`` arrays for probe, one array otherwise).
         Validation data, as derivatives.
 
     Returns
     -------
-    y_taylor: of the type of z
+    y_taylor: tuple of NDArray or NDArray
+        Of the type of ``z`` (a tuple of ``d`` arrays for probe, one array otherwise).
         The data in Taylor coefficients.
     weight_taylor: NDArray
         The weight on Taylor coefficient residuals, in the shape of a weight of ``kind``.
-    validation_taylor: of the type of z, or None
+    validation_taylor: tuple of NDArray or NDArray, or None
+        Of the type of ``z`` (a tuple of ``d`` arrays for probe, one array otherwise).
         The validation data in Taylor coefficients, or ``None`` if none were given.
 
     Raises
@@ -1146,7 +1158,8 @@ def check_data(
         The jet shape. ``()`` for no jets, and the only one the entries kind takes.
     sample
         A good sample for ``kind`` and ``order`` (see :py:func:`check_sample`).
-    y: of the type of z
+    y: tuple of NDArray or NDArray
+        Of the type of ``z`` (a tuple of ``d`` arrays for probe, one array otherwise).
         The data.
 
     Raises

@@ -217,8 +217,10 @@ optimizers pass it back unread. The `Oracle` protocol types it as any object (O-
 be something jax can carry: arrays, tuples, `None` or a registered record (O-30). The least-squares oracle's is a
 `HeldVariables` (O-8):
 
-- a frozen record with one slot per variable that some other variable reads, taken from the declared graph (a test
-  checks that the two agree); each slot is `None` when not held, and carries its shape comment;
+- a frozen record with one slot per PUBLIC COMPUTED variable of the declared graphs, taken from them (a test checks
+  that the two agree): row 6.4, every variable can be held; the input `w` is an argument, not a slot, and private
+  nodes are never slots (amended 2026-11-20, P5 and P6's design reviews; it first said "per variable that some other
+  variable reads", which would drop `eta_tilde` once `V_tilde` reads only the short form); each slot is `None` when not held, and carries its shape comment;
 - it reads like a dictionary: `held['mu']`, `'mu' in held`, `held.keys()` (the filled slots), iteration, `len`;
   an unknown name raises, at construction and at lookup;
 - `held.with_values(mu=mu)` returns a new record; a record is never changed in place;
@@ -298,7 +300,11 @@ and has the checkers to test those inputs first (section 7.1).
    (O-11): of the frame, `Vc`, the sample's vectors, `y`, the weight, the two directions and the held variables,
    those the closure of step 3 reads; an integer `index` does not count, and neither does an argument nothing
    wanted reads. The counted inputs are cast once to the result dtype; every start value is built in it; constants
-   are Python scalars.
+   are Python scalars. **Amended 2026-11-20 (P5, review round 1, ruled by Claude from 5.6 and O-11):** a held
+   variable counts when a row reads it OR it is wanted (a wanted held variable is an output, so its entries affect
+   it), and is cast once like any counted input; so every output of a call but the sample `w` (returned as given) is
+   in the one result dtype. A held variable neither read nor wanted is not counted and not returned. `use_jax` still
+   reads every array input, held ones included (P10's dtype matrix states that case).
 5. **The sweeps and the maps.** A sweep along the chain goes through `xscan` with a module-level body
    (`docs/contributor/scan_body_principles.md`). A map-type operation (the `xi`, `eta`, `z` steps and the block
    readouts) goes one site at a time: a loop over the sites on the ragged layout, `xmap` on the uniform one, at
@@ -1516,8 +1522,8 @@ axis, no `K` or `C` yet, numpy and jax. What the engine needs to run (section 2.
   jet shape `(n_1, n_2)` restricted to `(n_1, 0)` equals the one-variable call along the first direction; a held variable gives
   the result of a recomputed one; `z` through `D` equals `z` with `Vc`.
 - Structural tests (`tests/test_sampling_graph.py`): the docstring table equals the declared graph row for row,
-  exactly; the slots of `HeldVariables` are exactly the COMPUTED variables some other record reads (the input `w` is an
-  argument, not a slot; P5's design review, 2026-11-20); asking for one variable
+  exactly; the slots of `HeldVariables` are exactly the public computed variables of the graphs (section 2.2, amended
+  2026-11-20: the input `w` is an argument, not a slot; private nodes are not slots); asking for one variable
   computes only what the graph says it reads (count step calls with a test hook on the private step module); an
   unknown name in `want` raises; every missing argument raises; a held array of a wrong shape raises.
 - `HeldVariables` (`tests/test_held_variables.py`): reads like a dictionary; an unknown name raises at construction
@@ -1530,6 +1536,21 @@ axis, no `K` or `C` yet, numpy and jax. What the engine needs to run (section 2.
 
 **P6. Engine B.** The tilde steps; `w_tilde`, `xi_tilde`, `mu_tilde`, `nu_tilde`, `eta_tilde`, `V_tilde`, `H_tilde`,
 `g`.
+- **Design, settled before the build (2026-11-20; `implementation/P6_DESIGN_NOTE.md`, `P6_DESIGN_REVIEW.md`):** the
+  short form of `eta_tilde` is a private node holding only the slots `V_tilde` reads at the corner (the top
+  `a = min(J_in, F)` slots per jet axis, each a readout at a lowered corner; one new readout string,
+  `'JWCa,Caib,JWCb->WCi'`, added to `STRINGS`), and **`V_tilde` always reads it**, by one row; the full `eta_tilde` has
+  its own row, run only when it is wanted. Chosen for simplicity (one row for `V_tilde`, one path to test, nothing
+  about `want` in a call's facts), at a negligible cost: `2 prod(a)` extra corner readouts per site, only when
+  `eta_tilde` and `g` are both wanted. (The alternative, two routes for `V_tilde` chosen by whether `eta_tilde` is
+  wanted, was equally acceptable numerically: values equal to rounding are the same value, the maintainer's rule of
+  2026-11-20 in `TARGET_DECISIONS.md`.) A test checks that the private node equals the slice of the full `eta_tilde`,
+  to rounding. **Each row declares its own start value** (`'ones'`, `'zeros'`, or the
+  name of a node: apply's `nu_tilde[d]` starts at the seed, P9), not chosen by grade. Every tilde row has
+  `carries_K=False`; P7's `Jp`-seeded rows are private twins named by a fixed rule, seeded through the same
+  `jet_to_dual_jet`, and a test checks every public tilde row has its twin. The bridge lists each old tilde kernel it
+  leaves out, with the reason; the generic twin runs the mixed-modes case and computes `V_tilde` from the full
+  `eta_tilde`, an independent check of the short form.
 - Tests by definition for the new names. Identities, each with a random weight: `g` is the derivative of `f` by
   finite differences; the short form of `eta_tilde` equals a slice of the full one.
 - The bridge (`tests/bridge/test_old_kernels_bridge.py`, temporary, section 5.1): `z` and `g` against
@@ -1592,6 +1613,9 @@ design review (2026-11-20); no new group, row 3.7 decides it.
   input nothing wanted reads does not change the dtype (a float64 `y` on a call wanting only `z` in float32 gives
   float32); an integer `index` does not count; the one-hot vectors of `index_to_one_hot` are an input like any other
   float array. The stack matrix runs at `order = ()`, `(2,)` and `(1, 1)` for probe and apply; entries at `()` only.
+  The held variables in the dtype rule (section 2.3 step 4, as amended in P5): one read or wanted counts and is cast;
+  one neither read nor wanted does not change the dtype, but a jax one still makes the call jax (`use_jax` reads every
+  array input).
 - Gate: the full gate.
 
 **P11. Engine G: the uniform layout, and sharding over `W`.** The uniform frame and point structures; mask once on

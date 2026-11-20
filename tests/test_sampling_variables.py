@@ -1,0 +1,287 @@
+# Authors: Nick Alger and Blake Christierson
+# Copyright: MIT License (2026)
+# Github: https://github.com/NickAlger/T3Toolbox
+# Documentation: https://nickalger.github.io/T3Toolbox/index.html
+"""``backend.sampling_variables``: every variable the engine makes, against its definition.
+
+1. **By definition** (`TestByDefinition`): every name the engine accepts against the reference module
+   (``sampling_definitions``, one dense contraction per variable), with a random weight and data, over the jet
+   matrix of ``test_sampling_definitions.py`` (no jets; a line at ``(1,)`` and ``(3,)``; two directions at
+   ``(1, 2)``; modes of input jet sizes ``(3, 2)``, ``(1, 1)``, ``(2, 3)`` at ``(1, 2)``; a curve of three slots
+   at ``(2,)``; modes of sizes ``(1,)``, ``(4,)``, ``(2,)`` at ``(2,)``) and on three problems, one with end bonds
+   that differ between the ``L`` and the ``R`` cores.
+2. **The declared jet sizes** (`TestDeclaredJetSizes`): every variable the engine returns has the shape of the
+   module's table, the leaves the input's jet sizes clipped to ``F``; every ``jet_contract`` call of a step is
+   given the jet shape of its output from the table (the calls recorded through ``contractions.jet_contract``).
+3. **The result dtype** (`TestResultDtype`): the lowest floating precision among the arrays the call reads, in its
+   simplest cases (the matrix is P10's).
+4. **The safety mode** (`TestNoSafetyMode`): the numbers and the errors are the same in safe mode, in
+   ``safety.unsafe()`` and under ``jax.jit``.
+
+Numerical comparisons are to a tolerance, structural ones exact. numpy only, by the house convention, except the
+jit case of 4; the engine under jit is in ``test_dispatch.py`` too.
+"""
+import contextlib
+import os
+import sys
+import unittest
+import unittest.mock
+
+import numpy as np
+
+import t3toolbox.safety as safety
+import t3toolbox.backend.contractions as contractions
+import t3toolbox.backend.jets as jets
+import t3toolbox.backend.sampling_definitions as sdef
+import t3toolbox.backend.sampling_variables as sv
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import test_sampling_definitions as defs        # the problems and the jet matrix of the reference's tests
+
+try:
+    import jax
+    import jax.numpy as jnp
+    HAS_JAX = True
+except ImportError:
+    HAS_JAX = False
+
+TOL = 1e-10
+NAMES = ('w', 'xi', 'mu', 'nu', 'nu_L', 'eta', 'eta_D', 'z', 'r', 'f', 'r_block_sumsq')
+
+
+def tails_one_axis():
+    """End bonds larger than one, and different between the L and the R cores at both ends; one sample axis."""
+    return defs.Problem(5, (3, 4, 3), (2, 2, 3), (3, 2, 2), (2, 2, 3, 2), (3, 3, 2, 4), (3,))
+
+
+PROBLEMS = (('small', defs.small), ('tails, L and R ends differ', tails_one_axis), ('one site', defs.one_site))
+
+
+def engine(problem, case, names, **extra):
+    y, weight = problem.data('probe', case)
+    arguments = dict(order=case.order, y=y, weight=weight)
+    arguments.update(extra)
+    return sv.sampling_variables('probe', problem.frame, problem.input_jets(case), names, **arguments)
+
+
+def reference(problem, case, name):
+    y, weight = problem.data('probe', case)
+    return getattr(sdef, name)('probe', problem.frame, problem.input_jets(case), None, case.order, y=y, weight=weight)
+
+
+def arrays_of(value):
+    return list(value) if isinstance(value, (tuple, list)) else [value]
+
+
+class TestByDefinition(unittest.TestCase):
+
+    def test_every_name_against_the_reference(self):
+        """Every name, every index, against the reference, to ``1e-10`` relative (``max(|expected|, 1)``)."""
+        for problem_name, make in PROBLEMS:
+            problem = make()
+            for case in defs.JET_CASES:
+                got = dict(zip(NAMES, engine(problem, case, NAMES)))
+                for name in NAMES:
+                    expected = reference(problem, case, name)
+                    with self.subTest(problem=problem_name, jets=case.label, name=name):
+                        if name != 'w':                                 # w: the sample as given, a list here
+                            self.assertEqual(type(got[name]) is tuple, isinstance(expected, tuple))
+                        self.assertEqual(len(arrays_of(got[name])), len(arrays_of(expected)))
+                        for a, b in zip(arrays_of(got[name]), arrays_of(expected)):
+                            self.assertLessEqual(defs.relative_error(a, b), TOL)
+
+    def test_w_is_the_sample_as_given(self):
+        problem = defs.small()
+        sample = problem.input_jets(defs.LINE_3)
+        (w,) = sv.sampling_variables('probe', problem.frame, sample, ('w',), order=(3,))
+        self.assertIs(w, sample)
+        w, z = sv.sampling_variables('probe', problem.frame, sample, ('w', 'z'), order=(3,))   # w read by xi
+        self.assertIs(w, sample)
+        w32 = [w_i.astype(np.float32) for w_i in sample]
+        w, z = sv.sampling_variables('probe', problem.frame, w32, ('w', 'z'), order=(3,))      # not cast
+        self.assertIs(w, w32)
+
+    def test_z_through_the_tucker_centers_against_the_reference(self):
+        """With ``Vc`` given, ``z`` is ``z_term(eta[i], Vc[i])``: on a frame whose stores and centers agree it is the
+        reference's ``z`` (the reference contracts the dense tensor of ``(D, L)``)."""
+        frame, Vc = consistent_frame(seed=7)
+        rng = np.random.default_rng(8)
+        ww = [rng.standard_normal((3, D.shape[-1])) for D in frame[0]]
+        pp = [rng.standard_normal((3, D.shape[-1])) for D in frame[0]]
+        line = list(jets.affine_jet(ww, pp))
+        for order, sample in (((), ww), ((2,), line)):
+            (z,) = sv.sampling_variables('probe', frame, sample, ('z',), order=order, Vc=Vc)
+            expected = sdef.z('probe', frame, sample, None, order)
+            with self.subTest(order=order):
+                for a, b in zip(z, expected):
+                    self.assertLessEqual(defs.relative_error(a, b), TOL)
+
+
+def consistent_frame(seed):
+    """A frame of a random Tucker tensor train, its stores consistent, and its Tucker centers ``Vc``."""
+    import t3toolbox.backend.fv_conversions as fv_conversions
+    import t3toolbox.backend.t3_constructors as t3_constructors
+    np.random.seed(seed)
+    x = t3_constructors.t3_corewise_randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+    frame, (Vc, Hc) = fv_conversions.t3_orthogonal_representations(x)
+    return tuple(tuple(store) for store in frame), tuple(Vc)
+
+
+class TestDeclaredJetSizes(unittest.TestCase):
+
+    def test_the_shapes_are_those_of_the_table(self):
+        """Every indexed variable has, at every index, the shape ``_shape`` gives from the table ``_SHAPES``:
+        ``J + W + C + (size,)``, ``J`` the input's jet sizes clipped to ``F`` for the leaves and ``F`` otherwise."""
+        names = tuple(sv._SHAPES)
+        for problem_name, make in PROBLEMS:
+            problem = make()
+            for case in defs.JET_CASES:
+                sample = problem.input_jets(case)
+                setting = sv._read_setting(dict(zip('DULR', problem.frame)), sample, case.order)
+                got = dict(zip(names, engine(problem, case, names)))
+                for name in names:
+                    with self.subTest(problem=problem_name, jets=case.label, name=name):
+                        self.assertEqual(len(got[name]), sv._count(name, setting))
+                        for i, array in enumerate(got[name]):
+                            self.assertEqual(array.shape, sv._shape(name, i, setting))
+                            jets = array.shape[:case.m]
+                            if name == 'xi':
+                                self.assertEqual(jets, tuple(min(a, f) for a, f in
+                                                             zip(sample[i].shape[:case.m], case.box)))
+                            else:
+                                self.assertEqual(jets, case.box)
+                f, blocks = engine(problem, case, ('f', 'r_block_sumsq'))
+                with self.subTest(problem=problem_name, jets=case.label, name='f, r_block_sumsq'):
+                    self.assertEqual(np.shape(f), ())
+                    self.assertEqual(blocks.shape, (problem.d,) + case.box)
+
+    def test_every_jet_contract_call_is_given_the_output_jet_shape_of_the_table(self):
+        """The calls are recorded through ``contractions.jet_contract``. The leaf string ``'JWo,Cio->JWCi'`` is
+        given the input's jet sizes clipped to ``F``, minus one; every other string the call's jet shape, and its
+        result has the full jet sizes ``F``."""
+        problem = defs.small()
+        for case in defs.JET_CASES:
+            sample = problem.input_jets(case)
+            calls = []
+
+            def recording(subscripts, *operands, lens, order, over_orders):
+                out = jet_contract(subscripts, *operands, lens=lens, order=order, over_orders=over_orders)
+                calls.append((subscripts, operands, lens, order, over_orders, out.shape))
+                return out
+
+            jet_contract = contractions.jet_contract
+            with unittest.mock.patch.object(contractions, 'jet_contract', side_effect=recording):
+                engine(problem, case, ('z', 'eta', 'f'))
+            with self.subTest(jets=case.label):
+                self.assertEqual(len(calls), 7 * problem.d)         # xi, mu, nu, nu_L, eta, eta_D, z: d each
+                leaves = [call for call in calls if call[0] == 'JWo,Cio->JWCi']
+                self.assertEqual(len(leaves), problem.d)
+                for i, (_, operands, lens, order, form, shape) in enumerate(leaves):
+                    clipped = tuple(min(a, f) for a, f in zip(sample[i].shape[:case.m], case.box))
+                    self.assertEqual(order, tuple(a - 1 for a in clipped))
+                    self.assertEqual(shape[:case.m], clipped)
+                for subscripts, _, lens, order, form, shape in calls:
+                    self.assertEqual((lens.J, lens.K, form), (case.m, 0, 'loop'))
+                    if subscripts != 'JWo,Cio->JWCi':
+                        self.assertEqual(order, case.order)
+                        self.assertEqual(shape[:case.m], case.box)
+
+
+class TestResultDtype(unittest.TestCase):
+    """The rule of the plan's section 2.3, step 4, in its simplest cases (the full matrix is P10's): the result is in
+    the lowest floating precision among the arrays the computation reads; an argument nothing wanted reads does not
+    count."""
+
+    def test_float32_anywhere_read_gives_float32(self):
+        problem = defs.small()
+        case = defs.LINE_1
+        y, weight = problem.data('probe', case)
+        sample = problem.input_jets(case)
+        frame32 = tuple(tuple(G.astype(np.float32) for G in store) for store in problem.frame)
+        sample32 = [w.astype(np.float32) for w in sample]
+        y32 = [y_i.astype(np.float32) for y_i in y]
+        for label, frame, sample_, y_, expected in (('all float64', problem.frame, sample, y, np.float64),
+                                                    ('float32 frame', frame32, sample, y, np.float32),
+                                                    ('float32 sample', problem.frame, sample32, y, np.float32),
+                                                    ('float32 data', problem.frame, sample, y32, np.float32)):
+            z, f = sv.sampling_variables('probe', frame, sample_, ('z', 'f'), order=case.order, y=y_,
+                                         weight=weight)
+            with self.subTest(case=label):
+                self.assertEqual({z_i.dtype for z_i in z}, {np.dtype(expected)})   # one dtype for the call
+                self.assertEqual(f.dtype, np.dtype(expected))
+        (z,) = sv.sampling_variables('probe', problem.frame, sample, ('z',), order=case.order, y=y32)
+        self.assertEqual({z_i.dtype for z_i in z}, {np.dtype(np.float64)})     # y is not read for z
+
+
+    def test_a_held_variable_read_or_wanted_counts_and_is_cast(self):
+        """Every output of a call is in the result dtype; the counted inputs include every held variable that a row
+        reads or that is wanted. A float64 held ``mu``, wanted and read, among float32 inputs comes back float32, and
+        the rows that read it use the cast value; a float64 held ``mu`` neither read nor wanted changes nothing; a
+        float32 held ``mu`` that is only wanted makes a float64 call float32."""
+        problem = defs.small()
+        frame32 = tuple(tuple(G.astype(np.float32) for G in store) for store in problem.frame)
+        ww32 = [w.astype(np.float32) for w in problem.ww]
+        (mu64,) = sv.sampling_variables('probe', problem.frame, problem.ww, ('mu',))
+        mu32 = tuple(m.astype(np.float32) for m in mu64)
+        mu, eta = sv.sampling_variables('probe', frame32, ww32, ('mu', 'eta'), held=sv.HeldVariables(mu=mu64))
+        self.assertEqual({a.dtype for a in mu + eta}, {np.dtype(np.float32)})
+        for a, b in zip(mu, mu32):
+            self.assertTrue(np.array_equal(a, b))
+        (eta_cast,) = sv.sampling_variables('probe', frame32, ww32, ('eta',), held=sv.HeldVariables(mu=mu32))
+        for a, b in zip(eta, eta_cast):
+            self.assertTrue(np.array_equal(a, b))                       # the rows read the cast value
+        (nu,) = sv.sampling_variables('probe', frame32, ww32, ('nu',), held=sv.HeldVariables(mu=mu64))
+        self.assertEqual({a.dtype for a in nu}, {np.dtype(np.float32)})   # neither read nor wanted: not counted
+        (nu,) = sv.sampling_variables('probe', problem.frame, problem.ww, ('nu',), held=sv.HeldVariables(mu=mu32))
+        self.assertEqual({a.dtype for a in nu}, {np.dtype(np.float64)})
+        nu, mu = sv.sampling_variables('probe', problem.frame, problem.ww, ('nu', 'mu'),
+                                       held=sv.HeldVariables(mu=mu32))
+        self.assertEqual({a.dtype for a in nu + mu}, {np.dtype(np.float32)})   # wanted: an output, counted
+
+
+class TestNoSafetyMode(unittest.TestCase):
+
+    def test_the_same_numbers_and_errors_in_safe_and_unsafe_mode(self):
+        problem = defs.small()
+        case = defs.PLANE
+        safe = engine(problem, case, NAMES[1:])
+        with safety.unsafe():
+            unsafe = engine(problem, case, NAMES[1:])
+        for name, a, b in zip(NAMES[1:], safe, unsafe):
+            with self.subTest(name=name):
+                for x, y in zip(arrays_of(a), arrays_of(b)):
+                    self.assertTrue(np.array_equal(x, y))
+        for mode in ('safe', 'unsafe'):
+            with self.subTest(mode=mode):
+                with (safety.unsafe() if mode == 'unsafe' else contextlib.nullcontext()):
+                    with self.assertRaisesRegex(ValueError, "'r' needs the argument y"):
+                        sv.sampling_variables('probe', problem.frame, problem.ww, ('f',))
+                    with self.assertRaisesRegex(ValueError, "the held 'mu' must be a tuple of 4 arrays"):
+                        sv.sampling_variables('probe', problem.frame, problem.ww, ('eta',),
+                                              held=sv.HeldVariables(mu=problem.ww))
+
+    @unittest.skipUnless(HAS_JAX, 'jax not available')
+    def test_the_same_numbers_under_jit(self):
+        """Under ``jax.jit`` the numbers are the eager numpy ones, to the precision of jax's float (float32 unless
+        x64 is on), and no check is skipped or added: a missing argument raises while the function is traced."""
+        problem = defs.small()
+        case = defs.LINE_3
+        y, weight = problem.data('probe', case)
+        sample = problem.input_jets(case)
+        names = NAMES[1:]
+        eager = sv.sampling_variables('probe', problem.frame, sample, names, order=case.order, y=y, weight=weight)
+        jitted = jax.jit(lambda frame, sample, y, weight: sv.sampling_variables(
+            'probe', frame, sample, names, order=case.order, y=y, weight=weight))(problem.frame, sample, y, weight)
+        tol = 1e-12 if jnp.zeros(()).dtype == jnp.float64 else 1e-5
+        for name, a, b in zip(names, eager, jitted):
+            with self.subTest(name=name):
+                for x, j in zip(arrays_of(a), arrays_of(b)):
+                    self.assertTrue(isinstance(j, jax.Array))
+                    self.assertLessEqual(defs.relative_error(np.asarray(j), x), tol)
+        with self.assertRaisesRegex(ValueError, "'r' needs the argument y"):
+            jax.jit(lambda frame, sample: sv.sampling_variables('probe', frame, sample, ('f',), order=case.order))(
+                problem.frame, sample)
+
+
+if __name__ == '__main__':
+    unittest.main()

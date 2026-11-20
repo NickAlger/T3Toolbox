@@ -91,6 +91,12 @@ things right rather than cutting corners for expediency."
   (neither local environment shows it). Write `self.subTest(order=repr(order))` where a value may be numpy. This bit
   P4a and P4c on 2026-11-19. Since 2026-11-20 `tests/conftest.py` enforces it everywhere: a label that is not a
   builtin raises `TypeError` at the `subTest` call.
+- **Never wait with `pgrep -f PATTERN` (or `pkill -f`) from a shell whose own command contains PATTERN:** it matches
+  itself and never ends (a `while pgrep -f "pytest tests/ ..."` loop ran for two hours on 2026-11-20 and kept an agent's
+  reports from being delivered). Wait with `run_gate.sh wait LOGDIR`, or on a PID.
+- **"The same value" means equal to within rounding** (the maintainer, 2026-11-20). Two algorithms equal to rounding
+  and roughly equally stable are both acceptable (another contraction or summation order: yes; dropping an
+  orthogonalization: no). Give bitwise identity low weight when weighing designs; simplicity and performance decide.
 - Do not weaken a test to make it pass. Tolerance tests for numerical things, exact tests for structural things.
   Verify a mathematical property with a quick script before asserting it in a test. Doctest output is pasted from
   a real run, never written by hand.

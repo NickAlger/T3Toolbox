@@ -717,6 +717,14 @@ his laptop; his message came before 10:56, the first clock reading after it).
 - **The same pair of agents continues** ("Please keep the same agent pair if you can"), on P5. "Good work so far.
   Please continue on P5."
 
+**"The same value" means equal to within rounding** (the maintainer, 2026-11-20, during P6's design: "Not changing
+means not changing to within numerical rounding. We do not require bitwise identical results."). Two algorithms that
+give the same result to within rounding are both acceptable candidates, provided they are roughly equally
+numerically stable: changing the order of a contraction or of a sum is acceptable; removing an orthogonalization is
+typically not, because it changes stability. Bitwise equivalence is given low weight when options are weighed;
+simplicity and performance decide. This is how rows 6.4 ("wanting a variable never changes a value") and 2.3 step 3
+are read, and every comparison of two routes is a tolerance test (row 0.8).
+
 ## Carried to Part 2 from the implementation of Part 1
 
 Kept here so that nothing found while building Part 1 is forgotten when Part 2 is planned. Each item names its

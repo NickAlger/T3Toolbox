@@ -174,7 +174,8 @@ def rescale_coordinates(
         The jet shape (``()`` for no jets).
     sample
         The input jets ``ww``: ``len=d``, ``elm_shape=J_in_i+W+(Ni,)``.
-    y: of the type of z
+    y: tuple of NDArray or NDArray
+        Of the type of ``z`` (a tuple of ``d`` arrays for probe, one array otherwise).
         The data. probe: ``len=d``, ``elm_shape=F+W+(Ni,)``. apply: ``shape=F+W``.
     scales: Sequence[NDArray]
         One positive scale per coordinate: ``len=d``, ``elm_shape=(Ni,)``.
@@ -183,7 +184,8 @@ def rescale_coordinates(
     -------
     sample
         The rescaled input jets, a tuple.
-    y: of the type of z
+    y: tuple of NDArray or NDArray
+        Of the type of ``z`` (a tuple of ``d`` arrays for probe, one array otherwise).
         The data for the rescaled sample.
 
     Raises
@@ -252,7 +254,8 @@ def dual_jet_to_jet(
         ``'probe'``, ``'apply'`` or ``'entries'``.
     order: tuple of int
         The jet shape. ``()`` for no jets, and the only one the entries kind takes.
-    dual_jet: of the type of z
+    dual_jet: tuple of NDArray or NDArray
+        Of the type of ``z`` (a tuple of ``d`` arrays for probe, one array otherwise).
         probe: ``len=d``, ``elm_shape=F+W+[K]+C+(Ni,)``. apply: ``shape=F+W+[K]+C``. entries: ``shape=W+[K]+C``.
     weight: NDArray or None
         probe: ``shape=(d,)+F``. apply: ``shape=F``. entries: ``shape=()``. ``None`` is ones, the library's default
@@ -261,7 +264,8 @@ def dual_jet_to_jet(
 
     Returns
     -------
-    of the type of z
+    tuple of NDArray or NDArray
+        Of the type of ``z`` (a tuple of ``d`` arrays for probe, one array otherwise).
         The jet, with the shapes of ``dual_jet``. probe: a tuple, one array per mode.
 
     Raises
