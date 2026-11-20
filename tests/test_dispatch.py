@@ -557,63 +557,70 @@ class TestDispatch(unittest.TestCase):
     # ---------------------------------------------------- jit bucket: jets and data preparation (graded messages, P3)
     def _jets_and_preparation_cases(self, dtype):
         """(name, function of arrays only, numpy arguments) for every public function of ``backend.jets`` and
-        ``backend.data_preparation`` that returns arrays, for the probe type (a tuple per mode) and the apply type."""
+        ``backend.data_preparation`` that returns arrays, for the probe type (a tuple per mode) and the apply type,
+        at the jet shapes ``(3,)`` and ``(1, 2)``; the entries kind with no jets."""
         import t3toolbox.backend.jets as jets
         import t3toolbox.backend.data_preparation as prep
         rng = np.random.default_rng(0)
-        shape, W, order = (4, 3, 5), (2, 2), 3
+        shape, W = (4, 3, 5), (2, 2)
         f = lambda a: np.asarray(a, dtype=dtype)
         ww = [f(rng.standard_normal(W + (n,))) for n in shape]
         pp = [f(rng.standard_normal(W + (n,))) for n in shape]
-        index = np.stack([rng.integers(0, n, size=W) for n in shape])
+        qq = [f(rng.standard_normal(W + (n,))) for n in shape]
         scales = [f(0.5 + rng.random(n)) for n in shape]
-        y_probe = [f(rng.standard_normal((order + 1,) + W + (n,))) for n in shape]
-        y_apply = f(rng.standard_normal((order + 1,) + W))
-        w_probe, w_apply = f(0.5 + rng.random((3, order + 1))), f(0.5 + rng.random(order + 1))
         x = t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1), stack_shape=(2,))
         cores = tuple(tuple(f(c) for c in family) for family in x.data)
         cases = []
-        for label, y, weight in (('probe', y_probe, w_probe), ('apply', y_apply, w_apply)):
+        for order, sample in (((3,), list(jets.affine_jet(ww, pp))), ((1, 2), list(jets.affine_jet(ww, pp, qq)))):
+            F = tuple(n + 1 for n in order)
+            y_probe = [f(rng.standard_normal(F + W + (n,))) for n in shape]
+            y_apply = f(rng.standard_normal(F + W))
+            w_probe, w_apply = f(0.5 + rng.random((3,) + F)), f(0.5 + rng.random(F))
+            lengths = f(3.0) if len(order) == 1 else f([3.0, 0.5])             # one length, and one per variable
+            for label, y, weight in (('probe', y_probe, w_probe), ('apply', y_apply, w_apply)):
+                tag = '/%s %s' % (label, order)
+                cases += [
+                    ('jet_to_dual_jet' + tag, lambda y, weight, kind=label, order=order: jets.jet_to_dual_jet(kind, order, y, weight), (y, weight)),
+                    ('dual_jet_to_jet' + tag, lambda y, weight, kind=label, order=order: jets.dual_jet_to_jet(kind, order, y, weight), (y, weight)),
+                    ('jet_to_dual_jet, no weight' + tag, lambda y, kind=label, order=order: jets.jet_to_dual_jet(kind, order, y, None), (y,)),
+                    ('derivatives_to_taylor' + tag, lambda y, kind=label, order=order: jets.derivatives_to_taylor(kind, order, y), (y,)),
+                    ('taylor_to_derivatives' + tag, lambda y, kind=label, order=order: jets.taylor_to_derivatives(kind, order, y), (y,)),
+                    ('derivative_weight_to_taylor_weight' + tag,
+                     lambda weight, order=order: jets.derivative_weight_to_taylor_weight(weight, order), (weight,)),
+                    ('prepare_derivative_data' + tag,
+                     lambda y, weight, kind=label, order=order: jets.prepare_derivative_data(kind, order, y, weight, y), (y, weight)),
+                    ('prepare_derivative_data, no weight' + tag,
+                     lambda y, kind=label, order=order: jets.prepare_derivative_data(kind, order, y)[:2], (y,)),
+                    ('data_block_norms' + tag, lambda y, kind=label, order=order: prep.data_block_norms(kind, order, y), (y,)),
+                    ('equalizing_weight' + tag, lambda weight: prep.equalizing_weight(weight), (weight,)),
+                    ('rescale_direction' + tag,
+                     lambda sample, y, kind=label, order=order: prep.rescale_direction(kind, order, sample, y, 3.0), (sample, y)),
+                    ('rescale_direction, the length an array' + tag,      # traced under jit; closed over in the mixed case
+                     lambda sample, y, length, kind=label, order=order: prep.rescale_direction(kind, order, sample, y, length),
+                     (sample, y, lengths)),
+                    ('rescale_coordinates' + tag,
+                     lambda sample, y, scales, kind=label, order=order: prep.rescale_coordinates(kind, order, sample, y, scales),
+                     (sample, y, scales)),
+                ]
+            packed = f(rng.standard_normal((3,) + F + W + (5,)))          # a probe jet packed for the uniform layout
+            tag = ', a packed probe array %s' % (order,)
             cases += [
-                ('jet_to_dual_jet/' + label, lambda y, weight, kind=label: jets.jet_to_dual_jet(kind, order, y, weight), (y, weight)),
-                ('dual_jet_to_jet/' + label, lambda y, weight, kind=label: jets.dual_jet_to_jet(kind, order, y, weight), (y, weight)),
-                ('jet_to_dual_jet, no weight/' + label, lambda y, kind=label: jets.jet_to_dual_jet(kind, order, y, None), (y,)),
-                ('derivatives_to_taylor/' + label, lambda y, kind=label: jets.derivatives_to_taylor(kind, order, y), (y,)),
-                ('taylor_to_derivatives/' + label, lambda y, kind=label: jets.taylor_to_derivatives(kind, order, y), (y,)),
-                ('derivative_weight_to_taylor_weight/' + label,
-                 lambda weight: jets.derivative_weight_to_taylor_weight(weight, order), (weight,)),
-                ('prepare_derivative_data/' + label,
-                 lambda y, weight, kind=label: jets.prepare_derivative_data(kind, order, y, weight, y), (y, weight)),
-                ('prepare_derivative_data, no weight/' + label,
-                 lambda y, kind=label: jets.prepare_derivative_data(kind, order, y)[:2], (y,)),
-                ('data_block_norms/' + label, lambda y, kind=label: prep.data_block_norms(kind, order, y), (y,)),
-                ('equalizing_weight/' + label, lambda weight: prep.equalizing_weight(weight), (weight,)),
-                ('rescale_direction/' + label,          # (its sample returns ww as given: only pp and y are looked at)
-                 lambda pp, y, kind=label: (lambda out: (out[0][1], out[1]))(
-                     prep.rescale_direction(kind, order, (ww, pp), y, 3.0)), (pp, y)),
-                ('rescale_coordinates/' + label,
-                 lambda ww, pp, y, scales, kind=label: prep.rescale_coordinates(kind, order, (ww, pp), y, scales),
-                 (ww, pp, y, scales)),
+                ('jet_to_dual_jet' + tag, lambda y, weight, order=order: jets.jet_to_dual_jet('probe', order, y, weight),
+                 (packed, w_probe)),
+                ('dual_jet_to_jet' + tag, lambda y, weight, order=order: jets.dual_jet_to_jet('probe', order, y, weight),
+                 (packed, w_probe)),
+                ('derivatives_to_taylor' + tag, lambda y, order=order: jets.derivatives_to_taylor('probe', order, y), (packed,)),
+                ('taylor_to_derivatives' + tag, lambda y, order=order: jets.taylor_to_derivatives('probe', order, y), (packed,)),
             ]
-        packed = f(rng.standard_normal((3, order + 1) + W + (5,)))         # a probe jet packed for the uniform layout
+        y_entries = f(rng.standard_normal(W))
         cases += [
-            ('jet_to_dual_jet, a packed probe array', lambda y, weight: jets.jet_to_dual_jet('probe', order, y, weight),
-             (packed, w_probe)),
-            ('dual_jet_to_jet, a packed probe array', lambda y, weight: jets.dual_jet_to_jet('probe', order, y, weight),
-             (packed, w_probe)),
-            ('derivatives_to_taylor, a packed probe array', lambda y: jets.derivatives_to_taylor('probe', order, y), (packed,)),
-            ('taylor_to_derivatives, a packed probe array', lambda y: jets.taylor_to_derivatives('probe', order, y), (packed,)),
-            ('rescale_direction, the length an array/apply',        # traced under jit; closed over in the mixed case
-             lambda pp, y, length: (lambda out: (out[0][1], out[1]))(
-                 prep.rescale_direction('apply', order, (ww, pp), y, length)), (pp, y_apply, f(3.0))),
-            ('rescale_direction, the length an array/probe',
-             lambda pp, y, length: (lambda out: (out[0][1], out[1]))(
-                 prep.rescale_direction('probe', order, (ww, pp), y, length)), (pp, y_probe, f(0.5))),
-            ('rescale_direction/entries',
-             lambda pp, y: prep.rescale_direction('entries', order, (index, pp), y, 3.0)[1], (pp, y_apply)),
-            ('rescale_coordinates, order 0/probe',
-             lambda ww, y, scales: prep.rescale_coordinates('probe', 0, ww, y, scales), (ww, [y[0] for y in y_probe], scales)),
-            ('data_block_norms, order 0/apply', lambda y: prep.data_block_norms('apply', 0, y), (y_apply[0],)),
+            ('jet_to_dual_jet/entries ()', lambda y, weight: jets.jet_to_dual_jet('entries', (), y, weight), (y_entries, f(2.0))),
+            ('prepare_derivative_data/entries ()', lambda y: jets.prepare_derivative_data('entries', (), y, None, y), (y_entries,)),
+            ('data_block_norms/entries ()', lambda y: prep.data_block_norms('entries', (), y), (y_entries,)),
+            ('rescale_coordinates, no jets/probe',
+             lambda ww, y, scales: prep.rescale_coordinates('probe', (), ww, y, scales),
+             (ww, [f(rng.standard_normal(W + (n,))) for n in shape], scales)),
+            ('data_block_norms, no jets/apply', lambda y: prep.data_block_norms('apply', (), y), (f(rng.standard_normal(W)),)),
             ('t3_unscale_coordinates', lambda cores, scales: prep.t3_unscale_coordinates(cores, scales), (cores, scales)),
         ]
         return cases
@@ -683,12 +690,14 @@ class TestDispatch(unittest.TestCase):
         import t3toolbox.backend.jets as jets
         import t3toolbox.backend.data_preparation as prep
         rng = np.random.default_rng(0)
-        shape, W, order = (4, 3, 5), (2,), 2
+        shape, W, order = (4, 3, 5), (2,), (2,)
         ww = [rng.standard_normal(W + (n,)) for n in shape]
         pp = [rng.standard_normal(W + (n,)) for n in shape]
+        line, plane = list(jets.affine_jet(ww, pp)), list(jets.affine_jet(ww, pp, pp))     # J_in = (2,), (2, 2)
         scales = [0.5 + rng.random(n) for n in shape]
-        y = [rng.standard_normal((order + 1,) + W + (n,)) for n in shape]
-        weight = 0.5 + rng.random((3, order + 1))
+        y = [rng.standard_normal((3,) + W + (n,)) for n in shape]
+        y_plane = rng.standard_normal((2, 3) + W)                   # apply at (1, 2)
+        weight = 0.5 + rng.random((3, 3))
         mixed = [y[0], jnp.asarray(y[1]), y[2]]                     # one mode of the probe tuple on jax
         jscales = [scales[0], jnp.asarray(scales[1]), scales[2]]
         x = self.x_np.data
@@ -702,10 +711,12 @@ class TestDispatch(unittest.TestCase):
             'prepare_derivative_data, a jax weight': jets.prepare_derivative_data('probe', order, y, jnp.asarray(weight))[:2],
             'data_block_norms': prep.data_block_norms('probe', order, mixed),
             'rescale_direction, a jax length': (lambda out: (out[0][1], out[1]))(
-                prep.rescale_direction('probe', order, (ww, pp), y, jnp.asarray(2.0))),
+                prep.rescale_direction('probe', order, line, y, jnp.asarray(2.0))),
             'rescale_direction, mixed data': (lambda out: (out[0][1], out[1]))(
-                prep.rescale_direction('probe', order, (ww, pp), mixed, 2.0)),
-            'rescale_coordinates, mixed scales': prep.rescale_coordinates('probe', order, (ww, pp), y, jscales),
+                prep.rescale_direction('probe', order, line, mixed, 2.0)),
+            'rescale_direction, one jax length of two': prep.rescale_direction('apply', (1, 2), plane, y_plane,
+                                                                               [2.0, jnp.asarray(3.0)]),
+            'rescale_coordinates, mixed scales': prep.rescale_coordinates('probe', order, line, y, jscales),
             't3_unscale_coordinates, mixed scales': prep.t3_unscale_coordinates(
                 (x[0], x[1]), [0.5 + rng.random(N) if i else jnp.ones(N) for i, N in enumerate(STRUCT[0])])[0],
         }
@@ -729,16 +740,16 @@ class TestDispatch(unittest.TestCase):
             jet = np.arange(12.0).reshape(3, 4)
             with warnings.catch_warnings():
                 warnings.simplefilter('error')
-                outs = (jets.jet_to_dual_jet('apply', 2, jet, jnp.asarray([1, 2, 3])),
-                        jets.dual_jet_to_jet('apply', 2, jet, jnp.asarray([1, 2, 3])),
-                        jets.jet_to_dual_jet('apply', 2, jet, jnp.asarray([1.0, 2.0, 3.0])),
-                        jets.jet_to_dual_jet('probe', 2, [jet, jnp.asarray(jet)], None)[0],
-                        prep.rescale_direction('apply', 2, ([jet], [jet]), jet, jnp.asarray(2.0))[1],
-                        prep.rescale_coordinates('apply', 0, [jet], jet, [jnp.ones(4)])[0][0])
+                outs = (jets.jet_to_dual_jet('apply', (2,), jet, jnp.asarray([1, 2, 3])),
+                        jets.dual_jet_to_jet('apply', (2,), jet, jnp.asarray([1, 2, 3])),
+                        jets.jet_to_dual_jet('apply', (2,), jet, jnp.asarray([1.0, 2.0, 3.0])),
+                        jets.jet_to_dual_jet('probe', (2,), [jet, jnp.asarray(jet)], None)[0],
+                        prep.rescale_direction('apply', (2,), [np.stack([jet, jet])], jet, jnp.asarray(2.0))[1],
+                        prep.rescale_coordinates('apply', (), [jet], jet, [jnp.ones(4)])[0][0])
             for out in outs:
                 self.assertTrue(common.is_jax_ndarray(out))
                 self.assertEqual(out.dtype, np.float32)
-            self.assertLess(norm(np.asarray(outs[0]) - jets.jet_to_dual_jet('apply', 2, jet, np.array([1, 2, 3]))), 1e-5 * 1e3)
+            self.assertLess(norm(np.asarray(outs[0]) - jets.jet_to_dual_jet('apply', (2,), jet, np.array([1, 2, 3]))), 1e-5 * 1e3)
         finally:
             jax.config.update('jax_enable_x64', x64)
 
@@ -749,29 +760,31 @@ class TestDispatch(unittest.TestCase):
         on numpy."""
         import t3toolbox.safety as safety
         import t3toolbox.backend.data_preparation as prep
+        import t3toolbox.backend.jets as jets
         rng = np.random.default_rng(0)
-        shape, W, order = (4, 3, 5), (2,), 2
+        shape, W, order = (4, 3, 5), (2,), (2,)
         ww = [rng.standard_normal(W + (n,)) for n in shape]
         pp = [rng.standard_normal(W + (n,)) for n in shape]
+        line = list(jets.affine_jet(ww, pp))                                # the input jets, J_in = (2,)
         scales = [0.5 + rng.random(n) for n in shape]
         to_jax = lambda tree: jax.tree_util.tree_map(jnp.asarray, tree)
-        for kind, y in (('probe', [rng.standard_normal((order + 1,) + W + (n,)) for n in shape]),
-                        ('apply', rng.standard_normal((order + 1,) + W))):
-            fn = lambda ww, pp, y, scales: fitting.rescale_coordinates(kind, order, (ww, pp), y, scales)
-            reference = prep.rescale_coordinates(kind, order, (ww, pp), y, scales)
-            jargs = to_jax((ww, pp, y, scales))
+        for kind, y in (('probe', [rng.standard_normal((3,) + W + (n,)) for n in shape]),
+                        ('apply', rng.standard_normal((3,) + W))):
+            fn = lambda line, y, scales: fitting.rescale_coordinates(kind, order, line, y, scales)
+            reference = prep.rescale_coordinates(kind, order, line, y, scales)
+            jargs = to_jax((line, y, scales))
             with self.subTest(kind=kind):
                 self.assert_jit_jax(fn, *jargs)
                 for a, b in zip(jax.tree_util.tree_leaves(jax.jit(fn)(*jargs)), jax.tree_util.tree_leaves(reference)):
                     self.assertLess(norm(np.asarray(a) - b), 1e-12 * norm(b))
-                on_numpy = fn(ww, pp, y, scales)
+                on_numpy = fn(line, y, scales)
                 for a, b in zip(jax.tree_util.tree_leaves(on_numpy), jax.tree_util.tree_leaves(reference)):
                     self.assertTrue(common.is_numpy_ndarray(a) and np.array_equal(a, b))
                 wrong = {'a wrong count': (lambda s: s[:2], 'got length 2'),
                          'a wrong length for a mode': (lambda s: [s[0], s[0], s[2]], r'scales\[1\] has shape \(4,\)'),
                          'a length-1 scale': (lambda s: [s[0], s[1][:1], s[2]], r'scales\[1\] has shape \(1,\)')}
                 for what, (spoil, pattern) in wrong.items():
-                    bad = lambda ww, pp, y, scales: fn(ww, pp, y, spoil(scales))
+                    bad = lambda line, y, scales: fn(line, y, spoil(scales))
                     with self.subTest(kind=kind, wrong=what):
                         with self.assertRaisesRegex(ValueError, pattern):
                             jax.jit(bad)(*jargs)
@@ -781,19 +794,21 @@ class TestDispatch(unittest.TestCase):
 
     def test_the_checkers_run_under_jit(self):
         """Shapes are static, so the checkers of a sample, its data and its weight run on tracers: a good input
-        passes inside a jitted function, a wrong one raises its ``ValueError`` while the function is traced."""
+        passes inside a jitted function, a wrong one raises its ``ValueError`` while the function is traced. Input
+        jets at ``(2,)`` for probe and apply; an index with no jets for entries."""
         import t3toolbox.backend.jets as jets
         rng = np.random.default_rng(0)
-        shape, W, order = (4, 3, 5), (2,), 2
-        ww = [jnp.asarray(rng.standard_normal(W + (n,))) for n in shape]
-        pp = [jnp.asarray(rng.standard_normal(W + (n,))) for n in shape]
+        shape, W = (4, 3, 5), (2,)
+        ww = [rng.standard_normal(W + (n,)) for n in shape]
+        pp = [rng.standard_normal(W + (n,)) for n in shape]
+        line = [jnp.asarray(w) for w in jets.affine_jet(ww, pp)]            # J_in = (2,)
         index = jnp.asarray(np.stack([rng.integers(0, n, size=W) for n in shape]))
-        y_probe = [jnp.zeros((order + 1,) + W + (n,)) for n in shape]
-        y_apply, w_probe, w_apply = jnp.zeros((order + 1,) + W), jnp.ones((3, order + 1)), jnp.ones(order + 1)
+        y_probe = [jnp.zeros((3,) + W + (n,)) for n in shape]
+        y_apply, w_probe, w_apply = jnp.zeros((3,) + W), jnp.ones((3, 3)), jnp.ones(3)
 
-        def check(kind, first, pp, y, weight):
-            jets.check_sample(kind, order, (first, pp), shape)
-            jets.check_data(kind, order, (first, pp), y)
+        def check(kind, order, sample, y, weight):
+            jets.check_sample(kind, order, sample, shape)
+            jets.check_data(kind, order, sample, y)
             jets.check_weight(kind, order, weight, len(shape))
             return jnp.zeros(())
 
@@ -803,16 +818,16 @@ class TestDispatch(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, r'scales\[0\] has shape'):
             jax.jit(lambda scales: (prep.check_coordinate_scales(scales[::-1], shape), jnp.zeros(()))[1])(jscales)
 
-        for kind, first, y, weight in (('probe', ww, y_probe, w_probe), ('apply', ww, y_apply, w_apply),
-                                       ('entries', index, y_apply, w_apply)):
+        for kind, order, sample, y, weight in (('probe', (2,), line, y_probe, w_probe), ('apply', (2,), line, y_apply, w_apply),
+                                               ('entries', (), index, jnp.zeros(W), jnp.ones(()))):
             with self.subTest(kind=kind):
-                jax.jit(lambda first, pp, y, weight: check(kind, first, pp, y, weight))(first, pp, y, weight)
-                with self.assertRaisesRegex(ValueError, "pp"):
-                    jax.jit(lambda first, pp, y, weight: check(kind, first, pp[::-1], y, weight))(first, pp, y, weight)
+                jax.jit(lambda sample, y, weight: check(kind, order, sample, y, weight))(sample, y, weight)
+                with self.assertRaisesRegex(ValueError, 'one array per mode|index must have shape'):
+                    jax.jit(lambda sample, y, weight: check(kind, order, sample[:2], y, weight))(sample, y, weight)
                 with self.assertRaisesRegex(ValueError, 'the data y'):
-                    jax.jit(lambda first, pp, y, weight: check(kind, first, pp, weight, weight))(first, pp, y, weight)
+                    jax.jit(lambda sample, y, weight: check(kind, order, sample, weight, weight))(sample, y, weight)
                 with self.assertRaisesRegex(ValueError, 'the weight of the %s kind' % kind):
-                    jax.jit(lambda first, pp, y, weight: check(kind, first, pp, y, weight[..., :1]))(first, pp, y, weight)
+                    jax.jit(lambda sample, y, weight: check(kind, order, sample, y, jnp.ones((1,))))(sample, y, weight)
 
     # ---------------------------------------------------- jit bucket: the dense sampling functions
     def test_jit_dense_sampling_functions(self):

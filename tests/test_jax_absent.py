@@ -138,9 +138,9 @@ print('JAX_ABSENT_OK')
 '''
 
 
-# Jets, the checkers and data preparation (graded messages, P3): the two backend modules, their reach from
-# t3toolbox.fitting (the frontend dual_jet_to_jet with its safe-mode check included) and unscale_coordinates on
-# both tensor classes import and run with no jax, on numpy arrays.
+# Jets, the checkers and data preparation (graded messages, P3; in the jet shape since P4d): the two backend
+# modules, their reach from t3toolbox.fitting and t3toolbox (the frontend dual_jet_to_jet with its safe-mode check
+# included) and unscale_coordinates on both tensor classes import and run with no jax, on numpy arrays.
 _JETS_SCRIPT = r'''
 import sys, warnings
 sys.modules['jax'] = None            # make `import jax` raise ImportError
@@ -157,23 +157,25 @@ assert not common.jax_available
 
 rng = np.random.default_rng(0)
 np.random.seed(0)
-shape, W, order = (4, 5, 6), (7,), 2
+shape, W = (4, 5, 6), (7,)
 leaves = lambda value: sum((leaves(v) for v in value), []) if isinstance(value, (tuple, list)) else [value]
 def on_numpy(value):
     assert all(isinstance(leaf, np.ndarray) for leaf in leaves(value) if leaf is not None), value
     return value
 ww = [rng.standard_normal(W + (n,)) for n in shape]
 pp = [rng.standard_normal(W + (n,)) for n in shape]
+qq = [rng.standard_normal(W + (n,)) for n in shape]
 index = np.stack([rng.integers(0, n, size=W) for n in shape])
 scales = [0.5 + rng.random(n) for n in shape]
 with warnings.catch_warnings():
     warnings.simplefilter('error')       # nothing here may ask for jax (the jax-absent warning would be an error)
-    for kind in ('probe', 'apply', 'entries'):
-        first = index if kind == 'entries' else ww
-        y = [rng.standard_normal((order + 1,) + W + (n,)) for n in shape] if kind == 'probe'             else rng.standard_normal((order + 1,) + W)
-        weight = 0.5 + rng.random(((3,) if kind == 'probe' else ()) + (order + 1,))
-        jets.check_sample(kind, order, (first, pp), shape)
-        jets.check_data(kind, order, (first, pp), y)
+    for kind, order in (('probe', (2,)), ('apply', (2,)), ('probe', (1, 2)), ('apply', (1, 2)), ('entries', ())):
+        F = tuple(n + 1 for n in order)
+        sample = index if kind == 'entries' else (jets.affine_jet(ww, pp) if len(order) == 1 else jets.affine_jet(ww, pp, qq))
+        y = [rng.standard_normal(F + W + (n,)) for n in shape] if kind == 'probe' else rng.standard_normal(F + W)
+        weight = 0.5 + rng.random(((3,) if kind == 'probe' else ()) + F)
+        jets.check_sample(kind, order, sample, shape)
+        jets.check_data(kind, order, sample, y)
         jets.check_weight(kind, order, weight, 3)
         dual = on_numpy(jets.jet_to_dual_jet(kind, order, y, weight))
         on_numpy(jets.dual_jet_to_jet(kind, order, dual, weight))
@@ -182,17 +184,18 @@ with warnings.catch_warnings():
         on_numpy(jets.prepare_derivative_data(kind, order, y, validation=y))
         on_numpy(fitting.prepare_derivative_data(kind, order, y, weight))
         on_numpy(prep.equalizing_weight(prep.data_block_norms(kind, order, y)))
-        on_numpy(prep.rescale_direction(kind, order, (first, pp), y, 2.0))
         if kind != 'entries':
-            on_numpy(prep.rescale_coordinates(kind, order, (first, pp), y, scales))
+            on_numpy(prep.rescale_direction(kind, order, sample, y, 2.0))
+            on_numpy(prep.rescale_coordinates(kind, order, sample, y, scales))
+            on_numpy(fitting.rescale_coordinates(kind, order, sample, y, scales))
     zero = np.array([1.0, 0.0, 1.0])
     try:
-        fitting.dual_jet_to_jet('apply', order, np.ones((3, 7)), zero)
+        fitting.dual_jet_to_jet('apply', (2,), np.ones((3, 7)), zero)
         raise AssertionError('the frontend dual_jet_to_jet must raise in safe mode where a weight is zero')
     except ValueError:
         pass
     with safety.unsafe():
-        assert not np.isfinite(fitting.dual_jet_to_jet('apply', order, np.ones((3, 7)), zero)[1]).any()
+        assert not np.isfinite(fitting.dual_jet_to_jet('apply', (2,), np.ones((3, 7)), zero)[1]).any()
     x = t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1))
     ux = ut3.UniformTuckerTensorTrain.from_t3(x)
     prep.check_coordinate_scales(scales, shape)
@@ -206,6 +209,8 @@ with warnings.catch_warnings():
     assert on_numpy(jets.affine_jet(np.stack(ww[:1] * 2), np.stack(pp[:1] * 2))).shape == (2, 2) + W + (4,)
     one_hot = on_numpy(jets.index_to_one_hot(index, shape))
     assert [x.dtype for x in one_hot] == [np.float64] * 3
+    import t3toolbox
+    assert t3toolbox.affine_jet is jets.affine_jet and t3toolbox.index_to_one_hot is jets.index_to_one_hot
     assert np.allclose(ux.unscale_coordinates(scales).to_dense(), x.unscale_coordinates(scales).to_dense())
 print('JAX_ABSENT_OK')
 '''

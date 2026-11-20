@@ -1182,7 +1182,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
         >>> ww = [np.random.randn(7, N) for N in x_true.shape]              # inputs in the original coordinates
         >>> y = x_true.apply(ww)
         >>> scales = [10.0 ** np.random.randn(N) for N in x_true.shape]     # one scale per coordinate
-        >>> ww_rescaled, y_rescaled = fitting.rescale_coordinates('apply', 0, ww, y, scales)
+        >>> ww_rescaled, y_rescaled = fitting.rescale_coordinates('apply', (), ww, y, scales)
 
         A tensor that fits the rescaled sample (here it is written down, where a fit would find it):
 

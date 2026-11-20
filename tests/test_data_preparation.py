@@ -4,14 +4,18 @@
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
 """``backend.data_preparation``, and ``unscale_coordinates`` on the two tensor classes.
 
+The jet shape ``order = (n_1, ..., n_m)`` is a tuple, the box ``F = (n_1 + 1, ...)``, and a sample of the probe and
+apply kinds is its input jets ``ww`` (``J_in_i + W + (Ni,)``); the entries kind has no jets.
+
 1. **The block norms and the equalizing weight** (`TestEqualizing`): the norms against ``numpy.linalg.norm``
-   block by block, in the shape of the weight at orders 0 and above (``check_weight`` accepts them); the weight
+   block by block, in the shape of the weight for every jet shape (``check_weight`` accepts them); the weight
    against ``1 / max(x, floor * max(x))``, the floor weight on a zero block, and that the floor is relative.
 2. **Rescaling the direction** (`TestRescaleDirection`): the rescaled data are the data of the SAME dense
-   tensor at the rescaled sample (the three dense functions), so the unknowns do not change.
+   tensor at the rescaled input jets (the dense functions), so the unknowns do not change; at ``m = 1`` and
+   ``m = 2``, with one length and with one per jet variable; slot ``k`` times ``length_1**k_1 ... length_m**k_m``.
 3. **Rescaling the coordinates** (`TestRescaleCoordinates`): the rescaled data are the data of the tensor in
    the new coordinates; ``t3_unscale_coordinates`` then gives back the same probe values in the original
-   coordinates; the method equals the function.
+   coordinates, at an input jet; the method equals the function.
 4. **The uniform twin** (`TestUniformUnscaleCoordinates`), by the three prongs of
    ``docs/contributor/testing_strategy.md``: equal to ragged on real parts over the ``(C, force_pad)`` matrix and
    a stack of varying ranks; the output masks exactly the input's; garbage in every padded slot of the input.
@@ -19,6 +23,7 @@
 Numerical comparisons are to a tolerance, structural ones exact. numpy only, by the house convention; the
 functions under jit are in ``test_dispatch.py``.
 """
+import math
 import unittest
 import unittest.mock
 import warnings
@@ -40,14 +45,15 @@ TOL = 1e-12
 SHAPE = (4, 5, 6)           # the mode sizes N_i
 D = len(SHAPE)
 STRUCTURE = (SHAPE, (2, 3, 2), (1, 2, 2, 1))
+JET_SHAPES = ((), (1,), (3,), (1, 2))
 
 
 def relerr(a, b):
     return np.linalg.norm(np.asarray(a) - np.asarray(b)) / np.linalg.norm(np.asarray(b))
 
 
-def T_of(order):
-    return (order + 1,) if order else ()
+def F_of(order):
+    return tuple(n + 1 for n in order)
 
 
 def per_mode(kind, value):
@@ -55,30 +61,29 @@ def per_mode(kind, value):
 
 
 def dense_sample(kind, T, sample, order):
-    """The data of the dense tensor ``T`` at a sample, of the type of z, through the dense functions: at order 0
-    each kind's own; above it the jets along the line ``first + s pp``, an input jet of two slots (entries off the
-    grid: apply at the one-hot vectors of its index)."""
-    first, pp = (sample, None) if order == 0 else sample
-    if order == 0:
-        function = {'probe': probing.dense_probe, 'apply': bapply.dense_apply, 'entries': bentries.dense_entries}[kind]
-        return function(T, first)
+    """The data of the dense tensor ``T`` at a sample, of the type of z, through the dense functions."""
     if kind == 'entries':
-        first, kind = jets.index_to_one_hot(first, T.shape[T.ndim - len(pp):]), 'apply'
-    function = {'probe': probing.dense_probe, 'apply': bapply.dense_apply}[kind]
-    return function(T, jets.affine_jet(first, pp), (order,))
+        return bentries.dense_entries(T, sample)
+    return {'probe': probing.dense_probe, 'apply': bapply.dense_apply}[kind](T, sample, order)
 
 
-def random_sample(rng, kind, order, W=(7,)):
-    ww = [rng.standard_normal(W + (N,)) for N in SHAPE]
-    pp = [rng.standard_normal(W + (N,)) for N in SHAPE]
-    first = np.stack([rng.integers(0, N, size=W) for N in SHAPE]) if kind == 'entries' else ww
-    return first if order == 0 else (first, pp)
+def random_sample(rng, kind, order, W=(7,), sizes=None):
+    """Input jets of the given jet sizes per mode (default: the box ``F``), or an index for the entries kind."""
+    if kind == 'entries':
+        return np.stack([rng.integers(0, N, size=W) for N in SHAPE])
+    sizes = [F_of(order)] * D if sizes is None else sizes
+    return [rng.standard_normal(tuple(s) + W + (N,)) for s, N in zip(sizes, SHAPE)]
 
 
 def random_data(rng, kind, order, W=(7,)):
     if kind == 'probe':
-        return [rng.standard_normal(T_of(order) + W + (N,)) for N in SHAPE]
-    return rng.standard_normal(T_of(order) + W)
+        return [rng.standard_normal(F_of(order) + W + (N,)) for N in SHAPE]
+    return rng.standard_normal(F_of(order) + W)
+
+
+def slot_factor(lengths, k):
+    """``length_1**k_1 ... length_m**k_m``, written out."""
+    return math.prod(length ** k_j for length, k_j in zip(lengths, k))
 
 
 class TestEqualizing(unittest.TestCase):
@@ -86,30 +91,33 @@ class TestEqualizing(unittest.TestCase):
     def test_the_block_norms_have_the_shape_of_the_weight(self):
         rng = np.random.default_rng(0)
         for kind in ('probe', 'apply', 'entries'):
-            for order in (0, 1, 3):
+            for order in (JET_SHAPES if kind != 'entries' else ((),)):
                 for W in ((7,), (), (2, 3)):
                     y = random_data(rng, kind, order, W)
                     norms = prep.data_block_norms(kind, order, y)
                     with self.subTest(kind=kind, order=order, W=W):
-                        self.assertEqual(norms.shape, ((D,) if kind == 'probe' else ()) + T_of(order))
+                        self.assertEqual(norms.shape, ((D,) if kind == 'probe' else ()) + F_of(order))
                         jets.check_weight(kind, order, norms, D)             # the checker of a weight accepts it
                         jets.check_weight(kind, order, prep.equalizing_weight(norms), D)
 
     def test_the_block_norms_are_the_norms_of_the_blocks(self):
         rng = np.random.default_rng(1)
         for kind in ('probe', 'apply', 'entries'):
-            for order in (0, 3):
+            for order in (JET_SHAPES if kind != 'entries' else ((),)):
                 y = random_data(rng, kind, order, (2, 3))
                 norms = prep.data_block_norms(kind, order, y)
                 rows = [norms[i] for i in range(D)] if kind == 'probe' else [norms]
                 with self.subTest(kind=kind, order=order):
-                    for norms_T, y_TX in zip(rows, per_mode(kind, y)):
-                        if order == 0:
-                            self.assertLessEqual(abs(float(norms_T) - np.linalg.norm(y_TX)), TOL * np.linalg.norm(y_TX))
-                        for t in range(order + 1 if order else 0):
-                            self.assertLessEqual(abs(norms_T[t] - np.linalg.norm(y_TX[t])), TOL * np.linalg.norm(y_TX[t]))
+                    for norms_F, y_FX in zip(rows, per_mode(kind, y)):
+                        for k in np.ndindex(*F_of(order)):                  # with no jets, the one block ()
+                            self.assertLessEqual(abs(float(norms_F[k]) - np.linalg.norm(y_FX[k])),
+                                                 TOL * np.linalg.norm(y_FX[k]))
         with self.assertRaisesRegex(ValueError, 'unknown sampling kind'):
-            prep.data_block_norms('probe_derivatives', 0, y)
+            prep.data_block_norms('probe_derivatives', (), y)
+        with self.assertRaisesRegex(ValueError, 'the entries kind has no jets'):
+            prep.data_block_norms('entries', (1,), np.zeros((2, 7)))
+        with self.assertRaisesRegex(TypeError, 'order is the jet shape'):
+            prep.data_block_norms('apply', 1, np.zeros((2, 7)))
 
     def test_the_equalizing_weight_is_the_filtered_inverse(self):
         rng = np.random.default_rng(2)
@@ -150,8 +158,8 @@ class TestEqualizing(unittest.TestCase):
         self.assertEqual(weight.shape, (D, 3))
         self.assertTrue(np.isposinf(weight).all())
         self.assertTrue(type(single) is np.ndarray and single.shape == () and np.isposinf(single))
-        # a 0-dimensional input (the apply kind at order 0) gives a 0-dimensional array, not a numpy scalar
-        weight = prep.equalizing_weight(prep.data_block_norms('apply', 0, np.array([3.0, 4.0])))
+        # a 0-dimensional input (the apply kind with no jets) gives a 0-dimensional array, not a numpy scalar
+        weight = prep.equalizing_weight(prep.data_block_norms('apply', (), np.array([3.0, 4.0])))
         self.assertTrue(type(weight) is np.ndarray and weight.shape == ())
         self.assertLessEqual(abs(float(weight) - 0.2), TOL)
 
@@ -160,67 +168,98 @@ class TestEqualizing(unittest.TestCase):
         T = rng.standard_normal(SHAPE)
         ww = [rng.standard_normal((7, N)) for N in SHAPE]
         pp = [1e-2 * rng.standard_normal((7, N)) for N in SHAPE]
-        y = probing.dense_probe(T, jets.affine_jet(ww, pp), (2,))
-        norms = prep.data_block_norms('probe', 2, y)
-        weight = prep.equalizing_weight(norms)
-        weighted = [weight[i].reshape(3, 1, 1) * y[i] for i in range(D)]
-        self.assertLessEqual(np.abs(prep.data_block_norms('probe', 2, weighted) - 1.0).max(), TOL)
+        qq = [1e-1 * rng.standard_normal((7, N)) for N in SHAPE]
+        for order, sample in (((2,), jets.affine_jet(ww, pp)), ((1, 1), jets.affine_jet(ww, pp, qq))):
+            y = probing.dense_probe(T, sample, order)
+            weight = prep.equalizing_weight(prep.data_block_norms('probe', order, y))
+            weighted = [weight[i].reshape(F_of(order) + (1, 1)) * y[i] for i in range(D)]
+            with self.subTest(order=order):
+                self.assertLessEqual(np.abs(prep.data_block_norms('probe', order, weighted) - 1.0).max(), TOL)
 
 
 class TestRescaleDirection(unittest.TestCase):
 
+    def cases(self, rng):
+        """(order, input jets, lengths as given, the length per jet variable): a line, a plane and input jets of
+        sizes of their own (one length, and one per jet variable)."""
+        ww, pp, qq = ([rng.standard_normal((7, N)) for N in SHAPE] for _ in range(3))
+        line, plane = jets.affine_jet(ww, pp), jets.affine_jet(ww, pp, qq)
+        mixed = random_sample(rng, 'probe', (1, 2), sizes=[(2, 3), (1, 2), (2, 1)])
+        return [((1,), line, 100.0, (100.0,)), ((3,), line, 0.3, (0.3,)), ((3,), random_sample(rng, 'apply', (3,)), 2.0, (2.0,)),
+                ((1, 2), plane, 10.0, (10.0, 10.0)), ((1, 2), plane, (2.0, 0.1), (2.0, 0.1)),
+                ((2, 1), plane, np.array([0.5, 3.0]), (0.5, 3.0)), ((1, 2), mixed, [3.0, 0.5], (3.0, 0.5))]
+
     def test_the_rescaled_data_are_the_data_of_the_same_tensor(self):
+        """The new variables ``s_j = length_j s'_j``: slot ``k`` of each input jet and of the data times
+        ``length_1**k_1 ... length_m**k_m``, and the data are those of the same dense tensor at the new input jets."""
         rng = np.random.default_rng(4)
         T = rng.standard_normal(SHAPE)
-        for kind in ('probe', 'apply', 'entries'):
-            for order in (1, 3):
-                for length in (100.0, 0.3):
-                    sample = random_sample(rng, kind, order)
-                    y = dense_sample(kind, T, sample, order)
-                    (first, pp), y_scaled = prep.rescale_direction(kind, order, sample, y, length)
-                    with self.subTest(kind=kind, order=order, length=length):
-                        self.assertIs(first, sample[0])                              # the inputs are not touched
-                        self.assertEqual((type(pp), len(pp)), (tuple, D))
-                        for p_scaled, p in zip(pp, sample[1]):
-                            self.assertLessEqual(relerr(p_scaled, length * p), TOL)
-                        reference = dense_sample(kind, T, (first, pp), order)
-                        self.assertEqual(type(y_scaled), tuple if kind == 'probe' else np.ndarray)
-                        for a_TX, b_TX, y_TX in zip(per_mode(kind, y_scaled), per_mode(kind, reference), per_mode(kind, y)):
-                            self.assertLessEqual(relerr(a_TX, b_TX), TOL)
-                            self.assertEqual(a_TX.shape, y_TX.shape)
-                            for t in range(order + 1):      # (a probe's slot above order d - 1 is exactly zero)
-                                self.assertLessEqual(np.linalg.norm(a_TX[t] - length ** t * y_TX[t]),
-                                                     TOL * length ** t * np.linalg.norm(y_TX))
+        for kind in ('probe', 'apply'):
+            for order, sample, length, lengths in self.cases(rng):
+                y = dense_sample(kind, T, sample, order)
+                sample_scaled, y_scaled = prep.rescale_direction(kind, order, sample, y, length)
+                with self.subTest(kind=kind, order=order, length=str(length)):
+                    self.assertEqual((type(sample_scaled), len(sample_scaled)), (tuple, D))
+                    for w_scaled, w in zip(sample_scaled, sample):
+                        self.assertEqual(w_scaled.shape, w.shape)
+                        for k in np.ndindex(*w.shape[:len(order)]):           # the input jet's own sizes
+                            self.assertLessEqual(np.linalg.norm(w_scaled[k] - slot_factor(lengths, k) * w[k]),
+                                                 TOL * slot_factor(lengths, k) * np.linalg.norm(w[k]))
+                    reference = dense_sample(kind, T, sample_scaled, order)
+                    self.assertEqual(type(y_scaled), tuple if kind == 'probe' else np.ndarray)
+                    for a_FX, b_FX, y_FX in zip(per_mode(kind, y_scaled), per_mode(kind, reference), per_mode(kind, y)):
+                        self.assertLessEqual(relerr(a_FX, b_FX), TOL)
+                        self.assertEqual(a_FX.shape, y_FX.shape)
+                        for k in np.ndindex(*F_of(order)):    # (a probe's slot of total degree above d - 1 is zero)
+                            self.assertLessEqual(np.linalg.norm(a_FX[k] - slot_factor(lengths, k) * y_FX[k]),
+                                                 TOL * slot_factor(lengths, k) * np.linalg.norm(y_FX))
 
-    def test_the_block_norms_scale_by_the_length_to_the_order(self):
+    def test_the_block_norms_scale_by_the_length_to_the_multi_index(self):
         rng = np.random.default_rng(5)
-        sample, y = random_sample(rng, 'probe', 3), random_data(rng, 'probe', 3)
-        _, y_scaled = prep.rescale_direction('probe', 3, sample, y, 7.0)
-        before, after = prep.data_block_norms('probe', 3, y), prep.data_block_norms('probe', 3, y_scaled)
-        self.assertLessEqual(relerr(after, before * 7.0 ** np.arange(4)), TOL)
+        for order, lengths in (((3,), 7.0), ((1, 2), (7.0, 0.5))):
+            sample, y = random_sample(rng, 'probe', order), random_data(rng, 'probe', order)
+            _, y_scaled = prep.rescale_direction('probe', order, sample, y, lengths)
+            before, after = prep.data_block_norms('probe', order, y), prep.data_block_norms('probe', order, y_scaled)
+            factor = np.ones(F_of(order))
+            for k in np.ndindex(*F_of(order)):
+                factor[k] = slot_factor(np.broadcast_to(lengths, (len(order),)), k)
+            with self.subTest(order=order):
+                self.assertLessEqual(relerr(after, before * factor), TOL)
 
-    def test_the_length_may_be_a_zero_dimensional_array(self):
+    def test_the_length_may_be_a_zero_dimensional_array_or_a_sequence(self):
         rng = np.random.default_rng(14)
-        sample, y = random_sample(rng, 'apply', 2), random_data(rng, 'apply', 2)
-        (_, pp_a), y_a = prep.rescale_direction('apply', 2, sample, y, 3.0)
-        (_, pp_b), y_b = prep.rescale_direction('apply', 2, sample, y, np.asarray(3.0))
-        self.assertTrue(np.array_equal(y_a, y_b) and all(np.array_equal(a, b) for a, b in zip(pp_a, pp_b)))
-        (_, pp_c), y_c = prep.rescale_direction('apply', 2, sample, y.astype(np.float32), np.asarray(3.0))
-        self.assertEqual((y_c.dtype, pp_c[0].dtype), (np.float32, np.float64))      # each in its own array's dtype
+        sample, y = random_sample(rng, 'apply', (2,)), random_data(rng, 'apply', (2,))
+        sample_a, y_a = prep.rescale_direction('apply', (2,), sample, y, 3.0)
+        for length in (np.asarray(3.0), [3.0], (3.0,), np.array([3.0])):
+            sample_b, y_b = prep.rescale_direction('apply', (2,), sample, y, length)
+            with self.subTest(length=repr(length)):
+                self.assertTrue(np.array_equal(y_a, y_b) and all(np.array_equal(a, b) for a, b in zip(sample_a, sample_b)))
+        sample_c, y_c = prep.rescale_direction('apply', (2,), sample, y.astype(np.float32), np.asarray(3.0))
+        self.assertEqual((y_c.dtype, sample_c[0].dtype), (np.float32, np.float64))      # each in its own array's dtype
+        for bad in ((2.0, 3.0), np.ones((1, 1)), [[2.0]]):
+            with self.subTest(bad=repr(bad)):
+                with self.assertRaisesRegex(ValueError, 'length is one number, or one per jet variable'):
+                    prep.rescale_direction('apply', (2,), sample, y, bad)
+        with self.assertRaisesRegex(ValueError, 'length is one number, or one per jet variable'):
+            prep.rescale_direction('apply', (1, 2), random_sample(rng, 'apply', (1, 2)),
+                                   random_data(rng, 'apply', (1, 2)), (2.0, 3.0, 4.0))
 
-    def test_order_zero_and_an_unknown_kind_raise(self):
+    def test_no_jets_entries_an_unknown_kind_and_an_integer_order_raise(self):
         rng = np.random.default_rng(6)
-        with self.assertRaisesRegex(ValueError, 'needs order >= 1'):
-            prep.rescale_direction('apply', 0, random_sample(rng, 'apply', 0), np.zeros(7), 2.0)
+        with self.assertRaisesRegex(ValueError, 'at least one jet variable'):
+            prep.rescale_direction('apply', (), random_sample(rng, 'apply', ()), np.zeros(7), 2.0)
+        with self.assertRaisesRegex(ValueError, 'the entries kind has no jets'):
+            prep.rescale_direction('entries', (), random_sample(rng, 'entries', ()), np.zeros(7), 2.0)
         with self.assertRaisesRegex(ValueError, 'unknown sampling kind'):
-            prep.rescale_direction('apply_derivatives', 1, random_sample(rng, 'apply', 1), np.zeros((2, 7)), 2.0)
+            prep.rescale_direction('apply_derivatives', (1,), random_sample(rng, 'apply', (1,)), np.zeros((2, 7)), 2.0)
+        with self.assertRaisesRegex(TypeError, 'order is the jet shape'):
+            prep.rescale_direction('apply', 1, random_sample(rng, 'apply', (1,)), np.zeros((2, 7)), 2.0)
 
     def test_the_dtype_is_kept(self):
         rng = np.random.default_rng(7)
-        ww, pp = random_sample(rng, 'apply', 2)
-        sample32 = ([w.astype(np.float32) for w in ww], [p.astype(np.float32) for p in pp])
-        (_, pp_scaled), y_scaled = prep.rescale_direction('apply', 2, sample32, np.ones((3, 7), dtype=np.float32), 3.0)
-        self.assertEqual({p.dtype for p in pp_scaled} | {y_scaled.dtype}, {np.dtype(np.float32)})
+        sample32 = [w.astype(np.float32) for w in random_sample(rng, 'apply', (2,))]
+        sample_scaled, y_scaled = prep.rescale_direction('apply', (2,), sample32, np.ones((3, 7), dtype=np.float32), 3.0)
+        self.assertEqual({w.dtype for w in sample_scaled} | {y_scaled.dtype}, {np.dtype(np.float32)})
 
 
 class TestRescaleCoordinates(unittest.TestCase):
@@ -238,21 +277,17 @@ class TestRescaleCoordinates(unittest.TestCase):
         rng = self.rng
         dense, dense_rescaled = self.x.to_dense(), self.x_rescaled.to_dense()
         for kind in ('probe', 'apply'):
-            for order in (0, 2):
+            for order in ((), (2,), (1, 2)):
                 sample = random_sample(rng, kind, order)
                 y = dense_sample(kind, dense, sample, order)
                 sample_rescaled, y_rescaled = prep.rescale_coordinates(kind, order, sample, y, self.scales)
                 with self.subTest(kind=kind, order=order):
-                    vectors = [sample_rescaled] if order == 0 else list(sample_rescaled)
-                    originals = [sample] if order == 0 else list(sample)
-                    self.assertEqual(len(vectors), len(originals))
-                    for scaled, original in zip(vectors, originals):                    # ww, and pp above order 0
-                        self.assertEqual((type(scaled), len(scaled)), (tuple, D))
-                        for i in range(D):
-                            self.assertLessEqual(relerr(scaled[i], original[i] * self.scales[i]), TOL)
+                    self.assertEqual((type(sample_rescaled), len(sample_rescaled)), (tuple, D))
+                    for i in range(D):                                          # every slot of every input jet
+                        self.assertLessEqual(relerr(sample_rescaled[i], sample[i] * self.scales[i]), TOL)
                     reference = dense_sample(kind, dense_rescaled, sample_rescaled, order)
-                    for a_TX, b_TX in zip(per_mode(kind, y_rescaled), per_mode(kind, reference)):
-                        self.assertLessEqual(relerr(a_TX, b_TX), 1e-11)
+                    for a_FX, b_FX in zip(per_mode(kind, y_rescaled), per_mode(kind, reference)):
+                        self.assertLessEqual(relerr(a_FX, b_FX), 1e-11)
                     if kind == 'apply':
                         self.assertIs(y_rescaled, y)                                    # a number per sample: unchanged
                     else:
@@ -261,22 +296,24 @@ class TestRescaleCoordinates(unittest.TestCase):
 
     def test_rescale_then_unscale_gives_back_the_probe_values_in_the_original_coordinates(self):
         """The round trip of a fit: rescale the sample and the data; the tensor that fits them, unscaled, has the
-        original data at the original sample."""
+        original data at the original sample, an input jet included."""
         rng = self.rng
-        for order in (0, 2):
+        for order in ((), (2,), (1, 2)):
             sample = random_sample(rng, 'probe', order)
             y = dense_sample('probe', self.x.to_dense(), sample, order)
             sample_rescaled, y_rescaled = prep.rescale_coordinates('probe', order, sample, y, self.scales)
-            # x_rescaled fits the rescaled problem exactly (checked through the frontend's own probe at order 0) ...
-            if order == 0:
+            # x_rescaled fits the rescaled problem exactly (checked through the frontend's own probe with no jets) ...
+            if order == ():
                 for a, b in zip(self.x_rescaled.probe(list(sample_rescaled)), y_rescaled):
                     self.assertLessEqual(relerr(a, b), 1e-11)
+            for a, b in zip(dense_sample('probe', self.x_rescaled.to_dense(), sample_rescaled, order), y_rescaled):
+                self.assertLessEqual(relerr(a, b), 1e-11)
             # ... and unscaled it has the original probe values at the original sample
             unscaled = prep.t3_unscale_coordinates(self.x_rescaled.data, self.scales)
             back = dense_sample('probe', t3.TuckerTensorTrain(*unscaled).to_dense(), sample, order)
             with self.subTest(order=order):
-                for a_TX, y_TX in zip(back, y):
-                    self.assertLessEqual(relerr(a_TX, y_TX), 1e-11)
+                for a_FX, y_FX in zip(back, y):
+                    self.assertLessEqual(relerr(a_FX, y_FX), 1e-11)
                 self.assertLessEqual(relerr(t3.TuckerTensorTrain(*unscaled).to_dense(), self.x.to_dense()), 1e-11)
 
     def test_unscale_is_the_dense_tensor_scaled_along_every_mode(self):
@@ -344,14 +381,14 @@ class TestRescaleCoordinates(unittest.TestCase):
         """Checkers, not guarantees. What wrong ``scales`` silently do, as the docstrings say: a short list drops
         a mode, a scale of length 1 is broadcast."""
         rng, s = self.rng, self.scales
-        ww = random_sample(rng, 'apply', 0)
-        short, _ = prep.rescale_coordinates('apply', 0, ww, np.zeros(7), s[:2])
+        ww = random_sample(rng, 'apply', ())
+        short, _ = prep.rescale_coordinates('apply', (), ww, np.zeros(7), s[:2])
         self.assertEqual(len(short), 2)                                             # a mode is gone, no error
         self.assertEqual(len(prep.t3_unscale_coordinates(self.x.data, s[:2])[0]), 2)
         broadcast = [s[0], np.array([3.0]), s[2]]
         with self.assertRaises(ValueError):
             prep.check_coordinate_scales(broadcast, SHAPE)
-        scaled, _ = prep.rescale_coordinates('apply', 0, ww, np.zeros(7), broadcast)
+        scaled, _ = prep.rescale_coordinates('apply', (), ww, np.zeros(7), broadcast)
         self.assertLessEqual(relerr(scaled[1], 3.0 * ww[1]), TOL)
         self.assertLessEqual(relerr(prep.t3_unscale_coordinates(self.x.data, broadcast)[0][1],
                                     3.0 * self.x.tucker_cores[1]), TOL)
@@ -363,7 +400,7 @@ class TestRescaleCoordinates(unittest.TestCase):
         what the backend function returns."""
         rng = self.rng
         for kind in ('probe', 'apply'):
-            for order in (0, 2):
+            for order in ((), (2,), (1, 2)):
                 sample, y = random_sample(rng, kind, order), random_data(rng, kind, order)
                 with self.subTest(kind=kind, order=order):
                     for bad, pattern in self.wrong_scales():
@@ -386,22 +423,22 @@ class TestRescaleCoordinates(unittest.TestCase):
                     if kind == 'apply':
                         self.assertIs(out[1], y)
         # the difference: on the backend function a short list and a length-1 scale give no error
-        ww = random_sample(rng, 'apply', 0)
+        ww = random_sample(rng, 'apply', ())
         s = self.scales
         for bad in (s[:2], [s[0], np.ones(1), s[2]]):
-            prep.rescale_coordinates('apply', 0, ww, np.zeros(7), bad)
+            prep.rescale_coordinates('apply', (), ww, np.zeros(7), bad)
         # the mode sizes are read off the sample: scales right for another tensor are refused
         with self.assertRaisesRegex(ValueError, r'scales\[0\] has shape \(5,\); expected \(N_0,\) = \(4,\)'):
-            fitting.rescale_coordinates('apply', 0, ww, np.zeros(7), [np.ones(5), np.ones(5), np.ones(6)])
+            fitting.rescale_coordinates('apply', (), ww, np.zeros(7), [np.ones(5), np.ones(5), np.ones(6)])
         # a kind the backend function refuses: its error, not the checker's
         with self.assertRaisesRegex(ValueError, "is for 'probe' and 'apply'"):
-            fitting.rescale_coordinates('entries', 0, np.zeros((D, 7), dtype=int), np.zeros(7), s[:2])
+            fitting.rescale_coordinates('entries', (), np.zeros((D, 7), dtype=int), np.zeros(7), s[:2])
         with self.assertRaisesRegex(ValueError, 'unknown sampling kind'):
-            fitting.rescale_coordinates('probes', 0, ww, np.zeros(7), s)
+            fitting.rescale_coordinates('probes', (), ww, np.zeros(7), s)
         # it goes through the backend checker
         with unittest.mock.patch.object(prep, 'check_coordinate_scales', side_effect=ValueError('the checker')):
             with self.assertRaisesRegex(ValueError, 'the checker'):
-                fitting.rescale_coordinates('apply', 0, ww, np.zeros(7), s)
+                fitting.rescale_coordinates('apply', (), ww, np.zeros(7), s)
 
     def test_the_methods_raise_on_scales_of_the_wrong_form(self):
         """Structural, so always an error, on both classes, through the backend checker: one vector of ``Ni``
@@ -417,17 +454,23 @@ class TestRescaleCoordinates(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, 'the checker'):     # the method calls the backend checker
                         x.unscale_coordinates(s)
 
-    def test_entries_and_an_unknown_kind_raise(self):
+    def test_entries_an_unknown_kind_and_an_integer_order_raise(self):
         index = np.zeros((D, 7), dtype=int)
         with self.assertRaisesRegex(ValueError, "is for 'probe' and 'apply'"):
-            prep.rescale_coordinates('entries', 0, index, np.zeros(7), self.scales)
+            prep.rescale_coordinates('entries', (), index, np.zeros(7), self.scales)
         with self.assertRaisesRegex(ValueError, 'unknown sampling kind'):
-            prep.rescale_coordinates('probes', 0, index, np.zeros(7), self.scales)
+            prep.rescale_coordinates('probes', (), index, np.zeros(7), self.scales)
+        with self.assertRaisesRegex(ValueError, 'the entries kind has no jets'):
+            prep.rescale_coordinates('entries', (1,), index, np.zeros(7), self.scales)
+        with self.assertRaisesRegex(TypeError, 'order is the jet shape'):
+            prep.rescale_coordinates('probe', 0, random_sample(self.rng, 'probe', ()), np.zeros(7), self.scales)
+        with self.assertRaisesRegex(TypeError, 'order is the jet shape'):
+            fitting.rescale_coordinates('probe', 0, random_sample(self.rng, 'probe', ()), np.zeros(7), self.scales)
 
     def test_the_result_has_the_lower_precision_of_the_arrays_that_meet(self):
         ww = [np.ones((7, N), dtype=np.float32) for N in SHAPE]
         y = [np.ones((7, N)) for N in SHAPE]
-        ww_rescaled, y_rescaled = prep.rescale_coordinates('probe', 0, ww, y, self.scales)       # scales: float64
+        ww_rescaled, y_rescaled = prep.rescale_coordinates('probe', (), ww, y, self.scales)       # scales: float64
         self.assertEqual({w.dtype for w in ww_rescaled}, {np.dtype(np.float32)})
         self.assertEqual({a.dtype for a in y_rescaled}, {np.dtype(np.float64)})
         scales32 = [s.astype(np.float32) for s in self.scales]

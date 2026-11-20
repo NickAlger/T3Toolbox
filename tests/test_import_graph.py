@@ -159,7 +159,9 @@ class TestImportGraph(unittest.TestCase):
         self.assertIn('t3toolbox.safety', GRAPH['t3toolbox.manifold'])                     # a module that uses it today
 
     def test_the_jet_and_preparation_modules_import_downward(self):
-        self.assertEqual(GRAPH['t3toolbox.backend.jets'], {'t3toolbox.backend.common'})
+        # jets reads the jet shape with contractions' one reader (P4d); contractions does not import jets
+        self.assertEqual(GRAPH['t3toolbox.backend.jets'], {'t3toolbox.backend.common', 't3toolbox.backend.contractions'})
+        self.assertNotIn('t3toolbox.backend.jets', GRAPH['t3toolbox.backend.contractions'])
         self.assertEqual(GRAPH['t3toolbox.backend.data_preparation'],
                          {'t3toolbox.backend.common', 't3toolbox.backend.jets', 't3toolbox.backend.ut3_operations'})
 

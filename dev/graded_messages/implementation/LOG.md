@@ -491,3 +491,47 @@ CI run 44636416721 on `5a102126`: everything PASS but one test on the floor,
 `subTest` label. Fixed by Claude (`repr(...)`). The rule was only in `dev/HANDOFF.md`; it is now in `BRIEF.md` ("Rules
 for both agents"), and the agents are told. A local guard (a `conftest.py` check that every `subTest` label is a
 builtin, so the trap fails on any environment) is a candidate for the maintainer at the pause.
+
+### P4d: `jets` and `data_preparation` in the jet shape; their frontend reach (2026-11-19, 17:17 to 19:17)
+
+- **Rounds:** one. `P4d_REVIEW_r1.md`: SIGN OFF, no blocking or should-fix finding, two optional minor ones, which
+  Claude made (below). Handover `P4d_HANDOVER.md`.
+- **What changed:** every function of `backend/jets.py` and `backend/data_preparation.py` reads the jet shape with
+  `contractions._read_order` (through one helper, `jets._kind_and_order`; the entries kind takes `()` only and
+  returns its data unchanged, O-47). The dual jet weighs by `weight**2`, then flips every jet axis; the derivative
+  conversions use `k_1! ... k_m!` (with no weight `prepare_derivative_data` returns the factorials, `F` for apply,
+  `(d,) + F` for probe); `check_sample`, `check_data`, `check_weight` take `(kind, order, ...)` and input jets, and
+  state the trap of a wrong jet shape; `check_perturbation_*` deleted from `jets`. `data_block_norms` in the jet
+  shape; `rescale_direction` multiplies slot `k` by `length_1**k_1 ... length_m**k_m` (one length or one per
+  variable); `rescale_coordinates` scales every slot of every input jet. Shape comments and docstrings in `F`, `J`,
+  `J_in_i` (N39; the reviewer's note of P4b). Frontend: `affine_jet` and `index_to_one_hot` reachable from
+  `t3toolbox` and `t3toolbox.fitting` as the backend objects (O-37); the frontend `dual_jet_to_jet` reads the jet shape
+  before its safe-mode check; the frontend `rescale_coordinates` reads the mode sizes off the input jets.
+- **Departures, accepted by Claude as minor** (the reviewer agreed): `tests/test_import_graph.py` changed (`jets`
+  imports `contractions`; a pin that `contractions` does not import `jets`); a doctest of
+  `TuckerTensorTrain.unscale_coordinates` the plan's search missed now passes `()`; `rescale_direction` raises for
+  the entries kind (the plan's signature is probe and apply); a length array of size 1 is accepted at `m = 1`.
+- **The review:** the pairing identity at `m = 1, 2, 3` with a nonuniform weight (the reviewer's oracle and P4a's
+  `jet_contract`); weigh-then-flip slot by slot; the round trip exact, on a packed probe array too; the factorials
+  against hand-written mixed partials of `exp(a s)(1 + c s_1 s_2)` at `(2, 3)`; `rescale_direction` gives the data of
+  the same tensor at four jet shapes, both kinds, one length and per-variable lengths; `rescale_coordinates` the data
+  of `T / (s_0 x s_1 x s_2)`. The checkers: every wrong form raises. The frontend: the razor holds; safe mode raises
+  on a zero weight, `safety.unsafe()` and jit divide, equal to the backend. The search for leftover `pp` and integer
+  orders: only the old model layer of `fitting.py`, which P16 replaces. The implementer's mutants 20 of 20, the
+  reviewer's 3 of 3; no numpy `subTest` label (both checked with `subTest` patched).
+- **Claude's two edits after the sign-off** (the reviewer's optional minors): `check_sample`'s docstring states the
+  other direction of the trap too (a jet shape with one variable too many reads an axis of `W` as a jet axis); the
+  frontend `rescale_coordinates` reads the kind and the jet shape before it checks the scales, as `dual_jet_to_jet`
+  does (checked: an integer `order` with wrong scales now raises the jet-shape `TypeError`). `test_jets`,
+  `test_data_preparation` 73 passed; the doctests of `fitting` and `jets` 18 passed.
+- **Gate:** the implementer's full gate at `-n 3`: the first suite run had 6 failures in `tests/test_dispatch.py`
+  (four tests outside the helper the plan counted still called the old forms), fixed; the suite step again: 1,662
+  passed, 5 skipped, 1 xfailed. The other five steps passed on the first run (module doctests 312, quickstart, 48
+  pages, 14 examples, sphinx 0 warnings); not rerun, as the fix touched only `tests/test_dispatch.py`.
+- **After P4d nothing in P1 to P4's code takes `pp` or reads an integer order** (the implementer's search, repeated by
+  the reviewer).
+
+### The jet sub-arc P4a to P4d is complete: the planned pause (2026-11-19, 19:17)
+
+The first of the maintainer's three planned pauses. Pushed and CI checked before the report to him. Summary in
+`dev/HANDOFF.md`, START HERE.
