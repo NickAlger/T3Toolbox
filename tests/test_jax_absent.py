@@ -288,6 +288,9 @@ with warnings.catch_warnings():
                                               variations=variations, core_directions=core_directions)
     assert isinstance(z_a, np.ndarray) and z_a.shape == (3, 2), z_a
     assert all(isinstance(a, np.ndarray) for a in Kp_a[0] + Kp_a[1] + JtJp_a[0] + JtJp_a[1])
+    index = np.array([[0, 3], [1, 1], [2, 2]])
+    z_e, g_e = sv.sampling_variables('entries', frame, index, ('z', 'g'), y=rng.standard_normal(2))
+    assert isinstance(z_e, np.ndarray) and z_e.shape == (2,) and all(isinstance(a, np.ndarray) for a in g_e[0])
     held = sv.HeldVariables(mu=mu)
     assert held.keys() == ('mu',) and 'mu' in held and len(held) == 1
     assert held.with_values(z=z).keys() == ('mu', 'z') and held.keys() == ('mu',)

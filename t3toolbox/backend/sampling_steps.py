@@ -699,6 +699,85 @@ def H_readout_step(
                                      lens=lens, order=order, over_orders=form)
 
 
+#####################################################
+########    The entries kind's leaf (5.1, 6)    #####
+#####################################################
+# The entries kind's input at a site is the unit vector e_index: the leaf is a gather (a slice of the Tucker core,
+# not a product), and a block of the Tucker core's shape is a scatter-add of the trunk's tilde into the columns
+# index. No jets: the entries kind has order () only.
+
+def xi_gather_step(
+        B_Cio:     NDArray,                 # a Tucker core, or a direction in its shape: [K]+C+(n, N)
+        index_W:   NDArray,                 # the grid points' coordinate at this site, int, shape=W
+        *,
+        lens:      contractions.GroupLengths,
+        order:     typ.Tuple[int, ...],     # () (the entries kind has no jets)
+        form:      str,
+) -> NDArray:                               # the leaf: W+[K]+C+(n,)
+    '''The entries kind's leaf, ``xi[i] = D[i][..., index[i]]`` moved to ``W + C + (n,)``: the columns of the core at
+    the grid points (a gather, no contraction). Of ``V`` it is ``xi_U_dot``, of ``D_dot`` the raw ``xi_dot``.'''
+    xnp, _, _ = get_backend(False, tree_contains_jax((B_Cio, index_W)))
+    n_W = np.ndim(index_W)
+    taken = B_Cio[..., index_W]                                     # [K]+C+(n,)+W
+    return xnp.moveaxis(taken, tuple(range(taken.ndim - n_W, taken.ndim)), tuple(range(n_W)))
+
+
+def w_one_hot_step(
+        index:  NDArray,                    # the grid points, int, shape=(d,)+W
+        D:      typ.Sequence[NDArray],      # the Tucker cores, read for the mode sizes N_i and the dtype
+        *,
+        lens:   contractions.GroupLengths,
+        order:  typ.Tuple[int, ...],        # ()
+        form:   str,
+        kind:   str,
+) -> typ.Tuple[NDArray, ...]:               # w = e_index. len=d, elm_shape=W+(Ni,), in D's dtype
+    '''The entries kind's input vectors, by their definition: the one-hot vectors ``e_index[i]``
+    (:py:func:`~t3toolbox.backend.jets.index_to_one_hot`, so its index semantics: a numpy index outside ``[-N_i, N_i)``
+    raises an ``IndexError``, as the gather does), in the dtype of ``D`` (the result dtype, ``D`` being cast). Made only
+    when ``'w'`` is wanted: nothing else reads it.'''
+    xnp, _, _ = get_backend(False, tree_contains_jax((index, D)))
+    vectors = jets.index_to_one_hot(index, [np.shape(B)[-1] for B in D])
+    return tuple(xnp.asarray(e, dtype=D[0].dtype) for e in vectors)
+
+
+def V_scatter_step(
+        eta_WKCi:  NDArray,                 # a trunk's tilde at site i: W+[K]+C+(n,)
+        index_W:   NDArray,                 # the grid points' coordinate at this site, int, shape=W
+        B_Cio:     NDArray,                 # D[i]: read for its mode size N only
+        *,
+        lens:      contractions.GroupLengths,
+        order:     typ.Tuple[int, ...],     # ()
+        form:      str,
+        keep_W:    bool = False,            # True: one block per sample, W+[K]+C+(n, N) (P10's sum_over_samples=False)
+) -> NDArray:                               # the block: [K]+C+(n, N), summed over the samples
+    '''The entries kind's ``V_tilde`` (and ``V_tilde_dot``): ``V_term(eta_tilde[i], e_index[i])``, the trunk's tilde
+    added into the column ``index[i]`` of each sample. A scatter-add, ``W x n`` in memory (not the one-hot product's
+    ``W x N``); duplicate indices add up (``.at[].add`` on jax, ``np.add.at`` on numpy; a plain ``+=`` would keep
+    one of them). With ``keep_W`` each sample has its own block, so nothing collides and it is a scatter.'''
+    use_jax = tree_contains_jax((eta_WKCi, index_W, B_Cio))
+    xnp, _, _ = get_backend(False, use_jax)
+    n_W, N = np.ndim(index_W), np.shape(B_Cio)[-1]
+    rest = tuple(np.shape(eta_WKCi)[n_W:])                         # [K]+C+(n,)
+    if keep_W:
+        W = tuple(np.shape(eta_WKCi)[:n_W])
+        grids = tuple(xnp.arange(size).reshape((size,) + (1,) * (n_W - 1 - k)) for k, size in enumerate(W))
+        where = grids + (xnp.asarray(index_W),)
+        out_WN = xnp.zeros(W + (N,) + rest, dtype=eta_WKCi.dtype)
+        out_WN = out_WN.at[where].set(eta_WKCi) if use_jax else _numpy_set(out_WN, where, eta_WKCi)
+        return xnp.moveaxis(out_WN, n_W, -1)                       # W+[K]+C+(n, N)
+    out_N = xnp.zeros((N,) + rest, dtype=eta_WKCi.dtype)
+    if use_jax:
+        out_N = out_N.at[index_W].add(eta_WKCi)
+    else:
+        np.add.at(out_N, np.asarray(index_W), eta_WKCi)
+    return xnp.moveaxis(out_N, 0, -1)                              # [K]+C+(n, N)
+
+
+def _numpy_set(out, where, values):
+    out[where] = values
+    return out
+
+
 ###############################################
 ########    The whole steps    ################
 ###############################################

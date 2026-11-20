@@ -954,6 +954,37 @@ class TestDispatch(unittest.TestCase):
                     self.assertEqual(a.shape, b.shape)
                     self.assertLess(norm(np.asarray(a) - b), 1e-12 * norm(b))
 
+    def test_jit_sampling_variables_the_entries_kind(self):
+        """The entries kind under ``jax.jit`` with ``K = (2,)``, the index a traced jax integer array with a repeated
+        index in a mode (the gather and the scatter-add): ``z``, ``g``, ``Kp`` and ``JtJp`` on a manifold frame, ``g``
+        and ``Kp`` on a corewise point; jax in, jax out, the numbers numpy's."""
+        import t3toolbox.backend.sampling_variables as sv
+        rng = np.random.default_rng(4)
+        N, nD, nU, rL, rR = (4, 5, 3), (2, 3, 2), (3, 2, 3), (1, 2, 3, 2), (1, 3, 2, 3)
+        frame = (tuple(rng.standard_normal((nD[i], N[i])) for i in range(3)),
+                 tuple(rng.standard_normal((rL[i], nU[i], rR[i + 1])) for i in range(3)),
+                 tuple(rng.standard_normal((rL[i], nD[i], rL[i + 1])) for i in range(3)),
+                 tuple(rng.standard_normal((rR[i], nD[i], rR[i + 1])) for i in range(3)))
+        variations = (tuple(rng.standard_normal((2, nU[i], N[i])) for i in range(3)),
+                      tuple(rng.standard_normal((2, rL[i], nD[i], rR[i + 1])) for i in range(3)))
+        core_directions = (tuple(rng.standard_normal((2, nD[i], N[i])) for i in range(3)),
+                           tuple(rng.standard_normal((2, rL[i], nD[i], rL[i + 1])) for i in range(3)))
+        index = np.array([[0, 3, 3, 1], [4, 4, 0, 2], [2, 0, 2, 2]])
+        y = rng.standard_normal(4)
+        weight = np.asarray(0.7)
+        to_jax = lambda tree: jax.tree_util.tree_map(jnp.asarray, tree)
+        for label, at, want, var in (('manifold', frame, ('z', 'g', 'Kp', 'JtJp'), variations),
+                                     ('corewise', (frame[0], frame[2]), ('g', 'Kp'), None)):
+            fn = lambda at, index, y, weight, var, core_directions: sv.sampling_variables(
+                'entries', at, index, want, y=y, weight=weight, variations=var, core_directions=core_directions)
+            on_numpy = fn(at, index, y, weight, var, core_directions)
+            jargs = to_jax((at, index, y, weight, var, core_directions))
+            with self.subTest(call=label):
+                self.assert_jit_jax(fn, *jargs)
+                for a, b in zip(jax.tree_util.tree_leaves(jax.jit(fn)(*jargs)), jax.tree_util.tree_leaves(on_numpy)):
+                    self.assertEqual(a.shape, b.shape)
+                    self.assertLess(norm(np.asarray(a) - b), 1e-12 * norm(b))
+
     # ---------------------------------------------------- jit bucket: the dense sampling functions
     def test_jit_dense_sampling_functions(self):
         """jit dense_probe and dense_apply with no jets, with the input jets of a line at (3,) and with input jets of

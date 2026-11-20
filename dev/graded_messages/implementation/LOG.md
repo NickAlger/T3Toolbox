@@ -790,3 +790,30 @@ Nothing is running; the two agents are idle and are resumed for P5 when the main
   reviewer judged meaningful).
 - **Gate:** the implementer's full gate at `-n 3`, every step PASS (suite 1,755 passed; 1,367 s). **The lowest
   MemAvailable fell to 1.56 GB**: from P9b the gate runs at `-n 2` (`BRIEF.md` updated).
+
+### P9b: Engine E, the entries kind (2026-11-20, to 09:20)
+
+- **Rounds:** two (`P9b_REVIEW_r1.md` NOT YET, one should-fix from Claude's ruling; `P9b_REVIEW_r2.md` SIGN OFF;
+  `P9b_RESPONSE_r1.md`; handover `P9b_HANDOVER.md`).
+- **What was built:** `xi_gather_step` (the leaf as `D[..., index]`, serving the dot leaves too); `V_scatter_step`
+  (scatter-add, `W x n` memory, duplicates added by `np.add.at` / `.at[].add`, a static `keep_W` for P10 tested at step
+  level); entries derived from apply by one declared table `_ENTRIES_STEPS` (every read of `w` becomes `index`, the
+  scatter also reads `D` for the mode size, the short nodes gone at `order = ()`); entries' twin path through the full
+  `eta_tilde`; six graphs; the index out of the dtype count and never cast; the zero names off entries' graphs; the
+  `NotImplementedError` gone (all three kinds built). Tests: `tests/test_sampling_entries.py` (11+), the names
+  comparison over three kinds, the bridge incl. the migration of entry 120 (`t3_entries_derivatives` against apply
+  at `affine_jet(index_to_one_hot(index, shape), pp)`).
+- **Ruled by Claude, built in round 1 the reviewer's way:** `'w'` means its definition: on entries the one-hot vectors
+  `e_index` (a row reading `index` and `D`, through `index_to_one_hot`, cast once, built only when wanted), on probe and
+  apply the sample as given. `w` is not a `HeldVariables` slot (the input; a stated exception, recorded in the plan).
+- **The reviewer's checks:** dense constructions sharing no code with the engine or the reference, on tails with
+  unequal end bonds, a Tucker rank 3 over a mode of size 2, `W = 6` with duplicate indices in every mode, `K = 2`:
+  `z = T[index]`; `g` against the transposed dense Jacobian at the entries (pins that duplicates add); `Jp`; `Kp`; the
+  corewise call; `keep_W` at step level. Worst 6.8e-15 on both envs. The implementer's 12 non-equivalent mutants
+  killed (one first survived, the mode size as `max(N, n)`, killed by a test with a Tucker rank above the mode size).
+- **Gate:** the implementer's full gate at **`-n 2`**, every step PASS (suite 1,770 passed; 1,804 s; lowest
+  MemAvailable 4.14 GB). After round 1: the affected tests and doctests single-process on both envs.
+- **P10 designed meanwhile** (`P10_DESIGN_NOTE.md`, `P10_DESIGN_REVIEW.md`; settled in the plan's P10): the reviewer
+  found that comparing a multi-axis `W` against the unstacked engine at the same `W` would let a `W` bug cancel;
+  multi-axis `W` is compared against the engine with `W` flattened. The `_check_stacks` extension of P7's check to `W`
+  and `C` is pending the maintainer (O-18).

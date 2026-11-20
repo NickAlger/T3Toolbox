@@ -1651,7 +1651,11 @@ entries call with an order raises (section 2.3 step 1). The engine's graph of th
   **pending the maintainer at the pause after P11**, with the proposal of a public reader of a call's names (a private
   one meanwhile, used by the test that compares the engine's names with the reference module's per kind).
   **P9 is split in two commits** (in place; the order and scope unchanged): **P9a** apply on both call types with
-  `_deps`, the starts, the paths, `close_step` and its bridge; **P9b** entries.
+  `_deps`, the starts, the paths, `close_step` and its bridge; **P9b** entries. **`'w'` means its definition** (ruled
+  in P9b): on entries it is the one-hot vectors `e_index`, a row reading `index` and `D` (through `index_to_one_hot`,
+  cast once, built only when wanted), on probe and apply the sample as given; `w` is not a slot of `HeldVariables` (it
+  is the input, a stated exception to "every public computed variable"). For P11: on a uniform supercore `'w'` of
+  entries is one-hot of the padded length, its real columns as ragged and its padding zero.
 
 **P10. Engine F.** Any number of axes in `W`; the direction stack `K` on `variations` and `core_directions`; the
 base-point stack `C` on every core; `sum_over_samples=False` with the result's stack in the order `W + K + C`; `f`
@@ -1673,6 +1677,23 @@ design review (2026-11-20); no new group, row 3.7 decides it.
   one neither read nor wanted does not change the dtype, but a jax one still makes the call jax (`use_jax` reads every
   array input).
 - Gate: the full gate.
+
+- **Design, settled before the build (2026-11-20; `implementation/P10_DESIGN_NOTE.md`, `P10_DESIGN_REVIEW.md`):**
+  most of P10 already holds in the engine (each stack read once, the steps seeing only `GroupLengths`; nothing
+  reshapes) and is proved by tests. **Six** unsummed readout literals, not "about nine" (three `V`, three `H`; `K` is a
+  group, so its placements are the same strings); a readout step takes a static `keep_W` and picks between its two
+  literals in place, the flag passed only to block rows (read off the shape table) and joining the memo key; entries'
+  scatter wired the same way; `f`, `r_block_sumsq`, `Jp_norm_sq` ignore `sum_over_samples`. **A removable structural
+  check** `_check_stacks` (exact tuple equality, never broadcast-compatibility): `C` as the prefix of every store core
+  and of `Vc`, `W` on every `w[i]`; `y`, the weight and the jet sizes stay with the `jets` checkers; it extends P7's
+  `K` check and is **pending the maintainer under O-18** (the pause after P11). **The tests depart from the letter
+  above, to keep the suite affordable** (the full product against the reference would cost 2 to 20 minutes): the
+  stack matrix against the UNSTACKED engine element by element (itself reference-verified), on a covering design
+  (every config x `W` pair once per kind, orders cyclic), with multi-axis `W` compared against the engine with `W`
+  FLATTENED to one axis (a same-`W` comparison would let a multi-axis-`W` bug cancel), one maximal case per kind
+  (`K = (2, 3)`, `C = (2, 3)`, `W = (2, 2)`, order `(1, 1)`), a held stacked variable in one case, the unsummed tier on a
+  multi-axis `K` too, and a thin reference anchor; the dtype matrix (four backends) with a read held variable of
+  another precision and entries' one-hot `'w'`, x64 by the context manager.
 
 **P11. Engine G: the uniform layout, and sharding over `W`.** The uniform frame and point structures; mask once on
 entry, each input with the frame's own masks (section 2.3 step 2); re-mask on exit (O-3); the map-type operations

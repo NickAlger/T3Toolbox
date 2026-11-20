@@ -8,8 +8,8 @@
    manifold frame and on a corewise point ``(B, G)`` (through the table of ``SAMPLE_VARIABLES.md`` section 9), with
    ``K = ()`` and, element by element, ``K = (2,)``, over the jet matrix and on three problems, one with end bonds that
    differ between the ``L`` and the ``R`` cores.
-2. **The names** (`TestNames`): per kind and call type, the names the engine accepts against the reference module's,
-   the difference stated exactly; asking for a zero name raises, saying it is zero.
+2. **The names** (`TestNames`): per kind (all three) and call type, the names the engine accepts against the reference
+   module's, the difference stated exactly; asking for a zero name raises, saying it is zero.
 3. **The seed on bond d** (`TestTheSeedOnBondD`): ``nu_tilde`` and ``nu_L_tilde`` are the jet products of the seed
    and ``nu``, ``nu_L``; their start is the seed times the closing ones; ``z`` and ``Jp`` close ``mu[d]`` and
    ``mu_R_dot[d]`` with the ones of their own end bonds (``rL_d != rR_d`` there).
@@ -119,18 +119,18 @@ class TestNames(unittest.TestCase):
 
     def test_the_names_against_the_reference(self):
         """The reference module defines every name for every kind (the zero ones as zeros). A manifold call accepts
-        exactly those, but for apply the four zero names; a corewise call their basis-free spellings (section 9), but
+        exactly those, but for apply and entries the four zero names; a corewise call their basis-free spellings (section 9), but
         the names in the frame's other bases."""
         reference = set(sdef.__all__)
         renamed = {b: a for a, b in tsc.SECTION_9.items()}
-        for kind in ('probe', 'apply'):
-            zero = set(ZERO) if kind == 'apply' else set()
+        for kind in ('probe', 'apply', 'entries'):
+            zero = set(ZERO) if kind != 'probe' else set()
             with self.subTest(kind=kind, call='manifold'):
                 self.assertEqual(set(sv._names(kind, '_manifold')), reference - zero)
             with self.subTest(kind=kind, call='corewise'):
                 expected = {renamed.get(name, name) for name in reference - zero - set(FRAME_ONLY)}
                 self.assertEqual(set(sv._names(kind, '_corewise')), expected)
-        self.assertEqual(sv._ZERO_NAMES, {'apply': frozenset(ZERO)})
+        self.assertEqual(sv._ZERO_NAMES, {'apply': frozenset(ZERO), 'entries': frozenset(ZERO)})
 
     def test_a_zero_name_raises_saying_it_is_zero(self):
         problem = defs.small()

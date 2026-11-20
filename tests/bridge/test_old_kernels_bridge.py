@@ -27,6 +27,12 @@ conversions, slot by slot (derived in P4c and checked by script for P6):
   ``t3_apply_derivatives`` and ``ApplyDerivativesKind.point_forward`` are ``t!`` times ``z``, ``.forward`` is ``t!``
   times ``Jp``, and ``.transpose`` and ``.corewise_hessian`` given the forward ``weight_t^2 r_t / t!`` (and
   ``weight_t^2 Jp_t / t!``) are ``g``, ``Kp`` (and ``JtJp``), the conversions of the probe kind;
+- **the entries kind** (P9b): ``entries.t3_entries`` is ``z``, ``tv_entries`` is ``Jp``, ``tv_entries_transpose``
+  given ``weight^2 r`` (and ``weight^2 Jp``) is ``g`` (and ``JtJp``), ``t3_entries_corewise_hessian`` given
+  ``weight^2 r`` is ``Kp``, and ``EntriesKind`` likewise; the entries kind has no jets, so the old
+  ``t3_entries_derivatives`` and ``EntriesDerivativesKind`` are compared with the APPLY kind at
+  ``affine_jet(index_to_one_hot(index, shape), pp)`` (the migration of entry 120): ``t!`` times ``z`` and ``Jp``,
+  and ``g`` given the forward ``weight_t^2 r_t / t!``;
 - ``Jp`` (P7): ``ProbeDerivativesKind.forward`` (and ``tv_probe_derivatives``) is ``t!`` times the new ``Jp``;
   ``.transpose`` given ``weight_t^2 Jp_t / t!``, forward, is the new ``JtJp`` (the conversion of ``g``); with no
   stack of directions and with ``K = (2,)``.
@@ -56,6 +62,7 @@ import unittest
 import numpy as np
 
 import t3toolbox.backend.apply as old_apply
+import t3toolbox.backend.entries as old_entries
 import t3toolbox.backend.fitting as old_fitting
 import t3toolbox.backend.jets as jets
 import t3toolbox.backend.probing as probing
@@ -282,6 +289,74 @@ class TestTheApplyKind(unittest.TestCase):
                                                                 problem.frame, sweep))
                         self.assert_blocks(Kp, kind.corewise_hessian(core_directions, forward, old_sample,
                                                                      problem.frame, sweep, (problem.D, problem.L)))
+
+
+
+class TestTheEntriesKind(unittest.TestCase):
+    """The entries kind against the old entries kernels and kind with no jets; the old entries derivatives against the
+    apply kind at the one-hot input jets, ``n`` = 1 to 3; ``K = ()`` and ``K = (2,)``, a weight, three problems."""
+
+    assert_blocks = TestTheApplyKind.assert_blocks
+    blocks = staticmethod(TestTheApplyKind.blocks)
+
+    def test_against_the_old_entries_kernels(self):
+        for name, make in tsv.PROBLEMS:
+            problem = make()
+            rng = np.random.default_rng(50)
+            y = rng.standard_normal(problem.W)
+            weight = np.asarray(0.5 + rng.random())
+            weight_2 = weight ** 2
+            base = (problem.D, problem.L)
+            for label, variations, core_directions in (
+                    ('K=()', (problem.V, problem.H), (problem.D_dot, problem.L_dot)),
+                    ('K=(2,)', tsv.stacked_directions(problem), tsv.stacked_core_directions(problem))):
+                z, r, g, Jp, JtJp, Kp = sv.sampling_variables(
+                    'entries', problem.frame, problem.index, ('z', 'r', 'g', 'Jp', 'JtJp', 'Kp'), y=y, weight=weight,
+                    variations=variations, core_directions=core_directions)
+                kind = old_fitting.EntriesKind()
+                sweep = kind.precompute(problem.frame, problem.index)
+                with self.subTest(problem=name, stack=label):
+                    self.assertLessEqual(relative_error(z, old_entries.t3_entries(base, problem.index)), TOL)
+                    self.assertLessEqual(relative_error(z, kind.point_forward(base, problem.index)), TOL)
+                    self.assertLessEqual(relative_error(Jp, old_entries.tv_entries(problem.index, variations,
+                                                                                   problem.frame)), TOL)
+                    self.assertLessEqual(relative_error(Jp, kind.forward(variations, problem.index, problem.frame,
+                                                                         sweep)), TOL)
+                    self.assert_blocks(g, old_entries.tv_entries_transpose(weight_2 * r, problem.index, problem.frame,
+                                                                           sum_over_probes=True))
+                    self.assert_blocks(g, kind.transpose(weight_2 * r, problem.index, problem.frame, sweep))
+                    self.assert_blocks(JtJp, old_entries.tv_entries_transpose(weight_2 * Jp, problem.index,
+                                                                              problem.frame, sum_over_probes=True))
+                    self.assert_blocks(Kp, old_entries.t3_entries_corewise_hessian(weight_2 * r, problem.index, base,
+                                                                                   core_directions))
+                    self.assert_blocks(Kp, kind.corewise_hessian(core_directions, weight_2 * r, problem.index,
+                                                                 problem.frame, sweep, base))
+
+    def test_the_old_entries_derivatives_against_apply_at_the_one_hot_jet(self):
+        per_slot = TestOldKernels.per_slot
+        for name, make in tsv.PROBLEMS:
+            problem = make()
+            sample = list(jets.affine_jet(jets.index_to_one_hot(problem.index, problem.shape), problem.pp))
+            base = (problem.D, problem.L)
+            for n in (1, 2, 3):
+                rng = np.random.default_rng(60 + n)
+                y = rng.standard_normal((n + 1,) + problem.W)
+                weight = 0.5 + rng.random(n + 1)
+                factorials = np.array([math.factorial(t) for t in range(n + 1)], dtype=float)
+                z, r, g, Jp = sv.sampling_variables('apply', problem.frame, sample, ('z', 'r', 'g', 'Jp'), order=(n,),
+                                                    y=y, weight=weight, variations=(problem.V, problem.H))
+                kind = old_fitting.EntriesDerivativesKind(order=n, weight=None)
+                old_sample = (problem.index, problem.pp)
+                sweep = kind.precompute(problem.frame, old_sample)
+                with self.subTest(problem=name, order=n):
+                    old_z = sampling_derivatives.t3_entries_derivatives(problem.index, problem.pp, base, n)
+                    self.assertLessEqual(relative_error(per_slot(z, factorials), old_z), TOL)
+                    self.assertLessEqual(relative_error(per_slot(z, factorials), kind.point_forward(base, old_sample)),
+                                         TOL)
+                    self.assertLessEqual(relative_error(per_slot(Jp, factorials), kind.forward(
+                        (problem.V, problem.H), old_sample, problem.frame, sweep)), TOL)
+                    self.assert_blocks(g, kind.transpose(per_slot(r, weight ** 2 / factorials), old_sample,
+                                                         problem.frame, sweep))
 
 
 if __name__ == '__main__':

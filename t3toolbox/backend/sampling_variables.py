@@ -183,6 +183,25 @@ whose whole steps take the kind) and the apply kind's own rows, its twins includ
 
 The corewise point of the apply kind is derived from these rows in the same way as the probe kind's.
 
+**The entries kind** is the apply kind at the unit vectors ``e_index``, with no jets (``order = ()`` only). Its sample
+is the integer ``index``, ``(d,) + W``, which is neither counted for the dtype nor cast. Its rows are derived from the
+apply kind's by one declared table of steps:
+
+| A step of apply | Its step for entries | What it does |
+| --- | --- | --- |
+| `xi_step` | `xi_gather_step` | the leaf: the columns of ``D`` at ``index`` (a slice, not a product) |
+| `xi_dot_step` | `xi_gather_step` | ``xi_U_dot`` and ``xi_dot``: the columns of ``V`` and ``D_dot`` |
+| `V_top_step` | `V_scatter_step` | a block of a Tucker core's shape: a scatter-add into the columns ``index`` |
+
+Every read of ``w`` is a read of ``index``, and the scatter also reads ``D`` for the mode size. ``w`` itself is the
+entries kind's own row: the one-hot vectors ``e_index`` (``w_one_hot_step``, reading ``index`` and ``D``), made only
+when wanted, in the result dtype; for probe and apply ``'w'`` is the sample as given. At ``order = ()`` the
+short form of a trunk's tilde is the whole trunk, so the short nodes go and the blocks read the full ``eta_tilde``,
+``eta_D_tilde`` and ``eta_D_tilde_dot`` (its path of the adjoint seeded by ``Jp`` has the full ``eta_tilde``). The
+scatter-add is ``W x n`` in memory, not the one-hot product's ``W x N``, and adds duplicate indices up. Its zero
+names, its corewise point and its shapes (``z``, ``r``, ``w_tilde`` and ``Jp`` are ``W + [K] + C``,
+``r_block_sumsq`` a number) are the apply kind's.
+
 **The short form of** ``eta_tilde``. ``V_tilde`` reads only the slots of ``eta_tilde`` that meet the input at the
 corner: the top ``a = min(J_in_i, F)`` slots on every jet axis (two for a line). The private node ``_eta_tilde_top``
 holds those slots, ``eta_tilde[i][c - a + 1 : c + 1]`` (``c`` the corner), each made by readouts at a lowered corner,
@@ -252,8 +271,8 @@ precision among the arrays the closure reads and the held variables read or want
 ``want``. Every scan and map body is module-level, memoized on ``(step_name, lens, order, form)``: a body closes
 over the record, the box and the form, nothing per site.
 
-The probe and the apply kinds on the ragged layout, on a manifold frame and on a corewise point, are built here; the
-entries kind and the uniform layout are not taken yet.
+The three kinds on the ragged layout, on a manifold frame and on a corewise point, are built here; the uniform layout
+is not taken yet.
 """
 import dataclasses as dc
 import functools
@@ -455,13 +474,50 @@ _APPLY_CURVATURE_ROWS = (
 _APPLY_ROWS = (_PLAIN_ROWS + _APPLY_Z_ROWS + _RESIDUAL_ROWS + _APPLY_ADJOINT_ROWS + _DOT_ROWS + _APPLY_JP_ROWS
                + _DOT_SUM_ROWS + _APPLY_CURVATURE_ROWS)
 
+# The entries kind: the apply kind at the unit vectors e_index, with no jets. Its rows are derived from apply's by one
+# declared table of steps: the leaves are gathers (a slice of the core at index, not a product) and the blocks of a
+# Tucker core's shape scatter-adds (into the columns index; the step reads D for the mode size); the input w is read
+# as index; and at order () the short form of a trunk's tilde is the whole trunk, so the short nodes go and their
+# readers read the full node.
+_ENTRIES_STEPS = {'xi_step': 'xi_gather_step', 'xi_dot_step': 'xi_gather_step', 'V_top_step': 'V_scatter_step'}
+_ENTRIES_SIZED = frozenset({'V_scatter_step'})          # a step that also reads D, for the mode size N
+_ENTRIES_FULL = {'_eta_tilde_top': 'eta_tilde', '_eta_D_tilde_top': 'eta_D_tilde',
+                 '_eta_D_tilde_dot_top': 'eta_D_tilde_dot'}
+
+
+def _entries(rows: typ.Tuple[Rule, ...]) -> typ.Tuple[Rule, ...]:
+    '''The entries kind's rows, derived from the apply kind's by the table of steps. Its invariants raise a
+    ``RuntimeError``: every row that reads the input has its step in the table, and no derived row reads ``w`` or a
+    short node.'''
+    out = []
+    for rule in rows:
+        if rule.name in _ENTRIES_FULL:                  # a short node: at order () it is the full trunk
+            continue
+        reads = tuple(_ENTRIES_FULL.get(read, read) for read in rule.reads)
+        step = rule.step
+        if 'w' in reads:
+            if step[1] not in _ENTRIES_STEPS:
+                raise RuntimeError('the entries kind has no step for %r, which reads the input' % (step[1],))
+            step = (step[0], _ENTRIES_STEPS[step[1]])
+            reads = tuple('index' if read == 'w' else read for read in reads)
+            reads += ('D',) if step[1] in _ENTRIES_SIZED else ()
+        out.append(rule._replace(step=step, reads=reads))
+    for rule in out:
+        if set(_deps(rule)) & ({'w'} | set(_ENTRIES_FULL)):
+            raise RuntimeError('the entries row %r reads the input jets or a short node' % (rule.name,))
+    return tuple(out)
+
+
 # The names a kind does not have, though the definitions give them, and why (the message of an unknown name says so):
-# for apply the seed is on bond d, which a left side or a leaf never reaches, so their tilde variables are zero.
+# for apply and entries the seed is on bond d, which a left side or a leaf never reaches, so their tilde variables
+# are zero.
 _ZERO_NAMES = {
     'apply': frozenset({'xi_tilde', 'mu_tilde', 'xi_tilde_dot', 'mu_tilde_dot'}),
+    'entries': frozenset({'xi_tilde', 'mu_tilde', 'xi_tilde_dot', 'mu_tilde_dot'}),
 }
 _ZERO_REASON = {
     'apply': 'the seed sits on the ones that close bond d, which a left side or a leaf never reaches',
+    'entries': 'the seed sits on the ones that close bond d, which a left side or a leaf never reaches',
 }
 
 
@@ -491,6 +547,8 @@ _JP_PATHS = {
     ('probe', '_corewise'): ('w_tilde', 'xi_tilde', 'mu_tilde', 'nu_tilde', '_eta_tilde_top', 'V_tilde', 'H_tilde'),
     ('apply', '_manifold'): ('w_tilde', 'nu_tilde', '_eta_tilde_top', 'V_tilde', 'H_tilde'),
     ('apply', '_corewise'): ('w_tilde', 'nu_tilde', '_eta_tilde_top', 'V_tilde', 'H_tilde'),
+    ('entries', '_manifold'): ('w_tilde', 'nu_tilde', 'eta_tilde', 'V_tilde', 'H_tilde'),
+    ('entries', '_corewise'): ('w_tilde', 'nu_tilde', 'eta_tilde', 'V_tilde', 'H_tilde'),
 }
 
 
@@ -582,7 +640,13 @@ def _manifold(
     return rows + _jp_twins(rows, path, 'variations', '_manifold')
 
 
-_ROWS = {'probe': _PROBE_ROWS, 'apply': _APPLY_ROWS}
+# The entries kind's own row: its input vectors w, the one-hot vectors of index by their definition (for the probe and
+# apply kinds the sample is the input vectors, so 'w' is the sample as given and has no row).
+_ENTRIES_OWN_ROWS = (
+    Rule('w',              ('whole', 'w_one_hot_step'),     ('index', 'D'),                _NONE,             False),
+)
+_ENTRIES_ROWS = _ENTRIES_OWN_ROWS + _entries(_APPLY_ROWS)
+_ROWS = {'probe': _PROBE_ROWS, 'apply': _APPLY_ROWS, 'entries': _ENTRIES_ROWS}
 _GRAPHS = {}
 for _kind, _rows in _ROWS.items():
     _GRAPHS[_kind, '_manifold'] = _manifold(_rows, _kind)
@@ -597,8 +661,11 @@ _PROBE_COREWISE_GRAPH = _GRAPHS['probe', '_corewise']
 _KINDS = ('probe', 'apply', 'entries')
 
 _STORES = frozenset({'D', 'U', 'L', 'R'})                   # the stores of a manifold frame
-_ARGUMENTS = frozenset({'w', 'y', 'weight', 'Vc', 'V', 'H', 'D_dot', 'L_dot'})   # what a row may read but the stores:
-                                                    # 'w' the sample; V, H the variations; D_dot, L_dot the core directions
+_ARGUMENTS = frozenset({'w', 'index', 'y', 'weight', 'Vc', 'V', 'H', 'D_dot', 'L_dot'})   # what a row may read but
+                                                    # the stores: 'w' the sample (input jets) or 'index' (the entries
+                                                    # kind's grid points); V, H the variations; D_dot, L_dot the core
+                                                    # directions
+_INTEGER_ARGUMENTS = frozenset({'index'})           # integer: it indexes; never counted for the dtype, never cast
 
 # The direction operands and the masks P11 masks each with on the uniform layout: the frame's variation masks for the
 # frame's form and the Tucker centers, the store's own masks for a core direction (the frame's D and L, never the
@@ -679,6 +746,8 @@ _SHAPES = {
 _KIND_SHAPES = {
     'apply': {'z': ('one', 'F', None), 'r': ('one', 'F', None), 'w_tilde': ('one', 'F', None),
               'Jp': ('one', 'F', None)},
+    'entries': {'z': ('one', 'F', None), 'r': ('one', 'F', None), 'w_tilde': ('one', 'F', None),
+                'Jp': ('one', 'F', None)},
 }
 
 
@@ -728,13 +797,14 @@ del _kind, _name
 
 
 def _names(
-        kind:  str,                         # 'probe' | 'apply'
+        kind:  str,                         # 'probe' | 'apply' | 'entries'
         call:  str,                         # '_manifold' | '_corewise'
 ) -> typ.Tuple[str, ...]:
     '''The names a call of ``kind`` on that call type accepts in ``want``: the public variables of its graph, in the
-    order of their first row, and ``'w'``, the sample. (Private for now: a public reader is a new name, for the
-    maintainer.)'''
-    return _public(_GRAPHS[kind, call]) + ('w',)
+    order of their first row, and ``'w'`` (a row of the entries kind's graph; for the other kinds the sample as
+    given). (Private for now: a public reader is a new name, for the maintainer.)'''
+    public = _public(_GRAPHS[kind, call])
+    return public if 'w' in public else public + ('w',)
 
 
 #####################################################
@@ -923,7 +993,7 @@ def _read_K(
 def _read_setting(
         kind:             str,
         stores:           typ.Dict[str, typ.Sequence[NDArray]],   # D, U, L, R; or on a corewise point D, L only
-        sample:           typ.Sequence[NDArray],
+        sample:           typ.Any,                  # the input jets; or the entries kind's index, (d,)+W
         order:            typ.Tuple[int, ...],
         variations:       typ.Optional[typ.Tuple] = None,
         graph:            typ.Tuple[Rule, ...] = (),
@@ -933,10 +1003,13 @@ def _read_setting(
     U, R = stores.get('U', L), stores.get('R', L)       # a corewise point: one basis on each edge
     m = len(order)
     C = tuple(np.shape(D[0])[:-2])
+    if kind == 'entries':                               # the grid points, (d,) + W: no jets
+        J_in, W = ((),) * len(D), tuple(np.shape(sample)[1:])
+    else:
+        J_in, W = tuple(tuple(np.shape(w)[:m]) for w in sample), tuple(np.shape(sample[0])[m:-1])
     return _Setting(
         d=len(D), order=order, box=tuple(n + 1 for n in order),
-        J_in=tuple(tuple(np.shape(w)[:m]) for w in sample),
-        W=tuple(np.shape(sample[0])[m:-1]), C=C,
+        J_in=J_in, W=W, C=C,
         sizes=dict(rL=_bonds(L), rR=_bonds(R), nD=tuple(np.shape(B)[-2] for B in D),
                    nU=tuple(np.shape(G)[-2] for G in U), N=tuple(np.shape(B)[-1] for B in D)),
         K=_read_K(variations, core_directions, C), with_K=frozenset(rule.name for rule in graph if rule.carries_K),
@@ -1117,13 +1190,14 @@ def _cast(value: typ.Any, dtype: typ.Any, xnp) -> typ.Any:
 def sampling_variables(
         kind:              str,                              # 'probe' | 'apply' | 'entries'
         frame:             typ.Tuple,                        # (D, U, L, R), four tuples of d arrays; or (B, G)
-        sample:            typ.Any,                          # ww: the input jets, len=d, elm_shape=J_in_i+W+(Ni,)
+        sample:            typ.Any,                          # ww: the input jets, len=d, elm_shape=J_in_i+W+(Ni,);
+                                                             #   entries: index, int, shape=(d,)+W
         want:              typ.Sequence[str],                # variable names; the return is aligned with them
 
         order:             typ.Tuple[int, ...] = (),         # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         y:                 typ.Optional[typ.Any] = None,     # the data, of the type of z: probe len=d,
-                                                             #   elm_shape=F+W+(Ni,); apply F+W. For r
-        weight:            typ.Optional[NDArray] = None,     # probe (d,)+F; apply F; None = ones
+                                                             #   elm_shape=F+W+(Ni,); apply F+W; entries W
+        weight:            typ.Optional[NDArray] = None,     # probe (d,)+F; apply F; entries (); None = ones
         variations:        typ.Optional[typ.Tuple] = None,   # (V, H), elm_shapes K+C+(nUi,Ni), K+C+(rLi,nDi,rR(i+1))
         core_directions:   typ.Optional[typ.Tuple] = None,   # (D_dot, L_dot), the shapes of D, L with K+C
         Vc:                typ.Optional[typ.Sequence[NDArray]] = None,   # len=d, elm_shape=C+(nUi,Ni)
@@ -1147,29 +1221,34 @@ def sampling_variables(
     counted inputs (jax over numpy), which are cast to it once. The counted inputs are the arrays the computation
     reads, and every held variable that a row reads or that is wanted (a wanted held variable is an output: it is
     returned cast). A held variable neither read nor wanted is not counted and not returned; an argument nothing
-    wanted reads does not count either. The sample ``w``, when wanted, is returned as given.
+    wanted reads does not count either. For probe and apply the sample ``w``, when wanted, is returned as given; for
+    entries ``w`` is a row of the graph (the one-hot vectors, reading ``index`` and ``D``), in the result dtype.
 
     Parameters
     ----------
     kind: str
-        ``'probe'`` or ``'apply'`` (``'entries'`` is not built yet). The kind decides the output's type: probe, one
-        array per mode with the mode edge open; apply, one number per sample and slot.
+        ``'probe'``, ``'apply'`` or ``'entries'``. The kind decides the output's type: probe, one array per mode with
+        the mode edge open; apply, one number per sample and slot; entries, one number per grid point (no jets).
     frame: tuple
         ``(D, U, L, R)``, each ``len=d``: ``D[i]`` of shape ``C+(nDi, Ni)``, ``U[i]`` ``C+(rLi, nUi, rR(i+1))``,
         ``L[i]`` ``C+(rLi, nDi, rL(i+1))``, ``R[i]`` ``C+(rRi, nDi, rR(i+1))``. The base point is ``(D, L)``.
         Or a corewise point ``(B, G)``, the cores of a Tucker tensor train: one basis on each edge, and the names
         without a basis (the module docstring).
-    sample: sequence of NDArray
-        The input jets ``ww``: ``len=d``, ``elm_shape=J_in_i+W+(Ni,)``, with ``len(order)`` leading jet axes.
+    sample: sequence of NDArray, or NDArray
+        The input jets ``ww``: ``len=d``, ``elm_shape=J_in_i+W+(Ni,)``, with ``len(order)`` leading jet axes. For
+        ``'entries'``, the grid points ``index``: integer, ``shape=(d,)+W`` (never cast, and not counted for the
+        dtype).
     want: sequence of str
-        The names wanted (the module's graph, and ``'w'``, the sample as given).
+        The names wanted (the module's graph, and ``'w'``, the input vectors: for probe and apply the sample as
+        given; for entries the one-hot vectors ``e_index`` of its definition, made only when wanted, in the result
+        dtype).
     order: tuple of int
         The jet shape. ``()`` for no jets.
     y: sequence of NDArray or NDArray, optional
-        The data, of the type of ``z``: probe ``len=d``, ``elm_shape=F+W+(Ni,)``; apply ``shape=F+W``. Needed for
-        ``r`` and what reads it.
+        The data, of the type of ``z``: probe ``len=d``, ``elm_shape=F+W+(Ni,)``; apply ``shape=F+W``; entries
+        ``shape=W``. Needed for ``r`` and what reads it.
     weight: NDArray, optional
-        probe ``(d,)+F``; apply ``F``. ``None`` is ones.
+        probe ``(d,)+F``; apply ``F``; entries ``()``. ``None`` is ones.
     variations: tuple, optional
         The direction in the frame's form, ``(V, H)``: ``V[i]`` of shape ``K+C+(nUi, Ni)``, ``H[i]``
         ``K+C+(rLi, nDi, rR(i+1))``, the stack of directions ``K`` the same for all. Needed for the dot variables,
@@ -1183,7 +1262,7 @@ def sampling_variables(
     Vc: sequence of NDArray, optional
         The Tucker centers, ``len=d``, ``elm_shape=C+(nUi, Ni)``: the probe kind's ``z`` is then read off the frame
         through them, with no sweep through the base point's ``L`` cores. Only the probe kind's ``z`` reads it; given
-        to apply it is read by nothing and accepted, as any argument nothing wanted reads.
+        to apply or entries it is read by nothing and accepted, as any argument nothing wanted reads.
     held: HeldVariables, optional
         Variables computed earlier at this frame and sample.
 
@@ -1191,8 +1270,8 @@ def sampling_variables(
     -------
     tuple
         One entry per name of ``want``: a tuple over the index for an indexed variable (``d + 1`` bonds, or ``d``
-        sites or modes), an array for ``f`` and ``r_block_sumsq``, and for the apply kind's ``z``, ``r``,
-        ``w_tilde`` and ``Jp``.
+        sites or modes), an array for ``f`` and ``r_block_sumsq``, and for the apply and entries kinds' ``z``,
+        ``r``, ``w_tilde`` and ``Jp``.
 
     Raises
     ------
@@ -1255,6 +1334,17 @@ def sampling_variables(
         ...
     ValueError: sampling_variables: unknown variable 'mu_tilde' for the apply kind on a manifold call ('mu_tilde' is
     zero for the apply kind: ...); the names are ...
+
+    The entries kind, at integer grid points ``index`` (``(d,) + W``, no jets): ``apply`` at the unit vectors.
+
+    >>> from t3toolbox.backend.jets import index_to_one_hot
+    >>> index = np.array([[0, 3, 3], [1, 1, 4], [5, 0, 2]])                # (d,) + W, W = (3,)
+    >>> z, xi = sv.sampling_variables('entries', frame, index, ('z', 'xi'))
+    >>> print(z.shape, [x.shape for x in xi])                             # the leaves are columns of D
+    (3,) [(3, 2), (3, 3), (3, 2)]
+    >>> (z1,) = sv.sampling_variables('apply', frame, index_to_one_hot(index, N), ('z',))
+    >>> print(bool(np.allclose(z, z1)))
+    True
     """
     # 1. what the engine needs in order to run
     if kind not in _KINDS:
@@ -1262,8 +1352,6 @@ def sampling_variables(
     order = contractions._read_order(order, 'sampling_variables')
     if kind == 'entries' and order != ():
         raise ValueError('sampling_variables: the entries kind has no jets: its order is (), got %r' % (order,))
-    if (kind, '_manifold') not in _GRAPHS:
-        raise NotImplementedError('sampling_variables: the %s kind is not built yet' % kind)
     if isinstance(want, str):
         raise TypeError('sampling_variables: want is a sequence of names, not one name; got %r' % (want,))
     want = tuple(want)
@@ -1304,7 +1392,8 @@ def sampling_variables(
     given = {'y': y, 'Vc': Vc, 'variations': variations, 'core_directions': core_directions}
     present = frozenset(name for name, value in given.items() if value is not None) | {call}
     held_names = frozenset(held.keys()) if held is not None else frozenset()
-    rules = _closure(kind, tuple(name for name in want if name != 'w'), held_names, present)
+    w_given = 'w' not in _made(graph)                     # probe, apply: 'w' is the sample as given, no row
+    rules = _closure(kind, tuple(name for name in want if not (name == 'w' and w_given)), held_names, present)
 
     # 4. numpy or jax, and the result dtype over the arrays the closure reads; those are cast once
     held_values = {name: held[name] for name in held_names}
@@ -1313,15 +1402,17 @@ def sampling_variables(
     xnp, xmap, xscan = get_backend(False, use_jax)
     V, H = variations if variations is not None else (None, None)
     D_dot, L_dot = core_directions if core_directions is not None else (None, None)
-    inputs = dict(stores, w=sample, y=y, weight=weight, Vc=Vc, V=V, H=H, D_dot=D_dot, L_dot=L_dot)
+    inputs = dict(stores, y=y, weight=weight, Vc=Vc, V=V, H=H, D_dot=D_dot, L_dot=L_dot,
+                  **{('index' if kind == 'entries' else 'w'): sample})
     read = {name for rule in rules for name in _deps(rule)}
     held_counted = held_names & (read | set(want))         # a held variable read by a row, or wanted (an output)
-    counted = [inputs[name] for name in sorted(read & set(inputs))] + [held_values[name] for name in
-                                                                       sorted(held_counted)]
+    floating = (read & set(inputs)) - _INTEGER_ARGUMENTS   # the integer index is neither counted nor cast
+    counted = [inputs[name] for name in sorted(floating)] + [held_values[name] for name in sorted(held_counted)]
     dtype = _lowest_precision_dtype(xnp, *[leaf for value in counted for leaf in _leaves(value)])
     if dtype is None:
         dtype = np.dtype(xnp.result_type(float))
-    values = {name: _cast(inputs[name], dtype, xnp) for name in read & set(inputs)}
+    values = {name: _cast(inputs[name], dtype, xnp) for name in floating}
+    values.update({name: xnp.asarray(inputs[name]) for name in (read & set(inputs)) & _INTEGER_ARGUMENTS})
     values.update({name: _cast(held_values[name], dtype, xnp) for name in held_counted})
 
     # 5. to 7. run the rows
@@ -1334,4 +1425,4 @@ def sampling_variables(
                                  xnp, xmap, xscan)
 
     # 8. the return, aligned with want
-    return tuple(sample if name == 'w' else values[name] for name in want)
+    return tuple(sample if (name == 'w' and w_given) else values[name] for name in want)

@@ -7,7 +7,8 @@
 1. **The graph as data** (`TestGraph`): the docstring's table equals the graph row for row (the probe kind's, and the
    apply kind's own rows), and the shape table equals ``_SHAPES``; every graph is made of the shared blocks and its
    kind's rows, and depends only on what it makes, the stores and the arguments; one table of the paths of ``JtJp``,
-   the twins of a start node; the starts and the routes of the apply kind; every step name is a function of ``sampling_steps``; the three namespaces of ``reads`` are
+   the twins of a start node; the starts and the routes of the apply kind; the entries kind derived from apply's rows
+   by its table of steps; every step name is a function of ``sampling_steps``; the three namespaces of ``reads`` are
    disjoint and cover every read; the slots of ``HeldVariables`` are exactly the computed variables some other row
    reads; the table of bond offsets; the row type's ``carries_K``.
 2. **The closure** (`TestClosure`): the earlier applicable row of a name wins; a held variable does not change the
@@ -166,7 +167,7 @@ class TestGraph(unittest.TestCase):
         """P11's attach point: every core-shaped argument a row reads (the two forms of a direction and the Tucker
         centers) is in ``_DIRECTION_MASKS``, mapped to the frame's variation masks or to a store's own masks."""
         read = {name for graph in sv._GRAPHS.values() for rule in graph for name in sv._deps(rule)}
-        self.assertEqual(set(sv._DIRECTION_MASKS), read & sv._ARGUMENTS - {'w', 'y', 'weight'})
+        self.assertEqual(set(sv._DIRECTION_MASKS), read & sv._ARGUMENTS - {'w', 'index', 'y', 'weight'})
         self.assertEqual(sv._DIRECTION_MASKS, {'V': 'variations', 'H': 'variations', 'Vc': 'variations',
                                                'D_dot': 'D', 'L_dot': 'L'})
 
@@ -227,7 +228,9 @@ class TestGraph(unittest.TestCase):
                          + sv._DOT_ROWS + sv._PROBE_JP_ROWS + sv._DOT_SUM_ROWS + sv._PROBE_CURVATURE_ROWS)
         self.assertEqual(sv._APPLY_ROWS, sv._PLAIN_ROWS + sv._APPLY_Z_ROWS + sv._RESIDUAL_ROWS + sv._APPLY_ADJOINT_ROWS
                          + sv._DOT_ROWS + sv._APPLY_JP_ROWS + sv._DOT_SUM_ROWS + sv._APPLY_CURVATURE_ROWS)
-        self.assertEqual(set(sv._GRAPHS), {(kind, call) for kind in ('probe', 'apply')
+        self.assertEqual(sv._ENTRIES_ROWS, sv._ENTRIES_OWN_ROWS + sv._entries(sv._APPLY_ROWS))
+        self.assertEqual([rule.name for rule in sv._ENTRIES_OWN_ROWS], ['w'])
+        self.assertEqual(set(sv._GRAPHS), {(kind, call) for kind in ('probe', 'apply', 'entries')
                                            for call in ('_manifold', '_corewise')})
         for key, graph in sv._GRAPHS.items():
             made = set(sv._made(graph))
@@ -285,8 +288,36 @@ class TestGraph(unittest.TestCase):
         self.assertEqual([rule.reads for rule in rows['Jp']], [('mu_R_dot',), ('mu_dot',)])
 
     def test_a_zero_name_is_not_made(self):
-        for call in ('_manifold', '_corewise'):
-            self.assertFalse(sv._ZERO_NAMES['apply'] & set(sv._made(sv._GRAPHS['apply', call])))
+        for kind in ('apply', 'entries'):
+            for call in ('_manifold', '_corewise'):
+                self.assertFalse(sv._ZERO_NAMES[kind] & set(sv._made(sv._GRAPHS[kind, call])))
+
+    def test_the_entries_kind_is_derived_by_the_table_of_steps(self):
+        """The docstring's table is ``_ENTRIES_STEPS``; every entries row is the apply row with its step from the
+        table, ``w`` read as ``index`` (and ``D`` added for the scatter's mode size), a short node read as its full
+        node; the short nodes are gone; the derivation raises on a row that reads the input with no step in the
+        table."""
+        rows = doc_table('| A step of apply | Its step for entries | What it does |')
+        self.assertEqual({names_of(a)[0]: names_of(b)[0] for a, b, _ in rows}, sv._ENTRIES_STEPS)
+        apply_rows = [rule for rule in sv._APPLY_ROWS if rule.name not in sv._ENTRIES_FULL]
+        derived = sv._entries(sv._APPLY_ROWS)
+        self.assertEqual(len(apply_rows), len(derived))
+        for a, e in zip(apply_rows, derived):
+            with self.subTest(name=a.name, step=a.step[1]):
+                reads = tuple('index' if r == 'w' else sv._ENTRIES_FULL.get(r, r) for r in a.reads)
+                if 'w' in a.reads:
+                    self.assertEqual(e.step, (a.step[0], sv._ENTRIES_STEPS[a.step[1]]))
+                    reads += ('D',) if e.step[1] == 'V_scatter_step' else ()
+                else:
+                    self.assertEqual(e.step, a.step)
+                self.assertEqual((e.name, e.reads, e.needs, e.carries_K, e.start),
+                                 (a.name, reads, a.needs, a.carries_K, a.start))
+        for graph in (sv._GRAPHS['entries', '_manifold'], sv._GRAPHS['entries', '_corewise']):
+            self.assertFalse({dep for rule in graph for dep in sv._deps(rule)} & ({'w'} | set(sv._ENTRIES_FULL)))
+            self.assertFalse({rule.name for rule in graph} & set(sv._ENTRIES_FULL))
+        unknown = sv._APPLY_ROWS + (sv.Rule('_leaf2', ('site', 'z_step'), ('D', 'w'), sv._NONE, False),)
+        with self.assertRaisesRegex(RuntimeError, "the entries kind has no step for 'z_step'"):
+            sv._entries(unknown)
 
 
 class CountingSteps:
@@ -474,8 +505,6 @@ class TestChecks(unittest.TestCase):
             sv.sampling_variables('probe', self.frame, self.ww, ('_eta_tilde_top',))
         with self.assertRaisesRegex(TypeError, 'want is a sequence of names'):
             sv.sampling_variables('probe', self.frame, self.ww, 'z')
-        with self.assertRaisesRegex(NotImplementedError, 'not built yet'):
-            sv.sampling_variables('entries', self.frame, self.problem.index, ('z',))
 
     def test_the_jet_shape(self):
         with self.assertRaisesRegex(ValueError, 'the entries kind has no jets'):
