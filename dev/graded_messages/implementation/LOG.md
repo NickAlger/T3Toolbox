@@ -926,7 +926,7 @@ oracle not asking for unsummed blocks; corewise first-class (P12, P13, P17/P19 a
 P19 and P20 on `t3_corewise_frame`); re-gauging recommended and filed in the handoff's backlog; the backlog to be
 considered after Parts 1 and 2 (a possible Part 3); **the zero tilde names stay unknown names; no public reader of
 names for now; the structural stack checks are kept** (O-18 read to include agreement of a group across the operands
-that carry it). Still open: question 1 (the corewise call refusing `variations`). A writer (the implementer) and a
+that carry it). Question 1 (the corewise call refusing `variations`) answered the same evening: kept. A writer (the implementer) and a
 critic (the reviewer) are updating the plan for the corewise surface: the critic's round 1 NOT YET (the bridge to
 external optimizers must go through the geometry: shared factors, the regularizer, the minibatch scale), in revision.
 

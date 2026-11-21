@@ -745,6 +745,9 @@ are read, and every comparison of two routes is a tolerance test (row 0.8).
 - **The zero tilde names on apply and entries** (`xi_tilde`, `mu_tilde`, `xi_tilde_dot`, `mu_tilde_dot`): unknown names,
   their message saying they are zero there ("I'm ambivalent ... let's go with your recommendation").
 - **A public reader of a call's names:** not now; maybe later if a need arises.
+- **The corewise call takes the direction as `core_directions` only; `variations` raises** (P8; "agree, keep
+  core_directions only for corewise and refuse variations"). The least-squares oracle passes the direction as
+  `core_directions` on a corewise frame, told from the frame's structure.
 - **The structural stack checks** (P7's `K`, P10's `W` and `C`, P11's index rows): kept ("Yes, keep the checks.
   Strongly agree."). O-18's "the engine checks what it needs to run, and nothing more" is read to include: when the
   engine reads a group's size from one operand, it checks that every other operand carrying the group agrees, since

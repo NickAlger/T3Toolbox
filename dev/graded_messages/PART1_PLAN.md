@@ -1674,8 +1674,8 @@ with both directions the public `nu_L_dot` and `eta_D_dot` are the raw form (O-1
   twins, derived through the rename), with two import-time assertions (the rename never lands on a name a surviving
   row uses; every public corewise name is reachable) and a test of corewise `JtJp` against `g` with `Jp` held as `r`;
   "each sweep once" and O-13 follow by construction. **On a corewise call the direction argument is
-  `core_directions`, and `variations` raises** (ruled by Claude, option (a) of the review; to be shown the maintainer
-  at the pause after P11): at the frame `(B, G, G, G)` the frame form of a direction is its raw form, so accepting both
+  `core_directions`, and `variations` raises** (ruled by Claude, option (a) of the review; **confirmed by the
+  maintainer at the pause after P11**, 2026-11-20): at the frame `(B, G, G, G)` the frame form of a direction is its raw form, so accepting both
   would run two identical families of raw dots when both are given (the exact Hessian on a corewise geometry, whose
   lift is the identity); the least-squares oracle passes the direction as `core_directions` on a corewise frame,
   telling the call type from the frame's structure (section 2.2), not from the geometry (section 2.4, P14). **One
