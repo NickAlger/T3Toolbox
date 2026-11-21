@@ -745,6 +745,13 @@ are read, and every comparison of two routes is a tolerance test (row 0.8).
 - **The zero tilde names on apply and entries** (`xi_tilde`, `mu_tilde`, `xi_tilde_dot`, `mu_tilde_dot`): unknown names,
   their message saying they are zero there ("I'm ambivalent ... let's go with your recommendation").
 - **A public reader of a call's names:** not now; maybe later if a need arises.
+- **O-49: a frontend corewise direction is the pair of core tuples only, never a `TuckerTensorTrain`** ("Although the
+  arrays are the same, the meaning is different."). **O-50: the helper `point_value_and_gradient(geom, oracle, batch,
+  x_cores, regularizer=None)` is adopted**, with its frontend twin (P17). **O-48: `_corewise_tangent`** (the maintainer, after
+  a signature prototype: `_jacobian` could be read as the map with free core-direction indices; the function probes a
+  tangent vector of the corewise geometry). `t3_<kind>_corewise_tangent`, `ut3_...`, frontend `<kind>_corewise_tangent`;
+  it fits the documented `_tangent` stem (a directional derivative) and makes the trio tangent / transpose / hessian.
+  P19 gives the naming doc's `_tangent` entry the new functions as examples (its old ones go in P20).
 - **The corewise call takes the direction as `core_directions` only; `variations` raises** (P8; "agree, keep
   core_directions only for corewise and refuse variations"). The least-squares oracle passes the direction as
   `core_directions` on a corewise frame, told from the frame's structure.

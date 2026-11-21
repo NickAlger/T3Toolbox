@@ -839,7 +839,7 @@ in place of `sum_over_probes=False` (3.7 note; N3, N25).
 | `tv_probe_transpose(ztildes, ww, frame, sum_over_probes=False)`, `utv_probe_transpose(ztildes, ww, frame_data, ...)` | `tv_probe_transpose(frame, ww, residual, order=(), sum_over_samples=True)`, `utv_probe_transpose` likewise; apply (`c`) likewise; `tv_entries_transpose(frame, index, residual, sum_over_samples=True)` |
 | `t3_probe_corewise_transpose(ztildes, ww, core_pair, sum_over_probes=False)`, `ut3_probe_corewise_transpose(ztildes, ww, data, ...)` | `t3_probe_corewise_transpose(x, ww, residual, order=(), sum_over_samples=True)`, the twin likewise; apply likewise; entries without `order` |
 | `t3_probe_corewise_hessian(ztildes, ww, core_pair, core_directions)`, `ut3_probe_corewise_hessian(ztildes, ww, data, core_directions)` | `t3_probe_corewise_hessian(x, ww, residual, core_directions, order=(), sum_over_samples=True)` (the flag added 2026-11-20), the twin likewise; apply likewise; entries without `order` |
-| none today: `tv_probe(ww, (B_dot, G_dot), t3_corewise_frame(x))`, the substitution (2026-11-20) | new: `t3_probe_corewise_jacobian(x, ww, core_directions, order=())`, the uniform twin `ut3_probe_corewise_jacobian` likewise; apply likewise; entries without `order` (names proposed, section 11.5) |
+| none today: `tv_probe(ww, (B_dot, G_dot), t3_corewise_frame(x))`, the substitution (2026-11-20) | new: `t3_probe_corewise_tangent(x, ww, core_directions, order=())`, the uniform twin `ut3_probe_corewise_tangent` likewise; apply likewise; entries without `order` (names proposed, section 11.5) |
 
 The transposes take a residual of the type of `z` and no weight and turn it inside: by 6.6 the backend function
 behind a frontend method has the method's signature, and by 2.4 and 3.6 the frontend transposes take a residual and
@@ -850,13 +850,13 @@ applied to `core_directions`. The curvature term of a fit is the case `c = omega
 the backend: it names a capability a backend user would not guess from the engine. **It also gets a frontend method
 (2026-11-20, the maintainer, reopening "the corewise Hessian has no frontend method"; section 2.5), on his standing
 rule that each user can do everything in their own layer.** **The corewise forward derivative** (new, 2026-11-20)
-completes the trio at a point `x = (B, G)`: `t3_probe_corewise_jacobian(x, ww, core_directions, order=())` is `J x_dot`,
+completes the trio at a point `x = (B, G)`: `t3_probe_corewise_tangent(x, ww, core_directions, order=())` is `J x_dot`,
 the derivative of `z(x)` along `core_directions = (B_dot, G_dot)`, of the type of `z` with `K` (`F + W + K + C +
 (Ni,)` for probe); the corewise transpose is `J^T c` and the corewise Hessian `nabla^2 <c, z> x_dot`. It is one call
 of the engine on a corewise call wanting `'Jp'`, its raw route (P8), each sweep once. Today it is reachable only by
 substitution, `tv_probe(ww, (B_dot, G_dot), t3_corewise_frame(x))`, which runs the frame's sweeps on the four-store
 frame `(B, G, G, G)` and so duplicates the sweeps through `G`. Apply and entries likewise (entries without `order`); the
-uniform twins `ut3_*_corewise_jacobian` take `x` as the uniform cores' `.data`. **The forward derivative has no
+uniform twins `ut3_*_corewise_tangent` take `x` as the uniform cores' `.data`. **The forward derivative has no
 `sum_over_samples`, on purpose:** its output is per sample, of the type of `z`, with no sum over `W`. **The corewise
 Hessian takes `sum_over_samples=True`** (2026-11-20, the critic's review), by the rule "where there is a sum": it sums
 over `W` as the transpose does, and the engine's `keep_W` serves `Kp` (P10); now that it is a public frontend method too,
@@ -911,7 +911,7 @@ def t3_probe_corewise_hessian(
 corewise call and follows the layout above, and so does the new forward derivative:
 
 ```python
-def t3_probe_corewise_jacobian(                            # name proposed (section 11.5, N43)
+def t3_probe_corewise_tangent(                            # name proposed (section 11.5, N43)
         x:                typ.Tuple,                  # (B, G): the point whose cores the directions vary
         ww:               typ.Sequence[NDArray],      # len=d, elm_shape=J_in_i+W+(Ni,)
         core_directions:  typ.Tuple,                  # (B_dot, G_dot), shapes of B, G with K+C
@@ -920,7 +920,7 @@ def t3_probe_corewise_jacobian(                            # name proposed (sect
 ```
 
 The uniform twins (`ut3_probe`, `utv_probe`, `utv_probe_transpose`,
-`ut3_probe_corewise_transpose`, `ut3_probe_corewise_hessian`, `ut3_probe_corewise_jacobian`, and apply and entries) take
+`ut3_probe_corewise_transpose`, `ut3_probe_corewise_hessian`, `ut3_probe_corewise_tangent`, and apply and entries) take
 the same lists, with `x`
 the uniform cores' `.data` and `frame` the uniform frame's; they check packing and call the engine, which masks
 once on entry and re-masks core-shaped outputs on exit (O-3). They mirror the form of the sample as today
@@ -967,9 +967,9 @@ table, in either tier. So `error_table` is added exactly at those three places: 
 | **Total** | 166 | 30 | 5 | 131 |
 
 New in these modules: `dense_apply` in `apply`, `dense_entries` in `entries`; and (2026-11-20, names proposed in
-section 11.5) the corewise forward derivative, six names: `t3_probe_corewise_jacobian` in `probing`, `t3_apply_corewise_jacobian`
-in `apply`, `t3_entries_corewise_jacobian` in `entries`, and `ut3_probe_corewise_jacobian`, `ut3_apply_corewise_jacobian`,
-`ut3_entries_corewise_jacobian` in `ut3_sampling`. The counts of the table above (today, changed, kept, removed) are
+section 11.5) the corewise forward derivative, six names: `t3_probe_corewise_tangent` in `probing`, `t3_apply_corewise_tangent`
+in `apply`, `t3_entries_corewise_tangent` in `entries`, and `ut3_probe_corewise_tangent`, `ut3_apply_corewise_tangent`,
+`ut3_entries_corewise_tangent` in `ut3_sampling`. The counts of the table above (today, changed, kept, removed) are
 unchanged by them.
 
 Also removed: in `backend/fitting.py` all 20 names (the nine kind classes, the three singletons, the four kind
@@ -983,7 +983,7 @@ the private `_canonical_weight` and `_check_ragged_sample` (O-18); in
 
 | Class | Sampling methods today | After | Removed |
 | --- | --- | --- | --- |
-| `TuckerTensorTrain` | 15 | 15: `entries`, `apply`, `probe` and their `*_corewise_transpose`, probe and apply with `(…, order=())`, entries with no `order`; the three ambient transposes with their arguments by N16; and, new (2026-11-20), the three `*_corewise_jacobian` and the three `*_corewise_hessian` | the 3 `*_derivatives`, the 3 `*_corewise_derivatives_transpose` |
+| `TuckerTensorTrain` | 15 | 15: `entries`, `apply`, `probe` and their `*_corewise_transpose`, probe and apply with `(…, order=())`, entries with no `order`; the three ambient transposes with their arguments by N16; and, new (2026-11-20), the three `*_corewise_tangent` and the three `*_corewise_hessian` | the 3 `*_derivatives`, the 3 `*_corewise_derivatives_transpose` |
 | `T3Tangent` | 12 | 6: `probe`, `apply`, `entries` and their `*_transpose`, merged | 6 |
 | `UniformTuckerTensorTrain` | 12 | 12: `entries`, `apply`, `probe` and their `*_corewise_transpose`; and the six new (2026-11-20) | 6 |
 | `UT3Tangent` | 12 | 6 | 6 |
@@ -1002,7 +1002,7 @@ so they are constructors, like `T3Tangent.zeros(frame)` (N16). Besides the order
 
 **New (2026-11-20).** `TuckerTensorTrain` and `UniformTuckerTensorTrain` get the corewise forward derivative and the
 corewise Hessian as methods, six each, on the maintainer's rule that each user can do everything in their own layer
-(names proposed in section 11.5): `probe_corewise_jacobian(ww, core_directions, order=())` and
+(names proposed in section 11.5): `probe_corewise_tangent(ww, core_directions, order=())` and
 `probe_corewise_hessian(ww, residual, core_directions, order=(), sum_over_samples=True)`, apply alike, entries
 without `order`. Each calls the backend function of the same stem with `self.data` as `x`. **A direction has one form:**
 `core_directions` is the pair of core tuples of the shapes of `self`'s cores with `K` in front, the form the corewise
@@ -1022,7 +1022,7 @@ and `uniform_manifold.py`, and what each becomes:
 | | `probe_corewise_transpose(ztildes, ww, sum_over_probes=False)` | `probe_corewise_transpose(ww, residual, order=(), sum_over_samples=True)` |
 | | `apply_corewise_transpose(c, ww, sum_over_probes=False)` | `apply_corewise_transpose(ww, residual, order=(), sum_over_samples=True)` |
 | | `entries_corewise_transpose(c, index, sum_over_probes=False)` | `entries_corewise_transpose(index, residual, sum_over_samples=True)` |
-| | none (new, 2026-11-20) | `probe_corewise_jacobian(ww, core_directions, order=())`, `apply_corewise_jacobian(ww, core_directions, order=())`, `entries_corewise_jacobian(index, core_directions)` |
+| | none (new, 2026-11-20) | `probe_corewise_tangent(ww, core_directions, order=())`, `apply_corewise_tangent(ww, core_directions, order=())`, `entries_corewise_tangent(index, core_directions)` |
 | | none (new, 2026-11-20) | `probe_corewise_hessian(ww, residual, core_directions, order=(), sum_over_samples=True)`, apply alike, `entries_corewise_hessian(index, residual, core_directions, sum_over_samples=True)` |
 | `TuckerTensorTrain` only, static | `probe_ambient_transpose(ztildes, ww, sum_over_probes=False)`, `apply_ambient_transpose(c, ww, ...)`, `entries_ambient_transpose(c, index, shape, ...)` | `probe_ambient_transpose(ww, residual, sum_over_samples=False)`, `apply_ambient_transpose(ww, residual, sum_over_samples=False)`, `entries_ambient_transpose(index, shape, residual, sum_over_samples=False)`; still static, the default still off |
 | `T3Tangent`, `UT3Tangent` | `probe(ww)`, `apply(ww)`, `entries(index)` | probe and apply with `order=()`; `entries(index)` unchanged in form |
@@ -1896,7 +1896,7 @@ Where they are:
   has no `order` argument.
 - `tests/test_dispatch.py`: the rows for these names, by the new signatures.
 - **The corewise forward derivative (new, 2026-11-20; names as approved from section 11.5).** The six functions of
-  section 2.4, `t3_{probe,apply,entries}_corewise_jacobian` and their uniform twins, each one engine call wanting `'Jp'` on
+  section 2.4, `t3_{probe,apply,entries}_corewise_tangent` and their uniform twins, each one engine call wanting `'Jp'` on
   a corewise call with `core_directions` (the raw route, P8). Nothing breaks: they are new. The corewise Hessians
   gain `sum_over_samples=True` (section 2.4): a new keyword with the default of today's behaviour. Tests:
   - **the primary check, a numpy dense oracle, exact at every order and independent of jax:** `z` is linear in the
@@ -1980,8 +1980,8 @@ each of which breaks on the new order; and every link to `docs/chunking.md`):
   methods raise through `check_sample` on a sample of the wrong form; `entries` has no `order`; on `probe` and
   `apply`, the doctest of a forgotten `order` (wrong against right, O-44).
 - **The corewise forward derivative and Hessian as methods (new, 2026-11-20; names as approved from section 11.5).**
-  `TuckerTensorTrain` and `UniformTuckerTensorTrain` get `probe_corewise_jacobian`, `apply_corewise_jacobian`,
-  `entries_corewise_jacobian`, `probe_corewise_hessian`, `apply_corewise_hessian`, `entries_corewise_hessian` (section 2.5),
+  `TuckerTensorTrain` and `UniformTuckerTensorTrain` get `probe_corewise_tangent`, `apply_corewise_tangent`,
+  `entries_corewise_tangent`, `probe_corewise_hessian`, `apply_corewise_hessian`, `entries_corewise_hessian` (section 2.5),
   each a call of the backend function of the same stem with `self.data`. Nothing breaks: they are new. Tests: each
   method equals its backend function; a doctest each for the forward derivative and the Hessian of probe; for the
   Hessian, the symmetry `<y, H x> = <x, H y>` (cheap and independent), and the derivative of the corewise transpose
@@ -2746,13 +2746,13 @@ change their arguments (N16's keywords, `GroupLengths`) are in section 3's amend
 Proposed for the maintainer at the second planned pause (O-48, O-50); not approved yet. By the grammar of
 `docs/naming_conventions.md`: the family prefix (`t3_`, `ut3_`) and the kind, then `corewise` (coordinate-space math on
 the cores), then the operation, the same tail on every kind. The plan's text writes the recommended `_jacobian`; if
-`_jvp` is chosen, every `*_corewise_jacobian` in it reads `*_corewise_jvp`.
+`_jvp` is chosen, every `*_corewise_tangent` in it reads `*_corewise_jvp`.
 
 | # | What | Name | Why | Alternatives considered |
 | --- | --- | --- | --- | --- |
-| N43 | The corewise forward derivative, backend | **Two candidates, the maintainer's choice (O-48):** `t3_probe_corewise_jacobian(x, ww, core_directions, order=())` (recommended), or `t3_probe_corewise_jvp(...)`; apply alike; entries `(x, index, core_directions)` | *For `_jacobian` (the critic's argument):* the existing tails name the operator applied: `_transpose` is `J^T` applied to `residual`, `_hessian` is defined (`naming_conventions.md`) as the derivative of the same-stem `_transpose` along `core_directions`, an operator applied to a direction. So `_jacobian` / `_transpose` / `_hessian` is one family, `J`, `J^T`, the derivative of `J^T`, and `_transpose` reads as "the Jacobian's transpose". The objection "it suggests the whole matrix" applies to `_hessian` too, and the signature (`core_directions`) settles both. The library already names the applied product so: the `tv_*_jacobian_from_sweep` functions (deleted at P20) compute `J v`, not the matrix; no current name collides. *For `_jvp` (the writer's first proposal):* it says the product form outright, and a jax user knows it at once; but its natural siblings are `_vjp` and `_hvp`, so beside `_transpose` and `_hessian` it mixes two naming schemes in one trio. The recommendation is `_jacobian` | `_jvp` (above); `_forward` (the kinds' word for `J p`, but "forward" also means the plain evaluation); `_tangent` (the library's stem for a kernel's dotted twin, which P20 deletes; and it would read as a tangent of the manifold, which the corewise derivative is not); `_derivative` (close to the removed `*_derivatives` jet functions) |
-| N44 | Their uniform twins | `ut3_probe_corewise_jacobian`, apply, entries (or `_jvp`, as N43) | The twin rule (N28): the same name with `ut3_`, in `backend/ut3_sampling.py` | as N43 |
-| N45 | The frontend forward derivative, on `TuckerTensorTrain` and `UniformTuckerTensorTrain` | `probe_corewise_jacobian(ww, core_directions, order=())`, apply alike, `entries_corewise_jacobian(index, core_directions)` (or `_jvp`, as N43) | The method of the backend function of the same stem, as `probe_corewise_transpose` is | as N43, without the prefix |
+| N43 | The corewise forward derivative, backend | **Two candidates, the maintainer's choice (O-48):** `t3_probe_corewise_tangent(x, ww, core_directions, order=())` (recommended), or `t3_probe_corewise_jvp(...)`; apply alike; entries `(x, index, core_directions)` | *For `_jacobian` (the critic's argument):* the existing tails name the operator applied: `_transpose` is `J^T` applied to `residual`, `_hessian` is defined (`naming_conventions.md`) as the derivative of the same-stem `_transpose` along `core_directions`, an operator applied to a direction. So `_jacobian` / `_transpose` / `_hessian` is one family, `J`, `J^T`, the derivative of `J^T`, and `_transpose` reads as "the Jacobian's transpose". The objection "it suggests the whole matrix" applies to `_hessian` too, and the signature (`core_directions`) settles both. The library already names the applied product so: the `tv_*_jacobian_from_sweep` functions (deleted at P20) compute `J v`, not the matrix; no current name collides. *For `_jvp` (the writer's first proposal):* it says the product form outright, and a jax user knows it at once; but its natural siblings are `_vjp` and `_hvp`, so beside `_transpose` and `_hessian` it mixes two naming schemes in one trio. The recommendation is `_jacobian` | `_jvp` (above); `_forward` (the kinds' word for `J p`, but "forward" also means the plain evaluation); `_tangent` (the library's stem for a kernel's dotted twin, which P20 deletes; and it would read as a tangent of the manifold, which the corewise derivative is not); `_derivative` (close to the removed `*_derivatives` jet functions) |
+| N44 | Their uniform twins | `ut3_probe_corewise_tangent`, apply, entries (or `_jvp`, as N43) | The twin rule (N28): the same name with `ut3_`, in `backend/ut3_sampling.py` | as N43 |
+| N45 | The frontend forward derivative, on `TuckerTensorTrain` and `UniformTuckerTensorTrain` | `probe_corewise_tangent(ww, core_directions, order=())`, apply alike, `entries_corewise_tangent(index, core_directions)` (or `_jvp`, as N43) | The method of the backend function of the same stem, as `probe_corewise_transpose` is | as N43, without the prefix |
 | N46 | The frontend corewise Hessian, on the same two classes | `probe_corewise_hessian(ww, residual, core_directions, order=(), sum_over_samples=True)`, apply alike, `entries_corewise_hessian(index, residual, core_directions, sum_over_samples=True)` | The backend name without the prefix; the argument order of N16 (the sample, then what is applied: the residual, then the directions); the sum flag as on every function with a sum (section 2.4) | `probe_corewise_hvp` (the Hessian-vector product; but the backend name is `_hessian`, and one stem per operation across the tiers is the rule) |
 | N47 | The value and gradient of a fit at a point, through its geometry, for external optimizers (recommended, O-50) | `point_value_and_gradient(geom, oracle, batch, x_cores, regularizer=None) -> (f, g)` in `backend/optimizers.py` beside `point_objective` (N20), and `fitting.point_value_and_gradient(geometry, oracle, batch, x, regularizer=None)`; `f` the objective with the regularizer's term, `g` the gradient in the geometry's coordinates (tied on a shared geometry: the mean over each group, replicated, in raw coordinates, the orthogonal projection onto the tied subspace, so the slope an external optimizer's line search sees along its own step is the true one; the sum would overstate it by the group's size) as the pair of core tuples, the form of a direction (O-49), so `t3_to_vector(g)` flattens it and it can be passed back as a direction | It extends N20, "f at raw cores", by its gradient, and takes the geometry first for N20's reason: the geometry carries the sharing (the tie), the regularizer's form (weight decay on `COREWISE`, the ridge on `MANIFOLD`), and with the batch the minibatch rule for the regularizer; three things a hand-written recipe gets wrong silently (the razor) | `point_objective_and_gradient` (longer, the exact extension of N20); `corewise_value_and_gradient` (but the function takes any geometry); `flat_objective(geom, oracle, batch, x_template) -> fun(x_flat) -> (f, g_flat)` (a closure for scipy's `jac=True`, but it fixes the flattening and serves optax less well) |
 

@@ -43,15 +43,15 @@ changed on the branch since 2026-11-16 (slices P0 to P4 of Part 1); `main` has n
 **START HERE (updated 2026-11-19, 19:30; Claude Code on Nick's laptop, branch `graded-messages`).** Nothing lives
 in a session: everything is in files.
 
-- **Where it stands (2026-11-20, 17:15): AT THE SECOND PLANNED PAUSE, after the engine sub-arc P5 to P11** (all
-  built, reviewed, committed and pushed; the last is `e34f7ca7`). The additive phase is closed: the engine
-  `sampling_variables` (`backend/sampling_variables.py`, steps in `backend/sampling_steps.py`) computes every
-  variable of the three kinds, on manifold and corewise calls, ragged and uniform, jets in any number of variables,
-  the stacks `W`/`K`/`C`, `sum_over_samples`. Nothing of the old sampling layer is rerouted or deleted yet. Next, when
-  Nick says so: P12 to P15 (the backend sampling functions on the engine, the frontend methods, the oracle and the
-  batch, the geometry's centers), then the THIRD planned pause, before the switch (P16). **Questions waiting for
-  Nick** (the end of `LOG.md`'s entries; listed in the pause report): the corewise call refusing `variations`; the
-  zero tilde names on apply/entries; a public reader of a call's names; the structural stack checks under O-18.
+- **Where it stands (2026-11-20, late): the sub-arc P12 to P15 has STARTED** (after the second planned pause; every
+  question of that pause answered, `TARGET_DECISIONS.md` notes "The second planned pause"). Committed and pushed, CI
+  green: P4a to P11 (the engine, `e34f7ca7`) and the plan updated for the corewise surface (P12: `t3_*_corewise_tangent`
+  (O-48), P13: frontend corewise tangent and Hessian methods, P17: `point_value_and_gradient` (O-50), P20: a check-in
+  with Nick on `t3_corewise_frame` between P19 and P20). Next: P12 to P15 by the same pair, each slice design-first,
+  then the THIRD planned pause, after P15, before the switch (P16). Live record: `LOG.md`. **To resume after a lost
+  session:** read `LOG.md`'s last entries, then the slice in hand's `P<n>_DESIGN_NOTE.md` / `_DESIGN_REVIEW.md` /
+  `_HANDOVER.md` / `_REVIEW_r*.md`; the agents `implementer` and `reviewer` (Opus 5.5, high) may be resumable by name; if
+  not, start fresh ones on `BRIEF.md`, `LOG.md` and those files. Uncommitted work in the tree belongs to the slice in hand.
 - **The design-first rhythm** (from P5): before each slice's code, the implementer writes a design note and the
   reviewer critiques it; Claude settles it into the plan; then build, review rounds, commit. Design notes and reviews
   are beside the slices in `dev/graded_messages/implementation/`.

@@ -948,3 +948,11 @@ caught by a tied-direction gradient check), four suite tests; in P19 the docs st
 of `t3_corewise_frame`, with a check-in with the maintainer between P19 and P20. The counts unchanged (removal table
 166 / 30 / 5 / 131). Also: the plan's three "pending the maintainer" notes (P7/P10 stack checks, P9 zero names)
 resolved by his answers.
+O-49 (the pair of core tuples only) and O-50 (the helper adopted) approved by the maintainer the same evening; O-48
+waits on a signature prototype he asked for.
+
+### O-48 decided; the sub-arc P12 to P15 begins (2026-11-20, late)
+
+O-48: `_corewise_tangent` (the maintainer, after a signature prototype). Substituted for `_jacobian` in the plan
+(the writer tidies the candidate text in 11.5 as part of P12's preparation). The handoff's START HERE brought up to
+date. P12 starts design-first.
