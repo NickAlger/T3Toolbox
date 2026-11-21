@@ -783,6 +783,12 @@ considered and is not built; if oracle writers ask for it later, it is a helper 
 keyword. The maintainer's reading of the concept: `want` is need-to-have (changes the computation), the hold list is
 nice-to-have (returned only when free).
 
+**`frame_form` kept; `frame_shape` added** (the maintainer, 2026-11-21, at the third planned pause). The engine and the
+oracle keep inferring the call type from the frame's structure (plan 2.2), through the one public reader
+`frame_form(frame) -> (layout, call)`, two strings. Beside it, a small public `frame_shape(frame)`: the mode sizes for
+any of the four forms (the uniform ones read the static `shape` element by position, which is as easy to get wrong as
+the count of four). Built in P14b.
+
 ## Carried to Part 2 from the implementation of Part 1
 
 Kept here so that nothing found while building Part 1 is forgotten when Part 2 is planned. Each item names its
