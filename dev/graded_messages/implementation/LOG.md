@@ -1110,3 +1110,8 @@ P15 ruling).
 The slowdown investigated (the maintainer's question at the pause): not architectural. Overhead per call at small
 sizes; at scale the forward step's contraction order (row 5.5), and with it fixed the engine is 2-3x faster than the
 old kernels. Numbers and scripts in `implementation/bench/`; `TARGET_DECISIONS.md` "Carried to Part 2".
+Decided by the maintainer for P16: a FRESH implementer and reviewer from P16 to the end of Part 1 (the first pair
+finishes P14b), with the required reading (methods of `TuckerTensorTrain` traced into the backend) and the goal of the
+refactor stressed; P16 committed in parts on a local side branch `p16-wip`, squashed into one commit on
+`graded-messages` at the end. `BRIEF.md` updated (the new sections "What we are doing", the fresh pair, the traps, the
+side branch).

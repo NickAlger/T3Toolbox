@@ -57,14 +57,32 @@ maintainer's checkout of T3Polynomial". `ORCHESTRATION.md` section 3 says what e
 - `/home/nick/repos/T3Polynomial` is the consumer. Read it; never change it; do not run its code before
   P18.
 
-## Required reading, once, before the first slice
+## What we are doing, and how to think about it
 
-The maintainer (2026-11-19): pick a handful of methods of the flagship class `TuckerTensorTrain`
-(`t3toolbox/tucker_tensor_train.py`), read those methods and the backend functions they call, all the way down.
-This gives the style and the conventions of the library: the frontend as a thin wrapper over the backend; the
-signature shape comments; the module-level scan and map bodies (`xscan`, `xmap` from `common.get_backend`); dispatch
-inferred from the arrays; one literal grouped contraction string per contraction; doctests that check against dense
-ground truth. Choose the methods yourself; `probe` and `probe_derivatives` (the jets of today) are good among them.
+Read this first, and come back to it when a rule seems to point the wrong way. The library is a general-purpose
+toolbox for Tucker tensor trains, for other people and other uses, not for one application or paper. Part 1 of the
+graded-messages refactor replaces the sampling layer's many hand-written kernels (one per kind, per derivative, per
+geometry, per layout) with **one engine**: a declared graph of recurrences (`sampling_variables`) that computes any
+sampling variable of any kind (probe, apply, entries), at input jets in any number of variables, at a manifold frame
+or a corewise point, ragged or uniform. The fitting layer then talks to the data only through an **oracle**
+(`LeastSquaresOracle.query`), so the optimizers no longer know which kind of data they fit. Part 2 makes it fast.
+
+The maintainer: "think from first principles about what we are trying to do here, and use judgement rather than
+blindly following rules. Please go slow and do things right rather than cutting corners for expediency." The plan,
+the decided rows and `CLAUDE.md` record decisions taken for reasons; know the reason before you apply a rule, and
+when the reason does not fit the case in front of you, say so (see "Issues") instead of following the letter. A
+design is right when the mathematics says it is, not when it matches the nearest existing convention.
+
+## Required reading, once, before your first slice
+
+The maintainer (2026-11-19, repeated 2026-11-21 for the fresh pair of P16): pick a handful of methods of the flagship
+class `TuckerTensorTrain` (`t3toolbox/tucker_tensor_train.py`), read those methods, then trace the backend functions
+they call and read those too, all the way down. This gives the style and the conventions of the library: the
+frontend as a thin wrapper over the backend; the signature shape comments; the module-level scan and map bodies
+(`xscan`, `xmap` from `common.get_backend`); dispatch inferred from the arrays; one literal grouped contraction string
+per contraction; doctests that check against dense ground truth. Choose the methods yourself; `probe` (it reaches the
+engine, `sampling_variables`, and `jet_contract`), `t3svd` and one of the arithmetic methods are good among them.
+Say in your first report which methods you read.
 
 ## How the two agents work with Claude (from P4a on)
 
@@ -75,6 +93,21 @@ to the implementer with a ruling on any that needs one; and so on until `SIGN OF
 and commits it, or sends it back. Then the same pair takes the next slice. Keep your notes in your files, not only in
 your memory of the conversation: a slice's handover, reviews and responses are the record, and a later slice may be
 read by someone who has not seen the conversation.
+
+**From P16 on, a fresh pair** (the maintainer, 2026-11-21: the first pair's contexts were near their limit after P4a
+to P15). The new pair is kept from P16 to the end of Part 1. Before P16, each new agent reads, besides the above:
+`LOG.md` from "P12" on; the design notes, handovers and reviews of P12 to P15 and P14b in this folder; and
+`TARGET_DECISIONS.md`'s notes dated 2026-11-21. **Traps found so far** (each cost a review round or would have shipped
+a silent wrong answer): a size-1 axis broadcasting where a rank was meant (check shapes exactly); garbage in the
+uniform padding leaking into a reduction (test every packed operand with garbage padding); a test that compares a
+function with itself (circular: compare with an independent dense construction); a "surviving mutant is equivalent"
+claim that was wrong (the centers read as a tangent are 2d times the point); a swapped pair of same-shaped arguments
+(probe residual and sample); a float64 `eps` on a float32 run.
+
+**P16 is committed in parts on a local side branch** (the maintainer, 2026-11-21). It is one slice reviewed in four
+parts. After each part is signed off, Claude commits it to the local branch `p16-wip` (never pushed; the suite may be
+red between parts); when all four are signed off and the full gate passes, Claude squashes them into one commit on
+`graded-messages`. The agents still never commit or switch branches.
 
 The work stops at three planned pauses for the maintainer (after P4d, after P11, after P15). In between, small and
 clear issues are decided (by the implementer where the plan leaves the choice to it, by Claude otherwise) and
