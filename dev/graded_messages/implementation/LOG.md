@@ -1066,3 +1066,11 @@ reviewer's garbage case now exact), a float32 `eps` test, the P3 test over every
 SIGN OFF. Gate at `-n 2`: suite 1,852; lowest MemAvailable 3.5 GB. **Still open with the maintainer:** the names
 `keep=` and `frame_form` (committed as built; a one-line rename each; to be raised at the third pause if not answered
 before). Next: P15 (the backend geometry's `frame(x)` returns `(frame, centers)`; small), design-first.
+
+### P15 designed (2026-11-21)
+
+`P15_DESIGN_NOTE.md`. The slice is small, so Claude ruled without a separate design review (the build is reviewed as
+usual). The plan's call-site list is complete and exact after P12 to P14. Ruled: the uniform centers are the pair of
+supercores `(Vc_sc, Hc_sc)` (the ragged pair's mirror; `ufv_centers_consistency_residual`'s form); the corewise
+geometries return `None`; the aligned padded frame keeps returning a frame only (it has no centers). For P16: at a
+padded-start frame the oracle runs without `Vc`.
