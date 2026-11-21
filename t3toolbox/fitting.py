@@ -64,6 +64,26 @@ frame-as-aux used to force is gone. So you can jit the frontend matvec directly:
 Under a trace the numerical same-frame guards skip (you cannot branch on a tracer; jit is unsafe mode), so
 a matvec output combines with the eager CG iterates freely. The geometry singletons (``t3m.MANIFOLD`` /
 ``COREWISE``) are zero-leaf pytrees -- close over or pass as args freely.
+
+Preparing data, and the jet helpers
+-----------------------------------
+The functions a user calls before fitting are reachable here under their backend names, so that a fit needs no
+import from ``t3toolbox.backend``:
+
+  * derivative data to the library's Taylor coefficients: :py:func:`derivatives_to_taylor`,
+    :py:func:`taylor_to_derivatives`, :py:func:`derivative_weight_to_taylor_weight`, and
+    :py:func:`prepare_derivative_data`, which does the data, the validation data and the weight in one call
+    (:py:mod:`t3toolbox.backend.jets`);
+  * badly scaled data: :py:func:`data_block_norms`, :py:func:`equalizing_weight`, :py:func:`rescale_direction`
+    and :py:func:`t3_unscale_coordinates` (:py:mod:`t3toolbox.backend.data_preparation`), and this module's own
+    :py:func:`rescale_coordinates`, which checks the form of the scales (one per coordinate) and then calls the
+    backend function of the same name, which does not; a tensor fitted in rescaled coordinates also has the
+    method ``x.unscale_coordinates(scales)``, which makes the same check;
+  * the dual jet: :py:func:`jet_to_dual_jet`, and this module's own :py:func:`dual_jet_to_jet`, which raises in
+    safe mode where the squared weight is zero (the backend function of the same name divides by zero);
+  * the input jets a sampling function with a jet shape takes: :py:func:`affine_jet` (the line ``w + s p``, or a
+    point moved along several directions) and :py:func:`index_to_one_hot` (the one-hot vectors of a grid point),
+    also reachable from ``t3toolbox`` itself.
 '''
 
 from __future__ import annotations
@@ -88,11 +108,214 @@ import t3toolbox.backend.geometry as bgeo
 import t3toolbox.backend.optimizers as bopt         # exact mode: its checks, CurvatureState, the backend LocalModel
 import t3toolbox.backend.regularization as breg     # the backend geometry a Regularizer leans on (no cycle: backend never imports fitting)
 import t3toolbox.backend.uniform_fitting as ufit
+import t3toolbox.backend.jets as backend_jets
+from t3toolbox.backend.fitting import LeastSquaresOracle, LeastSquaresBatch   # one class each, both tiers
+from t3toolbox.backend.jets import (                # reachable here under their backend names
+    derivatives_to_taylor,
+    taylor_to_derivatives,
+    derivative_weight_to_taylor_weight,
+    prepare_derivative_data,
+    jet_to_dual_jet,
+    affine_jet,
+    index_to_one_hot,
+)
+import t3toolbox.backend.data_preparation as backend_preparation
+from t3toolbox.backend.data_preparation import (    # reachable here under their backend names
+    data_block_norms,
+    equalizing_weight,
+    rescale_direction,
+    t3_unscale_coordinates,
+)
 from t3toolbox.backend.common import *
 
 __all__ = ['LocalModel',
+           'LeastSquaresOracle', 'LeastSquaresBatch',
            'apply_model', 'entries_model', 'probe_model',
-           'apply_derivatives_model', 'entries_derivatives_model', 'probe_derivatives_model']
+           'apply_derivatives_model', 'entries_derivatives_model', 'probe_derivatives_model',
+           # derivative data and the jet helpers (the backend functions, and this module's own dual_jet_to_jet)
+           'derivatives_to_taylor', 'taylor_to_derivatives', 'derivative_weight_to_taylor_weight',
+           'prepare_derivative_data', 'jet_to_dual_jet', 'dual_jet_to_jet',
+           # the input jets (the backend functions)
+           'affine_jet', 'index_to_one_hot',
+           # preparing the data of a fit (the backend functions, and this module's own rescale_coordinates)
+           'data_block_norms', 'equalizing_weight', 'rescale_direction', 'rescale_coordinates',
+           't3_unscale_coordinates']
+
+
+def rescale_coordinates(
+        kind:    str,                      # 'probe' | 'apply'
+        order:   typ.Tuple[int, ...],      # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
+        sample:  typ.Any,                  # ww, the input jets: len=d, elm_shape=J_in_i+W+(Ni,)
+        y:       typ.Any,                  # of the type of z: probe len=d, elm_shape=F+W+(Ni,); apply F+W
+        scales:  typ.Sequence[NDArray],    # len=d, elm_shape=(Ni,): coordinate j of mode i times scales[i][j]
+) -> typ.Tuple[
+        typ.Any,                           # the sample: every slot of every input jet times its mode's scales
+        typ.Any,                           # y: for probe, mode i's data divided by scales[i]; for apply, as given
+]:
+    """Rescale the coordinates of each mode: the inputs times ``scales``, the probe data divided by them.
+
+    The frontend's function over :py:func:`t3toolbox.backend.data_preparation.rescale_coordinates`, with the
+    same arguments and the same result (its docstring has the mathematics and an example): coordinate ``j`` of
+    mode ``i`` of every slot of every input jet is multiplied by ``scales[i][j]``, and for the probe kind the data of
+    mode ``i`` are divided by ``scales[i]``. This changes the unknowns: after the fit,
+    ``x.unscale_coordinates(scales)`` gives the fitted tensor in the original coordinates.
+
+    **What this function adds is the check of ``scales``**, which the backend function does not make: one
+    vector of ``Ni`` scales per mode, with the mode sizes read off the sample (the last axis of each ``ww[i]``).
+    Scales of a wrong count, of a wrong length for a mode (a length of 1 included) or that are not vectors
+    raise a ``ValueError`` here, through
+    :py:func:`t3toolbox.backend.data_preparation.check_coordinate_scales`, where the backend function would
+    silently drop a mode or broadcast. The check is structural, so it is made always: in safe and in unsafe
+    mode, and under ``jax.jit`` (shapes are static). No value is checked: a zero scale passes.
+
+    Parameters
+    ----------
+    kind: str
+        ``'probe'`` or ``'apply'`` (``'entries'`` has no coordinates to rescale, and raises).
+    order: tuple of int
+        The jet shape (``()`` for no jets).
+    sample
+        The input jets ``ww``: ``len=d``, ``elm_shape=J_in_i+W+(Ni,)``.
+    y: tuple of NDArray or NDArray
+        Of the type of ``z`` (a tuple of ``d`` arrays for probe, one array otherwise).
+        The data. probe: ``len=d``, ``elm_shape=F+W+(Ni,)``. apply: ``shape=F+W``.
+    scales: Sequence[NDArray]
+        One positive scale per coordinate: ``len=d``, ``elm_shape=(Ni,)``.
+
+    Returns
+    -------
+    sample
+        The rescaled input jets, a tuple.
+    y: tuple of NDArray or NDArray
+        Of the type of ``z`` (a tuple of ``d`` arrays for probe, one array otherwise).
+        The data for the rescaled sample.
+
+    Raises
+    ------
+    ValueError
+        If ``scales`` is not one vector of ``Ni`` scales per mode; if ``kind`` is not ``'probe'`` or ``'apply'``.
+    TypeError
+        If ``order`` is not a tuple of integers.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.fitting as fitting
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+    >>> ww = [np.random.randn(7, N) for N in x.shape]
+    >>> y = x.apply(ww)
+    >>> scales = [10.0 ** np.random.randn(N) for N in x.shape]          # one scale per coordinate
+    >>> ww_rescaled, y_rescaled = fitting.rescale_coordinates('apply', (), ww, y, scales)
+    >>> print(np.allclose(ww_rescaled[1], ww[1] * scales[1]), y_rescaled is y)
+    True True
+
+    One number per mode is not the form, and is refused here (the backend function would broadcast it):
+
+    >>> fitting.rescale_coordinates('apply', (), ww, y, [np.ones(1) for N in x.shape])   # doctest: +IGNORE_EXCEPTION_DETAIL
+    Traceback (most recent call last):
+        ...
+    ValueError: scales[0] has shape (1,); expected (N_0,) = (4,): one scale per coordinate of mode 0
+    """
+    backend_jets._kind_and_order(kind, order, 'rescale_coordinates')   # the kind and the jet shape first, as dual_jet_to_jet
+    if kind in ('probe', 'apply'):                      # any other kind: the backend function raises
+        backend_preparation.check_coordinate_scales(scales, tuple(np.shape(w_JWo)[-1] for w_JWo in sample))
+    return backend_preparation.rescale_coordinates(kind, order, sample, y, scales)
+
+
+def dual_jet_to_jet(
+        kind:      str,                    # 'probe' | 'apply' | 'entries': which type the dual jet is of
+        order:     typ.Tuple[int, ...],    # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...). entries: ()
+        dual_jet:  typ.Any,                # of the type of z: probe len=d, elm_shape=F+W+[K]+C+(Ni,); apply F+W+[K]+C; entries W+[K]+C
+        weight:    typ.Optional[NDArray],  # probe (d,)+F; apply F; entries (); None = ones
+) -> typ.Any:                              # the jet: every jet axis flipped back, then divided by weight**2. probe: a tuple
+    """Make a dual jet into a jet: the inverse of :py:func:`jet_to_dual_jet`, checked in safe mode.
+
+    Every jet axis is flipped back and each slot is divided by ``weight**2``:
+    ``jet[k] = dual_jet[order - k] / weight[k]**2``. Where a weight is zero the dual jet keeps nothing of the
+    jet, and there is nothing to give back.
+
+    **In safe mode** (the default) a zero divisor raises a ``ValueError``. The check is on the divisor as it is
+    computed, ``weight**2`` in the precision of the computation (the lower floating precision of the dual jet
+    and the weight), and it is exact, with no tolerance: a small weight is a legitimate weight and passes, but
+    a weight whose square underflows to zero in that precision (``1e-30`` in float32, or a float64 ``1e-30``
+    against a float32 dual jet) is refused like a zero. Inside ``safety.unsafe()`` and under a jax trace
+    (``jit``, ``grad``, ``vmap``: a tracer cannot be branched on) the check is skipped and the division is
+    made, giving ``inf`` or ``nan`` in those slots; everywhere else the numbers are the same in both modes.
+    The backend function, :py:func:`t3toolbox.backend.jets.dual_jet_to_jet`, never checks.
+
+    ``kind`` says which type the dual jet is of: for ``'probe'`` one array per mode, taken along the first axis
+    (a tuple, a list, or an array packed for the uniform layout), and a tuple is returned; for ``'apply'`` and
+    ``'entries'`` one array, its leading axes the jet axes (see
+    :py:func:`t3toolbox.backend.jets.jet_to_dual_jet`).
+
+    Parameters
+    ----------
+    kind: str
+        ``'probe'``, ``'apply'`` or ``'entries'``.
+    order: tuple of int
+        The jet shape. ``()`` for no jets, and the only one the entries kind takes.
+    dual_jet: tuple of NDArray or NDArray
+        Of the type of ``z`` (a tuple of ``d`` arrays for probe, one array otherwise).
+        probe: ``len=d``, ``elm_shape=F+W+[K]+C+(Ni,)``. apply: ``shape=F+W+[K]+C``. entries: ``shape=W+[K]+C``.
+    weight: NDArray or None
+        probe: ``shape=(d,)+F``. apply: ``shape=F``. entries: ``shape=()``. ``None`` is ones, the library's default
+        weight (a default that may change in a later release). The argument is required: pass ``None`` for
+        no weight.
+
+    Returns
+    -------
+    tuple of NDArray or NDArray
+        Of the type of ``z`` (a tuple of ``d`` arrays for probe, one array otherwise).
+        The jet, with the shapes of ``dual_jet``. probe: a tuple, one array per mode.
+
+    Raises
+    ------
+    ValueError
+        In safe mode, if an entry of ``weight**2``, as computed, is zero. If ``kind`` is not one of the three
+        kinds, or the entries kind is given a jet shape but ``()``.
+    TypeError
+        If ``order`` is not a tuple of integers.
+
+    See Also
+    --------
+    jet_to_dual_jet
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.fitting as fitting
+    >>> import t3toolbox.safety as safety
+    >>> np.random.seed(0)
+    >>> r = np.random.randn(3, 4)                           # apply at (2,): F + W = (3, 4)
+    >>> weight = np.array([1.0, 2.0, 10.0])
+    >>> dual = fitting.jet_to_dual_jet('apply', (2,), r, weight)
+    >>> print(bool(np.allclose(fitting.dual_jet_to_jet('apply', (2,), dual, weight), r)))
+    True
+
+    A zero weight raises in safe mode, and divides by zero in unsafe mode:
+
+    >>> zero_weight = np.array([1.0, 0.0, 10.0])
+    >>> fitting.dual_jet_to_jet('apply', (2,), dual, zero_weight)   # doctest: +IGNORE_EXCEPTION_DETAIL
+    Traceback (most recent call last):
+        ...
+    ValueError: dual_jet_to_jet: the squared weight is zero in 1 entry, and a dual jet cannot be divided by zero (the jet is lost there). Run inside safety.unsafe() to divide anyway; the result is inf or nan in those slots
+    >>> with safety.unsafe():
+    ...     back = fitting.dual_jet_to_jet('apply', (2,), dual, zero_weight)
+    >>> print(np.isfinite(back).all(axis=1).tolist())       # slot 1 is lost
+    [True, False, True]
+    """
+    backend_jets._kind_and_order(kind, order, 'dual_jet_to_jet')     # the kind and the jet shape, before the check
+    if weight is not None and safety.checks_active(dual_jet, weight):
+        xnp, _, _ = get_backend(False, tree_contains_jax((dual_jet, weight)))
+        divisors = backend_jets._squared_weights(kind, dual_jet, weight, xnp)  # weight**2, as the backend divides by it
+        n_zero = sum(int(np.sum(np.asarray(divisor) == 0)) for divisor in divisors)
+        safety.require(n_zero == 0,
+                       'dual_jet_to_jet: the squared weight is zero in %d entr%s, and a dual jet cannot be divided '
+                       'by zero (the jet is lost there). Run inside safety.unsafe() to divide anyway; the result '
+                       'is inf or nan in those slots' % (n_zero, 'y' if n_zero == 1 else 'ies'))
+    return backend_jets.dual_jet_to_jet(kind, order, dual_jet, weight)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -925,9 +1148,10 @@ def probe_derivatives_model(
     >>> np.random.seed(0)
     >>> shape, ranks = (4, 5, 6), ((2, 2, 2), (1, 2, 2, 1))
     >>> ww, pp = [np.random.randn(20, N) for N in shape], [np.random.randn(20, N) for N in shape]
-    >>> y = t3.TuckerTensorTrain.randn(shape, *ranks).probe_derivatives(ww, pp, 1)   # data from another tensor
+    >>> derivatives = lambda t: fitting.taylor_to_derivatives('probe', (1,), t.probe(fitting.affine_jet(ww, pp), (1,)))
+    >>> y = derivatives(t3.TuckerTensorTrain.randn(shape, *ranks))                   # data from another tensor
     >>> def model_at(x, hessian='gauss_newton'):
-    ...     r = [z - yi for z, yi in zip(x.probe_derivatives(ww, pp, 1), y)]
+    ...     r = [z - yi for z, yi in zip(derivatives(x), y)]
     ...     return fitting.probe_derivatives_model(t3m.MANIFOLD, x, ww, pp, 1, r, hessian=hessian)
     >>> x = t3.TuckerTensorTrain.randn(shape, *ranks)
     >>> gn, exact = model_at(x), model_at(x, hessian='exact')

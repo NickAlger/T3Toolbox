@@ -58,7 +58,8 @@ import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.manifold as t3m
 import t3toolbox.optimizers as optimizers
 import t3toolbox.shared_geometry as sg
-import t3toolbox.backend.sampling_derivatives as pd   # dense ground-truth jets (data generation only)
+from t3toolbox.backend.probing import dense_probe   # dense ground-truth jets (data generation only)
+from t3toolbox.fitting import affine_jet, taylor_to_derivatives
 
 
 # --------------------------------------------------------------------------------------------------
@@ -94,10 +95,9 @@ def unit_vectors(M, shape, rng):
 
 
 def dense_jets(T, ww, pp, order):
-    """Ground-truth probe-derivative jets of the dense target (data generation only)."""
-    M, d = ww[0].shape[0], len(ww)
-    per = [pd.dense_probe_derivatives([w[s] for w in ww], [p[s] for p in pp], T, order) for s in range(M)]
-    return [np.stack([per[s][i] for s in range(M)], axis=1) for i in range(d)]
+    """Ground-truth probe-derivative jets of the dense target (data generation only): ``dense_probe`` at the
+    input jet of the line ``ww + s pp``, its Taylor coefficients turned into derivatives (slot ``t`` times ``t!``)."""
+    return list(taylor_to_derivatives('probe', (order,), dense_probe(T, affine_jet(ww, pp), (order,))))
 
 
 def order_rms(data, order):
@@ -129,9 +129,9 @@ def continuation_fit(geometry, sharing, label, T, T_norm, ww_tr, pp_tr, data_tr,
         X, stats = optimizers.newton_cg(geometry, 'probe_derivatives', (ww_tr, pp_tr),
                                         data_tr, X, order=ORDER, weight=omega, max_newton=MAX_NEWTON)
         dof = t3m.manifold_dim((SHAPE, X.tucker_ranks, X.tt_ranks), sharing=sharing)
-        tr_e = weighted_misfit([np.asarray(z) for z in X.probe_derivatives(ww_tr, pp_tr, ORDER)],
+        tr_e = weighted_misfit([np.asarray(z) for z in taylor_to_derivatives('probe', (ORDER,), X.probe(affine_jet(ww_tr, pp_tr), (ORDER,)))],
                                data_tr, omega)
-        va_e = weighted_misfit([np.asarray(z) for z in X.probe_derivatives(ww_va, pp_va, ORDER)],
+        va_e = weighted_misfit([np.asarray(z) for z in taylor_to_derivatives('probe', (ORDER,), X.probe(affine_jet(ww_va, pp_va), (ORDER,)))],
                                data_va_clean, omega)
         true_e = float(np.linalg.norm(np.asarray(X.to_dense()) - T)) / T_norm
         records.append(dict(level=level, tucker=X.tucker_ranks, tt=X.tt_ranks, dof=dof,

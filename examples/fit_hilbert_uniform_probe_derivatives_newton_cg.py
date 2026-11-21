@@ -51,7 +51,8 @@ import t3toolbox.uniform_tucker_tensor_train as ut3
 import t3toolbox.manifold as t3m                     # for manifold_dim (the tangent-space DOF)
 import t3toolbox.uniform_manifold as ut3m            # UNIFORM_MANIFOLD
 import t3toolbox.optimizers as optimizers
-import t3toolbox.backend.sampling_derivatives as pd     # dense ground-truth jets (data generation only)
+from t3toolbox.backend.probing import dense_probe          # dense ground-truth jets (data generation only)
+from t3toolbox.fitting import affine_jet, taylor_to_derivatives
 
 
 # --------------------------------------------------------------------------------------------------
@@ -82,15 +83,14 @@ def unit_vectors(M, shape, rng):
     return [v / np.linalg.norm(v, axis=1, keepdims=True) for v in vv]
 
 
-def dense_probe_derivative_jets(A, ww, pp, order):
+def dense_probe_jets(A, ww, pp, order):
     """Ground-truth probe-derivative jets of the dense tensor A, as the fitting-layer ``data``.
 
-    Loops the exact per-sample dense jet (``backend.sampling_derivatives.dense_probe_derivatives``) over the
-    W=(M,) probe stack and stacks it: returns ``len=d``, each ``(order+1, M, N_i)`` -- the probe-derivative
-    residual layout ``(order+1) + W + (N_i,)``. (Data generation only; the fit never forms A.)"""
-    M, d = ww[0].shape[0], len(ww)
-    per = [pd.dense_probe_derivatives([w[s] for w in ww], [p[s] for p in pp], A, order) for s in range(M)]
-    return [np.stack([per[s][i] for s in range(M)], axis=1) for i in range(d)]
+    ``dense_probe`` at the input jet of the line ``ww + s pp`` gives the Taylor coefficients in ``s`` over the
+    whole W=(M,) probe stack; ``taylor_to_derivatives`` multiplies slot ``t`` by ``t!``. Returns ``len=d``, each
+    ``(order+1, M, N_i)`` -- the probe-derivative residual layout ``(order+1) + W + (N_i,)``. (Data generation
+    only; the fit never forms A.)"""
+    return list(taylor_to_derivatives('probe', (order,), dense_probe(A, affine_jet(ww, pp), (order,))))
 
 
 def order_rms(data, order):
@@ -133,7 +133,7 @@ def main():
     M = N_TRAIN + N_VAL
     ww = unit_vectors(M, SHAPE, rng)                       # frame probe vectors X
     pp = unit_vectors(M, SHAPE, rng)                       # perturbation directions P
-    data_clean = dense_probe_derivative_jets(A, ww, pp, ORDER)   # len=d, each (order+1, M, N_i)
+    data_clean = dense_probe_jets(A, ww, pp, ORDER)   # len=d, each (order+1, M, N_i)
 
     def split(seq, sl):
         return [z[:, sl] for z in seq]
@@ -168,9 +168,9 @@ def main():
             order=ORDER, weight=omega, max_newton=MAX_NEWTON)
         X = ux.to_t3()                                       # -> ragged for the next resize
 
-        train_e = weighted_misfit([np.asarray(z) for z in X.probe_derivatives(ww_tr, pp_tr, ORDER)],
+        train_e = weighted_misfit([np.asarray(z) for z in taylor_to_derivatives('probe', (ORDER,), X.probe(affine_jet(ww_tr, pp_tr), (ORDER,)))],
                                   data_tr, omega)
-        val_e = weighted_misfit([np.asarray(z) for z in X.probe_derivatives(ww_va, pp_va, ORDER)],
+        val_e = weighted_misfit([np.asarray(z) for z in taylor_to_derivatives('probe', (ORDER,), X.probe(affine_jet(ww_va, pp_va), (ORDER,)))],
                                 data_va_clean, omega)
         true_e = float(np.linalg.norm(X.to_dense() - A)) / A_norm
         records.append(dict(level=r, dof=dof, val=val_e, true=true_e))

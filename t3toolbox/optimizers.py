@@ -164,7 +164,7 @@ def _resolve_chunk_size(chunk_size, kind, x0, sample, order, batch=None, hessian
     -- a no-op. For minibatch optimizers the transpose sees ``batch`` probes, not the full ``|W|``.
     ``hessian`` is the solver's mode, passed straight to the estimator: with ``'exact'`` the same chunk also
     drives the exact Hessian's two-hole assemblies, so it is sized for those too (:py:func:`least_squares_problem`
-    passes ``'exact'`` for ``'switch'``). See :doc:`/chunking`."""
+    passes ``'exact'`` for ``'switch'``)."""
     if chunk_size != 'auto':
         return chunk_size
     if kind != 'probe_derivatives' or not isinstance(x0, ut3.UniformTuckerTensorTrain):
@@ -232,7 +232,7 @@ def least_squares_problem(
     and a uniform ``x0`` always is (:py:func:`~t3toolbox.backend.uniform_fitting.uniform_minimal`; the
     uniform path needs a minimal-rank frame), so a frontend user never meets that requirement. A uniform
     ``rewrap`` carries the reduced point's ``shape`` + ``masks``. ``chunk_size`` and ``batch`` are as in
-    the optimizers (:doc:`/chunking`).
+    the optimizers.
 
     ``hessian`` (``'gauss_newton'``, ``'exact'`` or ``'switch'``, case-insensitive) is the mode the problem
     will be solved in. It does not fix the mode -- that is the local model's and the solver's own ``hessian``
@@ -274,9 +274,11 @@ def least_squares_problem(
     For exact Newton pass the mode to both -- here on ``probe_derivatives`` (the solver's trust region is the
     exact Hessian's default step control):
 
+    >>> from t3toolbox.fitting import affine_jet, taylor_to_derivatives
     >>> pp = [np.random.randn(30, N) for N in (4, 5, 6)]
+    >>> derivatives = taylor_to_derivatives('probe', (1,), A.probe(affine_jet(ww, pp), (1,)))   # the old data form
     >>> esetup = optimizers.least_squares_problem(t3m.MANIFOLD, 'probe_derivatives', (ww, pp),
-    ...                                           A.probe_derivatives(ww, pp, 1), x0, order=1, hessian='exact')
+    ...                                           derivatives, x0, order=1, hessian='exact')
     >>> x_cores, stats = bopt.newton_cg(esetup.problem, esetup.x0_cores, max_newton=40, hessian='exact')
     >>> stats['history'][0]['step_control'], stats['stop_reason']
     ('trust_region', 'gradient')
@@ -764,7 +766,7 @@ def newton_cg(
     For a large-``|W|`` uniform ``probe_derivatives`` fit, ``chunk_size='auto'`` (the default) sizes the
     ``𝒥ᵀ`` gradient assembly's memory automatically (via
     :py:func:`~t3toolbox.backend.sampling_derivatives.estimate_chunk_size`); pass an ``int`` / ``None`` to
-    override. Other kinds and the ragged layer ignore it. See :doc:`/chunking`.
+    override. Other kinds and the ragged layer ignore it.
 
     Examples
     --------
@@ -802,7 +804,9 @@ def newton_cg(
     >>> shape, rng = (5, 5, 5), np.random.default_rng(0)
     >>> ww, pp = ([rng.standard_normal((40, n)) for n in shape] for _ in range(2))
     >>> target = t3.TuckerTensorTrain.randn(shape, (3, 3, 3), (1, 3, 3, 1))
-    >>> data = [z + 0.01 * rng.standard_normal(z.shape) for z in target.probe_derivatives(ww, pp, 1)]
+    >>> from t3toolbox.fitting import affine_jet, taylor_to_derivatives
+    >>> clean = taylor_to_derivatives('probe', (1,), target.probe(affine_jet(ww, pp), (1,)))   # the old data form
+    >>> data = [z + 0.01 * rng.standard_normal(z.shape) for z in clean]
     >>> x0, _ = optimizers.newton_cg(t3m.MANIFOLD, 'probe_derivatives', (ww, pp), data,
     ...                              t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)), order=1,
     ...                              max_newton=5)

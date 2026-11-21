@@ -61,6 +61,7 @@ __all__ = [
     'adam',
     'newton_cg',
     'padded_start',
+    'Oracle',
 ]
 
 Tangent = typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]   # (tucker_variations, tt_variations)
@@ -155,6 +156,41 @@ class Geometry(typ.Protocol):
 # --------------------------------------------------------------------------------------------------
 # The problem oracle
 # --------------------------------------------------------------------------------------------------
+class Oracle(typ.Protocol):
+    """What an optimizer asks of a fit (graded messages, Part 1; the fitting layer's extension point): one
+    operation, ``query``, at a frame. Declared here, by the consumer, as documentation: the optimizers switch to it in
+    P16. The built-in implementation is :py:class:`~t3toolbox.backend.fitting.LeastSquaresOracle`.
+
+    An oracle is a frozen description with no arrays (it rides as jax ``aux_data``; value-hashed); its data are its
+    ``batch``, which the optimizers pass through unread (``None`` for an oracle with no data). ``query`` returns the
+    values of ``want``, aligned with it, and ``held``: anything the oracle wants back at the same frame and batch
+    (O-8), passed back unread by the optimizers; in a compiled program it must be something jax can carry (arrays,
+    tuples, ``None`` or a registered record, O-30). The required outputs are ``f``, ``g``, ``JtJp`` and
+    ``Jp_norm_sq``; ``optional_outputs`` names which of ``Kp``, ``Jp``, ``r``, ``r_block_sumsq``, ``y_block_sumsq``
+    and ``f_resolution`` it supplies (O-7). The blocks are returned before the geometry's projection.
+
+    **Optional member** ``check_batch(batch, shape) -> None`` (O-29): the structural checker of a batch, which the
+    frontend calls where a batch enters when the oracle has one, and nothing about the batch otherwise.
+    """
+    optional_outputs: typ.ClassVar[typ.Tuple[str, ...]]
+
+    def query(
+            self,
+            frame:            typ.Tuple,                      # a manifold frame or a corewise point
+            batch:            typ.Any,                        # opaque to the optimizers; None if it has no data
+            want:             typ.Tuple[str, ...],            # required: f, g, JtJp, Jp_norm_sq; optional: Kp, Jp, r,
+                                                              #   r_block_sumsq, y_block_sumsq, f_resolution
+            Vc:               typ.Optional[typ.Sequence[NDArray]] = None,
+            variations:       typ.Optional[typ.Tuple] = None, # (V, H): JtJp, Jp_norm_sq, Jp
+            core_directions:  typ.Optional[typ.Tuple] = None, # (D_dot, L_dot): Kp
+            held:             typ.Any = None,                 # what an earlier query at this frame and batch returned
+    ) -> typ.Tuple[
+            typ.Tuple[typ.Any, ...],                          # values, aligned with want; blocks before projection
+            typ.Any,                                          # held: any object jax can carry in a compiled program
+    ]:
+        ...
+
+
 _HESSIAN_MODES = ('gauss_newton', 'exact')                # a local model's modes
 _NEWTON_HESSIAN_MODES = _HESSIAN_MODES + ('switch',)       # newton_cg's: 'switch' is a solver mode, not a model's
 _EXACT_GEOMETRY_MEMBERS = ('curvature_precompute', 'lift', 'lift_transpose', 'tangential_curvature')

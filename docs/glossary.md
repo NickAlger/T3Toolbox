@@ -395,7 +395,7 @@ different pages are collected at the end, in [Symbols](#symbols).
 - **apply** (`apply`, `t3_apply`, `tv_apply`). The multilinear form `X(w0, …, w(d-1))`: every mode contracted with a
   vector, one scalar per sample. [The three operations](entries_apply_probe.md#1-the-three-operations-precisely)
 - **assembly** (also: variation-gradient assembly). The transpose stage that forms the variation gradients from the
-  edge-variable jets; its memory is linear in `|W|`, which `chunk_size` bounds. [Where the memory goes](chunking.md#where-the-memory-goes)
+  edge-variable jets; its memory is linear in `|W|`, which `chunk_size` bounds.
 - **back-projection**. A sampling adjoint applied to a residual, e.g. `c · (w0 ⊗ … ⊗ w(d-1))` for `apply`.
   [Transposes](transposes.md)
 - **bare Jacobian** (`𝒥`, `𝒥ᵀ`; the tangent `entries`/`apply`/`probe` and their transposes; also: `𝒥⁽ˢ⁾`,
@@ -403,7 +403,7 @@ different pages are collected at the end, in [Symbols](#symbols).
   [Notes](entries_apply_probe.md#4-the-riemannian--tangent-versions-and-their-transposes)
 - **`chunk_size`** (`'auto'`, `estimate_chunk_size`, `max_chunk_size_within`; also: chunking, W-chunking). Compute the
   probe-derivative transpose's assembly in slices of that many probes: the same numbers, a lower peak memory on the
-  uniform + jax path. [What `chunk_size` does](chunking.md#what-chunk_size-does)
+  uniform + jax path.
 - **containment** (`probe ⊃ apply ⊃ entries`). `apply` is `probe` with the free mode contracted too; `entries` is
   `apply` with one-hot vectors. [How they relate](entries_apply_probe.md#2-how-they-relate-the-containment-hierarchy)
 - **corewise transpose** (`*_corewise_transpose`). The gradient of a sampling operation with respect to a T3's own
@@ -766,7 +766,7 @@ below also carry other meanings on some pages.
 | `n` | Tucker rank `ni`; the padded Tucker width (uniform); the measurement count in `batch/n` (the `mc_sgd`/`adam` regularizer scaling) |
 | `r` | TT rank `ri`; the padded TT width (uniform); the residual `r` (fitting pages) |
 | `K` | the tangent stack (batching, naming conventions, shape comments); the curvature operators `K_{Aᵀω²r}`, `K_{grad f}` (§4.12, `LocalModel` docstrings) and `K_N = K_{Aᵀω²r} − K_{grad f}` (§4.14). Before 2026.5.0 some pages also wrote `K` for the derivative order, now `order` |
-| `W` | the probe stack (batching, shape comments); a `T3Weights` variable (`weighting.md`); the Khatri–Rao factor `Wi` (`t3m_methods.md`); the up-matricization `Wi` (shared-factor math note); an integer variable in a `chunking.md` example |
+| `W` | the probe stack (batching, shape comments); a `T3Weights` variable (`weighting.md`); the Khatri–Rao factor `Wi` (`t3m_methods.md`); the up-matricization `Wi` (shared-factor math note) |
 | `P` | the derivative direction (`pp`); a completion `P⁺` (`aligned_padded_frame.md` movement, the padded-frame note); the tangent projector `P_X` / `P_F`; the core parameter space (`CorewiseGeometry`); T4S's left frame core, our `L` (see **T4S**; the paper ↔ code maps, `batching_and_stacking.md` §8 and `entries_apply_probe.md` §8, keep the paper's letters) |
 | `L` | the left frame cores `Li` and the left store's letter (user guide, `frame_variations.md`, `update`); the lift `L` (§4.12, curvature pages) |
 | `H` | the TT variations `Hi` (frame pages); the Hessian `H` (fitting pages); the centers `Hi = Li Ti` (`curvature_internals.md`, CHANGELOG 2026.3.0); `H_R`, the regularizer's Hessian |

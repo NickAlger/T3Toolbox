@@ -407,6 +407,15 @@ project engineering practices below are shared.)*
 
 ## Current state
 
+**On the branch `graded-messages` (not on `main`, not released): the graded-messages refactor of the sampling layer
+is being implemented.** Slices P0 to P4d of its Part 1 are built (new backend modules beside the old sampling layer,
+which is not yet switched over or deleted; P4a to P4d generalized the jets to any number of variables); the plan,
+`dev/graded_messages/PART1_PLAN.md`, was signed off as a whole on 2026-11-19, and the work is at a planned pause before
+P5 (the engine). CI runs on the branch through the draft PR #26. **Start at `dev/HANDOFF.md`, "The
+next arc", the block START HERE**, then `dev/graded_messages/implementation/ORCHESTRATION.md`. The rest of this
+section, and of this file, describes the released library; this file is brought in line with the refactor in its
+documentation slice (P19), not before.
+
 **2026.5.0 is RELEASED (2026-11-15) — `pip install t3toolbox`.** Its headlines: the BREAKING store rename (the
 frame stores `up` and `down` swap names so a store is named for the side its cores occupy; letters D/U/L/R; upgrade
 notes in `docs/release_notes.md` "Upgrading from 2026.4.0"), opt-in phase timing for `newton_cg` (`timing=True`,

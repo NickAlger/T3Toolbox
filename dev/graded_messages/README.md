@@ -41,7 +41,7 @@ documents and some of the proposal.
   at the outer level of fitting; order 0 is the one-coefficient case of the same functions, with the order axis
   an optional axis `T` that is absent at order 0; input jets are always a point and one direction; and the plain
   and jetted sampling functions are one function, `probe(ww, pp=None, order=0)`, with three fitting kinds that
-  take an `order` in place of six (`REVIEW_DECISIONS.md` entries 12 to 42).
+  take an `order` in place of six (`REVIEW_DECISIONS.md` entries 12 to 122).
 - **Paused on 2026-11-15 at 05:53, to resume the next day.** Decided that morning: one function for the plain and
   the jetted computation (6.6), three kinds with an `order` (2.8), how the direction `pp` is passed (part of 6.2),
   and the convention for arrows on the edges (9.5). Held: what a tilde jet is (2.4); the material for it is
@@ -53,6 +53,56 @@ documents and some of the proposal.
   remains, in groups" of `TARGET_DECISIONS.md`), and group A, jets and the misfit, was begun. Decided: what a
   tilde jet is (2.4); the misfit, its default weight of ones and the weight's shape (2.5); standalone preparation
   functions with opt-in keywords (6.7). `T3POLYNOMIAL_SCALING_SURVEY.md` is the consumer's record behind 2.5.
+- **Notation decided on 2026-11-15 at 23:23** (target decision 9.6): four letters and a basis. The reference for
+  the names of the sampling variables is `SAMPLE_VARIABLES.md`; the older names and the ideas that led there are
+  in `NOTATION_HISTORY.md`, marked as deprecated. The folder was brought into line on 2026-11-16: the live
+  documents and prototypes use the new names; the snapshot documents keep theirs, with a notice in their status
+  notes.
+- **Paused on 2026-11-16 at 04:46, to resume the next day.** In the session that began on 2026-11-15 at 15:34,
+  groups A (jets and the misfit), B (the frame and the value) and C (what a kind is, and the public surface) were
+  finished, and groups D and F were begun. 41 of the 56 rows are decided and 11 remain. Among the decisions: the
+  weight is an argument of the engine and acts on `f`, `g`, `JtJp`, `Kp` and `Jp_norm_sq`; a frame is four
+  stores with optional centers; the engine's signature is sketched; the fitting layer's open extension point is
+  an `Oracle`; `LocalModel` is the geometry, the oracle and the regularizer at one frame. Held for one sitting on
+  performance: 5.3, 5.5 and all of group E. Owed: a prototype for 5.4. Next: 8.3, 8.4, 9.3. The section "Where
+  this stands" at the top of `TARGET_DECISIONS.md` has the full state.
+- **Split into two parts on 2026-11-16 at 16:45.** Part 1 is what is computed: the variables, the names, the
+  conventions and how the layers talk, carried out the way the library does it today. Part 2 is how it is carried
+  out: the plan and every performance option. All 46 decided rows are in Part 1; the 7 open rows (5.3, 5.5, 7.2,
+  7.3, 7.5, 7.6, 7.7) are Part 2 and come later. An implementation plan for Part 1 is the next document. See
+  "The two parts" in `TARGET_DECISIONS.md`.
+- **The plan of Part 1 is written and awaits the maintainer (2026-11-16, 18:04).** `PART1_PLAN.md`: what will be
+  built and how, in 20 slices, with a table of 30 proposed names and 27 open points. One agent wrote it and a
+  second reviewed it over four rounds until it agreed (`reviews/part1_plan/`). The names and the open points are
+  proposals: nothing is decided by being in the plan. The next step is to read it with the maintainer.
+- **Commits are authored by NickAlger with Claude as co-author** (the maintainer, 2026-11-16). The earlier commits
+  of this arc were rewritten to that; `COMMIT_HASH_MAP_2026-11-16.md` gives each old hash with its new one.
+- **The plan of Part 1 was approved on 2026-11-16 at 21:16, and its implementation began.** The work is in
+  `implementation/`: the brief, and for each slice a handover and its reviews. The library is now being changed on
+  this branch, one slice per commit.
+- **Paused on 2026-11-17 at 15:14, after slice P4, as the maintainer asked.** P0 to P4 are built, reviewed,
+  committed and pushed (`implementation/LOG.md` has each slice's record): the gate, `jet_contract`, the reference
+  module and the dense functions, the jets with the checkers and the preparation of data, and the frame checkers.
+  P5 is not started.
+- **Jets are generalized before P5 (decided 2026-11-17; log entries 116 to 120).** One jet group, letter `J`, of
+  any number of axes: jets in several variables, cut off as a box, with the shape of the output given
+  explicitly. `T` and `A` leave the contraction strings. The public interface is generalized from the start:
+  `order` is a jet shape; the inputs are jets with sizes of their own and `pp` leaves every signature, a helper
+  building the input of a line; everything of the type of the output has the jet axes; the entries kind is of
+  order 0 only. This supersedes, in the bullet of 2026-11-15 above, "input jets are always a point and one
+  direction" and the form `probe(ww, pp=None, order=0)`.
+- **The plan for the generalized jets is complete and awaits the maintainer's review (paused 2026-11-17, 16:30).**
+  A writer and a critic produced it in three rounds (`reviews/jet_group_plan/`); it is in `PART1_PLAN.md`: slices
+  P4a to P4d between P4 and P5, and the later slices brought in line. The maintainer answered its open points
+  (O-36 to O-47) and approved its names (log entries 121 and 122), then paused the work for a couple of days to
+  review the plan as a whole. **Nothing of it is implemented, and nothing starts until he says so.** Start reading
+  at the plan's head, then section 2.4 (`jet_contract`), section 5.3 (P4a to P4d) and section 11.1.
+- **Picking this up in a new session or on another machine (2026-11-19):** read
+  `implementation/ORCHESTRATION.md` first. It says where things stand, what the orchestrating session does for a
+  slice, what was particular to the cloud session in which P0 to P4 were built (agent ids, check-ins, paths,
+  versions, the baseline), the first steps on another machine (the history was rewritten on 2026-11-16; take a
+  baseline there), the amendments owed to the decision records, and the notes carried to the slices not yet built.
+  `TARGET_DECISIONS.md` and `SAMPLE_VARIABLES.md` carry a banner at the top for what is not yet amended.
 - **The earlier documents are not rewritten.** `EXECUTION_PLANS.md`, `EVALUATOR.md` and `scripts/plan_mockup.py`
   describe the design before the review, and `PROPOSAL.md`, `API_IMPACT.md` and `WORKED_EXAMPLE.md` are affected in
   places. Each has a status note at its top saying what no longer holds. Where they disagree with
@@ -60,7 +110,8 @@ documents and some of the proposal.
 - **A new requirement governs the end state.** Straight after the refactor the maintainer will profile the
   downstream consumer T3Polynomial and tune the new options. A consumer must be able to use every addition
   without rewriting the optimizers and without changing T3Toolbox.
-- **Nothing in T3Toolbox or T3Polynomial was modified.** Everything here is documents and standalone scripts.
+- **Until 2026-11-16 nothing in T3Toolbox was modified**; since then the library is changed on this branch, slice
+  by slice. Nothing in T3Polynomial has been modified.
 - **The algebra is verified numerically on small problems; performance is not.** See "What is established" below.
 
 ## Contents
@@ -68,6 +119,8 @@ documents and some of the proposal.
 | File | What it is |
 | --- | --- |
 | `README.md` | This file: status, how to resume, context that is not in the proposal |
+| `SAMPLE_VARIABLES.md` | (Also the "Sample variables" tab of the Claude doc.) **The reference for the names and definitions of the sampling variables**, in the notation decided on 2026-11-15 (23:23): the taxonomy, each variable as a recurrence and as a subnetwork, types and shapes, and the map from the earlier names and from the library's. Where another document disagrees with it about a name, it wins |
+| `NOTATION_HISTORY.md` | **Deprecated, kept as the record.** The names this folder used before 2026-11-15 (23:23), a timeline of them, and the naming ideas that led to the decided notation, moved here from the documents where they stood |
 | `TYPE_CATALOG.md` | (Also the "Type catalog" tab of the Claude doc.) The types of all the sampling variables (jet or dual jet, vector or covector), where the dual pairings and the inner products are, and where the Riesz maps are. Claude's analysis for target decision 2.4; not a decision |
 | `T3POLYNOMIAL_SCALING_SURVEY.md` | (Also the "Scaling survey" tab of the Claude doc.) How T3Polynomial scales, weights and normalizes today, the history of what was tried, and observations for target decision 2.5. Evidence, not a decision. T3Polynomial is private for now; the maintainer allowed this account of it here (2026-11-15) |
 | `TARGET_DECISIONS.md` | **The working agenda since 2026-11-15**: the decisions that define the target, in dependency order, as questions with a status each. No answers proposed, nothing about sequencing |
@@ -76,15 +129,16 @@ documents and some of the proposal.
 | `reviews/review_1_design.md` | Reviewer 1: internal inconsistencies, problems and simplifications (findings D1 to D23) |
 | `reviews/review_2_library_fit.md` | Reviewer 2: how the proposal fits T3Toolbox (findings F1 to F22, with a coverage table) |
 | `reviews/review_1_scratch/` | Reviewer 1's scratch scripts, cited as evidence in its findings. Not run by any runner |
+| `reviews/notation_2026-11-15/` | The work of bringing the folder into line with the notation: the test of the diagrams drawn from `SAMPLE_VARIABLES.md` alone (`DIAGRAM_TEST.md`), the survey of every place to change (`SURVEY.md`), and the editor's reports |
 | `PROPOSAL.md` | The design: network, naming, building blocks, frame, Taylor jets, code layers, name correspondence, consistency, performance, evidence, risks, order of work |
 | `API_IMPACT.md` | What changes or breaks in the public API: with adapters, and with redundant things removed |
 | `WORKED_EXAMPLE.md` | One fit step (objective, gradient, Gauss-Newton Hessian product) written with the building blocks |
 | `EXECUTION_PLANS.md` | **Before the review.** How a call is executed: the immutable `Plan` (blocking, scan or vectorize, contraction order, executor), keeping against blocking, and the policies that choose a plan |
 | `EVALUATOR.md` | **Before the review.** What a call computes: components named by letter and grade, the dependency graph of every case (entries, apply, probe; value, gradient, Gauss-Newton, exact; jets), `want` and `have`, what can be kept, and the mockup |
 | `network_diagram.png` | The sampled T3 network with bond numbering and the messages around one site |
-| `dependency_pattern.png` | The two factors of every dependency graph: the site graph of letters and the lattice of grades |
-| `dependency_graph.png` | The dependency graph of the per-sample components, grouped by grade and coloured by what each changes with |
-| `dependency_graph.dot` | The mockup's graph for the probe kind with every edge, in Graphviz DOT, written by `scripts/plan_mockup.py --dot`. It has no exact term, unlike the picture |
+| `dependency_pattern.png` | The two factors of every dependency graph: the site graph of letters and the lattice of grades. Names before the review (`_t`, `_z`) |
+| `dependency_graph.png` | The dependency graph of the per-sample components, grouped by grade and coloured by what each changes with. Names before the review (`_t`, `_z`) |
+| `dependency_graph.dot` | The mockup's graph for the probe kind with every edge, in Graphviz DOT, written by `scripts/plan_mockup.py --dot`. It has no exact term, unlike the picture. Names before the review (`_t`, `_z`) |
 | `scripts/graded_messages_prototype.py` | The generated-terms layer (layer 3), unoptimized, checked against 34 library outputs |
 | `scripts/probe_fit_step_example.py` | The explicit term-list layer (layer 2), runnable, checked against the library |
 | `scripts/correspondence_check.py` | Current edge-variable jets against proposed ones, array by array |
@@ -121,15 +175,29 @@ documents and some of the proposal.
 | `scripts/review/gauge_arrow_check.py` | Checks on the library's own orthogonalization methods that the arrows of the frame cores are their orthogonality conditions: `M M^T = I` along the arrows |
 | `scripts/review/tilde_multiplier_check.py` | With jets: each tilde variable is the multiplier of the dot of its partner, under the top-coefficient pairing; the slot-by-slot pairing is wrong. numpy only |
 | `scripts/review/bad_scaling_example.py` | Prototype of the example required by 6.7: badly scaled data, a bad fit as given, a good fit after the standalone preparation functions. Two cases, few samples and many. Uses the library's Newton solver; add `--numbers` to print each error and time |
-| `scripts/review/run_review_checks.sh` | Runs the seventeen review scripts. The three jax ones are skipped without jax |
-| `scripts/review/expected_review_output_3dc15d9.txt` | Recorded output of `run_review_checks.sh` at commit `3dc15d9`, with jax 0.12 |
+| `scripts/review/adapter_doctest_draft.py` | Draft of the doctest required by 2.3, as amended on 2026-11-16: what the standalone preparation of derivative data does to the data, the validation data and the weight, in three cases. The four functions are prototyped so that it runs. numpy only |
+| `scripts/review/order_scan_check.py` | For 2.9: the product of two full jets in three forms: a loop with slices, the library's present scheme in Taylor form (a scan with the other jet carried and shifted one slot per step), and a scan over a table of the needed pairs of orders. For each: correctness against the explicit sum, the size of the traced program, and a count of multiplications that separates the expensive contraction from the cheap one. The two forms of the target are written in the library's pattern (`get_backend`, `tree_contains_jax`, `xscan`, `contract`) and offered as one function with a setting (`product_of_full_jets`); the setting is checked on the four backends (numpy or jax, ragged or uniform) in float64 and float32. Needs jax and the path of a T3Toolbox checkout |
+| `scripts/review/contraction_order_check.py` | For 5.5: the three contraction orders of a three-operand term. An explicit path on numpy and on jax, with groups expanded; and, with two full jets, the three orders read as pairwise truncated products, each against the explicit sum. The jax lines are skipped without jax |
+| `scripts/review/term_stacks_check.py` | For 5.4, in the decided form: `jet_contract` (the library's `contract` with the order groups multiplying as truncated polynomials) and the 41 literal strings of the seven families of terms, each with the direction's stack written on the operand that carries it. Against a reference that uses neither, over the site group, the order, several sample axes, the stack of directions and the stack of base points: 2760 calls, to 4.1e-16. Two step functions as they would stand in the engine. What a wrong rank does. The jax lines are skipped without jax |
+| `scripts/review/subtree_gauge_check.py` | For the naming of the variables (type catalog, section 14, now `NOTATION_HISTORY.md` section 6): an edge variable is the contraction of the subnetwork on one side of an edge, in a basis. Checks that the frame's form (`xi_U_dot`, `mu_R_dot`, `nu_L_dot`, `eta_D_dot`) and the raw form along the lifted direction (`xi_dot`, `mu_dot`, `nu_L_dot`, `eta_D_dot`) are one tangent vector, and that the lift's factors join the twins in the two bases. numpy only; needs the path of a T3Toolbox checkout |
+| `scripts/review/sample_variables_check.py` | **The program in the decided notation** (`SAMPLE_VARIABLES.md`): the recurrences of every variable with the names of 2026-11-15, 23:23, against the library's own kind; each variable as a sum of subnetworks, term by term, against its recurrence; and the direction's network at every cut edge. numpy only; needs the path of a T3Toolbox checkout |
+| `scripts/variable_diagrams_gen.py` | Generates the 28 drawings of the "Variable diagrams" tab of the Claude doc from the definitions of `SAMPLE_VARIABLES.md`: `python3 variable_diagrams_gen.py out.json [preview_folder]` |
+| `scripts/review/run_review_checks.sh` | Runs the twenty-three review scripts. The four jax ones are skipped without jax |
+| `scripts/review/expected_review_output_3dc15d9.txt` | Recorded output of `run_review_checks.sh` at commit `3dc15d9`, with jax 0.12. Recorded again on 2026-11-16 after the scripts were renamed to the notation of `SAMPLE_VARIABLES.md`: labels only, every number the same |
 | `scripts/timings_2core_cpu_3dc15d9.txt` | Recorded output of `run_timings.sh` on a 2-core CPU. Not a basis for defaults |
 
-The proposal also exists as a Claude doc with nine tabs: the main proposal, "Target decisions" (the content of
-`TARGET_DECISIONS.md`), "Type catalog" (`TYPE_CATALOG.md`), "Scaling survey" (`T3POLYNOMIAL_SCALING_SURVEY.md`), "Design after review" (`DESIGN_AFTER_REVIEW.md`), API
-impact, Worked example, Execution plans and Evaluator, the older tabs with the same status notes as the files
-here: <https://claude.ai/artifact/PvTCvDZBKaPKqRTnntH42s>. The decisions log and the
-review reports are only in this package. The markdown files here are the durable copy.
+The proposal also exists as a Claude doc with twelve tabs: the main proposal, "Target decisions" (the content of
+`TARGET_DECISIONS.md`), "Sample variables" (`SAMPLE_VARIABLES.md`), "Type catalog" (`TYPE_CATALOG.md`), "Variable
+diagrams" (28 rows, one drawing per variable, output and block, with no file of its own; the drawings are generated
+by `scripts/variable_diagrams_gen.py`), "Scaling survey" (`T3POLYNOMIAL_SCALING_SURVEY.md`), "Design after review"
+(`DESIGN_AFTER_REVIEW.md`), API impact, Worked example, Execution plans and Evaluator, the older tabs with the same
+status notes as the files here, and "Notation history" (`NOTATION_HISTORY.md`), last:
+<https://claude.ai/artifact/PvTCvDZBKaPKqRTnntH42s>. **As of 2026-11-19 the doc is far behind the files** (nothing
+of the two-part split, the plan of Part 1, the implementation or the generalized jets is in it); do not read it for
+the state. The tabs were last brought in step with the files on 2026-11-16
+and checked against them (`reviews/notation_2026-11-15/DOC_REVIEW_r1.md`); the notes of the "Target decisions"
+tab are shorter than the file's in places. The decisions log and the review reports are only in
+this package. The markdown files here are the durable copy.
 
 ## Pinned state
 
@@ -176,10 +244,11 @@ review reports are only in this package. The markdown files here are the durable
    recorded numbers exactly, check out the pinned commit. Do not run `run_timings.sh` as a check; it is an
    experiment, and its recorded numbers are from a small machine.
 2. **Read** `TARGET_DECISIONS.md` first (its section "Where this stands" is the state at the last pause), then
+   `SAMPLE_VARIABLES.md` (the reference for every name; `NOTATION_HISTORY.md` when an older text is read), then
    `TYPE_CATALOG.md`, `DESIGN_AFTER_REVIEW.md` and `REVIEW_DECISIONS.md` (its entries 12 and 13 are the
-   redirection, 19 to 29 the morning of 2026-11-15). Then `PROPOSAL.md`, `WORKED_EXAMPLE.md` and
-   `API_IMPACT.md`, minding the status note at the top of each. Read `EVALUATOR.md` and `EXECUTION_PLANS.md` last
-   and as history: their evidence and measurements still stand, their interface does not.
+   redirection, 19 to 29 the morning of 2026-11-15). Then `PROPOSAL.md`, `WORKED_EXAMPLE.md` and `API_IMPACT.md`,
+   minding the status note at the top of each. Read `EVALUATOR.md` and `EXECUTION_PLANS.md` last and as history:
+   their evidence and measurements still stand, their interface does not.
 3. **Read the library's own records before proposing anything.** The reviewers found that several ideas here had
    already been measured, decided or named there. At least: `docs/glossary.md`, `docs/naming_conventions.md`,
    `docs/contributor/precompute_and_caching.md`, `docs/contributor/curvature_internals.md`,
@@ -192,7 +261,8 @@ review reports are only in this package. The markdown files here are the durable
    requirement. The maintainer asked for this pace explicitly.
 5. **Then rewrite** `EXECUTION_PLANS.md`, `EVALUATOR.md`, the affected parts of the other three documents, and
    `scripts/plan_mockup.py` to the settled design. `scripts/review/jet_steps_check.py` is the starting point for
-   the explicit functions and the names.
+   the explicit functions; the names are those of `SAMPLE_VARIABLES.md` and
+   `scripts/review/sample_variables_check.py`.
 6. **Re-survey the API** if much time has passed. The counts in `API_IMPACT.md` are from text searches at the
    pinned commit.
 7. **Only then follow the order of work** at the end of `PROPOSAL.md`, revised for the two stages of
@@ -235,8 +305,9 @@ Verified numerically against the library at the pinned commit (details and scrip
   component reads the letters upstream of it at every grade at or below its own. This was derived by tracing the
   graded program that reproduces the library, for entries, apply and probe, for the value, `J p`, `J^T r` and the
   exact term. Entries has the same graph as apply, and jets add an order axis but no components and no reads.
-- The frame's `nu` and the base point's `nu` differ by a bond-sized gauge matrix (also at the residual grade), and
-  the probe output can be read off the frame's components and the point's center cores, to 2e-15.
+- `nu` (in the frame's `R` basis) and `nu_L` (in the base point's `L` basis) differ by a bond-sized gauge matrix
+  (also at the residual grade), and the probe output can be read off the frame's components and the point's center
+  cores, to 2e-15.
 - For probes with an orthogonal frame and a gauged tangent, the Gauss-Newton product can be formed with no
   ambient-sized intermediate; it matches the through-ambient route to 5e-16.
 
@@ -372,10 +443,11 @@ by the new list. 2, 4, 6 and 7 are still open.
 - **`is_consistent()` already exists** on `T3Frame` and `UT3Frame`. The ragged one is dense
   (`fv_operations.fv_frame_consistency_residual`); the uniform one already uses a difference norm. The proposal is
   to make the ragged one cheap and to wire it as a safe-mode precondition, not to add a new method.
-- **A manifold frame has no plain probe output and no grade-`t` core gradient.** The prototype hit both: the
+- **A manifold frame has no plain probe output and no dot-grade core gradient.** The prototype hit both: the
   plain value needs the point's own cores, and every rule call needs an explicit set of wanted grades.
-- **In a manifold frame the grade decides the bond space.** `mu` and `mu_z` live on `rL`; `mu_t` lives on `rR`.
-  Components must be keyed by grade, not stacked on an axis.
+- **In a manifold frame the letter does not decide the bond space.** `mu` and `mu_tilde` live on `rL`; the frame's
+  dot `mu_R_dot` lives on `rR`. The basis is part of the name (`SAMPLE_VARIABLES.md` section 2), and the grades are
+  separate arrays, not stacked on an axis.
 - **The sharding test finds subscript strings by scanning source literals** (`tests/test_contractions_sharding.py`,
   which asserts it finds more than 100). Generated strings would be invisible to it.
 - **Some tests assert exact equality** (37 in `tests/backend/test_curvature.py`, 17 in `tests/test_fitting.py`,
@@ -396,7 +468,7 @@ by the new list. 2, 4, 6 and 7 are still open.
   to about 70% in individual cells, and the fastest variant in the small cases changed between runs.
 - **Apply and entries need far fewer components than probe.** They read the output at the right boundary, so the
   forward needs only `xi` and `mu`, and the scalar residual enters at the boundary, so the adjoint needs only
-  `nu_z` and `eta_z`. For them `nu_z` is the residual times the plain `nu`.
+  `nu_tilde` and `eta_tilde`. For them `nu_tilde` is the residual times the plain `nu`.
 - **"Sharing" is the library's word for one Tucker factor used at several modes** (`docs/sharing.md`). These
   documents use it only in that sense, and say "reuse" for a component used by more than one operation or frame.
   Sharing lives in the geometry wrapper, on cores; the evaluator works per sample and needs nothing new for it.

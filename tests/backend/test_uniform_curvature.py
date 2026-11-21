@@ -592,11 +592,17 @@ class TestUniformKindCorewiseHessian(unittest.TestCase):
 # The plain kinds' uniform two-holes (S10 / S11): probe, apply, entries
 # ---------------------------------------------------------------------------------------------------
 _PLAIN_KINDS = ('probe', 'apply', 'entries')
-_PLAIN_UNIFORM = {'probe': (ut3s.ut3_probe_corewise_hessian, ut3s.ut3_probe_corewise_hessian_from_sweep,
+
+
+def _by_old_order(hess):
+    """A uniform corewise Hessian called in the tests' order (residual, sample, point, directions); P12b moved the
+    twins to the object first, ``hess(x, sample, residual, core_directions)``."""
+    return lambda c, s, theta, D: hess(theta, s, c, D)
+_PLAIN_UNIFORM = {'probe': (_by_old_order(ut3s.ut3_probe_corewise_hessian), ut3s.ut3_probe_corewise_hessian_from_sweep,
                             utvs.utv_precompute_probe_frame_sweep),
-                  'apply': (ut3s.ut3_apply_corewise_hessian, ut3s.ut3_apply_corewise_hessian_from_sweep,
+                  'apply': (_by_old_order(ut3s.ut3_apply_corewise_hessian), ut3s.ut3_apply_corewise_hessian_from_sweep,
                             utvs.utv_precompute_apply_frame_sweep),
-                  'entries': (ut3s.ut3_entries_corewise_hessian, ut3s.ut3_entries_corewise_hessian_from_sweep,
+                  'entries': (_by_old_order(ut3s.ut3_entries_corewise_hessian), ut3s.ut3_entries_corewise_hessian_from_sweep,
                               utvs.utv_precompute_entries_frame_sweep)}
 
 
@@ -604,8 +610,9 @@ def _plain_ragged_hessian(kind):
     import t3toolbox.backend.apply as bapply
     import t3toolbox.backend.entries as bentries
     import t3toolbox.backend.probing as probing
-    return {'probe': probing.t3_probe_corewise_hessian, 'apply': bapply.t3_apply_corewise_hessian,
-            'entries': bentries.t3_entries_corewise_hessian}[kind]
+    new = {'probe': probing.t3_probe_corewise_hessian, 'apply': bapply.t3_apply_corewise_hessian,
+           'entries': bentries.t3_entries_corewise_hessian}[kind]
+    return lambda c, s, theta, D: new(theta, s, c, D)          # the tests' order (c, sample, point, directions)
 
 
 def _plain_sample(kind, shape, W, n, rng):
@@ -673,8 +680,17 @@ class TestUniformPlainKindsTwoHole(unittest.TestCase):
                 good = _PLAIN_UNIFORM[kind][0](z, s, theta, D)
                 N = uframe[0].shape[-1]
                 pk = lambda v: ut3o.pack_if_ragged(v, N)
-                bare = _plain_ragged_hessian(kind)(pk(z) if kind == 'probe' else z, s if kind == 'entries' else pk(s),
-                                                   ut3mask.ut3_apply_masks(theta), D)
+                # P12: the ragged name is the engine (which masks every operand); the control is on the old kernel,
+                # the two-hole from a sweep at the masked point's corewise frame, with the direction unmasked
+                import t3toolbox.backend.apply as bapply
+                import t3toolbox.backend.entries as bentries
+                import t3toolbox.backend.probing as probing
+                module = {'probe': probing, 'apply': bapply, 'entries': bentries}[kind]
+                mB, mG = ut3mask.ut3_apply_masks(theta)
+                sample = s if kind == 'entries' else pk(s)
+                sweep = getattr(module, 'tv_precompute_%s_frame_sweep' % kind)((mB, mG, mG, mG), sample)
+                bare = getattr(module, 't3_%s_corewise_hessian_from_sweep' % kind)(
+                    pk(z) if kind == 'probe' else z, sample, (mB, mG), D, sweep)
                 bare = ut3mask.ut3_apply_masks(bare + theta[2:])
                 self.assertGreater(np.linalg.norm(bare[1] - good[1]), 1e-3 * np.linalg.norm(good[1]))
 

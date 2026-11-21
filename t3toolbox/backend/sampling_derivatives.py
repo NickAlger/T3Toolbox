@@ -2083,7 +2083,7 @@ def tv_probe_derivatives_transpose(
     default is a safe fixed value, tuned only for moderate problems (a fixed ``chunk_size`` bounds the
     chunk *count*, not the bytes); for a memory-balanced value from the problem shapes call
     :py:func:`estimate_chunk_size` once (eagerly). Chunking engages only on the uniform+jax path
-    (numpy/ragged free eagerly). See :doc:`/chunking`.
+    (numpy/ragged free eagerly).
     '''
     sweep = tv_precompute_probe_frame_sweep_jets(frame, ww, pp, order)
     return tv_probe_transpose_derivatives_from_sweep(
@@ -2812,7 +2812,7 @@ def assemble_tucker_tangent_variation_jets(
     ``sum_t etadot^(t) (x) z~^(t) + sum_u dxi~dot^(u) (x) w^(u)`` (the residual and the ambient input jet are
     fixed; the autosummary first line above stays literal-free on purpose). W-chunked exactly as
     :py:func:`assemble_tucker_variation_jets` (on the uniform path -- a ``lax.scan`` on jax, where the memory
-    win is, an eager loop on numpy; ragged, ``None`` and ``W <= chunk_size`` run dense); see :doc:`/chunking`.'''
+    win is, an eager loop on numpy; ragged, ``None`` and ``W <= chunk_size`` run dense).'''
     ops = (ztildes, dxi_tildes_dot, ww, pp, eta_jets_dot)
     w_axes = (2, 2, 1, 1, 2)                          # per-operand W axis (ww/pp carry no order axis)
     dense = lambda: _assemble_tucker_tangent_variation_jets_dense(*ops, n_probe)
@@ -2932,8 +2932,7 @@ def assemble_tt_tangent_variation_jets(
     the remaining factor: the sigma~ / tau~ groups as banded pairs (both meet ``xi``, so they share their two
     finals), the deta~ group as an order scan over the lag; see :py:func:`_tt_tangent_variation_jets_step`.
     Equal to the nine-term dense form to ~1e-15. W-chunked exactly as the GN assembly (on the uniform path --
-    a ``lax.scan`` on jax, an eager loop on numpy; ragged, ``None`` and ``W <= chunk_size`` run unchunked); see
-    :doc:`/chunking`.'''
+    a ``lax.scan`` on jax, an eager loop on numpy; ragged, ``None`` and ``W <= chunk_size`` run unchunked).'''
     ops = (sigma_tildes, sigma_tildes_dot, tau_tildes, tau_tildes_dot, deta_tildes, deta_tildes_dot,
            xi_jets, xi_jets_dot, mu_jets, mu_jets_dot, nu_jets, nu_jets_dot)
     w_axes = (2,) * len(ops)
@@ -3045,7 +3044,7 @@ def t3_probe_corewise_derivatives_hessian(
     stack ``K`` (``K + C``), and the output is raw core variations shaped like the directions, the sample
     stack ``W`` summed. Polymorphic over ragged tuples and uniform supercores (packed ``ztildes``/``ww``/
     ``pp``). ``chunk_size`` W-chunks the assemblies on the uniform path (bounding their peak memory on jax)
-    exactly as in :py:func:`tv_probe_derivatives_transpose` (:doc:`/chunking`).
+    exactly as in :py:func:`tv_probe_derivatives_transpose`.
 
     **Mask-free by contract.** It assumes ``theta`` and ``theta_hat`` arrive with their padded slots already
     zero: a uniform caller masks both once up front with ``theta``'s masks, so the shared algorithm runs

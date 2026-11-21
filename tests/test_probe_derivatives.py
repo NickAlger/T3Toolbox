@@ -13,6 +13,9 @@ import t3toolbox.backend.apply as apply
 import t3toolbox.backend.entries as entries
 import t3toolbox.backend.sampling_derivatives as pd
 import t3toolbox.uniform_tucker_tensor_train as ut3
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+import _derivative_data as dd       # derivative data from the merged methods (P13b)
 
 np.random.seed(0)
 tol = 1e-9
@@ -39,15 +42,15 @@ class TestProbeDerivatives(unittest.TestCase):
         x = t3.TuckerTensorTrain.randn(*STRUCT)
         ww = tuple(np.random.randn(3, n) for n in STRUCT[0])
         pp = tuple(np.random.randn(3, n) for n in STRUCT[0])
-        ztildes = x.probe_derivatives(ww, pp, 2)
-        g_dense = x.probe_corewise_derivatives_transpose(ztildes, ww, pp, 2, chunk_size=None)
-        g_chunk = x.probe_corewise_derivatives_transpose(ztildes, ww, pp, 2, chunk_size=2)
+        ztildes = dd.forward(x, 'probe', ww, pp, 2)
+        g_dense = dd.corewise_transpose(x, 'probe', ztildes, ww, pp, 2, chunk_size=None)
+        g_chunk = dd.corewise_transpose(x, 'probe', ztildes, ww, pp, 2, chunk_size=2)
         for a, b in zip(g_dense[0] + g_dense[1], g_chunk[0] + g_chunk[1]):
             self.check_relerr(a, b)
         u = ut3.UniformTuckerTensorTrain.from_t3(x)
-        zu = u.probe_derivatives(ww, pp, 2)
-        gu_dense = u.probe_corewise_derivatives_transpose(zu, ww, pp, 2, chunk_size=None)
-        gu_chunk = u.probe_corewise_derivatives_transpose(zu, ww, pp, 2, chunk_size=2)
+        zu = dd.forward(u, 'probe', ww, pp, 2)
+        gu_dense = dd.corewise_transpose(u, 'probe', zu, ww, pp, 2, chunk_size=None)
+        gu_chunk = dd.corewise_transpose(u, 'probe', zu, ww, pp, 2, chunk_size=2)
         self.check_relerr(gu_dense[0], gu_chunk[0])
         self.check_relerr(gu_dense[1], gu_chunk[1])
 
@@ -190,7 +193,7 @@ class TestProbeDerivatives(unittest.TestCase):
         pp = [np.random.randn(N) for N in STRUCT[0]]
 
         z_jets = pd.tv_probe_derivatives(ww, pp, v.variations.data, v.frame.data, 3)
-        z_probe = t3p.tv_probe(ww, v.variations.data, v.frame.data)
+        z_probe = t3p.tv_probe(v.frame.data, v.variations.data, ww)
         for zj, zp in zip(z_jets, z_probe):
             self.check_relerr(zp, np.asarray(zj)[0])
 
@@ -202,7 +205,7 @@ class TestProbeDerivatives(unittest.TestCase):
         pp = [np.random.randn(N) for N in STRUCT[0]]
 
         z_jets = pd.t3_probe_derivatives(ww, pp, x.data, 3)
-        z_probe = t3p.t3_probe(ww, x.data)
+        z_probe = t3p.t3_probe(x.data, ww)
         for zj, zp in zip(z_jets, z_probe):
             self.check_relerr(zp, zj[0])
 
@@ -215,8 +218,8 @@ class TestProbeDerivatives(unittest.TestCase):
 
         z_jets = pd.t3_probe_derivatives(ww, pp, x.data, 1)
         s = 1e-6
-        z_plus  = t3p.t3_probe([w + s * p for w, p in zip(ww, pp)], x.data)
-        z_minus = t3p.t3_probe([w - s * p for w, p in zip(ww, pp)], x.data)
+        z_plus  = t3p.t3_probe(x.data, [w + s * p for w, p in zip(ww, pp)])
+        z_minus = t3p.t3_probe(x.data, [w - s * p for w, p in zip(ww, pp)])
         for i in range(len(STRUCT[0])):
             fd = (np.asarray(z_plus[i]) - np.asarray(z_minus[i])) / (2 * s)
             self.assertLessEqual(norm(fd - np.asarray(z_jets[i][1])) / norm(fd), 1e-6)
@@ -321,7 +324,7 @@ class TestProbeDerivatives(unittest.TestCase):
                     self._all_modes_check(
                         yv, lambda w, k, c: pd.dense_apply_derivatives([a[w] for a in ww], [a[w] for a in pp], Vd[k + c], ORDER),
                         W, K, C, ORDER)
-                    self.check_relerr(apply.tv_apply(ww, v.variations.data, v.frame.data), yv[0])
+                    self.check_relerr(apply.tv_apply(v.frame.data, v.variations.data, ww), yv[0])
 
     def test_entries_derivatives_match_dense(self):
         # entries derivatives (all modes, one-hot frame + general P): Euclidean and Riemannian vs oracle.
@@ -352,7 +355,7 @@ class TestProbeDerivatives(unittest.TestCase):
                     self._all_modes_check(
                         yv, lambda w, k, c: pd.dense_entries_derivatives(idx_s(w), [a[w] for a in pp], Vd[k + c], ORDER),
                         W, K, C, ORDER)
-                    self.check_relerr(entries.tv_entries(index, v.variations.data, v.frame.data), yv[0])
+                    self.check_relerr(entries.tv_entries(v.frame.data, v.variations.data, index), yv[0])
 
     def test_apply_entries_transpose_adjoint_identity(self):
         # adjoint identity <c, J v> = <J^T c, v> for the all-modes apply/entries derivative transposes

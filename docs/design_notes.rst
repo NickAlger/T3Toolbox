@@ -18,7 +18,6 @@ Core design
    transposes
    t3m_methods
    fitting_and_optimization
-   chunking
    weighting
    sharing
    numerical_contracts

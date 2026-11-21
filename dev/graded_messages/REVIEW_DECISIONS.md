@@ -9,6 +9,11 @@ and the evidence. The same content organized by topic is in `DESIGN_AFTER_REVIEW
   (`SampleScan`), "block" became "chunk", "component" became "sampling variable", `evaluate` became
   `sampling_variables`, `Plan` became `SamplePlan`, "keep" became "hold", and the grade suffixes `_t`, `_z` became
   `_dot`, `_tilde`. Entry 8 has the names.
+- **On 2026-11-15 (23:23, entry 57) the names were fixed again:** `gamma` is `nu_L`, `zeta` (entry 54) is `eta_D`,
+  the frame's `mu_dot`, `xi_dot`, `nu_dot`, `eta_dot` (this log's `_dot` of entry 8) are `mu_R_dot`, `xi_U_dot`,
+  `nu_L_dot`, `eta_D_dot`, and the bare `mu_dot`, `xi_dot` now mean the base point's. Entries before 57 use the
+  words of their time; `SAMPLE_VARIABLES.md` section 10 has the table, and `NOTATION_HISTORY.md` the earlier names
+  and ideas.
 - **The log ends with a pause** called by the maintainer (last entry). The proposal documents and the mockup had
   not been rewritten to these decisions when it was called.
 
@@ -303,9 +308,9 @@ The maintainer chose to settle the names now, one at a time (2026-11-14).
 - **Docstring table of `have` for each `want`** (the maintainer's idea, 2026-11-14): `sampling_variables` documents,
   for every variable, what it reads and which of those are worth holding. To be generated from the declared
   graph and checked by a test, so it cannot drift. Blocked for `Kp` and `Hp` on the gauge part of D13 (below).
-- **The gauge part of D13: `gamma`.** The right edge variable swept through `L` (the base point's own cores) is
-  not `nu`. The maintainer's view: it is an auxiliary variable, and since the curvature term reads it too it gets
-  its own letter, `gamma`. `nu` means the frame's right edge variable, swept through `R`, and nothing else.
+- **The gauge part of D13: `gamma` (now `nu_L`).** The right edge variable swept through `L` (the base point's own
+  cores) is not `nu`. The maintainer's view: it is an auxiliary variable, and since the curvature term reads it too
+  it gets its own letter, `gamma`. `nu` means the frame's right edge variable, swept through `R`, and nothing else.
   - `gamma` is read by `z` (the value, decision 7) and by `Kp`. The library's notation for it is `nu_c`, with
     `nu_c = T nu` at a manifold frame (`docs/contributor/curvature_internals.md`); the proposal's `S` for that
     matrix becomes `T`.
@@ -974,3 +979,1039 @@ axes. How do we tell whether an axis is part of the batch, or a derivative order
 - **Done.** This folder was committed to `main` as `dev/graded_messages/`, with the library's `dev/HANDOFF.md`
   updated to point at it. The work continues on the branch `graded-messages`.
 
+## 43. Confirmations; two more preparation functions; the adapter example (2026-11-15, 18:32)
+
+- **The maintainer.** "Agree plan after target is settled. Agree local dev copy on my laptop is old and superseded
+  by our work here. Coordinate rescaling and direction rescaling become library functions. For the form of the
+  derivative mode adapter: can you show me a minimal example of it being used here in chat?"
+- **Recorded.** The plan for after the target is settled, as written in `dev/HANDOFF.md`, is confirmed. The laptop
+  copy of the old handoff directory is superseded. The rescaling of the direction and the rescaling of a mode's
+  coordinates (with its inverse) are library functions, beside the block norms and the filtered inverse (6.7).
+- **2.3.** A minimal example of the adapter was shown in the conversation: the standalone conversions used by hand,
+  and the keyword doing the same inside a fit. Not decided.
+
+## 44. The derivative-mode adapter decided (2026-11-15, 18:37)
+
+- **The maintainer.** "Yes, this is good. Regarding the keyword dependent meaning: yes, but let's make sure to
+  document clearly. We can have a doctest example illustrating this behavior, showing what happens to the data in
+  each case".
+- **Target decision 2.3, decided.** Standalone conversions and one opt-in keyword on the fitting functions; with
+  the keyword and no weight, the weight is `t!` per order, which reproduces the plain sum of squares of the
+  derivative residuals. Required: documentation with a doctest of the three cases.
+- **A draft of that doctest** runs in `scripts/review/adapter_doctest_draft.py` (14 examples). 32 rows remain;
+  group A has four, all marked to confirm: 2.9, 3.6, 3.7 and 3.3.
+- **A slip in the record.** The commit `fbc7d44` carried only the draft and the runner; an edit script had failed
+  before it wrote the documents, and the commit message said more than the commit held. The documents followed
+  in the next commit.
+
+## 45. How a term is carried out over the orders: a scan (2026-11-15, 19:08)
+
+- **The maintainer.** "I confirm 2.9 as stated. However, I want to implement with a scan rather than a loop.
+  Although the 4th order polynomial is my target, there can be other users with different problems who want
+  higher order polynomials; for example to get higher accuracy on smaller problems."
+- **Target decision 2.9, decided.** As stated, with the scan: the coefficients of a full jet operand are taken by a
+  scan. Claude had proposed leaving loop or scan to group D.
+- **Checked** in `scripts/review/order_scan_check.py`: the scan needs a shift and a mask in place of slicing; it
+  matches the explicit sum at orders 1 to 16 under jit; its traced program has one size at every order, where
+  the unrolled loop grows about ninefold from order 1 to 16; it does up to twice the contractions of the
+  triangle (1.67 times at order 4). 31 rows remain; group A has three, all marked to confirm.
+
+## 46. The scan reconsidered (2026-11-15, 19:14)
+
+- **The maintainer.** "Oh hold on. We need to think more about the scan. Performance is important. Can you show me
+  pseudocode of representative contractions, loop vs scan, showing how the scan doubles the contractions?"
+- **Status.** The scan part of 2.9 is open again; the row is marked to confirm. The rest of 2.9 stands.
+- **Shown.** Pseudocode of the loop and of the scan with a shift and a mask, and why the second contracts the
+  square where the first contracts the triangle. A third form was found and checked: a scan over a static table
+  of the needed pairs of orders, `P` at a time. It has a traced program of one size at every order and contracts
+  the triangle plus fewer than `P` pairs of padding; it needs two gathers and a scatter-add in each iteration.
+  The comparison is in `scripts/review/order_scan_check.py`. Nothing was timed.
+
+## 47. How the library carries out a product of jets today; a correction (2026-11-15, 19:22)
+
+- **The maintainer.** "How does this compare with how the code currently implements the analogous operation for
+  convolution of jets?"
+- **Read in the library** (`backend/sampling_derivatives.py`, 2026.5.0). An affine operand: one contraction against
+  a stacked pair of shifted copies. Two full jets: a scan over the order of one factor; each step contracts one
+  order slice with the core and then with all slots of the other jet, which is carried and shifted one slot per
+  step. A real scan only on the uniform layout. The stated reason is peak memory, with a measured 14 to 28 times
+  smaller peak; "an unrolled loop does not" give it.
+- **Correction.** Claude's table of entry 46 counted pairs of orders as if all contractions cost alike. Separating
+  the expensive contraction (core with one coefficient) from the cheap one (pairing with the other jet), the
+  library's scheme costs 6 percent more than the loop at order 4 with realistic ranks, and the pair-table scan
+  Claude recommended costs 2 to 7 times the loop. The recommendation is withdrawn. The library's scheme in Taylor
+  form is now a form of its own in `scripts/review/order_scan_check.py`: correct under jit, 34 lines of traced
+  program at every order.
+
+## 48. Two forms over the orders, chosen through the plan (2026-11-15, 19:32)
+
+- **The maintainer.** "Let's have two options, controllable by the user through the Plan abstraction. The analog of
+  the libraries current scheme, and a loop with slices. The scan is the default. In the plentiful memory regime,
+  I can imagine jax's jit compiler may find optimizations which increase speed,if it can see the whole loop."
+- **Decided (2.9).** A product of two full jets has two forms, and the plan says which. The default is the scan
+  over one operand's coefficients with the other jet carried and shifted one slot per step. The other is the
+  loop with slices. "No user option" leaves the row; "no dense order-by-order form" stays. The plan (7.1) gains
+  one setting.
+- **Claude's readings, recorded as such in the note to 2.9.** One setting for the whole call; a real scan on every
+  layout under the default; agreement of the two settings to rounding only; products with an affine operand,
+  order 0 and the block readouts do the same contractions under both.
+- **Not decided.** The name of the setting.
+- **Checked.** `scripts/review/order_scan_check.py`, part 3: the two settings agree under jit at orders 1 to 16 in
+  float64 and float32.
+- **Counts.** 20 rows decided, 31 remain. Group A has three: 3.6, 3.7, 3.3, all marked to confirm.
+
+## 49. How the scan is written; rules for dispatch (2026-11-15, 19:50)
+
+- **The maintainer.** "The implementation is through the xscan abstraction, which dispatches to a jax scan if jax is used and the
+  layer is uniform, and a loop if pure numpy or ragged. In general, things should respect the numpy vs jax dispatch
+  rule, and scan type operations should be polymorphic in ragged vs uniform. This may have reasonable exceptions
+  for performance optimizations and issues related to masking; though for uniform sampling the pattern is to mask
+  first, then compute edge variables with the assumption that masking was already done. For map-type operations,
+  uniform and ragged may have different behavior for performance and memory considerations; this is one of the
+  things we are helping the user control with the Plan abstraction in this refactor arc. Dispatch at the lowest
+  level within reason, use jax if any input is jax and numpy otherwise, write code generically with xscan and
+  similar, which are obtained from the get_backend function and may also use the tree_contains_jax function.
+  Uniform vs nonuniform is deduced from the input types. Look at other functions in the library for examples, for
+  example things in the existing backend/probing.py."
+- **A reading of Claude's corrected.** Entry 48 recorded Claude's reading that the default would be a real scan
+  on every layout. It is not: the scan is written with `xscan`, a real scan with jax on the uniform layout and
+  a Python loop on numpy or on the ragged layout.
+- **Recorded.** For 2.9, in its notes. As general rules for how the functions are written, in the notes to
+  section 5 of `TARGET_DECISIONS.md`: numpy or jax inferred from the inputs at the lowest level; the layout
+  deduced from the input types; scan-type operations generic through `xscan`; mask first on the uniform layout;
+  map-type operations may differ between the layouts, under the plan's control; `backend/probing.py` as the
+  example. No row changes status; they bear on 5.2, 5.3 and 5.6.
+- **Prototype.** `scripts/review/order_scan_check.py` rewritten in the library's pattern and checked on the four
+  backends in float64 and float32. It now takes the path of the T3Toolbox checkout.
+- **Claude's observation, for 7.2.** Where `xscan` is a Python loop the `'scan'` setting keeps the square of the
+  cheap contractions without the scan's two properties, so `'loop'` does less work there and gives up nothing.
+
+## 50. The library read again, not the prototypes (2026-11-15, 20:00)
+
+- **The maintainer.** "I get the impression that after the conversation compacted you forgot some things, and are
+  now going to the prototype to get context. However, the prototype is just that; the way the code is written
+  there may be what we are going for, or it may be something that was done for expediency and not intended for
+  the actual refactor. To address this, please read through backend/probing.py and backend/sampling_derivatives.py
+  to get a feel for how the library currently works, and also review the proposal documents for our new execution
+  plan feature."
+- **Read.** `backend/probing.py` and `backend/sampling_derivatives.py` in full; the scans and maps of
+  `backend/common.py`; the head of `backend/ut3_sampling.py`; `docs/contributor/scan_body_principles.md`,
+  `docs/contributor/uniform_polymorphism.md`, `docs/chunking.md` (first half), the scanned-kernel item of
+  `docs/contributor/deferred_and_rejected.md`; and this folder's `EXECUTION_PLANS.md`, `DESIGN_AFTER_REVIEW.md` and
+  entries 1 to 8 of this log.
+- **Recorded** in the notes to section 5 of `TARGET_DECISIONS.md`: a table of what each kind of loop is on each
+  layout in the library today; how dispatch, masks, bodies and dtypes are handled; and that the two contributor
+  notes, not the prototypes, are the reference for the form of the code.
+- **What it changes in the records.** The rules of entry 49 were restated from the maintainer's message alone;
+  they are now tied to the library's own notes. Decision 4 (no option for orders) is marked superseded by 2.9 in
+  `TARGET_DECISIONS.md` and at the top of `DESIGN_AFTER_REVIEW.md`.
+- **Found, not decided.** The site option is a choice only on the uniform layout with jax. The settings for
+  orders and for sites combine there. Whether a scan over sample chunks is real on ragged cores with jax is a
+  question for group E. The explicit prototypes form every tilde variable at every order, where the library
+  forms only the two rows of `dxi_tilde` that are read; that bears on 3.3 and 6.4.
+- **Prototype.** In `order_scan_check.py` the scan body was defined inside a factory function. It is now a
+  module-level function, as the scan-body principles require, and the script says which of its features are the
+  library's pattern and which are the prototype's only. Its output is unchanged.
+
+
+## 51. What "public" means for a variable (2026-11-15, 21:35). Under discussion
+
+- **The maintainer's take.** Edge variables are computed through the engine, by asking for what is wanted and
+  supplying what is held, so there is no need for an individual function for each of them. He asked how Claude
+  sees it.
+- **Claude's answer.** Agreed. Public then means that the engine accepts the name, in `want` and as a held
+  keyword; the public functions are the engine and the operations of 6.6. A test for a name being public was
+  proposed (a route-independent meaning, one shape, a use outside), with its consequences for `eta_tilde`, for the
+  docstring table as the shape contract, and for 3.4 and 6.5. The engine itself has not been prototyped.
+- **Recorded** in the notes to section 6 of `TARGET_DECISIONS.md`. No row changes status.
+
+## 52. Public: provide every variable; the shape with jets (2026-11-15, 21:44). Under discussion
+
+- **The maintainer.** Edge variables are mathematical quantities a user may want; he sees no clear place to draw a
+  line, "which suggests that we provide all of them". And the shape contract has nuance with jets, perhaps
+  covered by the optional group `T`.
+- **Claude's answer.** The third part of the proposed test ("a use outside") is withdrawn; every variable of the
+  graph at every grade can be wanted and held. A rule is proposed with it: wanting a variable never changes a
+  value, and not wanting it lets the engine skip work (the two slots of `eta_tilde`). With `r` holdable, one
+  name per tilde variable covers every seed. On shapes: `T` carries it; the affine variables have a two-slot
+  group of their own, the tilde grades have a turned order leg, and only plain jets are nested in the order.
+- **Recorded** in the notes to section 6 of `TARGET_DECISIONS.md`. No row changes status.
+
+## 53. Public: confirmed. The variables without names (2026-11-15, 21:57 and 21:59)
+
+(Its naming is superseded by entry 57.)
+
+- **Confirmed by the maintainer.** Every variable of the graph can be wanted and held, and wanting never changes
+  a value. The affine variables carry a two-slot group in place of `T`.
+- **Asked.** A list of the variables that still need names, with suggestions; perhaps recycling freed names such
+  as `sigma` and `tau`. And: consistency with the T4S paper's notation is not to be attempted.
+- **The list** is in the notes to section 6 of `TARGET_DECISIONS.md`: six variables, all of them variables of the
+  corewise frame at the base point seen from a call on a manifold frame. Four are the grades of one missing
+  letter (the partner of `gamma`); two are the dots of `xi` and `mu` along the raw core direction, which collide
+  with the frame's dots. The raw core direction has no name as an argument either.
+- **Found while listing.** The prototype's `eta_tilde_dot` is the tilde-dot of the missing letter, not of `eta`.
+
+## 54. `zeta` decided; the collision in the terms of the type catalog (2026-11-15, 22:11)
+
+(Superseded by entry 57: `zeta` is `eta_D`, and neither option was taken.)
+
+- **Decided.** `zeta` is the down variable through the base point's cores: "zeta is great!"
+- **Asked.** How the two options for the dots of `xi` and `mu` along the raw core direction sit within the type
+  catalog's naming concepts.
+- **Answered** in section 13 of `TYPE_CATALOG.md`, from the checked catalog grouped by edge and direction. The two
+  rules of the catalog do not see the collision; it is a difference of edge. Two slots have no letter, the
+  vector on an `R` bond and the vector on a `U` edge, and only the frame's tangent variables live there. Option B
+  follows the precedent of `nu` and `gamma`; option A marks something that is not a coordinate of the catalog.
+  Not decided.
+
+## 55. Naming from first principles: a variable is a contracted subnetwork in a basis (2026-11-15, 22:24, 22:27)
+
+- **The maintainer.** Freedom to explore broader naming concepts, with no precedent to worry about. What is the
+  minimal information that identifies a variable? Could it be the core and leg it comes out of (`mu` as `L2`)?
+  And: an edge variable as the fully contracted subnetwork on one side of the edge.
+- **Analysis** (section 14 of `TYPE_CATALOG.md`). Three things identify a variable: the side contracted (the left
+  or the right of a bond, the leaf or the trunk at a Tucker edge), the basis of the cut edge (the base point's or
+  the frame's other one), and what was differentiated. 22 of the 32 combinations occur.
+- **Found and checked** (`scripts/review/subtree_gauge_check.py`). Along the lifted direction, the frame's dots
+  and the base point's dots are the same tangent vector: equal arrays where the basis is the same, and joined by
+  the lift's factors where it differs. The same factors join `nu` with `gamma` and `eta` with `zeta`. With slack
+  ranks a twin relation holds one way only. With damping the statement is not exact; not examined.
+- **The core-and-leg naming** is exact for the seven plain variables and not unique for a dotted one.
+- **Two schemes offered.** Eight letters (with `sigma` and `tau` for the two variables that exist only as dots),
+  or four letters for the four sides with the store of the basis as a suffix where it is not the usual one.
+  Not decided.
+- **22:41.** The maintainer asked for the second scheme written out as a table against every current variable
+  and the unnamed ones. It is at the end of section 14 of `TYPE_CATALOG.md`, with the library's present names.
+
+## 56. A table of diagrams, one row per variable: prototype (2026-11-15, 23:02)
+
+- **The maintainer**, on the four-letters-and-a-basis scheme: "I think this is the best so far. However, there is
+  still great potential for confusion." His proposal: a battery of tensor network diagrams showing the definition
+  of each variable, as a subnetwork, for one representative edge in the middle of the network, formatted as a
+  table that also shows the shape, such as `mu | mu2: diagram of L0(D0(w0))L1(D1(w1)) | mu's shape`. He asked for a
+  new tab with a few of these to look at.
+- **Done.** The tab "Variable diagrams" of the Claude doc, with seven rows: `mu`, `nu`, `nu_L`, `xi`, `eta`, and two
+  that show one term of a sum, `mu_R_dot` (a direction at one site) and `mu_tilde` (a seed at one input). Each row
+  is a drawing with three columns: the name with its side and basis, the subnetwork on five sites with the open
+  edge as an arrow, and the shape. The tab also has a key to the drawing and to the letters of the shapes.
+- **How it is made.** `scripts/variable_diagrams_gen.py` generates the drawings. Each row is its own drawing at the
+  full width of the page, because a drawing inside a table cell would be scaled down below a readable size.
+- **Not decided.** The scheme, and the form of the rows; the other fifteen variables are not drawn.
+- **23:10, the maintainer:** "This is excellent. There is one modification I would suggest, which is to use greek
+  letters and latex-style annotations for tildes dots etc in the diagrams (keep the spelling in the left column).
+  In things like nu_L, the L can become a subscript". Done in all seven rows: inside a drawing the open edge is
+  labelled with the Greek letter, a tilde or a dot above it, and the basis and the site as subscripts; the cores
+  and the inputs have their site as a subscript; the seed is `w` with a tilde. The left column and the sentence
+  above each drawing keep the code spelling. Claude's choice, to be corrected if wrong: the site is a subscript
+  after the basis, as in `nu` with the subscript `L,3`.
+
+## 57. The notation is decided: four letters and a basis (2026-11-15, 23:23)
+
+- **The maintainer**, on the seven drawings in formula style: "This is excellent and further confirms that this
+  notation is the right one. I want to lock in this new notation. We will have to make a lot of changes to this
+  proposal and the dev/graded_messages directory."
+- **Decided** (target decision 9.6, and with it 3.1). `mu`, `nu`, `xi`, `eta` name the four sides of a cut edge;
+  the store of the basis follows the letter where the basis is not the usual one; then the grade. `gamma` is
+  `nu_L`, `zeta` is `eta_D`, the frame's `mu_dot` and `xi_dot` are `mu_R_dot` and `xi_U_dot`, and the frame's
+  `nu_dot` and `eta_dot` are `nu_L_dot` and `eta_D_dot`.
+- **His four steps for bringing the folder and the doc into line.** (1) A page that catalogs the complete
+  taxonomy of the sampling variables and their definitions, with a table from the old names to the new. (2) An
+  agent reads that page and draws the remaining diagrams, and Claude checks them: "did the opus agent understand
+  the notation correctly from what is written in the sample variables page?" (3) An agent surveys the doc and
+  this folder and flags where updates are needed. (4) Two agents, one editing and one reviewing, iterate until
+  the reviewer is satisfied; old notation ideas and concepts are kept, marked as deprecated, and moved to the
+  bottom of the documents or to an archive document.
+- **Step 1, done.** `SAMPLE_VARIABLES.md`, and the tab "Sample variables" of the Claude doc. Every definition is
+  given as a recurrence and as a subnetwork, and `scripts/review/sample_variables_check.py` checks the
+  recurrences against the library (`z`, `g`, `Jp`, `JtJp`, `Kp`) and each subnetwork against its recurrence
+  (14 variables, as sums over where the direction and the seed are put).
+- **Step 2, done** (2026-11-16, 00:30). An Opus agent, given the page as its only source, drew the other 21 rows
+  (fifteen variables, `z`, `Jp` and the four blocks). Claude checked each against the page: all 21 are right.
+  The agent listed 17 places where the page was unclear; the page was clarified at each
+  (`reviews/notation_2026-11-15/DIAGRAM_TEST.md`). The tab "Variable diagrams" now has 28 rows, grouped by the
+  side contracted.
+- **Step 3, done** (2026-11-16, 00:45). An Opus agent surveyed the folder and the doc:
+  `reviews/notation_2026-11-15/SURVEY.md`, 103 findings.
+
+
+## 58. The maintainer's answers to "Not decided"; the tilde variables are the library's adjoints (2026-11-16, 00:03)
+
+The maintainer answered four of the six open points of `SAMPLE_VARIABLES.md` section 11, and then stopped:
+"Stopping my response here, we need to resolve the tildes issue."
+
+- **The raw core direction as an argument.** "I don't understand what is being asked here. Argument of what
+  function? Please explain in more detail." The point was badly put. It is the argument that carries the
+  direction of `Kp`: the library's `core_directions`, the first argument of `corewise_hessian`. Section 11 now
+  says so.
+- **Step functions.** "I would prefer to have separate step functions. It is ok to have lots of small
+  functions." Recorded under 5.1.
+- **The corewise frame.** His principle, on which he asked for the pros and cons: "The engine is designed for
+  the manifold setting. When corewise operations are required, this is done by having the caller of the engine
+  put in the B and G cores, and it is their responsibility to track the altered meaning of the variables. The
+  engine remains manifold-focused." Not decided.
+- **The tilde variables.** On "whether each seed gives the tilde variables a name of their own": "This is making
+  me worried that we somehow changed the probing algorithm in this proposal process (rather than just changing
+  naming and code structure), and the change may be bad. As I understand it, the tilde variables are adjoint
+  variables which arise from pairing the all of the outputs with residual-like vectors. ... Is this the idea that
+  we create d different sets of tilde variables, one for each network? If so this is a problem and something has
+  gone wrong. There should be only one tilde variable of a type, and it is a variable which combines information
+  from all the networks. Please look at how the corresponding adjoint variables are done in the existing
+  codebase."
+- **Claude's answer: nothing was changed, and his description is exactly what the page's variables are.** There
+  is one tilde variable of each kind, one array per bond or site, combining the residuals of all the modes on
+  its side. Looked at in the library (`backend/probing.py`): `_tau_tilde_step` carries
+  `tau_tilde . L . xi + mu . L . deta_tilde`, which is the page's recurrence for `mu_tilde` term for term; the
+  same holds for `compute_deta_tilde`, `compute_sigma_tilde` and `compute_dxi_tilde`. Checked on the arrays
+  (part D of `scripts/review/sample_variables_check.py`): `xi_tilde`, `mu_tilde`, `nu_tilde`, `eta_tilde` equal
+  the library's `deta_tildes`, `tau_tildes`, `sigma_tildes`, `dxi_tildes` to rounding, and each is one array per
+  site or bond with no axis over the modes.
+- **Where the confusion came from.** "Seed" on the page means the whole residual-like input of the transpose,
+  all `d` vectors. "Each seed" meant the two different inputs the transpose is given in a Newton step: the
+  weighted residual (for `g`) and the weighted `Jp` (for `JtJp`). The library does the same with two calls of
+  `transpose`. Target decision 3.3 asks only which of the two a tilde name refers to when one call computes
+  both. The page's section 5.3 and section 11 were rewritten to say this.
+- **Step 4 is held** until the maintainer has seen this, since the page is what the editor would carry through
+  the folder.
+
+## 59. Step functions, the corewise principle, and the raw core direction (2026-11-16, 00:12 to 00:30)
+
+- **00:12, on the tilde variables** (entry 58): "Ok, understood. The terminology and looking at the diagram
+  confused me about the tildes. This is right. You can continue while I weight the other points". Step 4 was
+  started. The six plain tilde rows of the "Variable diagrams" tab were reworded: each title now says the
+  variable is one array, the sum over its inputs, and the notes say which modes it combines.
+- **00:23, step functions.** "Oh, I see. There is no need for extra step functions if they literally do the
+  exact same things with different arguments." A step function is named by letter and grade and serves both
+  bases (target decision 5.1; `SAMPLE_VARIABLES.md` section 5). This replaces his answer of 00:03.
+- **00:23, the corewise principle** of entry 58, after the pros and cons: "The against is more convincing,
+  particularly the extra sweep cost. This will be a real performance hit and is unacceptable." The principle is
+  set aside. What stands: a call on a corewise frame must not sweep twice. How the engine is told that two
+  stores are one, and which spellings such a call accepts, are open (`SAMPLE_VARIABLES.md` section 11).
+- **00:23 and 00:30, the raw core direction.** Once the question was explained (the argument that carries the
+  direction of `Kp`): "Ahh understood. Any suggestions? When I write it on paper, I often use q=(V',H'). The
+  primes probably not a good idea in the code." Claude suggested `core_direction = (D_dot, L_dot)`: the base
+  point is `(D, L)`, the argument is the direction those cores move in, and `_dot` already means "varied along
+  the direction", so the recurrences read as the product rule. The maintainer: "Ok with D_dot and L_dot." The
+  components are decided. The argument's name `core_direction` was part of the suggestion and not spoken of;
+  to be corrected if wrong. On the corewise frame `(B, G, G, G)` it is `(B_dot, G_dot)`.
+- **00:30:** "While they are working let's slowly go through outstanding open questions".
+
+## 60. The weight inside the engine: 3.6 decided (2026-11-16, 00:56 to 01:04)
+
+- **The question** put by Claude at 00:35: is the loss inside the sampling layer, or supplied from above? The
+  proposal: weighted least squares inside, with the diagonal weight of 2.5; everything else about the objective
+  above.
+- **00:56, the maintainer:** "I'm leaning towards this, but want some more information first. How is it proposed
+  for the weight to be supplied? Is it an extra argument the user gives to the engine when they want certain
+  variables that require it? Also, the only time this is needed is for f and the fused JtJp computation, correct?
+  All other ones, the user can apply the Riesz map themselves outside the engine is this right?" And his
+  structure: a public helper that converts between a jet and a dual jet with the weights and the reversal, and
+  its inverse; the weights passed to the engine; the engine calling the helper.
+- **Claude's answer.** The weight is a keyword of the engine. It is needed inside wherever a seed is made from
+  something computed in the same pass: `g` together with `z` or `f`, `JtJp`, and `Kp` unless the seed is held.
+  `f` alone would not need it, given the block sums of squares. The inverse helper does not exist at a zero
+  weight.
+- **01:04, the maintainer decided:** the weight is on `f` too, optional on all of `f`, `g`, `JtJp`, `Kp`, ones by
+  default, so that with one weight they are derivatives of each other; the transpose takes no weight; `JtJp` is
+  really `Jt W J p` and keeps its name. His words are in the note to 3.6 of `TARGET_DECISIONS.md`.
+- **Counts.** 23 rows decided, 29 remain. Group A has two: 3.7 and 3.3. Claude put 3.7 to him at 01:06: `f`
+  (weighted), `r_block_sumsq` (unweighted, in the shape of the weight) and `Jp_sumsq` (weighted) as the three
+  reductions over the samples that are sampling variables.
+
+## 61. The sample stack on the outputs; the transposes sum by default (2026-11-16, 01:26)
+
+- **The maintainer**, asked 3.7 (which reductions over the samples are sampling variables): "I am getting
+  confused and am not sure exactly what is being asked." He then set out his picture, which is recorded word for
+  word in the notes to section 3 of `TARGET_DECISIONS.md`:
+  - the residual is `z - y`, with the data `y` on the sample stack `W` and broadcast over the base-point stack
+    `C` of `z`;
+  - **decided:** a transpose that returns cores sums the sample stack by default; the option not to sum stays,
+    and then `W` goes into the stacks of the result, never in front of the site index. Today's default is the
+    other way round;
+  - **decided:** the sampling layer must support the `C` and `K` stacks; the optimization and fitting layers
+    may assume there are none.
+- **A letter clash he pointed out.** Claude had written the Riesz operator of the weight as `W` in the summary
+  of 3.6. `W` is the sample stack. The note to 3.6 now writes `omega^2`.
+- **Read in the library at his suggestion:** `docs/batching_and_stacking.md` (the three stacks; section 11 on
+  transposes and `sum_over_probes`) and the transposes of `backend/probing.py`.
+- **3.7 put again in his terms** (Claude, 01:35): by what happens to `W`, the engine's outputs are of three
+  kinds. Kept: `z`, `r`, `Jp` and every edge variable. Summed by default, kept on request: the outputs with the
+  shape of cores, `g`, `JtJp`, `Kp`. Always summed, because they are numbers and not arrays over the samples:
+  `f`, `r_block_sumsq`, `Jp_sumsq`. 3.7 asks only whether that last list is right.
+
+## 62. 3.7 decided: what happens to the sample stack on each output (2026-11-16, 01:32)
+
+- **The maintainer**, on the table of entry 61: "I understand now. Confirmed. The table with columns "What
+  happens to W" and "Outputs" in your message is what I want."
+- **Decided.** `W` is kept on `z`, `r`, `Jp` and every edge variable; summed by default and kept on request on
+  `g`, `JtJp`, `Kp`; always summed on `f`, `r_block_sumsq`, `Jp_sumsq`. The table and the details are in the
+  note to 3.7 of `TARGET_DECISIONS.md`.
+- **Counts.** 24 rows decided, 28 remain. Group A has one left: 3.3.
+
+## 63. The notation carried through the folder and the doc: steps 2 to 4 done (2026-11-16, 00:12 to 01:40)
+
+The maintainer's four steps of entry 57. The records are in `reviews/notation_2026-11-15/`.
+
+- **Step 2** (`DIAGRAM_TEST.md`). An agent given only the page drew the other 21 rows; all are right; the page
+  was clarified at the 17 places it found unclear.
+- **Step 3** (`SURVEY.md`). 103 findings in the folder and the doc.
+- **Step 4, the folder.** An editor agent and a reviewer agent, both Opus, in two rounds
+  (`EDIT_REPORT_r1.md`, `REVIEW_r1.md`, `EDIT_REPORT_r2.md`, `REVIEW_r2.md`). Round 1: the reviewer found
+  every rename in the right basis, every moved passage word for word and no quotation altered, and was not
+  satisfied on three statements that were wrong (two in the type catalog's section on the arrows, one pointer
+  in the design document) and sixteen smaller points. Round 2: all fixed, `(D_dot, L_dot)` applied, and the
+  reviewer satisfied. Claude ran both check runners afterwards: they reproduce their records.
+- **What was done to the folder.** The live documents (`TARGET_DECISIONS.md`, `TYPE_CATALOG.md`,
+  `DESIGN_AFTER_REVIEW.md`, `README.md`) and the live prototype scripts use the names of
+  `SAMPLE_VARIABLES.md`. The naming ideas that the decision overtook are in the new `NOTATION_HISTORY.md`,
+  marked deprecated, word for word, with a pointer where each stood. This log, the reviewer reports and the
+  documents from before the review keep their words; each has a notice that maps its names.
+- **Step 4, the doc** (`DOC_EDIT_REPORT.md`, `DOC_REVIEW_r1.md`). The editor brought every tab that mirrors a
+  file in step and added the tab "Notation history"; the reviewer compared each tab with its file word for
+  word and was satisfied at the first round. No edit of the maintainer's was overwritten.
+- **Known and left:** the notes of the "Target decisions" tab are shorter than the file's in places, from
+  before this work.
+
+## 64. 3.3 decided: the tilde names mean the residual's adjoint sweep (2026-11-16, 01:36)
+
+- **The maintainer:** "Proposal confirmed."
+- **Decided.** In a call that runs both adjoint sweeps (`JtJp` and `Kp` together), the tilde names refer to the
+  sweep seeded by the residual. The sweep seeded by `Jp` has no names there; its variables are reached by a call
+  with `Jp` given as the residual. This rests on 6.5, which is open. The details are in the note to 3.3 of
+  `TARGET_DECISIONS.md` and in section 5.3 of `SAMPLE_VARIABLES.md`.
+- **Counts.** 25 rows decided, 27 remain. Group A (jets and the misfit) is finished. Next by the suggested
+  order: group B, the frame and the value (4.1 to 4.5, 3.2).
+
+## 65. The frame and the value: both routes, with optional Tucker centers (2026-11-16, 01:49 to 01:52)
+
+- **The question** put by Claude at 01:40, the root of group B: at an accepted point, is the value read off the
+  frame, with the frame carrying the Tucker center cores? Claude's lean was yes, with the centers as a fifth
+  member of the frame.
+- **The maintainer** asked instead for both routes: the centers used if supplied, the route through `D` if
+  not; the library's own optimizers supply them; the retract-and-orthogonalize function returns them. He asked
+  whether the orthogonalization already creates the TT and the Tucker centers.
+- **Checked:** it does, and the geometry discards them today (note to 4.1 of `TARGET_DECISIONS.md`).
+- **Decided at 01:52:** 4.1, the first half of 4.3, and that wrong centers are an error in safe mode. The frame
+  stays four stores; the centers are supplied beside it.
+- **Counts.** 26 rows decided, 26 remain.
+- **Open with it:** the name of the centers; the second half of 4.3; the rest of 4.2.
+- **01:54, the name.** The Tucker centers are `Vc` and the TT centers `Hc` (the maintainer: "Agree with Vc,
+  Hc."). `SAMPLE_VARIABLES.md` sections 1 and 6 now have them, and its check compares the three routes to the
+  value on the library's own frame.
+
+## 66. 4.3 decided: three policies for a trial point, a frame at every trial by default (2026-11-16, 01:59)
+
+- **The maintainer:** "Add all three as options, default to (b)".
+- **Decided.** The optimizers offer three policies for a trial point of a line search or a trust region: (a) the
+  value through the trial's raw cores, the frame built on acceptance only, as today; (b) retract-and-orthogonalize
+  at every trial and the value read off its frame with `Vc`, the trial's plain variables held so that an accepted
+  trial needs only the adjoint pass; (c) the same with the gradient computed in the trial's pass, for a plan that
+  holds nothing. (b) is the default. The table is in the note to 4.3 of `TARGET_DECISIONS.md`.
+- **Counts.** 27 rows decided, 25 remain. Group B has four left: the rest of 4.2, 4.4, 3.2, 4.5.
+
+## 67. 4.2 decided: frame consistency is a precondition in safe mode, checked only where needed, never through a dense tensor (2026-11-16, 02:07)
+
+- **The maintainer's words** are in the note to 4.2 of `TARGET_DECISIONS.md`. In short: a precondition checked
+  in safe mode at the moment a function that requires it is called; no runtime safety check through a dense
+  tensor; the norm of a difference through the existing non-dense machinery; `is_consistent` rewritten to avoid
+  the dense tensor; no check where it is not needed.
+- **Found in the library on the way:** `T3Frame.is_consistent` forms two dense tensors and does not look at
+  `U`.
+- **Counts.** 28 rows decided, 24 remain. Group B has three left: 4.4, 3.2, 4.5.
+
+## 68. 4.4 decided: frames support arbitrary tails, unchecked (2026-11-16, 02:12)
+
+- **The maintainer:** "Frames must support arbitrary tails. Allow and do not check. Functions which require
+  squashed tails should be looked at with suspicion."
+- **Decided,** with the boundary vector of ones sized by the cores passed, and the start values by grade (note
+  to 4.4 of `TARGET_DECISIONS.md`). An audit of the functions that squash or assume squashed tails is noted for
+  the branch.
+- **Counts.** 29 rows decided, 23 remain. Group B has two left, both to confirm: 3.2 and 4.5.
+
+## 69. Group B finished: 3.2 and 4.5 decided; the tails discipline limited to what the refactor touches (2026-11-16, 02:16)
+
+- **The maintainer:** "This refactor arc is already too big to add a broader squash tails drift audit on top.
+  Keep the squash tails discipline to the functions we touch here and we can deal with other ones at a later
+  time." And: "3.2: Agree with proposal." "4.5: Agree with proposal."
+- **3.2:** `nu_L` stays as an ordinary variable; only `Kp`, and the value through `D`, read it.
+- **4.5:** the projection, the lift and the assembly of the exact Hessian product stay in the geometry; the
+  engine returns blocks before projection and takes the lifted direction `(D_dot, L_dot)`.
+- **Counts.** 31 rows decided, 21 remain. Groups A and B are finished. Next by the suggested order: group C,
+  what a kind is and the public surface (3.4, 8.2, 6.2, 6.3, 6.4, 6.5, 9.2).
+
+## 70. 3.4 decided: a kind is closed in the sampling layer; the open extension point is an objective protocol in the fitting layer (2026-11-16, 02:22)
+
+- **The maintainer:** "Agree with split. I have been wanting to do something like this for some time."
+- **Decided** as in the note to 3.4 of `TARGET_DECISIONS.md`. Read for it: the library's
+  `dev/OPEN_QUESTION_extension_surface.md`, whose four wanted extensions each have a place under the split.
+- **Counts.** 32 rows decided, 20 remain. Group C has six left: 8.2, 6.2, 6.3, 6.4, 6.5, 9.2.
+- **Raised next by Claude:** forward-only probing, which that file says T3Polynomial needs, as the probe kind
+  with only some modes left open: a parameter of the built-in kind.
+- **02:28, forward-only probing.** The maintainer: "Leave it off this arc. Nice to have not need to have." It
+  is listed among the things outside the list in `TARGET_DECISIONS.md`.
+
+## 71. 6.5 decided: held variables are trusted, shapes are checked (2026-11-16, 02:31)
+
+- **The maintainer:** "Agree with proposal. Check shapes, trust values. Also, I want to leave it open to the user
+  to apply the algorithm to whatever they want. There may be situations where applying the sweeping algorithms to
+  modified variables could be useful."
+- **Decided** as in the note to 6.5 of `TARGET_DECISIONS.md`. Decisions 6.4 (every variable can be held) and 3.3
+  (the adjoint variables of `Jp` are reached by giving `Jp` as the residual) rested on this.
+- **Counts.** 33 rows decided, 19 remain. Group C has five left: 8.2, 6.2, 6.3, 6.4, 9.2.
+
+## 72. 6.2 decided up to three names: the arguments of `sampling_variables` (2026-11-16, 02:34)
+
+- **The maintainer**, on the signature assembled from the earlier decisions: "Perfect. sketch looks good".
+- **Decided.** The sketch is in the note to 6.2 of `TARGET_DECISIONS.md`. Open inside it: three keyword names,
+  the kind strings (9.2), and whether the plan is an argument here (7.3).
+- **A slip corrected.** The edit that recorded 6.5 (entry 71) first replaced the tail of row 3.3 and left row
+  6.5 open; found on the next read and fixed in the following commit.
+- **Counts.** 34 rows decided, 18 remain. Group C has four left: 8.2, 6.3, 6.4, 9.2.
+
+## 73. 6.4 decided: the table of variables is written out and tested against the declared graph (2026-11-16, 02:37)
+
+- **The maintainer:** "Let's go with the second. Table written out and tested against the declared graph."
+- **Decided** as in the note to 6.4 of `TARGET_DECISIONS.md`.
+- **Counts.** 35 rows decided, 17 remain. Group C has three left: 8.2, 6.3, 9.2.
+
+## 74. 6.3 decided: the public functions of the sampling layer (2026-11-16, 02:40)
+
+- **The maintainer:** "Confirmed. Exactly what I intend."
+- **Decided** as in the table of the note to 6.3 of `TARGET_DECISIONS.md`: the engine, the jet-to-dual-jet
+  helper pair, the preparation functions and one function behind each frontend method stay or are new; every
+  per-variable kernel, every `*_derivatives` function and the sweep functions go; steps and terms are private.
+- **Counts.** 36 rows decided, 16 remain. Group C has two left: 8.2 and 9.2.
+
+## 75. 8.2 decided, the name apart: the fitting layer's extension point is one operation in the engine's vocabulary (2026-11-16, 02:45)
+
+- **The maintainer:** "I agree with this data structure. However, I would like to find another word than
+  objective. When the user hears "objective", they may think just "f", and not all of the other things that come
+  bundled with it. Any other ideas for the name?"
+- **Decided:** the data structure, as in the note to 8.2 of `TARGET_DECISIONS.md`. **Open:** its name.
+- **Counts.** 37 rows decided, 15 remain. Group C has one left: 9.2.
+- **02:52, the name.** `Oracle`. The maintainer: "Oracle is ok, let's go with it. I see your point about jargon,
+  but I have not thought of anything better".
+
+## 76. Group C finished: 9.2 decided (2026-11-16, 02:56)
+
+- **The maintainer:** "Confirmed. We will need to discuss 3 more later in the broader context of performance
+  optimization hooks and defaults".
+- **Decided:** the three kind strings are the kind everywhere; `'sweep'` as a unit name goes and a `hold` lists
+  variable names. The sizing function names move to 7.6.
+- **Counts.** 38 rows decided, 14 remain: group D (5.2, 5.3, 5.4, 5.5, 5.6), group E (7.2, 7.3, 7.5, 7.6, 7.7),
+  group F (8.1, 8.3, 8.4) and group G (9.3). Groups A, B and C are finished.
+
+## 77. 5.2 decided: one set of step functions for both layouts (2026-11-16, 03:11)
+
+- **The maintainer** confirmed the four points and restated them in his own words, which are in the note to 5.2
+  of `TARGET_DECISIONS.md`. He added how the operations done at all sites at once behave: a loop on ragged
+  cores; on uniform cores all sites at once, chunked over the sample axes through the plan, with chunk sizes set
+  by the user's reshaping.
+- **Counts.** 39 rows decided, 13 remain.
+
+## 78. 5.6 decided (the absorbing dtype rule); 5.5 reversed (the contraction order goes into the plan); 5.4 as the library does it (2026-11-16, 03:32)
+
+- **5.6.** The maintainer accepted that the engine creates no array with a default dtype, and added the rule
+  for mixed inputs: "jax takes precedence over numpy and low precision takes precedence over high prececision
+  ... Lower precision taking priority is because the output will not be more precise than its inputs."
+- **5.5.** Claude proposed confirming "no option for the contraction order". The maintainer reversed it: "This
+  should be in the plan. The user must be able to specify the contraction ordering and tune it on their problem.
+  We should also provide helper functions to choose good contraction orderings." He asked how far the
+  contraction engine supports einsum paths and how they interact with grouped indices. Read and run for the
+  answer: `contract` has no path argument today; numpy and jax einsum both accept one; a path names operands by
+  position, so groups do not interact with it (note to 5.5 of `TARGET_DECISIONS.md`).
+- **5.4.** He asked how the library handles the stacks in a term today. It writes one literal contraction string
+  per term at the place it is used, with `K` on the operand that carries it (note to 5.4).
+- **Counts.** 40 rows decided, 12 remain.
+
+## 79. 5.5: one contraction order per term function; the helpers are a design phase; how an order reads with jets (2026-11-16, 03:59)
+
+- **Granularity.** The maintainer: "per term." Read by Claude as per term function (one order each for
+  `mu_term`, `nu_term`, `eta_term`, `H_term`); the reading is to be confirmed.
+- **Helpers.** Not decided: "Needs a design phase. We can do several." He does not trust flop counts ("flops
+  often don't reflect real world performance"), counts a bound on the memory of the intermediates as a good
+  criterion, and holds measuring test contractions to be the ideal, tied to the `measure` policy for automatic
+  tuning. The helpers go with 7.6 and group E.
+- **Jets.** He asked what the question was. Restated, with a proposal, in the note to 5.5 of
+  `TARGET_DECISIONS.md`: an order ranks the pairwise products, and a pairwise product of two operands that both
+  carry the order axis is their truncated product, carried out as 2.9 says. To be confirmed.
+- **Found while checking.** numpy and jax spell an explicit einsum path differently (`'einsum_path'` first, or
+  the bare list of pairs), so `contract` has to spell the plan's path for its backend. New script
+  `scripts/review/contraction_order_check.py`, added to the runner (22 scripts).
+- **Counts.** Unchanged: 40 rows decided, 12 remain. 5.5 stays open.
+
+## 80. 5.5: the granularity of the contraction order moves to the performance discussion (2026-11-16, 04:08)
+
+- **The maintainer**, asked whether "per term" meant per term function or per place a term is used: "I'm a bit
+  unclear on granularity actually. Let's move that decision to the performance phase". The reading recorded in
+  entry 79 is withdrawn; the granularity is undecided and goes with group E, beside the helpers and the form of
+  the plan's field.
+- **Still to be confirmed:** how an order reads where the operands are jets (the proposal in the note to 5.5).
+- **Counts.** Unchanged: 40 rows decided, 12 remain.
+
+## 81. 8.1 under discussion: what `LocalModel` keeps; the weighted quadratic (2026-11-16, 04:08 to 04:41)
+
+- **Claude proposed** that `LocalModel` be the geometry, the oracle and the regularizer at one frame, with
+  `kind`, `sample`, `sweep` and `residual` no longer fields and `jacobian(p)` gone.
+- **The maintainer objected** (04:24): the model "serves as a holder for local information at a point, which may
+  be used by the user for their own optimizers or their own other purposes. Having access to the residual can be
+  useful for many purposes"; and MC-SGD needs Jacobian-vector products for the Cauchy step.
+- **Revised:** `residual` and `jacobian(p)` stay on the model as optional outputs of an oracle; the model's own
+  `gn_quadratic` and `hvp` use the fused quantities; nothing is stored that the plan's `hold` does not keep. He
+  agreed that `residual` and the sweep are not always-stored fields (04:41). The whole is still to be confirmed.
+- **The fused quadratic** (04:41): he asked whether it carries the weights (yes: `<Jp, omega^2 Jp>`, now checked
+  against `p` paired with `JtJp` with a random weight per mode and order), objected to the name `Jp_sumsq`
+  (open; `Jp_norm_sq` suggested), and asked how jets meet the inner product (diagonal, one weight per mode and
+  order by 2.5). Full record in the note to 8.1 of `TARGET_DECISIONS.md`.
+- **Counts.** Unchanged: 40 rows decided, 12 remain.
+
+## 82. 8.1 decided: what `LocalModel` is; `Jp_norm_sq`; the session paused (2026-11-16, 04:46)
+
+- **The maintainer:** "1. Go with Jp_norm_sq. 2. confirmed. After recording this, please update the handoff and
+  let's pause. We will pick up tomorrow"
+- **8.1.** `LocalModel` is the geometry, the oracle and the regularizer put together at one frame, and the holder
+  of the local information at that point. Its own `gn_quadratic` and `hvp` use the fused `Jp_norm_sq` and `JtJp`;
+  `residual` and `jacobian(p)` stay on it, as optional outputs of an oracle; it stores only what the plan's `hold`
+  keeps. 8.2 is amended: `f`, `g`, `JtJp`, `Jp_norm_sq` required of an oracle; `Kp`, `Jp`, `r` optional.
+- **The name.** `Jp_sumsq` is now `Jp_norm_sq`, in the live documents and in `jet_steps_check.py`; earlier entries
+  of this log keep the old name.
+- **Counts.** 41 rows decided, 11 remain (7 open, 3 reopened, 1 to confirm).
+- **The pause.** The state is in "Where this stands" at the top of `TARGET_DECISIONS.md`, in the status list of
+  the folder's `README.md`, and in `dev/HANDOFF.md` on the branch `graded-messages`.
+
+## 83. 8.3, part 1: the optimizers' contract; `oracle.evaluate` with `want` and `held` (2026-11-16, 13:03 to 13:51)
+
+- **Resumed** at 13:03 with 8.3, split by Claude into three parts: the contract and how `held` passes; how a
+  minibatch is given; what is compiled as one program.
+- **Proposed** (13:03): an optimizer touches a `Geometry`, an `Oracle`, a `Regularizer` and the `LocalModel` built
+  from them; the oracle's one operation takes `want` and `held` and returns the values and `held`; a model is
+  built once and never changes; trial points as in 4.3.
+- **The maintainer questioned it twice.** At 13:22: whether the oracle is more than a thin wrapper, and whether
+  "magic words" are still worth it here, against named methods. At 13:41: "we are trying very hard to avoid state
+  (a worthy goal) for an operation that is fundamentally about state"; where state should be held, and what
+  goes wrong when the optimization is sharded over many GPUs.
+- **Claude's answers:** the alternatives A (`want`), B (named methods with `precompute`), C (B with fused
+  methods), with a lean to B; then the placement of state by lifetime, from the library's
+  `docs/contributor/precompute_and_caching.md`, and six points at scale. A correction on the way: `JtJp` and `Kp`
+  share only `nu_L_dot` and `eta_D_dot`, not "the dotted sweep".
+- **Decided** (13:51): "Having thought through all of this, I have a greater appreciation for your original
+  design with oracle.evaluate. Let’s go with that". Alternative A, as first proposed.
+- **Counts.** Unchanged: 41 rows decided, 11 remain. 8.3 stays open for parts 2 and 3.
+
+## 84. 8.3, part 2: a minibatch is an oracle (2026-11-16, 13:55 to 14:07)
+
+- **Decided:** `draw(rng)` returns an oracle; the optimizer never sees a sample or data. The default draw is the
+  least-squares oracle's, and `n_measurements` and `take` are its methods, outside the protocol.
+- **The regularizer's fraction:** the minibatch oracle is scaled by `n/batch` so that its `f` is an unbiased
+  estimate of the full `f`, and the regularizer is not scaled. The scale is its own field of the least-squares
+  oracle, not part of the weight. The optimizer keeps no batch logic.
+- **Asked by the maintainer** (14:05): whether the minibatch data stays accessible, for future methods that build
+  regularizers, preconditioners or step lengths from it. It does, through the concrete oracle's fields and
+  through the model; not through the protocol.
+- **Added at his word** (14:07): the default draw keeps the drawn indices on the minibatch oracle.
+- **Counts.** Unchanged: 41 rows decided, 11 remain. 8.3 stays open for part 3.
+
+## 85. 8.3, part 3: what is compiled as one program; 8.3 decided (2026-11-16, 14:10 to 14:30)
+
+- **Decided:** five phases are the units (build, gradient, CG solve, trial, stochastic step), each a module-level
+  function of pytrees, with the outer loop and its decisions on the host. Which phases are compiled by default
+  is left to the performance discussion (7.2).
+- **A correction by the maintainer:** Claude argued that eager scans recompile on every call. He asked whether
+  the scan bodies are closures; they are not (`docs/contributor/scan_body_principles.md`), so an eager scan
+  compiles once per shape and compiling the build, gradient and trial is a choice, not a necessity.
+- **Decided:** in safe mode a compiled program's preconditions are checked on the host, on its concrete
+  arguments, before it is called.
+- **MC-SGD over several steps in one program:** wanted eventually, not in this arc. Checked at his request:
+  T3Toolbox compiles one step per program, and T3Polynomial has no compiled MC-SGD loop. Decided now so that it
+  stays an addition: `take(indices)` on the least-squares oracle is traceable with a static batch size.
+- **The maintainer** (14:30): "Confirmed".
+- **Counts.** 42 rows decided, 10 remain (6 open, 3 reopened, 1 to confirm).
+
+## 86. 8.4 decided; derivative mode moved out of the fitting layer (2026-11-16, 14:32 to 15:12)
+
+- **8.4.** The display and the diagnostics read from oracles: `r_block_sumsq` and `y_block_sumsq` as optional
+  outputs in the shape of the weight, a validation set as an oracle, the trust-region floor as the optional
+  output `f_resolution`, and no table for an oracle without block sums. At the maintainer's word (14:43) nothing
+  is reduced over modes or orders, in the display or in the stored record.
+- **Derivative mode.** Claude's fourth point (convert the unweighted objective back for the display) went against
+  2.3 and was withdrawn. The maintainer saw Taylor and derivative mode "becoming first class citizens" and
+  considered moving derivative mode out entirely. Decided (15:12): "Ok, let's move it out and add the standalone
+  conversion function like you suggest." 2.2 and 2.3 are amended: no keyword anywhere; four standalone
+  functions, the fourth preparing data, validation data and weight together and returning the weight `t!` when
+  none is given. The doctest draft is rewritten to match.
+- **Not included:** the equalizing-weight keyword of 6.7, which he sees as a tunable of the Taylor problem and
+  wants thought through separately.
+- **Counts.** 43 rows decided, 9 remain (6 open, 3 reopened). Groups A, B, C and F are finished.
+
+## 87. The oracle is a description and the data are an argument; no keyword for the equalizing weight (2026-11-16, 15:12 to 15:44)
+
+- **The maintainer's concern** (15:32), on seeing a prototype signature: "I am concerned about how the data is
+  bundled with other things at such a high level and so early in the program." At 15:38: "The API:
+  newton_cg(geom, oracle, batch, x0, regularizer=None, ...) is ideal if we can make it work without substantially
+  complicating the rest of the code or forcing unwanted performance tradeoffs."
+- **Decided** (15:44, "Confirmed both"):
+  1. The oracle is a hashable description with no arrays (for least squares: the kind and the order). The sample,
+     `y` and the weight are a batch of arrays, passed as an argument through the optimizers to the oracle's
+     operation. A minibatch and a validation set are batches given to the same oracle. There is no `Problem` at
+     the seam. Rows 8.1 to 8.4 are reworded; the trace found no performance lost.
+  2. The equalizing weight is an explicit call when the batch is made, with no keyword in the fitting functions
+     (6.7 amended). It is done once and no layer below can tell.
+- **Counts.** Unchanged: 43 rows decided, 9 remain.
+
+## 88. 9.3 decided: correct is defined by the definitions (2026-11-16, 15:50 to 15:58)
+
+- **Decided:** the reference for every output is its definition, checked on small problems by dense contractions
+  that use none of the sweeps; the identities are tests in their own right; the generic twin is a second check;
+  numerical comparisons are to a tolerance and structural ones exact; the old library is a bridge used once.
+- **The maintainer:** "I agree wholeheartedly with the proposal about how the definitions are checked, and that
+  the identities listed get tests." He added that these checks can serve as documentation, and opened the
+  question of how the variables are documented as a whole.
+- **Counts.** 44 rows decided, 8 remain (5 open, 3 reopened), all in groups D and E. Groups A, B, C, F and G are
+  finished.
+
+## 89. 9.7 added and decided: how the sampling variables are documented (2026-11-16, 15:58 to 16:03)
+
+- **Decided:** four layers, each kind of fact with one source. The engine's docstring is the index; one page in
+  `docs/`, whose code CI runs, is the home, with an entry per variable; one example file is the tour; a `.tex`
+  note is the derivation.
+- **Decided:** the definitions are shipped as a public reference module, one slow dense function per variable.
+- **Added by the maintainer:** the dependency structure is documented, as a table and as diagrams.
+- **Counts.** A row was added: 45 of 57 rows decided, 8 remain (5 open, 3 reopened), all in groups D and E.
+
+## 90. 5.4: the prototype of the terms over all the stacks (2026-11-16, 16:05 to 16:50)
+
+- **Asked for by the maintainer** (16:05): "Go ahead with the 5.4 prototype".
+- **`scripts/review/term_stacks_check.py`** (added to the runner, 23 scripts). The seven terms written once. One
+  contraction string per term serves the site group, the order axis, any number of sample axes, the stack of
+  directions on whichever operand carries it, and the stack of base points; the direction's place is solved from
+  the operands' ranks, so a call site is the formula alone. Checked on 3912 calls against a reference that uses
+  neither `contract` nor the helpers, to 9.5e-16; under jit in float32 as well.
+- **Found:** an input and a seed have the same rank when `C` is empty and there is no `K`; the reference caught
+  the wrong `V_term` this gave.
+- **Not decided:** one string per term, or the library's literal string per placement; and whether `xi_term` and
+  `V_term` are told whether they are given an input or a seed. 5.4 stays open.
+
+## 91. 5.4: a literal contraction string for each place the direction sits (2026-11-16, 16:24)
+
+- **The maintainer**, shown both options on the dotted left step: "Option A. The reason is actually so the code is
+  more self-documenting. The reader of B has a harder time figuring out what contractions are being done, because
+  they need to infer Y."
+- **Decided:** literal strings per placement, as the library writes them today, with the order group added. The
+  prototype's one-string form is not taken.
+- **Corrected by Claude on the way:** the literal form is strict against a wrong rank only when every call passes
+  both `len_T` and `len_C`.
+- **Open in 5.4:** which lengths every call passes; whether the strings stand at the call sites or in a table
+  inside a term function. The row stays open.
+
+## 92. 5.4 decided: literal strings at the call sites, through `jet_contract` (2026-11-16, 16:26; prototype rewritten)
+
+- **The maintainer** ("Yes, this is good"): the strings stand at the call sites in the step functions, through a
+  `jet_contract` that is `contract` with the order groups multiplying as truncated polynomials; and every call
+  passes both `len_T` and `len_C`.
+- **The prototype is rewritten in that form** and checked the same way: 41 literal strings in seven families,
+  2760 calls against the independent reference, to 4.1e-16.
+- **Measured:** with the two lengths a stray axis on `mu` raises; on a seed that carries `K`, where `W` and `K`
+  stand together, it raises only when `len_W` and `len_K` are passed as well.
+- **Counts.** 46 of 57 rows decided, 7 remain (4 open, 3 reopened): 5.3, 5.5, 7.2, 7.3, 7.5, 7.6, 7.7.
+
+## 93. 5.4: the lengths go to every call as one record (2026-11-16, 16:35)
+
+- **The maintainer:** "I'm ambivalent regarding lens. Let's go with it." Every `jet_contract` call passes one
+  record of the axis counts of `S`, `T`, `W`, `K` and `C`, in place of the keywords `len_T` and `len_C`. This
+  closes the one case the two keywords left open (a stray axis where `W` and `K` stand together).
+- **Then** he asked for a clean split of the refactor into two parts: one that can go forward without much more
+  planning, and one that comes later.
+
+## 94. The refactor is split into two parts (2026-11-16, 16:45)
+
+- **The maintainer** asked for a clean split, his mind "running out of metaphorical context", and agreed to
+  this one: "Ok, let's do it."
+- **Part 1, what is computed:** the variables and names, the conventions, how the layers talk; carried out the
+  way the library does it today. **Part 2, how it is carried out:** the plan and every performance option; it
+  changes no number. Every decided row is in Part 1 (with the performance options of 2.9, 4.3, 7.1, 7.4 and 8.3
+  waiting for Part 2); the seven open rows are Part 2.
+- **The cost:** Part 1 has no chunking of samples. T3Polynomial runs with chunking off today.
+- **Next:** the small planning items Part 1 needs from him, then an implementation plan for Part 1 written by one
+  Opus agent and reviewed by another until they agree.
+- The split is recorded in `TARGET_DECISIONS.md`, section "The two parts".
+
+## 95. The small items of Part 1 settled; the plan for Part 1 commissioned (2026-11-16, 16:55)
+
+- **Corewise calls** pass the point's cores `(B, G)` in place of a frame. **Frame consistency** is checked in safe
+  mode only, when a `LocalModel` is built and in the engine when centers are given. **The old kernels** are
+  deleted as the last step of Part 1, behind the tests and a benchmark the maintainer runs on CPU and on a GPU
+  pod. **No release of Part 1 alone:** the work stays on the branch until both parts are done. **A dry port** of
+  the consumer's main fit is part of the plan; the maintainer says Claude may edit T3Polynomial through the
+  GitHub connector. **Names** are proposed by the plan's writer and settled at the review.
+- **The plan:** `PART1_PLAN.md`, written by one Opus agent and reviewed by another until they agree, then read
+  with the maintainer. To be kept in mind, in his words things that "have been tricky in the past": safe mode vs
+  unsafe mode, ragged vs uniform layer, numpy vs jax dispatch, shared Tucker factors, backend vs frontend razor,
+  sharding, jit compiling.
+
+## 96. The plan of Part 1 written and reviewed; commits re-authored (2026-11-16, 17:07 to 18:04)
+
+- **`PART1_PLAN.md`** was written by one Opus agent and reviewed by another over four rounds
+  (`reviews/part1_plan/`: the brief, `REVIEW_r1` to `r4`, `RESPONSE_r1` to `r4`). Round 1: 4 blocking findings, 11
+  should-fix, 5 minor. Rounds 2 and 3: none blocking, 2 should-fix each. Round 4: the reviewer agrees. 35 findings
+  in all, every one accepted. The plan has 20 slices (P0 to P19), a table of 30 proposed names and 27 open points
+  for the maintainer. **Nothing in it is decided by being in it:** the names and the open points await him.
+- **Two statements of the section "The two parts" were wrong against the code** and are corrected there: today's
+  jetted kernels on the uniform layout map one site at a time, so "all sites at once, as today" does not pick a
+  form (open, the plan's O-19); and T3Polynomial's fitting module does not default to `chunk_size=None` (its
+  scripts and its benchmark pass it).
+- **Authorship** (the maintainer, 17:07, 17:09, 17:17): commits are authored by NickAlger with Claude as co-author.
+  The 77 commits then on the branch and the last two of `main` were rewritten to that, trees, dates and messages
+  unchanged, and both were force-pushed. `COMMIT_HASH_MAP_2026-11-16.md` gives every old hash with its new one.
+
+## 97. The names of Part 1 settled, except the form of the merged functions (2026-11-16, 18:13)
+
+- The maintainer, on the plan's table of names: "I agree with all the proposals in the table of names, except for
+  N16 whcih I would like to talk through further before deciding". So N1 to N15 and N17 to N30 are decided. Among
+  them: the engine's keywords are `variations`, `core_directions` and `sum_over_samples`; the helpers are
+  `jet_to_dual_jet` and `dual_jet_to_jet`; the oracle's operation is `query` (it was written `evaluate` in the
+  notes of 8.3, as a placeholder); the batch is `LeastSquaresBatch` with `minibatch_scale` and `drawn_indices`;
+  the record of axis counts is `GroupLengths`; the residual argument of the transposes is `residual`; the modules
+  are `sampling_variables`, `sampling_steps`, `sampling_definitions`, `jets` and `data_preparation`.
+- **Open: N16,** the form of the merged sampling functions (which positional arguments, in which order, and where
+  `pp` and `order` go).
+- Times in entry 96 and in the correction notes of "The two parts" were first written from memory and were wrong
+  by up to an hour; they now give the commit times.
+
+## 98. The form of the merged sampling functions decided; `query` confirmed (2026-11-16, 18:18)
+
+- **N16:** the object the function is evaluated at comes first, then the sample, then what is applied; then the
+  keywords `pp=None, order=0` and `sum_over_samples=True`; one name for one thing on both layouts. So
+  `t3_probe(x, ww, ...)`, `tv_probe(frame, variations, ww, ...)`, `tv_probe_transpose(frame, ww, residual, ...)`,
+  `t3_probe_corewise_hessian(x, ww, residual, core_directions, ...)`. The plan had proposed to keep today's forms;
+  the maintainer wanted "a first principles decision", and today's forms disagree with each other. The full note
+  is in `TARGET_DECISIONS.md`, after the small items of Part 1.
+- **The oracle's operation is `query`:** "query is better than evaluate in my opinion".
+- Open: whether the three ambient transposes follow the same rule.
+
+## 99. The ambient transposes take the rule of N16, with the sum flag off (2026-11-16, 18:35)
+
+- The maintainer: "Ambient transposes: take the rule's order and names, default sum_over_samples to False." So
+  `t3_probe_ambient_transpose(ww, residual, sum_over_samples=False)`, the apply one likewise,
+  `t3_entries_ambient_transpose(index, shape, residual, sum_over_samples=False)`, and the frontend's static
+  methods. `ztildes` and `sum_over_probes` are then gone from the library.
+- The plan is updated (sections 2.4 and 2.5, the two merging slices, the last slice's grep). Its O-28 now asks
+  only about `dense_probe`. Before that, the plan's reviewer had agreed with the revision for N16
+  (`reviews/part1_plan/REVIEW_N16.md`), and Claude fixed its three minor items.
+
+## 100. The plan's open points: the first answers (2026-11-16, 19:11)
+
+- The maintainer read the plan and answered O-1 to O-13. As proposed: O-3, O-4, O-7, O-9, O-12, O-13. His own
+  answer: O-11 (the dtype rule counts every floating-point array whose entries could affect the output). Moved to
+  Part 2: O-1 and O-2, the benchmark gate. To discuss: O-5, O-6, O-8, O-10.
+- The answers are listed in `TARGET_DECISIONS.md` (the note "The plan's open points, as the maintainer answers
+  them") and at the head of the plan's section 11. The body of the plan is brought in line when the list is done.
+
+## 101. Safety stays in the frontend; what frame consistency checks (2026-11-16, 19:30)
+
+- **O-6.** The plan had proposed that the backend import `safety`. The maintainer (19:11): "Backend importing from
+  frontend is not acceptable ... There is no such thing as safe mode in the backend." Decided: checkers in the
+  backend, enforcement in the frontend. Small item 2 of Part 1 ("in the engine when centers are given") is
+  reworded by this.
+- **O-5.** Only a frame supplied by the caller is checked, `L` against `R` through `D`, when the model is built.
+- **O-1, O-2.** Confirmed: deletion on the tests alone; the benchmark of Part 2 runs against 2026.5.0.
+
+## 102. The held variables are an object with fixed slots; `jet_contract` is told the form, not the layout (2026-11-16, 19:35)
+
+- **O-8.** The maintainer allowed a dictionary-like object for the held variables, with a slot for each allowable
+  variable and a refusal of any other key. `HeldVariables` is that: frozen, read like a dictionary, extended by
+  `with_values`, taken by the engine as `held=None`. Details in `TARGET_DECISIONS.md`.
+- **O-10.** No sixth field and no layout argument. The 5.4 call form already carries `over_orders`; the engine
+  sets it in Part 1 (scan on uniform, loop on ragged, as today) and the plan sets it in Part 2. The split's
+  statement that Part 1 has only the scan form is corrected.
+
+## 103. O-14 to O-17 answered; the rule of the two users (2026-11-16, 19:54)
+
+- O-14: the estimates are not shipped now. O-15: the `.tex` note is archived and the paper-to-code map moves to
+  `docs/`, updated. O-16: the preparation functions are reachable in both tiers. O-17: as proposed.
+- On O-18 the maintainer stated the rule for every question of this kind: a frontend user and a backend user,
+  each able to do all the important operations in their own layer; nontrivial logic in a backend function that
+  the frontend function calls; within reason. Quoted in full in `TARGET_DECISIONS.md`.
+
+## 104. The backend gives checkers, not guarantees (2026-11-16, 20:04)
+
+- Claude had proposed, from the rule of the two users, that the engine make every structural check (the weight's
+  shape, the sample against the mode sizes), so that a backend user gets the same errors as a frontend user.
+- The maintainer corrected the reading: the backend makes no checking guarantee; what it owes its user is the
+  checkers, to call beforehand if they wish. Quoted in `TARGET_DECISIONS.md`. The proposal is withdrawn; the
+  plan's own sentence, that the frontend validates the sample with the backend's validators, was in line.
+
+## 105. O-18 and the frontend-against-backend items settled (2026-11-16, 20:15)
+
+- The weight's shape is checked by a backend checker that the frontend calls; a whole batch by one checker on
+  the least-squares oracle; the engine checks only what it needs to run, held shapes and operand ranks.
+- The preparation functions, the oracle and the batch are reachable from `t3toolbox.fitting`; a backend
+  `pack_batch`; no frontend entry to the engine for now; writing an oracle is backend-level work.
+
+## 106. O-19, O-20 and O-23 to O-26 answered (2026-11-16, 20:28)
+
+- O-19: one site at a time on the uniform layout in Part 1, to be revisited in Part 2. O-20: the backend
+  divides; the frontend raises in safe mode. O-23 and O-26: as proposed. O-24: the switch is two commits. O-25:
+  the bridge is a temporary test in CI.
+- Left: O-21 (the maintainer's view stated, Claude to answer), O-22, O-27 with O-28.
+
+## 107. The last open points of the plan answered (2026-11-16, 20:35)
+
+- O-21: the minibatch scale belongs to the batch's inner product; it multiplies `f`, `g`, `JtJp`, `Jp_norm_sq`,
+  `Kp`, `f_resolution` and nothing else. O-22: the corewise Hessian exists and takes a vector of the type of `z`,
+  as the transposes do. O-27, O-28: `dense_probe`, `dense_apply`, `dense_entries` with `pp` and `order`, the
+  tensor first.
+- All 28 open points are answered (entries 100 to 107; the full text in `TARGET_DECISIONS.md`). Next: the plan's
+  body is brought in line by its writer and checked by its reviewer.
+
+## 108. How Part 1 will be implemented; the plan revised for the answers (2026-11-16, 20:51)
+
+- **The process** (the maintainer): he reviews the complete plan and signs off; then an implementer and a
+  reviewer, both Fable 5.2 on medium effort, work slice by slice until the reviewer signs off on each; Claude
+  looks over each slice before the next starts; major issues go to the maintainer, minor ones Claude decides.
+- **The plan** was revised by its writer for all 28 answers (`reviews/part1_plan/REVISION_ANSWERS.md`): 21
+  slices, P0 to P20, the switch in two. The pass raised seven further points (O-29 to O-35) and a list of
+  proposed names.
+- **Stale text corrected in `TARGET_DECISIONS.md`:** the 5.3 line of "The two parts", small items 2 and 3, and
+  amendments on rows 4.2 and 8.3, which the answers to O-5 and O-6 narrowed.
+
+## 109. The plan's last points and names decided (2026-11-16, 20:59)
+
+- The reviewer agreed with the plan's revision for the 28 answers (`reviews/part1_plan/REVIEW_ANSWERS.md`), with
+  six minor items.
+- The maintainer: "Agree with all O-29 -- O-35. Names approved." The answers are Claude's, listed in
+  `TARGET_DECISIONS.md`: `check_batch` an optional member of the protocol; `held` any object, jax-carriable when
+  compiled; the geometry's consistency member dropped (N21 withdrawn); the paper-to-code page; a uniform
+  `unscale_coordinates`; one scale per coordinate.
+- Nothing in the plan is open. Next: the writer's last pass, then the maintainer's review and sign-off.
+
+## 110. The plan of Part 1 approved; the implementation begins (2026-11-16, 21:16)
+
+- The maintainer: "Plan approved. Go ahead." The plan is `PART1_PLAN.md` at `9d070e1`.
+- The implementation follows `implementation/BRIEF.md`: an implementer and a reviewer (Fable 5.2, medium effort)
+  per slice; Claude looks over and commits each slice; major issues go to the maintainer.
+- The workspace got the tools CI uses (`pytest-xdist`, `pytest-subtests`, `optax`, sphinx and its three
+  extensions). It runs Python 3.13, numpy 2.5 and jax 0.12, ahead of CI, so P0 records the baseline here.
+
+## 111. The order inside a step of `jet_contract` is deferred to Part 2, and marked (2026-11-17, 01:51)
+
+- In the review of P1 Claude decided that a readout taking a third full jet is a real scan under `'scan'`. The
+  maintainer asked whether that repeated the extra contractions of the first prototype. It does not: it is the
+  scheme of the library at 2026.5.0 (`_tt_det_lag_step`). But checking found that on numpy the default
+  contraction order inside one step of a product does the expensive contraction on every slot (3.6 times the
+  flops in a representative case), where jax's default picks the library's order.
+- The maintainer: "I lean to defer this to part 2. Make sure it is clearly marked so we don't forget." Recorded in
+  `TARGET_DECISIONS.md`, the new section "Carried to Part 2 from the implementation of Part 1", with a comment
+  in the code and an expected-failure test as markers.
+
+## 112. The site group `S` is removed; a rule on new groups (2026-11-17, 02:23)
+
+- The maintainer asked what `S` was; it was the uniform layout's site axis written as an optional group, which
+  Claude had put into row 5.4 without raising it. He does not want one operation to treat a supercore and a
+  single core alike: "S should go." Row 5.4 is amended, `GroupLengths` has four fields, and the plan is brought in
+  line. Row 5.2 stands, since a sweep step operates on a single core on both layouts.
+- The rule: new groups "must be weighed carefully and only introduced with good reason and after deliberation".
+- The group `A` came in the same way; the maintainer is weighing it. Nothing about it changes meanwhile.
+- A correction: Claude told the maintainer that 20 of the 41 strings carry `A`. Counted from the table, it is 16.
+
+## 113. The affine group `A` is kept, after deliberation (2026-11-17, 02:31)
+
+- The maintainer weighed `A` against three tests (is its absence a natural special case; what does removing it
+  cost; does it mean something with more than one axis) and decided to keep it. The answers and the definition
+  are in `TARGET_DECISIONS.md`, in the note on groups: `A` is the order group in the two-slot format of a
+  variable of degree at most one, with as many axes as `T`, absent exactly when `T` is.
+- `T` and `A` are jet axes, not ordinary groups; the documentation is to say so in one table of the letters.
+
+## 114. Jets in several variables noted as a future feature (2026-11-17, 02:35)
+
+- The maintainer's idea, to "complete the picture": not in this arc. Recorded in `TARGET_DECISIONS.md` with what
+  the present design implies for it and what is single-variable today; to be entered in the library's ledger of
+  deferred items in the documentation slice.
+
+## 115. `kind` on the dual-jet helpers and the derivative conversions; the corewise names confirmed (2026-11-17, 12:02)
+
+- From the review of P3: the four functions that had no `kind` take it, first, with `order` after it, as the rest
+  of their modules do. The maintainer's reason: such a function is three mathematical functions in one, so the
+  caller says which. A packed uniform probe array then comes out right, mode by mode.
+- The names of a corewise call are confirmed.
+- Claude's minor decisions in P3: `check_coordinate_scales`; the frontend `rescale_coordinates` checks through it.
+
+## 116. One jet group of any number of axes, decided in principle (2026-11-17, 13:49)
+
+- The maintainer proposed generalizing `T` and `A` to one jet group of any number of axes, with the jet
+  contraction as the truncated product of polynomials in several variables. Claude's analysis found nothing that
+  sinks it and three points to settle: the truncation is a box (total degree would break the dual jets), an
+  operand's shape means zeros beyond it, and the output shape is explicit. He agreed with all three.
+- It is to be planned by a writer and a critic (Opus) at the pause after P4, as one or more new slices between P4
+  and P5, with the plan document updated, before anything is implemented. Recorded in `TARGET_DECISIONS.md`.
+
+## 117. The public interface is generalized from the start; the letter and the structure are open (2026-11-17, 13:58)
+
+- The maintainer: the public interface takes jets in several variables from the start, not only the jet
+  contraction, because this release is the time to break things. Claude's staging of entry 116 is not taken.
+- He proposed the letter `J` for the jet group and asked for a recommendation; Claude recommends `J`. Not yet
+  confirmed.
+- Claude proposed the structure (one jet shape in place of the integer `order`; the inputs are jets and `pp`
+  leaves every signature; everything of the type of `z` has the jet axes) and named its costs and open points
+  (the common call through a helper, against row 6.6; the entries kind; the display; the rework). Not yet
+  confirmed. Recorded in `TARGET_DECISIONS.md` and in the brief of the plan phase.
+
+## 118. One `ww` plus `order`, with a helper, preferred; input jets with free higher coefficients weighed (2026-11-17, 14:20)
+
+- The maintainer on the structure of entry 117: "I think I agree. Definitely I prefer having one ww plus order as
+  the API, with a helper for converting (ww,pp)-type inputs." Not yet locked down.
+- He raised, leaning against, inputs whose higher Taylor coefficients are free (`w + s p1 + s^2 p2 + ...`), on two
+  grounds: slower algorithms, and a tax on the user. Claude's answer, checked against P1's `jet_contract`: this is
+  what "the inputs are jets, with sizes of their own" already allowed; today's input is the line `w + s p`, two
+  slots, with nothing repeated; `order` cannot be inferred (the count of jet axes is not in the shape, since `W`
+  has any number of axes, and the order of the output is not the degree of the input); the cost of a product is
+  one step per slot of the input, so a line costs what it costs today and a curve of `k` slots costs `k` steps,
+  with no special case in the interface. Both of his grounds hold only if `order` were inferred from the input's
+  shape, which would force the line to be padded with zeros. Claude recommends allowing it. Open with him.
+
+## 119. Input jets may have any number of slots; the entries kind with jets under thought (2026-11-17, 14:39)
+
+- **Decided:** "Let's allow it (differing p1, p2) per your proposal." An input's size along a jet axis is its own:
+  two slots for a line, more for a curve. `order` stays an argument.
+- **Under thought, his question:** what it means to differentiate the entries kind. He finds `e_i + s p1 + ...`
+  unnatural (it mixes the discrete and the continuous; a user who wants it can use apply), and notes that for
+  apply and probe the map is a polynomial function fitted to Taylor data of an unknown function, where for
+  entries "we are fitting a tensor to data, and it is not clear what the function should be."
+- **Claude's answer, a recommendation, open with him:** the entries kind has no jets. An index is a discrete
+  argument, and a tensor on a grid has no derivative until it is extended off the grid; the extension is a
+  choice the tensor does not contain, and once made it is a set of vectors, which is apply. Today's
+  `e_index + s P` is one such choice (the multilinear extension), computed as apply with a sliced first slot.
+  What entries keeps over apply at order 0 (an integer sample, a slice in place of a product, a scatter in the
+  transpose) it mostly loses once any slot is a dense vector. No example and nothing in the consumer uses
+  entries with derivatives. Proposed: entries is the kind of order 0 only, its functions take no `order`, and a
+  helper turns an index into one-hot vectors for apply.
+
+## 120. The entries kind is of order 0 only; the jet letter is `J` (2026-11-17, 14:44)
+
+- The maintainer: "Agree on both: entries is order-0 only and J is the jet letter".
+- Entries: no jets, no `order`, no `pp`; a helper to one-hot vectors, and apply for anything with a derivative.
+  The released `entries_derivatives` and its tangent forms go; for the upgrade notes.
+- With entries 118 and 119 this settles the structure of the generalized interface: one jet shape in place of the
+  integer `order`; the inputs are jets with sizes of their own and `pp` leaves every signature, a helper building
+  the input of a line; everything of the type of `z` has the jet axes. Still for the plan phase: the display of
+  several order axes, the consumer's calls, and the names of the two helpers.
+
+## 121. The open points of the jet-group plan answered, but for one (2026-11-17, 16:21)
+
+- The plan change (slices P4a to P4d) was written by an Opus writer and agreed by an Opus critic in three rounds
+  (`reviews/jet_group_plan/`). The maintainer answered its open points: `order` is a tuple only (O-36); the two
+  helpers at the top level too (O-37); the loop under both forms for two or more jet variables in Part 1 (O-38);
+  `rescale_direction` with one length or one per variable (O-40); no `dtype` on `index_to_one_hot` (O-41); the
+  display's columns are the multi-indices in unfolding order, with an option to turn the table off and keep the
+  other diagnostics (O-42); the ambient transposes without jets, with no plan to add them (O-43); no default of
+  `order` on the oracle, `()` kept on the sampling functions (O-44); `order=()` written for the entries oracle
+  (O-46); the dual-jet and derivative functions accept `'entries'` at `()` (O-47).
+- O-45 (the jet axes on the uniform layout) is not answered: the question was not clear to him. O-39 had been
+  withdrawn as already decided. The proposed names are not yet answered. Recorded in `TARGET_DECISIONS.md`.
+
+## 122. O-45 and the names answered; a pause before the new slices are implemented (2026-11-17, 16:26)
+
+- O-45: "Every slot along a jet axis is data." No mask on the jet axes of the uniform layout.
+- "Agree with proposed names" (section 11.4 of the plan; Claude reads it as covering `error_table` too, to be
+  confirmed).
+- The maintainer asked for the plan to be completed and committed, the handoff updated, and a pause before
+  implementation, of a couple of days; he will review the updated plan in that time. Nothing is implemented until
+  he says so.

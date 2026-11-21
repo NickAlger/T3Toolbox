@@ -25,6 +25,9 @@ import t3toolbox.backend.geometry as bgeo
 import t3toolbox.backend.sharing as bsharing
 import t3toolbox.fitting as fitting
 import t3toolbox.corewise as cw
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+import _derivative_data as dd       # derivative data from the merged methods (P13b)
 
 SHAPE = (7, 8, 9)
 TUCKER_RANKS = (3, 4, 2)
@@ -284,13 +287,12 @@ class TestLocalModel(unittest.TestCase):
         '''Manifold gradient/Hessian == the established bare T3Tangent transpose + MANIFOLD.project (apply).'''
         s = _setup('apply', 'manifold', ())
         frame, ww, r, model = s['frame'], s['sample'], s['r'], s['model']
-        ref_g = t3m.MANIFOLD.project(t3m.T3Tangent.apply_transpose(r, ww, frame, sum_over_probes=True))
+        ref_g = t3m.MANIFOLD.project(t3m.T3Tangent.apply_transpose(frame, ww, residual=r))
         gd = model.gradient.variations.data
         for a, b in zip(gd[0] + gd[1], ref_g.variations.data[0] + ref_g.variations.data[1]):
             self.assertTrue(np.allclose(a, b, rtol=0, atol=1e-12))
         V = t3m.MANIFOLD.randn(frame)
-        ref_HV = t3m.MANIFOLD.project(t3m.T3Tangent.apply_transpose(
-            V.apply(ww), ww, frame, sum_over_probes=True))
+        ref_HV = t3m.MANIFOLD.project(t3m.T3Tangent.apply_transpose(frame, ww, residual=V.apply(ww)))
         Hv = model.gn_hessian(V)
         for a, b in zip(Hv.variations.data[0] + Hv.variations.data[1],
                         ref_HV.variations.data[0] + ref_HV.variations.data[1]):
@@ -306,7 +308,7 @@ class TestLocalModel(unittest.TestCase):
             for C in [(), (2,)]:
                 with self.subTest(kind=kind, C=C):
                     s = _setup(kind, 'corewise', C)
-                    g_ref = getattr(s['x'], ref_method[kind])(s['r'], s['sample'], sum_over_probes=True)
+                    g_ref = getattr(s['x'], ref_method[kind])(s['sample'], residual=s['r'])
                     gd = s['model'].gradient.variations.data
                     for a, b in zip(gd[0] + gd[1], g_ref[0] + g_ref[1]):
                         self.assertTrue(np.allclose(a, b, rtol=0, atol=1e-12))
@@ -687,7 +689,7 @@ class TestFactoryValidation(unittest.TestCase):
         with self.assertRaises(ValueError):
             fitting.entries_model(t3m.MANIFOLD, x, idx[:2], x.entries(idx))            # index rows
         pp = tuple(np.random.randn(7, n) for n in x.shape)
-        jets = x.apply_derivatives(ww, pp, 2)
+        jets = dd.forward(x, 'apply', ww, pp, 2)
         fitting.apply_derivatives_model(t3m.MANIFOLD, x, ww, pp, 2, jets)
         with self.assertRaises(ValueError):
             fitting.apply_derivatives_model(t3m.MANIFOLD, x, ww, pp, 2, jets[:2])     # order axis
@@ -718,12 +720,12 @@ def _ex_problem(struct, order, W, rng, weight=None, sharing=None):
         x = t3.TuckerTensorTrain(*bsharing.t3_tie_tucker_factors(x.data, sharing))
     ww = [rng.standard_normal((W, N)) for N in struct[0]]
     pp = [rng.standard_normal((W, N)) for N in struct[0]]
-    data = [z + 0.1 * rng.standard_normal(z.shape) for z in other.probe_derivatives(ww, pp, order)]
+    data = [z + 0.1 * rng.standard_normal(z.shape) for z in dd.forward(other, 'probe', ww, pp, order)]
     return x, (ww, pp), data
 
 
 def _ex_residual(x, sample, data, order):
-    return [z - y for z, y in zip(x.probe_derivatives(*sample, order), data)]
+    return [z - y for z, y in zip(dd.forward(x, 'probe', *sample, order), data)]
 
 
 def _flat(tree):
@@ -1285,10 +1287,10 @@ class TestExactLocalModel(unittest.TestCase):
                 pp = [rng.standard_normal((9, N)) for N in struct[0]]
                 if kind == 'entries_derivatives':
                     first = np.stack([rng.integers(0, N, size=9) for N in struct[0]])
-                    clean = other.entries_derivatives(first, pp, order)
+                    clean = dd.forward(other, 'entries', first, pp, order)
                 else:
                     first = [rng.standard_normal((9, N)) for N in struct[0]]
-                    clean = other.apply_derivatives(first, pp, order)
+                    clean = dd.forward(other, 'apply', first, pp, order)
                 data = clean + 0.1 * rng.standard_normal(clean.shape)
                 bkind = {'apply_derivatives': fb.apply_derivatives_kind,
                          'entries_derivatives': fb.entries_derivatives_kind}[kind](
@@ -1342,10 +1344,10 @@ class TestExactLocalModel(unittest.TestCase):
         builds = {'apply': (fitting.apply_model, (ww, x.apply(ww))),
                   'entries': (fitting.entries_model, (idx, x.entries(idx))),
                   'probe': (fitting.probe_model, (ww, x.probe(ww))),
-                  'apply_derivatives': (fitting.apply_derivatives_model, (ww, pp, 1, x.apply_derivatives(ww, pp, 1))),
+                  'apply_derivatives': (fitting.apply_derivatives_model, (ww, pp, 1, dd.forward(x, 'apply', ww, pp, 1))),
                   'entries_derivatives': (fitting.entries_derivatives_model,
-                                          (idx, pp, 1, x.entries_derivatives(idx, pp, 1))),
-                  'probe_derivatives': (fitting.probe_derivatives_model, (ww, pp, 1, x.probe_derivatives(ww, pp, 1)))}
+                                          (idx, pp, 1, dd.forward(x, 'entries', idx, pp, 1))),
+                  'probe_derivatives': (fitting.probe_derivatives_model, (ww, pp, 1, dd.forward(x, 'probe', ww, pp, 1)))}
         ux = ut3.UniformTuckerTensorTrain.from_t3(x)
         for name, (factory, args) in builds.items():
             for geom, xx in ((t3m.MANIFOLD, x), (ut3m.UNIFORM_MANIFOLD, ux), (ut3m.UNIFORM_COREWISE, ux)):
@@ -1356,7 +1358,7 @@ class TestExactLocalModel(unittest.TestCase):
             t3.TuckerTensorTrain.randn(*_EX_SHAREABLE).data, (0, 0, 1)))
         uxt = ut3.UniformTuckerTensorTrain.from_t3(xt)
         wws, pps = [rng.standard_normal((6, N)) for N in xt.shape], [rng.standard_normal((6, N)) for N in xt.shape]
-        rt = xt.probe_derivatives(wws, pps, 1)
+        rt = dd.forward(xt, 'probe', wws, pps, 1)
         for base in (ut3m.UNIFORM_MANIFOLD, ut3m.UNIFORM_COREWISE):
             with self.subTest(shared_uniform=type(base).__name__):
                 ugeom = sg.shared(base, (0, 0, 1))
@@ -1457,10 +1459,10 @@ class TestFiniteDifferenceHessianCheckInSafeMode(unittest.TestCase):
         np.random.seed(0)
         shape, ranks = (4, 5, 6), ((2, 2, 2), (1, 2, 2, 1))
         ww, pp = [np.random.randn(20, N) for N in shape], [np.random.randn(20, N) for N in shape]
-        y = t3.TuckerTensorTrain.randn(shape, *ranks).probe_derivatives(ww, pp, 1)
+        y = dd.forward(t3.TuckerTensorTrain.randn(shape, *ranks), 'probe', ww, pp, 1)
 
         def model_at(x, hessian='gauss_newton'):
-            r = [z - yi for z, yi in zip(x.probe_derivatives(ww, pp, 1), y)]
+            r = [z - yi for z, yi in zip(dd.forward(x, 'probe', ww, pp, 1), y)]
             return fitting.probe_derivatives_model(M, x, ww, pp, 1, r, hessian=hessian)
 
         mx = model_at(t3.TuckerTensorTrain.randn(shape, *ranks), 'exact')

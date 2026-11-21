@@ -24,6 +24,9 @@ from unittest import mock
 import numpy as np
 
 import t3toolbox.backend.sampling_derivatives as pd
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+import _derivative_data as dd       # derivative data from the merged methods (P13b)
 
 try:
     import jax  # the estimator compiles to measure; skip the module if jax is absent
@@ -295,7 +298,7 @@ class TestFittingChunkSizeWiring(unittest.TestCase):
         np.random.seed(0)                     # TuckerTensorTrain.randn uses the global RNG; pin it
         ww, pp = self._probes(200)
         xtrue = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(*self.STRUCT))
-        data = xtrue.probe_derivatives(ww, pp, 2)
+        data = dd.forward(xtrue, 'probe', ww, pp, 2)
         x0 = ut3.UniformTuckerTensorTrain.zeros(*self.STRUCT)
         losses = []
         for cs in ('auto', 4, None):          # 4 forces chunking (W=200 > 4); all must agree (exact)

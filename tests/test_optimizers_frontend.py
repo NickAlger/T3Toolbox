@@ -11,6 +11,9 @@ import t3toolbox.manifold as t3m
 import t3toolbox.uniform_manifold as ut3m
 import t3toolbox.optimizers as topt
 from t3toolbox.backend.common import jax_available
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+import _derivative_data as dd       # derivative data from the merged methods (P13b)
 
 SHAPE, TUCKER, TT = (8, 8, 8), (3, 3, 3), (1, 3, 3, 1)
 
@@ -886,10 +889,10 @@ def _derivative_fit_problem(kind, W=60, seed=13, order=2):
     pp = [rng.standard_normal((W, N)) for N in shape]
     if kind == 'entries_derivatives':
         first = np.stack([rng.integers(0, N, size=W) for N in shape])
-        clean = np.asarray(target.entries_derivatives(first, pp, order))
+        clean = np.asarray(dd.forward(target, 'entries', first, pp, order))
     else:
         first = [rng.standard_normal((W, N)) for N in shape]
-        clean = np.asarray(target.apply_derivatives(first, pp, order))
+        clean = np.asarray(dd.forward(target, 'apply', first, pp, order))
     data = clean + 0.05 * np.linalg.norm(clean) / clean.size ** 0.5 * rng.standard_normal(clean.shape)
     return (first, pp), data, t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1))
 
@@ -950,7 +953,7 @@ def _switch_problem():
     shape, rng = (5, 5, 5), np.random.default_rng(0)
     ww, pp = ([rng.standard_normal((40, n)) for n in shape] for _ in range(2))
     target = t3.TuckerTensorTrain.randn(shape, (3, 3, 3), (1, 3, 3, 1))
-    data = [z + 0.01 * rng.standard_normal(z.shape) for z in target.probe_derivatives(ww, pp, 1)]
+    data = [z + 0.01 * rng.standard_normal(z.shape) for z in dd.forward(target, 'probe', ww, pp, 1)]
     x0, _ = topt.newton_cg(t3m.MANIFOLD, 'probe_derivatives', (ww, pp), data,
                            t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)), order=1, max_newton=5)
     return (ww, pp), data, x0

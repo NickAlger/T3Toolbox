@@ -1,11 +1,11 @@
 """Target decision 2.4: a tilde jet is a Lagrange multiplier, and that is where the reversal comes from.
 
 On the manifold frame the tilde sweeps are the adjoint of the LINEAR program  (V, H) -> Jp.  Its variables are the
-dot variables.  Claim, with jets of order n and a functional phi on Jp given in forward order
-(F = sum_i sum_t phi_i[t] Jp_i[t]):
+dot variables of the frame's form (the names are those of SAMPLE_VARIABLES.md, 2026-11-15, 23:23).  Claim, with
+jets of order n and a functional phi on Jp given in forward order (F = sum_i sum_t phi_i[t] Jp_i[t]):
 
     the tilde of a letter is the multiplier of the DOT of its partner on the same edge,
-        xi_tilde <-> eta_dot      eta_tilde <-> xi_dot      mu_tilde <-> nu_dot      nu_tilde <-> mu_dot
+        xi_tilde <-> eta_D_dot    eta_tilde <-> xi_U_dot    mu_tilde <-> nu_L_dot    nu_tilde <-> mu_R_dot
     and the pairing is the top coefficient of the product:
         dF = sum over the sample and network indices of  sum_t tilde[n - t] * delta[t]
     when the partner's dot variable is perturbed by a jet delta and everything downstream is recomputed.
@@ -48,17 +48,21 @@ def main():
 
     def F(bump=None):                                       # bump = (name, position, delta)
         add = lambda name, k, a: a + bump[2] if bump and bump[:2] == (name, k) else a
-        xi_dot = [add('xi_dot', i, J.xi_dot_step(V[i], w[i])) for i in range(d)]
-        mu_dot = [zeros]
+        xi_U_dot = [add('xi_U_dot', i, J.xi_dot_step(V[i], w[i])) for i in range(d)]
+        mu_R_dot = [zeros]
         for i in range(d):
-            mu_dot.append(add('mu_dot', i + 1, J.mu_dot_step(mu_dot[i], mu[i], xi[i], xi_dot[i], R[i], U[i], H[i])))
-        nu_dot = [None] * d + [zeros]
+            mu_R_dot.append(add('mu_R_dot', i + 1,
+                                J.mu_dot_step(mu_R_dot[i], mu[i], xi[i], xi_U_dot[i], R[i], U[i], H[i])))
+        nu_L_dot = [None] * d + [zeros]
         for i in reversed(range(d)):
-            nu_dot[i] = add('nu_dot', i, J.nu_dot_step(nu_dot[i + 1], nu[i + 1], xi[i], xi_dot[i], L[i], U[i], H[i]))
-        eta_dot = [add('eta_dot', i, J.eta_dot_step(mu_dot[i], mu[i], nu_dot[i + 1], nu[i + 1], L[i], R[i], H[i]))
-                   for i in range(d)]
-        Jp = [J.Jp_step(eta_dot[i], eta[i], D[i], V[i]) for i in range(d)]
-        return sum(float(np.sum(phi[i] * Jp[i])) for i in range(d)), dict(xi_dot=xi_dot, mu_dot=mu_dot, nu_dot=nu_dot, eta_dot=eta_dot)
+            nu_L_dot[i] = add('nu_L_dot', i,
+                              J.nu_dot_step(nu_L_dot[i + 1], nu[i + 1], xi[i], xi_U_dot[i], L[i], U[i], H[i]))
+        eta_D_dot = [add('eta_D_dot', i, J.eta_dot_step(mu_R_dot[i], mu[i], nu_L_dot[i + 1], nu[i + 1], L[i], R[i],
+                                                        H[i]))
+                     for i in range(d)]
+        Jp = [J.Jp_step(eta_D_dot[i], eta[i], D[i], V[i]) for i in range(d)]
+        return (sum(float(np.sum(phi[i] * Jp[i])) for i in range(d)),
+                dict(xi_U_dot=xi_U_dot, mu_R_dot=mu_R_dot, nu_L_dot=nu_L_dot, eta_D_dot=eta_D_dot))
 
     F0, dots = F()
     seed = [f[::-1] for f in phi]                           # the functional, turned round on the order leg
@@ -71,10 +75,10 @@ def main():
     slot_pairing = lambda tilde, delta: float(np.sum(tilde * delta))            # sum_t tilde[t] delta[t]
     print('order n = %d.  dF when the dot variable is perturbed, against the pairing with the tilde variable' % order)
     print('   %-10s %-10s %-22s %-22s' % ('perturbed', 'multiplier', 'top coefficient', 'slot by slot (wrong)'))
-    for dot_name, tilde_name, tilde, positions in (('eta_dot', 'xi_tilde', xi_tilde, range(d)),
-                                                   ('xi_dot', 'eta_tilde', eta_tilde, range(d)),
-                                                   ('nu_dot', 'mu_tilde', mu_tilde, range(1, d)),
-                                                   ('mu_dot', 'nu_tilde', nu_tilde, range(1, d))):
+    for dot_name, tilde_name, tilde, positions in (('eta_D_dot', 'xi_tilde', xi_tilde, range(d)),
+                                                   ('xi_U_dot', 'eta_tilde', eta_tilde, range(d)),
+                                                   ('nu_L_dot', 'mu_tilde', mu_tilde, range(1, d)),
+                                                   ('mu_R_dot', 'nu_tilde', nu_tilde, range(1, d))):
         worst_top, worst_slot = 0.0, 0.0
         for k in positions:
             delta = rn(dots[dot_name][k].shape)

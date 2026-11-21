@@ -83,6 +83,9 @@ import _padded_frame_oracles as oracles
 import _uniform_padded_frame_testing as testing
 import test_uniform_padded_frame as uniform_tests      # loop_case: both layers' loop level (a module: no re-collection)
 import test_optimizers as optimizer_tests              # check_timing, untimed (a module: no re-collection)
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))   # tests/
+import _derivative_data as dd       # derivative data from the merged methods (P13b)
 
 
 def random_minimal_structure(rng, d, sharing=None):
@@ -255,7 +258,7 @@ def fit_case(layer, shape=SHAPE, old=OLD, target=TARGET, seed=0, kind='probe', s
     if sharing is not None:
         truth = truth.share(sharing, max_tucker_ranks=target[0], max_tt_ranks=target[1])
         x_old = x_old.share(sharing, max_tucker_ranks=old[0], max_tt_ranks=old[1])
-    sample, data = (ww, truth.probe(ww)) if kind == 'probe' else ((ww, pp), truth.probe_derivatives(ww, pp, 1))
+    sample, data = (ww, truth.probe(ww)) if kind == 'probe' else ((ww, pp), dd.forward(truth, 'probe', ww, pp, 1))
     kw = {} if kind == 'probe' else {'order': 1}
     x0 = x_old.resize(shape, *target)
     if layer == 'ragged':

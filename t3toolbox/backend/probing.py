@@ -11,6 +11,7 @@ two-hole) -- which ``apply``/``entries`` specialize (probe ⊃ apply ⊃
 entries; they import from here, never the reverse). Reference module for the signature style
 (``docs/contributor/signature_style.md``).
 """
+import itertools
 import math
 import numpy as np
 import typing as typ
@@ -21,6 +22,7 @@ import t3toolbox.backend.tt_operations as tt_operations
 import t3toolbox.backend.contractions as contractions
 import t3toolbox.backend.t3_operations as ragged_ops
 import t3toolbox.backend.ut3_operations as uniform_ops
+import t3toolbox.backend.sampling_variables as sampling_variables
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -57,6 +59,7 @@ __all__ = [
     'tv_probe_transpose',
     # Ambient / corewise probe transposes (the plain-probe analogs of the apply/entries transposes)
     't3_probe_ambient_transpose',
+    't3_probe_corewise_tangent',
     't3_probe_corewise_transpose',
     # Corewise two-hole: the probe transpose's derivative in the cores (the exact Hessian's sampling term)
     'compute_deta_tilde_tangent',
@@ -82,103 +85,31 @@ __all__ = [
 #####################################################
 
 def t3_probe(
-        ww: typ.Union[typ.Sequence[NDArray],    NDArray],   # len=d, elm_shape=W+(Ni,)
-        x:  typ.Union[
-            typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # ragged, (tucker_cores, tt_cores)
-            typ.Tuple[NDArray, NDArray],  # uniform, (tucker_supercore, tt_supercore)
-        ],
-) -> typ.Union[typ.Sequence[NDArray], NDArray]: # len=d, elm_shape=(...,Ni)
-    '''Probe a Tucker tensor train.
+        x:                 typ.Tuple,                    # (tucker_cores, tt_cores), elm_shapes C+(nDi,Ni), C+(ri,nDi,r(i+1))
+        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=J_in_i+W+(Ni,): input jets
+        order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
+) -> typ.Tuple[NDArray, ...]:               # z. len=d, elm_shape=F+W+C+(Ni,)
+    '''Probe a Tucker tensor train: contract every mode but one with the input jets, ``d`` vectors.
 
-    See Section 6.2, particularly Figure 7 and Algorithm 5, in:
-        Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
-        "Tucker Tensor Train Taylor Series."
-        arXiv preprint arXiv:2603.21141.
-        `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
-
-    Parameters
-    ----------
-    ww: typ.Sequence[NDArray]
-        input vectors to probe with. len=d, elm_shape=(...,Ni)
-    x: t3.TuckerTensorTrain.data
-        Tucker tensor train to probe, as a (tucker_cores, tt_cores) data tuple.
-        structure=((N0,...,N(d-1)),(n0,...,n(d-1)),(1,r1,...,r(d-1),1))
-
-    Returns
-    -------
-    typ.Tuple[NDArray,...]
-        Probes, zz. len=d, elm_shape=(...,Ni)
-
-    See Also
-    --------
-    tv_probe
-    tv_probe_transpose
-    compute_xi
-    compute_mu
-    compute_nu
-    compute_eta
-    assemble_z
+    One call of :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` wanting ``z`` on the point ``x``
+    (a corewise call). Taylor coefficients on the jet shape ``order`` (``()`` for none).
 
     Examples
     --------
-    Probe a T3 with one set of vectors; value-match against the dense reference:
-
     >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.backend.probing as t3p
+    >>> import t3toolbox.backend.probing as probing
+    >>> from t3toolbox.backend.t3_constructors import t3_corewise_randn
+    >>> from t3toolbox.backend.fv_conversions import t3_orthogonal_representations
     >>> np.random.seed(0)
-    >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1)).data
-    >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-    >>> zz = t3p.t3_probe(ww, x)
-    >>> zz_dense = t3p.dense_probe(ww, t3.TuckerTensorTrain(*x).to_dense())   # dense reference
-    >>> print([z.shape for z in zz])        # one probe per mode, elm_shape=(Ni,)
-    [(10,), (11,), (12,)]
-    >>> print([bool(np.allclose(z, z2)) for z, z2 in zip(zz, zz_dense)])
-    [True, True, True]
-
-    Vectorize over probes: a probe stack ``W`` rides through to ``elm_shape = W + (Ni,)``:
-
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.backend.probing as t3p
-    >>> np.random.seed(0)
-    >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1)).data
-    >>> ww = (np.random.randn(2, 3, 10), np.random.randn(2, 3, 11), np.random.randn(2, 3, 12))
-    >>> zz = t3p.t3_probe(ww, x)
-    >>> zz_dense = t3p.dense_probe(ww, t3.TuckerTensorTrain(*x).to_dense())
-    >>> print([z.shape for z in zz])        # W=(2,3) outer, mode index inner
-    [(2, 3, 10), (2, 3, 11), (2, 3, 12)]
-    >>> print([bool(np.allclose(z, z2)) for z, z2 in zip(zz, zz_dense)])
-    [True, True, True]
-
-    Vectorize over probes AND T3s: both stacks ride through, frame-inner ``elm_shape = W + C + (Ni,)``:
-
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.backend.probing as t3p
-    >>> np.random.seed(0)
-    >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1), stack_shape=(4, 5)).data
-    >>> ww = (np.random.randn(2, 3, 10), np.random.randn(2, 3, 11), np.random.randn(2, 3, 12))
-    >>> zz = t3p.t3_probe(ww, x)
-    >>> zz_dense = t3p.dense_probe(ww, t3.TuckerTensorTrain(*x).to_dense())
-    >>> print(zz[0].shape)                  # W=(2,3) outer, C=(4,5) inner, then N0=10
-    (2, 3, 4, 5, 10)
-    >>> print([bool(np.allclose(z, z2)) for z, z2 in zip(zz, zz_dense)])
-    [True, True, True]
+    >>> x = t3_corewise_randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+    >>> frame, variations = t3_orthogonal_representations(x)                   # a frame, and a direction at it
+    >>> ww = [np.random.randn(3, n) for n in (4, 5, 6)]                          # W = (3,)
+    >>> z = probing.t3_probe(x, ww)
+    >>> print([zi.shape for zi in z])
+    [(3, 4), (3, 5), (3, 6)]
     '''
-    tucker_cores, tt_cores = x
-
-    xis = compute_xi(tucker_cores, ww)
-
-    mus = compute_mu(tt_cores, xis)
-
-    nus = compute_nu(tt_cores, xis)
-
-    etas = compute_eta(tt_cores, mus, nus)
-
-    zs = assemble_z(tucker_cores, etas)
-
-    return zs
+    (z,) = sampling_variables.sampling_variables('probe', x, ww, ('z',), order=order)
+    return z
 
 
 def _xi_step(
@@ -624,142 +555,31 @@ def tv_probe_jacobian_from_sweep(
 
 
 def tv_probe(
-        ww:         typ.Union[typ.Sequence[NDArray],    NDArray],  # input vectors, len=d, elm_shape=(...,Ni)
-        variation:  typ.Union[
-            typ.Tuple[
-                typ.Sequence[NDArray],  # var_tucker_cores. len=d, elm_shape=(nUi,Ni)
-                typ.Sequence[NDArray],  # var_tt_cores.     len=d, elm_shape=(rLi,nDi,rR(i+1))
-            ],
-            typ.Tuple[
-                NDArray,  # var_tucker_supercore.
-                NDArray,  # var_tt_supercore.
-            ],
-        ],
-        frame:      typ.Union[
-            typ.Tuple[
-                typ.Sequence[NDArray],  # down_tucker_cores. len=d. D_xo D_yo   = I_xy, D.shape = (nD, N)
-                typ.Sequence[NDArray],  # up_tt_cores.       len=d. U_ixj U_iyj = I_xy  U.shape = (rL, nU, rR)
-                typ.Sequence[NDArray],  # left_tt_cores.     len=d. L_iax L_iay = I_xy, L.shape = (rL, nD, rL)
-                typ.Sequence[NDArray],  # right_tt_cores.    len=d. R_xaj R_yaj = I_xy  R.shape = (rR, nD, rR)
-            ],
-            typ.Tuple[
-                NDArray,  # down_tucker_supercore. shape=(d, nD, N),      down orthogonal elements
-                NDArray,  # up_tt_supercore.       shape=(d, rL, nU, rR), up orthogonal elements
-                NDArray,  # left_tt_supercore.     shape=(d, rL, nD, rL), left orthogonal elements
-                NDArray,  # right_tt_supercore.    shape=(d, rR, nD, rR), right orthogonal elements
-            ],
-        ], # frame order = T3Frame.data = (down, up, left, right) = (D, U, L, R)
-) -> typ.Union[typ.Sequence[NDArray], NDArray]: # len=d, elm_shape=(...,Ni)
-    '''Probe a tangent vector. Applies the (single-sample) least-squares Jacobian J^(s).
+        frame:             typ.Tuple,                    # (D, U, L, R)
+        variations:        typ.Tuple,                    # (V, H), elm_shapes K+C+(nUi,Ni), K+C+(rLi,nDi,rR(i+1))
+        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=J_in_i+W+(Ni,): input jets
+        order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
+) -> typ.Tuple[NDArray, ...]:               # Jp. len=d, elm_shape=F+W+K+C+(Ni,)
+    '''The probe of a tangent vector: ``J p``, the derivative along the direction ``variations`` at ``frame``.
 
-    Two independent stackings may ride along (handled by the W/C custom contractions in
-    ``contractions.py``): the T3 stack ``C`` (the frame/variation cores' ``stack_shape``) and the
-    probe stack ``W`` (the probing vectors' batch). When both are present the probes are
-    double-stacked, ``elm_shape = W + C + (Ni,)`` (probe outer, frame inner).
-
-    See Section 6.2.2, particularly Algorithms 6 and 7, in:
-        Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
-        "Tucker Tensor Train Taylor Series."
-        arXiv preprint arXiv:2603.21141.
-        `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
-
-    Parameters
-    ----------
-    ww: typ.Sequence[NDArray]
-        input vectors to probe with. len=d, elm_shape=(...,Ni)
-    variation: bvf.T3Variations.data
-        Tangent direction, as a (tucker_variations, tt_variations) data tuple.
-    frame: (down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores)
-        Orthogonal frame for the point where the tangent space attaches to the manifold. This is
-        exactly ``T3Frame.data`` order (D, U, L, R) -- pass ``frame.data`` directly, no reorder.
-
-    Returns
-    -------
-    typ.Tuple[NDArray,...]
-        Probes, zz. len=d, elm_shape=(Ni,) or (...,Ni)
-
-    See Also
-    --------
-    t3_probe
-    tv_probe_transpose
-    compute_dxi
-    compute_sigma
-    compute_tau
-    compute_deta
-    assemble_tangent_z
+    One call of :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` wanting ``Jp``.
 
     Examples
     --------
-
-    Probe a tangent vector with one set of vectors; value-match against the dense reference:
-
     >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.frame_variations_format as bvf
-    >>> import t3toolbox.manifold as t3m
-    >>> import t3toolbox.backend.probing as t3p
+    >>> import t3toolbox.backend.probing as probing
+    >>> from t3toolbox.backend.t3_constructors import t3_corewise_randn
+    >>> from t3toolbox.backend.fv_conversions import t3_orthogonal_representations
     >>> np.random.seed(0)
-    >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
-    >>> frame, variations = bvf.t3_orthogonal_representations(x)
-    >>> probe_frame = frame.data  # probing's frame order == T3Frame.data, no reorder
-    >>> v = t3m.T3Tangent(frame, variations)
-    >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-    >>> zz = t3p.tv_probe(ww, variations.data, probe_frame)
-    >>> zz_dense = t3p.dense_probe(ww, v.to_dense())   # dense reference J^(s) v
-    >>> print([z.shape for z in zz])        # one probe per mode, elm_shape=(Ni,)
-    [(10,), (11,), (12,)]
-    >>> print([bool(np.allclose(z, z2)) for z, z2 in zip(zz, zz_dense)])
-    [True, True, True]
-
-    Probe with a stack of vectors: the probe stack ``W`` rides through, ``elm_shape = W + (Ni,)``:
-
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.frame_variations_format as bvf
-    >>> import t3toolbox.manifold as t3m
-    >>> import t3toolbox.backend.probing as t3p
-    >>> np.random.seed(0)
-    >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
-    >>> frame, variations = bvf.t3_orthogonal_representations(x)
-    >>> v = t3m.T3Tangent(frame, variations)
-    >>> www = (np.random.randn(2, 10), np.random.randn(2, 11), np.random.randn(2, 12))
-    >>> zzz = t3p.tv_probe(www, variations.data, frame.data)
-    >>> zzz_dense = t3p.dense_probe(www, v.to_dense())
-    >>> print(zzz[0].shape)                 # W=(2,) outer, then N0=10
-    (2, 10)
-    >>> print([bool(np.allclose(z, z2)) for z, z2 in zip(zzz, zzz_dense)])
-    [True, True, True]
+    >>> x = t3_corewise_randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+    >>> frame, variations = t3_orthogonal_representations(x)                   # a frame, and a direction at it
+    >>> ww = [np.random.randn(3, n) for n in (4, 5, 6)]                          # W = (3,)
+    >>> Jp = probing.tv_probe(frame, variations, ww)
+    >>> print([a.shape for a in Jp])
+    [(3, 4), (3, 5), (3, 6)]
     '''
-    (down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores) = frame
-    (var_tucker_cores, var_tt_cores) = variation
-
-    xis = compute_xi(down_tucker_cores, ww)
-
-    mus = compute_mu(left_tt_cores, xis)
-
-    nus = compute_nu(right_tt_cores, xis)
-
-    etas = compute_eta(up_tt_cores, mus, nus)
-
-    dxis = compute_dxi(var_tucker_cores, ww)
-
-    sigmas = compute_sigma(
-        var_tt_cores, right_tt_cores, up_tt_cores, xis, dxis, mus,
-    )
-
-    taus = compute_tau(
-        var_tt_cores, left_tt_cores, up_tt_cores, xis, dxis, nus,
-    )
-
-    detas = compute_deta(
-        var_tt_cores, left_tt_cores, right_tt_cores, mus, nus, sigmas, taus,
-    )
-
-    zz = assemble_tangent_z(
-        down_tucker_cores, var_tucker_cores, etas, detas,
-    )
-
-    return zz
+    (Jp,) = sampling_variables.sampling_variables('probe', frame, ww, ('Jp',), order=order, variations=variations)
+    return Jp
 
 
 #####################################################
@@ -1208,190 +1028,97 @@ def tv_probe_transpose_from_sweep(
 
 
 def tv_probe_transpose(
-        ztildes:        typ.Union[typ.Sequence[NDArray],    NDArray], # len=d, elm_shape=(...,Ni)
-        ww:             typ.Union[typ.Sequence[NDArray],    NDArray], # input vectors, len=d, elm_shape=(...,Ni)
-        frame:          typ.Union[
-            typ.Tuple[
-                typ.Sequence[NDArray],  # down_tucker_cores. len=d. D_xo D_yo   = I_xy, D.shape = (nD, N)
-                typ.Sequence[NDArray],  # up_tt_cores.       len=d. U_ixj U_iyj = I_xy  U.shape = (rL, nU, rR)
-                typ.Sequence[NDArray],  # left_tt_cores.     len=d. L_iax L_iay = I_xy, L.shape = (rL, nD, rL)
-                typ.Sequence[NDArray],  # right_tt_cores.    len=d. R_xaj R_yaj = I_xy  R.shape = (rR, nD, rR)
-            ],
-            typ.Tuple[
-                NDArray,  # down_tucker_supercore. shape=(d, nD, N),      down orthogonal elements
-                NDArray,  # up_tt_supercore.       shape=(d, rL, nU, rR), up orthogonal elements
-                NDArray,  # left_tt_supercore.     shape=(d, rL, nD, rL), left orthogonal elements
-                NDArray,  # right_tt_supercore.    shape=(d, rR, nD, rR), right orthogonal elements
-            ],
-        ], # frame order = T3Frame.data = (down, up, left, right) = (D, U, L, R)
-        sum_over_probes: bool = False,
-) -> typ.Union[
-    typ.Tuple[
-        typ.Tuple[NDArray,...], # V_tildes. len=d, elm_shape=(...,nUi,Ni)
-        typ.Tuple[NDArray,...], # H_tildes. len=d, elm_shape=(...,rLi,nDi,rR(i+1))
-    ],
-    typ.Tuple[
-        NDArray,  # V_tildes. shape=(d, ..., nUi, Ni)
-        NDArray,  # H_tildes. shape=(d, ..., rLi, nDi, rR(i+1))
-    ],
+        frame:             typ.Tuple,                    # (D, U, L, R)
+        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=J_in_i+W+(Ni,): input jets
+        residual:          typ.Sequence[NDArray],         # of the type of z: len=d, elm_shape=F+W+[K]+C+(Ni,)
+        order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
+        sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
+) -> typ.Tuple[
+        typ.Tuple[NDArray, ...],                         # V blocks. len=d, elm_shape=[W]+[K]+C+(nUi,Ni)
+        typ.Tuple[NDArray, ...],                         # H blocks. len=d, elm_shape=[W]+[K]+C+(rLi,nDi,rR(i+1))
 ]:
-    '''Apply the transpose of the map from a tangent vector to its probes (apply (J^(s))^T to ztildes).
+    '''The transpose of :py:func:`tv_probe`: ``J^T`` applied to ``residual``, a tangent's blocks at ``frame``.
 
-    Stacking (handled by the W/C custom contractions in ``contractions.py``): the residuals
-    ``ztildes`` live in the forward probe space, ``elm_shape = W + C + (Ni,)`` (probe stack W
-    outermost, T3 stack C innermost -- frame-inner), while ``ww`` carries only the probe stack W. With
-    ``sum_over_probes=False`` the resulting variations keep both stacks (``W + C + ...``, the probe
-    stack W becoming the tangent stack K); with ``sum_over_probes=True`` the probe stack W is summed
-    and the T3 stack C is kept (``C + ...``).
-
-    See Section 6.2.3, particularly Algorithm 8, in:
-        Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
-        "Tucker Tensor Train Taylor Series."
-        arXiv preprint arXiv:2603.21141.
-        `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
-
-    Parameters
-    ----------
-    ztildes: typ.Sequence[NDArray]
-        Probe residuals to apply the transpose map to. len=d, elm_shape=(...,Ni)
-    ww: typ.Sequence[NDArray]
-        input vectors that defined the (forward) probe map. len=d, elm_shape=(...,Ni)
-    frame: (down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores)
-        Orthogonal frame for the point where the tangent space attaches to the manifold. This is
-        exactly ``T3Frame.data`` order (D, U, L, R) -- pass ``frame.data`` directly, no reorder.
-    sum_over_probes: bool
-        Sum results over all probe residuals, rather than returning results for each probe residual.
-
-    Returns
-    -------
-    (V_tildes, H_tildes)
-        Tangent variations (a bvf.T3Variations.data tuple) resulting from applying the transpose map.
-
-    See Also
-    --------
-    t3_probe
-    tv_probe
+    ``residual`` is a vector of the type of ``z`` (a stack ``K`` of them allowed), with no weight; it is turned inside
+    (a dual jet). One call of :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` wanting ``JtJp`` with
+    ``residual`` held as ``Jp`` (the route of a held ``Jp``: ``J^T`` of the vector held). The blocks are summed over
+    the samples by default. For repeated calls at one frame (inside an iterative solver), call
+    :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` with ``held=``: the frame's sweeps are then
+    computed once.
 
     Examples
     --------
-
-    Adjoint identity ``<z, J v> = <J^T z, v>`` with one set of probing vectors:
-
     >>> import numpy as np
-    >>> import t3toolbox.corewise as cw
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.frame_variations_format as bvf
-    >>> import t3toolbox.manifold as t3m
-    >>> import t3toolbox.backend.probing as t3p
+    >>> import t3toolbox.backend.probing as probing
+    >>> from t3toolbox.backend.t3_constructors import t3_corewise_randn
+    >>> from t3toolbox.backend.fv_conversions import t3_orthogonal_representations
     >>> np.random.seed(0)
-    >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
-    >>> frame, _ = bvf.t3_orthogonal_representations(x)
-    >>> probe_frame = frame.data  # probing's frame order == T3Frame.data, no reorder
-    >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-    >>> v = t3m.MANIFOLD.randn(frame)
-    >>> z = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-    >>> Jv  = t3p.tv_probe(ww, v.variations.data, probe_frame)
-    >>> JTz = t3p.tv_probe_transpose(z, ww, probe_frame)   # (V_tildes, H_tildes)
-    >>> lhs = cw.corewise_dot(z, Jv)                   # <z, J v>
-    >>> rhs = cw.corewise_dot(JTz, v.variations.data)  # <J^T z, v>
-    >>> print(bool(np.allclose(lhs, rhs)))
-    True
-
-    With ``sum_over_probes=True`` (the Gauss-Newton ``J^T r``), the adjoint identity still holds
-    when a probe stack ``W`` is summed on both sides:
-
-    >>> import numpy as np
-    >>> import t3toolbox.corewise as cw
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.frame_variations_format as bvf
-    >>> import t3toolbox.manifold as t3m
-    >>> import t3toolbox.backend.probing as t3p
-    >>> np.random.seed(0)
-    >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
-    >>> frame, _ = bvf.t3_orthogonal_representations(x)
-    >>> ww = (np.random.randn(2, 10), np.random.randn(2, 11), np.random.randn(2, 12))  # W=(2,)
-    >>> v = t3m.MANIFOLD.randn(frame)
-    >>> z = (np.random.randn(2, 10), np.random.randn(2, 11), np.random.randn(2, 12))
-    >>> Jv  = t3p.tv_probe(ww, v.variations.data, frame.data)        # W-stacked probes
-    >>> JTz = t3p.tv_probe_transpose(z, ww, frame.data, sum_over_probes=True)
-    >>> lhs = cw.corewise_dot(z, Jv)                   # sum_W <z_W, (J v)_W>
-    >>> rhs = cw.corewise_dot(JTz, v.variations.data)  # <sum_W J^T z_W, v>
-    >>> print(bool(np.allclose(lhs, rhs)))
+    >>> x = t3_corewise_randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+    >>> frame, variations = t3_orthogonal_representations(x)                   # a frame, and a direction at it
+    >>> ww = [np.random.randn(3, n) for n in (4, 5, 6)]                          # W = (3,)
+    >>> Jp = probing.tv_probe(frame, variations, ww)
+    >>> V, H = probing.tv_probe_transpose(frame, ww, Jp)
+    >>> pair = lambda a, b: sum(float(np.sum(u * v)) for u, v in zip(a[0] + a[1], tuple(b[0]) + tuple(b[1])))
+    >>> print(bool(np.isclose(pair((V, H), variations), sum(float(np.sum(a * a)) for a in Jp))))       # <p, J^T J p> = |J p|^2
     True
     '''
-    (down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores) = frame
-
-    xis = compute_xi(down_tucker_cores, ww)
-
-    mus = compute_mu(left_tt_cores, xis)
-
-    nus = compute_nu(right_tt_cores, xis)
-
-    etas = compute_eta(up_tt_cores, mus, nus)
-
-    #
-
-    deta_tildes = compute_deta_tilde(down_tucker_cores, ztildes)
-
-    tau_tildes = compute_tau_tilde(deta_tildes, left_tt_cores, xis, mus)
-
-    sigma_tildes = compute_sigma_tilde(deta_tildes, right_tt_cores, xis, nus)
-
-    dxi_tildes = compute_dxi_tilde(sigma_tildes, tau_tildes, up_tt_cores, mus, nus)
-
-    #
-
-    # Number of trailing probe-stack (W) axes. Needed by the tt-assemble, whose operands are all W+C
-    # or W+K+C (no W-only operand to recover it from); the tucker-assemble recovers it itself from the
-    # W-only probe vectors ww. (ragged: ww[0].shape = W + (Ni,).)
-    n_probe = ww[0].ndim - 1
-
-    V_tildes = assemble_tucker_variations(
-        ztildes, dxi_tildes, ww, etas,
-        sum_over_probes=sum_over_probes,
-    )
-
-    H_tildes = assemble_tt_variations(
-        sigma_tildes, tau_tildes, deta_tildes, xis, mus, nus,
-        sum_over_probes=sum_over_probes, n_probe=n_probe,
-    )
-
-    return V_tildes, H_tildes
+    held = sampling_variables.HeldVariables(Jp=residual)
+    (blocks,) = sampling_variables.sampling_variables('probe', frame, ww, ('JtJp',), order=order, held=held,
+                                                       sum_over_samples=sum_over_samples)
+    return blocks
 
 
 def t3_probe_ambient_transpose(
-        ztildes:    typ.Sequence[NDArray],  # probe residuals, len=d, elm_shape=W+C+(Ni,)
-        ww:         typ.Sequence[NDArray],  # probe vectors,   len=d, elm_shape=W+(Ni,)
-        sum_over_probes: bool = False,      # True: W folds into the CP rank
+        ww:                typ.Sequence[NDArray],  # probe vectors, len=d, elm_shape=W+(Ni,)
+        residual:          typ.Sequence[NDArray],  # probe residuals, len=d, elm_shape=W+C+(Ni,)
+        sum_over_samples:  bool = False,           # True: W folds into the CP rank
 ) -> typ.Sequence[NDArray]:  # canonical (CP) factors. len=d, ith elm_shape=stack_shape+(R, Ni)
     '''Ambient transpose of :py:func:`t3_probe`: back-project probe residuals into CP factors.
 
     The *ambient* adjoint -- the transpose of ``probe`` as a linear map on the **full tensor space**.
-    Probe returns ``d`` vectors (one free mode each), so the residual ``ztildes`` is ``d`` vectors; the
+    Probe returns ``d`` vectors (one free mode each), so the residual ``residual`` is ``d`` vectors; the
     back-projection is the rank-``d`` tensor
 
-        sum_i  w0 (x) ... (x) w_{i-1} (x) ztildes_i (x) w_{i+1} (x) ... (x) w_{d-1}
+        sum_i  w0 (x) ... (x) w_{i-1} (x) residual_i (x) w_{i+1} (x) ... (x) w_{d-1}
 
-    (term ``i`` has the residual ``ztildes_i`` in slot ``i`` and the probe vectors elsewhere), whose
+    (term ``i`` has the residual ``residual_i`` in slot ``i`` and the probe vectors elsewhere), whose
     natural representation is a **canonical (CP) decomposition** of rank ``d``. Frame-free. Distinct from
     the *corewise* transpose (gradient w.r.t. a frame's cores) and the *tangent* transpose (Riemannian
     gradient); see ``docs/transposes.md``. The ``apply``/``entries`` analog is the rank-1 (or rank-``|W|``)
     :py:func:`t3_apply_ambient_transpose`.
 
-    - ``sum_over_probes=False`` (primary): ``W`` is a passthrough stacking axis -- a ``W (+ C)`` stack
+    - ``sum_over_samples=False`` (primary): ``W`` is a passthrough stacking axis -- a ``W (+ C)`` stack
       of rank-``d`` CP tensors.
-    - ``sum_over_probes=True``: ``W`` folds into the CP rank -- one rank-``d|W|`` CP tensor
+    - ``sum_over_samples=True``: ``W`` folds into the CP rank -- one rank-``d|W|`` CP tensor
       ``sum_W sum_i (...)``. Cheap as CP (``O(d |W| N)``).
 
-    Returns CP ``factors`` (factor ``k`` has the diagonal structure: rank slot ``k`` = ``ztildes_k``,
+    Returns CP ``factors`` (factor ``k`` has the diagonal structure: rank slot ``k`` = ``residual_k``,
     the others = ``ww_k``), in the layout :py:func:`t3_conversions.t3_from_canonical` consumes.
+
+    Examples
+    --------
+    The adjoint of ``probe`` on the full tensor space, ``<J^T r, T> = <r, dense_probe(T, ww)>``. **The argument order**
+    (changed in this release: the sample, then the residual): the residual and the sample are both ``d`` vectors,
+    so the old order ``(residual, ww)`` runs and returns the transpose of a different problem:
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.probing as probing
+    >>> np.random.seed(0)
+    >>> T = np.random.randn(4, 5, 6)
+    >>> ww, r = ([np.random.randn(3, n) for n in T.shape] for _ in range(2))
+    >>> lhs = sum(float(np.sum(a * b)) for a, b in zip(r, probing.dense_probe(T, ww)))
+    >>> pair = lambda f: float(np.einsum('rA,rB,rC,ABC->', *f, T))           # <CP(f), T>, the rank axis summed
+    >>> right = probing.t3_probe_ambient_transpose(ww, r, sum_over_samples=True)
+    >>> wrong = probing.t3_probe_ambient_transpose(r, ww, sum_over_samples=True)   # swapped: runs, and is wrong
+    >>> print(abs(lhs - pair(right)) < 1e-12 * abs(lhs), abs(lhs - pair(wrong)) < 1e-12 * abs(lhs))
+    True False
     '''
-    use_jax = tree_contains_jax((ztildes, ww))
+    use_jax = tree_contains_jax((residual, ww))
     xnp, _, _ = get_backend(False, use_jax)
     d = len(ww)
     nW = ww[0].ndim - 1
     W  = ww[0].shape[:nW]                 # probe stack
-    C  = ztildes[0].shape[nW:-1]          # frame stack (ztildes[i] is W + C + (Ni,))
+    C  = residual[0].shape[nW:-1]          # frame stack (residual[i] is W + C + (Ni,))
     nC = len(C)
     mW = math.prod(W)
 
@@ -1400,40 +1127,105 @@ def t3_probe_ambient_transpose(
         Nk = ww[k].shape[-1]
         w_bc = xnp.broadcast_to(ww[k].reshape(W + (1,) * nC + (1, Nk)), W + C + (d, Nk))
         diag = (xnp.arange(d) == k).reshape((d, 1))            # rank slot k is the "diagonal"
-        Fk = xnp.where(diag, ztildes[k][..., None, :], w_bc)   # W + C + (d, Nk)
-        if sum_over_probes:                                    # fold W into the CP rank: rank d -> d|W|
+        Fk = xnp.where(diag, residual[k][..., None, :], w_bc)   # W + C + (d, Nk)
+        if sum_over_samples:                                    # fold W into the CP rank: rank d -> d|W|
             Fk = xnp.moveaxis(Fk, tuple(range(nW)), tuple(range(nC, nC + nW)))  # C + W + (d, Nk)
             Fk = Fk.reshape(C + (mW * d, Nk))
         factors.append(Fk)
     return tuple(factors)
 
 
-def t3_probe_corewise_transpose(
-        ztildes:    typ.Sequence[NDArray],  # probe residuals, len=d, elm_shape=W+C+(Ni,)
-        ww:         typ.Sequence[NDArray],  # probe vectors,   len=d, elm_shape=W+(Ni,)
-        core_pair:  typ.Tuple[
-            typ.Sequence[NDArray],          # tucker_cores, len=d, elm_shape=C+(ni,Ni)
-            typ.Sequence[NDArray],          # tt_cores,     len=d, elm_shape=C+(ri,ni,r(i+1))
-        ],
-        sum_over_probes: bool = False,      # True: sum the probe stack W (the gradient J^T r)
-) -> typ.Tuple[
-    typ.Tuple[NDArray, ...],  # tucker-core gradients, same shapes as tucker_cores
-    typ.Tuple[NDArray, ...],  # tt-core gradients,     same shapes as tt_cores
-]:
-    '''Corewise (non-manifold) transpose of :py:func:`t3_probe`: gradient of the probes w.r.t. the
-    cores of the frame ``core_pair``, treated as independent variables.
+def t3_probe_corewise_tangent(
+        x:                 typ.Tuple,                    # (B, G): the point whose cores the directions vary
+        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=J_in_i+W+(Ni,): input jets
+        core_directions:   typ.Tuple,                    # (B_dot, G_dot), the shapes of B, G with K+C
+        order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
+) -> typ.Tuple[NDArray, ...]:               # J x_dot. len=d, elm_shape=F+W+K+C+(Ni,)
+    '''The corewise forward derivative: ``J x_dot``, the derivative of ``z(x)`` (:py:func:`t3_probe`) along
+    ``core_directions = (B_dot, G_dot)``, of the type of ``z`` with the stack of directions ``K`` after ``W``.
 
-    The probe analog of :py:func:`t3_apply_corewise_transpose` -- the Section 6.3 substitution
-    ``B -> D``, ``G -> U, L, R`` into :py:func:`tv_probe_transpose`, i.e. that transpose at the frame
-    ``(B, G, G, G)``; the manifold operation requires an orthogonal frame, the corewise one works for any
-    ``B``, ``G``. Returns gradients shaped exactly like ``(tucker_cores,
-    tt_cores)`` (a gradient, not a tensor; no ``|W|`` blow-up). For non-manifold optimizers (Adam,
-    L-BFGS) fitting from probes. ``sum_over_probes=True`` sums the probe stack ``W`` (the gradient
-    ``J^T r``); ``False`` keeps it. Math reference: Section 6.3, Alger et al. (2026) (arXiv:2603.21141).
+    The trio at a point: this is the tangent, :py:func:`t3_probe_corewise_transpose` its transpose and
+    :py:func:`t3_probe_corewise_hessian` the Hessian. Per sample, with no sum over the samples (no
+    ``sum_over_samples``). One call of :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` on the
+    corewise point ``x`` wanting ``Jp`` with ``core_directions`` (its raw route), each sweep once; the substitution
+    ``tv_probe(t3_corewise_frame(x), core_directions, ...)`` computes the same at the cost of the frame's sweeps on
+    ``(B, G, G, G)``. For repeated calls at one point, call
+    :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` with ``held=``: the point's sweeps are then
+    computed once.
+
+    Examples
+    --------
+    ``z`` is homogeneous of degree ``2d`` in the cores, so the derivative along ``x`` itself is ``2d z`` (Euler):
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.probing as probing
+    >>> from t3toolbox.backend.t3_constructors import t3_corewise_randn
+    >>> np.random.seed(0)
+    >>> x = t3_corewise_randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+    >>> ww = [np.random.randn(3, n) for n in (4, 5, 6)]                          # W = (3,)
+    >>> z = probing.t3_probe(x, ww)
+    >>> Jx = probing.t3_probe_corewise_tangent(x, ww, x)
+    >>> print([a.shape for a in Jx])                                         # W + (Ni,)
+    [(3, 4), (3, 5), (3, 6)]
+    >>> print(all(np.allclose(a, 6 * b) for a, b in zip(Jx, z)))        # Euler: J x = 2d z
+    True
     '''
-    return tv_probe_transpose(
-        ztildes, ww, fv_conversions.t3_corewise_frame(core_pair), sum_over_probes=sum_over_probes,
-    )
+    (Jp,) = sampling_variables.sampling_variables('probe', x, ww, ('Jp',), order=order,
+                                                   core_directions=core_directions)
+    return Jp
+
+
+def t3_probe_corewise_transpose(
+        x:                 typ.Tuple,                    # (tucker_cores, tt_cores): the point
+        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=J_in_i+W+(Ni,): input jets
+        residual:          typ.Sequence[NDArray],         # of the type of z: len=d, elm_shape=F+W+[K]+C+(Ni,)
+        order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
+        sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
+) -> typ.Tuple[
+        typ.Tuple[NDArray, ...],                         # Tucker-core blocks. len=d, elm_shape=[W]+[K]+C+(nDi,Ni)
+        typ.Tuple[NDArray, ...],                         # TT-core blocks.     len=d, elm_shape=[W]+[K]+C+(ri,nDi,r(i+1))
+]:
+    '''The corewise transpose: ``J^T`` applied to ``residual`` in the cores of the point ``x``, the gradient of
+    ``phi(x) = <residual, z(x)>`` (plain inner product).
+
+    ``residual`` is a vector of the type of ``z`` (a stack ``K`` allowed), with no weight, turned inside. One call of
+    :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` on the corewise point ``x`` wanting ``JtJp``
+    with ``residual`` held as ``Jp``. Summed over the samples by default. For repeated calls at one frame (inside an iterative solver), call
+    :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` with ``held=``: the frame's sweeps are then
+    computed once.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.backend.probing as probing
+    >>> from t3toolbox.backend.t3_constructors import t3_corewise_randn
+    >>> from t3toolbox.backend.fv_conversions import t3_orthogonal_representations
+    >>> np.random.seed(0)
+    >>> x = t3_corewise_randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+    >>> frame, variations = t3_orthogonal_representations(x)                   # a frame, and a direction at it
+    >>> ww = [np.random.randn(3, n) for n in (4, 5, 6)]                          # W = (3,)
+    >>> c = probing.t3_probe(x, ww)
+    >>> B, G = probing.t3_probe_corewise_transpose(x, ww, c)
+    >>> print([b.shape for b in B], [g.shape for g in G])
+    [(2, 4), (3, 5), (2, 6)] [(1, 2, 2), (2, 3, 2), (2, 2, 1)]
+
+    **The argument order** (changed in this release: the point, the sample, then the residual). The residual
+    and the sample are both ``d`` vectors, so ``(x, residual, ww)`` runs and returns the transpose of a different
+    problem. Checked against the forward derivative at the intended sample:
+
+    >>> x_dot = t3_corewise_randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+    >>> r = [np.random.randn(3, n) for n in (4, 5, 6)]
+    >>> lhs = sum(float(np.sum(a * b)) for a, b in zip(r, probing.t3_probe_corewise_tangent(x, ww, x_dot)))
+    >>> pair = lambda g: sum(float(np.sum(a * b)) for p, q in zip(g, x_dot) for a, b in zip(p, q))
+    >>> right = probing.t3_probe_corewise_transpose(x, ww, r)
+    >>> wrong = probing.t3_probe_corewise_transpose(x, r, ww)       # the residual and the sample swapped
+    >>> print(abs(lhs - pair(right)) < 1e-12 * abs(lhs), abs(lhs - pair(wrong)) < 1e-12 * abs(lhs))
+    True False
+    '''
+    held = sampling_variables.HeldVariables(Jp=residual)
+    (blocks,) = sampling_variables.sampling_variables('probe', x, ww, ('JtJp',), order=order, held=held,
+                                                       sum_over_samples=sum_over_samples)
+    return blocks
 
 
 ###############################################################
@@ -1743,106 +1535,195 @@ def t3_probe_corewise_hessian_from_sweep(
 
 
 def t3_probe_corewise_hessian(
-        ztildes:            typ.Union[typ.Sequence[NDArray], NDArray],  # residuals (omega^2 applied), len=d, elm_shape=W+C+(Ni,)
-        ww:                 typ.Union[typ.Sequence[NDArray], NDArray],  # probe vectors, len=d, elm_shape=W+(Ni,)
-        core_pair:          typ.Tuple[
-            typ.Sequence[NDArray],                  # tucker_cores of theta. len=d, elm_shape=C+(ni,Ni)
-            typ.Sequence[NDArray],                  # tt_cores of theta.     len=d, elm_shape=C+(ri,ni,r(i+1))
-        ],                                          # = TuckerTensorTrain.data
-        core_directions:    typ.Tuple[
-            typ.Sequence[NDArray],                  # Tucker directions theta_hat. len=d, elm_shape=K+C+(ni,Ni)
-            typ.Sequence[NDArray],                  # TT directions theta_hat.     len=d, elm_shape=K+C+(ri,ni,r(i+1))
-        ],
+        x:                 typ.Tuple,                    # (B, G): the point whose cores the directions vary
+        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=J_in_i+W+(Ni,): input jets
+        residual:          typ.Sequence[NDArray],         # c, of the type of z: len=d, elm_shape=F+W+C+(Ni,); no weight
+        core_directions:   typ.Tuple,                    # (B_dot, G_dot), the shapes of B, G with K+C
+        order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
+        sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
 ) -> typ.Tuple[
-    typ.Tuple[NDArray, ...],                        # Tucker block of K theta_hat. len=d, elm_shape=K+C+(ni,Ni)
-    typ.Tuple[NDArray, ...],                        # TT block of K theta_hat.     len=d, elm_shape=K+C+(ri,ni,r(i+1))
+        typ.Tuple[NDArray, ...],                         # Tucker block. len=d, elm_shape=[W]+K+C+(nDi,Ni)
+        typ.Tuple[NDArray, ...],                         # TT block.     len=d, elm_shape=[W]+K+C+(ri,nDi,r(i+1))
 ]:
-    '''The derivative of :py:func:`t3_probe_corewise_transpose` along core directions: the core-coordinate Hessian
-    of ``theta -> <z~, probe(Phi(theta))>`` applied to ``theta_hat``,
+    '''The corewise Hessian: the second derivative of ``phi(x) = <residual, z(x)>`` in the cores, applied to
+    ``core_directions`` (the derivative of :py:func:`t3_probe_corewise_transpose` along them).
 
-        ``K_z theta_hat = d/ds grad_theta <z~, probe(Phi(theta + s theta_hat))> |_{s=0}``,
-
-    for fixed residuals ``z~`` (one per free mode). This is the sampling half of the exact Riemannian Hessian's
-    curvature term for ``probe`` (with ``z~ = omega^2 r``, the weighted residual the Gauss-Newton transpose
-    receives), by a hand-written "two-hole" sweep -- two cores replaced at once -- rather than automatic
-    differentiation; it is exact and symmetric. It is the order-0 case of
-    :py:func:`~t3toolbox.backend.sampling_derivatives.t3_probe_corewise_derivatives_hessian`, in plain probing's
-    own kernels (no order axis).
-
-    Stacks: the residuals and ``core_pair`` carry ``W + C`` / ``C``; the directions carry a tangent stack ``K``
-    (``K + C``), and the output is raw core variations shaped like the directions, the probe stack ``W`` summed.
-    Polymorphic over ragged tuples and uniform supercores (packed ``ztildes`` / ``ww``).
-
-    **Mask-free by contract.** It assumes ``theta`` and ``theta_hat`` arrive with their padded slots already zero:
-    a second derivative multiplies a direction's padded slot into real slots, so a uniform caller masks both once
-    up front with ``theta``'s masks (:py:func:`~t3toolbox.backend.ut3_sampling.ut3_probe_corewise_hessian`).
-
-    The pieces, each the product rule of the GN kernel it is named after: :py:func:`compute_deta_tilde_tangent`,
-    :py:func:`compute_tau_tilde_tangent`, :py:func:`compute_sigma_tilde_tangent`,
-    :py:func:`compute_dxi_tilde_tangent`, :py:func:`assemble_tucker_tangent_variations`,
-    :py:func:`assemble_tt_tangent_variations`; the precomputed-sweep variant is
-    :py:func:`t3_probe_corewise_hessian_from_sweep`.
+    ``residual`` is a vector of the type of ``z``, no weight, turned inside. One call of
+    :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` on the corewise point ``x`` wanting ``Kp``
+    with ``residual`` held as ``r``. Summed over the samples (``sum_over_samples=False``: per sample, ``W``
+    leading the blocks' stack). For repeated calls at one frame (inside an iterative solver), call
+    :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` with ``held=``: the frame's sweeps are then
+    computed once.
 
     Examples
     --------
-    The two-hole is the directional derivative of the corewise transpose (a polynomial in ``s``, so a central
-    difference is accurate to ``O(h^2)``), and a symmetric operator:
-
     >>> import numpy as np
-    >>> import t3toolbox.backend.t3_constructors as t3k
-    >>> import t3toolbox.backend.probing as t3p
-    >>> np.random.seed(0)                                                  # t3_corewise_randn draws from it
-    >>> rng = np.random.default_rng(0)
-    >>> shape, W = (4, 5, 3), 6
-    >>> theta = t3k.t3_corewise_randn(shape, (2, 3, 2), (1, 2, 2, 1))
-    >>> ww = [rng.standard_normal((W, N)) for N in shape]
-    >>> zt = [rng.standard_normal((W, N)) for N in shape]                  # residuals, W+(Ni,)
-    >>> dirs = (tuple(rng.standard_normal((2,) + u.shape) for u in theta[0]),   # a tangent stack K = (2,)
-    ...         tuple(rng.standard_normal((2,) + g.shape) for g in theta[1]))
-    >>> KB, KG = t3p.t3_probe_corewise_hessian(zt, ww, theta, dirs)
-    >>> [k.shape for k in KG]                                              # K + the TT core shapes
-    [(2, 1, 2, 2), (2, 2, 3, 2), (2, 2, 2, 1)]
-    >>> one = lambda cores: t3p.t3_probe_corewise_transpose(zt, ww, cores, sum_over_probes=True)
-    >>> shift = lambda h: tuple(tuple(c + h * dc[0] for c, dc in zip(cs, dcs)) for cs, dcs in zip(theta, dirs))
-    >>> fd = [(a - b) / 2e-4 for a, b in zip(sum(one(shift(1e-4)), ()), sum(one(shift(-1e-4)), ()))]
-    >>> got = [k[0] for k in KB + KG]
-    >>> bool(max(np.linalg.norm(g - f) / np.linalg.norm(f) for g, f in zip(got, fd)) < 1e-6)
-    True
-    >>> gram = sum(a.reshape(2, -1) @ b.reshape(2, -1).T for a, b in zip(dirs[0] + dirs[1], KB + KG))
-    >>> bool(abs(gram[0, 1] - gram[1, 0]) < 1e-12 * abs(gram).max())     # <a, K b> = <b, K a>
-    True
+    >>> import t3toolbox.backend.probing as probing
+    >>> from t3toolbox.backend.t3_constructors import t3_corewise_randn
+    >>> from t3toolbox.backend.fv_conversions import t3_orthogonal_representations
+    >>> np.random.seed(0)
+    >>> x = t3_corewise_randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+    >>> frame, variations = t3_orthogonal_representations(x)                   # a frame, and a direction at it
+    >>> ww = [np.random.randn(3, n) for n in (4, 5, 6)]                          # W = (3,)
+    >>> c = probing.t3_probe(x, ww)
+    >>> KB, KG = probing.t3_probe_corewise_hessian(x, ww, c, x)    # the direction x itself
+    >>> print([b.shape for b in KB], [g.shape for g in KG])
+    [(2, 4), (3, 5), (2, 6)] [(1, 2, 2), (2, 3, 2), (2, 2, 1)]
     '''
-    frame = fv_conversions.t3_corewise_frame(core_pair)
-    xis = compute_xi(frame[0], ww)
-    mus = compute_mu(frame[2], xis)
-    return t3_probe_corewise_hessian_from_sweep(ztildes, ww, core_pair, core_directions, (xis, mus))
+    held = sampling_variables.HeldVariables(r=residual)
+    (blocks,) = sampling_variables.sampling_variables('probe', x, ww, ('Kp',), order=order, held=held,
+                                                       core_directions=core_directions,
+                                                       sum_over_samples=sum_over_samples)
+    return blocks
 
 
 ###############################################
 ##########    Probe dense tensor    ###########
 ###############################################
 
+def _dense_contract_one_mode(
+        A:          NDArray,    # shape=[W]+C+(the modes not yet contracted)
+        has_W:      bool,       # does A lead with the sample stack W?
+        vector:     NDArray,    # shape=W+(N_mode,): one coefficient of the input jet of the mode
+        n_C:        int,        # the number of axes of C
+        axis:       int,        # the place of the mode among the modes not yet contracted
+) -> NDArray:                   # shape=W+C+(the modes not yet contracted, but this one)
+    '''Contract one mode of a dense tensor (partly contracted already) with one vector: one einsum.'''
+    xnp, _, _ = get_backend(True, tree_contains_jax((A, vector)))
+    n_W = vector.ndim - 1
+    n_modes = A.ndim - n_C - (n_W if has_W else 0)
+    # We are going to construct an einsum string from letters.
+    # A dense 2x2x..x2 tensor exhausting these letters would have 4e15 entries
+    letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    W_letters = letters[:n_W]
+    C_letters = letters[n_W:n_W + n_C]
+    mode_letters = letters[n_W + n_C:n_W + n_C + n_modes]
+    kept = mode_letters[:axis] + mode_letters[axis + 1:]
+    subscripts = ((W_letters if has_W else '') + C_letters + mode_letters + ',' + W_letters + mode_letters[axis]
+                  + '->' + W_letters + C_letters + kept)
+    return xnp.einsum(subscripts, A, vector)
+
+
+def _dense_jet(
+        T:          NDArray,                    # shape=C+(N0,...,N(d-1))
+        ww:         typ.Sequence[NDArray],      # len=d, elm_shape=J_in_i+W+(Ni,): the input jets
+        order:      typ.Tuple[int, ...],        # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
+        open_mode:  typ.Optional[int],          # the mode left open, or None: every mode is contracted
+        name:       str,                        # the public function, for the error messages
+) -> NDArray:                                   # shape=F+W+C+(N_open,), or F+W+C if open_mode is None
+    '''The Taylor coefficients, on the box ``F = order + 1``, of ``T`` contracted with the input jets in every mode
+    but ``open_mode``. The input jet of mode ``j`` is the polynomial ``w_j(s) = sum_k ww[j][k] s^k`` (``k`` a
+    multi-index over its own jet sizes, zero beyond them), and the result is the product of the ``w_j(s)``
+    through ``T``, truncated to the box. Computed one mode at a time: the partly contracted tensor is a polynomial
+    whose coefficients are kept by multi-index, and contracting mode ``j`` multiplies it by ``w_j(s)``, by explicit
+    loops over the pairs of multi-indices whose sum lies in the box, one einsum per pair. Exact: sums of
+    contractions, with no step size and no interpolation. The one place the jets of a dense tensor are computed
+    (the three public dense functions rest on it), and it shares nothing with the library's sweeps or with
+    ``jet_contract``.'''
+    xnp, _, _ = get_backend(True, tree_contains_jax((T, ww)))
+    order = contractions._read_order(order, name)
+    m = len(order)
+    box = tuple(n + 1 for n in order)
+    d = len(ww)
+    if T.ndim < d:
+        raise ValueError('%s: %d vectors for a tensor with %d axes' % (name, d, T.ndim))
+    shape = T.shape[T.ndim - d:]
+    n_C = T.ndim - d
+    for ii, w in enumerate(ww):
+        if w.ndim < m + 1:
+            raise ValueError('%s: ww[%d] has %d axes, fewer than the %d jet axes of the jet shape %s and a mode axis'
+                             % (name, ii, w.ndim, m, order))
+    W = tuple(ww[0].shape[m:-1])
+    for ii, w in enumerate(ww):
+        if min(w.shape[:m], default=1) < 1:
+            raise ValueError('%s: ww[%d] has the jet sizes %s: every jet axis has at least one slot'
+                             % (name, ii, tuple(w.shape[:m])))
+        if tuple(w.shape[m:-1]) != W:
+            raise ValueError('%s: ww[%d] has sample stack %s once its %d jet axes are read, expected W = %s'
+                             % (name, ii, tuple(w.shape[m:-1]), m, W))
+        if w.shape[-1] != shape[ii]:
+            raise ValueError('%s: ww[%d] has length %d, expected N_%d = %d' % (name, ii, w.shape[-1], ii, shape[ii]))
+
+    coefficients = {(0,) * m: T}                # the tensor: a polynomial of degree 0, layout C + modes
+    has_W = False                               # after the first contraction: W + C + the modes left
+    left = list(range(d))
+    for jj in range(d):
+        if jj == open_mode:
+            continue
+        input_slots = list(itertools.product(*(range(min(size, f)) for size, f in zip(ww[jj].shape[:m], box))))
+        product = {}
+        for r, A in coefficients.items():
+            for k in input_slots:               # slots of the input beyond the box are never read
+                t = tuple(a + b for a, b in zip(r, k))
+                if any(a > n for a, n in zip(t, order)):
+                    continue
+                term = _dense_contract_one_mode(A, has_W, ww[jj][k], n_C, left.index(jj))
+                product[t] = term if t not in product else product[t] + term
+        coefficients, has_W = product, True
+        left.remove(jj)
+    if not has_W:
+        # d == 1 and its one mode is open: no vector is contracted, and the result is the tensor itself, broadcast
+        # over W (the W letters would otherwise appear only in an einsum output, which numpy rejects)
+        coefficients = {r: xnp.broadcast_to(A, W + tuple(A.shape)) for r, A in coefficients.items()}
+
+    first = coefficients[(0,) * m]
+    if m == 0:
+        return first
+    zero = xnp.zeros_like(first)                # a coefficient no product reaches: exactly zero
+    slots = [coefficients.get(r, zero) for r in itertools.product(*(range(f) for f in box))]
+    return xnp.reshape(xnp.stack(slots), box + tuple(first.shape))
+
+
 def dense_probe(
-        vectors: typ.Sequence[NDArray],
-        T: NDArray,
-) -> typ.Tuple[NDArray]:
-    """Probe a dense tensor.
+        T:      NDArray,                                # shape=C+(N0,...,N(d-1))
+        ww:     typ.Sequence[NDArray],                  # len=d, elm_shape=J_in_i+W+(Ni,): the input jets
+        order:  typ.Tuple[int, ...] = (),               # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
+) -> typ.Tuple[NDArray, ...]:                           # z. len=d, elm_shape=F+W+C+(Ni,)
+    """Probe a dense tensor: contract it with a vector in every mode but one, for each mode in turn.
+
+    The dense ground truth of ``probe``: ``z[i]`` is the tensor ``T`` contracted with ``ww[j]`` in every mode
+    ``j != i``.
+
+    **Jets.** With a jet shape ``order = (n_1, ..., n_m)`` the inputs are input jets in ``m`` variables
+    ``s_1 ... s_m``: ``ww[j]`` has ``m`` leading jet axes of sizes of its own, ``J_in_j``, and its slot at the
+    multi-index ``k`` is the Taylor coefficient of ``s_1^k_1 ... s_m^k_m`` of the input vector ``w_j(s)`` (zero
+    beyond its sizes). ``z[i]`` is then the polynomial ``T`` contracted with ``w_j(s)`` for ``j != i``, given by
+    its Taylor coefficients (**not** derivatives) on the box ``F = (n_1 + 1, ..., n_m + 1)``, on ``m`` leading jet
+    axes. Input slots beyond the box are never read. The coefficients are exact: sums of contractions, computed
+    one mode at a time. A line ``w + s p`` is the input jet of two slots, :py:func:`~t3toolbox.backend.jets.affine_jet`.
+    ``order`` is never read off the inputs: with the default ``order = ()`` an input jet's leading axes are read
+    as sample axes.
+
+    In the shape comments ``F`` is the full jet sizes, ``J_in_i`` the jet sizes of the input ``ww[i]``; the
+    argument ``T`` is the tensor.
 
     Parameters
     ----------
-    vectors: typ.Sequence[NDArray]
-        Probing input vectors.
-        len=d.
-        elm_shape=W+(Ni,)
     T: NDArray
-        Tensor to be probed. shape=C+(N0,...,N(d-1))
+        The tensor to be probed. shape=C+(N0,...,N(d-1)); ``d`` is the number of vectors.
+    ww: typ.Sequence[NDArray]
+        The input jets. len=d, elm_shape=J_in_i+W+(Ni,); with ``order = ()``, W+(Ni,).
+    order: typ.Tuple[int, ...]
+        The jet shape: the maximum order in each jet variable. ``()`` (the default) for no jets.
 
     Returns
     -------
-    typ.Tuple[NDArray]
-        Probes.
-        len=d.
-        elm_shape=(Ni,) or elm_shape=W+C+(Ni,)
+    typ.Tuple[NDArray, ...]
+        The probes ``z``. len=d, elm_shape=F+W+C+(Ni,)
+
+    Raises
+    ------
+    TypeError
+        If ``order`` is not a tuple of integers (an integer is not a jet shape).
+    ValueError
+        If an entry of ``order`` is negative, or an input does not have the jet axes of the jet shape (each of
+        at least one slot), the sample stack of ``ww[0]`` or the length of its mode.
+
+    See Also
+    --------
+    t3toolbox.backend.apply.dense_apply
+    t3toolbox.backend.entries.dense_entries
+    t3toolbox.backend.jets.affine_jet
 
     Examples
     --------
@@ -1854,7 +1735,7 @@ def dense_probe(
     >>> np.random.seed(0)
     >>> T = np.random.randn(10, 11, 12)
     >>> u0, u1, u2 = np.random.randn(10), np.random.randn(11), np.random.randn(12)
-    >>> yy = t3p.dense_probe((u0, u1, u2), T)
+    >>> yy = t3p.dense_probe(T, (u0, u1, u2))
     >>> y0 = np.einsum('ijk,j,k', T, u1, u2)   # contract all modes but 0
     >>> y1 = np.einsum('ijk,i,k', T, u0, u2)
     >>> y2 = np.einsum('ijk,i,j', T, u0, u1)
@@ -1870,7 +1751,7 @@ def dense_probe(
     >>> np.random.seed(0)
     >>> T = np.random.randn(10, 11, 12)
     >>> u0, u1, u2 = np.random.randn(2, 3, 10), np.random.randn(2, 3, 11), np.random.randn(2, 3, 12)
-    >>> yy = t3p.dense_probe((u0, u1, u2), T)
+    >>> yy = t3p.dense_probe(T, (u0, u1, u2))
     >>> y0 = np.einsum('ijk,uvj,uvk->uvi', T, u1, u2)
     >>> y1 = np.einsum('ijk,uvi,uvk->uvj', T, u0, u2)
     >>> y2 = np.einsum('ijk,uvi,uvj->uvk', T, u0, u1)
@@ -1886,7 +1767,7 @@ def dense_probe(
     >>> np.random.seed(0)
     >>> T = np.random.randn(4, 5, 6, 10, 11, 12)   # C=(4,5,6) stack on the tensor
     >>> u0, u1, u2 = np.random.randn(2, 3, 10), np.random.randn(2, 3, 11), np.random.randn(2, 3, 12)
-    >>> yy = t3p.dense_probe((u0, u1, u2), T)
+    >>> yy = t3p.dense_probe(T, (u0, u1, u2))
     >>> y0 = np.einsum('xyzijk,uvj,uvk->uvxyzi', T, u1, u2)
     >>> y1 = np.einsum('xyzijk,uvi,uvk->uvxyzj', T, u0, u2)
     >>> y2 = np.einsum('xyzijk,uvi,uvj->uvxyzk', T, u0, u1)
@@ -1894,56 +1775,46 @@ def dense_probe(
     (2, 3, 4, 5, 6, 10)
     >>> print([bool(np.allclose(y, ref)) for y, ref in zip(yy, (y0, y1, y2))])
     [True, True, True]
+
+    Jets along a line ``ww + s pp``: the input jet of two slots, made by ``affine_jet``. The probes are
+    polynomials in ``s`` of degree ``d - 1 = 2``, so slot 1 is the sum over the one mode that takes ``pp``, and
+    the three coefficients sum to the probes at ``s = 1``:
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.probing as t3p
+    >>> from t3toolbox.backend.jets import affine_jet
+    >>> np.random.seed(0)
+    >>> T = np.random.randn(10, 11, 12)
+    >>> ww = [np.random.randn(2, N) for N in (10, 11, 12)]      # W=(2,)
+    >>> pp = [np.random.randn(2, N) for N in (10, 11, 12)]
+    >>> zz = t3p.dense_probe(T, affine_jet(ww, pp), order=(2,))
+    >>> print(zz[0].shape)                      # F=(3,) outermost, then W=(2,), then N0=10
+    (3, 2, 10)
+    >>> print(bool(np.allclose(zz[0][0], t3p.dense_probe(T, ww)[0])))             # slot 0 is the plain probe
+    True
+    >>> print(bool(np.allclose(zz[0][1], np.einsum('ijk,wj,wk->wi', T, pp[1], ww[2])
+    ...                                  + np.einsum('ijk,wj,wk->wi', T, ww[1], pp[2]))))   # slot 1: one mode takes pp
+    True
+    >>> moved = [w + p for w, p in zip(ww, pp)]                                    # the inputs at s = 1
+    >>> print(bool(np.allclose(zz[0].sum(axis=0), t3p.dense_probe(T, moved)[0])))  # degree d-1 = 2: nothing above
+    True
+
+    An input of three slots, a curve ``w + s p + s^2 q`` in one variable: slot 2 of a probe has the terms where
+    one mode takes ``q`` and those where two modes take ``p``:
+
+    >>> qq = [np.random.randn(2, N) for N in (10, 11, 12)]
+    >>> curve = [np.stack([w, p, q]) for w, p, q in zip(ww, pp, qq)]               # J_in = (3,): slots 0, 1, 2
+    >>> zz = t3p.dense_probe(T, curve, order=(2,))
+    >>> slot2 = (np.einsum('ijk,wj,wk->wi', T, qq[1], ww[2]) + np.einsum('ijk,wj,wk->wi', T, ww[1], qq[2])
+    ...          + np.einsum('ijk,wj,wk->wi', T, pp[1], pp[2]))
+    >>> print(bool(np.allclose(zz[0][2], slot2)))
+    True
+
+    Gotcha -- ``order`` is a tuple, the jet shape; an integer is not accepted:
+
+    >>> t3p.dense_probe(T, affine_jet(ww, pp), 2)   # doctest: +IGNORE_EXCEPTION_DETAIL
+    Traceback (most recent call last):
+        ...
+    TypeError: dense_probe: order is the jet shape, a tuple of maximum orders, ...
     """
-    use_jax = tree_contains_jax((vectors, T))
-    xnp, _, _ = get_backend(True, use_jax)
-
-    #
-    d = len(vectors)
-    C = T.shape[:-d]
-    shape = T.shape[-d:]
-    W = vectors[0].shape[:-1]
-
-    for ii, v in enumerate(vectors):
-        if v.shape[:-1] != W:
-            raise ValueError('dense_probe: vector %d has probe stack %s, expected W = %s' % (ii, v.shape[:-1], W))
-        if v.shape[-1] != shape[ii]:
-            raise ValueError('dense_probe: vector %d has length %d, expected N_%d = %d' % (ii, v.shape[-1], ii, shape[ii]))
-
-    # We are going to construct an einsum string from letters.
-    # A dense 2x2x..x2 tensor exhausting these letters would have 4e15 entries
-    letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
-
-    C_letters       = letters[:len(C)]
-    shape_letters   = letters[len(C):len(C)+len(shape)]
-    W_letters       = letters[len(C)+len(shape):len(C)+len(shape)+len(W)]
-
-    vv_letters = []
-    for ii in range(d):
-        vv_letters.append(W_letters + shape_letters[ii])
-
-    T_letters = C_letters + shape_letters
-
-    zz = []
-    for ii in range(d):
-        str = T_letters
-        for jj in range(ii): # front to back, add weighted slices
-            str += ',' + vv_letters[jj]
-
-        for jj in range(d-1,ii,-1): # back to front, contract with each slice
-            str += ',' + vv_letters[jj]
-
-        str += '->'
-
-        str += W_letters + C_letters + shape_letters[ii]
-
-        vvi = tuple(vectors[:ii] + vectors[ii+1:][::-1])
-        if d == 1:
-            # no partner vectors to contract: the probe is the tensor itself, broadcast over W (the W
-            # letters would otherwise appear only in the einsum output, which numpy rejects)
-            z = xnp.broadcast_to(T, W + tuple(T.shape))
-        else:
-            z = xnp.einsum(str, T, *vvi)
-        zz.append(z)
-
-    return tuple(zz)
+    return tuple(_dense_jet(T, ww, order, ii, 'dense_probe') for ii in range(len(ww)))

@@ -44,6 +44,8 @@ from t3toolbox.fitting import (
     apply_derivatives_model,
     entries_derivatives_model,
     probe_derivatives_model,
+    affine_jet,
+    index_to_one_hot,
 )
 from t3toolbox.optimizers import gradient_descent, mc_sgd, adam, newton_cg
 from t3toolbox import safety
@@ -105,6 +107,9 @@ __all__ = [
     'apply_derivatives_model',
     'entries_derivatives_model',
     'probe_derivatives_model',
+    # the input jets of a sampling function with a jet shape: a point moved along directions, and one-hot vectors
+    'affine_jet',
+    'index_to_one_hot',
     # optimizers
     'gradient_descent',
     'mc_sgd',

@@ -5,7 +5,8 @@
 """Operations on raw (frame, variations) data: variation constructors, frame ops, residuals.
 
 ``fv_variations_{zeros,randn,unit,from_vector}`` build variation tuples for a given frame;
-``fv_frame_reverse`` and the ``fv_frame_*_residual`` checkers operate on the frame alone,
+``fv_frame_reverse`` and the ``fv_frame_*_residual`` checkers operate on the frame alone
+(``fv_centers_consistency_residual`` checks the center cores a frame can come with against it),
 ``fv_zero_point_frame`` builds the canonical frame at the zero tensor from a frame's structure, and
 ``fv_center_factors`` / ``fv_lift_factors`` derive the small per-mode factors that relate the frame
 coordinates to raw core variations (the lift of the exact Riemannian Hessian). The
@@ -20,10 +21,10 @@ import numpy as np
 
 import t3toolbox.backend.tt_operations as tt_operations
 import t3toolbox.backend.t3_operations as t3_operations
+import t3toolbox.backend.tt_orthogonalization as tt_orthogonalization
 import t3toolbox.backend.contractions as contractions
 import t3toolbox.backend.linalg as linalg
 from t3toolbox.backend.common import *
-import t3toolbox.backend.t3_conversions as t3_conversions
 import t3toolbox.corewise as corewise
 
 __all__ = [
@@ -35,6 +36,7 @@ __all__ = [
     'fv_frame_reverse',
     'fv_frame_orthogonality_residual',
     'fv_frame_consistency_residual',
+    'fv_centers_consistency_residual',
     'fv_zero_point_frame',
     'fv_center_factors',
     'LiftFactors',
@@ -227,30 +229,367 @@ def fv_frame_orthogonality_residual(
     return xnp.max(xnp.stack(devs), axis=0)   # max over the checks, keep stack_shape
 
 
+# ---- the consistency residuals: norms of differences of T3s, through the cores ---------------------------------
+# Four of the helpers below repeat a few lines that live in modules this one cannot import without an import
+# cycle (t3_linalg and geometry reach fv_operations through ranks and sharing; tests/test_import_graph.py). Each
+# names its twin: a change to one is to be made to the other.
+
+def _tucker_down_factors(
+        tucker_cores:  typ.Sequence[NDArray],   # len=d, elm_shape=C+(ni, Ni)
+) -> typ.Tuple[NDArray, ...]:                   # R. len=d, elm_shape=C+(xi, ni), xi=min(ni, Ni)
+    """The factor ``R[i]`` of each Tucker core, ``B[i] = R[i]^T Q[i]`` with ``Q[i]`` of orthonormal rows. A T3
+    whose TT cores have absorbed ``R`` (:py:func:`_tt_absorb_down_factors`) is ``Q`` under a TT, so its norm is
+    the TT's, and two T3s on the same Tucker cores differ by the difference of their two TTs. One SVD of a
+    ``Ni x ni`` matrix per site: the only cost here that grows with the mode sizes, and it grows linearly.
+
+    Twin: ``t3_orthogonalization._down_orthogonalize_tucker_cores_step`` (which also returns ``Q`` and absorbs)."""
+    xnp, _, _ = get_backend(False, tree_contains_jax(tucker_cores))
+    factors = []
+    for B_io in tucker_cores:
+        _U_ox, ss_x, WT_xi = xnp.linalg.svd(B_io.swapaxes(-1, -2), full_matrices=False)
+        factors.append(ss_x[..., :, None] * WT_xi)
+    return tuple(factors)
+
+
+def _tt_absorb_down_factors(
+        tt_cores:  typ.Sequence[NDArray],   # len=d, elm_shape=C+(ri, ni, r(i+1))
+        factors:   typ.Sequence[NDArray],   # len=d, elm_shape=C+(xi, ni): _tucker_down_factors
+) -> typ.Tuple[NDArray, ...]:               # len=d, elm_shape=C+(ri, xi, r(i+1))
+    """Each TT core with its Tucker core's factor on the Tucker edge."""
+    xnp, _, _ = get_backend(False, tree_contains_jax((tt_cores, factors)))
+    return tuple(xnp.einsum('...aib,...xi->...axb', G_aib, R_xi) for G_aib, R_xi in zip(tt_cores, factors))
+
+
+def _tt_left_orthogonal_form(
+        tt_cores:  typ.Sequence[NDArray],   # len=d, elm_shape=C+(ri, xi, r(i+1)); any end bonds (tails)
+) -> typ.Tuple[NDArray, ...]:               # left-orthogonal, end bonds 1; the last core carries the norm
+    """The same TT in left-orthogonal form, with the tails summed (a tail stands for a sum over its index):
+    every core but the last then has unit scale, and the last one's norm is the norm of the tensor."""
+    xnp, _, _ = get_backend(False, tree_contains_jax(tt_cores))
+    tt_cores = list(tt_cores)
+    tt_cores[0] = xnp.sum(tt_cores[0], axis=-3, keepdims=True)     # the left tail, summed
+    tt_cores[-1] = xnp.sum(tt_cores[-1], axis=-1, keepdims=True)   # the right tail, summed
+    return tt_orthogonalization.tt_left_orthogonalize(tuple(tt_cores))
+
+
+def _largest_magnitude(
+        A:            NDArray,   # shape=C+(core axes)
+        n_core_axes:  int,       # the number of trailing core axes
+) -> NDArray:                    # shape=C+(1,)*n_core_axes: max |A| over the core axes, 1 where A is zero there
+    """The largest magnitude of each stack element's core, kept broadcastable against it; 1 for a zero core, so
+    that it can be divided by."""
+    xnp, _, _ = get_backend(False, tree_contains_jax(A))
+    largest = xnp.max(xnp.abs(A), axis=tuple(range(-n_core_axes, 0)), keepdims=True)
+    return xnp.where(largest > 0, largest, xnp.ones_like(largest))
+
+
+def _tt_left_orthogonal_norm(
+        tt_cores:  typ.Sequence[NDArray],   # left-orthogonal, end bonds 1
+) -> NDArray:                               # shape=C
+    """The norm of a TT in left-orthogonal form: the Frobenius norm of its last core, per stack element. The
+    core is divided by its largest magnitude before it is squared, so the norm overflows only where it is not
+    representable (a plain sum of squares overflows from ``1.8e19`` in float32; a denominator that overflowed
+    to ``inf`` would make a residual read 0).
+
+    Twin: ``geometry.t3_left_orthogonal_norm_sq`` (the square, by a plain sum of squares)."""
+    last_aib = tt_cores[-1]
+    xnp, _, _ = get_backend(False, tree_contains_jax(last_aib))
+    largest = _largest_magnitude(last_aib, 3)                    # 1 for a zero core, whose norm is then 0
+    scaled_aib = last_aib / largest
+    return largest[..., 0, 0, 0] * xnp.sqrt(xnp.sum(scaled_aib * scaled_aib, axis=(-3, -2, -1)))
+
+
+def _tt_core_direct_sum(
+        A_aib:  NDArray,   # shape=C+(a0, n, a1)
+        B_aib:  NDArray,   # shape=C+(b0, n, b1)
+) -> NDArray:              # shape=C+(a0+b0, n, a1+b1): A in the leading block of both bonds, B in the trailing one
+    """The block-diagonal TT core ``[[A, 0], [0, B]]`` over the two bonds: the core of the sum of two TTs.
+
+    Twin: the TT cores of ``t3_linalg.t3_add`` (which also stacks the Tucker cores)."""
+    xnp, _, _ = get_backend(False, tree_contains_jax((A_aib, B_aib)))
+    C, n = A_aib.shape[:-3], A_aib.shape[-2]
+    dtype = xnp.result_type(A_aib, B_aib)
+    Z_upper = xnp.zeros(C + (A_aib.shape[-3], n, B_aib.shape[-1]), dtype=dtype)
+    Z_lower = xnp.zeros(C + (B_aib.shape[-3], n, A_aib.shape[-1]), dtype=dtype)
+    return xnp.concatenate([xnp.concatenate([A_aib, Z_upper], axis=-1),
+                            xnp.concatenate([Z_lower, B_aib], axis=-1)], axis=-3)
+
+
+def _tt_difference_norm(
+        x_tt:  typ.Sequence[NDArray],   # left-orthogonal, end bonds 1. len=d, elm_shape=C+(., xi, .)
+        y_tt:  typ.Sequence[NDArray],   # left-orthogonal, end bonds 1. len=d, the same Tucker edges xi
+) -> NDArray:                           # shape=C: ||TT(x) - TT(y)||
+    """``||TT(x) - TT(y)||`` of two TTs in left-orthogonal form (:py:func:`_tt_left_orthogonal_form`), per
+    stack element, without a dense tensor: the difference is the TT of the block-diagonal cores, and its norm is
+    read off its last core after one more left orthogonalization.
+
+    Accurate to rounding level of ``||x|| + ||y||``, where ``<x,x> - 2<x,y> + <y,y>`` would keep half the
+    digits. The two terms must come in the SAME gauge for that: an orthogonalization step is backward stable in
+    the norm of the matrix it factors, and that matrix holds a block of each term. With one term left-orthogonal
+    and the other right-orthogonal (the ``L`` and ``R`` stores of a frame as they stand) one block has unit
+    scale and the other the scale of the tensor, and the error of the difference grows like ``eps ||T||^2``
+    (measured: a relative residual of ``2e-9`` on a consistent frame of norm ``4e6``)."""
+    difference = tuple(_tt_core_direct_sum(x_tt[ii], -y_tt[ii] if ii == 0 else y_tt[ii]) for ii in range(len(x_tt)))
+    return _tt_left_orthogonal_norm(_tt_left_orthogonal_form(difference))
+
+
+def _zero_stack_elements_that_are_not_finite(
+        families:  typ.Sequence[typ.Sequence[NDArray]],   # tuples of cores, elm_shape=C+(core axes)
+        n_stack:   int,                                   # len(C)
+) -> typ.Tuple[
+    NDArray,                                  # finite_C: bool, shape=C. True where every core of the element is finite
+    typ.Tuple[typ.Tuple[NDArray, ...], ...],  # the families, the cores of the other stack elements set to zero
+]:
+    """The guard that lets a checker return instead of raising (or hanging): numpy's SVD raises on a matrix
+    with a ``nan`` and can run forever on one with an ``inf``. A stack element with a core that is not finite
+    is checked as zeros, and its residual is then set to ``nan`` by the caller."""
+    xnp, _, _ = get_backend(False, tree_contains_jax(families))
+    finite_C = xnp.all(xnp.stack([xnp.all(xnp.isfinite(core), axis=tuple(range(n_stack, core.ndim)))
+                                  for family in families for core in family]), axis=0)
+
+    def clean(core):
+        keep = finite_C.reshape(finite_C.shape + (1,) * (core.ndim - n_stack))
+        return xnp.where(keep, core, xnp.zeros_like(core))
+
+    return finite_C, tuple(tuple(clean(core) for core in family) for family in families)
+
+
+def _relative_residual(
+        num:  NDArray,   # shape=C: the norm of a difference (or the largest of several)
+        den:  NDArray,   # shape=C: the norm of the reference tensor
+) -> NDArray:            # shape=C, in the dtype of num: num / max(1, den); nan where a norm is not finite
+    """``num / max(1, den)``, and ``nan`` (never 0, never a pass) where a norm is not finite: a tensor whose
+    norm is not representable in the dtype, or a sweep that overflowed."""
+    xnp, _, _ = get_backend(False, tree_contains_jax((num, den)))
+    residual = num / xnp.maximum(den, xnp.ones_like(den))
+    return xnp.where(xnp.isfinite(num) & xnp.isfinite(den), residual, xnp.full_like(residual, xnp.nan))
+
+
+def _per_stack_element_if_the_svd_fails(
+        residual_of:  typ.Callable,                              # families -> residual, shape=C
+        families:     typ.Sequence[typ.Sequence[NDArray]],       # tuples of cores, elm_shape=C+(core axes), all finite
+        n_stack:      int,                                       # len(C)
+) -> NDArray:                                                    # shape=C
+    """``residual_of(families)``; and, where numpy's SVD raises on it (finite cores whose products overflow
+    inside the sweep, or an SVD that does not converge), the same one stack element at a time, with ``nan`` for
+    the elements it raises on and the residual for the others. jax raises nothing and gives ``nan`` for such an
+    element by itself, so the two backends agree. Host numpy on the failure path: only numpy raises."""
+    try:
+        return residual_of(families)
+    except np.linalg.LinAlgError:
+        C = families[0][0].shape[:n_stack]
+        out = np.full(C, np.nan, dtype=families[0][0].dtype)
+        if C == ():
+            return out
+        for c in np.ndindex(*C):
+            try:
+                out[c] = residual_of(tuple(tuple(core[c] for core in family) for family in families))
+            except np.linalg.LinAlgError:
+                pass
+        return out
+
+
+def _frame_residual_of(
+        families:  typ.Tuple,   # (D, L, R), every core finite
+) -> NDArray:                   # shape=C
+    """The frame's residual on finite cores (:py:func:`fv_frame_consistency_residual`)."""
+    DD, LL, RR = families
+    factors = _tucker_down_factors(DD)                                    # D is shared: once for both terms
+    through_left = _tt_left_orthogonal_form(_tt_absorb_down_factors(LL, factors))
+    through_right = _tt_left_orthogonal_form(_tt_absorb_down_factors(RR, factors))
+    num = _tt_difference_norm(through_left, through_right)
+    den = _tt_left_orthogonal_norm(through_right)
+    return _relative_residual(num, den)
+
+
+def _centers_residual_of(
+        families:  typ.Tuple,   # (D, L, R, U or (), Vc or (), Hc or ()), every core finite; () = family not given
+) -> NDArray:                   # shape=C
+    """The centers' residual on finite cores (:py:func:`fv_centers_consistency_residual`)."""
+    DD, LL, RR, UU, Vc, Hc = families
+    d = len(DD)
+    xnp, _, _ = get_backend(False, tree_contains_jax(families))
+    factors = _tucker_down_factors(DD)
+    L_absorbed = _tt_absorb_down_factors(LL, factors)
+    R_absorbed = _tt_absorb_down_factors(RR, factors)
+    base_point = _tt_left_orthogonal_form(L_absorbed)
+    nums = []
+    for ii in range(d):
+        if len(Vc) > 0:   # Vc[i] under U[i]; L over D to the left, R over D to the right
+            # one factor for the two Tucker cores of site i, so that both terms stand on one Tucker basis there
+            # (each brought to unit scale first and the scale given back after: a factorization is backward stable
+            # in the norm of the whole matrix, and Vc[i] has the scale of the tensor where D[i] has scale one)
+            nU = Vc[ii].shape[-2]
+            scale_V, scale_D = _largest_magnitude(Vc[ii], 2), _largest_magnitude(DD[ii], 2)   # C+(1, 1)
+            R_xk = _tucker_down_factors((xnp.concatenate([Vc[ii] / scale_V, DD[ii] / scale_D], axis=-2),))[0]
+            U_axb = xnp.einsum('...aub,...xu->...axb', UU[ii], R_xk[..., :nU]) * scale_V[..., None]
+            L_axb = xnp.einsum('...aib,...xi->...axb', LL[ii], R_xk[..., nU:]) * scale_D[..., None]
+            with_Vc = _tt_left_orthogonal_form(L_absorbed[:ii] + (U_axb,) + R_absorbed[ii + 1:])
+            base_at_site = _tt_left_orthogonal_form(L_absorbed[:ii] + (L_axb,) + L_absorbed[ii + 1:])
+            nums.append(_tt_difference_norm(with_Vc, base_at_site))
+        if len(Hc) > 0:   # Hc[i] over D[i]; L over D to the left, R over D to the right
+            Hc_axb = _tt_absorb_down_factors((Hc[ii],), (factors[ii],))[0]
+            with_Hc = _tt_left_orthogonal_form(L_absorbed[:ii] + (Hc_axb,) + R_absorbed[ii + 1:])
+            nums.append(_tt_difference_norm(with_Hc, base_point))
+    return _relative_residual(xnp.max(xnp.stack(nums), axis=0), _tt_left_orthogonal_norm(base_point))
+
+
 def fv_frame_consistency_residual(
         frame: typ.Tuple[
-            typ.Sequence[NDArray],  # down_tucker_cores
-            typ.Sequence[NDArray],  # up_tt_cores
-            typ.Sequence[NDArray],  # left_tt_cores
-            typ.Sequence[NDArray],  # right_tt_cores
+            typ.Sequence[NDArray],  # down_tucker_cores. len=d, elm_shape=C+(nDi, Ni)
+            typ.Sequence[NDArray],  # up_tt_cores.       len=d, elm_shape=C+(rLi, nUi, rR(i+1))
+            typ.Sequence[NDArray],  # left_tt_cores.     len=d, elm_shape=C+(rLi, nDi, rL(i+1))
+            typ.Sequence[NDArray],  # right_tt_cores.    len=d, elm_shape=C+(rRi, nDi, rR(i+1))
         ],
 ) -> NDArray:  # shape = stack_shape (per stack element; scalar/0-d when unstacked)
     '''Relative Frobenius mismatch between the left- and right-canonical reconstructions of the base
     point (``down`` over ``left`` vs ``down`` over ``right``), **per stack element**.
 
-    Returns ``||left - right|| / max(1, ||right||)`` over the dense **mode** axes (the norm is reduced over
-    the non-stack axes, so the result has shape ``stack_shape``); a caller thresholds it (``<= rtol``) for a
-    per-element boolean consistency test. EXPENSIVE -- densifies both reconstructions.
+    Returns ``||T(D, L) - T(D, R)|| / max(1, ||T(D, R)||)`` (shape ``stack_shape``); a caller thresholds it
+    (``<= rtol``) for a per-element boolean consistency test. A checker: it returns the residual and never
+    raises on its value. The up store ``U`` is not read
+    (:py:func:`fv_centers_consistency_residual` is the check that reads it).
+
+    **No dense tensor is formed.** The two reconstructions share their Tucker cores, so each Tucker core is
+    factored once (``D[i] = R[i]^T Q[i]``, ``Q[i]`` of orthonormal rows) and its factor absorbed into both TT
+    cores above it; the two tensors then differ by the difference of two TTs. Each TT is brought to
+    left-orthogonal form (so both stand in one gauge, with the norm in the last core); their difference is the
+    TT of the block-diagonal cores, and its norm is read off its last core after one more left
+    orthogonalization.
+
+    **Cost.** One SVD of each Tucker core (``Ni x nDi``: linear in the mode size) and three left
+    orthogonalizations of a TT: the two reconstructions at their own ranks, and their difference at the sum of
+    the two (so about eight times the work of one). Several times the cost of building the frame.
+
+    **Accuracy.** On a frame the library built the residual is at rounding level, about ``1e-14`` in float64
+    and ``1e-6`` in float32, whatever the norm of the tensor; an inconsistency of relative size ``delta`` shows
+    as ``delta`` (as ``delta ||T||`` where ``||T|| < 1``: the formula's ``max(1, .)``).
+
+    Any cores are accepted: nothing here assumes the frame is orthogonal. Tails are supported: an end bond
+    larger than one stands for a sum over its index, in each reconstruction separately.
+
+    **Where the residual cannot be had** it is ``nan``, which fails every threshold, and never 0: for a
+    stack element with a ``nan`` or an ``inf`` in a core that is read; where a norm is not representable in the
+    dtype; and where the orthogonalization overflows or fails (finite cores whose products overflow). The other
+    stack elements keep their residual.
+
+    Examples
+    --------
+    A frame the library builds is consistent; one whose right store was scaled is not:
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.t3_constructors as t3c
+    >>> import t3toolbox.backend.fv_conversions as fvc
+    >>> import t3toolbox.backend.fv_operations as fvo
+    >>> np.random.seed(0)
+    >>> x = t3c.t3_corewise_randn((14, 15, 16), (4, 5, 6), (1, 3, 2, 1))
+    >>> (down, up, left, right), _ = fvc.t3_orthogonal_representations(x)
+    >>> bool(fvo.fv_frame_consistency_residual((down, up, left, right)) < 1e-12)
+    True
+    >>> bad_right = (2.0 * right[0],) + tuple(right[1:])
+    >>> bool(np.isclose(fvo.fv_frame_consistency_residual((down, up, left, bad_right)), 0.5))
+    True
+
+    The dense tensor of this frame would have ``100**12`` entries:
+
+    >>> big = t3c.t3_corewise_randn((100,) * 12, (5,) * 12, (1,) + (4,) * 11 + (1,))
+    >>> big_frame, _ = fvc.t3_orthogonal_representations(big)
+    >>> bool(fvo.fv_frame_consistency_residual(big_frame) < 1e-12)
+    True
+    '''
+    down_tucker_cores, _up_tt_cores, left_tt_cores, right_tt_cores = frame
+    xnp, _, _ = get_backend(False, tree_contains_jax(frame))
+    n_stack = down_tucker_cores[0].ndim - 2
+    finite_C, families = _zero_stack_elements_that_are_not_finite(
+        (down_tucker_cores, left_tt_cores, right_tt_cores), n_stack)
+    residual = _per_stack_element_if_the_svd_fails(_frame_residual_of, families, n_stack)
+    return xnp.where(finite_C, residual, xnp.full_like(residual, xnp.nan))
+
+
+def fv_centers_consistency_residual(
+        frame: typ.Tuple[
+            typ.Sequence[NDArray],  # down_tucker_cores. len=d, elm_shape=C+(nDi, Ni)
+            typ.Sequence[NDArray],  # up_tt_cores.       len=d, elm_shape=C+(rLi, nUi, rR(i+1))
+            typ.Sequence[NDArray],  # left_tt_cores.     len=d, elm_shape=C+(rLi, nDi, rL(i+1))
+            typ.Sequence[NDArray],  # right_tt_cores.    len=d, elm_shape=C+(rRi, nDi, rR(i+1))
+        ],
+        centers: typ.Tuple[
+            typ.Optional[typ.Sequence[NDArray]],  # Vc, the Tucker centers. len=d, elm_shape=C+(nUi, Ni); or None
+            typ.Optional[typ.Sequence[NDArray]],  # Hc, the TT centers.     len=d, elm_shape=C+(rLi, nDi, rR(i+1)); or None
+        ],
+) -> NDArray:  # shape = stack_shape (per stack element; scalar/0-d when unstacked)
+    '''How far the center cores ``(Vc, Hc)`` are from the base point ``(D, L)`` of the frame.
+
+    **Per stack element**: the largest relative Frobenius mismatch over the sites and the two families.
+
+    **What consistency of the centers means.** The center cores are the base point written into the frame's
+    hole: for every site ``i``,
+
+    - the tensor with ``Vc[i]`` under ``U[i]`` at site ``i``, ``L[j]`` over ``D[j]`` at the sites ``j < i`` and
+      ``R[j]`` over ``D[j]`` at the sites ``j > i``, call it ``T_V[i]``, and
+    - the tensor with ``Hc[i]`` over ``D[i]`` at site ``i`` and the same cores at the other sites, ``T_H[i]``,
+
+    are both the base point ``T(D, L)``, every ``L[j]`` over its ``D[j]``. These are the tensors a direction
+    ``(V, H)`` at the frame stands for, with the center in place of ``V[i]`` or ``H[i]``. The residual is::
+
+        max over i of  ||T_V[i] - T(D, L)|| / max(1, ||T(D, L)||)  and  ||T_H[i] - T(D, L)|| / max(1, ||T(D, L)||)
+
+    With consistent Tucker centers the value read off the frame, ``z[i]`` as ``eta[i]`` through ``Vc[i]``, is
+    the value through ``D`` (``eta_D[i]`` through ``D[i]``). The orthogonalization that builds a frame returns
+    its centers (the second result of
+    :py:func:`~t3toolbox.backend.fv_conversions.t3_orthogonal_representations`), and those are consistent by
+    construction. A checker: it returns the residual and never raises on its value. A caller thresholds it
+    (``<= rtol``).
+
+    Either family may be ``None``, and is then not checked (the sampling engine takes ``Vc`` alone).
+
+    **No dense tensor is formed.** Each ``T_V[i]`` and ``T_H[i]`` is a T3, and its distance to ``T(D, L)`` is
+    taken through the cores as in :py:func:`fv_frame_consistency_residual`, to the same accuracy (at site ``i``
+    the two Tucker cores ``Vc[i]`` and ``D[i]`` are factored together, so both terms stand on one basis there).
+
+    **Cost.** There are up to ``2 d`` differences, each two or three left orthogonalizations of a TT of ``d``
+    cores (one of them at doubled ranks), so the work grows like ``d**2``: far more than building the frame,
+    and far more than :py:func:`fv_frame_consistency_residual`. In the mode sizes it is linear (SVDs of the
+    Tucker cores).
+
+    Any cores are accepted: nothing here assumes the frame is orthogonal or consistent (centers can agree with
+    ``(D, L)`` only on a frame whose ``R`` and ``U`` stores do). Tails are supported. Where the residual cannot
+    be had it is ``nan``, never 0, as in :py:func:`fv_frame_consistency_residual`.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.backend.t3_constructors as t3c
+    >>> import t3toolbox.backend.fv_conversions as fvc
+    >>> import t3toolbox.backend.fv_operations as fvo
+    >>> np.random.seed(0)
+    >>> x = t3c.t3_corewise_randn((14, 15, 16), (4, 5, 6), (1, 3, 2, 1))
+    >>> frame, (Vc, Hc) = fvc.t3_orthogonal_representations(x)
+    >>> bool(fvo.fv_centers_consistency_residual(frame, (Vc, Hc)) < 1e-12)
+    True
+
+    A center that belongs to another point is caught, in whichever family it sits:
+
+    >>> wrong_Vc = (Vc[0], 1.5 * Vc[1], Vc[2])
+    >>> bool(np.isclose(fvo.fv_centers_consistency_residual(frame, (wrong_Vc, Hc)), 0.5))
+    True
+    >>> bool(np.isclose(fvo.fv_centers_consistency_residual(frame, (wrong_Vc, None)), 0.5))
+    True
+    >>> bool(fvo.fv_centers_consistency_residual(frame, (None, Hc)) < 1e-12)
+    True
     '''
     down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores = frame
-    xnp, _, _ = get_backend(False, tree_contains_jax(frame))
-    d = len(down_tucker_cores)
-    left = t3_conversions.t3_to_dense((down_tucker_cores, left_tt_cores))
-    right = t3_conversions.t3_to_dense((down_tucker_cores, right_tt_cores))
-    mode_axes = tuple(range(left.ndim - d, left.ndim))   # the d physical-mode axes; stack axes lead
-    num = xnp.sqrt(xnp.sum((left - right) ** 2, axis=mode_axes))   # Frobenius over modes -> stack_shape
-    den = xnp.sqrt(xnp.sum(right ** 2, axis=mode_axes))
-    return num / xnp.maximum(1.0, den)
+    Vc, Hc = centers
+    if Vc is None and Hc is None:
+        raise ValueError('centers = (None, None): there is nothing to check')
+    xnp, _, _ = get_backend(False, tree_contains_jax((frame, centers)))
+    n_stack = down_tucker_cores[0].ndim - 2
+    # the families that are read; a family that is not given (or, with no Vc, the up store) is ()
+    read = (down_tucker_cores, left_tt_cores, right_tt_cores,
+            () if Vc is None else up_tt_cores, () if Vc is None else Vc, () if Hc is None else Hc)
+    finite_C, families = _zero_stack_elements_that_are_not_finite(read, n_stack)
+    residual = _per_stack_element_if_the_svd_fails(_centers_residual_of, families, n_stack)
+    return xnp.where(finite_C, residual, xnp.full_like(residual, xnp.nan))
 
 
 # --------------------------------------------------------------------------------------------------

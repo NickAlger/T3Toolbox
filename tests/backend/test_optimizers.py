@@ -39,6 +39,9 @@ import t3toolbox.shared_geometry as sgm
 import t3toolbox.uniform_manifold as ut3m
 import t3toolbox.uniform_tucker_tensor_train as ut3
 from t3toolbox.backend.common import is_jax_ndarray
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))   # tests/
+import _derivative_data as dd       # derivative data from the merged methods (P13b)
 
 SHAPE, TUCKER, TT = (8, 8, 8), (3, 3, 3), (1, 3, 3, 1)
 
@@ -1299,7 +1302,7 @@ class TestWeightCombinations(unittest.TestCase):
         pp = [self.rng.standard_normal((16, n)) for n in SHAPE]
         omega = np.outer(np.linspace(0.5, 1.5, len(SHAPE)), np.linspace(0.4, 1.2, order + 1))
         A = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
-        data = [np.asarray(z) for z in A.probe_derivatives(ww, pp, order)]
+        data = [np.asarray(z) for z in dd.forward(A, 'probe', ww, pp, order)]
         reg = opt.IdentityRegularizer(lam)
 
         for name, geom in (('manifold', bgeo.ManifoldGeometryOps()), ('corewise', bgeo.CorewiseGeometryOps())):
@@ -1323,7 +1326,7 @@ class TestWeightCombinations(unittest.TestCase):
         ww = unit_vecs(24, SHAPE, self.rng)
         pp = [self.rng.standard_normal((24, n)) for n in SHAPE]
         A = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
-        data = [np.asarray(z) for z in A.probe_derivatives(ww, pp, order)]
+        data = [np.asarray(z) for z in dd.forward(A, 'probe', ww, pp, order)]
         x0 = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).data
 
         def gradient_at(chunk_size):
@@ -1815,7 +1818,7 @@ def _switch_case(layer, geometry, seed=11, regularizer=None):
         x0 = x0.share(sharing, max_tucker_ranks=(2,) * d, max_tt_ranks=(1,) + (2,) * (d - 1) + (1,))
     ww, pp = ([rng.standard_normal((30, n)) for n in shape] for _ in range(2))
     data = [z + 0.05 * np.linalg.norm(z) / math.sqrt(z.size) * rng.standard_normal(z.shape)
-            for z in truth.probe_derivatives(ww, pp, 1)]
+            for z in dd.forward(truth, 'probe', ww, pp, 1)]
     manifold, corewise = (t3m.MANIFOLD, t3m.COREWISE) if layer == 'ragged' else (ut3m.UNIFORM_MANIFOLD,
                                                                                    ut3m.UNIFORM_COREWISE)
     G = {'manifold': manifold, 'corewise': corewise}[geometry] if sharing is None else sgm.shared(manifold, sharing)
@@ -2234,7 +2237,7 @@ class TestSwitchNewton(unittest.TestCase):
             problem.local_model(x0, hessian='switch')
         ww, pp = problem.sample
         x = t3.TuckerTensorTrain(*x0)
-        r = [z - y for z, y in zip(x.probe_derivatives(ww, pp, 1), problem.data)]
+        r = [z - y for z, y in zip(dd.forward(x, 'probe', ww, pp, 1), problem.data)]
         with self.assertRaisesRegex(ValueError, "hessian must be 'gauss_newton' or 'exact'"):
             fitting.probe_derivatives_model(t3m.MANIFOLD, x, ww, pp, 1, r, hessian='switch')
 

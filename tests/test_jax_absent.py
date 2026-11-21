@@ -63,7 +63,9 @@ xe = t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1))
 target = t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1))
 wwe = [rng.standard_normal((8, n)) for n in shape]
 ppe = [rng.standard_normal((8, n)) for n in shape]
-data = target.probe_derivatives(wwe, ppe, order)
+import t3toolbox.backend.jets as jets_
+derivatives = lambda y: jets_.taylor_to_derivatives('probe', (order,), y.probe(jets_.affine_jet(wwe, ppe), (order,)))
+data = derivatives(target)
 frame, _ = bvf.t3_orthogonal_representations(xe)
 lift = fvo.fv_lift_factors(frame.data, 1e-6)
 assert type(lift) is fvo.LiftFactors
@@ -76,7 +78,7 @@ cdata = geom.curvature_precompute(lm.frame, lm.curvature.misfit_gradient, lm.geo
 assert type(cdata) is bgeo.ManifoldCurvatureData
 state = bopt.CurvatureState(lm.curvature.misfit_gradient, cdata)
 assert type(state) is bopt.CurvatureState
-residual = [z - y for z, y in zip(xe.probe_derivatives(wwe, ppe, order), data)]
+residual = [z - y for z, y in zip(derivatives(xe), data)]
 model = fitting.probe_derivatives_model(t3m.MANIFOLD, xe, wwe, ppe, order, residual, hessian='exact')
 assert type(model) is fitting.LocalModel and model.is_exact
 p = t3m.MANIFOLD.randn(model.frame)
@@ -96,9 +98,233 @@ print('JAX_ABSENT_OK')
 '''
 
 
+# The reference module of the sampling variables and the three dense sampling functions (graded messages, P2):
+# they import and run with no jax. (Kp of numpy arrays is taken by finite differences, with or without jax; its
+# other route, automatic differentiation, is for jax arrays, and the module must not reach for jax to import.)
+_DEFINITIONS_SCRIPT = r'''
+import sys
+sys.modules['jax'] = None            # make `import jax` raise ImportError
+sys.modules['jax.numpy'] = None
+import numpy as np
+import t3toolbox.backend.common as common
+import t3toolbox.backend.sampling_definitions as sdef
+import t3toolbox.backend.probing as probing
+import t3toolbox.backend.apply as apply
+import t3toolbox.backend.entries as entries
+assert not common.jax_available
+
+rng = np.random.default_rng(0)
+N, nD, nU, rL, rR = (4, 5, 6), (2, 3, 2), (3, 2, 3), (1, 2, 3, 1), (1, 3, 2, 1)
+D = [rng.standard_normal((nD[i], N[i])) for i in range(3)]
+U = [rng.standard_normal((rL[i], nU[i], rR[i + 1])) for i in range(3)]
+L = [rng.standard_normal((rL[i], nD[i], rL[i + 1])) for i in range(3)]
+R = [rng.standard_normal((rR[i], nD[i], rR[i + 1])) for i in range(3)]
+ww = [rng.standard_normal((5, n)) for n in N]
+pp = [rng.standard_normal((5, n)) for n in N]
+index = np.stack([rng.integers(0, n, size=5) for n in N])
+line = [np.stack([w, p]) for w, p in zip(ww, pp)]      # the input jet of w + s p, built by hand: jets is not imported
+arguments = dict(variations=([rng.standard_normal((nU[i], N[i])) for i in range(3)],
+                                      [rng.standard_normal((rL[i], nD[i], rR[i + 1])) for i in range(3)]),
+                 core_directions=([rng.standard_normal(B.shape) for B in D], [rng.standard_normal(G.shape) for G in L]))
+leaves = lambda value: sum((leaves(v) for v in value), []) if isinstance(value, (tuple, list)) else [value]
+for kind, sample, order in (('probe', line, (2,)), ('apply', line, (2,)), ('entries', index, ())):
+    F = tuple(n + 1 for n in order)
+    y = [rng.standard_normal(F + (5, n)) for n in N] if kind == 'probe' else rng.standard_normal(F + (5,))
+    for name in sdef.__all__:
+        value = getattr(sdef, name)(kind, (D, U, L, R), sample, order=order, y=y, **arguments)
+        assert all(isinstance(leaf, np.ndarray) or np.isscalar(leaf) for leaf in leaves(value)), (kind, name)
+T = rng.standard_normal(N)
+assert probing.dense_probe(T, line, (2,))[0].shape == (3, 5, 4)
+assert apply.dense_apply(T, line, (2,)).shape == (3, 5) and entries.dense_entries(T, index).shape == (5,)
+print('JAX_ABSENT_OK')
+'''
+
+
+# Jets, the checkers and data preparation (graded messages, P3; in the jet shape since P4d): the two backend
+# modules, their reach from t3toolbox.fitting and t3toolbox (the frontend dual_jet_to_jet with its safe-mode check
+# included) and unscale_coordinates on both tensor classes import and run with no jax, on numpy arrays.
+_JETS_SCRIPT = r'''
+import sys, warnings
+sys.modules['jax'] = None            # make `import jax` raise ImportError
+sys.modules['jax.numpy'] = None
+import numpy as np
+import t3toolbox.backend.common as common
+import t3toolbox.backend.jets as jets
+import t3toolbox.backend.data_preparation as prep
+import t3toolbox.fitting as fitting
+import t3toolbox.safety as safety
+import t3toolbox.tucker_tensor_train as t3
+import t3toolbox.uniform_tucker_tensor_train as ut3
+assert not common.jax_available
+
+rng = np.random.default_rng(0)
+np.random.seed(0)
+shape, W = (4, 5, 6), (7,)
+leaves = lambda value: sum((leaves(v) for v in value), []) if isinstance(value, (tuple, list)) else [value]
+def on_numpy(value):
+    assert all(isinstance(leaf, np.ndarray) for leaf in leaves(value) if leaf is not None), value
+    return value
+ww = [rng.standard_normal(W + (n,)) for n in shape]
+pp = [rng.standard_normal(W + (n,)) for n in shape]
+qq = [rng.standard_normal(W + (n,)) for n in shape]
+index = np.stack([rng.integers(0, n, size=W) for n in shape])
+scales = [0.5 + rng.random(n) for n in shape]
+with warnings.catch_warnings():
+    warnings.simplefilter('error')       # nothing here may ask for jax (the jax-absent warning would be an error)
+    for kind, order in (('probe', (2,)), ('apply', (2,)), ('probe', (1, 2)), ('apply', (1, 2)), ('entries', ())):
+        F = tuple(n + 1 for n in order)
+        sample = index if kind == 'entries' else (jets.affine_jet(ww, pp) if len(order) == 1 else jets.affine_jet(ww, pp, qq))
+        y = [rng.standard_normal(F + W + (n,)) for n in shape] if kind == 'probe' else rng.standard_normal(F + W)
+        weight = 0.5 + rng.random(((3,) if kind == 'probe' else ()) + F)
+        jets.check_sample(kind, order, sample, shape)
+        jets.check_data(kind, order, sample, y)
+        jets.check_weight(kind, order, weight, 3)
+        dual = on_numpy(jets.jet_to_dual_jet(kind, order, y, weight))
+        on_numpy(jets.dual_jet_to_jet(kind, order, dual, weight))
+        on_numpy(fitting.dual_jet_to_jet(kind, order, dual, weight))
+        on_numpy(jets.taylor_to_derivatives(kind, order, jets.derivatives_to_taylor(kind, order, y)))
+        on_numpy(jets.prepare_derivative_data(kind, order, y, validation=y))
+        on_numpy(fitting.prepare_derivative_data(kind, order, y, weight))
+        on_numpy(prep.equalizing_weight(prep.data_block_norms(kind, order, y)))
+        if kind != 'entries':
+            on_numpy(prep.rescale_direction(kind, order, sample, y, 2.0))
+            on_numpy(prep.rescale_coordinates(kind, order, sample, y, scales))
+            on_numpy(fitting.rescale_coordinates(kind, order, sample, y, scales))
+    zero = np.array([1.0, 0.0, 1.0])
+    try:
+        fitting.dual_jet_to_jet('apply', (2,), np.ones((3, 7)), zero)
+        raise AssertionError('the frontend dual_jet_to_jet must raise in safe mode where a weight is zero')
+    except ValueError:
+        pass
+    with safety.unsafe():
+        assert not np.isfinite(fitting.dual_jet_to_jet('apply', (2,), np.ones((3, 7)), zero)[1]).any()
+    x = t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1))
+    ux = ut3.UniformTuckerTensorTrain.from_t3(x)
+    prep.check_coordinate_scales(scales, shape)
+    on_numpy(prep.t3_unscale_coordinates(x.data, scales))
+    on_numpy(prep.ut3_unscale_coordinates(ux.data, scales)[:2])
+    assert isinstance(x.unscale_coordinates(scales).tucker_cores[0], np.ndarray)
+    assert isinstance(ux.unscale_coordinates(scales).tucker_supercore, np.ndarray)
+    # the input jets (graded messages, P4b): numpy in, numpy out, with no jax
+    line = on_numpy(jets.affine_jet(ww, pp))
+    assert [x.shape for x in line] == [(2,) + W + (n,) for n in shape]
+    assert on_numpy(jets.affine_jet(np.stack(ww[:1] * 2), np.stack(pp[:1] * 2))).shape == (2, 2) + W + (4,)
+    one_hot = on_numpy(jets.index_to_one_hot(index, shape))
+    assert [x.dtype for x in one_hot] == [np.float64] * 3
+    import t3toolbox
+    assert t3toolbox.affine_jet is jets.affine_jet and t3toolbox.index_to_one_hot is jets.index_to_one_hot
+    assert np.allclose(ux.unscale_coordinates(scales).to_dense(), x.unscale_coordinates(scales).to_dense())
+print('JAX_ABSENT_OK')
+'''
+
+# Graded messages, P4: the checkers of a frame (ragged and uniform, backend and frontend) run with no jax, on numpy
+# arrays, and ask for no jax.
+_FRAME_CHECKERS_SCRIPT = r'''
+import sys, warnings
+sys.modules['jax'] = None            # make `import jax` raise ImportError
+sys.modules['jax.numpy'] = None
+import numpy as np
+import t3toolbox.backend.common as common
+import t3toolbox.backend.fv_operations as fvo
+import t3toolbox.backend.ufv_operations as ufvo
+import t3toolbox.frame_variations_format as bvf
+import t3toolbox.uniform_frame_variations_format as ubv
+import t3toolbox.tucker_tensor_train as t3
+import t3toolbox.uniform_tucker_tensor_train as ut3
+assert not common.jax_available
+
+np.random.seed(0)
+with warnings.catch_warnings():
+    warnings.simplefilter('error')       # nothing here may ask for jax (the jax-absent warning would be an error)
+    x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1), stack_shape=(2,))
+    frame, centers = bvf.t3_orthogonal_representations(x)
+    uframe, ucenters = ubv.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(x))
+    residuals = [fvo.fv_frame_consistency_residual(frame.data),
+                 fvo.fv_centers_consistency_residual(frame.data, centers.data),
+                 ufvo.ufv_frame_consistency_residual(uframe.data),
+                 ufvo.ufv_centers_consistency_residual(uframe.data, tuple(ucenters.supercores)),
+                 frame.consistency_residual, uframe.consistency_residual]
+    for residual in residuals:
+        assert isinstance(residual, np.ndarray) and residual.shape == (2,) and np.all(residual < 1e-12), residual
+    assert frame.is_consistent().all() and uframe.is_consistent().all()
+print('JAX_ABSENT_OK')
+'''
+
+# Graded messages, P5: the sampling engine and HeldVariables import and run with no jax, on numpy arrays, and ask
+# for no jax (HeldVariables is then an ordinary object: no pytree registration).
+_ENGINE_SCRIPT = r'''
+import sys, warnings
+sys.modules['jax'] = None            # make `import jax` raise ImportError
+sys.modules['jax.numpy'] = None
+import numpy as np
+import t3toolbox.backend.common as common
+import t3toolbox.backend.jets as jets
+import t3toolbox.backend.sampling_variables as sv
+assert not common.jax_available
+
+rng = np.random.default_rng(0)
+N, nD, nU, rL, rR = (4, 5, 3), (2, 3, 2), (3, 2, 3), (1, 2, 3, 1), (1, 3, 2, 1)
+frame = ([rng.standard_normal((nD[i], N[i])) for i in range(3)],
+         [rng.standard_normal((rL[i], nU[i], rR[i + 1])) for i in range(3)],
+         [rng.standard_normal((rL[i], nD[i], rL[i + 1])) for i in range(3)],
+         [rng.standard_normal((rR[i], nD[i], rR[i + 1])) for i in range(3)])
+ww = [rng.standard_normal((2, n)) for n in N]
+pp = [rng.standard_normal((2, n)) for n in N]
+y = [rng.standard_normal((3, 2, n)) for n in N]
+with warnings.catch_warnings():
+    warnings.simplefilter('error')       # nothing here may ask for jax (the jax-absent warning would be an error)
+    line = jets.affine_jet(ww, pp)
+    mu, z, f, g = sv.sampling_variables('probe', frame, line, ('mu', 'z', 'f', 'g'), order=(2,), y=y)
+    assert all(isinstance(a, np.ndarray) for a in mu + z + g[0] + g[1]) and isinstance(f, np.ndarray), (mu, z, f)
+    variations = ([rng.standard_normal((2, nU[i], N[i])) for i in range(3)],
+                  [rng.standard_normal((2, rL[i], nD[i], rR[i + 1])) for i in range(3)])
+    Jp, JtJp = sv.sampling_variables('probe', frame, line, ('Jp', 'JtJp'), order=(2,), variations=variations)
+    assert all(isinstance(a, np.ndarray) for a in Jp + JtJp[0] + JtJp[1]) and Jp[0].shape == (3, 2, 2, 4)
+    core_directions = ([rng.standard_normal((2, nD[i], N[i])) for i in range(3)],
+                       [rng.standard_normal((2, rL[i], nD[i], rL[i + 1])) for i in range(3)])
+    (Kp,) = sv.sampling_variables('probe', frame, line, ('Kp',), order=(2,), y=y, core_directions=core_directions)
+    nu, g = sv.sampling_variables('probe', (frame[0], frame[2]), line, ('nu', 'g'), order=(2,), y=y)
+    assert all(isinstance(a, np.ndarray) for a in Kp[0] + Kp[1] + nu + g[0] + g[1]) and Kp[0][0].shape == (2, 2, 4)
+    y_apply = rng.standard_normal((3, 2))
+    z_a, Kp_a, JtJp_a = sv.sampling_variables('apply', frame, line, ('z', 'Kp', 'JtJp'), order=(2,), y=y_apply,
+                                              variations=variations, core_directions=core_directions)
+    assert isinstance(z_a, np.ndarray) and z_a.shape == (3, 2), z_a
+    assert all(isinstance(a, np.ndarray) for a in Kp_a[0] + Kp_a[1] + JtJp_a[0] + JtJp_a[1])
+    index = np.array([[0, 3], [1, 1], [2, 2]])
+    z_e, g_e = sv.sampling_variables('entries', frame, index, ('z', 'g'), y=rng.standard_normal(2))
+    assert isinstance(z_e, np.ndarray) and z_e.shape == (2,) and all(isinstance(a, np.ndarray) for a in g_e[0])
+    held = sv.HeldVariables(mu=mu)
+    assert held.keys() == ('mu',) and 'mu' in held and len(held) == 1
+    assert held.with_values(z=z).keys() == ('mu', 'z') and held.keys() == ('mu',)
+    (f2,) = sv.sampling_variables('probe', frame, line, ('f',), order=(2,), y=y, held=held.with_values(z=z))
+    assert float(f2) == float(f), (f2, f)
+print('JAX_ABSENT_OK')
+'''
+
+
 class TestJaxAbsentPolicy(unittest.TestCase):
     def test_requests_for_jax_run_on_numpy_with_a_warning(self):
         out = subprocess.run([sys.executable, '-c', _SCRIPT], capture_output=True, text=True,
+                             env={**os.environ, 'PYTHONPATH': os.getcwd()})
+        self.assertIn('JAX_ABSENT_OK', out.stdout, out.stderr[-2000:])
+
+    def test_the_sampling_definitions_and_the_dense_functions_run_without_jax(self):
+        out = subprocess.run([sys.executable, '-c', _DEFINITIONS_SCRIPT], capture_output=True, text=True,
+                             env={**os.environ, 'PYTHONPATH': os.getcwd()})
+        self.assertIn('JAX_ABSENT_OK', out.stdout, out.stderr[-2000:])
+
+    def test_jets_the_checkers_and_data_preparation_run_without_jax(self):
+        out = subprocess.run([sys.executable, '-c', _JETS_SCRIPT], capture_output=True, text=True,
+                             env={**os.environ, 'PYTHONPATH': os.getcwd()})
+        self.assertIn('JAX_ABSENT_OK', out.stdout, out.stderr[-2000:])
+
+    def test_the_frame_checkers_run_without_jax(self):
+        out = subprocess.run([sys.executable, '-c', _FRAME_CHECKERS_SCRIPT], capture_output=True, text=True,
+                             env={**os.environ, 'PYTHONPATH': os.getcwd()})
+        self.assertIn('JAX_ABSENT_OK', out.stdout, out.stderr[-2000:])
+
+    def test_the_sampling_engine_and_held_variables_run_without_jax(self):
+        out = subprocess.run([sys.executable, '-c', _ENGINE_SCRIPT], capture_output=True, text=True,
                              env={**os.environ, 'PYTHONPATH': os.getcwd()})
         self.assertIn('JAX_ABSENT_OK', out.stdout, out.stderr[-2000:])
 

@@ -1,16 +1,18 @@
 """T3Polynomial's path in the explicit form: probe derivatives (jets) with residual weights.
 
 Every sampling variable is its own array with a leading order axis (order + 1 Taylor coefficients).  Every
-function takes exactly the arrays it reads.  The per-site functions are the ones of the order-0 example with
-tonight's names; the ONLY thing jets change is the seven term functions, where a contraction of jets becomes
-a truncated product over the order axis.  There is no second set of functions for the tilde grade: residual
-jets are stored reversed (the Taylor convention of the first phase), so the adjoint is the same product.
+function takes exactly the arrays it reads.  The per-site functions are the ones of the order-0 example, named by
+letter and grade (one, nu_tilde_dot_step, renamed on 2026-11-16); the ONLY thing jets change is the seven term
+functions, where a contraction of jets becomes a truncated product over the order axis.  The variables in main()
+follow the notation decided on 2026-11-15, 23:23 (SAMPLE_VARIABLES.md); a step function serves both bases (see the
+comment above the dot steps).  There is no second set of functions for the tilde grade: residual jets are stored
+reversed (the Taylor convention of the first phase), so the adjoint is the same product.
 
 The library's conventions are kept at the boundary: the inputs (w, p), the data y, the weight omega[mode, order],
 and the outputs z, r, Jp are derivative-normalized, exactly as `ProbeDerivativesKind` takes and returns them.
 
 Checked against the library's own kind (`backend.fitting.ProbeDerivativesKind`):  z, f, r_block_sumsq, g, Jp,
-Jp_sumsq, JtJp, Kp.  Ragged cores, numpy, one sample axis.  Not covered: the uniform layout, the K and C stacks,
+Jp_norm_sq, JtJp, Kp.  Ragged cores, numpy, one sample axis.  Not covered: the uniform layout, the K and C stacks,
 jit, order scans (the truncated products here are plain loops), apply and entries with jets.
 
 Usage:  python3 -I jet_steps_check.py /path/to/T3Toolbox
@@ -82,10 +84,15 @@ def xi_step(D, w):                  return xi_term(D, w)
 def mu_step(mu, L, xi):             return mu_term(mu, L, xi)
 def nu_step(nu, R, xi):             return nu_term(R, xi, nu)
 def eta_step(mu, U, nu):            return eta_term(mu, U, nu)
-def z_step(mu, L, gamma, D):        return z_term(eta_term(mu, L, gamma), D)      # the value, through (D, L)
+def z_step(mu, L, nu, D):           return z_term(eta_term(mu, L, nu), D)         # the value, through (D, L)
 
 
 # ---- dot: the variable varied in the cores along p = (V, H) ---------------------------------------------
+# A step function is named by letter and grade and serves both bases; the basis of what it returns follows from
+# the cores it is given (nu_step given L cores returns nu_L; mu_dot_step given (R, U, H) and the frame's xi_U_dot
+# returns mu_R_dot, given (L, L, L_dot) and the raw xi_dot it returns mu_dot).  Decided by the maintainer on
+# 2026-11-16 at 00:23.  So the variable parameters of every step function are basis-free (letter and grade); the
+# core parameters (R, U, H, G, G_dot, ...) are placeholders named after one set of cores they are called with.
 def xi_dot_step(V, w):
     return xi_term(V, w)
 
@@ -122,7 +129,8 @@ def H_tilde_step(mu_tilde, mu, xi_tilde, xi, nu_tilde, nu):
     return H_term(mu_tilde, xi, nu) + H_term(mu, xi_tilde, nu) + H_term(mu, xi, nu_tilde)
 
 
-# ---- tilde-dot: both, at the base point (B, G) with a raw core direction (B_dot, G_dot) -----------------
+# ---- tilde-dot: both, at the base point with a raw core direction ----------------------------------------
+# (D, L) and (D_dot, L_dot) at the base point of a manifold frame; (B, G) and (B_dot, G_dot) on the corewise frame.
 def xi_tilde_dot_step(B_dot, w_tilde):
     return xi_term(B_dot, w_tilde)
 
@@ -130,25 +138,25 @@ def mu_tilde_dot_step(mu_tilde_dot, mu_dot, mu_tilde, mu, xi_tilde_dot, xi_dot, 
     return (mu_term(mu_tilde_dot, G, xi) + mu_term(mu_dot, G, xi_tilde) + mu_term(mu_tilde, G, xi_dot)
             + mu_term(mu, G, xi_tilde_dot) + mu_term(mu_tilde, G_dot, xi) + mu_term(mu, G_dot, xi_tilde))
 
-def gamma_tilde_dot_step(gamma_tilde_dot, gamma_dot, gamma_tilde, gamma, xi_tilde_dot, xi_dot, xi_tilde, xi,
-                         G, G_dot):
-    return (nu_term(G, xi, gamma_tilde_dot) + nu_term(G, xi_tilde, gamma_dot) + nu_term(G, xi_dot, gamma_tilde)
-            + nu_term(G, xi_tilde_dot, gamma) + nu_term(G_dot, xi, gamma_tilde) + nu_term(G_dot, xi_tilde, gamma))
+def nu_tilde_dot_step(nu_tilde_dot, nu_dot, nu_tilde, nu, xi_tilde_dot, xi_dot, xi_tilde, xi,
+                      G, G_dot):
+    return (nu_term(G, xi, nu_tilde_dot) + nu_term(G, xi_tilde, nu_dot) + nu_term(G, xi_dot, nu_tilde)
+            + nu_term(G, xi_tilde_dot, nu) + nu_term(G_dot, xi, nu_tilde) + nu_term(G_dot, xi_tilde, nu))
 
-def eta_tilde_dot_step(mu_tilde_dot, mu_dot, mu_tilde, mu, gamma_tilde_dot, gamma_dot, gamma_tilde, gamma,
+def eta_tilde_dot_step(mu_tilde_dot, mu_dot, mu_tilde, mu, nu_tilde_dot, nu_dot, nu_tilde, nu,
                        G, G_dot):
-    return (eta_term(mu_tilde_dot, G, gamma) + eta_term(mu_dot, G, gamma_tilde) + eta_term(mu_tilde, G, gamma_dot)
-            + eta_term(mu, G, gamma_tilde_dot) + eta_term(mu_tilde, G_dot, gamma) + eta_term(mu, G_dot, gamma_tilde))
+    return (eta_term(mu_tilde_dot, G, nu) + eta_term(mu_dot, G, nu_tilde) + eta_term(mu_tilde, G, nu_dot)
+            + eta_term(mu, G, nu_tilde_dot) + eta_term(mu_tilde, G_dot, nu) + eta_term(mu, G_dot, nu_tilde))
 
 def V_tilde_dot_step(eta_tilde_dot, eta_dot, w, w_tilde):
     return V_term(eta_tilde_dot, w) + V_term(eta_dot, w_tilde)
 
 def H_tilde_dot_step(mu_tilde_dot, mu_dot, mu_tilde, mu, xi_tilde_dot, xi_dot, xi_tilde, xi,
-                     gamma_tilde_dot, gamma_dot, gamma_tilde, gamma):
-    return (H_term(mu_tilde_dot, xi, gamma) + H_term(mu, xi_tilde_dot, gamma) + H_term(mu, xi, gamma_tilde_dot)
-            + H_term(mu_dot, xi_tilde, gamma) + H_term(mu_dot, xi, gamma_tilde)
-            + H_term(mu_tilde, xi_dot, gamma) + H_term(mu, xi_dot, gamma_tilde)
-            + H_term(mu_tilde, xi, gamma_dot) + H_term(mu, xi_tilde, gamma_dot))
+                     nu_tilde_dot, nu_dot, nu_tilde, nu):
+    return (H_term(mu_tilde_dot, xi, nu) + H_term(mu, xi_tilde_dot, nu) + H_term(mu, xi, nu_tilde_dot)
+            + H_term(mu_dot, xi_tilde, nu) + H_term(mu_dot, xi, nu_tilde)
+            + H_term(mu_tilde, xi_dot, nu) + H_term(mu, xi_dot, nu_tilde)
+            + H_term(mu_tilde, xi, nu_dot) + H_term(mu, xi_tilde, nu_dot))
 
 
 # ---- drivers: mu[i] and nu[i] sit on bond i, i = 0 .. d -------------------------------------------------
@@ -199,7 +207,7 @@ def main(repo):
     R = [rn((rR[i], nD[i], rR[i + 1])) for i in range(d)]
     V = [rn((nU[i], Ns[i])) for i in range(d)]
     H = [rn((rL[i], nD[i], rR[i + 1])) for i in range(d)]
-    B_dot, G_dot = [rn(b.shape) for b in D], [rn(g.shape) for g in L]     # a raw core direction at (D, L)
+    D_dot, L_dot = [rn(b.shape) for b in D], [rn(g.shape) for g in L]     # a raw core direction at (D, L)
     frame = (D, U, L, R)
     ww, pp = [rn((W, N)) for N in Ns], [rn((W, N)) for N in Ns]
     flat = lambda blocks: np.concatenate([np.ravel(np.asarray(b)) for b in blocks])
@@ -214,16 +222,16 @@ def main(repo):
         sweep = kind.precompute(frame, sample)
         weigh = lambda c: [(omega[i] ** 2).reshape((P, 1, 1)) * c[i] for i in range(d)]   # omega^2, per mode and order
 
-        # plain variables on the manifold frame, and gamma (the right variable through L)
+        # plain variables on the manifold frame, and nu_L (the right of a bond in the L basis: through L)
         w = [input_jet(P, ww[i], pp[i]) for i in range(d)]
         xi = each_site(xi_step, d, D, w)
         mu = left_to_right(mu_step, ones_start(P, W, L[0].shape[0]), d, L, xi)
         nu = right_to_left(nu_step, ones_start(P, W, R[-1].shape[2]), d, R, xi)
         eta = each_site(eta_step, d, mu, U, nu[1:])
-        gamma = right_to_left(nu_step, ones_start(P, W, L[-1].shape[2]), d, L, xi)
+        nu_L = right_to_left(nu_step, ones_start(P, W, L[-1].shape[2]), d, L, xi)
 
         # the value, the residual, the misfit and its per-mode, per-order sums
-        z = [derivatives(a) for a in each_site(z_step, d, mu, L, gamma[1:], D)]
+        z = [derivatives(a) for a in each_site(z_step, d, mu, L, nu_L[1:], D)]
         r = [z[i] - y[i] for i in range(d)]
         r_block_sumsq = np.array([[np.sum(r[i][t] ** 2) for t in range(P)] for i in range(d)])
         f = 0.5 * np.sum(omega ** 2 * r_block_sumsq)
@@ -232,34 +240,36 @@ def main(repo):
         w_tilde = [seed_jet(c) for c in weigh(r)]
         V_tilde, H_tilde, (xi_tilde, mu_tilde) = tilde_family(w_tilde, w, xi, mu, nu, eta, frame, d, P, W)
 
-        # Jp, its weighted sum of squares, and JtJp = Jt (omega^2 Jp)
-        xi_dot = each_site(xi_dot_step, d, V, w)
-        mu_dot = left_to_right(mu_dot_step, zeros_start(P, W, R[0].shape[0]), d, mu, xi, xi_dot, R, U, H)
-        nu_dot = right_to_left(nu_dot_step, zeros_start(P, W, L[-1].shape[2]), d, nu[1:], xi, xi_dot, L, U, H)
-        eta_dot = each_site(eta_dot_step, d, mu_dot, mu, nu_dot[1:], nu[1:], L, R, H)
-        Jp = [derivatives(a) for a in each_site(Jp_step, d, eta_dot, eta, D, V)]
-        Jp_sumsq = sum(np.sum((omega[i] ** 2).reshape((P, 1, 1)) * Jp[i] ** 2) for i in range(d))
+        # Jp, its weighted sum of squares, and JtJp = Jt (omega^2 Jp); the dots of the frame's form, along (V, H)
+        xi_U_dot = each_site(xi_dot_step, d, V, w)
+        mu_R_dot = left_to_right(mu_dot_step, zeros_start(P, W, R[0].shape[0]), d, mu, xi, xi_U_dot, R, U, H)
+        nu_L_dot = right_to_left(nu_dot_step, zeros_start(P, W, L[-1].shape[2]), d, nu[1:], xi, xi_U_dot, L, U, H)
+        eta_D_dot = each_site(eta_dot_step, d, mu_R_dot, mu, nu_L_dot[1:], nu[1:], L, R, H)
+        Jp = [derivatives(a) for a in each_site(Jp_step, d, eta_D_dot, eta, D, V)]
+        Jp_norm_sq = sum(np.sum((omega[i] ** 2).reshape((P, 1, 1)) * Jp[i] ** 2) for i in range(d))
         JtJp_V, JtJp_H, _ = tilde_family([seed_jet(c) for c in weigh(Jp)], w, xi, mu, nu, eta, frame, d, P, W)
 
-        # Kp: the two-hole term at the base point (D, L), raw core direction (B_dot, G_dot), seed omega^2 r.
-        # Shared with the frame: xi, mu, xi_tilde, mu_tilde.  Through L instead of R: gamma, gamma_tilde.
-        B, G = D, L
-        gamma_tilde = right_to_left(nu_tilde_step, zeros_start(P, W, G[-1].shape[2]), d, gamma[1:], xi, xi_tilde, G)
-        c_xi_dot = each_site(xi_dot_step, d, B_dot, w)                     # the dot variables of THIS direction
-        c_mu_dot = left_to_right(mu_dot_step, zeros_start(P, W, G[0].shape[0]), d, mu, xi, c_xi_dot, G, G, G_dot)
-        gamma_dot = right_to_left(nu_dot_step, zeros_start(P, W, G[-1].shape[2]), d, gamma[1:], xi, c_xi_dot,
-                                  G, G, G_dot)
-        c_eta_dot = each_site(eta_dot_step, d, c_mu_dot, mu, gamma_dot[1:], gamma[1:], G, G, G_dot)
-        xi_tilde_dot = each_site(xi_tilde_dot_step, d, B_dot, w_tilde)
-        mu_tilde_dot = left_to_right(mu_tilde_dot_step, zeros_start(P, W, G[0].shape[0]), d, c_mu_dot, mu_tilde, mu,
-                                     xi_tilde_dot, c_xi_dot, xi_tilde, xi, G, G_dot)
-        gamma_tilde_dot = right_to_left(gamma_tilde_dot_step, zeros_start(P, W, G[-1].shape[2]), d, gamma_dot[1:],
-                                        gamma_tilde[1:], gamma[1:], xi_tilde_dot, c_xi_dot, xi_tilde, xi, G, G_dot)
-        eta_tilde_dot = each_site(eta_tilde_dot_step, d, mu_tilde_dot, c_mu_dot, mu_tilde, mu, gamma_tilde_dot[1:],
-                                  gamma_dot[1:], gamma_tilde[1:], gamma[1:], G, G_dot)
-        Kp_V = top(each_site(V_tilde_dot_step, d, eta_tilde_dot, c_eta_dot, w, w_tilde))
-        Kp_H = top(each_site(H_tilde_dot_step, d, mu_tilde_dot, c_mu_dot, mu_tilde, mu, xi_tilde_dot, c_xi_dot,
-                             xi_tilde, xi, gamma_tilde_dot[1:], gamma_dot[1:], gamma_tilde[1:], gamma[1:]))
+        # Kp: the two-hole term at the base point (D, L), raw core direction (D_dot, L_dot), seed omega^2 r.
+        # Shared with the frame: xi, mu, xi_tilde, mu_tilde.  Through L instead of R: nu_L, nu_L_tilde.
+        nu_L_tilde = right_to_left(nu_tilde_step, zeros_start(P, W, L[-1].shape[2]), d, nu_L[1:], xi, xi_tilde, L)
+        # The dots of the raw form, along (D_dot, L_dot).  raw_nu_L_dot and raw_eta_D_dot are a local spelling of
+        # this script, not notation: the raw form's nu_L_dot and eta_D_dot, which differ here from the frame's above
+        # because (D_dot, L_dot) is not the lift of (V, H).
+        xi_dot = each_site(xi_dot_step, d, D_dot, w)
+        mu_dot = left_to_right(mu_dot_step, zeros_start(P, W, L[0].shape[0]), d, mu, xi, xi_dot, L, L, L_dot)
+        raw_nu_L_dot = right_to_left(nu_dot_step, zeros_start(P, W, L[-1].shape[2]), d, nu_L[1:], xi, xi_dot,
+                                     L, L, L_dot)
+        raw_eta_D_dot = each_site(eta_dot_step, d, mu_dot, mu, raw_nu_L_dot[1:], nu_L[1:], L, L, L_dot)
+        xi_tilde_dot = each_site(xi_tilde_dot_step, d, D_dot, w_tilde)
+        mu_tilde_dot = left_to_right(mu_tilde_dot_step, zeros_start(P, W, L[0].shape[0]), d, mu_dot, mu_tilde, mu,
+                                     xi_tilde_dot, xi_dot, xi_tilde, xi, L, L_dot)
+        nu_L_tilde_dot = right_to_left(nu_tilde_dot_step, zeros_start(P, W, L[-1].shape[2]), d, raw_nu_L_dot[1:],
+                                       nu_L_tilde[1:], nu_L[1:], xi_tilde_dot, xi_dot, xi_tilde, xi, L, L_dot)
+        eta_D_tilde_dot = each_site(eta_tilde_dot_step, d, mu_tilde_dot, mu_dot, mu_tilde, mu, nu_L_tilde_dot[1:],
+                                    raw_nu_L_dot[1:], nu_L_tilde[1:], nu_L[1:], L, L_dot)
+        Kp_V = top(each_site(V_tilde_dot_step, d, eta_D_tilde_dot, raw_eta_D_dot, w, w_tilde))
+        Kp_H = top(each_site(H_tilde_dot_step, d, mu_tilde_dot, mu_dot, mu_tilde, mu, xi_tilde_dot, xi_dot,
+                             xi_tilde, xi, nu_L_tilde_dot[1:], raw_nu_L_dot[1:], nu_L_tilde[1:], nu_L[1:]))
 
         # the library's own kind
         z_ref = kind.point_forward((D, L), sample)
@@ -267,16 +277,20 @@ def main(repo):
         g_ref = kind.transpose(r_ref, sample, frame, sweep)
         Jp_ref = kind.forward((V, H), sample, frame, sweep)
         JtJp_ref = kind.transpose(Jp_ref, sample, frame, sweep)
-        Kp_ref = kind.corewise_hessian((B_dot, G_dot), r_ref, sample, frame, sweep, (D, L))
-        print('order %d   z %.1e   f %.1e   r_block_sumsq %.1e   g %.1e   Jp %.1e   Jp_sumsq %.1e   JtJp %.1e   Kp %.1e'
+        Kp_ref = kind.corewise_hessian((D_dot, L_dot), r_ref, sample, frame, sweep, (D, L))
+        print('order %d   z %.1e   f %.1e   r_block_sumsq %.1e   g %.1e   Jp %.1e   Jp_norm_sq %.1e   JtJp %.1e   Kp %.1e'
               % (order, err(z, z_ref),
                  abs(f - 0.5 * float(kind.sumsq(r_ref, n_w))) / (0.5 * float(kind.sumsq(r_ref, n_w))),
                  err([r_block_sumsq], [np.asarray(kind.block_sumsq(r_ref, n_w))]),
                  err(V_tilde + H_tilde, list(g_ref[0]) + list(g_ref[1])),
                  err(Jp, Jp_ref),
-                 abs(Jp_sumsq - float(kind.sumsq(Jp_ref, n_w))) / float(kind.sumsq(Jp_ref, n_w)),
+                 abs(Jp_norm_sq - float(kind.sumsq(Jp_ref, n_w))) / float(kind.sumsq(Jp_ref, n_w)),
                  err(JtJp_V + JtJp_H, list(JtJp_ref[0]) + list(JtJp_ref[1])),
                  err(Kp_V + Kp_H, list(Kp_ref[0]) + list(Kp_ref[1]))))
+        # the weighted quadratic two ways: <Jp, omega^2 Jp> with no adjoint sweep, and p paired with JtJp
+        p_JtJp = sum(float(np.sum(a * b)) for a, b in zip(list(V) + list(H), JtJp_V + JtJp_H))
+        print('          <Jp, omega^2 Jp> against <p, JtJp>, random weight per mode and order   %.1e'
+              % (abs(Jp_norm_sq - p_JtJp) / abs(p_JtJp)))
 
     import inspect
     import re
