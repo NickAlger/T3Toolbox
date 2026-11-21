@@ -336,11 +336,11 @@ class TestUT3TangentTranspose(unittest.TestCase):
             with self.subTest(C=C, K=K):
                 v = _uniform_tangent(C, K)
                 self._adjoint(v, lambda: v.probe(ww),
-                              lambda r: ut3m.UT3Tangent.probe_transpose(r, ww, v.frame, sum_over_probes=True))
+                              lambda r: ut3m.UT3Tangent.probe_transpose(v.frame, ww, residual=r))
         with self.subTest('varying_C'):
             v = _varying_C_tangent()
             self._adjoint(v, lambda: v.probe(ww),
-                          lambda r: ut3m.UT3Tangent.probe_transpose(r, ww, v.frame, sum_over_probes=True))
+                          lambda r: ut3m.UT3Tangent.probe_transpose(v.frame, ww, residual=r))
 
     def test_apply_transpose_adjoint(self):
         ww = _probe_vectors((2,))
@@ -348,11 +348,11 @@ class TestUT3TangentTranspose(unittest.TestCase):
             with self.subTest(C=C, K=K):
                 v = _uniform_tangent(C, K)
                 self._adjoint(v, lambda: v.apply(ww),
-                              lambda r: ut3m.UT3Tangent.apply_transpose(r, ww, v.frame, sum_over_probes=True))
+                              lambda r: ut3m.UT3Tangent.apply_transpose(v.frame, ww, residual=r))
         with self.subTest('varying_C'):
             v = _varying_C_tangent()
             self._adjoint(v, lambda: v.apply(ww),
-                          lambda r: ut3m.UT3Tangent.apply_transpose(r, ww, v.frame, sum_over_probes=True))
+                          lambda r: ut3m.UT3Tangent.apply_transpose(v.frame, ww, residual=r))
 
     def test_entries_transpose_adjoint(self):
         index = _index((2,))
@@ -360,11 +360,11 @@ class TestUT3TangentTranspose(unittest.TestCase):
             with self.subTest(C=C, K=K):
                 v = _uniform_tangent(C, K)
                 self._adjoint(v, lambda: v.entries(index),
-                              lambda r: ut3m.UT3Tangent.entries_transpose(r, index, v.frame, sum_over_probes=True))
+                              lambda r: ut3m.UT3Tangent.entries_transpose(v.frame, index, residual=r))
         with self.subTest('varying_C'):
             v = _varying_C_tangent()
             self._adjoint(v, lambda: v.entries(index),
-                          lambda r: ut3m.UT3Tangent.entries_transpose(r, index, v.frame, sum_over_probes=True))
+                          lambda r: ut3m.UT3Tangent.entries_transpose(v.frame, index, residual=r))
 
     def test_sum_over_probes_is_W_sum(self):
         # sum_over_probes=True == Σ_W (sum_over_probes=False): the kept-W result summed over its W axis
@@ -374,8 +374,8 @@ class TestUT3TangentTranspose(unittest.TestCase):
                 v = _uniform_tangent(C, K)
                 zz = v.probe(ww)
                 r = [np.random.randn(*z.shape) for z in zz]
-                kept = ut3m.UT3Tangent.probe_transpose(r, ww, v.frame, sum_over_probes=False)    # stack W+K+C
-                summ = ut3m.UT3Tangent.probe_transpose(r, ww, v.frame, sum_over_probes=True)     # stack K+C
+                kept = ut3m.UT3Tangent.probe_transpose(v.frame, ww, residual=r, sum_over_samples=False)    # stack W+K+C
+                summ = ut3m.UT3Tangent.probe_transpose(v.frame, ww, residual=r)     # stack K+C
                 for k, s in zip(kept.variations.supercores, summ.variations.supercores):
                     self.assertTrue(np.allclose(k.sum(axis=1), s, atol=1e-9))   # sum the W axis (axis 1)
 
@@ -384,7 +384,7 @@ class TestUT3TangentTranspose(unittest.TestCase):
         ww = _probe_vectors((2,))
         v = _uniform_tangent((), ())
         r = [np.random.randn(*z.shape) for z in v.probe(ww)]
-        JTr = ut3m.UT3Tangent.probe_transpose(r, ww, v.frame, sum_over_probes=True)
+        JTr = ut3m.UT3Tangent.probe_transpose(v.frame, ww, residual=r)
         gauge = ubv.UT3Variations._variation_masks_of(v.frame)
         for got, exp in zip(JTr.variations.masks.data, gauge.data):
             self.assertTrue(np.array_equal(got, exp))
@@ -418,8 +418,8 @@ class TestUT3CorewiseTranspose(unittest.TestCase):
             with self.subTest(C=C):
                 x, xu = self._xs(C)
                 c = np.random.randn(*((2,) + C))                       # residual W+C
-                self._cmp(*xu.apply_corewise_transpose(c, ww, sum_over_probes=True),
-                          *x.apply_corewise_transpose(c, ww, sum_over_probes=True))
+                self._cmp(*xu.apply_corewise_transpose(ww, residual=c),
+                          *x.apply_corewise_transpose(ww, residual=c))
 
     def test_entries_corewise(self):
         index = _index((2,))
@@ -427,8 +427,8 @@ class TestUT3CorewiseTranspose(unittest.TestCase):
             with self.subTest(C=C):
                 x, xu = self._xs(C)
                 c = np.random.randn(*((2,) + C))
-                self._cmp(*xu.entries_corewise_transpose(c, index, sum_over_probes=True),
-                          *x.entries_corewise_transpose(c, index, sum_over_probes=True))
+                self._cmp(*xu.entries_corewise_transpose(index, residual=c),
+                          *x.entries_corewise_transpose(index, residual=c))
 
     def test_probe_corewise(self):
         ww = _probe_vectors((2,))
@@ -436,8 +436,8 @@ class TestUT3CorewiseTranspose(unittest.TestCase):
             with self.subTest(C=C):
                 x, xu = self._xs(C)
                 zt = [np.random.randn(*((2,) + C + (N,))) for N in _STRUCT[0]]
-                self._cmp(*xu.probe_corewise_transpose(zt, ww, sum_over_probes=True),
-                          *x.probe_corewise_transpose(zt, ww, sum_over_probes=True))
+                self._cmp(*xu.probe_corewise_transpose(ww, residual=zt),
+                          *x.probe_corewise_transpose(ww, residual=zt))
 
 
 class TestUT3TangentTransposeDerivatives(unittest.TestCase):
@@ -597,12 +597,12 @@ class TestUT3ProbingHardening(unittest.TestCase):
                 bd = _corrupt(v.frame)                                    # corrupt the frame padding only
                 r = [np.random.randn(*z.shape) for z in v.probe(ww)]
                 c = np.random.randn(*np.asarray(v.apply(ww)).shape)
-                pairs = [(ut3m.UT3Tangent.probe_transpose, (r, ww)),
-                         (ut3m.UT3Tangent.apply_transpose, (c, ww)),
-                         (ut3m.UT3Tangent.entries_transpose, (c, index))]
-                for op, args in pairs:
-                    clean = op(*args, v.frame, sum_over_probes=True)
-                    dirty = op(*args, bd, sum_over_probes=True)
+                pairs = [(ut3m.UT3Tangent.probe_transpose, (ww, r)),
+                         (ut3m.UT3Tangent.apply_transpose, (ww, c)),
+                         (ut3m.UT3Tangent.entries_transpose, (index, c))]
+                for op, (sample, res) in pairs:
+                    clean = op(v.frame, sample, residual=res)
+                    dirty = op(bd, sample, residual=res)
                     self.assertTrue(self._equal_supercores(clean.variations.supercores, dirty.variations.supercores))
                     for ma, mb in zip(clean.variations.masks.data, dirty.variations.masks.data):
                         self.assertTrue(np.array_equal(ma, mb))
@@ -618,9 +618,9 @@ class TestUT3ProbingHardening(unittest.TestCase):
                 for sop in (True, False):
                     K_new = tuple(K) if sop else (2,) + tuple(K)         # sum: K ; keep: W + K (W = (2,))
                     exp = _expected_gauge_masks(v.frame, K_new)
-                    outs = [ut3m.UT3Tangent.probe_transpose(r, ww, v.frame, sum_over_probes=sop),
-                            ut3m.UT3Tangent.apply_transpose(c, ww, v.frame, sum_over_probes=sop),
-                            ut3m.UT3Tangent.entries_transpose(c, index, v.frame, sum_over_probes=sop)]
+                    outs = [ut3m.UT3Tangent.probe_transpose(v.frame, ww, residual=r, sum_over_samples=sop),
+                            ut3m.UT3Tangent.apply_transpose(v.frame, ww, residual=c, sum_over_samples=sop),
+                            ut3m.UT3Tangent.entries_transpose(v.frame, index, residual=c, sum_over_samples=sop)]
                     for JT in outs:
                         for got, e in zip(JT.variations.masks.data, exp):
                             self.assertTrue(np.array_equal(got, e), msg='sop=%s' % sop)
@@ -636,12 +636,12 @@ class TestUT3ProbingHardening(unittest.TestCase):
                 xd = _corrupt(xu)
                 c = np.random.randn(*((2,) + C))
                 zt = [np.random.randn(*((2,) + C + (N,))) for N in _STRUCT[0]]
-                self.assertTrue(self._equal_supercores(xu.apply_corewise_transpose(c, ww, sum_over_probes=True),
-                                                       xd.apply_corewise_transpose(c, ww, sum_over_probes=True)))
-                self.assertTrue(self._equal_supercores(xu.entries_corewise_transpose(c, index, sum_over_probes=True),
-                                                       xd.entries_corewise_transpose(c, index, sum_over_probes=True)))
-                self.assertTrue(self._equal_supercores(xu.probe_corewise_transpose(zt, ww, sum_over_probes=True),
-                                                       xd.probe_corewise_transpose(zt, ww, sum_over_probes=True)))
+                self.assertTrue(self._equal_supercores(xu.apply_corewise_transpose(ww, residual=c),
+                                                       xd.apply_corewise_transpose(ww, residual=c)))
+                self.assertTrue(self._equal_supercores(xu.entries_corewise_transpose(index, residual=c),
+                                                       xd.entries_corewise_transpose(index, residual=c)))
+                self.assertTrue(self._equal_supercores(xu.probe_corewise_transpose(ww, residual=zt),
+                                                       xd.probe_corewise_transpose(ww, residual=zt)))
 
 
 class TestUT3DerivativeHardening(unittest.TestCase):

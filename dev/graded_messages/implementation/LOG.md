@@ -1012,3 +1012,13 @@ silently swap residual and sample (same shapes for probe); recommended: `residua
 the frontend transposes and corewise methods, plus a CHANGELOG upgrade note. P13a is being built meanwhile.
 Finding A decided by the maintainer: not keyword-only; documented by right/wrong doctests and the CHANGELOG note
 (`TARGET_DECISIONS.md`, the note "Old positional calls to the probe transposes").
+
+### P13a committed (2026-11-21)
+
+`P13a_HANDOVER.md`, `P13a_REVIEW_r1.md` (SIGN OFF, one round). The merged frontend signatures on the four classes; the
+six new corewise methods per tensor-train class (`*_corewise_tangent`, `*_corewise_hessian`); `check_sample` in every
+method taking a sample; the directions guard; `np.asarray` on entries indices; finding A's right/wrong adjoint doctests
+on the four probe transposes; 98 transpose calls rewritten (every one checked by the reviewer); a new
+`tests/test_frontend_sampling.py`. Gate at `-n 2`: suite 1,835 passed; lowest MemAvailable 3.9 GB. Carried into P13b:
+five entries methods into the nested-list test; the derivative-conversion pin (independent of `affine_jet` and
+`taylor_to_derivatives`, outliving P20).

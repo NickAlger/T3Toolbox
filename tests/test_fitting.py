@@ -284,13 +284,12 @@ class TestLocalModel(unittest.TestCase):
         '''Manifold gradient/Hessian == the established bare T3Tangent transpose + MANIFOLD.project (apply).'''
         s = _setup('apply', 'manifold', ())
         frame, ww, r, model = s['frame'], s['sample'], s['r'], s['model']
-        ref_g = t3m.MANIFOLD.project(t3m.T3Tangent.apply_transpose(r, ww, frame, sum_over_probes=True))
+        ref_g = t3m.MANIFOLD.project(t3m.T3Tangent.apply_transpose(frame, ww, residual=r))
         gd = model.gradient.variations.data
         for a, b in zip(gd[0] + gd[1], ref_g.variations.data[0] + ref_g.variations.data[1]):
             self.assertTrue(np.allclose(a, b, rtol=0, atol=1e-12))
         V = t3m.MANIFOLD.randn(frame)
-        ref_HV = t3m.MANIFOLD.project(t3m.T3Tangent.apply_transpose(
-            V.apply(ww), ww, frame, sum_over_probes=True))
+        ref_HV = t3m.MANIFOLD.project(t3m.T3Tangent.apply_transpose(frame, ww, residual=V.apply(ww)))
         Hv = model.gn_hessian(V)
         for a, b in zip(Hv.variations.data[0] + Hv.variations.data[1],
                         ref_HV.variations.data[0] + ref_HV.variations.data[1]):
@@ -306,7 +305,7 @@ class TestLocalModel(unittest.TestCase):
             for C in [(), (2,)]:
                 with self.subTest(kind=kind, C=C):
                     s = _setup(kind, 'corewise', C)
-                    g_ref = getattr(s['x'], ref_method[kind])(s['r'], s['sample'], sum_over_probes=True)
+                    g_ref = getattr(s['x'], ref_method[kind])(s['sample'], residual=s['r'])
                     gd = s['model'].gradient.variations.data
                     for a, b in zip(gd[0] + gd[1], g_ref[0] + g_ref[1]):
                         self.assertTrue(np.allclose(a, b, rtol=0, atol=1e-12))

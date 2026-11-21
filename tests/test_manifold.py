@@ -553,7 +553,7 @@ class TestManifold(unittest.TestCase):
                         z = tuple(rnd(*(PROBE_STACK + TANGENT_STACK + FRAME_STACK + (N,))) for N in STRUCT[0])
 
                         Jv = v.probe(ww)  # numpy/jax inferred from inputs
-                        JTz = t3m.T3Tangent.probe_transpose(z, ww, frame, sum_over_probes=True)
+                        JTz = t3m.T3Tangent.probe_transpose(frame, ww, residual=z)
                         # full contraction of both sides (sums F, V, G, N) must agree
                         lhs = float(np.sum([np.sum(np.asarray(a) * np.asarray(b)) for a, b in zip(z, Jv)]))
                         rhs = float(np.sum(np.asarray(JTz.corewise_inner(v))))
@@ -562,7 +562,7 @@ class TestManifold(unittest.TestCase):
                         # sum=True keeps V (frame G), drops F; sum=False keeps F+V (frame G)
                         self.assertEqual(TANGENT_STACK, JTz.tangent_stack_shape)
                         self.assertEqual(FRAME_STACK, JTz.frame_stack_shape)
-                        JTz_batch = t3m.T3Tangent.probe_transpose(z, ww, frame)  # sum_over_probes=False
+                        JTz_batch = t3m.T3Tangent.probe_transpose(frame, ww, residual=z, sum_over_samples=False)
                         self.assertEqual(PROBE_STACK + TANGENT_STACK, JTz_batch.tangent_stack_shape)
                         self.assertEqual(FRAME_STACK, JTz_batch.frame_stack_shape)
 
@@ -627,7 +627,7 @@ class TestManifold(unittest.TestCase):
                     ww = tuple(np.random.randn(*(W + (N,))) for N in STRUCT[0])
                     c = np.asarray(np.random.randn(*(W + FRAME_STACK)))
 
-                    ATc = t3m.T3Tangent.apply_transpose(c, ww, frame, sum_over_probes=True)
+                    ATc = t3m.T3Tangent.apply_transpose(frame, ww, residual=c)
                     lhs = np.asarray(cw.corewise_stack_dot(ATc.variations.data, v.variations.data, len(FRAME_STACK)))
                     rhs = np.sum(c * np.asarray(v.apply(ww)), axis=tuple(range(len(W))))   # sum_W, keep C
                     self.check_relerr(rhs, lhs)
@@ -635,7 +635,7 @@ class TestManifold(unittest.TestCase):
                     self.assertEqual(FRAME_STACK, ATc.frame_stack_shape)
 
                     # without summing, W becomes the tangent stack; sum=True == sum_W of sum=False
-                    ATc_keep = t3m.T3Tangent.apply_transpose(c, ww, frame)
+                    ATc_keep = t3m.T3Tangent.apply_transpose(frame, ww, residual=c, sum_over_samples=False)
                     self.assertEqual(W, ATc_keep.tangent_stack_shape)
                     self.assertEqual(FRAME_STACK, ATc_keep.frame_stack_shape)
                     f_axes = tuple(range(len(W)))
@@ -656,11 +656,11 @@ class TestManifold(unittest.TestCase):
                     idx = np.array(tuple(np.random.randint(0, N, size=W) for N in STRUCT[0]))  # (d,)+W
                     c = np.asarray(np.random.randn(*(W + FRAME_STACK)))
 
-                    ETc = t3m.T3Tangent.entries_transpose(c, idx, frame, sum_over_probes=True)
+                    ETc = t3m.T3Tangent.entries_transpose(frame, idx, residual=c)
                     lhs = np.asarray(cw.corewise_stack_dot(ETc.variations.data, v.variations.data, len(FRAME_STACK)))
                     rhs = np.sum(c * np.asarray(v.entries(idx)), axis=tuple(range(len(W))))
                     self.check_relerr(rhs, lhs)
-                    self.assertEqual(W, t3m.T3Tangent.entries_transpose(c, idx, frame).tangent_stack_shape)
+                    self.assertEqual(W, t3m.T3Tangent.entries_transpose(frame, idx, residual=c, sum_over_samples=False).tangent_stack_shape)
 
     def test_tangent_apply_transpose_kstack(self):
         # The adjoint-state apply/entries transpose is K-aware: the residual c may carry a tangent

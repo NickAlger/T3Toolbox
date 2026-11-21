@@ -1094,6 +1094,24 @@ def t3_probe_ambient_transpose(
 
     Returns CP ``factors`` (factor ``k`` has the diagonal structure: rank slot ``k`` = ``residual_k``,
     the others = ``ww_k``), in the layout :py:func:`t3_conversions.t3_from_canonical` consumes.
+
+    Examples
+    --------
+    The adjoint of ``probe`` on the full tensor space, ``<J^T r, T> = <r, dense_probe(T, ww)>``. **The argument order**
+    (changed in this release: the sample, then the residual): the residual and the sample are both ``d`` vectors,
+    so the old order ``(residual, ww)`` runs and returns the transpose of a different problem:
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.probing as probing
+    >>> np.random.seed(0)
+    >>> T = np.random.randn(4, 5, 6)
+    >>> ww, r = ([np.random.randn(3, n) for n in T.shape] for _ in range(2))
+    >>> lhs = sum(float(np.sum(a * b)) for a, b in zip(r, probing.dense_probe(T, ww)))
+    >>> pair = lambda f: float(np.einsum('rA,rB,rC,ABC->', *f, T))           # <CP(f), T>, the rank axis summed
+    >>> right = probing.t3_probe_ambient_transpose(ww, r, sum_over_samples=True)
+    >>> wrong = probing.t3_probe_ambient_transpose(r, ww, sum_over_samples=True)   # swapped: runs, and is wrong
+    >>> print(abs(lhs - pair(right)) < 1e-12 * abs(lhs), abs(lhs - pair(wrong)) < 1e-12 * abs(lhs))
+    True False
     '''
     use_jax = tree_contains_jax((residual, ww))
     xnp, _, _ = get_backend(False, use_jax)
@@ -1190,6 +1208,19 @@ def t3_probe_corewise_transpose(
     >>> B, G = probing.t3_probe_corewise_transpose(x, ww, c)
     >>> print([b.shape for b in B], [g.shape for g in G])
     [(2, 4), (3, 5), (2, 6)] [(1, 2, 2), (2, 3, 2), (2, 2, 1)]
+
+    **The argument order** (changed in this release: the point, the sample, then the residual). The residual
+    and the sample are both ``d`` vectors, so ``(x, residual, ww)`` runs and returns the transpose of a different
+    problem. Checked against the forward derivative at the intended sample:
+
+    >>> x_dot = t3_corewise_randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+    >>> r = [np.random.randn(3, n) for n in (4, 5, 6)]
+    >>> lhs = sum(float(np.sum(a * b)) for a, b in zip(r, probing.t3_probe_corewise_tangent(x, ww, x_dot)))
+    >>> pair = lambda g: sum(float(np.sum(a * b)) for p, q in zip(g, x_dot) for a, b in zip(p, q))
+    >>> right = probing.t3_probe_corewise_transpose(x, ww, r)
+    >>> wrong = probing.t3_probe_corewise_transpose(x, r, ww)       # the residual and the sample swapped
+    >>> print(abs(lhs - pair(right)) < 1e-12 * abs(lhs), abs(lhs - pair(wrong)) < 1e-12 * abs(lhs))
+    True False
     '''
     held = sampling_variables.HeldVariables(Jp=residual)
     (blocks,) = sampling_variables.sampling_variables('probe', x, ww, ('JtJp',), order=order, held=held,

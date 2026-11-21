@@ -235,36 +235,36 @@ class TestDispatch(unittest.TestCase):
         # ambient adjoints: residual c shape W (+ C); both sum modes; returns CP factors (a pytree)
         N = STRUCT[0]
         self.assert_jit_jax(
-            lambda cc, *ws: t3.TuckerTensorTrain.apply_ambient_transpose(cc, ws), jnp.ones(2), *self.ww)
+            lambda cc, *ws: t3.TuckerTensorTrain.apply_ambient_transpose(ws, residual=cc), jnp.ones(2), *self.ww)
         self.assert_jit_jax(
-            lambda cc, *ws: t3.TuckerTensorTrain.apply_ambient_transpose(cc, ws, sum_over_probes=True),
+            lambda cc, *ws: t3.TuckerTensorTrain.apply_ambient_transpose(ws, residual=cc, sum_over_samples=True),
             jnp.ones(2), *self.ww)
         self.assert_jit_jax(
-            lambda cc, i: t3.TuckerTensorTrain.entries_ambient_transpose(cc, i, N), jnp.ones(()), idx)
+            lambda cc, i: t3.TuckerTensorTrain.entries_ambient_transpose(i, N, residual=cc), jnp.ones(()), idx)
         self.assert_jit_jax(
-            lambda cc, i: t3.TuckerTensorTrain.entries_ambient_transpose(cc, i, N, sum_over_probes=True),
+            lambda cc, i: t3.TuckerTensorTrain.entries_ambient_transpose(i, N, residual=cc, sum_over_samples=True),
             jnp.ones(2), jnp.array([[1, 2], [2, 3], [3, 0]]))  # (d,) + W, W=(2,)
         # corewise (non-manifold) adjoints: gradient w.r.t. the cores (frame x passed as a traced pytree)
         self.assert_jit_jax(
-            lambda xx, cc, *ws: xx.apply_corewise_transpose(cc, ws), self.x, jnp.ones(2), *self.ww)
+            lambda xx, cc, *ws: xx.apply_corewise_transpose(ws, residual=cc, sum_over_samples=False), self.x, jnp.ones(2), *self.ww)
         self.assert_jit_jax(
-            lambda xx, cc, *ws: xx.apply_corewise_transpose(cc, ws, sum_over_probes=True),
+            lambda xx, cc, *ws: xx.apply_corewise_transpose(ws, residual=cc),
             self.x, jnp.ones(2), *self.ww)
         self.assert_jit_jax(
-            lambda xx, cc, i: xx.entries_corewise_transpose(cc, i), self.x, jnp.ones(()), idx)
+            lambda xx, cc, i: xx.entries_corewise_transpose(i, residual=cc, sum_over_samples=False), self.x, jnp.ones(()), idx)
         self.assert_jit_jax(
-            lambda xx, cc, i: xx.entries_corewise_transpose(cc, i, sum_over_probes=True),
+            lambda xx, cc, i: xx.entries_corewise_transpose(i, residual=cc),
             self.x, jnp.ones(2), jnp.array([[1, 2], [2, 3], [3, 0]]))  # (d,) + W, W=(2,)
         # probe transposes: residuals zz (d vecs, W+C+(N,)), probe vecs ww; ambient -> CP, corewise -> grads
         self.assert_jit_jax(
-            lambda zt, w: t3.TuckerTensorTrain.probe_ambient_transpose(zt, w), list(self.zz), list(self.ww))
+            lambda zt, w: t3.TuckerTensorTrain.probe_ambient_transpose(w, residual=zt), list(self.zz), list(self.ww))
         self.assert_jit_jax(
-            lambda zt, w: t3.TuckerTensorTrain.probe_ambient_transpose(zt, w, sum_over_probes=True),
+            lambda zt, w: t3.TuckerTensorTrain.probe_ambient_transpose(w, residual=zt, sum_over_samples=True),
             list(self.zz), list(self.ww))
         self.assert_jit_jax(
-            lambda xx, zt, w: xx.probe_corewise_transpose(zt, w), self.x, list(self.zz), list(self.ww))
+            lambda xx, zt, w: xx.probe_corewise_transpose(w, residual=zt, sum_over_samples=False), self.x, list(self.zz), list(self.ww))
         self.assert_jit_jax(
-            lambda xx, zt, w: xx.probe_corewise_transpose(zt, w, sum_over_probes=True),
+            lambda xx, zt, w: xx.probe_corewise_transpose(w, residual=zt),
             self.x, list(self.zz), list(self.ww))
 
     # ---------------------------------------------------- jit bucket: T3Tangent
@@ -298,21 +298,21 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda xx: t3m.MANIFOLD.project_ambient(frame, xx), self.x_other)
         self.assert_jit_jax(lambda a, w: a.probe(w), self.v, self.ww)
         self.assert_jit_jax(lambda a, w: a.probe(w), self.v_vstack, self.ww)  # 3-group (W,K,C) probe
-        self.assert_jit_jax(lambda z, w: t3m.T3Tangent.probe_transpose(z, w, frame), self.zz, self.ww)
+        self.assert_jit_jax(lambda z, w: t3m.T3Tangent.probe_transpose(frame, w, residual=z, sum_over_samples=False), self.zz, self.ww)
         # K-stacked residuals (W+K+C) -> 3-group transpose assemble, both sum modes
         self.assert_jit_jax(
-            lambda z, w: t3m.T3Tangent.probe_transpose(z, w, frame, sum_over_probes=True), self.zz_vstack, self.ww)
+            lambda z, w: t3m.T3Tangent.probe_transpose(frame, w, residual=z), self.zz_vstack, self.ww)
         self.assert_jit_jax(
-            lambda z, w: t3m.T3Tangent.probe_transpose(z, w, frame), self.zz_vstack, self.ww)
+            lambda z, w: t3m.T3Tangent.probe_transpose(frame, w, residual=z, sum_over_samples=False), self.zz_vstack, self.ww)
         self.assert_jit_jax(lambda a, w: a.apply(w), self.v_vstack, self.ww)              # tangent apply
         self.assert_jit_jax(lambda a, i: a.entries(i), self.v_vstack, jnp.array([1, 2, 3]))  # tangent entries
         # tangent adjoints: c shape W (+C); both sum modes
         self.assert_jit_jax(
-            lambda cc, w: t3m.T3Tangent.apply_transpose(cc, w, frame, sum_over_probes=True), jnp.ones(2), self.ww)
+            lambda cc, w: t3m.T3Tangent.apply_transpose(frame, w, residual=cc), jnp.ones(2), self.ww)
         self.assert_jit_jax(
-            lambda cc, w: t3m.T3Tangent.apply_transpose(cc, w, frame), jnp.ones(2), self.ww)  # keep W
+            lambda cc, w: t3m.T3Tangent.apply_transpose(frame, w, residual=cc, sum_over_samples=False), jnp.ones(2), self.ww)  # keep W
         self.assert_jit_jax(
-            lambda cc, i: t3m.T3Tangent.entries_transpose(cc, i, frame, sum_over_probes=True),
+            lambda cc, i: t3m.T3Tangent.entries_transpose(frame, i, residual=cc),
             jnp.ones(()), jnp.array([1, 2, 3]))
 
     # ---------------------------------------------------- jit bucket: symmetric probe derivatives
@@ -2577,12 +2577,12 @@ class TestDispatch(unittest.TestCase):
         rr = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])   # probe residual, W=(2,), K=C=()
         cc = jnp.array(np.random.randn(2))                                # scalar residual, W=(2,)
         self.assert_jit_jax(
-            lambda r0, r1, r2, *w: ut3m.UT3Tangent.probe_transpose((r0, r1, r2), w, bj, sum_over_probes=True).to_dense(),
+            lambda r0, r1, r2, *w: ut3m.UT3Tangent.probe_transpose(bj, w, residual=(r0, r1, r2)).to_dense(),
             *rr, *ww)
         self.assert_jit_jax(
-            lambda c, *w: ut3m.UT3Tangent.apply_transpose(c, w, bj, sum_over_probes=True).to_dense(), cc, *ww)
+            lambda c, *w: ut3m.UT3Tangent.apply_transpose(bj, w, residual=c).to_dense(), cc, *ww)
         self.assert_jit_jax(
-            lambda c, i: ut3m.UT3Tangent.entries_transpose(c, i, bj, sum_over_probes=True).to_dense(), cc, idx)
+            lambda c, i: ut3m.UT3Tangent.entries_transpose(bj, i, residual=c).to_dense(), cc, idx)
 
     # ---------------------------------------------------- jit bucket: uniform corewise transposes (3b-6c)
     def test_jit_uniform_corewise_transpose(self):
@@ -2592,9 +2592,9 @@ class TestDispatch(unittest.TestCase):
         ww = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])    # W = (2,)
         idx = jnp.array([[1, 2], [2, 3], [3, 0]])
         cc = jnp.array(np.random.randn(2))
-        self.assert_jit_jax(lambda u, c, *w: u.apply_corewise_transpose(c, w, sum_over_probes=True), xu, cc, *ww)
-        self.assert_jit_jax(lambda u, c, i: u.entries_corewise_transpose(c, i, sum_over_probes=True), xu, cc, idx)
-        self.assert_jit_jax(lambda u, *w: u.probe_corewise_transpose(w[:3], w[3:], sum_over_probes=True),
+        self.assert_jit_jax(lambda u, c, *w: u.apply_corewise_transpose(w, residual=c), xu, cc, *ww)
+        self.assert_jit_jax(lambda u, c, i: u.entries_corewise_transpose(i, residual=c), xu, cc, idx)
+        self.assert_jit_jax(lambda u, *w: u.probe_corewise_transpose(w[3:], residual=w[:3]),
                             xu, *ww, *ww)
 
     # ---------------------------------------------------- jit bucket: uniform forward derivatives (3b-6'b)
