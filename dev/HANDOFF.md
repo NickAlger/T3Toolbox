@@ -51,7 +51,10 @@ in a session: everything is in files.
   replaced by a pure `computed_names` (TARGET_DECISIONS, "The hold list"; slice P14b before P16). **Under discussion:**
   `frame_form`. **Raised for the
   pause:** `examples/fit_hilbert_from_apply_derivatives.py` about 11 s instead of 5.8 s (the engine at the jet in place
-  of the old derivative kernels; Part 2). **Next after the pause:** P14b (in review: `computed_names`, `frame_shape`), then P16, the switch, design-first, by
+  of the old derivative kernels; Part 2). **P16 IS IN PROGRESS ON THE LOCAL BRANCH `p16-wip`** (created from
+  `graded-messages` after P14b, `959eb70b`; never pushed; the parts are committed there as they are signed off, then
+  squashed into one commit on `graded-messages`; to resume: `git checkout p16-wip`, read `LOG.md` there). P14b is
+  committed. P16, the switch, design-first, by
   a FRESH pair of agents (the maintainer, 2026-11-21; `BRIEF.md`), committed in parts on a local side branch `p16-wip`
   and squashed into one commit on `graded-messages`. The pause's decisions: `TARGET_DECISIONS.md`, notes of 2026-11-21. Notes carried to P16 are in `P14_HANDOVER.md` and `P15_HANDOVER.md`
   (`eps|rho|` in the resolution; a test that `held` is not carried across MC-SGD draws; `pack_sample`/`pack_data` new
