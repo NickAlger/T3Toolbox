@@ -4,9 +4,9 @@
 """The least-squares oracle and its batch (graded messages, P14), and the engine's two additions for it.
 
 - **the engine:**
-  - ``keep=`` hands back the ``held`` passed in plus the kept names the call computed, and nothing computed only for
-    it; the extra element appears only when ``keep`` is given; unknown names raise; under ``jax.jit`` the filled
-    slots are static (``test_dispatch``);
+  - ``computed_names`` (P14b, in place of P14's ``keep=``) is exactly the public names of the rules the engine runs,
+    for every kind, form, layout, route (``Vc``, a held ``Jp``, held ``r`` and ``mu``) and the oracle's want patterns;
+    it raises as the engine does; the oracle holds ``HOLD`` intersected with it, with the values of a fresh call;
   - ``frame_form`` reads the four forms of a frame, including the count of four that means two things.
 - **``query``:**
   - each output against the engine, on a manifold frame and a corewise point, ragged and uniform (``pack_batch``),
@@ -32,6 +32,7 @@ numpy only, except the pytree round trip (jax dispatch is ``tests/test_dispatch.
 """
 import dataclasses as dc
 import itertools
+import unittest.mock
 import math
 import os
 import sys
@@ -106,29 +107,122 @@ class Fixture(unittest.TestCase):
 
 class TestTheEngineAdditions(Fixture):
 
-    def test_keep(self):
-        fr = self.frame.data
+    def runs(self, kind, frame, sample, want, **args):
+        """The public names of the rules the engine runs for this call (its steps, counted)."""
+        ran = []
+        original = sv._run
+        def counting(rule, *a, **k):
+            ran.append(rule.name)
+            return original(rule, *a, **k)
+        with unittest.mock.patch.object(sv, '_run', side_effect=counting):
+            sv.sampling_variables(kind, frame, sample, want, **args)
+        return frozenset(name for name in ran if not name.startswith('_'))
+
+    def test_computed_names_is_what_the_engine_runs(self):
+        xu = ut3.UniformTuckerTensorTrain.from_t3(self.x, N=6, n=4, r=4)
+        uf = ut3m.UNIFORM_MANIFOLD.frame(xu)
+        uv = ut3m.UNIFORM_COREWISE.randn(uf).variations.data[:2]
+        ud = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain(*self.dirs), N=6, n=4, r=4).data[:2]
+        layouts = {
+            ('ragged', 'manifold'): (self.frame.data, dict(variations=self.v, core_directions=self.dirs)),
+            ('ragged', 'corewise'): (self.x.data, dict(core_directions=self.dirs)),
+            ('uniform', 'manifold'): (uf.data, dict(variations=uv, core_directions=ud)),
+            ('uniform', 'corewise'): (xu.data, dict(core_directions=ud)),
+        }
+        patterns = [('f',), ('f', 'g'), ('z',), ('JtJp',), ('Jp_norm_sq',), ('Kp',), ('g', 'JtJp', 'Kp'), ('r', 'f')]
+        n = 0
+        for kind in ('probe', 'apply', 'entries'):
+            order = ORDERS[kind][-1]
+            b = self.batch(kind, order)
+            for (layout, call), (frame, dirs) in layouts.items():
+                for want in patterns:
+                    args = dict(order=order, y=b.y, weight=b.weight, **dirs)
+                    variants = [('plain', args)]
+                    if kind == 'probe' and call == 'manifold' and layout == 'ragged' and 'z' in want:
+                        variants.append(('Vc', dict(args, Vc=self.frame.data[0])))      # a z route through Vc
+                    if 'JtJp' in want:                                               # JtJp from a held Jp
+                        (Jp,) = sv.sampling_variables(kind, frame, b.sample, ('Jp',), **args)
+                        no_dirs = {k: v for k, v in args.items() if k not in ('variations', 'core_directions')}
+                        variants.append(('held Jp', dict(no_dirs, held=sv.HeldVariables(Jp=Jp))))
+                    (r, mu) = sv.sampling_variables(kind, frame, b.sample, ('r', 'mu'), **args)
+                    variants.append(('held r, mu', dict(args, held=sv.HeldVariables(r=r, mu=mu))))
+                    for label, a in variants:
+                        if 'Kp' in want and label == 'held Jp':
+                            continue
+                        with self.subTest(kind=kind, layout=layout, call=call, want=want, variant=label):
+                            names = sv.computed_names(kind, frame, b.sample, want, **a)
+                            self.assertIsInstance(names, frozenset)
+                            self.assertEqual(names, self.runs(kind, frame, b.sample, want, **a))
+                            held = a.get('held')
+                            if held is not None:
+                                self.assertFalse(names & set(held.keys()))               # held: reused, not computed
+                            self.assertFalse(any(name.startswith('_') for name in names))
+                            n += 1
+        self.assertGreater(n, 150)
+
+    def test_computed_names_raises_as_the_engine(self):
+        fr, point = self.frame.data, self.x.data
         b = self.batch('probe', ())
-        common = dict(y=b.y, weight=b.weight)
-        out = sv.sampling_variables('probe', fr, b.sample, ('f',), **common)
-        self.assertEqual(len(out), 1)                                          # no keep: no extra element
-        (f, held) = sv.sampling_variables('probe', fr, b.sample, ('f',), keep=HOLD, **common)
-        rules = sv._closure('probe', ('f',), frozenset(), frozenset({'_manifold', 'y'}))
-        self.assertEqual(set(held.keys()), {r.name for r in rules} & set(HOLD))        # what the call computed
-        (g, held2) = sv.sampling_variables('probe', fr, b.sample, ('g',), held=held, keep=HOLD, **common)
-        self.assertTrue(set(held.keys()) <= set(held2.keys()))
-        for name in held.keys():
-            self.assertIs(held2[name], held[name])                             # the held passed in, as it was
-        (g0,) = sv.sampling_variables('probe', fr, b.sample, ('g',), **common)
-        self.assertEqual(relerr(g, g0), 0.0)
-        (z, held3) = sv.sampling_variables('probe', fr, b.sample, ('z',), keep=HOLD)
-        self.assertNotIn('r', held3)                                           # never computed only to be kept
-        (_, empty) = sv.sampling_variables('probe', fr, b.sample, ('z',), keep=())
-        self.assertEqual(empty.keys(), ())
-        with self.assertRaisesRegex(ValueError, "'nonsense' is not one"):
-            sv.sampling_variables('probe', fr, b.sample, ('z',), keep=('nonsense',))
-        with self.assertRaises(TypeError):
-            sv.sampling_variables('probe', fr, b.sample, ('z',), keep='r')
+        cases = [('probe', fr, ('nonsense',), {}), ('probe', fr, ('f',), {}),             # unknown name; no y
+                 ('probe', point, ('JtJp',), dict(variations=self.v)),                    # variations on a point
+                 ('entries', fr, ('z',), dict(order=(1,))), ('nonsense', fr, ('z',), {}),
+                 ('probe', fr[:3], ('z',), {}), ('probe', fr, 'z', {})]
+        for kind, frame, want, args in cases:
+            with self.subTest(kind=kind, want=want, args=sorted(args)):
+                with self.assertRaises(Exception) as engine:
+                    sv.sampling_variables(kind, frame, b.sample, want, **args)
+                with self.assertRaises(type(engine.exception)) as query:
+                    sv.computed_names(kind, frame, None, want, **args)
+                self.assertEqual(str(query.exception), str(engine.exception))
+
+    def test_the_oracle_holds_what_is_free(self):
+        for kind in ('probe', 'apply', 'entries'):
+            order = ORDERS[kind][-1]
+            oracle = LeastSquaresOracle(kind, order)
+            b = self.batch(kind, order)
+            for want in [('f',), ('f', 'g'), ('JtJp',), ('r', 'f')]:
+                with self.subTest(kind=kind, want=want):
+                    d = dict(variations=self.v) if 'JtJp' in want else {}
+                    ran = []
+                    original = sv._run
+                    def counting(rule, *a, **k):
+                        ran.append(rule.name)
+                        return original(rule, *a, **k)
+                    with unittest.mock.patch.object(sv, '_run', side_effect=counting):
+                        _, held = oracle.query(self.frame.data, b, want, **d)
+                    args = dict(order=order, y=b.y, weight=b.weight, **d)
+                    free = sv.computed_names(kind, self.frame.data, b.sample, want, **args)
+                    # holding adds no work: the oracle runs exactly what want alone runs (nothing computed to be held)
+                    self.assertEqual(frozenset(n for n in ran if not n.startswith('_')), free)
+                    self.assertEqual(set(held.keys()), set(HOLD) & free)
+                    fresh = sv.sampling_variables(kind, self.frame.data, b.sample, held.keys(), **args)
+                    for name, value in zip(held.keys(), fresh):
+                        self.assertEqual(relerr(held[name], value), 0.0, name)
+                    # a later query at the same frame and batch: the held passed in comes back, plus what is new
+                    _, held2 = oracle.query(self.frame.data, b, ('g',), held=held)
+                    for name in held.keys():
+                        self.assertIs(held2[name], held[name])
+                    self.assertEqual(set(held2.keys()) - set(held.keys()),
+                                     set(HOLD) & sv.computed_names(kind, self.frame.data, b.sample, ('g',),
+                                                                   order=order, y=b.y, weight=b.weight, held=held))
+
+    def test_frame_shape(self):
+        """The mode sizes for the four forms: from the Tucker cores on ragged, from the static shape on uniform (not
+        the padded width N of the supercores), stacked too; bad structures raise as frame_form does."""
+        np.random.seed(42)
+        for C in [(), (2,)]:
+            x = t3.TuckerTensorTrain.randn(SHAPE, *RANKS, stack_shape=C)
+            xu = ut3.UniformTuckerTensorTrain.from_t3(x, N=7, n=4, r=4)
+            forms = {'ragged frame': t3m.MANIFOLD.frame(x).data, 'ragged point': x.data,
+                     'uniform frame': ut3m.UNIFORM_MANIFOLD.frame(xu).data, 'uniform point': xu.data}
+            for label, frame in forms.items():
+                with self.subTest(C=C, form=label):
+                    shape = sv.frame_shape(frame)
+                    self.assertEqual(shape, SHAPE)
+                    self.assertTrue(all(type(n) is int for n in shape))
+        for bad in ((self.x.data[0],), np.zeros(3), ()):
+            with self.assertRaises(ValueError):
+                sv.frame_shape(bad)
 
     def test_frame_form(self):
         xu = ut3.UniformTuckerTensorTrain.from_t3(self.x)
@@ -164,10 +258,9 @@ class TestQuery(Fixture):
                         for name, a, c in zip(WANT, got, ref):
                             self.assertEqual(relerr(a, c), 0.0, name)
                         self.assertTrue(set(held.keys()) <= set(HOLD))
-                        rules = sv._closure(kind, WANT, frozenset(), frozenset(
-                            {'_' + call, 'y'} | ({'variations'} if call == 'manifold' else set())
-                            | {'core_directions'}))
-                        self.assertEqual(set(held.keys()), {r.name for r in rules} & set(HOLD))
+                        free = sv.computed_names(kind, frame, b.sample, WANT, order=order, y=b.y, weight=b.weight,
+                                                 **d)
+                        self.assertEqual(set(held.keys()), free & set(HOLD))
                         (ybs, fres, f), _ = oracle.query(frame, b, ('y_block_sumsq', 'f_resolution', 'f'))
                         ybs_ref = np.square(bfit.data_preparation.data_block_norms(kind, order, b.y))
                         self.assertLess(relerr(ybs, ybs_ref), 1e-14)

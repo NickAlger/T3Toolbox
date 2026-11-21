@@ -911,18 +911,22 @@ class LeastSquaresOracle(ValueHashedFields):
         if 'f_resolution' in want and 'f' not in engine_want:
             engine_want = engine_want + ('f',)
         values = {}
+        held_out = held if held is not None else sampling_variables.HeldVariables()
         if engine_want:
-            *outs, held = sampling_variables.sampling_variables(
-                self.kind, frame, batch.sample, engine_want, order=self.order, y=batch.y, weight=batch.weight,
-                variations=variations, core_directions=core_directions, Vc=Vc, held=held, keep=_HOLD_LIST)
-            values = dict(zip(engine_want, outs))
-        elif held is None:
-            held = sampling_variables.HeldVariables()
+            # one set of arguments for the query and the call: the hold-list names the call computes anyway are
+            # added to want and split off (none is computed only to be held; TARGET_DECISIONS, the hold list)
+            args = dict(order=self.order, y=batch.y, weight=batch.weight, variations=variations,
+                        core_directions=core_directions, Vc=Vc, held=held)
+            free = sampling_variables.computed_names(self.kind, frame, batch.sample, engine_want, **args)
+            extras = tuple(name for name in _HOLD_LIST if name in free and name not in engine_want)
+            outs = sampling_variables.sampling_variables(self.kind, frame, batch.sample, engine_want + extras, **args)
+            values = dict(zip(engine_want + extras, outs))
+            kept = {name: values[name] for name in _HOLD_LIST if name in free}
+            held_out = held_out.with_values(**kept) if kept else held_out
         if 'y_block_sumsq' in want or 'f_resolution' in want:
             y = batch.y
             if self.kind == 'probe' and not isinstance(y, (tuple, list)):       # packed: its mode padding is not data
-                shape = frame[4] if call == 'manifold' else frame[2]          # the uniform frame's static shape
-                y = ut3_operations.unpack_vectors(y, shape)
+                y = ut3_operations.unpack_vectors(y, sampling_variables.frame_shape(frame))
             y_block_sumsq = data_preparation.data_block_norms(self.kind, self.order, y) ** 2
             values['y_block_sumsq'] = y_block_sumsq
         if 'f_resolution' in want:                    # from the unscaled batch values; the scale once, below
@@ -936,7 +940,7 @@ class LeastSquaresOracle(ValueHashedFields):
             for name in _SCALED + ('f_resolution',):
                 if name in values and name in want:
                     values[name] = _scale_tree(values[name], scale)
-        return tuple(values[name] for name in want), held
+        return tuple(values[name] for name in want), held_out
 
     # ------------------------------------------------------------------ the batch
     def check_batch(

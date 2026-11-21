@@ -1115,3 +1115,12 @@ finishes P14b), with the required reading (methods of `TuckerTensorTrain` traced
 refactor stressed; P16 committed in parts on a local side branch `p16-wip`, squashed into one commit on
 `graded-messages` at the end. `BRIEF.md` updated (the new sections "What we are doing", the fresh pair, the traps, the
 side branch).
+
+### P14b committed (2026-11-21)
+
+`P14b_HANDOVER.md`, `P14b_REVIEW_r1.md` (SIGN OFF, one round). `keep=` removed; the pure public `computed_names` (the
+engine's signature; one private `_closure_facts` shared with the engine, so the two cannot diverge); the oracle holds
+the hold-list names `computed_names` says the call computes anyway (the rules run equal `computed_names(want)`
+exactly: holding adds no work); the public `frame_shape` beside `frame_form`; the plan's text brought in line with the
+decisions of 2026-11-21. Gate at `-n 2` before `frame_shape`: suite 1,857; after it, the oracle tests on both envs,
+the module doctests and Sphinx. **The first pair of agents ends here; P16 starts with a fresh pair.**

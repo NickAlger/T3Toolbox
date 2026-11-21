@@ -835,8 +835,8 @@ class TestDispatch(unittest.TestCase):
     # ---------------------------------------------------- jit bucket: the sampling engine
     def test_jit_the_least_squares_oracle(self):
         """P14: ``LeastSquaresOracle.query`` jitted on both layouts (the oracle closed over, the frame and the batch
-        arguments), jax in and out, with ``held`` carried out of one compiled call into the next; and the engine's
-        ``keep=`` record under jit, its filled slots the same as eagerly (they are static)."""
+        arguments), jax in and out, with ``held`` carried out of one compiled call into the next; the held record's
+        filled slots under jit are the eager ones (they come from ``computed_names``, a query of the call's facts)."""
         import t3toolbox.backend.jets as jets
         import t3toolbox.backend.sampling_variables as sv
         import t3toolbox.uniform_frame_variations_format as ubv
@@ -864,11 +864,7 @@ class TestDispatch(unittest.TestCase):
                 (g_eager, _), _ = oracle.query(frame, b, ('g', 'JtJp'), variations=v)
                 for p, q in zip(jax.tree_util.tree_leaves(g), jax.tree_util.tree_leaves(g_eager)):
                     self.assertLess(norm(np.asarray(p) - np.asarray(q)), 1e-10 * max(norm(np.asarray(q)), 1.0))
-                kept = jax.jit(lambda c, bb: sv.sampling_variables(
-                    'probe', tuple(c) + statics, bb.sample, ('f',), order=(1,), y=bb.y, keep=('xi', 'mu', 'r'))[1])
-                eager = sv.sampling_variables('probe', frame, b.sample, ('f',), order=(1,), y=b.y,
-                                              keep=('xi', 'mu', 'r'))[1]
-                self.assertEqual(kept(cores, b).keys(), eager.keys())
+                self.assertEqual(held.keys(), oracle.query(frame, b, ('f',))[1].keys())
 
     def test_jit_the_sampling_functions(self):
         """P12b: every backend sampling function by its signature, ragged and uniform (the six new corewise tangents

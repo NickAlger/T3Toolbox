@@ -389,6 +389,7 @@ frontend entry ("I would leave the engine to the backend", the answers of 20:15)
 | Function or class | Module | Signature sketch |
 | --- | --- | --- |
 | `sampling_variables`, `HeldVariables` | `sampling_variables` | sections 2.3 and 2.2 |
+| `computed_names`, `frame_form`, `frame_shape` (P14, P14b) | `sampling_variables` | `computed_names` takes an engine call's arguments and returns the public names it would compute; `frame_form(frame)` the layout and the call type; `frame_shape(frame)` the mode sizes, for any of the four forms |
 | `jet_contract`, `GroupLengths` | `contractions` | below |
 | `jet_to_dual_jet`, `dual_jet_to_jet` | `jets` | below |
 | `derivatives_to_taylor`, `taylor_to_derivatives`, `derivative_weight_to_taylor_weight`, `prepare_derivative_data` | `jets` | below; the bodies as in `scripts/review/adapter_doctest_draft.py`, with the probe kind's mode axis |
@@ -774,9 +775,10 @@ class LeastSquaresOracle(ValueHashedFields):
 
 On a corewise frame (two cores, told from its structure, section 2.2) the least-squares oracle passes the direction
 it is given as `core_directions`, the engine refusing `variations` there (P8; ruled 2026-11-20). The least-squares
-oracle's `query` asks the engine for `want` plus the names of its hold list that the declared
-graph says the call computes anyway, and returns those as `held`; a call never computes a variable only to hold
-it (8.3). Part 1's hold list is fixed: `xi`, `mu`, `nu`, `eta`, `r` (7.2 "as today"). `y_block_sumsq` needs no
+oracle's `query` asks the engine for `want` plus the names of its hold list that the call computes anyway, which
+the pure query `computed_names(kind, frame, sample, want, **arguments)` reports (the engine's own reading of the
+call's facts and its closure; decided 2026-11-21, in place of an engine keyword `keep=`), and returns those as
+`held`; a call never computes a variable only to hold it (8.3). The engine returns exactly `want`. Part 1's hold list is fixed: `xi`, `mu`, `nu`, `eta`, `r` (7.2 "as today"). `y_block_sumsq` needs no
 frame (the display asks once). `f_resolution` is `eps (|omega y| |omega r| + |f|)`, the formula of
 `_objective_resolution` today, with `|omega y|` from the same pass. `n_measurements` and `take` are methods of the
 least-squares oracle, not of the protocol (8.3 part 2); `check_batch` is an optional member of the protocol (O-29),
@@ -2020,9 +2022,11 @@ can carry (O-8, O-30); `query` passing `held` (a `HeldVariables`) to the engine;
 brought to one set of jet sizes across the modes, as in P11). Both classes reachable from `t3toolbox.fitting`. The oracle's
 `order` is a tuple, required for every kind with no default (O-44): a plain fit writes
 `LeastSquaresOracle('apply', order=())`, an entries fit `LeastSquaresOracle('entries', order=())` (O-46), and
-`LeastSquaresOracle('entries', order=(1,))` raises at construction.
+`LeastSquaresOracle('entries', order=(1,))` raises at construction. The engine gains the public readers
+`frame_form` and `frame_shape` (2.4) and the query `computed_names` (P14b, 2026-11-21), through which the oracle
+learns what the call computes anyway.
 - Tests: each output of `query` against the engine and against the reference; `held` holds exactly the names of the
-  hold list that the call computed (none computed only to be held); `take` under `jax.jit` with a static size;
+  hold list in `computed_names` of the call (none computed only to be held); `take` under `jax.jit` with a static size;
   `minibatch_scale` makes the drawn `f` an unbiased estimate of the full `f`, tested exactly on a small `n` by
   enumerating every subset of the batch size; on a drawn batch, `r`, `Jp`, `r_block_sumsq` and `y_block_sumsq` are
   unscaled and the identities `f = 1/2 <r, r>`, `<Jp, r> = <p, g>`, `Jp_norm_sq = <Jp, Jp>` hold in the batch's
@@ -2062,7 +2066,10 @@ frontend optimizers and the frontend local model change with them. For this slic
 also accept the old call form `(geometry, kind, sample, data, x0, order=, weight=, ...)` and translate it; P17
 deletes the translation.
 1. *Geometry.* The corewise frame is the point `(B, G)` on the ragged and uniform corewise geometries (`frame`,
-   `base_point`, `retract`, `point_tangent`, the shared corewise post-pass).
+   `base_point`, `retract`, `point_tangent`, the shared corewise post-pass). The aligned padded frame returns
+   `(frame, centers)`, like `frame(x)`: the old point's centers zero-padded (zeros at the cone start), ragged and
+   uniform (2026-11-21); a test asserts the centers' consistency residual at a padded start, with and without
+   alignment passes.
 2. *Backend model and optimizers.* `LocalModel` (section 2.2); `local_model` builds the frame and makes one `query`
    wanting `f` (and `g` in exact mode); it checks nothing (O-6). `gradient` asks for `g` with `held`; `gn_quadratic`
    for `Jp_norm_sq`; `hvp` for `JtJp`, and in exact mode `JtJp` and `Kp` in one request; `jacobian(p)` for `Jp`;
@@ -2070,15 +2077,18 @@ deletes the translation.
    structural check, O-7). The five phases as module-level functions of pytrees; `use_jit` compiles the CG solve and
    the stochastic step, as today. Trial points use policy a: `point_objective` at the trial's raw cores. The
    minibatch is a batch from `draw(rng)`; the regularizer is not scaled; MC-SGD and Adam on an oracle without a
-   draw raise (8.3 part 2). The zero reference, the padded start, the cone reference and the switch mode go through
+   draw raise (8.3 part 2). `held` is valid for one frame and one batch: a test kills a mutant that carries `held`
+   across minibatch draws (MC-SGD, Adam, minibatched Newton; 2026-11-21). `pack_sample(kind, order, sample, N)` and
+   `pack_data(kind, order, y, N)` replace the forms that take the old kind names. The zero reference, the padded start, the cone reference and the switch mode go through
    `query`. `Problem`, `least_squares_problem` and `_minibatch_step_problem` go, with the import of
    `_ScaledRegularizer` and its definition in `backend/regularization.py` (its mention in
    `docs/contributor/fitting_internals.md` is P19's), and so does `uniform_fitting.uniform_least_squares_problem`
    with its doctest: it is annotated `-> bopt.Problem` in a module without `from __future__ import annotations`, so
    it would fail the import of `uniform_fitting` once `Problem` is gone.
 3. *Display and record.* The display reads `r_block_sumsq` at the model's frame through `held`, `y_block_sumsq`
-   once, and `f_resolution`; without `f_resolution` the trust-region floor is `eps |f|` with `eps` from the dtype of
-   `f` (8.4); an oracle without block sums gets the header line and no table. The stored record (the display's
+   once, and `f_resolution`, to which the optimizer adds `eps |rho|` for a regularizer (the oracle's covers the
+   misfit only; 2026-11-21), reproducing today's floor; without `f_resolution` the trust-region floor is `eps |f|`
+   with `eps` from the dtype of `f` (8.4); an oracle without block sums gets the header line and no table. The stored record (the display's
    records, which the frontend returns as `stats['diagnostics']`) keeps `train_err` and `val_err` at every
    iteration in the full shape of the weight, `(d,) + F` or `F`, nothing reduced over modes or orders (8.4). The
    printed table is today's for `m <= 1`; for `m >= 2` it has one column per multi-index, in row-major order

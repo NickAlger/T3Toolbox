@@ -329,6 +329,8 @@ __all__ = [
     'sampling_variables',
     'HeldVariables',
     'frame_form',
+    'frame_shape',
+    'computed_names',
 ]
 
 
@@ -1452,6 +1454,141 @@ def _uniform_index(
 ########    The engine    ###########################
 #####################################################
 
+def _closure_facts(
+        kind:             str,
+        frame:            typ.Tuple,
+        want:             typ.Sequence[str],
+        order:            typ.Any,
+        y:                typ.Any,
+        variations:       typ.Any,
+        core_directions:  typ.Any,
+        Vc:               typ.Any,
+        held:             typ.Any,
+) -> typ.Tuple:                             # (order, want, uniform, call, held_names, w_given, rules)
+    '''The facts of a call that decide what it computes, and its closure: the one reading shared by
+    :py:func:`sampling_variables` and :py:func:`computed_names`, so the two cannot diverge. It checks what can be
+    checked from the arguments' presence and the frame's structure (the kind, the jet shape, ``want``'s type and names,
+    ``held``'s type, the frame's form, a direction's form on a corewise point, and a wanted name's missing argument,
+    from the closure) and reads no array.'''
+    if kind not in _KINDS:
+        raise ValueError('sampling_variables: unknown sampling kind %r; expected one of %s' % (kind, _KINDS))
+    order = contractions._read_order(order, 'sampling_variables')
+    if kind == 'entries' and order != ():
+        raise ValueError('sampling_variables: the entries kind has no jets: its order is (), got %r' % (order,))
+    if isinstance(want, str):
+        raise TypeError('sampling_variables: want is a sequence of names, not one name; got %r' % (want,))
+    want = tuple(want)
+    if held is not None and not isinstance(held, HeldVariables):
+        raise TypeError('sampling_variables: held is a HeldVariables or None; got a %s' % type(held).__name__)
+    layout, call_name = frame_form(frame)               # the layout and the call type, from the frame's structure
+    uniform, call = layout == 'uniform', '_' + call_name
+    if call == '_corewise' and variations is not None:
+        raise ValueError('sampling_variables: a corewise point has one form of a direction, the raw one: pass it as '
+                         'core_directions, not variations')
+    names = _names(kind, call)
+    unknown = [name for name in want if name not in names]
+    if unknown:
+        zero = [name for name in unknown if name in _ZERO_NAMES.get(kind, ())]
+        why = (' (%s %s zero for the %s kind: %s)' % (', '.join(map(repr, zero)), 'is' if len(zero) == 1 else 'are',
+                                                       kind, _ZERO_REASON[kind])) if zero else ''
+        raise ValueError('sampling_variables: unknown variable %s for the %s kind on a %s call%s; the names are %s'
+                         % (', '.join(map(repr, unknown)), kind, call.lstrip('_'), why, ', '.join(names)))
+    given = {'y': y, 'Vc': Vc, 'variations': variations, 'core_directions': core_directions}
+    held_names = frozenset(held.keys()) if held is not None else frozenset()
+    present = (frozenset(name for name, value in given.items() if value is not None) | {call}
+               | ({_HELD_JP} if 'Jp' in held_names else frozenset()))
+    w_given = 'w' not in _made(_GRAPHS[kind, call])    # probe, apply: 'w' is the sample as given, no row
+    rules = _closure(kind, tuple(name for name in want if not (name == 'w' and w_given)), held_names, present)
+    return order, want, uniform, call, held_names, w_given, rules
+
+
+def frame_shape(
+        frame:  typ.Tuple,                  # any of the four forms (frame_form)
+) -> typ.Tuple[int, ...]:                   # the mode sizes (N_0, ..., N_(d-1))
+    '''The mode sizes ``(N_0, ..., N_(d-1))`` of the tensors a frame (or a corewise point) is for, for any of its four
+    forms (:py:func:`frame_form`): read off the last axis of each Tucker core on the ragged layout, and on the
+    uniform layout the static ``shape`` element (the second to last; the supercore's ``N`` is a padded width, not a
+    mode size). It raises as :py:func:`frame_form` does.
+
+    >>> import numpy as np
+    >>> from t3toolbox.backend.sampling_variables import frame_shape
+    >>> B = (np.ones((2, 4)), np.ones((2, 5)))
+    >>> G = (np.ones((1, 2, 2)), np.ones((2, 2, 1)))
+    >>> frame_shape((B, G)), frame_shape((B, G, G, G))
+    ((4, 5), (4, 5))
+    >>> Bsc, Gsc = np.ones((2, 2, 6)), np.ones((2, 2, 2, 2))        # supercores padded to N = 6
+    >>> frame_shape((Bsc, Gsc, (4, 5), None)), frame_shape((Bsc, Gsc, Gsc, Gsc, (4, 5), None))
+    ((4, 5), (4, 5))
+    '''
+    layout, _ = frame_form(frame)
+    if layout == 'uniform':
+        return tuple(int(n) for n in frame[-2])
+    return tuple(int(np.shape(core)[-1]) for core in frame[0])
+
+
+def computed_names(
+        kind:              str,                              # 'probe' | 'apply' | 'entries'
+        frame:             typ.Tuple,                        # any of the four forms (frame_form)
+        sample:            typ.Any,                          # accepted and not read (None allowed)
+        want:              typ.Sequence[str],                # variable names
+        order:             typ.Tuple[int, ...] = (),
+        y:                 typ.Optional[typ.Any] = None,     # presence only
+        weight:            typ.Optional[NDArray] = None,     # not read
+        variations:        typ.Optional[typ.Tuple] = None,   # presence only
+        core_directions:   typ.Optional[typ.Tuple] = None,   # presence only
+        Vc:                typ.Optional[typ.Sequence[NDArray]] = None,   # presence only
+        sum_over_samples:  bool = True,                      # not read
+        held:              typ.Optional[HeldVariables] = None,   # its filled slots
+) -> typ.FrozenSet[str]:                                     # the public names the call would compute
+    '''The names of the variables a call of :py:func:`sampling_variables` with these arguments would compute: a pure
+    query, which computes nothing. Its arguments are exactly an engine call's, so ``computed_names(*args, **kwargs)``
+    and ``sampling_variables(*args, **kwargs)`` take the same ones.
+
+    It reads the facts the engine reads, through the engine's own reading and its cached closure: which of ``y``,
+    ``Vc``, ``variations`` and ``core_directions`` are given (presence only, never the values), the call type of the
+    frame (:py:func:`frame_form`), and ``held``'s filled slots. The sample, the weight, the jet sizes and every value
+    are not read. It raises where the engine raises on those facts, with the engine's messages.
+
+    It returns the **public** names (the graph's private nodes are internals), as a ``frozenset``. A name that
+    ``held`` fills is not in it, wanted or not: the engine reuses it and does not compute it. The sample ``'w'`` is not
+    in it either. A route is chosen from the call's facts, never from ``want``, so wanting a name the call computes
+    anyway adds no work: an oracle that holds what is free adds to ``want`` the names it would like to hold that this
+    returns.
+
+    Examples
+    --------
+    A line search asks for ``f`` alone, a gradient step for ``f`` and ``g``; the second computes more:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.manifold as t3m
+    >>> from t3toolbox.backend.sampling_variables import computed_names, sampling_variables, HeldVariables
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+    >>> frame = t3m.MANIFOLD.frame(x).data
+    >>> ww, y = ([np.random.randn(3, N) for N in x.shape] for _ in range(2))
+    >>> line_search = computed_names('probe', frame, ww, ('f',), y=y)
+    >>> sorted(line_search)
+    ['eta_D', 'f', 'mu', 'nu_L', 'r', 'xi', 'z']
+    >>> sorted(computed_names('probe', frame, ww, ('f', 'g'), y=y) - line_search)       # what g adds
+    ['H_tilde', 'V_tilde', 'eta', 'g', 'mu_tilde', 'nu', 'nu_tilde', 'w_tilde', 'xi_tilde']
+
+    The pattern of an oracle that holds what is free: one dictionary of arguments for both calls, the hold-list names
+    the call computes anyway added to ``want``, and split off:
+
+    >>> args = dict(y=y)
+    >>> hold = ('xi', 'mu', 'nu', 'eta', 'r')
+    >>> want = ('f',)
+    >>> extras = tuple(n for n in hold if n in computed_names('probe', frame, ww, want, **args) and n not in want)
+    >>> *values, = sampling_variables('probe', frame, ww, want + extras, **args)
+    >>> held = HeldVariables(**dict(zip(extras, values[len(want):])))
+    >>> print(extras, held.keys())
+    ('xi', 'mu', 'r') ('xi', 'mu', 'r')
+    '''
+    rules = _closure_facts(kind, frame, want, order, y, variations, core_directions, Vc, held)[-1]
+    return frozenset(rule.name for rule in rules if not rule.name.startswith('_'))
+
+
 def frame_form(
         frame:  typ.Tuple,                  # (D, U, L, R) or (B, G); uniform: + (shape, masks) after the cores
 ) -> typ.Tuple[
@@ -1503,8 +1640,7 @@ def sampling_variables(
         Vc:                typ.Optional[typ.Sequence[NDArray]] = None,   # len=d, elm_shape=C+(nUi,Ni)
         sum_over_samples:  bool = True,                      # on the blocks; False: W joins their stack, W+K+C
         held:              typ.Optional[HeldVariables] = None,   # held variables; shapes checked, values trusted
-        keep:              typ.Optional[typ.Sequence[str]] = None,   # names to hand back held, if computed anyway
-) -> typ.Tuple[typ.Any, ...]:                                # aligned with want (+ a HeldVariables if keep is given)
+) -> typ.Tuple[typ.Any, ...]:                                # aligned with want; shapes in the module's table
     """The sampling variables ``want`` of a Tucker tensor train at a frame, sampled at input jets.
 
     Each variable is computed by its recurrence over the sites, once, and only the variables that what is wanted
@@ -1572,19 +1708,13 @@ def sampling_variables(
         to apply or entries it is read by nothing and accepted, as any argument nothing wanted reads.
     held: HeldVariables, optional
         Variables computed earlier at this frame and sample (on the uniform layout one array each, masked on entry).
-    keep: sequence of str, optional
-        Names of variables (``HeldVariables`` slots) to hand back for a later call at this frame and sample. When it is
-        given, the return has one more element, a :py:class:`HeldVariables`: the ``held`` passed in, plus each name of
-        ``keep`` that **this call computed anyway** for what it wants. A name of ``keep`` the call did not compute is
-        absent from it: nothing is computed only to be kept. Which slots are filled is decided by the closure, from the
-        names and the arguments given, not from the values, so it is static under ``jax.jit``. An unknown name raises.
 
     Returns
     -------
     tuple
         One entry per name of ``want``: a tuple over the index for an indexed variable (``d + 1`` bonds, or ``d``
         sites or modes), an array for ``f`` and ``r_block_sumsq``, and for the apply and entries kinds' ``z``,
-        ``r``, ``w_tilde`` and ``Jp``. With ``keep``, one more entry: the :py:class:`HeldVariables` above.
+        ``r``, ``w_tilde`` and ``Jp``.
 
     Raises
     ------
@@ -1659,33 +1789,10 @@ def sampling_variables(
     >>> print(bool(np.allclose(z, z1)))
     True
     """
-    # 1. what the engine needs in order to run
-    if kind not in _KINDS:
-        raise ValueError('sampling_variables: unknown sampling kind %r; expected one of %s' % (kind, _KINDS))
-    order = contractions._read_order(order, 'sampling_variables')
-    if kind == 'entries' and order != ():
-        raise ValueError('sampling_variables: the entries kind has no jets: its order is (), got %r' % (order,))
-    if isinstance(want, str):
-        raise TypeError('sampling_variables: want is a sequence of names, not one name; got %r' % (want,))
-    want = tuple(want)
-    if held is not None and not isinstance(held, HeldVariables):
-        raise TypeError('sampling_variables: held is a HeldVariables or None; got a %s' % type(held).__name__)
-    if keep is not None:
-        if isinstance(keep, str):
-            raise TypeError('sampling_variables: keep is a sequence of names, not one name; got %r' % (keep,))
-        keep = tuple(keep)
-        unknown_keep = [name for name in keep if name not in HeldVariables.slots()]
-        if unknown_keep:
-            raise ValueError('sampling_variables: keep names variables that can be held (HeldVariables slots); %s is '
-                             'not one' % ', '.join(map(repr, unknown_keep)))
-
-    # 2. the layout and the call type, from the structure of the frame
-    layout, call_name = frame_form(frame)
-    uniform, call = layout == 'uniform', '_' + call_name
+    # 1. to 3. the facts of the call and its closure: the one reading computed_names shares
+    facts = _closure_facts(kind, frame, want, order, y, variations, core_directions, Vc, held)
+    order, want, uniform, call, held_names, w_given, rules = facts
     stores = dict(zip(('D', 'L') if call == '_corewise' else ('D', 'U', 'L', 'R'), frame))
-    if call == '_corewise' and variations is not None:
-        raise ValueError('sampling_variables: a corewise point has one form of a direction, the raw one: pass it as '
-                         'core_directions, not variations')
     if kind == 'entries':                               # the index's length d: what the engine reads the sample by
         d = len(frame[0])
         if np.ndim(sample) < 1 or np.shape(sample)[0] != d:
@@ -1703,28 +1810,12 @@ def sampling_variables(
         if kind == 'probe' and y is not None:
             y = ut3_operations.pack_if_ragged(y, N)
     graph = _GRAPHS[kind, call]
-    names = _names(kind, call)
-    unknown = [name for name in want if name not in names]
-    if unknown:
-        zero = [name for name in unknown if name in _ZERO_NAMES.get(kind, ())]
-        why = (' (%s %s zero for the %s kind: %s)' % (', '.join(map(repr, zero)), 'is' if len(zero) == 1 else 'are',
-                                                       kind, _ZERO_REASON[kind])) if zero else ''
-        raise ValueError('sampling_variables: unknown variable %s for the %s kind on a %s call%s; the names are %s'
-                         % (', '.join(map(repr, unknown)), kind, call.lstrip('_'), why, ', '.join(names)))
     held_Jp = held['Jp'] if held is not None and 'Jp' in held else None
     setting = _read_setting(kind, stores, sample, order, variations, graph, core_directions,
                             keep_W=not sum_over_samples, masks=masks, held_Jp=held_Jp)
     _check_stacks(setting, stores, sample, Vc, variations, core_directions)
     if held is not None:
         _check_held(held, setting)
-
-    # 3. the closure
-    given = {'y': y, 'Vc': Vc, 'variations': variations, 'core_directions': core_directions}
-    held_names = frozenset(held.keys()) if held is not None else frozenset()
-    present = (frozenset(name for name, value in given.items() if value is not None) | {call}
-               | ({_HELD_JP} if 'Jp' in held_names else frozenset()))
-    w_given = 'w' not in _made(graph)                     # probe, apply: 'w' is the sample as given, no row
-    rules = _closure(kind, tuple(name for name in want if not (name == 'w' and w_given)), held_names, present)
 
     # 4. numpy or jax, and the result dtype over the arrays the closure reads; those are cast once
     held_values = {name: held[name] for name in held_names}
@@ -1766,11 +1857,4 @@ def sampling_variables(
     if uniform:
         out = tuple(value if (name == 'w' and w_given) else _mask_variable(name, value, setting)
                     for name, value in zip(want, out))
-    if keep is None:
-        return out
-    # the kept record: the held passed in, plus each kept name the closure computed (never one computed to be kept)
-    computed = {rule.name for rule in rules}
-    kept = {name: (_mask_variable(name, values[name], setting) if uniform else values[name])
-            for name in keep if name in computed and name not in held_names}
-    record = held.with_values(**kept) if held is not None else HeldVariables(**kept)
-    return out + (record,)
+    return out
