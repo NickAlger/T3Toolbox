@@ -968,3 +968,12 @@ masks; **a ragged `ww[i]` with a mode axis of size 1 against `N_i > 1` raises** 
 endorsed for the stack checks; else a new silent broadcast); the docstrings point repeated calls to `held=`. **Split
 in place: P12a** (the engine addition, the ragged functions, call sites) **then P12b** (the uniform twins, the corewise
 tangent, the Hessian's `sum_over_samples`). The implementer writes the rulings into the plan and builds P12a.
+
+### P12a, review round 1 (2026-11-20, late)
+
+Built (handover `P12a_HANDOVER.md`): the held-`Jp` route for `JtJp`, the ragged mode-size check, the 15 ragged
+functions as engine calls, the bridge guard, the call sites; five test comparisons moved from bitwise to rounding
+(engine against old kernel; padding and garbage checks still exact). The implementer found that a size-1 rank axis on
+`V`, `H`, `D_dot`, `L_dot` broadcasts silently today; **ruled by Claude: the engine checks their trailing shapes
+against the stores** (the maintainer's structural rule). `P12a_REVIEW_r1.md` NOT YET: that check (must), tests of the
+corewise transposes with a residual carrying `K` (three mutants survived), the full gate rerun. In round 1.
