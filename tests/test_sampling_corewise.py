@@ -146,7 +146,8 @@ class TestTheDerivedGraph(unittest.TestCase):
         self.assertEqual({r.name for r in sv._PROBE_COREWISE_GRAPH if r.name.startswith('_Jp.')},
                          {sv._twin(n) for n in sv._JP_PATHS['probe', '_corewise']})
         jtjp = [r for r in sv._PROBE_COREWISE_GRAPH if r.name == 'JtJp']
-        self.assertEqual([r.needs for r in jtjp], [frozenset({'core_directions'})])
+        # the direction's route, then (P12) the route from a held Jp
+        self.assertEqual([r.needs for r in jtjp], [frozenset({'core_directions'}), frozenset({sv._HELD_JP})])
 
     def test_the_import_time_assertions(self):
         """A rename that would land on a name a surviving row keeps raises; every public name is reachable with

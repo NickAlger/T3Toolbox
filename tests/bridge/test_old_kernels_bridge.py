@@ -57,7 +57,9 @@ to 3, a nonuniform weight.
 import math
 import os
 import sys
+import contextlib
 import unittest
+import unittest.mock
 
 import numpy as np
 
@@ -74,6 +76,28 @@ import test_sampling_variables as tsv          # the engine's problems
 
 TOL = 1e-12
 NAMES = ('z', 'r', 'g', 'xi', 'mu', 'nu', 'eta', 'xi_tilde', 'mu_tilde', 'nu_tilde', 'eta_tilde')
+
+
+@contextlib.contextmanager
+def old_side():
+    """The old side of a comparison (P12): since P12 the plain ragged names (``t3_probe``, ``tv_apply_transpose``, the
+    kinds' ``point_forward``, ...) are the engine, so a row through them would compare the engine with itself. While
+    the old side runs, ``sampling_variables`` is patched to raise: a row that reaches the engine fails loudly."""
+    def refuse(*args, **kwargs):
+        raise AssertionError('the old side of a bridge row reached the engine')
+    with unittest.mock.patch.object(sv, 'sampling_variables', side_effect=refuse):
+        yield
+
+
+def old_point_value(kind, frame, sample, base):
+    """``z`` with no jets, on the old kernels: the order-0 derivative kernels, slot 0 (``pp`` is unread at order 0)."""
+    with old_side():
+        if kind == 'probe':
+            return [z[0] for z in sampling_derivatives.t3_probe_derivatives(sample, sample, base, 0)]
+        if kind == 'apply':
+            return sampling_derivatives.t3_apply_derivatives(sample, sample, base, 0)[0]
+        pp = [np.zeros(np.shape(sample)[1:] + (np.shape(B)[-1],)) for B in base[0]]
+        return sampling_derivatives.t3_entries_derivatives(sample, pp, base, 0)[0]
 
 
 def relative_error(a, b):
@@ -110,7 +134,8 @@ class TestOldKernels(unittest.TestCase):
         for name, problem, n, weight, got in self.cases:
             with self.subTest(problem=name, order=n):
                 if n == 0:
-                    for a, b in zip(got['z'], probing.t3_probe(problem.ww, (problem.D, problem.L))):
+                    for a, b in zip(got['z'], old_point_value('probe', problem.frame, problem.ww,
+                                                              (problem.D, problem.L))):
                         self.assertLessEqual(relative_error(a, b), TOL)
                     continue
                 factorials = np.array([math.factorial(t) for t in range(n + 1)], dtype=float)
@@ -131,8 +156,10 @@ class TestOldKernels(unittest.TestCase):
             with self.subTest(problem=name, order=n):
                 new = list(got['g'][0]) + list(got['g'][1])
                 if n == 0:
-                    old = probing.tv_probe_transpose([weight[i] ** 2 * got['r'][i] for i in range(problem.d)],
-                                                     problem.ww, problem.frame, sum_over_probes=True)
+                    kind = old_fitting.ProbeKind()
+                    with old_side():
+                        old = kind.transpose([weight[i] ** 2 * got['r'][i] for i in range(problem.d)], problem.ww,
+                                             problem.frame, kind.precompute(problem.frame, problem.ww))
                     for a, b in zip(new, list(old[0]) + list(old[1])):
                         self.assertLessEqual(relative_error(a, b), TOL)
                     continue
@@ -169,6 +196,23 @@ class TestOldKernels(unittest.TestCase):
                     self.assertLessEqual(relative_error(got['eta_tilde'][i][::-1][:2], dxi[i]), TOL)
 
 
+class TestTheGuard(unittest.TestCase):
+
+    def test_the_old_side_refuses_the_engine(self):
+        """Inside ``old_side`` a plain name (now the engine) raises, and an old kernel does not."""
+        problem = tsv.PROBLEMS[0][1]()
+        base = (problem.D, problem.L)
+        for call in (lambda: probing.t3_probe(base, problem.ww), lambda: old_apply.t3_apply(base, problem.ww),
+                     lambda: old_entries.t3_entries(base, problem.index),
+                     lambda: old_fitting.ApplyKind().point_forward(base, problem.ww)):
+            with self.subTest(call=repr(call)), old_side():
+                with self.assertRaisesRegex(AssertionError, 'reached the engine'):
+                    call()
+        for kind in ('probe', 'apply', 'entries'):
+            with self.subTest(kind=kind):
+                old_point_value(kind, problem.frame, problem.index if kind == 'entries' else problem.ww, base)
+
+
 class TestTheDirection(unittest.TestCase):
     """``Jp`` and ``JtJp`` against the old derivative kind, at ``n`` = 1 to 3, with no stack of directions and with
     ``K = (2,)``."""
@@ -183,17 +227,20 @@ class TestTheDirection(unittest.TestCase):
                 per_slot = TestOldKernels.per_slot
                 for label, variations in (('K=()', (problem.V, problem.H)),
                                           ('K=(2,)', tsv.stacked_directions(problem, seed=n))):
-                    Jp, JtJp = sv.sampling_variables('probe', problem.frame, list(jets.affine_jet(problem.ww, problem.pp)),
+                    sample = list(jets.affine_jet(problem.ww, problem.pp))
+                    Jp, JtJp = sv.sampling_variables('probe', problem.frame, sample,
                                                      ('Jp', 'JtJp'), order=(n,), weight=weight, variations=variations)
                     kind = old_fitting.ProbeDerivativesKind(order=n, weight=None, chunk_size=None)
                     sample = (problem.ww, problem.pp)
                     sweep = kind.precompute(problem.frame, sample)
                     with self.subTest(problem=name, order=n, stack=label):
-                        old = kind.forward(variations, sample, problem.frame, sweep)
+                        with old_side():
+                            old = kind.forward(variations, sample, problem.frame, sweep)
                         for a, b in zip(Jp, old):
                             self.assertLessEqual(relative_error(per_slot(a, factorials), b), TOL)
                         forward = [per_slot(Jp[i], weight[i] ** 2 / factorials) for i in range(problem.d)]
-                        old = kind.transpose(forward, sample, problem.frame, sweep)
+                        with old_side():
+                            old = kind.transpose(forward, sample, problem.frame, sweep)
                         for a, b in zip(list(JtJp[0]) + list(JtJp[1]), list(old[0]) + list(old[1])):
                             self.assertLessEqual(relative_error(a, b), TOL)
 
@@ -216,8 +263,9 @@ class TestTheCurvature(unittest.TestCase):
                     kind = old_fitting.ProbeDerivativesKind(order=n, weight=None, chunk_size=None)
                     sample = (problem.ww, problem.pp)
                     forward = [TestOldKernels.per_slot(r[i], weight[i] ** 2 / factorials) for i in range(problem.d)]
-                    old = kind.corewise_hessian(core_directions, forward, sample, problem.frame,
-                                                kind.precompute(problem.frame, sample), (problem.D, problem.L))
+                    with old_side():
+                        old = kind.corewise_hessian(core_directions, forward, sample, problem.frame,
+                                                    kind.precompute(problem.frame, sample), (problem.D, problem.L))
                     with self.subTest(problem=name, order=n, stack=label):
                         for a, b in zip(list(Kp[0]) + list(Kp[1]), list(old[0]) + list(old[1])):
                             self.assertLessEqual(relative_error(a, b), TOL)
@@ -258,19 +306,20 @@ class TestTheApplyKind(unittest.TestCase):
                     with self.subTest(problem=name, order=n, stack=label):
                         if n == 0:
                             weight_2 = weight ** 2
-                            self.assertLessEqual(relative_error(z, old_apply.t3_apply((problem.D, problem.L),
-                                                                                      problem.ww)), TOL)
-                            self.assertLessEqual(relative_error(Jp, old_apply.tv_apply(problem.ww, variations,
-                                                                                       problem.frame)), TOL)
-                            self.assert_blocks(g, old_apply.tv_apply_transpose(weight_2 * r, problem.ww, problem.frame,
-                                                                               sum_over_probes=True))
-                            self.assert_blocks(JtJp, old_apply.tv_apply_transpose(weight_2 * Jp, problem.ww,
-                                                                                  problem.frame, sum_over_probes=True))
-                            self.assert_blocks(Kp, old_apply.t3_apply_corewise_hessian(
-                                weight_2 * r, problem.ww, (problem.D, problem.L), core_directions))
+                            self.assertLessEqual(relative_error(z, old_point_value('apply', problem.frame, problem.ww,
+                                                                         (problem.D, problem.L))), TOL)
                             kind = old_fitting.ApplyKind()
-                            self.assert_blocks(g, kind.transpose(weight_2 * r, problem.ww, problem.frame,
-                                                                 kind.precompute(problem.frame, problem.ww)))
+                            with old_side():
+                                sweep = kind.precompute(problem.frame, problem.ww)
+                                old = (kind.forward(variations, problem.ww, problem.frame, sweep),
+                                       kind.transpose(weight_2 * r, problem.ww, problem.frame, sweep),
+                                       kind.transpose(weight_2 * Jp, problem.ww, problem.frame, sweep),
+                                       kind.corewise_hessian(core_directions, weight_2 * r, problem.ww, problem.frame,
+                                                             sweep, (problem.D, problem.L)))
+                            self.assertLessEqual(relative_error(Jp, old[0]), TOL)
+                            self.assert_blocks(g, old[1])
+                            self.assert_blocks(JtJp, old[2])
+                            self.assert_blocks(Kp, old[3])
                             continue
                         old_sample = (problem.ww, problem.pp)
                         old_z = sampling_derivatives.t3_apply_derivatives(problem.ww, problem.pp,
@@ -278,8 +327,9 @@ class TestTheApplyKind(unittest.TestCase):
                         self.assertLessEqual(relative_error(per_slot(z, factorials), old_z), TOL)
                         kind = old_fitting.ApplyDerivativesKind(order=n, weight=None)
                         sweep = kind.precompute(problem.frame, old_sample)
-                        old_z = kind.point_forward((problem.D, problem.L), old_sample)
-                        self.assertLessEqual(relative_error(per_slot(z, factorials), old_z), TOL)
+                        with old_side():
+                            old_point = kind.point_forward((problem.D, problem.L), old_sample)
+                        self.assertLessEqual(relative_error(per_slot(z, factorials), old_point), TOL)
                         self.assertLessEqual(relative_error(per_slot(Jp, factorials),
                                                             kind.forward(variations, old_sample, problem.frame, sweep)),
                                              TOL)
@@ -314,23 +364,20 @@ class TestTheEntriesKind(unittest.TestCase):
                     'entries', problem.frame, problem.index, ('z', 'r', 'g', 'Jp', 'JtJp', 'Kp'), y=y, weight=weight,
                     variations=variations, core_directions=core_directions)
                 kind = old_fitting.EntriesKind()
-                sweep = kind.precompute(problem.frame, problem.index)
+                with old_side():
+                    sweep = kind.precompute(problem.frame, problem.index)
+                    old = (kind.forward(variations, problem.index, problem.frame, sweep),
+                           kind.transpose(weight_2 * r, problem.index, problem.frame, sweep),
+                           kind.transpose(weight_2 * Jp, problem.index, problem.frame, sweep),
+                           kind.corewise_hessian(core_directions, weight_2 * r, problem.index, problem.frame, sweep,
+                                                 base))
                 with self.subTest(problem=name, stack=label):
-                    self.assertLessEqual(relative_error(z, old_entries.t3_entries(base, problem.index)), TOL)
-                    self.assertLessEqual(relative_error(z, kind.point_forward(base, problem.index)), TOL)
-                    self.assertLessEqual(relative_error(Jp, old_entries.tv_entries(problem.index, variations,
-                                                                                   problem.frame)), TOL)
-                    self.assertLessEqual(relative_error(Jp, kind.forward(variations, problem.index, problem.frame,
-                                                                         sweep)), TOL)
-                    self.assert_blocks(g, old_entries.tv_entries_transpose(weight_2 * r, problem.index, problem.frame,
-                                                                           sum_over_probes=True))
-                    self.assert_blocks(g, kind.transpose(weight_2 * r, problem.index, problem.frame, sweep))
-                    self.assert_blocks(JtJp, old_entries.tv_entries_transpose(weight_2 * Jp, problem.index,
-                                                                              problem.frame, sum_over_probes=True))
-                    self.assert_blocks(Kp, old_entries.t3_entries_corewise_hessian(weight_2 * r, problem.index, base,
-                                                                                   core_directions))
-                    self.assert_blocks(Kp, kind.corewise_hessian(core_directions, weight_2 * r, problem.index,
-                                                                 problem.frame, sweep, base))
+                    self.assertLessEqual(relative_error(z, old_point_value('entries', problem.frame, problem.index,
+                                                                           base)), TOL)
+                    self.assertLessEqual(relative_error(Jp, old[0]), TOL)
+                    self.assert_blocks(g, old[1])
+                    self.assert_blocks(JtJp, old[2])
+                    self.assert_blocks(Kp, old[3])
 
     def test_the_old_entries_derivatives_against_apply_at_the_one_hot_jet(self):
         per_slot = TestOldKernels.per_slot
@@ -351,8 +398,9 @@ class TestTheEntriesKind(unittest.TestCase):
                 with self.subTest(problem=name, order=n):
                     old_z = sampling_derivatives.t3_entries_derivatives(problem.index, problem.pp, base, n)
                     self.assertLessEqual(relative_error(per_slot(z, factorials), old_z), TOL)
-                    self.assertLessEqual(relative_error(per_slot(z, factorials), kind.point_forward(base, old_sample)),
-                                         TOL)
+                    with old_side():
+                        old_point = kind.point_forward(base, old_sample)
+                    self.assertLessEqual(relative_error(per_slot(z, factorials), old_point), TOL)
                     self.assertLessEqual(relative_error(per_slot(Jp, factorials), kind.forward(
                         (problem.V, problem.H), old_sample, problem.frame, sweep)), TOL)
                     self.assert_blocks(g, kind.transpose(per_slot(r, weight ** 2 / factorials), old_sample,

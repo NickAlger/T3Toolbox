@@ -98,6 +98,7 @@ The graph of the probe kind on a manifold frame (the graph of a corewise point i
 | `_Jp.V_tilde` | site | `V_tilde_step` | `_Jp.eta_tilde_top`, `eta`, `w`, `_Jp.w_tilde` |  | yes |  |
 | `_Jp.H_tilde` | site | `H_tilde_step` | `_Jp.mu_tilde`, `mu`, `_Jp.xi_tilde`, `xi`, `_Jp.nu_tilde`, `nu` |  | yes |  |
 | `JtJp` | whole | `g_step` | `_Jp.V_tilde`, `_Jp.H_tilde` | `variations` | yes |  |
+| `JtJp` | whole | `g_step` | `_Jp.V_tilde`, `_Jp.H_tilde` | `held:Jp` | yes |  |
 
 **The dot grades and the direction stack.** A direction comes in two forms: ``variations = (V, H)``, the frame's form,
 and ``core_directions = (D_dot, L_dot)``, the raw form at the base point ``(D, L)``. Their leading axes before the
@@ -116,6 +117,10 @@ from a raw ``Jp`` would give a mixed product with no use.
 **The adjoint seeded by** ``Jp`` (``JtJp``) is the private twin of each row on the residual's path from ``w_tilde`` to
 ``V_tilde``, ``H_tilde`` and the short node, named ``'_Jp.' + name.lstrip('_')``: the same step and start, the call's
 ``K``, the seed reading ``Jp`` for ``r``. ``JtJp`` is the twin of ``g``. The full ``eta_tilde`` has no twin.
+``JtJp`` has a second route, from a held ``Jp`` with no direction (``held:Jp``, P12): the twin path is linear in
+``Jp``, so **holding any vector of** ``Jp``'s **type as** ``Jp`` **gives** ``J^T`` **of that vector** (unweighted
+by the call: the seed is ``weight^2`` times the held vector, turned). The transposes take this route for a residual
+with a stack ``K``, read off the held ``Jp``; a direction, when given, wins, and its ``K`` must agree.
 
 **The corewise point** ``(B, G)``: one basis on each edge. It binds the stores ``D = B`` and ``L = G``, and its graph
 is derived from the manifold one: every row that reads ``U``, ``R``, ``V``, ``H`` or ``Vc``, or a ``_frame.*`` node, is
@@ -180,6 +185,7 @@ whose whole steps take the kind) and the apply kind's own rows, its twins includ
 | `_Jp.V_tilde` | site | `V_top_step` | `_Jp.eta_tilde_top`, `w` |  | yes |  |
 | `_Jp.H_tilde` | site | `H_readout_step` | `mu`, `xi`, `_Jp.nu_tilde` |  | yes |  |
 | `JtJp` | whole | `g_step` | `_Jp.V_tilde`, `_Jp.H_tilde` | `variations` | yes |  |
+| `JtJp` | whole | `g_step` | `_Jp.V_tilde`, `_Jp.H_tilde` | `held:Jp` | yes |  |
 
 The corewise point of the apply kind is derived from these rows in the same way as the probe kind's.
 
@@ -344,6 +350,7 @@ _VAR = frozenset({'variations'})
 _COR = frozenset({'core_directions'})
 _COREWISE = frozenset({'_corewise'})
 _STARTS = ('ones', 'zeros')                 # the start values by name; any other start names a node
+_HELD_JP = 'held:Jp'                        # the fact of a held Jp, in present for a held Jp only (P12)
 
 # The rows split into blocks: the plain and dot grades depend only on the frame and the inputs, so every kind shares
 # them; the outputs, the seed's adjoint, the direction's output and the curvature are each kind's own. The residual's
@@ -611,7 +618,9 @@ def _jp_twins(
         elif rule.name == 'g':
             jtjp = rule._replace(name='JtJp', reads=tuple(map(rename, rule.reads)), carries_K=True,
                                  needs=rule.needs | {direction})
-    return tuple(out) + (jtjp,)
+    # a second route: from a held Jp, with no direction (P12). The twin path is linear in Jp, so holding any vector of
+    # Jp's type as Jp gives J^T of that vector: the transposes' route for a residual with a stack K
+    return tuple(out) + (jtjp, jtjp._replace(needs=(jtjp.needs - {direction}) | {_HELD_JP}))
 
 
 # The corewise point (B, G): one basis on each edge. Its graph is derived from the manifold rows of its kind: every
@@ -805,7 +814,8 @@ def _closure(
             if rule.needs <= present:
                 break
         else:
-            missing = sorted({fact for rule in rows[name] for fact in rule.needs - present})
+            missing = sorted({fact for rule in rows[name] for fact in rule.needs - present
+                              if fact != _HELD_JP})     # a held Jp is not an argument to name
             through = (' (needed through %s)' % ' -> '.join(chain + (name,))) if chain else ''
             raise ValueError('sampling_variables: %r needs the argument %s, which was not given%s'
                              % (name, ' or '.join(missing), through))
@@ -854,7 +864,9 @@ class HeldVariables:
     :py:meth:`with_values` returns a new record; a record is never changed in place.
 
     It checks no shape: the engine checks every held variable it is handed, at every call, against the shapes of
-    its table, and trusts the values. Where jax is importable it is a registered pytree: the filled slots are the
+    its table, and trusts the values. **One contract on a value:** a held ``Jp`` need not be the output of a
+    direction. ``JtJp`` is linear in ``Jp``, so holding any vector ``c`` of ``Jp``'s shape as ``Jp`` (with no
+    direction) gives ``J^T`` of ``weight^2 c``: this is how the transposes are computed, ``K`` read off ``c``. Where jax is importable it is a registered pytree: the filled slots are the
     leaves, the set of filled slots is the static structure. It refuses ``==`` and is unhashable, as every
     array-carrying class of the library is: compare the slots you mean.
 
@@ -1009,7 +1021,7 @@ def _read_K(
     if core_directions is not None:
         operands += [('D_dot', core_directions[0], 2), ('L_dot', core_directions[1], 3)]
     if not operands:
-        return ()
+        return None
     name0, cores0, core_ndim0 = operands[0]
     K = tuple(np.shape(cores0[0])[:max(np.ndim(cores0[0]) - core_ndim0 - len(C), 0)])
     for name, cores, core_ndim in operands:
@@ -1033,6 +1045,7 @@ def _read_setting(
         core_directions:  typ.Optional[typ.Tuple] = None,
         keep_W:           bool = False,
         masks:            typ.Optional[typ.Dict[str, NDArray]] = None,
+        held_Jp:          typ.Any = None,           # a held Jp: K is read off it when no direction gives one
 ) -> _Setting:
     D, L = stores['D'], stores['L']
     U, R = stores.get('U', L), stores.get('R', L)       # a corewise point: one basis on each edge
@@ -1042,12 +1055,22 @@ def _read_setting(
         J_in, W = ((),) * len(D), tuple(np.shape(sample)[1:])
     else:
         J_in, W = tuple(tuple(np.shape(w)[:m]) for w in sample), tuple(np.shape(sample[0])[m:-1])
+    K = _read_K(variations, core_directions, C)
+    if held_Jp is not None:                             # K + C after the jets and W, before the mode edge (probe)
+        first = held_Jp[0] if kind == 'probe' else held_Jp
+        shape = tuple(np.shape(first))
+        held_K = shape[m + len(W):len(shape) - len(C) - (1 if kind == 'probe' else 0)]
+        if K is None:
+            K = held_K
+        elif held_K != K:
+            raise ValueError('sampling_variables: the held Jp has the stack of directions K = %s, where the directions '
+                             'give K = %s' % (held_K, K))
     return _Setting(
         d=len(D), order=order, box=tuple(n + 1 for n in order),
         J_in=J_in, W=W, C=C,
         sizes=dict(rL=_bonds(L), rR=_bonds(R), nD=tuple(np.shape(B)[-2] for B in D),
                    nU=tuple(np.shape(G)[-2] for G in U), N=tuple(np.shape(B)[-1] for B in D)),
-        K=_read_K(variations, core_directions, C), with_K=frozenset(rule.name for rule in graph if rule.carries_K),
+        K=() if K is None else K, with_K=frozenset(rule.name for rule in graph if rule.carries_K),
         kind=kind, keep_W=keep_W, masks=masks)
 
 
@@ -1056,12 +1079,19 @@ def _check_stacks(
         stores:   typ.Dict[str, typ.Sequence[NDArray]],     # D, U, L, R; or on a corewise point D, L
         sample:   typ.Any,                                  # the input jets; or the entries kind's index
         Vc:       typ.Optional[typ.Sequence[NDArray]],
+        variations:       typ.Optional[typ.Tuple] = None,           # (V, H), or None
+        core_directions:  typ.Optional[typ.Tuple] = None,           # (D_dot, L_dot), or None
 ) -> None:
     '''The stacks ``W`` and ``C`` are read once, ``W`` from ``w[0]`` and ``C`` from ``D[0]``; every other operand that
     carries one must have exactly it (tuple equality, not broadcast compatibility): ``C`` as the prefix of every core
     of every store and of every ``Vc[i]``, ``W`` after the jet axes of every ``w[i]``. A size-1 axis where another
     operand has more would otherwise broadcast in a contraction and give a wrong answer with no error (as for ``K``,
-    ``_read_K``). Structural: a ``ValueError`` naming the operand. ``y``, the weight and the jet sizes are the
+    ``_read_K``); and on the ragged layout every input's mode size ``N_i`` that of ``D[i]`` (a size-1 mode axis would
+    broadcast too; the packed sample's ``N`` is checked on the uniform layout); and the core axes of every direction
+    and of ``Vc`` exactly the sizes the stores give (P12a, round 1): ``V[i]`` and ``Vc[i]`` ``(nU_i, N_i)``, ``H[i]``
+    ``(rL_i, nD_i, rR_(i+1))``, ``D_dot[i]`` ``(nD_i, N_i)`` and ``L_dot[i]`` ``(rL_i, nD_i, rL_(i+1))`` (on a corewise
+    point, its own; on the uniform layout, the supercores' padded sizes). Structural: a ``ValueError`` naming the
+    operand. ``y``, the weight and the jet sizes are the
     checkers' of :py:mod:`t3toolbox.backend.jets`. Its cost is about ``5d`` comparisons of short integer tuples per
     call, at trace time only under ``jit``. (A removable check, pending O-18: delete this function, its one call and
     its test class.)'''
@@ -1077,6 +1107,29 @@ def _check_stacks(
                 raise ValueError('sampling_variables: every core must have the stack C of the frame, read off D[0]: '
                                  '%s[%d] has shape %s, where C = %s, so C + (the %d axes of the core) is expected'
                                  % (name, i, shape, C, ndim))
+    sizes = setting.sizes
+    trailing = {
+        'V': lambda i: (sizes['nU'][i], sizes['N'][i]), 'Vc': lambda i: (sizes['nU'][i], sizes['N'][i]),
+        'H': lambda i: (sizes['rL'][i], sizes['nD'][i], sizes['rR'][i + 1]),
+        'D_dot': lambda i: (sizes['nD'][i], sizes['N'][i]),
+        'L_dot': lambda i: (sizes['rL'][i], sizes['nD'][i], sizes['rL'][i + 1]),
+    }
+    directions = [('Vc', Vc)] if Vc is not None else []
+    if variations is not None:
+        directions += [('V', variations[0]), ('H', variations[1])]
+    if core_directions is not None:
+        directions += [('D_dot', core_directions[0]), ('L_dot', core_directions[1])]
+    for name, cores in directions:
+        if len(cores) != setting.d:
+            raise ValueError('sampling_variables: %s has %d cores, where the frame has d = %d'
+                             % (name, len(cores), setting.d))
+        for i, core in enumerate(cores):
+            expected = trailing[name](i)
+            shape = tuple(np.shape(core))
+            if shape[len(shape) - len(expected):] != expected:
+                raise ValueError('sampling_variables: every direction must have the core sizes of the frame: %s[%d] '
+                                 'has shape %s, where the stores give the core axes %s'
+                                 % (name, i, shape, expected))
     if setting.kind != 'entries':
         for i, w in enumerate(sample):
             shape = tuple(np.shape(w))
@@ -1084,6 +1137,9 @@ def _check_stacks(
                 raise ValueError('sampling_variables: every input must have the sample stack W, read off w[0]: w[%d] '
                                  'has shape %s, where W = %s, so %d jet axes, W and the mode edge are expected'
                                  % (i, shape, W, m))
+            if setting.masks is None and shape[-1] != np.shape(stores['D'][i])[-1]:     # ragged: N_i read off D[i]
+                raise ValueError('sampling_variables: every input must have its mode size N_i, read off D[%d]: w[%d] '
+                                 'has shape %s, where N_%d = %d' % (i, i, shape, i, np.shape(stores['D'][i])[-1]))
     if setting.masks is not None:                       # uniform: the masks' C, the packed sample's d and N
         for family, mask in setting.masks.items():
             if family != 'N' and tuple(np.shape(mask)[1:-1]) != C:
@@ -1612,16 +1668,18 @@ def sampling_variables(
                                                        kind, _ZERO_REASON[kind])) if zero else ''
         raise ValueError('sampling_variables: unknown variable %s for the %s kind on a %s call%s; the names are %s'
                          % (', '.join(map(repr, unknown)), kind, call.lstrip('_'), why, ', '.join(names)))
+    held_Jp = held['Jp'] if held is not None and 'Jp' in held else None
     setting = _read_setting(kind, stores, sample, order, variations, graph, core_directions,
-                            keep_W=not sum_over_samples, masks=masks)
-    _check_stacks(setting, stores, sample, Vc)
+                            keep_W=not sum_over_samples, masks=masks, held_Jp=held_Jp)
+    _check_stacks(setting, stores, sample, Vc, variations, core_directions)
     if held is not None:
         _check_held(held, setting)
 
     # 3. the closure
     given = {'y': y, 'Vc': Vc, 'variations': variations, 'core_directions': core_directions}
-    present = frozenset(name for name, value in given.items() if value is not None) | {call}
     held_names = frozenset(held.keys()) if held is not None else frozenset()
+    present = (frozenset(name for name, value in given.items() if value is not None) | {call}
+               | ({_HELD_JP} if 'Jp' in held_names else frozenset()))
     w_given = 'w' not in _made(graph)                     # probe, apply: 'w' is the sample as given, no row
     rules = _closure(kind, tuple(name for name in want if not (name == 'w' and w_given)), held_names, present)
 

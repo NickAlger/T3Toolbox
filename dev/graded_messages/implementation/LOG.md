@@ -977,3 +977,13 @@ functions as engine calls, the bridge guard, the call sites; five test compariso
 `V`, `H`, `D_dot`, `L_dot` broadcasts silently today; **ruled by Claude: the engine checks their trailing shapes
 against the stores** (the maintainer's structural rule). `P12a_REVIEW_r1.md` NOT YET: that check (must), tests of the
 corewise transposes with a residual carrying `K` (three mutants survived), the full gate rerun. In round 1.
+
+### P12a committed (2026-11-21)
+
+Round 1 (`P12a_RESPONSE_r1.md`): the core-size check (`V`, `H`, `Vc`, `D_dot`, `L_dot` against the stores by exact
+shape, both layouts, inside `_check_stacks`; `TestTheCoreSizesOfTheDirections`), the transposes with a residual
+carrying `K` tested (`TestAResidualWithAStack`), the full gate at `-n 2` PASS (suite 1,816 passed, 5 skipped, 1
+xfailed; lowest MemAvailable 2.6 GB, down from 4.6: watch; if below 1.5 GB the gate goes to `-n 1`). Round 2
+(`P12a_REVIEW_r2.md`): SIGN OFF. For P20: `test_uniform_curvature`'s direction-mask control now runs on the old kernel
+and is deleted with it (P11's `TestKpAtTTSlack` is the lasting control). Next: P12b (the uniform twins' signatures and
+mirroring, `*_corewise_tangent`, the Hessians' `sum_over_samples`, the automatic-differentiation tests).

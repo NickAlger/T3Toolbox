@@ -745,7 +745,7 @@ class T3Tangent(common.ExplicitEquality):
         """
         # probing's frame order is exactly T3Frame.data = (down, up, left, right) -- no reorder.
         # numpy/jax dispatch is inferred from the input array types inside probing.
-        return probing.tv_probe(ww, self.variations.data, self.frame.data)
+        return probing.tv_probe(self.frame.data, self.variations.data, ww)
 
     @staticmethod
     def probe_transpose(
@@ -823,7 +823,7 @@ class T3Tangent(common.ExplicitEquality):
         # probing's frame order is exactly T3Frame.data = (down, up, left, right) -- no reorder.
         # numpy/jax dispatch is inferred from the input array types inside probing.
         V_tildes, H_tildes = probing.tv_probe_transpose(
-            ztildes, ww, frame.data, sum_over_probes=sum_over_probes,
+            frame.data, ww, ztildes, sum_over_samples=sum_over_probes,
         )
         return T3Tangent(frame, bvf.T3Variations(V_tildes, H_tildes))
 
@@ -864,7 +864,7 @@ class T3Tangent(common.ExplicitEquality):
         """
         # frame order is exactly T3Frame.data = (down, up, left, right) -- no reorder.
         # numpy/jax dispatch is inferred from the input array types inside probing.
-        return apply.tv_apply(ww, self.variations.data, self.frame.data)
+        return apply.tv_apply(self.frame.data, self.variations.data, ww)
 
     def entries(
             self,
@@ -896,7 +896,7 @@ class T3Tangent(common.ExplicitEquality):
         >>> print(bool(abs(float(v.entries(idx)) - float(v.to_dense()[idx])) < 1e-9))
         True
         """
-        return entries.tv_entries(index, self.variations.data, self.frame.data)
+        return entries.tv_entries(self.frame.data, self.variations.data, index)
 
     @staticmethod
     def apply_transpose(
@@ -935,7 +935,7 @@ class T3Tangent(common.ExplicitEquality):
         True
         """
         # frame order is exactly T3Frame.data = (down, up, left, right) -- no reorder.
-        V, H = apply.tv_apply_transpose(c, ww, frame.data, sum_over_probes=sum_over_probes)
+        V, H = apply.tv_apply_transpose(frame.data, ww, c, sum_over_samples=sum_over_probes)
         return T3Tangent(frame, bvf.T3Variations(V, H))
 
     @staticmethod
@@ -956,7 +956,7 @@ class T3Tangent(common.ExplicitEquality):
         entries
         apply_transpose
         """
-        V, H = entries.tv_entries_transpose(c, index, frame.data, sum_over_probes=sum_over_probes)
+        V, H = entries.tv_entries_transpose(frame.data, index, c, sum_over_samples=sum_over_probes)
         return T3Tangent(frame, bvf.T3Variations(V, H))
 
     ###############################################

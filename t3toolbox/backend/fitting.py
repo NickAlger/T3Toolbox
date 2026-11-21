@@ -601,7 +601,7 @@ class ProbeKind(_WwSample, ProbeOutputKind):
                                                      sum_over_probes=True)
 
     def point_forward(self, x_cores, ww):
-        return probing.t3_probe(ww, x_cores)
+        return probing.t3_probe(x_cores, ww)
 
     def take(self, sample, data, idx):
         return _take_probe(sample, data, idx)

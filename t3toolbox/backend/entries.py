@@ -19,6 +19,7 @@ import typing as typ
 import t3toolbox.backend.contractions as contractions
 import t3toolbox.backend.fv_conversions as fv_conversions
 import t3toolbox.backend.apply as apply
+import t3toolbox.backend.sampling_variables as sampling_variables
 from t3toolbox.backend.common import *
 import math
 import t3toolbox.backend.probing as probing
@@ -63,48 +64,48 @@ def _t3_entries_step(
 
 
 def t3_entries(
-        x: typ.Union[
-            typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
-            typ.Tuple[NDArray, NDArray], # (tucker_supercore, tt_supercore)
-        ],
-        index: NDArray, # dtype=int, shape=(d,)+vsw. (or convertible to int array of this shape)
-) -> NDArray: # shape=vsw+vsc (W + C, frame-inner)
-    '''Compute entries of a Tucker tensor train.
+        x:                 typ.Tuple,                    # (tucker_cores, tt_cores), elm_shapes C+(nDi,Ni), C+(ri,nDi,r(i+1))
+        index:             NDArray,                      # int, shape=(d,)+W: the grid points
+) -> NDArray:                               # z. shape=W+C
+    '''The entries of a Tucker tensor train at the grid points ``index``.
+
+    One call of :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` wanting ``z`` on the point ``x``
+    (a corewise call). No jets (entry 120: along a curve, use the apply kind at ``index_to_one_hot``).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.backend.entries as entries
+    >>> from t3toolbox.backend.t3_constructors import t3_corewise_randn
+    >>> from t3toolbox.backend.fv_conversions import t3_orthogonal_representations
+    >>> np.random.seed(0)
+    >>> x = t3_corewise_randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+    >>> frame, variations = t3_orthogonal_representations(x)                   # a frame, and a direction at it
+    >>> index = np.array([[0, 3, 1], [4, 0, 2], [5, 1, 0]])                     # (d,) + W, W = (3,)
+    >>> z = entries.t3_entries(x, index)
+    >>> print(z.shape)
+    (3,)
     '''
-    use_jax = tree_contains_jax((x, index))
-    is_uniform = is_ndarray(x[0])
-    xnp, _, xscan = get_backend(is_uniform, use_jax)
-
-    tucker_cores, tt_cores = x
-    vsc = x[0][0].shape[:-2]
-    index = xnp.array(index)
-
-    vsw = index.shape[1:]    # index stack W (frame-inner: W outer, C inner)
-
-    mu_WCa = xnp.ones(vsw + vsc + (tt_cores[0].shape[-3],))   # W + C
-    ind_B_G = (index, tucker_cores, tt_cores)
-    mu_WCz, _ = xscan(_t3_entries_step, mu_WCa, ind_B_G)
-
-    result = xnp.sum(mu_WCz, axis=-1)
-    return result
+    (z,) = sampling_variables.sampling_variables('entries', x, index, ('z',))
+    return z
 
 
 def t3_entries_ambient_transpose(
-        c:                  NDArray,                # residual, shape=W+C
         index:              NDArray,                # int, shape=(d,)+W
         shape:              typ.Sequence[int],      # ambient dims (N0,...,N(d-1)) -- to size the one-hots
-        sum_over_probes:    bool = False,           # True: W becomes the CP rank (scatter-adds collisions)
+        residual:           NDArray,                # shape=W+C
+        sum_over_samples:   bool = False,           # True: W becomes the CP rank (scatter-adds collisions)
 ) -> typ.Sequence[NDArray]:  # canonical (CP) factors. len=d, ith elm_shape=stack_shape+(R, Ni)
-    '''Ambient transpose of :py:func:`t3_entries`: scatter ``c`` at ``index`` into CP factors.
+    '''Ambient transpose of :py:func:`t3_entries`: scatter ``residual`` at ``index`` into CP factors.
 
     The ``entries`` counterpart of :py:func:`t3_apply_ambient_transpose` -- identical
     with the apply vectors replaced by the unit vectors ``e_{index_k}``, so the CP factors are one-hots
-    and the back-projection is ``c * e_{idx_0} (x) ... (x) e_{idx_{d-1}}``. ``sum_over_probes=True``
+    and the back-projection is ``residual * e_{idx_0} (x) ... (x) e_{idx_{d-1}}``. ``sum_over_samples=True``
     makes ``W`` the CP rank (scatter-adding colliding indices -- the ``J^T r`` for entry sampling).
     ``shape`` supplies the ambient dims, which (unlike the apply case, where ``ww`` carries them) the
     residual and index alone do not determine. Returns CP factors (see the apply version).
     '''
-    use_jax = tree_contains_jax((c, index))
+    use_jax = tree_contains_jax((residual, index))
     xnp, _, _ = get_backend(False, use_jax)
     index = xnp.array(index)
     # one-hot CP factors e_{index_i}, elm_shape = W + (Ni,). eye(N)[index] follows numpy index semantics
@@ -112,55 +113,74 @@ def t3_entries_ambient_transpose(
     # (_onehot_vectors); the former `arange(N) == index` scatter matched nothing for a negative index and
     # silently returned zero factors.
     ww = tuple(xnp.eye(N)[index[i]] for i, N in enumerate(shape))
-    return apply.t3_apply_ambient_transpose(c, ww, sum_over_probes=sum_over_probes)
+    return apply.t3_apply_ambient_transpose(ww, residual, sum_over_samples=sum_over_samples)
 
 
 def tv_entries(
-        index:      NDArray,                # int, shape=(d,)+W (index stack W)
-        variation:  typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (var_tucker, var_tt)
-        frame:      typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray],
-                              typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (down, up, left, right)
-) -> NDArray:                               # entries of the dense tangent at ``index``; shape = W + K + C
-    '''Extract entries of the dense tangent at ``index`` (= apply with unit vectors, by slicing).
+        frame:             typ.Tuple,                    # (D, U, L, R)
+        variations:        typ.Tuple,                    # (V, H), elm_shapes K+C+(nUi,Ni), K+C+(rLi,nDi,rR(i+1))
+        index:             NDArray,                      # int, shape=(d,)+W: the grid points
+) -> NDArray:                               # Jp. shape=W+K+C
+    '''The entries of a tangent vector: ``J p``, the derivative along the direction ``variations`` at ``frame``.
 
-    Identical to :py:func:`tv_apply` except the upward edge variables come from slicing the
-    Tucker-core fibers (``D_i[..., index_i]`` and ``V_i[..., index_i]``) rather than contracting with
-    vectors -- so there is no contraction with unit basis vectors and no ``N`` factor.
+    One call of :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` wanting ``Jp``.
 
-    See Also
+    Examples
     --------
-    tv_apply
+    >>> import numpy as np
+    >>> import t3toolbox.backend.entries as entries
+    >>> from t3toolbox.backend.t3_constructors import t3_corewise_randn
+    >>> from t3toolbox.backend.fv_conversions import t3_orthogonal_representations
+    >>> np.random.seed(0)
+    >>> x = t3_corewise_randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+    >>> frame, variations = t3_orthogonal_representations(x)                   # a frame, and a direction at it
+    >>> index = np.array([[0, 3, 1], [4, 0, 2], [5, 1, 0]])                     # (d,) + W, W = (3,)
+    >>> Jp = entries.tv_entries(frame, variations, index)
+    >>> print(Jp.shape)
+    (3,)
     '''
-    down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores = frame
-    var_tucker_cores, var_tt_cores = variation
-
-    xis  = _entry_xis(down_tucker_cores, index)   # xi-hat_i  = D_i[..., index_i]   (fiber slice)
-    dxis = _entry_xis(var_tucker_cores, index)    # delta-xi_i = V_i[..., index_i]  (fiber slice)
-    mus  = compute_mu(left_tt_cores, xis)
-
-    return _apply_from_xis(xis, dxis, mus, right_tt_cores, up_tt_cores, var_tt_cores)
+    (Jp,) = sampling_variables.sampling_variables('entries', frame, index, ('Jp',), variations=variations)
+    return Jp
 
 
 def tv_entries_transpose(
-        c:          NDArray,                # residual, shape = W + C
-        index:      NDArray,                # int, shape=(d,)+W (the indices whose entries c weights)
-        frame:      typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray],
-                              typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (down, up, left, right)
-        sum_over_probes: bool = False,
-) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:  # (V_tildes, H_tildes)
-    '''Apply the transpose of :py:func:`tv_entries` -- scatter a residual ``c`` at ``index`` into a tangent.
+        frame:             typ.Tuple,                    # (D, U, L, R)
+        index:             NDArray,                      # int, shape=(d,)+W: the grid points
+        residual:          NDArray,                       # of the type of z: shape=W+[K]+C
+        sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
+) -> typ.Tuple[
+        typ.Tuple[NDArray, ...],                         # V blocks. len=d, elm_shape=[W]+[K]+C+(nUi,Ni)
+        typ.Tuple[NDArray, ...],                         # H blocks. len=d, elm_shape=[W]+[K]+C+(rLi,nDi,rR(i+1))
+]:
+    '''The transpose of :py:func:`tv_entries`: ``J^T`` applied to ``residual``, a tangent's blocks at ``frame``.
 
-    Identical to :py:func:`tv_apply_transpose` with the upward ``xi-hat`` from fiber slicing and
-    the apply vectors replaced by the unit vectors ``e_{index_k}`` (so the ``V-tilde`` outer product
-    *is* the entry scatter).
+    ``residual`` is a vector of the type of ``z`` (a stack ``K`` of them allowed), with no weight; it is turned inside
+    (a dual jet). One call of :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` wanting ``JtJp`` with
+    ``residual`` held as ``Jp`` (the route of a held ``Jp``: ``J^T`` of the vector held). The blocks are summed over
+    the samples by default. For repeated calls at one frame (inside an iterative solver), call
+    :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` with ``held=``: the frame's sweeps are then
+    computed once.
 
-    See Also
+    Examples
     --------
-    tv_entries
-    tv_apply_transpose
+    >>> import numpy as np
+    >>> import t3toolbox.backend.entries as entries
+    >>> from t3toolbox.backend.t3_constructors import t3_corewise_randn
+    >>> from t3toolbox.backend.fv_conversions import t3_orthogonal_representations
+    >>> np.random.seed(0)
+    >>> x = t3_corewise_randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+    >>> frame, variations = t3_orthogonal_representations(x)                   # a frame, and a direction at it
+    >>> index = np.array([[0, 3, 1], [4, 0, 2], [5, 1, 0]])                     # (d,) + W, W = (3,)
+    >>> Jp = entries.tv_entries(frame, variations, index)
+    >>> V, H = entries.tv_entries_transpose(frame, index, Jp)
+    >>> pair = lambda a, b: sum(float(np.sum(u * v)) for u, v in zip(a[0] + a[1], tuple(b[0]) + tuple(b[1])))
+    >>> print(bool(np.isclose(pair((V, H), variations), float(np.sum(Jp * Jp)))))       # <p, J^T J p> = |J p|^2
+    True
     '''
-    frame_sweep = tv_precompute_entries_frame_sweep(frame, index)
-    return tv_entries_transpose_from_sweep(c, index, frame, frame_sweep, sum_over_probes)
+    held = sampling_variables.HeldVariables(Jp=residual)
+    (blocks,) = sampling_variables.sampling_variables('entries', frame, index, ('JtJp',), held=held,
+                                                       sum_over_samples=sum_over_samples)
+    return blocks
 
 
 def tv_precompute_entries_frame_sweep(
@@ -242,28 +262,42 @@ def tv_entries_transpose_from_sweep(
 
 
 def t3_entries_corewise_transpose(
-        c:          NDArray,                # residual, shape=W+C
-        index:      NDArray,                # int, shape=(d,)+W
-        core_pair:  typ.Tuple[
-            typ.Sequence[NDArray],          # tucker_cores, len=d, elm_shape=C+(ni,Ni)
-            typ.Sequence[NDArray],          # tt_cores,     len=d, elm_shape=C+(ri,ni,r(i+1))
-        ],
-        sum_over_probes: bool = False,      # True: sum the apply stack W (scatter-adds collisions)
+        x:                 typ.Tuple,                    # (tucker_cores, tt_cores): the point
+        index:             NDArray,                      # int, shape=(d,)+W: the grid points
+        residual:          NDArray,                       # of the type of z: shape=W+[K]+C
+        sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
 ) -> typ.Tuple[
-    typ.Tuple[NDArray, ...],  # tucker-core gradients, same shapes as tucker_cores
-    typ.Tuple[NDArray, ...],  # tt-core gradients,     same shapes as tt_cores
+        typ.Tuple[NDArray, ...],                         # Tucker-core blocks. len=d, elm_shape=[W]+[K]+C+(nDi,Ni)
+        typ.Tuple[NDArray, ...],                         # TT-core blocks.     len=d, elm_shape=[W]+[K]+C+(ri,nDi,r(i+1))
 ]:
-    '''Corewise (non-manifold) transpose of :py:func:`t3_entries`: gradient of the
-    sampled entries w.r.t. the frame's cores.
+    '''The corewise transpose: ``J^T`` applied to ``residual`` in the cores of the point ``x``, the gradient of
+    ``phi(x) = <residual, z(x)>`` (plain inner product).
 
-    The ``entries`` counterpart of :py:func:`t3_apply_corewise_transpose` -- the Section 6.3 substitution
-    into :py:func:`tv_entries_transpose`. Needs no ambient ``shape`` argument: the dims come from
-    the frame ``tucker_cores``. ``sum_over_probes=True`` scatter-adds colliding indices (the gradient
-    ``J^T r``).
+    ``residual`` is a vector of the type of ``z`` (a stack ``K`` allowed), with no weight, turned inside. One call of
+    :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` on the corewise point ``x`` wanting ``JtJp``
+    with ``residual`` held as ``Jp``. Summed over the samples by default. For repeated calls at one frame (inside an iterative solver), call
+    :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` with ``held=``: the frame's sweeps are then
+    computed once.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.backend.entries as entries
+    >>> from t3toolbox.backend.t3_constructors import t3_corewise_randn
+    >>> from t3toolbox.backend.fv_conversions import t3_orthogonal_representations
+    >>> np.random.seed(0)
+    >>> x = t3_corewise_randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+    >>> frame, variations = t3_orthogonal_representations(x)                   # a frame, and a direction at it
+    >>> index = np.array([[0, 3, 1], [4, 0, 2], [5, 1, 0]])                     # (d,) + W, W = (3,)
+    >>> c = entries.t3_entries(x, index)
+    >>> B, G = entries.t3_entries_corewise_transpose(x, index, c)
+    >>> print([b.shape for b in B], [g.shape for g in G])
+    [(2, 4), (3, 5), (2, 6)] [(1, 2, 2), (2, 3, 2), (2, 2, 1)]
     '''
-    return tv_entries_transpose(
-        c, index, fv_conversions.t3_corewise_frame(core_pair), sum_over_probes=sum_over_probes,
-    )
+    held = sampling_variables.HeldVariables(Jp=residual)
+    (blocks,) = sampling_variables.sampling_variables('entries', x, index, ('JtJp',), held=held,
+                                                       sum_over_samples=sum_over_samples)
+    return blocks
 
 
 def t3_entries_corewise_hessian_from_sweep(
@@ -296,50 +330,42 @@ def t3_entries_corewise_hessian_from_sweep(
 
 
 def t3_entries_corewise_hessian(
-        c:                  NDArray,                # residual (omega^2 applied), shape=W+C
-        index:              NDArray,                # int, shape=(d,)+W
-        core_pair:          typ.Tuple[
-            typ.Sequence[NDArray],                  # tucker_cores of theta. len=d, elm_shape=C+(ni,Ni)
-            typ.Sequence[NDArray],                  # tt_cores of theta.     len=d, elm_shape=C+(ri,ni,r(i+1))
-        ],                                          # = TuckerTensorTrain.data
-        core_directions:    typ.Tuple[
-            typ.Sequence[NDArray],                  # Tucker directions theta_hat. len=d, elm_shape=K+C+(ni,Ni)
-            typ.Sequence[NDArray],                  # TT directions theta_hat.     len=d, elm_shape=K+C+(ri,ni,r(i+1))
-        ],
+        x:                 typ.Tuple,                    # (B, G): the point whose cores the directions vary
+        index:             NDArray,                      # int, shape=(d,)+W: the grid points
+        residual:          NDArray,                       # c, of the type of z: shape=W+C; no weight
+        core_directions:   typ.Tuple,                    # (B_dot, G_dot), the shapes of B, G with K+C
 ) -> typ.Tuple[
-    typ.Tuple[NDArray, ...],                        # Tucker block of K theta_hat. len=d, elm_shape=K+C+(ni,Ni)
-    typ.Tuple[NDArray, ...],                        # TT block of K theta_hat.     len=d, elm_shape=K+C+(ri,ni,r(i+1))
+        typ.Tuple[NDArray, ...],                         # Tucker block. len=d, elm_shape=K+C+(nDi,Ni)
+        typ.Tuple[NDArray, ...],                         # TT block.     len=d, elm_shape=K+C+(ri,nDi,r(i+1))
 ]:
-    '''The derivative of :py:func:`t3_entries_corewise_transpose` along core directions: the core-coordinate
-    Hessian of ``theta -> <c, entries(Phi(theta), index)>`` applied to ``theta_hat`` -- the exact Hessian's sampling
-    term for ``entries``. Identical to :py:func:`~t3toolbox.backend.apply.t3_apply_corewise_hessian` with the
-    upward ``xi`` / ``xi_dot`` from slicing Tucker-core fibers at ``index`` and the apply vectors replaced by the
-    unit vectors ``e_index`` (so the Tucker block is the entry scatter). Stacks, polymorphism and the mask-free
-    contract as there; index semantics are numpy's (the module note).
+    '''The corewise Hessian: the second derivative of ``phi(x) = <residual, z(x)>`` in the cores, applied to
+    ``core_directions`` (the derivative of :py:func:`t3_entries_corewise_transpose` along them).
+
+    ``residual`` is a vector of the type of ``z``, no weight, turned inside. One call of
+    :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` on the corewise point ``x`` wanting ``Kp``
+    with ``residual`` held as ``r``. Summed over the samples. For repeated calls at one frame (inside an iterative solver), call
+    :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` with ``held=``: the frame's sweeps are then
+    computed once.
 
     Examples
     --------
     >>> import numpy as np
-    >>> import t3toolbox.backend.t3_constructors as t3k
-    >>> import t3toolbox.backend.entries as t3e
-    >>> np.random.seed(0)                                                  # t3_corewise_randn draws from it
-    >>> rng = np.random.default_rng(0)
-    >>> shape, W = (4, 5, 3), 6
-    >>> theta = t3k.t3_corewise_randn(shape, (2, 3, 2), (1, 2, 2, 1))
-    >>> index = np.stack([rng.integers(0, N, size=W) for N in shape])     # (d,)+W grid points
-    >>> c = rng.standard_normal(W)
-    >>> dirs = (tuple(rng.standard_normal((2,) + u.shape) for u in theta[0]),
-    ...         tuple(rng.standard_normal((2,) + g.shape) for g in theta[1]))
-    >>> KB, KG = t3e.t3_entries_corewise_hessian(c, index, theta, dirs)
-    >>> one = lambda cores: t3e.t3_entries_corewise_transpose(c, index, cores, sum_over_probes=True)
-    >>> shift = lambda h: tuple(tuple(x + h * dx[0] for x, dx in zip(xs, dxs)) for xs, dxs in zip(theta, dirs))
-    >>> fd = [(a - b) / 2e-4 for a, b in zip(sum(one(shift(1e-4)), ()), sum(one(shift(-1e-4)), ()))]
-    >>> bool(max(np.linalg.norm(k[0] - f) / np.linalg.norm(f) for k, f in zip(KB + KG, fd)) < 1e-6)
-    True
+    >>> import t3toolbox.backend.entries as entries
+    >>> from t3toolbox.backend.t3_constructors import t3_corewise_randn
+    >>> from t3toolbox.backend.fv_conversions import t3_orthogonal_representations
+    >>> np.random.seed(0)
+    >>> x = t3_corewise_randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+    >>> frame, variations = t3_orthogonal_representations(x)                   # a frame, and a direction at it
+    >>> index = np.array([[0, 3, 1], [4, 0, 2], [5, 1, 0]])                     # (d,) + W, W = (3,)
+    >>> c = entries.t3_entries(x, index)
+    >>> KB, KG = entries.t3_entries_corewise_hessian(x, index, c, x)    # the direction x itself
+    >>> print([b.shape for b in KB], [g.shape for g in KG])
+    [(2, 4), (3, 5), (2, 6)] [(1, 2, 2), (2, 3, 2), (2, 2, 1)]
     '''
-    return t3_entries_corewise_hessian_from_sweep(
-        c, index, core_pair, core_directions,
-        tv_precompute_entries_frame_sweep(fv_conversions.t3_corewise_frame(core_pair), index))
+    held = sampling_variables.HeldVariables(r=residual)
+    (blocks,) = sampling_variables.sampling_variables('entries', x, index, ('Kp',), held=held,
+                                                       core_directions=core_directions)
+    return blocks
 
 
 ##########################################

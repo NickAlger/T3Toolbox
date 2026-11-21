@@ -4,8 +4,13 @@
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
 """Uniform tangent sampling (UT3Tangent probe / apply / entries).
 
-The uniform mirror of the ragged ``T3Tangent`` sampling frontend, sharing the polymorphic
-``{probing.tv_probe, apply.tv_apply, entries.tv_entries}``. The boundary work is the same as the plain layer's
+The uniform mirror of the ragged ``T3Tangent`` sampling frontend. **Since graded messages P12a** the plain
+(jet-free) functions ``utv_{probe,apply,entries}`` and their transposes are one call of the engine
+(:py:func:`~t3toolbox.backend.sampling_variables.sampling_variables`) on the frame's six elements: the engine masks
+the frame and **the variations with the frame's masks** (the variations' own masks are not read; a uniform tangent's
+variation masks are the frame's gauge masks), packs the sample, and masks every output. Their signatures move in
+P12b. What follows describes the jet functions and the ``*_from_sweep`` seam, which still share the ragged
+machinery. The boundary work is the same as the plain layer's
 ``ut3_sampling`` (the precedent), lifted to the frame-variations pair:
 
 1. **mask-once** the frame (4) and variation (2) supercores -- so the padded rank slots are zero and the
@@ -29,6 +34,7 @@ import t3toolbox.backend.entries as entries
 import t3toolbox.backend.sampling_derivatives as sampling_derivatives
 import t3toolbox.backend.ufv_masking as ufv_masking
 import t3toolbox.backend.ut3_operations as ut3_operations
+import t3toolbox.backend.sampling_variables as sampling_variables
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -80,12 +86,11 @@ def utv_probe(
         frame_data,       # UT3Frame .data
         variations_data,  # UT3Variations .data
 ):  # -> MIRRORS ww: ragged -> len=d tuple (W+K+C+(Ni,)); packed -> (d,)+W+K+C+(N,)
-    """Probe a uniform tangent vector (the bare ``𝒥``): mask-once, share ``probing.tv_probe``.
+    """Probe a uniform tangent vector (the bare ``𝒥``; the engine's ``Jp``, the variations masked by the frame's masks).
     **Mirrors** ``ww``'s packedness (ragged -> the d probes sliced to real widths; packed -> the packed array)."""
-    mv, mb = _mask_once(frame_data, variations_data)
     ragged_in = not ut3_operations.is_packed(ww)
-    packed = ut3_operations.pack_if_ragged(ww, mb[0].shape[-1])      # zero-pad to the supercore mode dim N
-    zz = probing.tv_probe(packed, mv, mb)                     # packed; shape=(d,)+W+K+C+(N,)
+    (zz,) = sampling_variables.sampling_variables('probe', frame_data, ww, ('Jp',),
+                                                   variations=tuple(variations_data[:2]))   # packed (d,)+W+K+C+(N,)
     return ut3_operations.unpack_vectors(zz, frame_data[4]) if ragged_in else zz
 
 
@@ -95,9 +100,9 @@ def utv_apply(
         variations_data,  # UT3Variations .data
 ):  # -> scalar apply, shape=W+K+C
     """Apply a uniform tangent vector in all modes (the bare ``𝒥``; a scalar per stack element)."""
-    mv, mb = _mask_once(frame_data, variations_data)
-    packed = ut3_operations.pack_if_ragged(ww, mb[0].shape[-1])
-    return apply.tv_apply(packed, mv, mb)
+    (Jp,) = sampling_variables.sampling_variables('apply', frame_data, ww, ('Jp',),
+                                                   variations=tuple(variations_data[:2]))
+    return Jp
 
 
 def utv_entries(
@@ -107,8 +112,9 @@ def utv_entries(
 ):  # -> scalar entries, shape=W+K+C
     """Entries of a uniform tangent vector at ``index`` (the bare ``𝒥``; fiber slicing, no packing -- the
     real indices ``index_i < Ni`` never reach the mode padding)."""
-    mv, mb = _mask_once(frame_data, variations_data)
-    return entries.tv_entries(index, mv, mb)
+    (Jp,) = sampling_variables.sampling_variables('entries', frame_data, index, ('Jp',),
+                                                   variations=tuple(variations_data[:2]))
+    return Jp
 
 
 # ----------------------------------------------------------------- the split precompute -> from_sweep seam
@@ -456,17 +462,13 @@ def utv_probe_transpose(
 ):  # -> UT3Variations .data: (V_tilde, H_tilde, shape, masks); stack K_new + C
     """Apply the transpose ``𝒥ᵀ`` of the probe map to residuals (the bare adjoint; no gauge projector).
 
-    Mask-once the frame, pack both the residuals and the probe vectors, share
-    ``probing.tv_probe_transpose`` (which routes through the d-prefixed WKC contractions), and
+    The engine's ``JtJp`` with the residuals held as ``Jp`` (P12a; it masks and packs), then
     attach the result variation masks: the frame's gauge masks broadcast over the new tangent stack
     ``K_new`` (``W+K`` if ``sum_over_probes=False``, ``K`` if ``True``). The output is re-masked with
     those masks, so its padding is exactly zero (the real block is unchanged). The bare ``𝒥ᵀ``."""
-    mb = ufv_masking.ufv_apply_frame_masks(frame_data)
-    N = mb[0].shape[-1]
-    packed_z = ut3_operations.pack_if_ragged(ztildes, N)
-    packed_ww = ut3_operations.pack_if_ragged(ww, N)
-    V_tilde, H_tilde = probing.tv_probe_transpose(
-        packed_z, packed_ww, mb, sum_over_probes=sum_over_probes)
+    held = sampling_variables.HeldVariables(Jp=ut3_operations.pack_if_ragged(ztildes, frame_data[0].shape[-1]))
+    ((V_tilde, H_tilde),) = sampling_variables.sampling_variables('probe', frame_data, ww, ('JtJp',), held=held,
+                                                                   sum_over_samples=sum_over_probes)
     return _remasked_transpose_output(frame_data, V_tilde, H_tilde)
 
 
@@ -477,12 +479,11 @@ def utv_apply_transpose(
         sum_over_probes=False,
 ):  # -> UT3Variations .data: (V_tilde, H_tilde, shape, masks); stack K_new + C
     """Apply the transpose ``𝒥ᵀ`` of the all-modes apply (the bare adjoint; the adjoint-state method).
-    Mask-once the frame, pack ``ww``, share ``apply.tv_apply_transpose``, attach the gauge masks
-    over the new tangent stack ``K_new`` and re-mask the output with them (clean padding)."""
-    mb = ufv_masking.ufv_apply_frame_masks(frame_data)
-    packed_ww = ut3_operations.pack_if_ragged(ww, mb[0].shape[-1])
-    V_tilde, H_tilde = apply.tv_apply_transpose(
-        c, packed_ww, mb, sum_over_probes=sum_over_probes)
+    The engine's ``JtJp`` with ``c`` held as ``Jp`` (P12a), then attach the gauge masks over the new tangent
+    stack ``K_new`` and re-mask the output with them (clean padding)."""
+    held = sampling_variables.HeldVariables(Jp=c)
+    ((V_tilde, H_tilde),) = sampling_variables.sampling_variables('apply', frame_data, ww, ('JtJp',), held=held,
+                                                                   sum_over_samples=sum_over_probes)
     return _remasked_transpose_output(frame_data, V_tilde, H_tilde)
 
 
@@ -493,11 +494,10 @@ def utv_entries_transpose(
         sum_over_probes=False,
 ):  # -> UT3Variations .data: (V_tilde, H_tilde, shape, masks); stack K_new + C
     """Apply the transpose ``𝒥ᵀ`` of the all-modes entries (scatter ``c`` at ``index``). Like
-    :py:func:`utv_apply_transpose` with the apply vectors replaced by the one-hot ``e_index`` (built
-    packed inside ``entries._onehot_vectors``), so ``index`` needs no packing. Re-masked output."""
-    mb = ufv_masking.ufv_apply_frame_masks(frame_data)
-    V_tilde, H_tilde = entries.tv_entries_transpose(
-        c, index, mb, sum_over_probes=sum_over_probes)
+    :py:func:`utv_apply_transpose` at the one-hot ``e_index`` (the engine's entries kind). Re-masked output."""
+    held = sampling_variables.HeldVariables(Jp=c)
+    ((V_tilde, H_tilde),) = sampling_variables.sampling_variables('entries', frame_data, index, ('JtJp',), held=held,
+                                                                   sum_over_samples=sum_over_probes)
     return _remasked_transpose_output(frame_data, V_tilde, H_tilde)
 
 

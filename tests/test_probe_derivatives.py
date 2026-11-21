@@ -190,7 +190,7 @@ class TestProbeDerivatives(unittest.TestCase):
         pp = [np.random.randn(N) for N in STRUCT[0]]
 
         z_jets = pd.tv_probe_derivatives(ww, pp, v.variations.data, v.frame.data, 3)
-        z_probe = t3p.tv_probe(ww, v.variations.data, v.frame.data)
+        z_probe = t3p.tv_probe(v.frame.data, v.variations.data, ww)
         for zj, zp in zip(z_jets, z_probe):
             self.check_relerr(zp, np.asarray(zj)[0])
 
@@ -202,7 +202,7 @@ class TestProbeDerivatives(unittest.TestCase):
         pp = [np.random.randn(N) for N in STRUCT[0]]
 
         z_jets = pd.t3_probe_derivatives(ww, pp, x.data, 3)
-        z_probe = t3p.t3_probe(ww, x.data)
+        z_probe = t3p.t3_probe(x.data, ww)
         for zj, zp in zip(z_jets, z_probe):
             self.check_relerr(zp, zj[0])
 
@@ -215,8 +215,8 @@ class TestProbeDerivatives(unittest.TestCase):
 
         z_jets = pd.t3_probe_derivatives(ww, pp, x.data, 1)
         s = 1e-6
-        z_plus  = t3p.t3_probe([w + s * p for w, p in zip(ww, pp)], x.data)
-        z_minus = t3p.t3_probe([w - s * p for w, p in zip(ww, pp)], x.data)
+        z_plus  = t3p.t3_probe(x.data, [w + s * p for w, p in zip(ww, pp)])
+        z_minus = t3p.t3_probe(x.data, [w - s * p for w, p in zip(ww, pp)])
         for i in range(len(STRUCT[0])):
             fd = (np.asarray(z_plus[i]) - np.asarray(z_minus[i])) / (2 * s)
             self.assertLessEqual(norm(fd - np.asarray(z_jets[i][1])) / norm(fd), 1e-6)
@@ -321,7 +321,7 @@ class TestProbeDerivatives(unittest.TestCase):
                     self._all_modes_check(
                         yv, lambda w, k, c: pd.dense_apply_derivatives([a[w] for a in ww], [a[w] for a in pp], Vd[k + c], ORDER),
                         W, K, C, ORDER)
-                    self.check_relerr(apply.tv_apply(ww, v.variations.data, v.frame.data), yv[0])
+                    self.check_relerr(apply.tv_apply(v.frame.data, v.variations.data, ww), yv[0])
 
     def test_entries_derivatives_match_dense(self):
         # entries derivatives (all modes, one-hot frame + general P): Euclidean and Riemannian vs oracle.
@@ -352,7 +352,7 @@ class TestProbeDerivatives(unittest.TestCase):
                     self._all_modes_check(
                         yv, lambda w, k, c: pd.dense_entries_derivatives(idx_s(w), [a[w] for a in pp], Vd[k + c], ORDER),
                         W, K, C, ORDER)
-                    self.check_relerr(entries.tv_entries(index, v.variations.data, v.frame.data), yv[0])
+                    self.check_relerr(entries.tv_entries(v.frame.data, v.variations.data, index), yv[0])
 
     def test_apply_entries_transpose_adjoint_identity(self):
         # adjoint identity <c, J v> = <J^T c, v> for the all-modes apply/entries derivative transposes

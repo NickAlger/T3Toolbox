@@ -1372,7 +1372,7 @@ class TestDispatch(unittest.TestCase):
                         ut3s.ut3_entries_corewise_hessian, bfit.ENTRIES)}
         for name, (z, s, hess, from_sweep, precompute, uhess, kind) in kinds.items():
             with self.subTest(kind=name):
-                self.assert_jit_jax(lambda zz, th, dd: hess(zz, s, th, dd), z, theta, dirs)
+                self.assert_jit_jax(lambda zz, th, dd: hess(th, s, zz, dd), z, theta, dirs)
                 traces = [0]
 
                 @jax.jit
@@ -4020,12 +4020,12 @@ class TestCurvatureJvpOracle(unittest.TestCase):
         c, c_jets = rnd(W), rnd(order + 1, W)
         z = t3.TuckerTensorTrain.randn((4, 5, 6), (3, 2, 3), (1, 3, 2, 1)).to_jax().data      # the T3-T3 operand
         cases = {
-            'probe': (lambda th: probing.t3_probe_corewise_transpose(zt, ww, th, sum_over_probes=True),
-                      lambda th, dd: probing.t3_probe_corewise_hessian(zt, ww, th, dd)),
-            'apply': (lambda th: bapply.t3_apply_corewise_transpose(c, ww, th, sum_over_probes=True),
-                      lambda th, dd: bapply.t3_apply_corewise_hessian(c, ww, th, dd)),
-            'entries': (lambda th: bentries.t3_entries_corewise_transpose(c, index, th, sum_over_probes=True),
-                        lambda th, dd: bentries.t3_entries_corewise_hessian(c, index, th, dd)),
+            'probe': (lambda th: probing.t3_probe_corewise_transpose(th, ww, zt),
+                      lambda th, dd: probing.t3_probe_corewise_hessian(th, ww, zt, dd)),
+            'apply': (lambda th: bapply.t3_apply_corewise_transpose(th, ww, c),
+                      lambda th, dd: bapply.t3_apply_corewise_hessian(th, ww, c, dd)),
+            'entries': (lambda th: bentries.t3_entries_corewise_transpose(th, index, c),
+                        lambda th, dd: bentries.t3_entries_corewise_hessian(th, index, c, dd)),
             'probe_derivatives': (
                 lambda th: pd.t3_probe_corewise_derivatives_transpose(zt_jets, ww, pp, th, order, sum_over_probes=True,
                                                                       chunk_size=None),

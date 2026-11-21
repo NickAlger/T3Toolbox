@@ -673,10 +673,10 @@ class TestManifold(unittest.TestCase):
         ww = tuple(np.random.randn(NW, N) for N in STRUCT[0])
         idx = np.array(tuple(np.random.randint(0, N, size=NW) for N in STRUCT[0]))
         vs = [t3m.MANIFOLD.randn(frame) for _ in range(K)]
-        for op, fwd, tr in [('apply', lambda v: apply.tv_apply(ww, v.variations.data, frame.data),
-                                      lambda c: apply.tv_apply_transpose(c, ww, frame.data, sum_over_probes=True)),
-                            ('entries', lambda v: entries.tv_entries(idx, v.variations.data, frame.data),
-                                        lambda c: entries.tv_entries_transpose(c, idx, frame.data, sum_over_probes=True))]:
+        for op, fwd, tr in [('apply', lambda v: apply.tv_apply(frame.data, v.variations.data, ww),
+                                      lambda c: apply.tv_apply_transpose(frame.data, ww, c)),
+                            ('entries', lambda v: entries.tv_entries(frame.data, v.variations.data, idx),
+                                        lambda c: entries.tv_entries_transpose(frame.data, idx, c))]:
             with self.subTest(op=op):
                 JvK = np.stack([np.asarray(fwd(v)) for v in vs], axis=1)     # base-inner W + K
                 c = np.random.randn(NW, K)

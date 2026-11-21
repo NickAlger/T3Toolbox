@@ -886,15 +886,18 @@ def _plain_ops(kind):
     frame) for a plain kind; the residual is the kind's own layout (probe: a list of d arrays W+C+(Ni,); apply /
     entries: one array W+C)."""
     if kind == 'probe':
-        return (probing.t3_probe_corewise_hessian, probing.t3_probe_corewise_hessian_from_sweep,
-                lambda z, s, th: probing.t3_probe_corewise_transpose(z, s, th, sum_over_probes=True),
+        return (lambda z, s, th, dd: probing.t3_probe_corewise_hessian(th, s, z, dd),
+                probing.t3_probe_corewise_hessian_from_sweep,
+                lambda z, s, th: probing.t3_probe_corewise_transpose(th, s, z),
                 probing.tv_precompute_probe_frame_sweep)
     if kind == 'apply':
-        return (bapply.t3_apply_corewise_hessian, bapply.t3_apply_corewise_hessian_from_sweep,
-                lambda z, s, th: bapply.t3_apply_corewise_transpose(z, s, th, sum_over_probes=True),
+        return (lambda z, s, th, dd: bapply.t3_apply_corewise_hessian(th, s, z, dd),
+                bapply.t3_apply_corewise_hessian_from_sweep,
+                lambda z, s, th: bapply.t3_apply_corewise_transpose(th, s, z),
                 bapply.tv_precompute_apply_frame_sweep)
-    return (bentries.t3_entries_corewise_hessian, bentries.t3_entries_corewise_hessian_from_sweep,
-            lambda z, s, th: bentries.t3_entries_corewise_transpose(z, s, th, sum_over_probes=True),
+    return (lambda z, s, th, dd: bentries.t3_entries_corewise_hessian(th, s, z, dd),
+            bentries.t3_entries_corewise_hessian_from_sweep,
+            lambda z, s, th: bentries.t3_entries_corewise_transpose(th, s, z),
             bentries.tv_precompute_entries_frame_sweep)
 
 
@@ -1063,7 +1066,7 @@ class TestPlainKindsTwoHole(unittest.TestCase):
                 mud = probing.compute_sigma(dirs[1], G, G, xi, xid, mu)
                 sig_hat = probing.compute_sigma_hat(G, xi, c)
                 sig_hat_d = probing.compute_tau(dirs[1], G, G, xi, xid, sig_hat)
-                got = bapply.t3_apply_corewise_hessian(c, ww, theta, dirs)[1]
+                got = bapply.t3_apply_corewise_hessian(theta, ww, c, dirs)[1]
                 ref = oracles.apply_tt_tangent_assembly_three_term(mu, mud, xi, xid, sig_hat, sig_hat_d, 1)
                 self.assertLess(_tree_relerr(got, ref), 1e-14)
 
@@ -1083,7 +1086,8 @@ class TestPlainKindsTwoHole(unittest.TestCase):
                             dirs = _directions(theta, K, rng)
                             one = hess(z, sample, theta, dirs)
                             two = from_sweep(z, sample, theta, dirs, sweep)
-                            self.assertTrue(all(np.array_equal(p, q) for p, q in zip(one[0] + one[1], two[0] + two[1])))
+                            # P12: the two-hole is the engine, the from-sweep tail the old kernel: to rounding
+                            self.assertLess(_relerr_tree(one, two), 1e-13)
 
     def test_stacked_equals_per_element(self):
         """Multi-axis W, K and C (and an empty W -- one sample): each stack element is the unstacked result."""
@@ -1115,7 +1119,7 @@ class TestPlainKindsTwoHole(unittest.TestCase):
                         _, theta, sample, z, dirs = _plain_problem(kind, struct, K, C, (7,), rng)
                         rag = hess(z, sample, theta, dirs)
                         N, n, r = max(shape), max(tr) + 1, max(ttr) + 1      # forced-larger padding everywhere
-                        th_u = u3c.t3_to_ut3(theta, N=N, n=n, r=r, squash_tails=False)[:2]
+                        th_u = u3c.t3_to_ut3(theta, N=N, n=n, r=r, squash_tails=False)   # P12: the uniform .data
                         dir_u = u3c.t3_to_ut3(dirs, N=N, n=n, r=r, squash_tails=False)[:2]
                         s_u = sample if kind == 'entries' else u3o.pack_vectors(sample, N)
                         z_u = u3o.pack_vectors(z, N) if kind == 'probe' else z
@@ -1350,8 +1354,8 @@ class TestDerivativeKindsTwoHole(unittest.TestCase):
         """At ``order = 0`` the derivative two-holes ARE the plain apply / entries two-holes (to rounding: the jet
         kernels take their order-0 branches, the plain ones plain probing's kernels -- observed <= 3.2e-16)."""
         rng = np.random.default_rng(74)
-        plain = {'apply_derivatives': lambda c, s, th, dd: bapply.t3_apply_corewise_hessian(c, s[0], th, dd),
-                 'entries_derivatives': lambda c, s, th, dd: bentries.t3_entries_corewise_hessian(c, s[0], th, dd)}
+        plain = {'apply_derivatives': lambda c, s, th, dd: bapply.t3_apply_corewise_hessian(th, s[0], c, dd),
+                 'entries_derivatives': lambda c, s, th, dd: bentries.t3_entries_corewise_hessian(th, s[0], c, dd)}
         for kind in _DERIV_KINDS:
             for name, struct in _PD_STRUCTURES.items():
                 for K, C in _PD_STACKS:
@@ -1359,7 +1363,7 @@ class TestDerivativeKindsTwoHole(unittest.TestCase):
                         _, theta, sample, c, dirs = _deriv_problem(kind, struct, 0, K, C, (5,), rng)
                         got = _deriv_ops(kind, 0)[0](c, sample, theta, dirs)
                         ref = plain[kind](c[0], sample, theta, dirs)
-                        self.assertLess(_tree_relerr(got[0] + got[1], ref[0] + ref[1]), 1e-14)
+                        self.assertLess(_tree_relerr(got[0] + got[1], ref[0] + ref[1]), 1e-13)   # P12: the engine
 
     def test_containment(self):
         """The sampling containments, at the two-hole level (the functions ``theta -> <c, S(Phi(theta))>`` coincide, so
@@ -1672,7 +1676,7 @@ class _BlockSumApplyKind(bfit.ApplyKind):
 
     def corewise_hessian(self, core_directions, r, ww, frame, sweep, base_point):
         Y = oracles.doubled(base_point, core_directions)
-        return oracles.blocksum(bapply.t3_apply_corewise_transpose(r, ww, Y, sum_over_probes=True), base_point)
+        return oracles.blocksum(bapply.t3_apply_corewise_transpose(Y, ww, r), base_point)
 
 
 @dc.dataclass(frozen=True, eq=False)
@@ -2198,7 +2202,7 @@ class TestPlainKindsExactLocalModel(unittest.TestCase):
                 got = lm.kind.corewise_hessian(th, lm.residual, lm.sample, lm.frame, lm.sweep, base)
                 w2r = lm.kind._apply_weight(list(lm.residual), 2) if kind == 'probe' else lm.residual
                 ref = _plain_ops(kind)[0](w2r, lm.sample, base, th)
-                self.assertTrue(all(np.array_equal(a, b) for a, b in zip(got[0] + got[1], ref[0] + ref[1])))
+                self.assertLess(_relerr_tree(got, ref), 1e-13)     # P12: the kind's old tail against the engine
                 module, fname = modules[kind]
                 with mock.patch.object(module, fname, wraps=getattr(module, fname)) as spy:
                     lm.hvp(_unit_tangent(prob.geom, lm.frame))

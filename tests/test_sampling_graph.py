@@ -54,6 +54,11 @@ def names_of(cell):
     return tuple(re.findall(r'`([^`]+)`', cell))
 
 
+def held_for(facts):
+    """The held names a set of facts implies: ``Jp`` when the facts say it is held (P12's route of ``JtJp``)."""
+    return frozenset({'Jp'}) if sv._HELD_JP in facts else frozenset()
+
+
 class TestGraph(unittest.TestCase):
 
     def test_the_docstring_table_is_the_graph_row_for_row(self):
@@ -99,7 +104,7 @@ class TestGraph(unittest.TestCase):
             with self.subTest(name=rule.name, reads=rule.reads):
                 self.assertTrue(set(rule.reads) <= made | sv._STORES | sv._ARGUMENTS)
                 self.assertTrue(rule.needs <= sv._ARGUMENTS | {'variations', 'core_directions', '_manifold',
-                                                               '_corewise'})
+                                                               '_corewise', sv._HELD_JP})
 
     def test_the_held_slots_are_the_public_computed_variables(self):
         """Every public computed variable of the graphs (row 6.4: every variable can be wanted and held); not the
@@ -184,8 +189,10 @@ class TestGraph(unittest.TestCase):
         """The adjoint seeded by ``Jp``: every row on the residual's path from ``w_tilde`` to ``V_tilde``, ``H_tilde``
         and the short node has a twin named ``'_Jp.' + name.lstrip('_')``, with the same step and start, ``carries_K``,
         each read on the path renamed and ``r`` read as ``Jp``; ``JtJp`` is the twin of ``g``. The full ``eta_tilde``
-        and ``g`` have no ``'_Jp.'`` twin."""
+        and ``g`` have no ``'_Jp.'`` twin. ``JtJp`` has a second route, the same row needing a held ``Jp`` in place of
+        the direction (P12)."""
         rows = {rule.name: rule for rule in sv._PROBE_GRAPH}
+        rows['JtJp'] = next(rule for rule in sv._PROBE_GRAPH if rule.name == 'JtJp')    # its first route
         path = sv._JP_PATHS['probe', '_manifold']
         self.assertEqual(path, ('w_tilde', 'xi_tilde', 'mu_tilde', 'nu_tilde', '_eta_tilde_top', 'V_tilde', 'H_tilde'))
         rename = lambda read: sv._twin(read) if read in path else ('Jp' if read == 'r' else read)
@@ -204,6 +211,9 @@ class TestGraph(unittest.TestCase):
         self.assertNotIn('_Jp.g', rows)
         twins = [name for name in rows if name.startswith('_Jp.')]
         self.assertEqual(len(twins), len(path))
+        jtjp = [rule for rule in sv._PROBE_GRAPH if rule.name == 'JtJp']
+        self.assertEqual(len(jtjp), 2)
+        self.assertEqual(jtjp[1], jtjp[0]._replace(needs=frozenset({sv._HELD_JP})))
 
     def test_the_apply_docstring_table_is_its_own_rows(self):
         """The apply kind's table lists the rows of its manifold graph that are not in the shared blocks, row for
@@ -279,11 +289,11 @@ class TestGraph(unittest.TestCase):
             if '_corewise' not in rule.needs:
                 rows.setdefault(rule.name, []).append(rule)
         several = {name: rules for name, rules in rows.items() if len(rules) > 1}
-        self.assertEqual(set(several), {'nu_L_dot', 'eta_D_dot', 'Jp'})
+        self.assertEqual(set(several), {'nu_L_dot', 'eta_D_dot', 'Jp', 'JtJp'})
         for name, rules in several.items():
             with self.subTest(name=name):
                 every_fact = frozenset().union(*(rule.needs for rule in rules)) | {'_manifold'}
-                chosen = [rule for rule in sv._closure('apply', (name,), frozenset(), every_fact) if rule.name == name]
+                chosen = [rule for rule in sv._closure('apply', (name,), held_for(every_fact), every_fact) if rule.name == name]
                 self.assertEqual(chosen, [rules[0]])
         self.assertEqual([rule.reads for rule in rows['Jp']], [('mu_R_dot',), ('mu_dot',)])
 
@@ -361,14 +371,14 @@ class TestClosure(unittest.TestCase):
             if '_corewise' not in rule.needs:
                 rows.setdefault(rule.name, []).append(rule)
         several = {name: rules for name, rules in rows.items() if len(rules) > 1}
-        self.assertEqual(set(several), {'z', 'nu_L_dot', 'eta_D_dot', 'Jp'})
+        self.assertEqual(set(several), {'z', 'nu_L_dot', 'eta_D_dot', 'Jp', 'JtJp'})
         for name, rules in several.items():
             with self.subTest(name=name):
                 every_fact = frozenset().union(*(rule.needs for rule in rules)) | {'_manifold'}
-                chosen = [rule for rule in sv._closure('probe', (name,), frozenset(), every_fact) if rule.name == name]
+                chosen = [rule for rule in sv._closure('probe', (name,), held_for(every_fact), every_fact) if rule.name == name]
                 self.assertEqual(chosen, [rules[0]])
                 fewer = rules[-1].needs | {'_manifold'}
-                chosen = [rule for rule in sv._closure('probe', (name,), frozenset(), fewer) if rule.name == name]
+                chosen = [rule for rule in sv._closure('probe', (name,), held_for(fewer), fewer) if rule.name == name]
                 self.assertEqual(chosen, [rules[-1]])
         self.assertEqual({rule.name for rule in sv._PROBE_GRAPH if '_corewise' in rule.needs}, {'V_tilde', 'H_tilde'})
 

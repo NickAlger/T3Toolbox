@@ -236,9 +236,10 @@ class TestTheDirectionStack(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, pattern):
                     sv.sampling_variables('probe', problem.frame, problem.ww, ('z',), variations=variations,
                                           core_directions=core_directions)
-        # a held Jp must have the call's K
+        # a held Jp must have the call's K (P12: its K is read and compared with the direction's at entry)
         (Jp,) = sv.sampling_variables('probe', problem.frame, problem.ww, ('Jp',), variations=(V, H))
-        with self.assertRaisesRegex(ValueError, r'the held Jp\[0\] has shape \(3, 4\); expected \(3, 2, 4\)'):
+        with self.assertRaisesRegex(ValueError, r'the held Jp has the stack of directions K = \(\), where the '
+                                                r'directions give K = \(2,\)'):
             sv.sampling_variables('probe', problem.frame, problem.ww, ('Jp_norm_sq',), variations=(V, H),
                                   held=sv.HeldVariables(Jp=tuple(a[:, 0] for a in Jp)))
 

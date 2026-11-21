@@ -16,6 +16,7 @@ import typing as typ
 import t3toolbox.backend.t3_conversions as t3_conversions
 import t3toolbox.backend.fv_conversions as fv_conversions
 import t3toolbox.backend.contractions as contractions
+import t3toolbox.backend.sampling_variables as sampling_variables
 from t3toolbox.backend.common import *
 import math
 import t3toolbox.backend.probing as probing
@@ -50,71 +51,67 @@ def _t3_apply_step(
 
 
 def t3_apply(
-        x: typ.Union[
-            typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
-            typ.Tuple[NDArray, NDArray], # (tucker_supercore, tt_supercore)
-        ],
-        vecs: typ.Union[
-            typ.Sequence[NDArray],  # len=d, elm_shape=vsw+(Ni,), ragged
-            NDArray, # shape=(d,) + vsw +(Ni,), uniform
-        ],
-) -> NDArray:
-    '''Contract a Tucker tensor train with vectors in all indices.
+        x:                 typ.Tuple,                    # (tucker_cores, tt_cores), elm_shapes C+(nDi,Ni), C+(ri,nDi,r(i+1))
+        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=J_in_i+W+(Ni,): input jets
+        order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
+) -> NDArray:                               # z. shape=F+W+C
+    '''Apply a Tucker tensor train in every mode to the input jets: one number per sample and slot.
+
+    One call of :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` wanting ``z`` on the point ``x``
+    (a corewise call). Taylor coefficients on the jet shape ``order`` (``()`` for none).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.backend.apply as apply
+    >>> from t3toolbox.backend.t3_constructors import t3_corewise_randn
+    >>> from t3toolbox.backend.fv_conversions import t3_orthogonal_representations
+    >>> np.random.seed(0)
+    >>> x = t3_corewise_randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+    >>> frame, variations = t3_orthogonal_representations(x)                   # a frame, and a direction at it
+    >>> ww = [np.random.randn(3, n) for n in (4, 5, 6)]                          # W = (3,)
+    >>> z = apply.t3_apply(x, ww)
+    >>> print(z.shape)
+    (3,)
     '''
-    use_jax = tree_contains_jax((x, vecs))
-    is_uniform = is_ndarray(x[0])  # supercore -> real lax.scan over the mode axis (like entries)
-    xnp, _, xscan = get_backend(is_uniform, use_jax)
-
-    #
-    tucker_cores, tt_cores = x
-
-    #
-
-    vsc = tucker_cores[0].shape[:-2] # core/frame stack C (the batch of T3s)
-    vsw = vecs[0].shape[:-1]         # vec stack W (the probe-like vectors), frame-inner: W outer, C inner
-
-    mu_WCa = xnp.ones(vsw + vsc + (tt_cores[0].shape[-3],))   # W + C
-    v_B_G = (vecs, tucker_cores, tt_cores)
-    mu_WCz, _ = xscan(_t3_apply_step, mu_WCa, v_B_G)
-
-    result = xnp.sum(mu_WCz, axis=-1)
-    return result
+    (z,) = sampling_variables.sampling_variables('apply', x, ww, ('z',), order=order)
+    return z
 
 
 def t3_apply_ambient_transpose(
-        c:                  NDArray,                # residual, shape=W+C
         ww:                 typ.Sequence[NDArray],  # apply vectors, len=d, elm_shape=W+(Ni,)
-        sum_over_probes:    bool = False,           # True: W becomes the CP rank (ambient J^T r)
+        residual:           NDArray,                # shape=W+C
+        sum_over_samples:   bool = False,           # True: W becomes the CP rank (ambient J^T r)
 ) -> typ.Sequence[NDArray]:  # canonical (CP) factors. len=d, ith elm_shape=stack_shape+(R, Ni)
-    '''Ambient transpose of :py:func:`t3_apply`: back-project ``c`` into CP factors.
+    '''Ambient transpose of :py:func:`t3_apply`: back-project ``residual`` into CP factors.
 
     The *ambient* adjoint -- the transpose of ``apply`` as a linear map on the **full tensor space**
     (``X -> ( <X, w0^W (x) ... (x) w_{d-1}^W> )_W``). Frame-free; the back-projection
-    ``c * (w0 (x) ... (x) w_{d-1})`` is rank-1, whose natural representation is a **canonical (CP)
+    ``residual * (w0 (x) ... (x) w_{d-1})`` is rank-1, whose natural representation is a **canonical (CP)
     decomposition** (``apply`` consumes one vector per mode; its adjoint emits one scaled vector per
     mode). This is distinct from the *corewise* transpose (gradient w.r.t. a base point's cores) and
     the *tangent* transpose (Riemannian gradient) -- see ``docs/transposes.md`` for the full taxonomy.
 
-    - ``sum_over_probes=False`` (primary): ``W`` is a passthrough stacking axis -- a ``W (+ C)`` stack
+    - ``sum_over_samples=False`` (primary): ``W`` is a passthrough stacking axis -- a ``W (+ C)`` stack
       of rank-1 CP tensors (CP rank ``R=1``).
-    - ``sum_over_probes=True``: ``W`` becomes the CP **rank** -- one rank-``|W|`` CP tensor
-      ``sum_W c_W * (w0^W (x) ...)`` (the ambient ``J^T r``). Cheap as CP (``O(d |W| N)``, the shared
+    - ``sum_over_samples=True``: ``W`` becomes the CP **rank** -- one rank-``|W|`` CP tensor
+      ``sum_W residual_W * (w0^W (x) ...)`` (the ambient ``J^T r``). Cheap as CP (``O(d |W| N)``, the shared
       rank index stays implicit); the ``|W|^2`` cost of a *dense* Tucker tensor train is incurred only
       if you convert with ``t3_conversions.t3_from_canonical``.
 
-    Returns the CP ``factors`` (``c`` folded into the first), in the layout
+    Returns the CP ``factors`` (``residual`` folded into the first), in the layout
     ``t3_conversions.t3_from_canonical`` consumes.
     '''
-    use_jax = tree_contains_jax((c, ww))
+    use_jax = tree_contains_jax((residual, ww))
     xnp, _, _ = get_backend(False, use_jax)
-    c = xnp.asarray(c)
+    c = xnp.asarray(residual)
 
     nW = ww[0].ndim - 1     # probe stack rank (ww[i] is W + (Ni,))
     W  = ww[0].shape[:nW]   # probe stack
     C  = c.shape[nW:]       # frame stack (c is W + C)
     nC = len(C)
 
-    if sum_over_probes:
+    if sum_over_samples:
         # canonical rank |W|, stack C: w_i flattened over W into the rank axis, broadcast over C;
         # c folded into F_0 as  F_0[C, s, n] = c_flat[s, C] * w0_flat[s, n].
         m = int(np.prod(W, dtype=int))                       # |W|
@@ -141,60 +138,72 @@ def t3_apply_ambient_transpose(
 
 
 def tv_apply(
-        ww:         typ.Sequence[NDArray],  # apply vectors, len=d, elm_shape=W+(Ni,)
-        variation:  typ.Tuple[
-            typ.Sequence[NDArray],          # var_tucker_cores. len=d, elm_shape=K+C+(nUi,Ni)
-            typ.Sequence[NDArray],          # var_tt_cores.     len=d, elm_shape=K+C+(rLi,nDi,rR(i+1))
-        ],
-        frame:      typ.Tuple[
-            typ.Sequence[NDArray],          # down_tucker_cores  D. len=d
-            typ.Sequence[NDArray],          # up_tt_cores        U. len=d
-            typ.Sequence[NDArray],          # left_tt_cores      L. len=d
-            typ.Sequence[NDArray],          # right_tt_cores     R. len=d
-        ],                                  # frame order = T3Frame.data = (down, up, left, right)
-) -> NDArray:                               # the scalar apply(v, ww), one per stack element; shape = W + K + C
-    '''Apply a tangent vector in all modes: contract the dense tangent with ``ww`` in every index.
+        frame:             typ.Tuple,                    # (D, U, L, R)
+        variations:        typ.Tuple,                    # (V, H), elm_shapes K+C+(nUi,Ni), K+C+(rLi,nDi,rR(i+1))
+        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=J_in_i+W+(Ni,): input jets
+        order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
+) -> NDArray:                               # Jp. shape=F+W+K+C
+    '''The apply of a tangent vector: ``J p``, the derivative along the direction ``variations`` at ``frame``.
 
-    The all-modes special case of probing -- a single left-to-right pass (mu-hat via L, then the
-    perturbation sigma via R), contracted at the terminal bond. No right (nu) / central (eta) sweeps,
-    no per-mode assembly. See Section 6.2.2 (Algorithms 6-7) of Alger et al. (2026).
+    One call of :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` wanting ``Jp``.
 
-    See Also
+    Examples
     --------
-    tv_entries
-    tv_probe
+    >>> import numpy as np
+    >>> import t3toolbox.backend.apply as apply
+    >>> from t3toolbox.backend.t3_constructors import t3_corewise_randn
+    >>> from t3toolbox.backend.fv_conversions import t3_orthogonal_representations
+    >>> np.random.seed(0)
+    >>> x = t3_corewise_randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+    >>> frame, variations = t3_orthogonal_representations(x)                   # a frame, and a direction at it
+    >>> ww = [np.random.randn(3, n) for n in (4, 5, 6)]                          # W = (3,)
+    >>> Jp = apply.tv_apply(frame, variations, ww)
+    >>> print(Jp.shape)
+    (3,)
     '''
-    down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores = frame
-    var_tucker_cores, var_tt_cores = variation
-
-    xis  = compute_xi(down_tucker_cores, ww)     # xi-hat_i  = D_i w_i
-    dxis = compute_dxi(var_tucker_cores, ww)     # delta-xi_i = V_i w_i
-    mus  = compute_mu(left_tt_cores, xis)        # frame left sweep via L
-
-    return _apply_from_xis(xis, dxis, mus, right_tt_cores, up_tt_cores, var_tt_cores)
+    (Jp,) = sampling_variables.sampling_variables('apply', frame, ww, ('Jp',), order=order, variations=variations)
+    return Jp
 
 
 def tv_apply_transpose(
-        c:          NDArray,                # residual, shape = W + K + C (K optional; one per probe-set, per base point)
-        ww:         typ.Sequence[NDArray],  # the apply vectors, len=d, elm_shape=W+(Ni,)
-        frame:      typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray],
-                              typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (down, up, left, right)
-        sum_over_probes: bool = False,
-) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:  # (V_tildes, H_tildes) = T3Variations.data
-    '''Apply the transpose of :py:func:`tv_apply` -- back-project a residual ``c`` into a tangent.
+        frame:             typ.Tuple,                    # (D, U, L, R)
+        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=J_in_i+W+(Ni,): input jets
+        residual:          NDArray,                       # of the type of z: shape=F+W+[K]+C
+        order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
+        sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
+) -> typ.Tuple[
+        typ.Tuple[NDArray, ...],                         # V blocks. len=d, elm_shape=[W]+[K]+C+(nUi,Ni)
+        typ.Tuple[NDArray, ...],                         # H blocks. len=d, elm_shape=[W]+[K]+C+(rLi,nDi,rR(i+1))
+]:
+    '''The transpose of :py:func:`tv_apply`: ``J^T`` applied to ``residual``, a tangent's blocks at ``frame``.
 
-    The adjoint of the (linear-in-the-variation) all-modes apply. Needs only the frame sweep
-    (xi-hat, mu-hat, nu-hat, eta-hat) and a single-term scatter assembly (it skips the adjoint
-    perturbation sweep that tv_probe_transpose runs). With ``sum_over_probes=False`` the probe
-    stack W becomes the output tangent stack; with ``True`` it is summed (the ``J^T r`` back-projection).
+    ``residual`` is a vector of the type of ``z`` (a stack ``K`` of them allowed), with no weight; it is turned inside
+    (a dual jet). One call of :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` wanting ``JtJp`` with
+    ``residual`` held as ``Jp`` (the route of a held ``Jp``: ``J^T`` of the vector held). The blocks are summed over
+    the samples by default. For repeated calls at one frame (inside an iterative solver), call
+    :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` with ``held=``: the frame's sweeps are then
+    computed once.
 
-    See Also
+    Examples
     --------
-    tv_apply
-    tv_entries_transpose
+    >>> import numpy as np
+    >>> import t3toolbox.backend.apply as apply
+    >>> from t3toolbox.backend.t3_constructors import t3_corewise_randn
+    >>> from t3toolbox.backend.fv_conversions import t3_orthogonal_representations
+    >>> np.random.seed(0)
+    >>> x = t3_corewise_randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+    >>> frame, variations = t3_orthogonal_representations(x)                   # a frame, and a direction at it
+    >>> ww = [np.random.randn(3, n) for n in (4, 5, 6)]                          # W = (3,)
+    >>> Jp = apply.tv_apply(frame, variations, ww)
+    >>> V, H = apply.tv_apply_transpose(frame, ww, Jp)
+    >>> pair = lambda a, b: sum(float(np.sum(u * v)) for u, v in zip(a[0] + a[1], tuple(b[0]) + tuple(b[1])))
+    >>> print(bool(np.isclose(pair((V, H), variations), float(np.sum(Jp * Jp)))))       # <p, J^T J p> = |J p|^2
+    True
     '''
-    frame_sweep = tv_precompute_apply_frame_sweep(frame, ww)
-    return tv_apply_transpose_from_sweep(c, ww, frame, frame_sweep, sum_over_probes)
+    held = sampling_variables.HeldVariables(Jp=residual)
+    (blocks,) = sampling_variables.sampling_variables('apply', frame, ww, ('JtJp',), order=order, held=held,
+                                                       sum_over_samples=sum_over_samples)
+    return blocks
 
 
 def tv_precompute_apply_frame_sweep(
@@ -299,38 +308,43 @@ def tv_apply_transpose_from_sweep(
 
 
 def t3_apply_corewise_transpose(
-        c:          NDArray,                # residual, shape=W+C
-        ww:         typ.Sequence[NDArray],  # apply vectors, len=d, elm_shape=W+(Ni,)
-        core_pair:  typ.Tuple[
-            typ.Sequence[NDArray],          # tucker_cores, len=d, elm_shape=C+(ni,Ni)
-            typ.Sequence[NDArray],          # tt_cores,     len=d, elm_shape=C+(ri,ni,r(i+1))
-        ],
-        sum_over_probes: bool = False,      # True: sum the apply stack W (the gradient J^T r)
+        x:                 typ.Tuple,                    # (tucker_cores, tt_cores): the point
+        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=J_in_i+W+(Ni,): input jets
+        residual:          NDArray,                       # of the type of z: shape=F+W+[K]+C
+        order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
+        sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
 ) -> typ.Tuple[
-    typ.Tuple[NDArray, ...],  # tucker-core gradients, same shapes as tucker_cores
-    typ.Tuple[NDArray, ...],  # tt-core gradients,     same shapes as tt_cores
+        typ.Tuple[NDArray, ...],                         # Tucker-core blocks. len=d, elm_shape=[W]+[K]+C+(nDi,Ni)
+        typ.Tuple[NDArray, ...],                         # TT-core blocks.     len=d, elm_shape=[W]+[K]+C+(ri,nDi,r(i+1))
 ]:
-    '''Corewise (non-manifold) transpose of :py:func:`t3_apply`: gradient of the
-    measurement w.r.t. the cores of the frame ``core_pair``, treated as independent variables.
+    '''The corewise transpose: ``J^T`` applied to ``residual`` in the cores of the point ``x``, the gradient of
+    ``phi(x) = <residual, z(x)>`` (plain inner product).
 
-    The adjoint of the *core parametrization* ``cores -> apply(X(cores), ww)`` at the base point -- the
-    gradient a core-wise optimizer (Adam, L-BFGS) needs. Returns gradients shaped exactly like
-    ``(tucker_cores, tt_cores)`` -- a gradient, NOT a tensor (so no ``|W|`` blow-up: the apply stack
-    collapses into the fixed-size cores). Distinct from the *ambient* transpose (a free CP tensor) and
-    the *tangent* transpose (a Riemannian tangent); see ``docs/transposes.md``.
+    ``residual`` is a vector of the type of ``z`` (a stack ``K`` allowed), with no weight, turned inside. One call of
+    :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` on the corewise point ``x`` wanting ``JtJp``
+    with ``residual`` held as ``Jp``. Summed over the samples by default. For repeated calls at one frame (inside an iterative solver), call
+    :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` with ``held=``: the frame's sweeps are then
+    computed once.
 
-    Implemented by the Section 6.3 ("corewise simplification") substitution into the tangent transpose,
-    ``B -> D``, ``G -> U, L, R``: :py:func:`tv_apply_transpose` at the frame ``(B, G, G, G)``. The manifold
-    operation requires an orthogonal frame; the corewise one works for any ``B``, ``G``.
-    ``sum_over_probes=True`` sums the apply stack ``W`` (the gradient ``J^T r``); ``False`` keeps ``W`` as a
-    stack (one core-gradient set per probe).
-
-    Math reference: Section 6.3, Alger et al. (2026), "Tucker Tensor Train Taylor Series"
-    (arXiv:2603.21141).
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.backend.apply as apply
+    >>> from t3toolbox.backend.t3_constructors import t3_corewise_randn
+    >>> from t3toolbox.backend.fv_conversions import t3_orthogonal_representations
+    >>> np.random.seed(0)
+    >>> x = t3_corewise_randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+    >>> frame, variations = t3_orthogonal_representations(x)                   # a frame, and a direction at it
+    >>> ww = [np.random.randn(3, n) for n in (4, 5, 6)]                          # W = (3,)
+    >>> c = apply.t3_apply(x, ww)
+    >>> B, G = apply.t3_apply_corewise_transpose(x, ww, c)
+    >>> print([b.shape for b in B], [g.shape for g in G])
+    [(2, 4), (3, 5), (2, 6)] [(1, 2, 2), (2, 3, 2), (2, 2, 1)]
     '''
-    return tv_apply_transpose(
-        c, ww, fv_conversions.t3_corewise_frame(core_pair), sum_over_probes=sum_over_probes,
-    )
+    held = sampling_variables.HeldVariables(Jp=residual)
+    (blocks,) = sampling_variables.sampling_variables('apply', x, ww, ('JtJp',), order=order, held=held,
+                                                       sum_over_samples=sum_over_samples)
+    return blocks
 
 
 def t3_apply_corewise_hessian_from_sweep(
@@ -365,72 +379,43 @@ def t3_apply_corewise_hessian_from_sweep(
 
 
 def t3_apply_corewise_hessian(
-        c:                  NDArray,                # residual (omega^2 applied), shape=W+C
-
-        ww:                 typ.Union[typ.Sequence[NDArray], NDArray],  # apply vectors, len=d, elm_shape=W+(Ni,)
-
-        core_pair:          typ.Tuple[
-            typ.Sequence[NDArray],                  # tucker_cores of theta. len=d, elm_shape=C+(ni,Ni)
-            typ.Sequence[NDArray],                  # tt_cores of theta.     len=d, elm_shape=C+(ri,ni,r(i+1))
-        ],                                          # = TuckerTensorTrain.data
-        core_directions:    typ.Tuple[
-            typ.Sequence[NDArray],                  # Tucker directions theta_hat. len=d, elm_shape=K+C+(ni,Ni)
-            typ.Sequence[NDArray],                  # TT directions theta_hat.     len=d, elm_shape=K+C+(ri,ni,r(i+1))
-        ],
+        x:                 typ.Tuple,                    # (B, G): the point whose cores the directions vary
+        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=J_in_i+W+(Ni,): input jets
+        residual:          NDArray,                       # c, of the type of z: shape=F+W+C; no weight
+        core_directions:   typ.Tuple,                    # (B_dot, G_dot), the shapes of B, G with K+C
+        order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
 ) -> typ.Tuple[
-    typ.Tuple[NDArray, ...],                        # Tucker block of K theta_hat. len=d, elm_shape=K+C+(ni,Ni)
-    typ.Tuple[NDArray, ...],                        # TT block of K theta_hat.     len=d, elm_shape=K+C+(ri,ni,r(i+1))
+        typ.Tuple[NDArray, ...],                         # Tucker block. len=d, elm_shape=K+C+(nDi,Ni)
+        typ.Tuple[NDArray, ...],                         # TT block.     len=d, elm_shape=K+C+(ri,nDi,r(i+1))
 ]:
-    '''The derivative of :py:func:`t3_apply_corewise_transpose` along core directions: the core-coordinate Hessian
-    of ``theta -> <c, apply(Phi(theta))>`` applied to ``theta_hat``,
+    '''The corewise Hessian: the second derivative of ``phi(x) = <residual, z(x)>`` in the cores, applied to
+    ``core_directions`` (the derivative of :py:func:`t3_apply_corewise_transpose` along them).
 
-        ``K_c theta_hat = d/ds grad_theta <c, apply(Phi(theta + s theta_hat))> |_{s=0}``,
-
-    for a fixed residual ``c``. The sampling half of the exact Riemannian Hessian's curvature term for ``apply``,
-    by a hand-written "two-hole" sweep -- exact and symmetric. It differentiates the transpose's adjoint-state
-    form (:py:func:`_apply_transpose_adjoint` at the corewise frame ``(B, G, G, G)``) by the product rule: the
-    residual-seeded right context ``sigma_hat`` is swept through ``G`` (there is no ``nu`` or ``eta``), then its
-    derivative and those of ``xi`` and ``mu`` -- the GN tangent forward's ``compute_dxi`` / ``compute_sigma`` and
-    ``compute_tau`` -- feed the derivatives of the single-term assemblies. :py:func:`t3_entries_corewise_hessian`
-    is the same with fiber-sliced ``xi`` and one-hot apply vectors.
-
-    Stacks: ``c`` and ``core_pair`` carry ``W + C`` / ``C``; the directions carry a tangent stack ``K``; the output
-    is raw core variations shaped like the directions, ``W`` summed. Polymorphic over ragged tuples and uniform
-    supercores (packed ``ww``). **Mask-free by contract** (as :py:func:`~t3toolbox.backend.probing.t3_probe_corewise_hessian`):
-    a uniform caller masks ``theta`` and ``theta_hat`` with ``theta``'s masks
-    (:py:func:`~t3toolbox.backend.ut3_sampling.ut3_apply_corewise_hessian`).
+    ``residual`` is a vector of the type of ``z``, no weight, turned inside. One call of
+    :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` on the corewise point ``x`` wanting ``Kp``
+    with ``residual`` held as ``r``. Summed over the samples. For repeated calls at one frame (inside an iterative solver), call
+    :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` with ``held=``: the frame's sweeps are then
+    computed once.
 
     Examples
     --------
-    The directional derivative of the corewise transpose (a central difference is accurate to ``O(h^2)``), and
-    symmetric:
-
     >>> import numpy as np
-    >>> import t3toolbox.backend.t3_constructors as t3k
-    >>> import t3toolbox.backend.apply as t3a
-    >>> np.random.seed(0)                                                  # t3_corewise_randn draws from it
-    >>> rng = np.random.default_rng(0)
-    >>> shape, W = (4, 5, 3), 6
-    >>> theta = t3k.t3_corewise_randn(shape, (2, 3, 2), (1, 2, 2, 1))
-    >>> ww = [rng.standard_normal((W, N)) for N in shape]
-    >>> c = rng.standard_normal(W)                                         # one residual per apply
-    >>> dirs = (tuple(rng.standard_normal((2,) + u.shape) for u in theta[0]),   # a tangent stack K = (2,)
-    ...         tuple(rng.standard_normal((2,) + g.shape) for g in theta[1]))
-    >>> KB, KG = t3a.t3_apply_corewise_hessian(c, ww, theta, dirs)
-    >>> [k.shape for k in KB]                                              # K + the Tucker core shapes
-    [(2, 2, 4), (2, 3, 5), (2, 2, 3)]
-    >>> one = lambda cores: t3a.t3_apply_corewise_transpose(c, ww, cores, sum_over_probes=True)
-    >>> shift = lambda h: tuple(tuple(x + h * dx[0] for x, dx in zip(xs, dxs)) for xs, dxs in zip(theta, dirs))
-    >>> fd = [(a - b) / 2e-4 for a, b in zip(sum(one(shift(1e-4)), ()), sum(one(shift(-1e-4)), ()))]
-    >>> bool(max(np.linalg.norm(k[0] - f) / np.linalg.norm(f) for k, f in zip(KB + KG, fd)) < 1e-6)
-    True
-    >>> gram = sum(a.reshape(2, -1) @ b.reshape(2, -1).T for a, b in zip(dirs[0] + dirs[1], KB + KG))
-    >>> bool(abs(gram[0, 1] - gram[1, 0]) < 1e-12 * abs(gram).max())     # <a, K b> = <b, K a>
-    True
+    >>> import t3toolbox.backend.apply as apply
+    >>> from t3toolbox.backend.t3_constructors import t3_corewise_randn
+    >>> from t3toolbox.backend.fv_conversions import t3_orthogonal_representations
+    >>> np.random.seed(0)
+    >>> x = t3_corewise_randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+    >>> frame, variations = t3_orthogonal_representations(x)                   # a frame, and a direction at it
+    >>> ww = [np.random.randn(3, n) for n in (4, 5, 6)]                          # W = (3,)
+    >>> c = apply.t3_apply(x, ww)
+    >>> KB, KG = apply.t3_apply_corewise_hessian(x, ww, c, x)    # the direction x itself
+    >>> print([b.shape for b in KB], [g.shape for g in KG])
+    [(2, 4), (3, 5), (2, 6)] [(1, 2, 2), (2, 3, 2), (2, 2, 1)]
     '''
-    return t3_apply_corewise_hessian_from_sweep(
-        c, ww, core_pair, core_directions,
-        tv_precompute_apply_frame_sweep(fv_conversions.t3_corewise_frame(core_pair), ww))
+    held = sampling_variables.HeldVariables(r=residual)
+    (blocks,) = sampling_variables.sampling_variables('apply', x, ww, ('Kp',), order=order, held=held,
+                                                       core_directions=core_directions)
+    return blocks
 
 
 ##########################################

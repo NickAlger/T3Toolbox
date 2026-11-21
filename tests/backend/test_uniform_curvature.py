@@ -604,8 +604,9 @@ def _plain_ragged_hessian(kind):
     import t3toolbox.backend.apply as bapply
     import t3toolbox.backend.entries as bentries
     import t3toolbox.backend.probing as probing
-    return {'probe': probing.t3_probe_corewise_hessian, 'apply': bapply.t3_apply_corewise_hessian,
-            'entries': bentries.t3_entries_corewise_hessian}[kind]
+    new = {'probe': probing.t3_probe_corewise_hessian, 'apply': bapply.t3_apply_corewise_hessian,
+           'entries': bentries.t3_entries_corewise_hessian}[kind]
+    return lambda c, s, theta, D: new(theta, s, c, D)          # the tests' order (c, sample, point, directions)
 
 
 def _plain_sample(kind, shape, W, n, rng):
@@ -673,8 +674,17 @@ class TestUniformPlainKindsTwoHole(unittest.TestCase):
                 good = _PLAIN_UNIFORM[kind][0](z, s, theta, D)
                 N = uframe[0].shape[-1]
                 pk = lambda v: ut3o.pack_if_ragged(v, N)
-                bare = _plain_ragged_hessian(kind)(pk(z) if kind == 'probe' else z, s if kind == 'entries' else pk(s),
-                                                   ut3mask.ut3_apply_masks(theta), D)
+                # P12: the ragged name is the engine (which masks every operand); the control is on the old kernel,
+                # the two-hole from a sweep at the masked point's corewise frame, with the direction unmasked
+                import t3toolbox.backend.apply as bapply
+                import t3toolbox.backend.entries as bentries
+                import t3toolbox.backend.probing as probing
+                module = {'probe': probing, 'apply': bapply, 'entries': bentries}[kind]
+                mB, mG = ut3mask.ut3_apply_masks(theta)
+                sample = s if kind == 'entries' else pk(s)
+                sweep = getattr(module, 'tv_precompute_%s_frame_sweep' % kind)((mB, mG, mG, mG), sample)
+                bare = getattr(module, 't3_%s_corewise_hessian_from_sweep' % kind)(
+                    pk(z) if kind == 'probe' else z, sample, (mB, mG), D, sweep)
                 bare = ut3mask.ut3_apply_masks(bare + theta[2:])
                 self.assertGreater(np.linalg.norm(bare[1] - good[1]), 1e-3 * np.linalg.norm(good[1]))
 

@@ -3695,7 +3695,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
         >>> print(np.allclose(result_ij_lmn_2, result_ij_lmn_2_true))
         True
         """
-        return probing.t3_probe(ww, self.data)
+        return probing.t3_probe(self.data, ww)
 
     @staticmethod
     def probe_ambient_transpose(
@@ -3742,7 +3742,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
         >>> print(bool(abs(lhs - rhs) < 1e-9))
         True
         """
-        return probing.t3_probe_ambient_transpose(ztildes, ww, sum_over_probes=sum_over_probes)
+        return probing.t3_probe_ambient_transpose(ww, ztildes, sum_over_samples=sum_over_probes)
 
     def probe_corewise_transpose(
             self:    'TuckerTensorTrain',
@@ -3770,7 +3770,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
         probe_ambient_transpose
         apply_corewise_transpose
         """
-        return probing.t3_probe_corewise_transpose(ztildes, ww, self.data, sum_over_probes=sum_over_probes)
+        return probing.t3_probe_corewise_transpose(self.data, ww, ztildes, sum_over_samples=sum_over_probes)
 
     @staticmethod
     def apply_ambient_transpose(
@@ -3829,7 +3829,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
         True
         """
         return apply.t3_apply_ambient_transpose(
-            c, ww, sum_over_probes=sum_over_probes,
+            ww, c, sum_over_samples=sum_over_probes,
         )
 
     @staticmethod
@@ -3878,7 +3878,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
         True
         """
         return entries.t3_entries_ambient_transpose(
-            c, index, shape, sum_over_probes=sum_over_probes,
+            index, shape, c, sum_over_samples=sum_over_probes,
         )
 
     def apply_corewise_transpose(
@@ -3933,7 +3933,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
         >>> print([g.shape for g in gG] == [g.shape for g in x.tt_cores])       # matches TT cores
         True
         """
-        return apply.t3_apply_corewise_transpose(c, ww, self.data, sum_over_probes=sum_over_probes)
+        return apply.t3_apply_corewise_transpose(self.data, ww, c, sum_over_samples=sum_over_probes)
 
     def entries_corewise_transpose(
             self:   'TuckerTensorTrain',
@@ -3959,7 +3959,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
         entries_ambient_transpose
         apply_corewise_transpose
         """
-        return entries.t3_entries_corewise_transpose(c, index, self.data, sum_over_probes=sum_over_probes)
+        return entries.t3_entries_corewise_transpose(self.data, index, c, sum_over_samples=sum_over_probes)
 
     ##############################################################
     ###############    Symmetric derivatives    ##################

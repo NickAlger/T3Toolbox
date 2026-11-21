@@ -46,14 +46,14 @@ class TestRaggedFromSweepReuse(unittest.TestCase):
 
     def test_probe(self):
         sweep = probing.tv_precompute_probe_frame_sweep(self.frame, self.ww)
-        z_direct = probing.tv_probe(self.ww, self.var, self.frame)
+        z_direct = probing.tv_probe(self.frame, self.var, self.ww)
         z_sweep = probing.tv_probe_jacobian_from_sweep(self.var, self.ww, self.frame, sweep)
         for a, b in zip(z_sweep, z_direct):
             self.assertLessEqual(_relerr(a, b), 1e-13)
         zt = [np.random.randn(*np.asarray(zi).shape) for zi in z_direct]
         for sop in (True, False):
             with self.subTest(sum_over_probes=sop):
-                g_direct = probing.tv_probe_transpose(zt, self.ww, self.frame, sum_over_probes=sop)
+                g_direct = probing.tv_probe_transpose(self.frame, self.ww, zt, sum_over_samples=sop)
                 g_sweep = probing.tv_probe_transpose_from_sweep(zt, self.ww, self.frame, sweep,
                                                                 sum_over_probes=sop)
                 self.assertLessEqual(_pair_relerr(g_sweep, g_direct), 1e-13)
@@ -75,13 +75,13 @@ class TestRaggedFromSweepReuse(unittest.TestCase):
 
     def test_apply(self):
         sweep = apply.tv_precompute_apply_frame_sweep(self.frame, self.ww)
-        y_direct = apply.tv_apply(self.ww, self.var, self.frame)
+        y_direct = apply.tv_apply(self.frame, self.var, self.ww)
         y_sweep = apply.tv_apply_jacobian_from_sweep(self.var, self.ww, self.frame, sweep)
         self.assertLessEqual(_relerr(y_sweep, y_direct), 1e-13)
         c = np.random.randn(*np.asarray(y_direct).shape)
         for sop in (True, False):
             with self.subTest(sum_over_probes=sop):
-                g_direct = apply.tv_apply_transpose(c, self.ww, self.frame, sum_over_probes=sop)
+                g_direct = apply.tv_apply_transpose(self.frame, self.ww, c, sum_over_samples=sop)
                 g_sweep = apply.tv_apply_transpose_from_sweep(c, self.ww, self.frame, sweep,
                                                               sum_over_probes=sop)
                 self.assertLessEqual(_pair_relerr(g_sweep, g_direct), 1e-13)
@@ -101,13 +101,13 @@ class TestRaggedFromSweepReuse(unittest.TestCase):
 
     def test_entries(self):
         sweep = entries.tv_precompute_entries_frame_sweep(self.frame, self.index)
-        e_direct = entries.tv_entries(self.index, self.var, self.frame)
+        e_direct = entries.tv_entries(self.frame, self.var, self.index)
         e_sweep = entries.tv_entries_jacobian_from_sweep(self.var, self.index, self.frame, sweep)
         self.assertLessEqual(_relerr(e_sweep, e_direct), 1e-13)
         c = np.random.randn(*np.asarray(e_direct).shape)
         for sop in (True, False):
             with self.subTest(sum_over_probes=sop):
-                g_direct = entries.tv_entries_transpose(c, self.index, self.frame, sum_over_probes=sop)
+                g_direct = entries.tv_entries_transpose(self.frame, self.index, c, sum_over_samples=sop)
                 g_sweep = entries.tv_entries_transpose_from_sweep(c, self.index, self.frame, sweep,
                                                                   sum_over_probes=sop)
                 self.assertLessEqual(_pair_relerr(g_sweep, g_direct), 1e-13)
@@ -170,17 +170,17 @@ class TestUniformPlainFromSweepVsRagged(unittest.TestCase):
         y_u = np.asarray(self.utvs.utv_apply_jacobian_from_sweep(self.v.variations.data, s_apply))
         e_u = np.asarray(self.utvs.utv_entries_jacobian_from_sweep(self.v.variations.data, s_entries))
         for (k, c), (fr, vr) in self._leaves().items():
-            z_r = probing.tv_probe(self.ww, vr.data, fr.data)
+            z_r = probing.tv_probe(fr.data, vr.data, self.ww)
             for i in range(d):
                 with self.subTest(op='probe', k=k, c=c, i=i):
                     got = np.asarray(z_u[i])[..., k, c, :_STRUCT[0][i]]
                     self.assertLessEqual(_relerr(got, np.asarray(z_r[i])), 1e-10)
             with self.subTest(op='apply', k=k, c=c):
                 self.assertLessEqual(_relerr(y_u[..., k, c],
-                                             apply.tv_apply(self.ww, vr.data, fr.data)), 1e-10)
+                                             apply.tv_apply(fr.data, vr.data, self.ww)), 1e-10)
             with self.subTest(op='entries', k=k, c=c):
                 self.assertLessEqual(_relerr(e_u[..., k, c],
-                                             entries.tv_entries(self.index, vr.data, fr.data)), 1e-10)
+                                             entries.tv_entries(fr.data, vr.data, self.index)), 1e-10)
 
     def test_transposes_per_element(self):
         shapes = _STRUCT[0]
@@ -193,22 +193,21 @@ class TestUniformPlainFromSweepVsRagged(unittest.TestCase):
         dense_u = self._bare_to_dense(V, H)
         for (k, c), (fr, vr) in self._leaves().items():
             zt_leaf = [z[(Ellipsis, k, c, slice(None))] for z in zt]
-            g_r = probing.tv_probe_transpose(zt_leaf, self.ww, fr.data, sum_over_probes=True)
+            g_r = probing.tv_probe_transpose(fr.data, self.ww, zt_leaf)
             d_r = np.asarray(t3m.T3Tangent(fr, bvf.T3Variations(*g_r)).to_dense())
             with self.subTest(op='probe', k=k, c=c):
                 self.assertLessEqual(_relerr(dense_u[k, c], d_r), 1e-10)
         V, H = self.utvs.utv_apply_transpose_from_sweep(c_res, s_apply, sum_over_probes=True)
         dense_u = self._bare_to_dense(V, H)
         for (k, c), (fr, vr) in self._leaves().items():
-            g_r = apply.tv_apply_transpose(c_res[..., k, c], self.ww, fr.data, sum_over_probes=True)
+            g_r = apply.tv_apply_transpose(fr.data, self.ww, c_res[..., k, c])
             d_r = np.asarray(t3m.T3Tangent(fr, bvf.T3Variations(*g_r)).to_dense())
             with self.subTest(op='apply', k=k, c=c):
                 self.assertLessEqual(_relerr(dense_u[k, c], d_r), 1e-10)
         V, H = self.utvs.utv_entries_transpose_from_sweep(c_res, s_entries, sum_over_probes=True)
         dense_u = self._bare_to_dense(V, H)
         for (k, c), (fr, vr) in self._leaves().items():
-            g_r = entries.tv_entries_transpose(c_res[..., k, c], self.index, fr.data,
-                                               sum_over_probes=True)
+            g_r = entries.tv_entries_transpose(fr.data, self.index, c_res[..., k, c])
             d_r = np.asarray(t3m.T3Tangent(fr, bvf.T3Variations(*g_r)).to_dense())
             with self.subTest(op='entries', k=k, c=c):
                 self.assertLessEqual(_relerr(dense_u[k, c], d_r), 1e-10)

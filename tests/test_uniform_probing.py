@@ -790,7 +790,11 @@ class TestTransposeOutputHygiene(unittest.TestCase):
             o, b = np.asarray(out[j]), np.asarray(bare[j])
             self.assertEqual(o.shape, ind[j].shape)
             self.assertTrue(np.all(o[~ind[j]] == 0), 'padding not zero')                            # (c)
-            self.assertEqual(o[ind[j]].tobytes(), b[ind[j]].tobytes(), 'real block not bitwise')    # (b)
+            if name in ('probe', 'apply', 'entries'):           # P12: the engine against the old kernel, to rounding
+                scale = max(float(np.abs(b[ind[j]]).max(initial=0.0)), 1.0)
+                self.assertLess(float(np.abs(o[ind[j]] - b[ind[j]]).max(initial=0.0)), 1e-12 * scale, 'real block')
+            else:
+                self.assertEqual(o[ind[j]].tobytes(), b[ind[j]].tobytes(), 'real block not bitwise')    # (b)
             self.assertTrue(np.array_equal(np.asarray(dirty[j]), o), 'garbage leaked')              # (d)
             seen[name] = max(seen.get(name, 0.0), float(np.abs(b[~ind[j]]).max(initial=0.0)))
 
@@ -902,13 +906,19 @@ class TestTransposeOutputHygiene(unittest.TestCase):
         cj = np.random.randn(*((O,) + S))
         pk = lambda vv, d: uops.pack_if_ragged(vv, d[0].shape[-1])
         mk = ut3_masking.ut3_apply_masks
+        cf = lambda d: (mk(d)[0], mk(d)[1], mk(d)[1], mk(d)[1])       # the masked point's corewise frame (B, G, G, G)
+
+        def old(module, kind, res, sample):                           # P12: the pre-engine body, the old kernels
+            sweep = getattr(module, 'tv_precompute_%s_frame_sweep' % kind)
+            tail = getattr(module, 'tv_%s_transpose_from_sweep' % kind)
+            return lambda d, s: tail(res(d), sample(d), cf(d), sweep(cf(d), sample(d)), sum_over_probes=s)
         return [
             ('probe', lambda d, s: ut3s.ut3_probe_corewise_transpose(z, ww, d, s),
-             lambda d, s: bprobing.t3_probe_corewise_transpose(pk(z, d), pk(ww, d), mk(d), sum_over_probes=s)),
+             old(bprobing, 'probe', lambda d: pk(z, d), lambda d: pk(ww, d))),
             ('apply', lambda d, s: ut3s.ut3_apply_corewise_transpose(c, ww, d, s),
-             lambda d, s: bapply.t3_apply_corewise_transpose(c, pk(ww, d), mk(d), sum_over_probes=s)),
+             old(bapply, 'apply', lambda d: c, lambda d: pk(ww, d))),
             ('entries', lambda d, s: ut3s.ut3_entries_corewise_transpose(c, index, d, s),
-             lambda d, s: bentries.t3_entries_corewise_transpose(c, index, mk(d), sum_over_probes=s)),
+             old(bentries, 'entries', lambda d: c, lambda d: index)),
             ('probe_derivatives', lambda d, s: ut3s.ut3_probe_corewise_derivatives_transpose(zj, ww, pp, d, _ORDER, s),
              lambda d, s: bsd.t3_probe_corewise_derivatives_transpose(
                  pk(zj, d), pk(ww, d), pk(pp, d), mk(d), _ORDER, sum_over_probes=s)),
