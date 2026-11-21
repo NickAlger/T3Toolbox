@@ -2977,7 +2977,7 @@ class TestSharedExactLocalModel(unittest.TestCase):
         x = x.share(labels, max_tucker_ranks=(2, 2, 2), max_tt_ranks=(1, 2, 2, 1))
         x = x.rank_adjustment_sweep('right_to_left', sharing=labels)
         geom = _MANIFOLD.with_sharing(labels, shape)
-        frame = geom.frame(x.data)
+        frame = geom.frame(x.data)[0]
         aux = geom.precompute(frame)
         ww = [rng.standard_normal((60, N)) for N in shape]
         pp = [rng.standard_normal((60, N)) for N in shape]
@@ -3123,7 +3123,7 @@ class TestSharedExactLocalModel(unittest.TestCase):
                 G1 = np.array(tt[1])
                 G1[..., 2, :] *= 1e-3
                 x = (tk, (tt[0], G1) + tuple(tt[2:]))
-                frame = geom.frame(x)
+                frame = geom.frame(x)[0]
                 aux = geom.precompute(frame)
                 g = fvo.fv_variations_zeros(fvo.fv_variation_shapes(frame), C, False)
                 data = geom.curvature_precompute(frame, g, aux, 0.0)
@@ -3153,7 +3153,7 @@ class TestSharedExactLocalModel(unittest.TestCase):
             with self.subTest(C=C):
                 np.random.seed(7)
                 x = t3.TuckerTensorTrain.randn(shape, (2, 3, 3, 2), (1, 2, 3, 2, 1), stack_shape=C)
-                frame = geom.frame(sharing.t3_tie_tucker_factors(x.data, labels))
+                frame = geom.frame(sharing.t3_tie_tucker_factors(x.data, labels))[0]
                 aux = geom.precompute(frame)
                 g = geom.project(frame, fvo.fv_variations_randn(fvo.fv_variation_shapes(frame), C), aux)
                 for cd in (0.0, 1e-3):
@@ -3176,7 +3176,7 @@ class TestSharedExactLocalModel(unittest.TestCase):
         level1 = t3.TuckerTensorTrain(*_shared_unit_point((shape, (2, 2, 2), (1, 2, 2, 1)), labels))
         restart = level1.t3svd(sharing=labels)[0].resize(shape, (3, 3, 3), (1, 3, 3, 1), sharing=labels)
         self.assertTrue(bool(np.all(restart.has_shared_tucker_factors(labels))))
-        frame = geom.frame(restart.data)
+        frame = geom.frame(restart.data)[0]
         aux = geom.precompute(frame)
         _, STs, _ = fvo.fv_center_factors(frame)
         _, s_M, Vt_M = np.linalg.svd(np.concatenate([STs[0], STs[1]], axis=0))

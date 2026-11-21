@@ -81,6 +81,13 @@ class Geometry(typ.Protocol):
     a geometry rides as jax ``aux_data``, so identity semantics recompile on every rebuild. See
     :py:class:`~t3toolbox.backend.common.ValueHashedFields`.
 
+    ``frame(x_cores)`` returns the pair ``(frame, centers)`` (graded messages, P15): the linearization frame, and its
+    centers ``(Vc, Hc)`` (on the uniform layout the two supercores), from the same sweep: at every site the center in
+    the frame's hole is the point. They are not the point as a tangent (read so, ``(frame, centers)`` is ``2d`` times
+    the point; the point as a tangent is ``point_tangent(frame)``). A corewise geometry, whose frame is the point
+    itself, returns ``None`` as centers. An oracle may read the probe ``z`` through the centers (``Vc``) instead of
+    the base point's sweep.
+
     **Optional member** (looked up duck-typed, ``getattr(geom, 'zero_point_frame', None)``; a geometry
     without it keeps working):
 
@@ -124,7 +131,7 @@ class Geometry(typ.Protocol):
     * ``tangential_curvature(frame, core_directions, curvature_data)`` -- the raw ``K_{grad f} theta_hat`` term
       subtracted from the sampling curvature, or ``None`` when there is none (a corewise geometry)."""
 
-    def frame(self, x_cores):                          # x_cores -> the linearization frame
+    def frame(self, x_cores):                          # x_cores -> (the linearization frame, its centers or None)
         ...
 
     def base_point(self, frame):                       # frame -> the point X the frame is attached to
@@ -506,7 +513,7 @@ def _local_model_phases(
         require_unstacked_for_regularizer(problem.geom.stack_shape(x_cores), 'Problem.local_model')
     _mark(clock)
     if frame is None:
-        frame = problem.geom.frame(x_cores)
+        frame, _ = problem.geom.frame(x_cores)
     else:
         require = getattr(problem.geom, 'require_frame_structure', None)
         if require is None:

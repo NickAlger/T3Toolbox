@@ -51,13 +51,13 @@ def _ragged_geometry(shape, sharing):
 
 def _template(shape, tucker_ranks, tt_ranks, sharing=None):
     """A frame with these ranks: the structure a fit at these ranks linearizes with."""
-    return _ragged_geometry(shape, sharing).frame(t3.TuckerTensorTrain.zeros(shape, tucker_ranks, tt_ranks).data)
+    return _ragged_geometry(shape, sharing).frame(t3.TuckerTensorTrain.zeros(shape, tucker_ranks, tt_ranks).data)[0]
 
 
 def _uniform_template(shape, tucker_ranks, tt_ranks, sharing=None):
     ux = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.zeros(shape, tucker_ranks, tt_ranks))
     geom = bgeo.UniformManifoldGeometryOps.from_point(ux.data, sharing)
-    return geom, geom.frame((ux.data[0], ux.data[1]))
+    return geom, geom.frame((ux.data[0], ux.data[1]))[0]
 
 
 def _unit_rows(rng, W, shape):

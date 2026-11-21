@@ -577,7 +577,7 @@ class TestBackendOptimizers(unittest.TestCase):
         for shp, tk, tt in [((5, 6, 7), (2, 2, 2), (1, 2, 2, 1)), ((4, 4, 4, 4), (2, 2, 2, 2), (1, 2, 3, 2, 1))]:
             with self.subTest(shape=shp):
                 X = t3.TuckerTensorTrain.randn(shp, tk, tt); Xd = X.to_dense()
-                frame = bgeo.ManifoldGeometryOps().frame(X.data)
+                frame = bgeo.ManifoldGeometryOps().frame(X.data)[0]
                 vX = bgeo.ManifoldGeometryOps().point_tangent(frame)
                 self.assertTrue(np.allclose(tvo.tv_to_dense(frame, vX, include_shift=False), Xd))   # dense(v_X)=X
                 self.assertAlmostEqual(float(bgeo.ManifoldGeometryOps().point_norm_sq((frame[0], frame[2]))) ** 0.5,
@@ -700,7 +700,7 @@ class TestBackendOptimizers(unittest.TestCase):
         ww = unit_vecs(n, SHAPE, rng); data = dense_probe(self.A, ww)
         reg = opt.IdentityRegularizer(0.5)
         prob = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data, regularizer=reg)
-        frame = bgeo.ManifoldGeometryOps().frame(t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).data)
+        frame = bgeo.ManifoldGeometryOps().frame(t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).data)[0]
         tnorm = lambda t: float(cw.corewise_dot(t, t)) ** 0.5
         g_full = tnorm(reg.gradient(bgeo.ManifoldGeometryOps(), frame))
         for b in (40, n):                                              # step-problem reg-grad == (b/n)·full

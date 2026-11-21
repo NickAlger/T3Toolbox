@@ -288,10 +288,18 @@ class ManifoldGeometryOps(ValueHashedFields):
     def frame(
             self,
             x_cores:  typ.Tuple,   # (tucker_cores, tt_cores)
-    ) -> typ.Tuple:                # (D, U, L, R) orthonormal frame (Algorithm 11)
-        """The linearization frame at ``x_cores``."""
-        frame, _ = t3_orthogonal_representations(x_cores)
-        return frame
+    ) -> typ.Tuple[
+            typ.Tuple,             # (D, U, L, R) orthonormal frame (Algorithm 11)
+            typ.Tuple,             # centers (Vc, Hc): each, in the frame's hole at its site, gives the point
+    ]:
+        """The linearization frame at ``x_cores``, and the centers ``(Vc, Hc)``: the second result of
+        :py:func:`~t3toolbox.backend.fv_conversions.t3_orthogonal_representations`, computed by the same sweep. At
+        every site the center in the frame's hole is the point itself
+        (:py:func:`~t3toolbox.backend.fv_operations.fv_centers_consistency_residual`), so read as a tangent,
+        ``(frame, centers)`` is ``2d`` times the point, not the point: the point as a tangent is
+        :py:meth:`~t3toolbox.backend.geometry.ManifoldGeometryOps.point_tangent` of the frame."""
+        frame, centers = t3_orthogonal_representations(x_cores)
+        return frame, centers
 
     def stack_shape(
             self,
@@ -408,7 +416,7 @@ class ManifoldGeometryOps(ValueHashedFields):
         if x_old is None or _structurally_zero(old_tucker, old_tt, 'aligned_padded_frame'):
             old = padded_frames.fv_empty_frame(shape, self.stack_shape(point), use_jax=tree_contains_jax(point))
         else:
-            old = self.frame(x_old)
+            old, _ = self.frame(x_old)
         options = dict(sharing=_sharing_labels(self.groups, len(tucker)), oversampling=oversampling,
                        oversampled_passes=oversampled_passes, max_passes=max_passes, tol=tol, alternate=alternate,
                        seed=seed, use_jit=use_jit)
@@ -515,9 +523,12 @@ class CorewiseGeometryOps(ValueHashedFields):
     def frame(
             self,
             x_cores:  typ.Tuple,   # (tucker_cores, tt_cores)
-    ) -> typ.Tuple:                # (D, U, L, R) = (B, G, G, G) -- the raw cores ARE the frame
-        """The (non-orthonormal) corewise frame: the Section 6.3 substitution ``(U, L, R) -> G``."""
-        return t3_corewise_frame(x_cores)
+    ) -> typ.Tuple[
+            typ.Tuple,             # (D, U, L, R) = (B, G, G, G) -- the raw cores ARE the frame
+            None,                  # centers: a corewise frame has none
+    ]:
+        """The (non-orthonormal) corewise frame: the Section 6.3 substitution ``(U, L, R) -> G``; no centers."""
+        return t3_corewise_frame(x_cores), None
 
     def stack_shape(
             self,
@@ -748,10 +759,16 @@ class UniformManifoldGeometryOps(ValueHashedFields):
     def frame(
             self,
             x_sc:  typ.Tuple,   # bare (tucker_supercore, tt_supercore) at this geometry's rank
-    ) -> typ.Tuple:             # uniform frame .data = (down, up, left, right, shape, masks)
-        """The orthonormal frame at ``x_sc``, using this geometry's held shape and rank masks."""
-        return ufv_conversions.ut3_orthogonal_representations(
-            (x_sc[0], x_sc[1], self.shape, self.masks))[0]
+    ) -> typ.Tuple[
+            typ.Tuple,          # uniform frame .data = (down, up, left, right, shape, masks)
+            typ.Tuple,          # centers (Vc_sc, Hc_sc): the supercores of the centers (as the ragged)
+    ]:
+        """The orthonormal frame at ``x_sc``, using this geometry's held shape and rank masks, and the centers: the
+        two supercores of the second result of ``ut3_orthogonal_representations`` (its shape and masks are the
+        frame's), the form :py:func:`~t3toolbox.backend.ufv_operations.ufv_centers_consistency_residual` takes."""
+        frame, variations = ufv_conversions.ut3_orthogonal_representations(
+            (x_sc[0], x_sc[1], self.shape, self.masks))
+        return frame, (variations[0], variations[1])
 
     def stack_shape(
             self,
@@ -800,7 +817,7 @@ class UniformManifoldGeometryOps(ValueHashedFields):
 
     def point_norm_sq(self, x_sc):
         """``‖X‖² = ‖v_X‖²`` in the masked coordinate metric."""
-        v_x = self.point_tangent(self.frame(x_sc))
+        v_x = self.point_tangent(self.frame(x_sc)[0])
         return self.inner(v_x, v_x)
 
     def point_tangent(self, frame_data):
@@ -1012,9 +1029,12 @@ class UniformCorewiseGeometryOps(ValueHashedFields):
     def frame(
             self,
             x_sc:  typ.Tuple,   # bare (tucker_supercore, tt_supercore)
-    ) -> typ.Tuple:             # uniform frame .data = (B, G, G, G, shape, masks)
-        """The corewise frame: the cores themselves, with the doubled mask set."""
-        return ufv_conversions.ut3_corewise_frame((x_sc[0], x_sc[1], self.shape, self.masks))
+    ) -> typ.Tuple[
+            typ.Tuple,          # uniform frame .data = (B, G, G, G, shape, masks)
+            None,               # centers: a corewise frame has none
+    ]:
+        """The corewise frame: the cores themselves, with the doubled mask set; no centers."""
+        return ufv_conversions.ut3_corewise_frame((x_sc[0], x_sc[1], self.shape, self.masks)), None
 
     def stack_shape(
             self,

@@ -290,13 +290,13 @@ class TestFrameStructure(unittest.TestCase):
             with self.subTest(layer=layer):
                 setup, old, _, _ = fit_case(layer)
                 problem, x = setup.problem, setup.x0_cores
-                problem.local_model(x, frame=problem.geom.frame(x))
+                problem.local_model(x, frame=problem.geom.frame(x)[0])
                 problem.local_model(x, frame=bopt.padded_start(problem, x, old, max_passes=2)[0])
 
     def test_ragged_rejections(self):
         setup, _, _, _ = fit_case('ragged')
         problem, x = setup.problem, setup.x0_cores
-        F = problem.geom.frame(x)
+        F = problem.geom.frame(x)[0]
         for k, store in enumerate(('down', 'up', 'left', 'right')):
             with self.subTest(store=store):
                 bad = list(F)
@@ -309,7 +309,7 @@ class TestFrameStructure(unittest.TestCase):
     def test_uniform_rejections(self):
         setup, old, _, _ = fit_case('uniform')
         problem, x = setup.problem, setup.x0_cores
-        F = problem.geom.frame(x)
+        F = problem.geom.frame(x)[0]
         D, U, L, R, shape, masks = F
         for k, store in enumerate(('down', 'up', 'left', 'right')):
             with self.subTest(family=store):
@@ -333,7 +333,7 @@ class TestFrameStructure(unittest.TestCase):
         setup = topt.least_squares_problem(t3m.COREWISE, 'probe', *fit_case('ragged')[0].problem.sample[:0] or (
             [np.ones((3, n)) for n in SHAPE], [np.ones(3)] * 4), t3.TuckerTensorTrain.randn(SHAPE, *TARGET))
         with self.assertRaisesRegex(ValueError, 'require_frame_structure'):
-            setup.problem.local_model(setup.x0_cores, frame=bgeo.ManifoldGeometryOps().frame(setup.x0_cores))
+            setup.problem.local_model(setup.x0_cores, frame=bgeo.ManifoldGeometryOps().frame(setup.x0_cores)[0])
 
 
 class TestNewtonKeywords(unittest.TestCase):
@@ -428,7 +428,7 @@ class TestNewtonKeywords(unittest.TestCase):
     def test_structural_errors(self):
         setup, old, _, _ = fit_case('ragged')
         problem, x = setup.problem, setup.x0_cores
-        frame = problem.geom.frame(x)
+        frame = problem.geom.frame(x)[0]
         cases = ((dict(start_frame=frame, padded_from=old), 'not both'),
                  (dict(padded_tol=0.1), 'without padded_from'),
                  (dict(cone_tol=0.1), "cone reference is not computed"),
@@ -524,7 +524,7 @@ class TestSeamNumerics(unittest.TestCase):
         x = t3.TuckerTensorTrain.randn(shape, *rk).data
         Q = [np.linalg.qr(np.random.randn(n, n))[0] for n in rk[0]]
         x_rot = (tuple(q.T @ B for q, B in zip(Q, x[0])), tuple(np.einsum('anb,nm->amb', G, q) for G, q in zip(x[1], Q)))
-        F = problem.geom.frame(x_rot)
+        F = problem.geom.frame(x_rot)[0]
         default, rotated = problem.local_model(x, hessian='exact'), problem.local_model(x, frame=F, hessian='exact')
         import t3toolbox.backend.tv_operations as tvo
         S = np.random.randn(*shape)
@@ -725,7 +725,7 @@ class _KwargsMember(bgeo.ManifoldGeometryOps):
         if x_old is None:
             old = padded_frames.fv_empty_frame(tuple(int(B.shape[-1]) for B in x0[0]))
         else:
-            old = self.frame(x_old)
+            old = self.frame(x_old)[0]
         return padded_frames.fv_aligned_padded_frame(old, tucker, tt, hint, project, **kwargs)
 
 

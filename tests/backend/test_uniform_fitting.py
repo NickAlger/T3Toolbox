@@ -57,7 +57,7 @@ class TestUniformGeometryOps(unittest.TestCase):
     def _compare_ops(self, geom_front, ops, x):
         """Backend ops (on bare supercore pairs) vs the frontend geometry (on typed objects), at point x."""
         x_sc = (x.data[0], x.data[1])
-        frame_front, frame_back = geom_front.frame(x), ops.frame(x_sc)
+        frame_front, frame_back = geom_front.frame(x), ops.frame(x_sc)[0]
         self.assertTrue(_frame_close(frame_front.data, frame_back), 'frame')
 
         v1 = ubv.UT3Variations.randn_like(frame_front)     # ungauged variations at the frame

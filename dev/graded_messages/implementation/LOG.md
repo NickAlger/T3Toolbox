@@ -1083,3 +1083,11 @@ mutant (`point_norm_sq` from the centers) is NOT equivalent. Each of the 2d cent
 (frame, centers) is 2d X, and the mutant makes the regularizer 2d times too large; it survived because the only uniform
 test of `point_norm_sq` was circular. In round 1: a dense |X|^2 test on all four geometries; the P16 suggestion
 retracted; docstrings calling the centers "the point's own coordinates" corrected.
+
+### P15 committed; the sub-arc P12 to P15 complete; the third planned pause (2026-11-21)
+
+Round 1 (`P15_RESPONSE_r1.md`, tests and docstrings only): `TestPointNormSq` on all four geometries (manifold against
+dense |X|^2, corewise against the raw cores' sum of squares, uniform with garbage padding; the centers mutant dies);
+the P16 suggestion retracted; the three `frame` docstrings say (frame, centers) read as a tangent is 2d X. Touched
+files on both envs, module doctests and Sphinx pass (the full gate passed on round 0's code). `P15_REVIEW_r2.md`: SIGN
+OFF. **The work stops here for the maintainer's third planned pause, before the switch (P16).**

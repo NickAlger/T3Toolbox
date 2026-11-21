@@ -1056,7 +1056,7 @@ class TestUniformGeometryExactMembers(unittest.TestCase):
                      bgeo.UniformCorewiseGeometryOps.from_point(ux.data)):
             with self.subTest(shared=type(base).__name__):
                 shared = base.with_sharing((0, 0, 1))
-                f = shared.frame((ux.data[0], ux.data[1]))
+                f = shared.frame((ux.data[0], ux.data[1]))[0]
                 aux = shared.precompute(f)
                 mg = shared.project(f, _random_variation_sc(f, (), rng), aux)
                 data = shared.curvature_precompute(f, mg, aux, None)
@@ -1068,7 +1068,7 @@ class TestUniformGeometryExactMembers(unittest.TestCase):
                 again = shared.curvature_precompute(f, mg, None, None)                # aux=None: recomputed, equal
                 self.assertTrue(np.array_equal(again.lift_factors.tied_filters[0], data.lift_factors.tied_filters[0]))
         cgeo = bgeo.UniformCorewiseGeometryOps.from_point(ux.data)
-        f = cgeo.frame((ux.data[0], ux.data[1]))
+        f = cgeo.frame((ux.data[0], ux.data[1]))[0]
         self.assertEqual(cgeo.curvature_precompute(f, None, None, None), ())
         with self.assertRaisesRegex(ValueError, 'no effect on a corewise geometry'):
             cgeo.curvature_precompute(f, None, None, 1e-6)

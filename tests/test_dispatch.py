@@ -1890,7 +1890,7 @@ class TestDispatch(unittest.TestCase):
         geom = bgeo.ManifoldGeometryOps().with_sharing(labels, SH)
         problem = bopt.least_squares_problem(geom, bfit.ProbeDerivativesKind(order=order), (ww, pp), data)
         x0 = tied_point()
-        fd = geom.frame(x0.data)
+        fd = geom.frame(x0.data)[0]
         sfd = geom.precompute(fd)
         self.assert_jit_jax(lambda f, s: bsharing.fv_tied_lift_factors(f, 1e-6, s), fd, sfd)
         lf = bsharing.fv_tied_lift_factors(fd, 1e-6, sfd)
@@ -1975,7 +1975,7 @@ class TestDispatch(unittest.TestCase):
         order, W = 1, 7
         prob, sc, (ww, pp), _data, _w, _ux = self._uniform_pd_problem_jax('manifold', seed=5, W=W, order=order,
                                                                            chunk_size=2)
-        frame = prob.geom.frame(sc)
+        frame = prob.geom.frame(sc)[0]
         sc4, shape, fmasks = tuple(frame[:4]), tuple(frame[4]), frame[5]
         tmasks = (fmasks[0], fmasks[2])
         F = lambda s4: tuple(s4) + (shape, fmasks)
@@ -2125,7 +2125,7 @@ class TestDispatch(unittest.TestCase):
         ux0 = tied_point()
         prob = uf.uniform_least_squares_problem('manifold', 'probe_derivatives', ux0, (ww, pp), data, order=order,
                                                 sharing=labels)
-        frame = prob.geom.frame((ux0.data[0], ux0.data[1]))
+        frame = prob.geom.frame((ux0.data[0], ux0.data[1]))[0]
         sfd = prob.geom.precompute(frame)
         sc4, shape, fmasks = tuple(frame[:4]), tuple(frame[4]), frame[5]
         F = lambda s4: tuple(s4) + (shape, fmasks)
@@ -2786,7 +2786,7 @@ class TestDispatch(unittest.TestCase):
         self.assert_eager_jax(fv_operations.fv_zero_point_frame, self.frame.data)
         self.assert_eager_jax(geom.zero_point_frame, self.frame.data)
         ugeom = bgeo.UniformManifoldGeometryOps.from_point(self.ux.data)
-        uframe = ugeom.frame((self.ux.data[0], self.ux.data[1]))
+        uframe = ugeom.frame((self.ux.data[0], self.ux.data[1]))[0]
         uzero = ufv_operations.ufv_zero_point_frame(uframe)
         self._leaves_all_jax(uzero[:4])
         self.assertTrue(all(common.is_numpy_ndarray(m) for m in uzero[5]))

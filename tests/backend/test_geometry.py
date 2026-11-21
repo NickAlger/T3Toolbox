@@ -48,7 +48,7 @@ class TestGeometryStackSemantics(unittest.TestCase):
         shape, nn, rr = (5, 6, 7), (2, 3, 3), (1, 2, 3, 1)
         x3 = t3.TuckerTensorTrain.randn(shape, nn, rr, stack_shape=(3,))
         geom = bgeo.ManifoldGeometryOps()
-        fr3 = geom.frame(x3.data)
+        fr3 = geom.frame(x3.data)[0]
         v = t3m.MANIFOLD.randn(bvf.T3Frame(*fr3))
         got = geom.inner(v.variations.data, v.variations.data)
         self.assertEqual(np.shape(got), (3,))
@@ -256,7 +256,7 @@ class TestBasePointTangent(unittest.TestCase):
                 dense, hs_norm = A.to_dense(), float(np.linalg.norm(A.to_dense()))
 
                 geom = bgeo.ManifoldGeometryOps()
-                frame = geom.frame(A.data)
+                frame = geom.frame(A.data)[0]
                 v_x = geom.point_tangent(frame)
                 tangent = t3m.T3Tangent(bvf.T3Frame(*frame), bvf.T3Variations(*v_x))
                 self.assertLess(float(np.linalg.norm(np.asarray(tangent.to_dense()) - dense)) / hs_norm, 1e-13)
@@ -264,7 +264,7 @@ class TestBasePointTangent(unittest.TestCase):
 
                 x = uf.uniform_minimal(ut3.UniformTuckerTensorTrain.from_t3(A))
                 ugeom = bgeo.UniformManifoldGeometryOps.from_point(x.data)
-                uframe = ugeom.frame((x.tucker_supercore, x.tt_supercore))
+                uframe = ugeom.frame((x.tucker_supercore, x.tt_supercore))[0]
                 uv_x = ugeom.point_tangent(uframe)
                 _fd, variation_data = ufv_conversions.ut3_orthogonal_representations(x.data)
                 self.assertEqual(np.shape(uv_x[0]), np.shape(variation_data[0]))
@@ -278,14 +278,14 @@ class TestBasePointTangent(unittest.TestCase):
         hs_norm = float(np.linalg.norm(A.to_dense()))
 
         geom = bgeo.ManifoldGeometryOps()
-        frame = geom.frame(A.data)
+        frame = geom.frame(A.data)[0]
         v_x = geom.point_tangent(frame)
         self.assertAlmostEqual(float(geom.inner(v_x, v_x)) ** 0.5, hs_norm, places=10)
         self.assertAlmostEqual(float(geom.point_norm_sq(geom.base_point(frame))) ** 0.5, hs_norm, places=10)
 
         x = uf.uniform_minimal(ut3.UniformTuckerTensorTrain.from_t3(A))
         ugeom = bgeo.UniformManifoldGeometryOps.from_point(x.data)
-        uframe = ugeom.frame((x.tucker_supercore, x.tt_supercore))
+        uframe = ugeom.frame((x.tucker_supercore, x.tt_supercore))[0]
         uv_x = ugeom.point_tangent(uframe)
         self.assertAlmostEqual(float(ugeom.inner(uv_x, uv_x)) ** 0.5, hs_norm, places=10)
 
@@ -376,3 +376,98 @@ class TestAuxKeyHygiene(unittest.TestCase):
         back = jax.tree_util.tree_unflatten(treedef, leaves)
         self.assertIs(type(back), MySG)
         self.assertEqual(back, MySG(t3m_mod.MANIFOLD, ('x', 'x', 'y')))
+
+
+class TestTheFrameReturnsTheCenters(unittest.TestCase):
+    """P15: the backend ``frame(x)`` returns ``(frame, centers)``. On the manifold geometries the centers are the
+    second result of the orthogonal representation (the uniform: its two supercores), consistent with the frame to
+    rounding; the corewise geometries return ``None``; the frame is bitwise what it was."""
+
+    def ragged_points(self):
+        np.random.seed(51)
+        out = [('C=()', t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT), None),
+               ('C=(2,)', t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT, stack_shape=(2,)), None)]
+        labels = (0, 0, 1)
+        shared = t3.TuckerTensorTrain.randn((6, 6, 8), TUCKER, TT).share(labels)
+        out.append(('shared', shared, labels))
+        return out
+
+    def test_ragged(self):
+        from t3toolbox.backend.fv_conversions import t3_orthogonal_representations
+        from t3toolbox.backend.fv_operations import fv_centers_consistency_residual
+        for label, x, labels in self.ragged_points():
+            geom = bgeo.ManifoldGeometryOps()
+            if labels is not None:
+                geom = geom.with_sharing(labels, x.shape)
+            with self.subTest(point=label):
+                frame, centers = geom.frame(x.data)
+                ref_frame, ref_centers = t3_orthogonal_representations(x.data)
+                for a, b in zip(_leaves(frame) + _leaves(centers), _leaves(ref_frame) + _leaves(ref_centers)):
+                    self.assertTrue(np.array_equal(a, b))                          # bitwise
+                residual = np.asarray(fv_centers_consistency_residual(frame, centers))
+                self.assertLess(float(residual.max()), 1e-12)
+                cgeom = bgeo.CorewiseGeometryOps()
+                if labels is not None:
+                    cgeom = cgeom.with_sharing(labels, x.shape)
+                cframe, ccenters = cgeom.frame(x.data)
+                self.assertIsNone(ccenters)
+                from t3toolbox.backend.fv_conversions import t3_corewise_frame
+                for a, b in zip(_leaves(cframe), _leaves(t3_corewise_frame(x.data))):
+                    self.assertIs(a, b)
+
+    def test_uniform_with_forced_padding(self):
+        from t3toolbox.backend.ufv_operations import ufv_centers_consistency_residual
+        for label, x, labels in self.ragged_points():
+            with self.subTest(point=label):
+                xu = ut3.UniformTuckerTensorTrain.from_t3(x, N=10, n=4, r=4)
+                ugeom = bgeo.UniformManifoldGeometryOps.from_point(xu.data)
+                if labels is not None:
+                    ugeom = ugeom.with_sharing(labels)
+                frame, centers = ugeom.frame((xu.data[0], xu.data[1]))
+                ref_frame, ref_variations = ufv_conversions.ut3_orthogonal_representations(xu.data)
+                self.assertEqual(len(centers), 2)
+                for a, b in zip(_leaves(frame[:4]) + list(centers), _leaves(ref_frame[:4]) + list(ref_variations[:2])):
+                    self.assertTrue(np.array_equal(a, b))
+                self.assertEqual(frame[4], ref_frame[4])
+                residual = np.asarray(ufv_centers_consistency_residual(frame, centers))
+                self.assertLess(float(residual.max()), 1e-12)
+                cgeom = bgeo.UniformCorewiseGeometryOps.from_point(xu.data)
+                cframe, ccenters = cgeom.frame((xu.data[0], xu.data[1]))
+                self.assertIsNone(ccenters)
+                self.assertTrue(np.array_equal(cframe[0], ufv_conversions.ut3_corewise_frame(
+                    (xu.data[0], xu.data[1], cgeom.shape, cgeom.masks))[0]))
+
+
+def _leaves(x):
+    if isinstance(x, (tuple, list)):
+        return [a for item in x for a in _leaves(item)]
+    return [np.asarray(x)]
+
+
+class TestPointNormSq(unittest.TestCase):
+    """``point_norm_sq`` on the four backend geometries against an independent reference (P15, round 1): the
+    manifold geometries give the Hilbert-Schmidt ``|X|^2`` of the dense tensor; the corewise geometries the weight
+    decay ``sum_i |core_i|^2`` of the real cores. Stacked ``C = (2,)``, per element; the uniform ones at forced
+    padding with garbage in the padding. (A ``point_norm_sq`` reading the frame's centers would give ``2d |X|^2``.)"""
+
+    def test_against_dense(self):
+        np.random.seed(61)
+        for C in [(), (2,)]:
+            x = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT, stack_shape=C)
+            dense = np.asarray(x.to_dense()).reshape(C + (-1,))
+            hs = np.sum(dense ** 2, axis=-1)
+            decay = sum(np.sum(np.asarray(a) ** 2, axis=tuple(range(len(C), np.ndim(a))))
+                        for part in x.data for a in part)
+            xu = ut3.UniformTuckerTensorTrain.from_t3(x, N=10, n=4, r=4)
+            ind = type(xu)(np.ones_like(xu.data[0]), np.ones_like(xu.data[1]), xu.shape, xu.masks).apply_masks()
+            dirty = (xu.data[0] + 1e3 * (1 - np.asarray(ind.data[0])), xu.data[1] + 1e3 * (1 - np.asarray(ind.data[1])))
+            cases = {
+                'manifold': (bgeo.ManifoldGeometryOps().point_norm_sq(x.data), hs),
+                'corewise': (bgeo.CorewiseGeometryOps().point_norm_sq(x.data), decay),
+                'uniform manifold': (bgeo.UniformManifoldGeometryOps.from_point(xu.data).point_norm_sq(dirty), hs),
+                'uniform corewise': (bgeo.UniformCorewiseGeometryOps.from_point(xu.data).point_norm_sq(dirty), decay),
+            }
+            for name, (got, ref) in cases.items():
+                with self.subTest(C=C, geometry=name):
+                    self.assertEqual(np.shape(got), C)
+                    self.assertLess(float(np.max(np.abs(np.asarray(got) - ref) / ref)), 1e-12)
