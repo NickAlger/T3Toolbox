@@ -320,6 +320,19 @@ refactor"):
   blocks: directional derivatives `<g_s, p>` come from `r` and `Jp`; norms from the edge variables. **The oracle does
   not ask for unsummed blocks** (Nick: wait for a use case; his lean even then is to add hooks another way than through
   the oracle, the decision to be made on the facts at that time).
+- **Before the release, after Parts 1 and 2: consider this backlog** (Nick, 2026-11-20: "let's make sure we take a
+  moment to consider the backlog. We may make another Part 3 from the backlog before release").
+- **Re-gauging for corewise optimization** (Nick agreed, 2026-11-20). Gauge drift (scale traded between neighbouring
+  cores, or between `B_i` and `G_i`) degrades conditioning over long corewise runs. Recommended: an option on the corewise
+  optimizers (or the corewise retraction) with a period and two modes. `'orthogonalize'`: the canonical form (what
+  practitioners do), optionally followed by spreading the norm evenly over the cores, since orthogonalization alone
+  puts all the scale in one core and the Hessian blocks then differ by about `||T||^2`; Adam's moments must be reset
+  after it (a rotation has no diagonal image), L-BFGS pairs can be transformed exactly (`s' = A s`, `y' = A^-T y`).
+  `'balance'`: a positive scalar per core equalizing norms, a diagonal change of coordinates that carries Adam's and
+  L-BFGS's state exactly, essentially free and parallel (no latency-bound sweep of small factorizations on a GPU),
+  fixing scale drift but not ill-conditioned bond matrices. Cost: one orthogonalization is about `max(n, r) / (c W)`
+  gradients (`c` 3 to 6), so it is cheap unless the minibatch is below the rank; frequency tunes it. Defaults to be
+  chosen on real problems (Darcy ladders), not CPU microbenchmarks.
 - **A test cut held in reserve: the four-site half of `TestJetsTwoWays::test_every_variable`**
   (`tests/test_sampling_definitions.py`; Nick, 2026-11-20: "leave the tests in for now", the suggestion recorded). The
   test checks the 24 jetted variables of the reference module (`z`, `Jp` and the 22 edge variables) against an

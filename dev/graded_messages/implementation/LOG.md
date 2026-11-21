@@ -918,3 +918,33 @@ The additive phase is closed: the engine `sampling_variables` computes every var
 and corewise calls, ragged and uniform, with jets in any number of variables, the stacks `W`, `K`, `C`, and
 `sum_over_samples`. Nothing of the old sampling layer is rerouted or deleted yet (P12 on). Summary and the questions
 for the maintainer: `dev/HANDOFF.md`, START HERE.
+
+### The maintainer's answers at the second pause (2026-11-20, evening)
+
+In `../TARGET_DECISIONS.md`, the note "The second planned pause": `sum_over_samples` aligned with his intent, the
+oracle not asking for unsummed blocks; corewise first-class (P12, P13, P17/P19 additions approved; a check-in between
+P19 and P20 on `t3_corewise_frame`); re-gauging recommended and filed in the handoff's backlog; the backlog to be
+considered after Parts 1 and 2 (a possible Part 3); **the zero tilde names stay unknown names; no public reader of
+names for now; the structural stack checks are kept** (O-18 read to include agreement of a group across the operands
+that carry it). Still open: question 1 (the corewise call refusing `variations`). A writer (the implementer) and a
+critic (the reviewer) are updating the plan for the corewise surface: the critic's round 1 NOT YET (the bridge to
+external optimizers must go through the geometry: shared factors, the regularizer, the minibatch scale), in revision.
+
+### The plan updated for the corewise surface (2026-11-20, evening)
+
+Writer the implementer, critic the reviewer (`PLAN_UPDATE_corewise.md`, `_REVIEW.md` NOT YET, `_RESPONSE_r1.md`,
+`_REVIEW_r2.md` AGREED with one amendment, folded in). The plan now has: in P12 a corewise forward derivative
+(`t3_*_corewise_jacobian` or `_jvp`, the maintainer's choice, O-48) with uniform twins, its primary check a numpy dense
+oracle (`J x_dot = dense_probe(T_dot)`, `T_dot` the sum of the `2d` one-core-replaced tensors), `jax.jvp` second, a
+structural step count; `sum_over_samples=True` on the six corewise Hessians (none on the forward derivative: it has no
+sum); in P13 frontend methods for both on `TuckerTensorTrain` (15 methods) and `UniformTuckerTensorTrain` (12),
+directions as the pair of core tuples only (O-49; a `TuckerTensorTrain` holding a direction is a trap, its `+`
+concatenates ranks), the Hessian checked by symmetry and a polynomial-exact difference quotient; in P17 the bridge to
+external optimizers THROUGH THE GEOMETRY (the critic's main finding: a raw query flattened by hand unties shared
+factors, misses the geometry's regularizer and the minibatch scale), a helper `point_value_and_gradient(geom, oracle,
+batch, x_cores, regularizer=None)` proposed (O-50) returning the pair, on a shared geometry the gradient the mean over
+each group replicated (the projection onto the tied subspace; the sum would overstate the slope by the group size,
+caught by a tied-direction gradient check), four suite tests; in P19 the docs steering corewise users; in P20 the check
+of `t3_corewise_frame`, with a check-in with the maintainer between P19 and P20. The counts unchanged (removal table
+166 / 30 / 5 / 131). Also: the plan's three "pending the maintainer" notes (P7/P10 stack checks, P9 zero names)
+resolved by his answers.

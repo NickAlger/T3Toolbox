@@ -725,6 +725,31 @@ typically not, because it changes stability. Bitwise equivalence is given low we
 simplicity and performance decide. This is how rows 6.4 ("wanting a variable never changes a value") and 2.3 step 3
 are read, and every comparison of two routes is a tolerance test (row 0.8).
 
+**The second planned pause, after P5 to P11: the maintainer's answers** (2026-11-20, evening).
+
+- **`sum_over_samples`** (discussed at his request): aligned with his intent. The flag touches only the outputs shaped
+  like cores (`g`, `JtJp`, `Kp`); `z`, `r`, `Jp` and the edge variables are always per sample; `f`, `r_block_sumsq`,
+  `Jp_norm_sq` always summed. `W` keeps its place, multi-axis, in `W + K + C`, the site axis first on uniform. **The
+  oracle does not ask for unsummed blocks:** wait for a use case; his lean even then is to add hooks another way
+  than through the oracle, decided on the facts at that time. The low-rank structure of per-sample blocks (and its
+  link to the ambient transposes) is filed in `dev/HANDOFF.md`'s backlog.
+- **Corewise is a first-class feature** ("a feature people expect, and it should work well rather than be an
+  afterthought"). Approved: a corewise forward derivative (P12), frontend methods for it and for the corewise Hessian
+  (P13, reversing "the corewise Hessian has no frontend method", on the rule that each user can do everything in
+  their own layer), a tested bridge to external optimizers (P17/P19); the check of `t3_corewise_frame` in P20, **with a
+  check-in with him between P19 and P20**. A writer and a critic update the plan; the names go to him.
+- **Re-gauging for corewise optimization:** agreed with Claude's recommendation (a re-gauging option with a period and
+  two modes, `'orthogonalize'` optionally followed by spreading the norm evenly, and `'balance'`, a scalar per core that
+  carries optimizer state exactly; defaults chosen on real problems). For after the refactor: `dev/HANDOFF.md`'s backlog.
+- **After Parts 1 and 2, before the release, the backlog is considered**; a Part 3 may be made from it.
+- **The zero tilde names on apply and entries** (`xi_tilde`, `mu_tilde`, `xi_tilde_dot`, `mu_tilde_dot`): unknown names,
+  their message saying they are zero there ("I'm ambivalent ... let's go with your recommendation").
+- **A public reader of a call's names:** not now; maybe later if a need arises.
+- **The structural stack checks** (P7's `K`, P10's `W` and `C`, P11's index rows): kept ("Yes, keep the checks.
+  Strongly agree."). O-18's "the engine checks what it needs to run, and nothing more" is read to include: when the
+  engine reads a group's size from one operand, it checks that every other operand carrying the group agrees, since
+  a size-1 axis would otherwise broadcast into a silent wrong answer.
+
 ## Carried to Part 2 from the implementation of Part 1
 
 Kept here so that nothing found while building Part 1 is forgotten when Part 2 is planned. Each item names its
