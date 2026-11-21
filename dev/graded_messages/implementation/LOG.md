@@ -1107,3 +1107,6 @@ about 11 s): is it architectural (a limit at scale) or incidental (compilation, 
 The maintainer settled the four notes carried to P16 (`TARGET_DECISIONS.md`, "The notes carried to P16, settled"),
 including one change: the aligned padded frame returns `(frame, centers)`, the old centers zero-padded (reversing the
 P15 ruling).
+The slowdown investigated (the maintainer's question at the pause): not architectural. Overhead per call at small
+sizes; at scale the forward step's contraction order (row 5.5), and with it fixed the engine is 2-3x faster than the
+old kernels. Numbers and scripts in `implementation/bench/`; `TARGET_DECISIONS.md` "Carried to Part 2".

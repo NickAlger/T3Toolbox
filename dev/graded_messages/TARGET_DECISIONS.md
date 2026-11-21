@@ -807,6 +807,15 @@ the count of four). Built in P14b.
 
 ## Carried to Part 2 from the implementation of Part 1
 
+**The measured slowdown of Part 1, and its cause** (2026-11-21, at the third planned pause; the maintainer asked
+whether it is architectural). It is not. Against the old derivative kernels (numpy): at the example's size the engine
+is about 2x slower from per-call Python overhead; at scale its forwards are 2-6x slower, growing with the jet size and
+the rank, because `jet_contract`'s step `cda,aib,di->cdb` contracts the carried jet with the core first (the row 5.5
+order, `TestOrderInsideAStep`). With only that order fixed (the cheapest first pair) the engine is 2-3x FASTER than the
+old kernels on every operation at every large size measured, apply and probe. Part 2 starts from these numbers and
+scripts: `dev/graded_messages/implementation/bench/` (they need the old kernels, deleted in P20; run them before it).
+The maintainer's criterion: overhead on microbenchmarks is acceptable; a limit at scale is not.
+
 Kept here so that nothing found while building Part 1 is forgotten when Part 2 is planned. Each item names its
 row and where it is marked in the code. A search for `PART 2 (row` in `t3toolbox/` and `tests/` finds the markers.
 
