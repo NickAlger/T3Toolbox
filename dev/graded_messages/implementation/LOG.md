@@ -998,3 +998,15 @@ corewise Hessians; the 18 uniform twins on the ragged signatures, mirroring the 
 unsummed Hessian per sample, the 18 twins with garbage everywhere (padding exactly zero, judged by ragged shapes), the
 corewise step count (9 rows, no frame rows), 5 more mutants killed. Gate at `-n 2`: suite 1,824 passed; lowest
 MemAvailable 3.9 GB. For P20: the `_by_old_order` test adapter. Next: P13 (the frontend methods), design-first.
+
+### P13 designed; split into P13a and P13b; one question for the maintainer (2026-11-21)
+
+`P13_DESIGN_NOTE.md`, `P13_DESIGN_REVIEW.md`. Ruled by Claude: split P13a (merged signatures, the six new corewise
+methods per class, `check_sample` in every method taking a sample, the transpose call sites; the `*_derivatives`
+methods kept) then P13b (their removal, every caller, the examples, pages, `chunking.md` and its 13 links); a
+`TypeError` for any `core_directions` that is not a pair of core sequences (or two supercores); `np.asarray` on a
+non-array entries index; a test pinning the derivative conversion against an exact derivative (survives P20); a
+`d = 3` test that swapping `ww` and the residual changes the result. **Asked of the maintainer (finding A of the
+review):** old positional calls `x.probe_corewise_transpose(ztildes, ww)` and `probe_ambient_transpose(ztildes, ww)` would
+silently swap residual and sample (same shapes for probe); recommended: `residual` and what follows keyword-only on
+the frontend transposes and corewise methods, plus a CHANGELOG upgrade note. P13a is being built meanwhile.
