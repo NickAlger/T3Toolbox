@@ -43,15 +43,20 @@ changed on the branch since 2026-11-16 (slices P0 to P4 of Part 1); `main` has n
 **START HERE (updated 2026-11-19, 19:30; Claude Code on Nick's laptop, branch `graded-messages`).** Nothing lives
 in a session: everything is in files.
 
-- **Where it stands (2026-11-21): the sub-arc P12 to P15 is COMMITTED; the work is at the THIRD PLANNED PAUSE, before the switch (P16). Open with the maintainer: the names `keep=` and `frame_form` (P14; LOG)** (after the second planned pause; every
-  question of that pause answered, `TARGET_DECISIONS.md` notes "The second planned pause"). Committed and pushed, CI
-  green: P4a to P11 (the engine, `e34f7ca7`) and the plan updated for the corewise surface (P12: `t3_*_corewise_tangent`
-  (O-48), P13: frontend corewise tangent and Hessian methods, P17: `point_value_and_gradient` (O-50), P20: a check-in
-  with Nick on `t3_corewise_frame` between P19 and P20). Next: P12 to P15 by the same pair, each slice design-first,
-  then the THIRD planned pause, after P15, before the switch (P16). Live record: `LOG.md`. **To resume after a lost
-  session:** read `LOG.md`'s last entries, then the slice in hand's `P<n>_DESIGN_NOTE.md` / `_DESIGN_REVIEW.md` /
-  `_HANDOVER.md` / `_REVIEW_r*.md`; the agents `implementer` and `reviewer` (Opus 5.5, high) may be resumable by name; if
-  not, start fresh ones on `BRIEF.md`, `LOG.md` and those files. Uncommitted work in the tree belongs to the slice in hand.
+- **Where it stands (2026-11-21): the sub-arc P12 to P15 is COMMITTED and pushed (P15 = `70489fe6`); the work is at
+  the THIRD PLANNED PAUSE, before the switch (P16).** What the sub-arc did: P12 the backend sampling functions on the
+  engine (+ `*_corewise_tangent`), P13 the frontend methods merged and the `*_derivatives*` methods removed, P14 the
+  least-squares oracle and batch (additive; the engine gained `keep=` and the public `frame_form`), P15 the backend
+  geometry's `frame(x)` returning `(frame, centers)`. Per-slice record and every ruling: `LOG.md`. **Open with the
+  maintainer:** the names `keep=` and `frame_form` (committed as built; a one-line rename each). **Raised for the
+  pause:** `examples/fit_hilbert_from_apply_derivatives.py` about 11 s instead of 5.8 s (the engine at the jet in place
+  of the old derivative kernels; Part 2). **Next after the pause:** P16, the switch (O-24: two commits, reviewed in
+  four parts), design-first, by the same pair. Notes carried to P16 are in `P14_HANDOVER.md` and `P15_HANDOVER.md`
+  (`eps|rho|` in the resolution; a test that `held` is not carried across MC-SGD draws; `pack_sample`/`pack_data` new
+  forms; at a padded-start frame the oracle runs without `Vc`). **To resume after a lost session:** read `LOG.md`'s
+  last entries, then the slice in hand's `P<n>_DESIGN_NOTE.md` / `_DESIGN_REVIEW.md` / `_HANDOVER.md` /
+  `_REVIEW_r*.md`; the agents `implementer` and `reviewer` (Opus 5.5, high) may be resumable by name; if not, start
+  fresh ones on `BRIEF.md`, `LOG.md` and those files. Uncommitted work in the tree belongs to the slice in hand.
 - **The design-first rhythm** (from P5): before each slice's code, the implementer writes a design note and the
   reviewer critiques it; Claude settles it into the plan; then build, review rounds, commit. Design notes and reviews
   are beside the slices in `dev/graded_messages/implementation/`.
