@@ -1091,3 +1091,9 @@ dense |X|^2, corewise against the raw cores' sum of squares, uniform with garbag
 the P16 suggestion retracted; the three `frame` docstrings say (frame, centers) read as a tangent is 2d X. Touched
 files on both envs, module doctests and Sphinx pass (the full gate passed on round 0's code). `P15_REVIEW_r2.md`: SIGN
 OFF. **The work stops here for the maintainer's third planned pause, before the switch (P16).**
+
+### The third planned pause: `keep=` replaced by `computed_names` (2026-11-21)
+
+The maintainer decided: drop `keep=` from the engine; add the pure query `computed_names(kind, frame, want,
+**arguments)`; the oracle uses it to hold exactly what is free (`TARGET_DECISIONS.md`, the note "The hold list").
+To be built as a small slice (P14b) before P16. `frame_form` under discussion with the maintainer.

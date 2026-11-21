@@ -769,6 +769,20 @@ call (the adjoint relation with the forward at the intended sample holds to tigh
 does not), and the CHANGELOG upgrade note. No safe-mode adjoint check: besides its cost, it cannot detect the swap (a
 swapped call is a valid transpose of a different problem, whose own adjoint relation holds).
 
+**The hold list: `computed_names`, not `keep=`** (the maintainer, 2026-11-21, at the third planned pause). P14 had
+given the engine a `keep=` keyword returning, besides `want`, a record of the hold-list names the call computed
+anyway. Dropped: it makes the engine's return depend on a keyword and its contents on the routing, so the output is
+not predictable from the inputs. `keep=` and `want`+`held` have the same computational reach (a route is chosen from
+the call's facts, never from `want`, so wanting a name the call computes anyway adds no work); its only value is not
+having to know the graph. That value is kept, without the cost, by a pure query `computed_names(kind, frame, want,
+**arguments)`: the names a call with these arguments would compute, read from the declared graph by the engine's own
+cached closure. The engine returns exactly `want` and reuses `held`, nothing else. The least-squares oracle passes the
+same arguments to both, adds to `want` the hold-list names `computed_names` says the call computes anyway, splits them
+off, and builds its `HeldVariables` itself. A one-call helper on top of it (a split return of the free extras) was
+considered and is not built; if oracle writers ask for it later, it is a helper on `computed_names`, never an engine
+keyword. The maintainer's reading of the concept: `want` is need-to-have (changes the computation), the hold list is
+nice-to-have (returned only when free).
+
 ## Carried to Part 2 from the implementation of Part 1
 
 Kept here so that nothing found while building Part 1 is forgotten when Part 2 is planned. Each item names its

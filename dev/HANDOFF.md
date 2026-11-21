@@ -47,8 +47,9 @@ in a session: everything is in files.
   the THIRD PLANNED PAUSE, before the switch (P16).** What the sub-arc did: P12 the backend sampling functions on the
   engine (+ `*_corewise_tangent`), P13 the frontend methods merged and the `*_derivatives*` methods removed, P14 the
   least-squares oracle and batch (additive; the engine gained `keep=` and the public `frame_form`), P15 the backend
-  geometry's `frame(x)` returning `(frame, centers)`. Per-slice record and every ruling: `LOG.md`. **Open with the
-  maintainer:** the names `keep=` and `frame_form` (committed as built; a one-line rename each). **Raised for the
+  geometry's `frame(x)` returning `(frame, centers)`. Per-slice record and every ruling: `LOG.md`. **At the pause, decided:** `keep=` is
+  replaced by a pure `computed_names` (TARGET_DECISIONS, "The hold list"; slice P14b before P16). **Under discussion:**
+  `frame_form`. **Raised for the
   pause:** `examples/fit_hilbert_from_apply_derivatives.py` about 11 s instead of 5.8 s (the engine at the jet in place
   of the old derivative kernels; Part 2). **Next after the pause:** P16, the switch (O-24: two commits, reviewed in
   four parts), design-first, by the same pair. Notes carried to P16 are in `P14_HANDOVER.md` and `P15_HANDOVER.md`
