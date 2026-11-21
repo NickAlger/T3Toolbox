@@ -1010,3 +1010,5 @@ non-array entries index; a test pinning the derivative conversion against an exa
 review):** old positional calls `x.probe_corewise_transpose(ztildes, ww)` and `probe_ambient_transpose(ztildes, ww)` would
 silently swap residual and sample (same shapes for probe); recommended: `residual` and what follows keyword-only on
 the frontend transposes and corewise methods, plus a CHANGELOG upgrade note. P13a is being built meanwhile.
+Finding A decided by the maintainer: not keyword-only; documented by right/wrong doctests and the CHANGELOG note
+(`TARGET_DECISIONS.md`, the note "Old positional calls to the probe transposes").

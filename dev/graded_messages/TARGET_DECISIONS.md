@@ -760,6 +760,15 @@ are read, and every comparison of two routes is a tolerance test (row 0.8).
   engine reads a group's size from one operand, it checks that every other operand carrying the group agrees, since
   a size-1 axis would otherwise broadcast into a silent wrong answer.
 
+**Old positional calls to the probe transposes: documented, not guarded** (the maintainer, 2026-11-21, on finding A of
+P13's design review). `x.probe_corewise_transpose(ztildes, ww)` and `probe_ambient_transpose(ztildes, ww)` in today's
+order would silently swap the residual and the sample (same shapes for probe). Claude had recommended making
+`residual` keyword-only; the maintainer declined: it compromises the design for (anti-)compatibility, while the
+refactor does things right from first principles and accepts breaking old code. Instead: doctests showing the right
+call (the adjoint relation with the forward at the intended sample holds to tight tolerance) and the wrong one (it
+does not), and the CHANGELOG upgrade note. No safe-mode adjoint check: besides its cost, it cannot detect the swap (a
+swapped call is a valid transpose of a different problem, whose own adjoint relation holds).
+
 ## Carried to Part 2 from the implementation of Part 1
 
 Kept here so that nothing found while building Part 1 is forgotten when Part 2 is planned. Each item names its
