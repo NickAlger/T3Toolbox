@@ -1049,3 +1049,12 @@ else raise; `take` sets `minibatch_scale = n / len(indices)` (documented as a dr
 unchanged until P16; `f_resolution` from unscaled values times the scale once. **Asked of the maintainer:** the two new
 public names (`keep=`, `frame_form`); P14 is built with them meanwhile. For P16: `eps|rho|` in the resolution; a test
 that `held` is not carried across MC-SGD draws.
+
+### P14 built; review round 1 (2026-11-21)
+
+Built (`P14_HANDOVER.md`): `frame_form`, `keep=`, `LeastSquaresBatch`, `LeastSquaresOracle` (query, check_batch,
+n_measurements, take), `pack_batch`, the `Oracle` protocol text, reachable from `t3toolbox.fitting`; the P3 test that
+bans the checkers in the backend now allows them inside `check_batch` only (the reviewer agrees). Gate at `-n 2`: 1,851.
+`P14_REVIEW_r1.md` NOT YET: `y_block_sumsq` and `f_resolution` summed a packed probe `y`'s padding (silent; the
+reviewer found it with garbage padding; must fix), float32 `eps` untested, the P3 test to cover every backend module.
+In round 1.
