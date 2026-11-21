@@ -109,6 +109,7 @@ import t3toolbox.backend.optimizers as bopt         # exact mode: its checks, Cu
 import t3toolbox.backend.regularization as breg     # the backend geometry a Regularizer leans on (no cycle: backend never imports fitting)
 import t3toolbox.backend.uniform_fitting as ufit
 import t3toolbox.backend.jets as backend_jets
+from t3toolbox.backend.fitting import LeastSquaresOracle, LeastSquaresBatch   # one class each, both tiers
 from t3toolbox.backend.jets import (                # reachable here under their backend names
     derivatives_to_taylor,
     taylor_to_derivatives,
@@ -128,6 +129,7 @@ from t3toolbox.backend.data_preparation import (    # reachable here under their
 from t3toolbox.backend.common import *
 
 __all__ = ['LocalModel',
+           'LeastSquaresOracle', 'LeastSquaresBatch',
            'apply_model', 'entries_model', 'probe_model',
            'apply_derivatives_model', 'entries_derivatives_model', 'probe_derivatives_model',
            # derivative data and the jet helpers (the backend functions, and this module's own dual_jet_to_jet)

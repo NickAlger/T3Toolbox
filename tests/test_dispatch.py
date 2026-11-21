@@ -833,6 +833,43 @@ class TestDispatch(unittest.TestCase):
                     jax.jit(lambda sample, y, weight: check(kind, order, sample, y, jnp.ones((1,))))(sample, y, weight)
 
     # ---------------------------------------------------- jit bucket: the sampling engine
+    def test_jit_the_least_squares_oracle(self):
+        """P14: ``LeastSquaresOracle.query`` jitted on both layouts (the oracle closed over, the frame and the batch
+        arguments), jax in and out, with ``held`` carried out of one compiled call into the next; and the engine's
+        ``keep=`` record under jit, its filled slots the same as eagerly (they are static)."""
+        import t3toolbox.backend.jets as jets
+        import t3toolbox.backend.sampling_variables as sv
+        import t3toolbox.uniform_frame_variations_format as ubv
+        from t3toolbox.backend.fitting import LeastSquaresOracle, LeastSquaresBatch
+        from t3toolbox.backend.uniform_fitting import pack_batch
+        oracle = LeastSquaresOracle('probe', (1,))
+        jet = [jnp.asarray(w) for w in jets.affine_jet(list(self.ww), list(self.zz))]
+        y = [jnp.asarray(a) for a in self.x_other.probe(jet, (1,))]
+        batch = LeastSquaresBatch(jet, y, jnp.ones((3, 2)))
+        uframe = ubv.UT3Frame.from_t3frame(self.frame)
+        layouts = {'ragged': (self.frame.data, batch, self.var.data),
+                   'uniform': (uframe.data, pack_batch('probe', (1,), batch, uframe.data[0].shape[-1]),
+                               ubv.UT3Variations.from_t3variations(self.var).data[:2])}
+        for name, (frame, b, v) in layouts.items():
+            with self.subTest(layout=name):
+                cores, statics = frame[:4], frame[4:]
+                f_and_held = jax.jit(lambda c, bb: oracle.query(tuple(c) + statics, bb, ('f',)))
+                (f,), held = f_and_held(cores, b)
+                self._leaves_all_jax((f, held))
+                self.assertTrue(set(held.keys()) <= {'xi', 'mu', 'nu', 'eta', 'r'} and 'r' in held)
+                g_from_held = jax.jit(lambda c, bb, h, vv: oracle.query(tuple(c) + statics, bb, ('g', 'JtJp'),
+                                                                        variations=vv, held=h))
+                (g, JtJp), held2 = g_from_held(cores, b, held, v)
+                self._leaves_all_jax((g, JtJp, held2))
+                (g_eager, _), _ = oracle.query(frame, b, ('g', 'JtJp'), variations=v)
+                for p, q in zip(jax.tree_util.tree_leaves(g), jax.tree_util.tree_leaves(g_eager)):
+                    self.assertLess(norm(np.asarray(p) - np.asarray(q)), 1e-10 * max(norm(np.asarray(q)), 1.0))
+                kept = jax.jit(lambda c, bb: sv.sampling_variables(
+                    'probe', tuple(c) + statics, bb.sample, ('f',), order=(1,), y=bb.y, keep=('xi', 'mu', 'r'))[1])
+                eager = sv.sampling_variables('probe', frame, b.sample, ('f',), order=(1,), y=b.y,
+                                              keep=('xi', 'mu', 'r'))[1]
+                self.assertEqual(kept(cores, b).keys(), eager.keys())
+
     def test_jit_the_sampling_functions(self):
         """P12b: every backend sampling function by its signature, ragged and uniform (the six new corewise tangents
         included), at ``order = (2,)`` for probe and apply: jitted with jax in, every output leaf jax. The uniform

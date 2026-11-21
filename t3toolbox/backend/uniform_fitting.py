@@ -52,6 +52,7 @@ __all__ = [
     'uniform_least_squares_problem',
     'pack_sample',
     'pack_data',
+    'pack_batch',
 ]
 
 
@@ -398,6 +399,37 @@ def pack_data(name, data, N):
         return ut3_operations.pack_if_ragged(data, N)
     return data
 
+
+
+def pack_batch(
+        kind:   str,                                # 'probe' | 'apply' | 'entries'
+        order:  typ.Tuple[int, ...],                # the jet shape
+        batch:  'bfit.LeastSquaresBatch',           # ragged (or already packed: kept)
+        N:      int,                                # the packed mode width
+) -> 'bfit.LeastSquaresBatch':                      # the sample's vectors and the probe data packed to N
+    """Pack a :py:class:`~t3toolbox.backend.fitting.LeastSquaresBatch` once for the uniform layout: the input jets
+    with ``pack_if_ragged(sample, N, len_J=len(order))``, which brings each jet axis to its largest size across the
+    modes by writing zero coefficients (data, not padding: an input jet is zero beyond its slots, O-45), and the
+    probe data ``y`` to ``(d,)+F+W+(N,)``. The entries ``index`` and the scalar data of apply and entries are not
+    packed; the weight, the scale and the drawn indices pass through. A packed sample or ``y`` is kept as it is.
+
+    >>> import numpy as np
+    >>> from t3toolbox.backend.fitting import LeastSquaresBatch
+    >>> from t3toolbox.backend.uniform_fitting import pack_batch
+    >>> ww = [np.ones((2, 3, 4)), np.ones((1, 3, 5))]                 # jet sizes 2 and 1, W = (3,)
+    >>> y = [np.zeros((3, 3, 4)), np.zeros((3, 3, 5))]                # F = (3,): order (2,)
+    >>> packed = pack_batch('probe', (2,), LeastSquaresBatch(ww, y), 6)
+    >>> print(packed.sample.shape, packed.y.shape)
+    (2, 2, 3, 6) (2, 3, 3, 6)
+    """
+    if kind == 'entries':
+        sample = batch.sample
+    else:
+        sample = ut3_operations.pack_if_ragged(batch.sample, N, len_J=len(order))
+    y = batch.y
+    if kind == 'probe' and y is not None:
+        y = ut3_operations.pack_if_ragged(y, N)
+    return dc.replace(batch, sample=sample, y=y)
 
 # Packed-aware minibatch `take` (the SamplingKind default-draw hook), so mc_sgd/adam keep minibatches
 # PACKED (a single `(d,)+W'+…` gather via bfit._flat_gather) instead of the ragged `take` iterating the

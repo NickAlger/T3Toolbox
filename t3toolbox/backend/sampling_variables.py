@@ -328,6 +328,7 @@ if jax_available:
 __all__ = [
     'sampling_variables',
     'HeldVariables',
+    'frame_form',
 ]
 
 
@@ -1451,6 +1452,41 @@ def _uniform_index(
 ########    The engine    ###########################
 #####################################################
 
+def frame_form(
+        frame:  typ.Tuple,                  # (D, U, L, R) or (B, G); uniform: + (shape, masks) after the cores
+) -> typ.Tuple[
+        str,                                # the layout: 'ragged' | 'uniform'
+        str,                                # the call: 'manifold' (a frame) | 'corewise' (a point)
+]:
+    '''The form of a frame: its layout and the call it makes, read from its structure alone.
+
+    The layout first, from the type of ``frame[0]`` (a tuple of cores on the ragged layout, a supercore on the uniform
+    one), then the count: a ragged frame has four stores ``(D, U, L, R)`` and a corewise point two ``(B, G)``; a
+    uniform frame six elements ``(D, U, L, R, shape, masks)`` and a uniform point four ``(B, G, shape, masks)``. **A
+    count of four is a ragged frame or a uniform point**, which only the layout tells apart. The engine reads a frame
+    with this function, and so should an oracle that passes a direction in the form the call takes (on a corewise
+    point, as ``core_directions``). Anything else raises a ``ValueError``.
+
+    >>> import numpy as np
+    >>> from t3toolbox.backend.sampling_variables import frame_form
+    >>> B, G = (np.ones((2, 4)),), (np.ones((1, 2, 1)),)
+    >>> frame_form((B, G)), frame_form((B, G, G, G))
+    (('ragged', 'corewise'), ('ragged', 'manifold'))
+    >>> frame_form((np.ones((1, 2, 4)), np.ones((1, 1, 2, 1)), (4,), None))      # four elements, uniform: a point
+    ('uniform', 'corewise')
+    '''
+    if not isinstance(frame, (tuple, list)) or not frame:
+        raise ValueError('sampling_variables: the frame is a tuple of stores; got a %s' % type(frame).__name__)
+    uniform = is_ndarray(frame[0])                      # the layout first, then the count
+    counts = {(False, 2): 'corewise', (False, 4): 'manifold', (True, 4): 'corewise', (True, 6): 'manifold'}
+    if (uniform, len(frame)) not in counts:
+        raise ValueError('sampling_variables: a ragged frame has four stores (D, U, L, R), or a corewise point two '
+                         '(B, G); a uniform frame six elements (D, U, L, R, shape, masks), or a uniform point four '
+                         '(B, G, shape, masks); got %d on the %s layout'
+                         % (len(frame), 'uniform' if uniform else 'ragged'))
+    return ('uniform' if uniform else 'ragged'), counts[uniform, len(frame)]
+
+
 def sampling_variables(
         kind:              str,                              # 'probe' | 'apply' | 'entries'
         frame:             typ.Tuple,                        # (D, U, L, R), four tuples of d arrays; or (B, G)
@@ -1467,7 +1503,8 @@ def sampling_variables(
         Vc:                typ.Optional[typ.Sequence[NDArray]] = None,   # len=d, elm_shape=C+(nUi,Ni)
         sum_over_samples:  bool = True,                      # on the blocks; False: W joins their stack, W+K+C
         held:              typ.Optional[HeldVariables] = None,   # held variables; shapes checked, values trusted
-) -> typ.Tuple[typ.Any, ...]:                                # aligned with want; shapes in the module's table
+        keep:              typ.Optional[typ.Sequence[str]] = None,   # names to hand back held, if computed anyway
+) -> typ.Tuple[typ.Any, ...]:                                # aligned with want (+ a HeldVariables if keep is given)
     """The sampling variables ``want`` of a Tucker tensor train at a frame, sampled at input jets.
 
     Each variable is computed by its recurrence over the sites, once, and only the variables that what is wanted
@@ -1535,13 +1572,19 @@ def sampling_variables(
         to apply or entries it is read by nothing and accepted, as any argument nothing wanted reads.
     held: HeldVariables, optional
         Variables computed earlier at this frame and sample (on the uniform layout one array each, masked on entry).
+    keep: sequence of str, optional
+        Names of variables (``HeldVariables`` slots) to hand back for a later call at this frame and sample. When it is
+        given, the return has one more element, a :py:class:`HeldVariables`: the ``held`` passed in, plus each name of
+        ``keep`` that **this call computed anyway** for what it wants. A name of ``keep`` the call did not compute is
+        absent from it: nothing is computed only to be kept. Which slots are filled is decided by the closure, from the
+        names and the arguments given, not from the values, so it is static under ``jax.jit``. An unknown name raises.
 
     Returns
     -------
     tuple
         One entry per name of ``want``: a tuple over the index for an indexed variable (``d + 1`` bonds, or ``d``
         sites or modes), an array for ``f`` and ``r_block_sumsq``, and for the apply and entries kinds' ``z``,
-        ``r``, ``w_tilde`` and ``Jp``.
+        ``r``, ``w_tilde`` and ``Jp``. With ``keep``, one more entry: the :py:class:`HeldVariables` above.
 
     Raises
     ------
@@ -1627,18 +1670,18 @@ def sampling_variables(
     want = tuple(want)
     if held is not None and not isinstance(held, HeldVariables):
         raise TypeError('sampling_variables: held is a HeldVariables or None; got a %s' % type(held).__name__)
+    if keep is not None:
+        if isinstance(keep, str):
+            raise TypeError('sampling_variables: keep is a sequence of names, not one name; got %r' % (keep,))
+        keep = tuple(keep)
+        unknown_keep = [name for name in keep if name not in HeldVariables.slots()]
+        if unknown_keep:
+            raise ValueError('sampling_variables: keep names variables that can be held (HeldVariables slots); %s is '
+                             'not one' % ', '.join(map(repr, unknown_keep)))
 
     # 2. the layout and the call type, from the structure of the frame
-    if not isinstance(frame, (tuple, list)) or not frame:
-        raise ValueError('sampling_variables: the frame is a tuple of stores; got a %s' % type(frame).__name__)
-    uniform = is_ndarray(frame[0])                      # the layout first, then the count
-    counts = {(False, 2): '_corewise', (False, 4): '_manifold', (True, 4): '_corewise', (True, 6): '_manifold'}
-    if (uniform, len(frame)) not in counts:
-        raise ValueError('sampling_variables: a ragged frame has four stores (D, U, L, R), or a corewise point two '
-                         '(B, G); a uniform frame six elements (D, U, L, R, shape, masks), or a uniform point four '
-                         '(B, G, shape, masks); got %d on the %s layout'
-                         % (len(frame), 'uniform' if uniform else 'ragged'))
-    call = counts[uniform, len(frame)]
+    layout, call_name = frame_form(frame)
+    uniform, call = layout == 'uniform', '_' + call_name
     stores = dict(zip(('D', 'L') if call == '_corewise' else ('D', 'U', 'L', 'R'), frame))
     if call == '_corewise' and variations is not None:
         raise ValueError('sampling_variables: a corewise point has one form of a direction, the raw one: pass it as '
@@ -1723,4 +1766,11 @@ def sampling_variables(
     if uniform:
         out = tuple(value if (name == 'w' and w_given) else _mask_variable(name, value, setting)
                     for name, value in zip(want, out))
-    return out
+    if keep is None:
+        return out
+    # the kept record: the held passed in, plus each kept name the closure computed (never one computed to be kept)
+    computed = {rule.name for rule in rules}
+    kept = {name: (_mask_variable(name, values[name], setting) if uniform else values[name])
+            for name in keep if name in computed and name not in held_names}
+    record = held.with_values(**kept) if held is not None else HeldVariables(**kept)
+    return out + (record,)

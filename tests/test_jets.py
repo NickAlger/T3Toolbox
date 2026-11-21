@@ -886,7 +886,9 @@ class TestCheckers(unittest.TestCase):
 
     # ------------------------------------------------------------------------------------------ the tier
     def test_no_backend_module_calls_a_checker(self):
-        """Checkers, not guarantees: outside ``jets`` itself, no backend module refers to one of the checkers."""
+        """Checkers, not guarantees: outside ``jets`` itself, no backend module refers to one of the checkers, except
+        ``LeastSquaresOracle.check_batch`` in ``fitting.py``, itself a checker built from them (the plan's 2.2, O-29;
+        P14); and no backend module calls ``check_batch``."""
         names = {'check_sample', 'check_data', 'check_weight', 'check_coordinate_scales'}
         backend = pathlib.Path(t3toolbox.__file__).resolve().parent / 'backend'
         files = sorted(backend.glob('*.py'))
@@ -901,8 +903,21 @@ class TestCheckers(unittest.TestCase):
                     calls = {node.func.id for node in ast.walk(tree)
                              if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)}
                     self.assertEqual(calls & names, set())                   # not even their own modules call them
+                elif path.name == 'fitting.py':                              # only inside check_batch
+                    batch_checker = [node for node in ast.walk(tree)
+                                     if isinstance(node, ast.FunctionDef) and node.name == 'check_batch']
+                    inner = {id(n) for f in batch_checker for n in ast.walk(f)}
+                    inside = {n.attr for n in ast.walk(tree) if id(n) in inner and isinstance(n, ast.Attribute)}
+                    outside = {n.attr for n in ast.walk(tree) if id(n) not in inner and isinstance(n, ast.Attribute)} \
+                        | {n.id for n in ast.walk(tree) if id(n) not in inner and isinstance(n, ast.Name)}
+                    self.assertEqual(outside & names, set())
+                    self.assertEqual(inside & names, {'check_sample', 'check_data', 'check_weight'})
                 else:
                     self.assertEqual(used & names, set())
+                # and nothing in the backend calls check_batch: a checker, called by the frontend only (round 1)
+                calls = {node.func.attr if isinstance(node.func, ast.Attribute) else getattr(node.func, 'id', None)
+                         for node in ast.walk(tree) if isinstance(node, ast.Call)}
+                self.assertNotIn('check_batch', calls)
 
     def test_the_validators_of_pp_are_gone(self):
         """There is no ``pp``: the two validators P3 copied from ``sampling_derivatives`` are not in ``jets`` (the

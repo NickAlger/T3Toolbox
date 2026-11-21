@@ -1058,3 +1058,11 @@ bans the checkers in the backend now allows them inside `check_batch` only (the 
 `P14_REVIEW_r1.md` NOT YET: `y_block_sumsq` and `f_resolution` summed a packed probe `y`'s padding (silent; the
 reviewer found it with garbage padding; must fix), float32 `eps` untested, the P3 test to cover every backend module.
 In round 1.
+
+### P14 committed (2026-11-21)
+
+Round 1 (`P14_RESPONSE_r1.md`): `query` unpacks a packed probe `y` with the frame's static shape before reducing (the
+reviewer's garbage case now exact), a float32 `eps` test, the P3 test over every backend module. `P14_REVIEW_r2.md`:
+SIGN OFF. Gate at `-n 2`: suite 1,852; lowest MemAvailable 3.5 GB. **Still open with the maintainer:** the names
+`keep=` and `frame_form` (committed as built; a one-line rename each; to be raised at the third pause if not answered
+before). Next: P15 (the corewise-geometry pieces / the remaining additive slice of the plan), design-first.
