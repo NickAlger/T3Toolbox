@@ -310,6 +310,16 @@ refactor"):
   To consider: a public function for the norm of a difference of two T3s by that route, and whether `-` followed by
   `norm` should use it. Record: `dev/graded_messages/implementation/P4_HANDOVER.md` section 4.1 and `P4_REVIEW_r1.md`.
 
+- **For future consideration: the low-rank structure of per-sample blocks** (Nick, 2026-11-20: "worth filing away").
+  With `sum_over_samples=False` the engine materializes each sample's `g`/`JtJp`/`Kp` block dense, `W x |core|` in
+  memory. But each per-sample block is low rank: without jets, a sample's `V_tilde` is a rank-1 outer product
+  (`eta_tilde_s (x) w_s`) and its `H_tilde` a sum of three rank-1 three-way products (`mu_tilde (x) xi (x) nu` and its two
+  siblings); with jets, short sums of such terms over slot pairs. The information is about `W x (sum of edge sizes)`,
+  and the per-sample edge variables the engine already returns hold it in factored form. It is the same structure the
+  ambient transposes exploit when their sum folds `W` into the CP rank. Many per-sample statistics need no dense
+  blocks: directional derivatives `<g_s, p>` come from `r` and `Jp`; norms from the edge variables. **The oracle does
+  not ask for unsummed blocks** (Nick: wait for a use case; his lean even then is to add hooks another way than through
+  the oracle, the decision to be made on the facts at that time).
 - **A test cut held in reserve: the four-site half of `TestJetsTwoWays::test_every_variable`**
   (`tests/test_sampling_definitions.py`; Nick, 2026-11-20: "leave the tests in for now", the suggestion recorded). The
   test checks the 24 jetted variables of the reference module (`z`, `Jp` and the 22 edge variables) against an
