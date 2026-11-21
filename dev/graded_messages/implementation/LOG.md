@@ -1097,3 +1097,7 @@ OFF. **The work stops here for the maintainer's third planned pause, before the 
 The maintainer decided: drop `keep=` from the engine; add the pure query `computed_names(kind, frame, want,
 **arguments)`; the oracle uses it to hold exactly what is free (`TARGET_DECISIONS.md`, the note "The hold list").
 To be built as a small slice (P14b) before P16. `frame_form` under discussion with the maintainer.
+P14b designed (`P14b_DESIGN_NOTE.md`; small, ruled by Claude without a design review): `computed_names` with the
+engine's exact signature (`sample` accepted and unread), presence only, public names only, held names excluded, a
+frozenset, the engine's errors; one private `_closure_facts` shared by the engine and `computed_names`, so they read the
+same facts; the oracle passes one shared dictionary to both. Being built.
