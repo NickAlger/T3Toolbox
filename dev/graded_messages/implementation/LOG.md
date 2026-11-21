@@ -1104,3 +1104,6 @@ same facts; the oracle passes one shared dictionary to both. Being built.
 The maintainer keeps `frame_form` (structure inference, two strings) and approves a small `frame_shape` reader, added
 in P14b. Next at the pause: Claude investigates why `fit_hilbert_from_apply_derivatives.py` got slower (5.8 s to
 about 11 s): is it architectural (a limit at scale) or incidental (compilation, call overhead, einsum paths)?
+The maintainer settled the four notes carried to P16 (`TARGET_DECISIONS.md`, "The notes carried to P16, settled"),
+including one change: the aligned padded frame returns `(frame, centers)`, the old centers zero-padded (reversing the
+P15 ruling).

@@ -789,6 +789,22 @@ oracle keep inferring the call type from the frame's structure (plan 2.2), throu
 any of the four forms (the uniform ones read the static `shape` element by position, which is as easy to get wrong as
 the count of four). Built in P14b.
 
+**The notes carried to P16, settled** (the maintainer, 2026-11-21, at the third planned pause).
+1. **`held` is valid for one frame and one batch.** No runtime guard (the record cannot carry the identity of its
+   batch or frame under jit); the guard is the documented contract plus a P16 test that a mutant carrying `held`
+   across minibatch draws (MC-SGD, Adam, minibatched Newton) fails.
+2. **`f_resolution` and the regularizer.** The oracle's `f_resolution` covers the misfit only; P16's optimizer adds
+   `eps |rho|` to reproduce today's floor (`objective_floor`, the switch's rounding gate). The regularizer follows the
+   library's minibatch rule, and P17's `point_value_and_gradient` the same rule.
+3. **The aligned padded frame returns `(frame, centers)`,** like `frame(x)`. This reverses Claude's P15 ruling
+   (frame only). The padded frame keeps the old point's frame bitwise in its leading slots and the old point has zero
+   coordinates in the new slots, so the padded point's centers are the old point's centers zero-padded (checked:
+   consistency residual 5.7e-15 at the aligned frame of `padded_start`'s docstring example); at the cone start
+   (old point = the zero tensor) they are zeros. `aligned_padded_frame` already computes `frame(x_old)` and keeps its
+   centers. Ragged and uniform. Every frame the optimizer meets then carries its centers; a P16 test asserts the
+   consistency residual at a padded start, with and without alignment passes.
+4. **`pack_sample(kind, order, sample, N)` and `pack_data(kind, order, y, N)`** replace the old-kind-name forms in P16.
+
 ## Carried to Part 2 from the implementation of Part 1
 
 Kept here so that nothing found while building Part 1 is forgotten when Part 2 is planned. Each item names its
