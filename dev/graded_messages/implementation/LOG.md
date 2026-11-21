@@ -956,3 +956,15 @@ waits on a signature prototype he asked for.
 O-48: `_corewise_tangent` (the maintainer, after a signature prototype). Substituted for `_jacobian` in the plan
 (the writer tidies the candidate text in 11.5 as part of P12's preparation). The handoff's START HERE brought up to
 date. P12 starts design-first.
+
+### P12 designed; split into P12a and P12b (2026-11-20, late)
+
+`P12_DESIGN_NOTE.md`, `P12_DESIGN_REVIEW.md`. The reviewer caught that the implementer's plan tidy for O-48 had
+deleted sections 11.3 and 11.4 (being restored from `HEAD`). **Ruled by Claude:** a transpose's residual with a stack
+`K` goes through a `JtJp` route from a held `Jp` (`K` read off it; the contract "holding a vector as `Jp` gives `J^T` of
+it" stated in 6.5 and `HeldVariables`); the bridge's `z` rows use the order-0 derivative kinds or `dense_*`, with
+`sampling_variables` patched to raise while the old side runs; the `utv_*` twins mask variations with the frame's
+masks; **a ragged `ww[i]` with a mode axis of size 1 against `N_i > 1` raises** (the structural rule the maintainer
+endorsed for the stack checks; else a new silent broadcast); the docstrings point repeated calls to `held=`. **Split
+in place: P12a** (the engine addition, the ragged functions, call sites) **then P12b** (the uniform twins, the corewise
+tangent, the Hessian's `sum_over_samples`). The implementer writes the rulings into the plan and builds P12a.
