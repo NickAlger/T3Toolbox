@@ -830,6 +830,58 @@ class TestDispatch(unittest.TestCase):
                     jax.jit(lambda sample, y, weight: check(kind, order, sample, y, jnp.ones((1,))))(sample, y, weight)
 
     # ---------------------------------------------------- jit bucket: the sampling engine
+    def test_jit_the_sampling_functions(self):
+        """P12b: every backend sampling function by its signature, ragged and uniform (the six new corewise tangents
+        included), at ``order = (2,)`` for probe and apply: jitted with jax in, every output leaf jax. The uniform
+        masks are closed over (host constants); the arrays are the jit's arguments."""
+        import t3toolbox.backend.apply as bapply
+        import t3toolbox.backend.entries as bentries
+        import t3toolbox.backend.jets as jets
+        import t3toolbox.backend.ut3_sampling as ut3s
+        import t3toolbox.backend.utv_sampling as utvs
+        import t3toolbox.uniform_frame_variations_format as ubv
+        modules = {'probe': probing, 'apply': bapply, 'entries': bentries}
+        x, frame, var = self.x.data, self.frame.data, self.var.data
+        dirs = x                                                            # a direction of the cores' shapes
+        ux = self.ux.data
+        uf = ubv.UT3Frame.from_t3frame(self.frame).data
+        uv = ubv.UT3Variations.from_t3variations(self.var).data
+        upt = lambda a, b: (a, b, ux[2], ux[3])
+        ufr = lambda a, b, c, d: (a, b, c, d, uf[4], uf[5])
+        ww = [jnp.asarray(w) for w in jets.affine_jet(list(self.ww), list(self.zz))]     # input jets, (2,) + W
+        index = jnp.array([[0, 3], [1, 4], [5, 2]])
+        for kind, module in modules.items():
+            s = index if kind == 'entries' else ww
+            kw = {} if kind == 'entries' else {'order': (2,)}
+            z = getattr(module, 't3_%s' % kind)(x, s, **kw)
+            Jp = getattr(module, 'tv_%s' % kind)(frame, var, s, **kw)
+            calls = {
+                't3': (lambda x_, s_: getattr(module, 't3_%s' % kind)(x_, s_, **kw), x, s),
+                'tv': (lambda f_, v_, s_: getattr(module, 'tv_%s' % kind)(f_, v_, s_, **kw), frame, var, s),
+                'tv_transpose': (lambda f_, s_, c_: getattr(module, 'tv_%s_transpose' % kind)(f_, s_, c_, **kw),
+                                 frame, s, Jp),
+                'corewise_tangent': (lambda x_, s_, d_: getattr(module, 't3_%s_corewise_tangent' % kind)(
+                    x_, s_, d_, **kw), x, s, dirs),
+                'corewise_transpose': (lambda x_, s_, c_: getattr(module, 't3_%s_corewise_transpose' % kind)(
+                    x_, s_, c_, **kw), x, s, z),
+                'corewise_hessian': (lambda x_, s_, c_, d_: getattr(module, 't3_%s_corewise_hessian' % kind)(
+                    x_, s_, c_, d_, sum_over_samples=False, **kw), x, s, z, dirs),
+                'ut3': (lambda a, b, s_: getattr(ut3s, 'ut3_%s' % kind)(upt(a, b), s_, **kw), ux[0], ux[1], s),
+                'utv': (lambda a, b, c, d, va, vb, s_: getattr(utvs, 'utv_%s' % kind)(
+                    ufr(a, b, c, d), (va, vb), s_, **kw), *uf[:4], *uv[:2], s),
+                'utv_transpose': (lambda a, b, c, d, s_, r_: getattr(utvs, 'utv_%s_transpose' % kind)(
+                    ufr(a, b, c, d), s_, r_, **kw)[:2], *uf[:4], s, Jp),
+                'ut3_corewise_tangent': (lambda a, b, s_, da, db: getattr(ut3s, 'ut3_%s_corewise_tangent' % kind)(
+                    upt(a, b), s_, (da, db), **kw), ux[0], ux[1], s, ux[0], ux[1]),
+                'ut3_corewise_transpose': (lambda a, b, s_, r_: getattr(ut3s, 'ut3_%s_corewise_transpose' % kind)(
+                    upt(a, b), s_, r_, **kw), ux[0], ux[1], s, z),
+                'ut3_corewise_hessian': (lambda a, b, s_, r_, da, db: getattr(ut3s, 'ut3_%s_corewise_hessian' % kind)(
+                    upt(a, b), s_, r_, (da, db), **kw), ux[0], ux[1], s, z, ux[0], ux[1]),
+            }
+            for name, (fn, *args) in calls.items():
+                with self.subTest(kind=kind, function=name):
+                    self.assert_jit_jax(fn, *args)
+
     def test_jit_sampling_variables(self):
         """The engine under ``jax.jit`` for ``('f', 'g')`` (a stray ``np.`` on a tracer would raise): jax in, jax out;
         numpy in under the trace (the frame closed over) gives jax too; the numbers are numpy's; the jet shape
@@ -1384,11 +1436,11 @@ class TestDispatch(unittest.TestCase):
                     self._leaves_all_jax(two_hole(z, (tuple(f[0]), tuple(f[2])), dirs, precompute(f, s)))
                 self.assertEqual(traces[0], 1, "the %s two-hole recompiled on a new point" % name)
                 u = lambda a, b: (a, b, ux.data[2], ux.data[3])                  # masks: host constants, closed over
-                jitted = jax.jit(lambda zz, a, b, da, db: uhess(zz, s, u(a, b), (da, db)))(z, *ux.data[:2], *u_dirs)
+                jitted = jax.jit(lambda zz, a, b, da, db: uhess(u(a, b), s, zz, (da, db)))(z, *ux.data[:2], *u_dirs)
                 self._leaves_all_jax(jitted)
                 to_np = lambda t: jax.tree_util.tree_map(np.asarray, t)
-                eager = uhess(to_np(z), to_np(s) if name != 'entries' else np.asarray(s),
-                              (np.asarray(ux.data[0]), np.asarray(ux.data[1]), ux.data[2], ux.data[3]), to_np(u_dirs))
+                eager = uhess((np.asarray(ux.data[0]), np.asarray(ux.data[1]), ux.data[2], ux.data[3]),
+                              to_np(s) if name != 'entries' else np.asarray(s), to_np(z), to_np(u_dirs))
                 for a, b in zip(jitted, eager):
                     self.assertLess(norm(np.asarray(a) - b), 1e-12 * norm(b))
                 # the exact local model, ragged and uniform: one cache key across points

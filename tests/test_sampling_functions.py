@@ -16,7 +16,20 @@
   derivatives, by central differences (automatic differentiation is P12b's); the defaults (a transpose sums the
   samples, an ambient transpose does not) and the signatures (entries has no ``order``).
 
-numpy only (jax dispatch is ``tests/test_dispatch.py``'s).
+P12b adds:
+
+- **the corewise tangent** ``t3_*_corewise_tangent``: against a numpy dense oracle (the sum of the ``2d`` dense tensors
+  with one core replaced by its direction, through ``dense_*``; exact at every order, mixed input jet sizes), against
+  the substitution ``tv_*`` at ``t3_corewise_frame(x)`` (bitwise: the same steps), the adjoint pair with the corewise
+  transpose, and a structural step count (each sweep once);
+- **the corewise Hessian's** ``sum_over_samples``, and the tangent and the Hessian against automatic differentiation
+  in jax (``jax.jvp``, and ``jax.jvp`` of ``jax.grad``), at ``()``, ``(2,)``, ``(1, 1)``, skipped where jax is absent;
+- **the uniform twins**: each equals its ragged function on the real parts, with garbage in every padded slot (the
+  point, the frame, the directions, the variations and a packed sample's or residual's mode padding), exact zero
+  padding on the outputs, and the mirror of the sample's form (ragged in ragged out, packed in packed out) at
+  ``()``, ``(2,)`` and ``(1, 1)``.
+
+numpy only, except the automatic-differentiation tests (jax dispatch is ``tests/test_dispatch.py``'s).
 """
 import inspect
 import unittest
@@ -26,6 +39,11 @@ import numpy as np
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.uniform_tucker_tensor_train as ut3
 import t3toolbox.uniform_manifold as ut3m
+import t3toolbox.uniform_frame_variations_format as ubv
+import t3toolbox.backend.t3_conversions as t3c
+import t3toolbox.backend.ut3_operations as ut3o
+import t3toolbox.backend.ut3_sampling as ut3s
+import t3toolbox.backend.utv_sampling as utvs
 import t3toolbox.frame_variations_format as bvf
 import t3toolbox.manifold as t3m
 import t3toolbox.backend.fv_conversions as fvc
@@ -429,12 +447,20 @@ class TestTheRaggedFunctions(unittest.TestCase):
                 't3_%s': ['x', sample],
                 'tv_%s': ['frame', 'variations', sample],
                 'tv_%s_transpose': ['frame', sample, 'residual', 'sum_over_samples'],
+                't3_%s_corewise_tangent': ['x', sample, 'core_directions'],
                 't3_%s_corewise_transpose': ['x', sample, 'residual', 'sum_over_samples'],
-                't3_%s_corewise_hessian': ['x', sample, 'residual', 'core_directions'],
+                't3_%s_corewise_hessian': ['x', sample, 'residual', 'core_directions', 'sum_over_samples'],
+                'ut3_%s': ['x', sample],
+                'utv_%s': ['frame', 'variations', sample],
+                'utv_%s_transpose': ['frame', sample, 'residual', 'sum_over_samples'],
+                'ut3_%s_corewise_tangent': ['x', sample, 'core_directions'],
+                'ut3_%s_corewise_transpose': ['x', sample, 'residual', 'sum_over_samples'],
+                'ut3_%s_corewise_hessian': ['x', sample, 'residual', 'core_directions', 'sum_over_samples'],
             }
             for name, params in expected.items():
                 with self.subTest(kind=kind, name=name % kind):
-                    sig = inspect.signature(getattr(module, name % kind))
+                    owner = ut3s if name.startswith('ut3') else utvs if name.startswith('utv') else module
+                    sig = inspect.signature(getattr(owner, name % kind))
                     names = [p for p in sig.parameters if p != 'order']
                     self.assertEqual(names, params)
                     self.assertEqual('order' in sig.parameters, kind != 'entries')
@@ -448,3 +474,265 @@ class TestTheRaggedFunctions(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+# ------------------------------------------------------------------------------------------------- P12b
+ORDERS = {'probe': [(), (2,), (1, 1)], 'apply': [(), (2,), (1, 1)], 'entries': [()]}
+JET_SIZES = {(): [(), (), ()], (2,): [(3,), (2,), (1,)], (1, 1): [(2, 1), (1, 2), (2, 2)]}   # mixed, per mode
+PAD = dict(N=6, n=4, r=4)
+FPAD = dict(N=6, nD=4, nU=4, rL=4, rR=4)
+GARBAGE = 1e3
+
+
+def jet_sample(kind, rng, order, shape=STRUCT[0]):
+    """The kind's sample with input jets of mixed sizes per mode (a constant, a line, a full jet)."""
+    if kind == 'entries':
+        return np.stack([rng.integers(0, N, size=W) for N in shape])
+    return [rng.standard_normal(J + W + (N,)) for J, N in zip(JET_SIZES[order], shape)]
+
+
+def corrupt(obj):
+    """``obj`` (a uniform point, frame or variations) with garbage in every padded slot; the real slots unchanged."""
+    scs = obj.supercores
+    ind = type(obj)(*([np.ones_like(sc) for sc in scs] + [obj.shape, obj.masks])).apply_masks().supercores
+    return type(obj)(*([sc + GARBAGE * (1.0 - i) for sc, i in zip(scs, ind)] + [obj.shape, obj.masks]))
+
+
+def packed_with_garbage(vectors, N, len_J=0):
+    """Pack ragged per-mode vectors to ``N``, with garbage beyond each mode's ``N_i`` (the mode padding)."""
+    packed = np.array(ut3o.pack_vectors(vectors, N, len_J=len_J))
+    for i, v in enumerate(vectors):
+        packed[i, ..., np.shape(v)[-1]:] = GARBAGE
+    return packed
+
+
+def embedded(ragged_blocks, uniform_blocks):
+    """(the real-slot indicator, the ragged blocks embedded in zeros) on the uniform blocks' shapes: block ``i`` of
+    the ragged pair sits at ``[i]`` of its supercore, from the origin of every axis."""
+    ind, emb = [], []
+    for rag, uni in zip(ragged_blocks, uniform_blocks):
+        m, e = np.zeros(np.shape(uni), bool), np.zeros(np.shape(uni))
+        for i, a in enumerate(rag):
+            self_check = np.ndim(uni) - 1 == np.ndim(a)
+            assert self_check, (np.shape(uni), np.shape(a))
+            at = (i,) + tuple(slice(0, n) for n in np.shape(a))
+            m[at], e[at] = True, a
+        ind.append(m)
+        emb.append(e)
+    return ind, emb
+
+
+class TestTheCorewiseTangent(unittest.TestCase):
+    """``t3_*_corewise_tangent`` (P12b): ``J x_dot`` at a point along a stack ``K`` of core directions."""
+
+    def setUp(self):
+        self.rng = np.random.default_rng(21)
+        self.x = point(self.rng, (2,))
+        self.dirs = tuple(tuple(self.rng.standard_normal((2,) + np.shape(a)) for a in part) for part in self.x.data)
+
+    def T_dot(self, k):
+        """The dense derivative along direction ``k``: the sum of the 2d dense tensors with one core replaced."""
+        x, d, total = self.x.data, len(self.x.data[0]), 0.0
+        for part in (0, 1):
+            for j in range(d):
+                cores = [list(x[0]), list(x[1])]
+                cores[part][j] = self.dirs[part][j][k]
+                total = total + t3c.t3_to_dense((tuple(cores[0]), tuple(cores[1])))
+        return total
+
+    def test_the_dense_oracle(self):
+        for kind in KINDS:
+            for order in ORDERS[kind]:
+                with self.subTest(kind=kind, order=order):
+                    s = jet_sample(kind, self.rng, order)
+                    kw = order_kw(kind, order)
+                    J = call(kind, 't3_%s_corewise_tangent', self.x.data, s, self.dirs, **kw)
+                    lead = (slice(None),) * (len(order) + len(W))           # F + W, then K
+                    for k in range(2):
+                        got = [a[lead + (k,)] for a in J] if kind == 'probe' else J[lead + (k,)]
+                        self.assertLess(relerr(got, dense_of(kind, self.T_dot(k), s, order)), 1e-12)
+
+    def test_the_substitution_and_the_adjoint_pair(self):
+        """The substitution ``tv_*`` at ``t3_corewise_frame(x)`` runs the same steps (bitwise); ``<J x_dot, c> =
+        <x_dot, J^T c>`` per element of ``K``."""
+        cf = fvc.t3_corewise_frame(self.x.data)
+        for kind in KINDS:
+            for order in ORDERS[kind]:
+                with self.subTest(kind=kind, order=order):
+                    s = jet_sample(kind, self.rng, order)
+                    kw = order_kw(kind, order)
+                    J = call(kind, 't3_%s_corewise_tangent', self.x.data, s, self.dirs, **kw)
+                    sub = call(kind, 'tv_%s', cf, self.dirs, s, **kw)
+                    self.assertTrue(all(np.array_equal(a, b) for a, b in zip(leaves(J), leaves(sub))))
+                    z = call(kind, 't3_%s', self.x.data, s, **kw)
+                    c = residual_like(kind, self.rng, z)
+                    g = call(kind, 't3_%s_corewise_transpose', self.x.data, s, c, **kw)
+                    lead = (slice(None),) * (len(order) + len(W))
+                    for k in range(2):
+                        Jk = [a[lead + (k,)] for a in J] if kind == 'probe' else J[lead + (k,)]
+                        dk = tuple(tuple(a[k] for a in part) for part in self.dirs)
+                        self.assertLess(abs(dot(Jk, c) - dot(dk, g)), 1e-12 * max(abs(dot(Jk, c)), 1.0))
+
+    def test_the_step_count(self):
+        """Structural: the rows the engine runs for ``Jp`` on a corewise call with ``core_directions``, each once;
+        the sweeps through the point's two stores, no frame row. The substitution runs the four-store frame's rows
+        (its larger count, the record)."""
+        for kind in KINDS:
+            with self.subTest(kind=kind):
+                rows = sv._closure(kind, ('Jp',), frozenset(), frozenset({'_corewise', 'core_directions'}))
+                self.assertEqual(len({rule.name for rule in rows}), len(rows))          # each once
+                self.assertFalse(any(rule.name.startswith('_frame.') for rule in rows))
+                self.assertFalse(any(set(rule.reads) & {'U', 'R', 'V', 'H'} for rule in rows))
+                frame_rows = sv._closure(kind, ('Jp',), frozenset(), frozenset({'_manifold', 'variations'}))
+                self.assertLessEqual(len(rows), len(frame_rows))
+
+
+class TestTheCorewiseHessianFlag(unittest.TestCase):
+
+    def test_unsummed_sums_to_the_default(self):
+        rng = np.random.default_rng(22)
+        x = point(rng, (2,))
+        dirs = tuple(tuple(rng.standard_normal((2,) + np.shape(a)) for a in part) for part in x.data)
+        for kind in KINDS:
+            for order in ORDERS[kind]:
+                with self.subTest(kind=kind, order=order):
+                    s = jet_sample(kind, rng, order)
+                    kw = order_kw(kind, order)
+                    c = residual_like(kind, rng, call(kind, 't3_%s', x.data, s, **kw))
+                    H = call(kind, 't3_%s_corewise_hessian', x.data, s, c, dirs, **kw)
+                    Hw = call(kind, 't3_%s_corewise_hessian', x.data, s, c, dirs, sum_over_samples=False, **kw)
+                    self.assertEqual(np.shape(Hw[0][0])[:len(W) + 1], W + (2,))
+                    self.assertLess(relerr([a.sum(0) for a in leaves(Hw)], leaves(H)), 1e-13)
+
+
+class TestAgainstAutomaticDifferentiation(unittest.TestCase):
+    """The tangent against ``jax.jvp`` of ``t3_*``, and the corewise Hessian against ``jax.jvp`` of the gradient of
+    ``phi(x) = <c, t3_*(x)>`` (O-22), in float64; skipped where jax is absent."""
+
+    def setUp(self):
+        try:
+            import jax
+        except ImportError:
+            self.skipTest('jax is not installed')
+        self.jax = jax
+        self.before = jax.config.read('jax_enable_x64')
+        jax.config.update('jax_enable_x64', True)
+
+    def tearDown(self):
+        self.jax.config.update('jax_enable_x64', self.before)
+
+    def test_jvp_and_hvp(self):
+        jax = self.jax
+        import jax.numpy as jnp
+        rng = np.random.default_rng(23)
+        x = point(rng)
+        xj = jax.tree_util.tree_map(jnp.asarray, x.data)
+        for kind in KINDS:
+            for order in ORDERS[kind]:
+                with self.subTest(kind=kind, order=order):
+                    s = jet_sample(kind, rng, order)
+                    kw = order_kw(kind, order)
+                    x_dot = randn_like(rng, x.data)
+                    f = lambda y: call(kind, 't3_%s', y, s, **kw)
+                    _, jv = jax.jvp(f, (xj,), (jax.tree_util.tree_map(jnp.asarray, x_dot),))
+                    J = call(kind, 't3_%s_corewise_tangent', x.data, s, x_dot, **kw)
+                    self.assertLess(relerr(J, jax.tree_util.tree_map(np.asarray, jv)), 1e-12)
+                    c = residual_like(kind, rng, f(x.data))
+                    phi = lambda y: sum(jnp.vdot(jnp.asarray(a), b)
+                                        for a, b in zip(leaves(c), jax.tree_util.tree_leaves(f(y))))
+                    _, hv = jax.jvp(jax.grad(phi), (xj,), (jax.tree_util.tree_map(jnp.asarray, x_dot),))
+                    H = call(kind, 't3_%s_corewise_hessian', x.data, s, c, x_dot, **kw)
+                    self.assertLess(relerr(H, jax.tree_util.tree_map(np.asarray, hv)), 1e-12)
+
+
+class TestTheUniformTwins(unittest.TestCase):
+    """Each twin equals its ragged function on the real parts, whatever the padding holds; its padding is exactly
+    zero; a probe output mirrors the sample's form."""
+
+    def setUp(self):
+        rng = np.random.default_rng(24)
+        self.rng = rng
+        self.x = point(rng, (2,))
+        self.xu = corrupt(ut3.UniformTuckerTensorTrain.from_t3(self.x, **PAD))
+        np.random.seed(25)
+        self.dt = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=(2, 2))           # K + C
+        self.du = corrupt(ut3.UniformTuckerTensorTrain.from_t3(self.dt, **PAD))
+        self.rf = t3m.MANIFOLD.frame(self.x)
+        self.uf = corrupt(ubv.UT3Frame.from_t3frame(self.rf, **FPAD))
+        self.rv = t3m.COREWISE.randn(self.rf, stack_shape=(2,)).variations
+        self.uv = corrupt(ubv.UT3Variations.from_t3variations(self.rv, **FPAD))
+        self.N = PAD['N']
+
+    def assert_vectors(self, kind, got, ref, packed):
+        """A twin's ``z``-typed output against the ragged one: probe mirrors (a tuple, or packed with zero padding)."""
+        if kind != 'probe':
+            self.assertLess(relerr(got, ref), 1e-12)
+            return
+        if not packed:
+            self.assertIsInstance(got, tuple)
+            self.assertEqual([np.shape(a) for a in got], [np.shape(a) for a in ref])
+            self.assertLess(relerr(got, ref), 1e-12)
+            return
+        self.assertEqual(np.shape(got), (len(ref),) + np.shape(ref[0])[:-1] + (self.N,))
+        for i, a in enumerate(ref):
+            n = np.shape(a)[-1]
+            self.assertLess(relerr(np.asarray(got)[i, ..., :n], a), 1e-12)
+            self.assertTrue(np.all(np.asarray(got)[i, ..., n:] == 0))
+
+    def assert_blocks(self, got, ref):
+        ind, emb = embedded(ref, got[:2])
+        for o, m, e in zip(got[:2], ind, emb):
+            o = np.asarray(o)
+            self.assertTrue(np.all(o[~m] == 0), 'padding not zero')
+            self.assertLess(relerr(o[m], e[m]), 1e-12)
+
+    def samples(self, kind, order):
+        s = jet_sample(kind, self.rng, order)
+        yield 'ragged', s, False
+        if kind != 'entries':
+            yield 'packed', packed_with_garbage(s, self.N, len(order)), True
+
+    def test_the_point_twins(self):
+        x, xu, dirs = self.x.data, self.xu.data, self.dt.data
+        for kind in KINDS:
+            for order in ORDERS[kind]:
+                kw = order_kw(kind, order)
+                for form, s, packed in self.samples(kind, order):
+                    with self.subTest(kind=kind, order=order, sample=form):
+                        base = s if not packed else self._ragged_of(s, order)
+                        z = call(kind, 't3_%s', x, base, **kw)
+                        self.assert_vectors(kind, getattr(ut3s, 'ut3_%s' % kind)(xu, s, **kw), z, packed)
+                        J = call(kind, 't3_%s_corewise_tangent', x, base, dirs, **kw)
+                        self.assert_vectors(kind, getattr(ut3s, 'ut3_%s_corewise_tangent' % kind)(xu, s, self.du.data[:2], **kw),
+                                            J, packed)
+                        c = residual_like(kind, self.rng, z)
+                        cu = packed_with_garbage(c, self.N) if (packed and kind == 'probe') else c
+                        for sos in (True, False):
+                            g = call(kind, 't3_%s_corewise_transpose', x, base, c, sum_over_samples=sos, **kw)
+                            self.assert_blocks(getattr(ut3s, 'ut3_%s_corewise_transpose' % kind)(
+                                xu, s, cu, sum_over_samples=sos, **kw), g)
+                            Kp = call(kind, 't3_%s_corewise_hessian', x, base, c, dirs, sum_over_samples=sos, **kw)
+                            self.assert_blocks(getattr(ut3s, 'ut3_%s_corewise_hessian' % kind)(
+                                xu, s, cu, self.du.data[:2], sum_over_samples=sos, **kw), Kp)
+
+    def test_the_tangent_twins(self):
+        rf, uf, rv, uv = self.rf.data, self.uf.data, self.rv.data, self.uv.data
+        for kind in KINDS:
+            for order in ORDERS[kind]:
+                kw = order_kw(kind, order)
+                for form, s, packed in self.samples(kind, order):
+                    with self.subTest(kind=kind, order=order, sample=form):
+                        base = s if not packed else self._ragged_of(s, order)
+                        Jp = call(kind, 'tv_%s', rf, rv, base, **kw)
+                        self.assert_vectors(kind, getattr(utvs, 'utv_%s' % kind)(uf, uv, s, **kw), Jp, packed)
+                        c = residual_like(kind, self.rng, Jp)                       # with the stack K of rv
+                        cu = packed_with_garbage(c, self.N) if (packed and kind == 'probe') else c
+                        for sos in (True, False):
+                            g = call(kind, 'tv_%s_transpose', rf, base, c, sum_over_samples=sos, **kw)
+                            self.assert_blocks(getattr(utvs, 'utv_%s_transpose' % kind)(
+                                uf, s, cu, sum_over_samples=sos, **kw), g)
+
+    def _ragged_of(self, packed, order):
+        """The ragged sample a packed one was made from: each mode sliced to its ``N_i`` (the jet zeros are
+        coefficients, so the polynomial is the same)."""
+        return [np.asarray(packed)[i, ..., :N] for i, N in enumerate(STRUCT[0])]

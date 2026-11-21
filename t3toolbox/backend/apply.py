@@ -30,6 +30,7 @@ __all__ = [
     'tv_precompute_apply_frame_sweep',
     'tv_apply_jacobian_from_sweep',
     'tv_apply_transpose_from_sweep',
+    't3_apply_corewise_tangent',
     't3_apply_corewise_transpose',
     't3_apply_corewise_hessian',
     't3_apply_corewise_hessian_from_sweep',
@@ -307,6 +308,46 @@ def tv_apply_transpose_from_sweep(
     return _apply_transpose_adjoint(c, ww, xis, mus, up_tt_cores, right_tt_cores, sum_over_probes)
 
 
+def t3_apply_corewise_tangent(
+        x:                 typ.Tuple,                    # (B, G): the point whose cores the directions vary
+        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=J_in_i+W+(Ni,): input jets
+        core_directions:   typ.Tuple,                    # (B_dot, G_dot), the shapes of B, G with K+C
+        order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
+) -> NDArray:                               # J x_dot. shape=F+W+K+C
+    '''The corewise forward derivative: ``J x_dot``, the derivative of ``z(x)`` (:py:func:`t3_apply`) along
+    ``core_directions = (B_dot, G_dot)``, of the type of ``z`` with the stack of directions ``K`` after ``W``.
+
+    The trio at a point: this is the tangent, :py:func:`t3_apply_corewise_transpose` its transpose and
+    :py:func:`t3_apply_corewise_hessian` the Hessian. Per sample, with no sum over the samples (no
+    ``sum_over_samples``). One call of :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` on the
+    corewise point ``x`` wanting ``Jp`` with ``core_directions`` (its raw route), each sweep once; the substitution
+    ``tv_apply(t3_corewise_frame(x), core_directions, ...)`` computes the same at the cost of the frame's sweeps on
+    ``(B, G, G, G)``. For repeated calls at one point, call
+    :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` with ``held=``: the point's sweeps are then
+    computed once.
+
+    Examples
+    --------
+    ``z`` is homogeneous of degree ``2d`` in the cores, so the derivative along ``x`` itself is ``2d z`` (Euler):
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.apply as apply
+    >>> from t3toolbox.backend.t3_constructors import t3_corewise_randn
+    >>> np.random.seed(0)
+    >>> x = t3_corewise_randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+    >>> ww = [np.random.randn(3, n) for n in (4, 5, 6)]                          # W = (3,)
+    >>> z = apply.t3_apply(x, ww)
+    >>> Jx = apply.t3_apply_corewise_tangent(x, ww, x)
+    >>> print(Jx.shape)
+    (3,)
+    >>> print(np.allclose(Jx, 6 * z))                                     # Euler: J x = 2d z
+    True
+    '''
+    (Jp,) = sampling_variables.sampling_variables('apply', x, ww, ('Jp',), order=order,
+                                                   core_directions=core_directions)
+    return Jp
+
+
 def t3_apply_corewise_transpose(
         x:                 typ.Tuple,                    # (tucker_cores, tt_cores): the point
         ww:                typ.Sequence[NDArray],        # len=d, elm_shape=J_in_i+W+(Ni,): input jets
@@ -384,16 +425,18 @@ def t3_apply_corewise_hessian(
         residual:          NDArray,                       # c, of the type of z: shape=F+W+C; no weight
         core_directions:   typ.Tuple,                    # (B_dot, G_dot), the shapes of B, G with K+C
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
+        sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
 ) -> typ.Tuple[
-        typ.Tuple[NDArray, ...],                         # Tucker block. len=d, elm_shape=K+C+(nDi,Ni)
-        typ.Tuple[NDArray, ...],                         # TT block.     len=d, elm_shape=K+C+(ri,nDi,r(i+1))
+        typ.Tuple[NDArray, ...],                         # Tucker block. len=d, elm_shape=[W]+K+C+(nDi,Ni)
+        typ.Tuple[NDArray, ...],                         # TT block.     len=d, elm_shape=[W]+K+C+(ri,nDi,r(i+1))
 ]:
     '''The corewise Hessian: the second derivative of ``phi(x) = <residual, z(x)>`` in the cores, applied to
     ``core_directions`` (the derivative of :py:func:`t3_apply_corewise_transpose` along them).
 
     ``residual`` is a vector of the type of ``z``, no weight, turned inside. One call of
     :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` on the corewise point ``x`` wanting ``Kp``
-    with ``residual`` held as ``r``. Summed over the samples. For repeated calls at one frame (inside an iterative solver), call
+    with ``residual`` held as ``r``. Summed over the samples (``sum_over_samples=False``: per sample, ``W``
+    leading the blocks' stack). For repeated calls at one frame (inside an iterative solver), call
     :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` with ``held=``: the frame's sweeps are then
     computed once.
 
@@ -414,7 +457,8 @@ def t3_apply_corewise_hessian(
     '''
     held = sampling_variables.HeldVariables(r=residual)
     (blocks,) = sampling_variables.sampling_variables('apply', x, ww, ('Kp',), order=order, held=held,
-                                                       core_directions=core_directions)
+                                                       core_directions=core_directions,
+                                                       sum_over_samples=sum_over_samples)
     return blocks
 
 

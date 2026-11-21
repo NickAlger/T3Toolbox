@@ -462,7 +462,7 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
         >>> print(bool(np.allclose(zz[0], np.einsum('ijk,j,k->i', x.to_dense(), ww[1], ww[2]))))
         True
         """
-        return ut3_sampling.ut3_probe(ww, self.data)
+        return ut3_sampling.ut3_probe(self.data, ww)
 
     # --------------------------------------------------------------- derivative sampling (jets)
     def probe_derivatives(
@@ -603,7 +603,7 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
         >>> print(kB.shape, kG.shape)                              # keep W: a leading (2,) grad stack
         (3, 2, 6, 12) (3, 2, 3, 6, 3)
         """
-        return ut3_sampling.ut3_apply_corewise_transpose(c, ww, self.data, sum_over_probes=sum_over_probes)
+        return ut3_sampling.ut3_apply_corewise_transpose(self.data, ww, c, sum_over_samples=sum_over_probes)
 
     def entries_corewise_transpose(
             self,
@@ -614,7 +614,7 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
         """Corewise transpose of :py:meth:`entries`: gradient w.r.t. the supercores (= the one-hot
         :py:meth:`apply_corewise_transpose`, scattering ``c`` at ``index``). See
         :py:meth:`apply_corewise_transpose` for the return contract and ``sum_over_probes``."""
-        return ut3_sampling.ut3_entries_corewise_transpose(c, index, self.data, sum_over_probes=sum_over_probes)
+        return ut3_sampling.ut3_entries_corewise_transpose(self.data, index, c, sum_over_samples=sum_over_probes)
 
     def probe_corewise_transpose(
             self,
@@ -625,7 +625,7 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
         """Corewise transpose of :py:meth:`probe`: gradient w.r.t. the supercores. Like
         :py:meth:`apply_corewise_transpose` but the residual carries one free mode per probe. See
         :py:meth:`apply_corewise_transpose` for the return contract and ``sum_over_probes``."""
-        return ut3_sampling.ut3_probe_corewise_transpose(ztildes, ww, self.data, sum_over_probes=sum_over_probes)
+        return ut3_sampling.ut3_probe_corewise_transpose(self.data, ww, ztildes, sum_over_samples=sum_over_probes)
 
     # ------------------------------------------------- corewise (non-manifold) derivative transposes
     def apply_corewise_derivatives_transpose(

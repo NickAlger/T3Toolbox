@@ -575,7 +575,7 @@ class UT3Tangent(common.ExplicitEquality):
         ...                for a, b in zip(zz, t3p.dense_probe(v.to_dense(), ww))) < 1e-9))   # dense reference
         True
         """
-        return utv_sampling.utv_probe(ww, self.frame.data, self.variations.data)
+        return utv_sampling.utv_probe(self.frame.data, self.variations.data, ww)
 
     def apply(
             self,
@@ -598,7 +598,7 @@ class UT3Tangent(common.ExplicitEquality):
         >>> print(bool(abs(float(v.apply(ww)) - float(np.einsum('ijk,i,j,k->', v.to_dense(), *ww))) < 1e-9))
         True
         """
-        return utv_sampling.utv_apply(ww, self.frame.data, self.variations.data)
+        return utv_sampling.utv_apply(self.frame.data, self.variations.data, ww)
 
     def entries(
             self,
@@ -619,7 +619,7 @@ class UT3Tangent(common.ExplicitEquality):
         >>> print(bool(abs(float(v.entries((3, 5, 7))) - float(v.to_dense()[3, 5, 7])) < 1e-9))
         True
         """
-        return utv_sampling.utv_entries(index, self.frame.data, self.variations.data)
+        return utv_sampling.utv_entries(self.frame.data, self.variations.data, index)
 
     # --------------------------------------------------------------- derivative sampling (jets 𝒥)
     def probe_derivatives(
@@ -769,7 +769,7 @@ class UT3Tangent(common.ExplicitEquality):
         (2,) ()
         """
         vd = utv_sampling.utv_probe_transpose(
-            ztildes, ww, frame.data, sum_over_probes=sum_over_probes)
+            frame.data, ww, ztildes, sum_over_samples=sum_over_probes)
         return UT3Tangent(frame, _ut3variations_from_data(vd))
 
     @staticmethod
@@ -784,7 +784,7 @@ class UT3Tangent(common.ExplicitEquality):
         :py:meth:`~t3toolbox.manifold.T3Tangent.apply_transpose`; ``sum_over_probes`` as in
         :py:meth:`probe_transpose`. The bare ``𝒥ᵀ`` (no gauge projector ``Π``)."""
         vd = utv_sampling.utv_apply_transpose(
-            c, ww, frame.data, sum_over_probes=sum_over_probes)
+            frame.data, ww, c, sum_over_samples=sum_over_probes)
         return UT3Tangent(frame, _ut3variations_from_data(vd))
 
     @staticmethod
@@ -798,7 +798,7 @@ class UT3Tangent(common.ExplicitEquality):
         ``frame``. The adjoint of :py:meth:`entries` (= :py:meth:`apply_transpose` with one-hot vectors).
         Uniform mirror of :py:meth:`~t3toolbox.manifold.T3Tangent.entries_transpose`. The bare ``𝒥ᵀ``."""
         vd = utv_sampling.utv_entries_transpose(
-            c, index, frame.data, sum_over_probes=sum_over_probes)
+            frame.data, index, c, sum_over_samples=sum_over_probes)
         return UT3Tangent(frame, _ut3variations_from_data(vd))
 
     # --------------------------------------------------------- derivative transpose 𝒥ᵀ (jets)

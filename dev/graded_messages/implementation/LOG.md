@@ -987,3 +987,14 @@ xfailed; lowest MemAvailable 2.6 GB, down from 4.6: watch; if below 1.5 GB the g
 (`P12a_REVIEW_r2.md`): SIGN OFF. For P20: `test_uniform_curvature`'s direction-mask control now runs on the old kernel
 and is deleted with it (P11's `TestKpAtTTSlack` is the lasting control). Next: P12b (the uniform twins' signatures and
 mirroring, `*_corewise_tangent`, the Hessians' `sum_over_samples`, the automatic-differentiation tests).
+
+### P12b committed; P12 complete (2026-11-21)
+
+`P12b_HANDOVER.md`, `P12b_REVIEW_r1.md` (SIGN OFF, no findings, one round). Built: `t3_*_corewise_tangent` and
+`ut3_*_corewise_tangent` (O-48; one engine call wanting `Jp` at the corewise point; bitwise equal to the old
+substitution through `tv_*`, against the dense oracle 5.9e-16, `jax.jvp` 7.8e-16); `sum_over_samples=True` on the
+corewise Hessians; the 18 uniform twins on the ragged signatures, mirroring the sample's form; the call sites moved;
+`test_jit_the_sampling_functions`. The reviewer: the tangent against its own one-core-replaced construction, the
+unsummed Hessian per sample, the 18 twins with garbage everywhere (padding exactly zero, judged by ragged shapes), the
+corewise step count (9 rows, no frame rows), 5 more mutants killed. Gate at `-n 2`: suite 1,824 passed; lowest
+MemAvailable 3.9 GB. For P20: the `_by_old_order` test adapter. Next: P13 (the frontend methods), design-first.

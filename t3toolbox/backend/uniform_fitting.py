@@ -204,7 +204,7 @@ class UniformProbeKind(_UniformLayerMixin, bfit.ProbeKind):
         return self._remask(v_sc, frame_data)
 
     def point_forward(self, x_sc, ww):
-        return ut3_sampling.ut3_probe(ww, self._point(x_sc))
+        return ut3_sampling.ut3_probe(self._point(x_sc), ww)
 
     def take(self, sample, data, idx):
         return _ptake_probe(sample, data, idx)

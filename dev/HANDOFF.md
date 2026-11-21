@@ -43,7 +43,7 @@ changed on the branch since 2026-11-16 (slices P0 to P4 of Part 1); `main` has n
 **START HERE (updated 2026-11-19, 19:30; Claude Code on Nick's laptop, branch `graded-messages`).** Nothing lives
 in a session: everything is in files.
 
-- **Where it stands (2026-11-21): in the sub-arc P12 to P15, P12a COMMITTED, P12b next** (after the second planned pause; every
+- **Where it stands (2026-11-21): in the sub-arc P12 to P15, P12 COMMITTED (P12a, P12b), P13 next** (after the second planned pause; every
   question of that pause answered, `TARGET_DECISIONS.md` notes "The second planned pause"). Committed and pushed, CI
   green: P4a to P11 (the engine, `e34f7ca7`) and the plan updated for the corewise surface (P12: `t3_*_corewise_tangent`
   (O-48), P13: frontend corewise tangent and Hessian methods, P17: `point_value_and_gradient` (O-50), P20: a check-in

@@ -592,11 +592,17 @@ class TestUniformKindCorewiseHessian(unittest.TestCase):
 # The plain kinds' uniform two-holes (S10 / S11): probe, apply, entries
 # ---------------------------------------------------------------------------------------------------
 _PLAIN_KINDS = ('probe', 'apply', 'entries')
-_PLAIN_UNIFORM = {'probe': (ut3s.ut3_probe_corewise_hessian, ut3s.ut3_probe_corewise_hessian_from_sweep,
+
+
+def _by_old_order(hess):
+    """A uniform corewise Hessian called in the tests' order (residual, sample, point, directions); P12b moved the
+    twins to the object first, ``hess(x, sample, residual, core_directions)``."""
+    return lambda c, s, theta, D: hess(theta, s, c, D)
+_PLAIN_UNIFORM = {'probe': (_by_old_order(ut3s.ut3_probe_corewise_hessian), ut3s.ut3_probe_corewise_hessian_from_sweep,
                             utvs.utv_precompute_probe_frame_sweep),
-                  'apply': (ut3s.ut3_apply_corewise_hessian, ut3s.ut3_apply_corewise_hessian_from_sweep,
+                  'apply': (_by_old_order(ut3s.ut3_apply_corewise_hessian), ut3s.ut3_apply_corewise_hessian_from_sweep,
                             utvs.utv_precompute_apply_frame_sweep),
-                  'entries': (ut3s.ut3_entries_corewise_hessian, ut3s.ut3_entries_corewise_hessian_from_sweep,
+                  'entries': (_by_old_order(ut3s.ut3_entries_corewise_hessian), ut3s.ut3_entries_corewise_hessian_from_sweep,
                               utvs.utv_precompute_entries_frame_sweep)}
 
 

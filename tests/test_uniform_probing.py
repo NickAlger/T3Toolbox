@@ -833,11 +833,11 @@ class TestTransposeOutputHygiene(unittest.TestCase):
         zj = [np.random.randn(*((O,) + S + (n,))) for n in shape]
         cj = np.random.randn(*((O,) + S))
         return [
-            ('probe', lambda f, s: utvs.utv_probe_transpose(z, ww, f, s),
+            ('probe', lambda f, s: utvs.utv_probe_transpose(f, ww, z, sum_over_samples=s),
              lambda f, s: utvs.utv_probe_transpose_from_sweep(z, utvs.utv_precompute_probe_frame_sweep(f, ww), s)),
-            ('apply', lambda f, s: utvs.utv_apply_transpose(c, ww, f, s),
+            ('apply', lambda f, s: utvs.utv_apply_transpose(f, ww, c, sum_over_samples=s),
              lambda f, s: utvs.utv_apply_transpose_from_sweep(c, utvs.utv_precompute_apply_frame_sweep(f, ww), s)),
-            ('entries', lambda f, s: utvs.utv_entries_transpose(c, index, f, s),
+            ('entries', lambda f, s: utvs.utv_entries_transpose(f, index, c, sum_over_samples=s),
              lambda f, s: utvs.utv_entries_transpose_from_sweep(c, utvs.utv_precompute_entries_frame_sweep(f, index), s)),
             ('probe_derivatives', lambda f, s: utvs.utv_probe_derivatives_transpose(zj, ww, pp, f, _ORDER, s),
              lambda f, s: utvs.utv_probe_transpose_derivatives_from_sweep(
@@ -913,11 +913,11 @@ class TestTransposeOutputHygiene(unittest.TestCase):
             tail = getattr(module, 'tv_%s_transpose_from_sweep' % kind)
             return lambda d, s: tail(res(d), sample(d), cf(d), sweep(cf(d), sample(d)), sum_over_probes=s)
         return [
-            ('probe', lambda d, s: ut3s.ut3_probe_corewise_transpose(z, ww, d, s),
+            ('probe', lambda d, s: ut3s.ut3_probe_corewise_transpose(d, ww, z, sum_over_samples=s),
              old(bprobing, 'probe', lambda d: pk(z, d), lambda d: pk(ww, d))),
-            ('apply', lambda d, s: ut3s.ut3_apply_corewise_transpose(c, ww, d, s),
+            ('apply', lambda d, s: ut3s.ut3_apply_corewise_transpose(d, ww, c, sum_over_samples=s),
              old(bapply, 'apply', lambda d: c, lambda d: pk(ww, d))),
-            ('entries', lambda d, s: ut3s.ut3_entries_corewise_transpose(c, index, d, s),
+            ('entries', lambda d, s: ut3s.ut3_entries_corewise_transpose(d, index, c, sum_over_samples=s),
              old(bentries, 'entries', lambda d: c, lambda d: index)),
             ('probe_derivatives', lambda d, s: ut3s.ut3_probe_corewise_derivatives_transpose(zj, ww, pp, d, _ORDER, s),
              lambda d, s: bsd.t3_probe_corewise_derivatives_transpose(
