@@ -1037,3 +1037,15 @@ the jet on every minibatch, in place of the old dedicated derivative kernels; th
 section 1); the stochastic examples differ from the old tree in the last digits (MC-SGD amplifying rounding; the
 reviewer checked the operator agrees to 4e-16). P19: prose mentions of the removed methods and of `chunking.md` remain
 in two pages, code comments and the glossary.
+
+### P14 designed (2026-11-21)
+
+`P14_DESIGN_NOTE.md`, `P14_DESIGN_REVIEW.md`. `point_value_and_gradient` stays in P17. Ruled by Claude: `keep=` on
+`sampling_variables` (the held record plus the kept names the call computed anyway; extra return only when given;
+unknown names raise) rather than a separate `computed_names`; a public frame reader `frame_form(frame) -> (layout,
+call)` (not `structure`, which the tensor-train classes use); on a corewise frame given both `variations` and
+`core_directions` (the exact Hessian, lift = identity), pass `core_directions`, require the two to be the same arrays,
+else raise; `take` sets `minibatch_scale = n / len(indices)` (documented as a draw); `pack_sample`/`pack_data`
+unchanged until P16; `f_resolution` from unscaled values times the scale once. **Asked of the maintainer:** the two new
+public names (`keep=`, `frame_form`); P14 is built with them meanwhile. For P16: `eps|rho|` in the resolution; a test
+that `held` is not carried across MC-SGD draws.
