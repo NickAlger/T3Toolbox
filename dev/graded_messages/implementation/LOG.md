@@ -1022,3 +1022,18 @@ on the four probe transposes; 98 transpose calls rewritten (every one checked by
 `tests/test_frontend_sampling.py`. Gate at `-n 2`: suite 1,835 passed; lowest MemAvailable 3.9 GB. Carried into P13b:
 five entries methods into the nested-list test; the derivative-conversion pin (independent of `affine_jet` and
 `taylor_to_derivatives`, outliving P20).
+
+### P13b committed; P13 complete (2026-11-21)
+
+`P13b_HANDOVER.md`, `P13b_REVIEW_r1.md` (SIGN OFF, one round). The 24 `*_derivatives*` methods removed from the four
+classes; 162 test calls through a test-only helper `tests/_derivative_data.py` (the merged method at `affine_jet`, then
+`taylor_to_derivatives`; the transposes' residual scaled by `t!`), derived and checked independently by the reviewer;
+the doctests of `optimizers.py`, `fitting.py` and two pages, and the six examples' dense ground truth moved;
+`docs/chunking.md` removed with its links; the nested-list test on all 13 entries methods; the derivative-conversion
+pin (independent of `affine_jet` and `taylor_to_derivatives`, survives P20). `test_probe_derivatives.py` stays until
+P20 (it tests the old kernels). Gate at `-n 2`: suite 1,836 passed; lowest MemAvailable 3.7 GB. **For the maintainer
+(the third pause) and Part 2:** `fit_hilbert_from_apply_derivatives.py` takes about 11 s instead of 5.8 s (the engine at
+the jet on every minibatch, in place of the old dedicated derivative kernels; the plan accepts Part 1 being slower,
+section 1); the stochastic examples differ from the old tree in the last digits (MC-SGD amplifying rounding; the
+reviewer checked the operator agrees to 4e-16). P19: prose mentions of the removed methods and of `chunking.md` remain
+in two pages, code comments and the glossary.

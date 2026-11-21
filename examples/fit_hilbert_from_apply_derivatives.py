@@ -4,7 +4,7 @@ A worked example of Riemannian fixed-rank fitting from **symmetric directional d
 all-modes ``apply`` operation -- the derivative analogue of ``examples/fit_hilbert_tensor_newton_cg.py``
 (which fits from ordinary applies). Here we fit with **Manifold Cauchy SGD (MC-SGD)**, the stochastic
 method of the T4S paper (Section 5.3.2): a minibatched, tuning-free Riemannian optimizer. The forward
-``T3Tangent.apply_derivatives`` (the Jacobian ``J``) and its transpose ``apply_derivatives_transpose``
+``T3Tangent.apply`` at the input jet of the line (the Jacobian ``J``) and its transpose ``apply_transpose``
 (``J^T``) drive it, so this is also the end-to-end integration test of the derivative pipeline.
 
 The problem
@@ -39,9 +39,9 @@ The method -- Manifold Cauchy SGD (MC-SGD)
 A first-order stochastic Riemannian method (T4S Section 5.3.2). Each iteration draws a fresh **minibatch
 of base points** ``X`` (a few ``X``, with *all* their directions ``P`` -- base points are the scarce
 resource, directions the cheap one), so the per-step work is a fraction of the full batch. On that
-minibatch it forms the gauged stochastic gradient ``g = Pi J^T r`` (the forward ``Z.apply_derivatives``
-works on a ``TuckerTensorTrain`` point or a ``T3Tangent`` direction; the transpose with
-``sum_over_probes=True`` is ``J^T r``; ``Pi = MANIFOLD.project`` gauges it), then sets the step length by
+minibatch it forms the gauged stochastic gradient ``g = Pi J^T r`` (the forward ``Z.apply`` at the jet
+works on a ``TuckerTensorTrain`` point or a ``T3Tangent`` direction; the transpose, which sums the samples,
+is ``J^T r``; ``Pi = MANIFOLD.project`` gauges it), then sets the step length by
 the **Cauchy rule** ``alpha = ||g||^2 / ||J g||^2`` -- the exact 1D minimizer of the local Gauss-Newton
 quadratic model along ``-g``. That costs one extra forward Jacobian-vector product ``J g`` and needs **no
 learning-rate schedule** (the "Cauchy" in MC-SGD; "manifold" because we retract). The step is
@@ -62,7 +62,8 @@ import numpy as np
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.frame_variations_format as bvf
 import t3toolbox.manifold as t3m
-import t3toolbox.backend.sampling_derivatives as pd
+from t3toolbox.backend.apply import dense_apply
+from t3toolbox.fitting import affine_jet, taylor_to_derivatives
 
 
 # --------------------------------------------------------------------------------------------------
@@ -113,16 +114,11 @@ def unit_pairs_many_p(n_x, n_p, shape, rng):
     return ww, pp
 
 
-def dense_apply_derivatives(A, ww, pp, order):
-    """Ground-truth apply-derivative jets of the dense tensor ``A``: shape ``(order+1,) + W`` (``W`` the
-    probe stack). Each ``W``-element is ``dense_apply_derivatives`` (the exact subset expansion)."""
-    W = ww[0].shape[:-1]
-    b = np.zeros((order + 1,) + W)
-    for idx in np.ndindex(*W):
-        ww_m = [w[idx] for w in ww]
-        pp_m = [p[idx] for p in pp]
-        b[(slice(None),) + idx] = pd.dense_apply_derivatives(ww_m, pp_m, A, order)
-    return b
+def dense_apply_jets(A, ww, pp, order):
+    """Ground-truth apply-derivative jets of the dense tensor ``A``: shape ``(order+1,) + W`` (``W`` the probe
+    stack). ``dense_apply`` at the input jet of the line ``ww + s pp`` gives the Taylor coefficients in ``s``
+    (the whole stack ``W`` at once); ``taylor_to_derivatives`` multiplies slot ``t`` by ``t!``."""
+    return taylor_to_derivatives('apply', (order,), dense_apply(A, affine_jet(ww, pp), (order,)))
 
 
 def rms(x):
@@ -138,12 +134,14 @@ def apply_derivative_operator(ww, pp, order, s_vec):
 
     Dividing the output (and the data) by ``s_vec`` (per order, broadcast over the probe stack ``W``)
     folds the per-order normalization into the operator, so ``transpose(r)`` applies ``J^T`` to
-    ``r / s_vec``. ``sum_over_probes=True`` sums the whole ``W = (n_p, n_x)`` stack -> one tangent."""
+    ``r / s_vec``. The transpose sums the whole ``W = (n_p, n_x)`` stack -> one tangent."""
     nW = ww[0].ndim - 1
     sv = s_vec.reshape((order + 1,) + (1,) * nW)               # broadcast over the W probe stack
-    forward = lambda Z: np.asarray(Z.apply_derivatives(ww, pp, order)) / sv
-    transpose = lambda r, frame: t3m.T3Tangent.apply_derivatives_transpose(
-        np.asarray(r) / sv, ww, pp, frame, order, sum_over_probes=True)
+    jet = affine_jet(ww, pp)                                    # the input jet of the line ww + s pp
+    # derivatives = Taylor coefficients times t!: the forward multiplies by t!, its transpose too (D_t = t! T_t)
+    forward = lambda Z: taylor_to_derivatives('apply', (order,), np.asarray(Z.apply(jet, (order,)))) / sv
+    transpose = lambda r, frame: t3m.T3Tangent.apply_transpose(
+        frame, jet, taylor_to_derivatives('apply', (order,), np.asarray(r) / sv), (order,))
     meas_dot = lambda a, b: float(np.sum(np.asarray(a) * np.asarray(b)))
     return forward, transpose, meas_dot
 
@@ -247,8 +245,8 @@ def main():
 
     ww_tr, pp_tr = unit_pairs_many_p(N_X_TRAIN, N_P, SHAPE, rng)   # train: W=(N_P, N_X_TRAIN)
     ww_va, pp_va = unit_pairs_many_p(N_X_VAL, N_P, SHAPE, rng)     # val:   W=(N_P, N_X_VAL)
-    b_tr_clean = dense_apply_derivatives(A, ww_tr, pp_tr, ORDER)   # (order+1, N_P, N_X_TRAIN)
-    b_va_clean = dense_apply_derivatives(A, ww_va, pp_va, ORDER)
+    b_tr_clean = dense_apply_jets(A, ww_tr, pp_tr, ORDER)   # (order+1, N_P, N_X_TRAIN)
+    b_va_clean = dense_apply_jets(A, ww_va, pp_va, ORDER)
 
     # per-order scale from the (clean) training data; floor avoids dividing a vanishing order by ~0
     s_vec = np.array([max(rms(b_tr_clean[t]), 1e-12) for t in range(ORDER + 1)])

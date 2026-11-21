@@ -212,6 +212,15 @@ class TestTheChecks(Fixture):
              t3.TuckerTensorTrain.entries_ambient_transpose(idx, self.x.shape, residual=c)),
             (t3m.T3Tangent.entries_transpose(self.frame, as_list, residual=c).variations.data,
              t3m.T3Tangent.entries_transpose(self.frame, idx, residual=c).variations.data),
+            (self.x.entries_corewise_hessian(as_list, c, self.y.data),
+             self.x.entries_corewise_hessian(idx, c, self.y.data)),
+            (ut3m.UT3Tangent.entries_transpose(self.vu.frame, as_list, residual=c).variations.supercores,
+             ut3m.UT3Tangent.entries_transpose(self.vu.frame, idx, residual=c).variations.supercores),
+            (self.xu.entries_corewise_transpose(as_list, residual=c), self.xu.entries_corewise_transpose(idx, residual=c)),
+            (self.xu.entries_corewise_tangent(as_list, self.yu.data[:2]),
+             self.xu.entries_corewise_tangent(idx, self.yu.data[:2])),
+            (self.xu.entries_corewise_hessian(as_list, c, self.yu.data[:2]),
+             self.xu.entries_corewise_hessian(idx, c, self.yu.data[:2])),
         ]
         for k, (a, b) in enumerate(pairs):
             with self.subTest(pair=k):
@@ -293,6 +302,44 @@ class TestTheSumFlag(Fixture):
                     kept, summed = leaves(call(False)), leaves(call(True))
                     self.assertTrue(all(a.shape[axis:axis + len(W)] == W for a in kept), k)
                     self.assertLess(relerr([a.sum(axis) for a in kept], summed), 1e-13, k)
+
+
+class TestTheDerivativeConversion(Fixture):
+    """The derivative data the old ``*_derivatives`` methods returned, now made from the merged methods (P13b), pinned
+    against a reference that uses neither ``affine_jet`` nor ``taylor_to_derivatives`` and outlives P20: the ``t``-th
+    derivative in ``s`` of ``x`` contracted with ``w_j + s p_j`` (every mode for apply; all but mode ``i`` for probe),
+    by an exact polynomial fit in ``s`` (degree at most ``d``) on ``d + 1`` points, times ``t!``."""
+
+    def reference(self, kind, T, ww, pp, n):
+        d = T.ndim
+        ss = np.linspace(-1.0, 1.0, d + 1)
+        def contract(s):
+            vv = [w + s * p for w, p in zip(ww, pp)]                         # W + (Ni,) each
+            if kind == 'apply':
+                return [np.einsum('abc,...a,...b,...c->...', T, *vv)]
+            return [np.einsum('abc,...b,...c->...a', T, vv[1], vv[2]), np.einsum('abc,...a,...c->...b', T, vv[0], vv[2]),
+                    np.einsum('abc,...a,...b->...c', T, vv[0], vv[1])]
+        values = [contract(s) for s in ss]
+        out = []
+        for j in range(len(values[0])):
+            stack = np.stack([v[j].ravel() for v in values])
+            coef = np.polynomial.polynomial.polyfit(ss, stack, d)              # (d + 1, size), exact: degree <= d
+            coef = np.concatenate([coef, np.zeros((max(n - d, 0),) + coef.shape[1:])])   # slots beyond d vanish
+            fact = np.array([float(np.prod(np.arange(1, t + 1))) for t in range(n + 1)])
+            out.append((coef[:n + 1] * fact[:, None]).reshape((n + 1,) + values[0][j].shape))
+        return out[0] if kind == 'apply' else tuple(out)
+
+    def test_against_an_exact_polynomial_derivative(self):
+        T = self.x.to_dense()
+        for kind in ('probe', 'apply'):
+            for n in (1, 2, 3, 4):                                              # 4 > d: those slots vanish
+                with self.subTest(kind=kind, order=n):
+                    ww, pp = sample_of(kind, self.rng), sample_of(kind, self.rng)
+                    ref = self.reference(kind, T, ww, pp, n)
+                    got = jets.taylor_to_derivatives(kind, (n,), getattr(self.x, kind)(jets.affine_jet(ww, pp), (n,)))
+                    self.assertLess(relerr(got, ref), 1e-10)
+                    dense = (probing.dense_probe if kind == 'probe' else bapply.dense_apply)(T, jets.affine_jet(ww, pp), (n,))
+                    self.assertLess(relerr(jets.taylor_to_derivatives(kind, (n,), dense), ref), 1e-10)
 
 
 class TestNoSymmetricProblem(Fixture):

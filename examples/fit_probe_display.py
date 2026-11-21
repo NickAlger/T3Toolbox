@@ -27,6 +27,7 @@ import numpy as np
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.manifold as t3m
 import t3toolbox.optimizers as topt
+from t3toolbox.fitting import affine_jet, taylor_to_derivatives
 
 
 # --------------------------------------------------------------------------------------------------
@@ -46,6 +47,13 @@ def unit_probes(M, rng):
     """M probe tuples (a W=(M,) stack), each vector scaled to unit norm."""
     ww = [rng.standard_normal((M, N)) for N in SHAPE]
     return [w / np.linalg.norm(w, axis=1, keepdims=True) for w in ww]
+
+
+def derivative_data(A, ww, pp):
+    """The probe-derivative jets of ``A`` along the lines ``ww + s pp``: the merged ``probe`` at the input jet gives
+    the Taylor coefficients, and ``taylor_to_derivatives`` the derivatives (slot ``t`` times ``t!``), the data
+    form of the ``'probe_derivatives'`` kind."""
+    return taylor_to_derivatives('probe', (ORDER,), A.probe(affine_jet(ww, pp), (ORDER,)))
 
 
 def main():
@@ -73,8 +81,8 @@ def main():
           "MODES IN ROWS, ORDERS IN COLUMNS, train|val cells" % ORDER)
     print("=" * 100)
     pp, ppv = unit_probes(M_TRAIN, rng), unit_probes(M_VAL, rng)   # one perturbation direction per probe
-    jet_tr = [np.asarray(z) for z in A.probe_derivatives(ww, pp, ORDER)]    # d jets, (order+1)+W+(Ni,)
-    jet_va = [np.asarray(z) for z in A.probe_derivatives(wwv, ppv, ORDER)]
+    jet_tr = [np.asarray(z) for z in derivative_data(A, ww, pp)]          # d jets, (order+1)+W+(Ni,)
+    jet_va = [np.asarray(z) for z in derivative_data(A, wwv, ppv)]
     # a per-order residual weight ω = 1/‖data at that order‖ conditions the wildly-scaled orders (§4.6);
     # it makes the header show the unweighted objective alongside the weighted one.
     order_norm = np.sqrt(sum(np.sum(z ** 2, axis=tuple(range(1, z.ndim))) for z in jet_tr))  # (order+1,)

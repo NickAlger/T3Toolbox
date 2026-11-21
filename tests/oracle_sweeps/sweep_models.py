@@ -12,6 +12,9 @@ import t3toolbox.shared_geometry as sg
 import t3toolbox.fitting as fitting
 import t3toolbox.corewise as cw
 from t3toolbox.backend.regularization import IdentityRegularizer
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))   # tests/
+import _derivative_data as dd       # derivative data from the merged methods (P13b)
 
 LAM = 0.3
 TOL = 1e-8
@@ -101,9 +104,9 @@ def lib_S(x, kind, sample, order):
     if kind == 'apply': return x.apply(sample)
     if kind == 'entries': return x.entries(sample)
     if kind == 'probe': return x.probe(sample)
-    if kind == 'apply_derivatives': return x.apply_derivatives(sample[0], sample[1], order)
-    if kind == 'entries_derivatives': return x.entries_derivatives(sample[0], sample[1], order)
-    return x.probe_derivatives(sample[0], sample[1], order)
+    if kind == 'apply_derivatives': return dd.forward(x, 'apply', sample[0], sample[1], order)
+    if kind == 'entries_derivatives': return dd.forward(x, 'entries', sample[0], sample[1], order)
+    return dd.forward(x, 'probe', sample[0], sample[1], order)
 
 
 def reg_value(geom_kind, x_dense, cores):

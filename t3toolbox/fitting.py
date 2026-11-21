@@ -1146,9 +1146,10 @@ def probe_derivatives_model(
     >>> np.random.seed(0)
     >>> shape, ranks = (4, 5, 6), ((2, 2, 2), (1, 2, 2, 1))
     >>> ww, pp = [np.random.randn(20, N) for N in shape], [np.random.randn(20, N) for N in shape]
-    >>> y = t3.TuckerTensorTrain.randn(shape, *ranks).probe_derivatives(ww, pp, 1)   # data from another tensor
+    >>> derivatives = lambda t: fitting.taylor_to_derivatives('probe', (1,), t.probe(fitting.affine_jet(ww, pp), (1,)))
+    >>> y = derivatives(t3.TuckerTensorTrain.randn(shape, *ranks))                   # data from another tensor
     >>> def model_at(x, hessian='gauss_newton'):
-    ...     r = [z - yi for z, yi in zip(x.probe_derivatives(ww, pp, 1), y)]
+    ...     r = [z - yi for z, yi in zip(derivatives(x), y)]
     ...     return fitting.probe_derivatives_model(t3m.MANIFOLD, x, ww, pp, 1, r, hessian=hessian)
     >>> x = t3.TuckerTensorTrain.randn(shape, *ranks)
     >>> gn, exact = model_at(x), model_at(x, hessian='exact')

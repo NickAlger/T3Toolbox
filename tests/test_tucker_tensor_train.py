@@ -11,6 +11,9 @@ import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.corewise as cw
 import t3toolbox.backend.common as common
 import t3toolbox.backend.sampling_derivatives as sampling_derivatives
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+import _derivative_data as dd       # derivative data from the merged methods (P13b)
 
 try:
     import jax
@@ -3021,14 +3024,14 @@ class TestTuckerTensorTrain(unittest.TestCase):
         ORDER = 3
 
         # order 0 == the non-derivative op
-        for zj, z0 in zip(x.probe_derivatives(ww, pp, ORDER), x.probe(ww)):
+        for zj, z0 in zip(dd.forward(x, 'probe', ww, pp, ORDER), x.probe(ww)):
             self.check_relerr(np.asarray(z0), np.asarray(zj)[0])
-        self.check_relerr(np.asarray(x.apply(ww)), np.asarray(x.apply_derivatives(ww, pp, ORDER))[0])
-        self.check_relerr(np.asarray(x.entries(index)), np.asarray(x.entries_derivatives(index, pp, ORDER))[0])
+        self.check_relerr(np.asarray(x.apply(ww)), np.asarray(dd.forward(x, 'apply', ww, pp, ORDER))[0])
+        self.check_relerr(np.asarray(x.entries(index)), np.asarray(dd.forward(x, 'entries', index, pp, ORDER))[0])
 
         # corewise transpose: <g, dcores> matches a central finite difference of <r, forward(cores)>
-        r = [np.random.randn(*np.asarray(z).shape) for z in x.probe_derivatives(ww, pp, ORDER)]
-        gB, gG = x.probe_corewise_derivatives_transpose(r, ww, pp, ORDER, sum_over_probes=True)
+        r = [np.random.randn(*np.asarray(z).shape) for z in dd.forward(x, 'probe', ww, pp, ORDER)]
+        gB, gG = dd.corewise_transpose(x, 'probe', r, ww, pp, ORDER, sum_over_probes=True)
         dB = [np.random.randn(*B.shape) for B in x.tucker_cores]
         dG = [np.random.randn(*G.shape) for G in x.tt_cores]
         inner = (sum(np.sum(np.asarray(gB[i]) * dB[i]) for i in range(d))
@@ -3044,9 +3047,9 @@ class TestTuckerTensorTrain(unittest.TestCase):
         # X/P sample-stack consistency: hard error
         pp_bad = [np.random.randn(*((3,) + (N,))) for N in shapes]
         with self.assertRaises(ValueError):
-            x.probe_derivatives(ww, pp_bad, ORDER)
+            dd.forward(x, 'probe', ww, pp_bad, ORDER)
         with self.assertRaises(ValueError):
-            x.entries_derivatives(index, pp_bad, ORDER)
+            dd.forward(x, 'entries', index, pp_bad, ORDER)
 
     def test_corewise_derivative_transpose_nontrivial_boundary(self):
         # Regression: the adjoint-state apply/entries (derivative) transpose seeds the reverse sigma_hat
@@ -3059,9 +3062,9 @@ class TestTuckerTensorTrain(unittest.TestCase):
         pp = [np.random.randn(*(W + (N,))) for N in shapes]
         index = np.stack([np.random.randint(0, N, size=W) for N in shapes], axis=0)
         cases = [
-            ('apply', lambda rr: x.apply_corewise_derivatives_transpose(rr, ww, pp, ORDER, sum_over_probes=True),
+            ('apply', lambda rr: dd.corewise_transpose(x, 'apply', rr, ww, pp, ORDER, sum_over_probes=True),
                       lambda data: sampling_derivatives.t3_apply_derivatives(ww, pp, data, ORDER)),
-            ('entries', lambda rr: x.entries_corewise_derivatives_transpose(rr, index, pp, ORDER, sum_over_probes=True),
+            ('entries', lambda rr: dd.corewise_transpose(x, 'entries', rr, index, pp, ORDER, sum_over_probes=True),
                         lambda data: sampling_derivatives.t3_entries_derivatives(index, pp, data, ORDER)),
         ]
         for name, transpose, forward in cases:

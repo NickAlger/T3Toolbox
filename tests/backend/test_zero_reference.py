@@ -31,6 +31,9 @@ import t3toolbox.backend.ufv_operations as ufo
 import t3toolbox.backend.ufv_conversions as ufc
 import t3toolbox.backend.ufv_masking as ufm
 import t3toolbox.backend.t3_conversions as t3c
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))   # tests/
+import _derivative_data as dd       # derivative data from the merged methods (P13b)
 
 # (label, shape, tucker ranks, tt ranks, sharing)
 _VALIDITY_CASES = [
@@ -400,7 +403,7 @@ class TestLayerIndependence(unittest.TestCase):
             return x, sharing, ww, [np.asarray(z) for z in A.probe(ww)], {}
         pp = _unit_rows(rng, 40, shape)
         omega = np.array([1.0, 0.5, 0.25])
-        jets = [np.asarray(z) for z in A.probe_derivatives(ww, pp, 2)]
+        jets = [np.asarray(z) for z in dd.forward(A, 'probe', ww, pp, 2)]
         return x, sharing, (ww, pp), jets, dict(order=2, weight=omega)
 
     def _geometries(self, sharing):

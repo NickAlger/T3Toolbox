@@ -63,7 +63,9 @@ xe = t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1))
 target = t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1))
 wwe = [rng.standard_normal((8, n)) for n in shape]
 ppe = [rng.standard_normal((8, n)) for n in shape]
-data = target.probe_derivatives(wwe, ppe, order)
+import t3toolbox.backend.jets as jets_
+derivatives = lambda y: jets_.taylor_to_derivatives('probe', (order,), y.probe(jets_.affine_jet(wwe, ppe), (order,)))
+data = derivatives(target)
 frame, _ = bvf.t3_orthogonal_representations(xe)
 lift = fvo.fv_lift_factors(frame.data, 1e-6)
 assert type(lift) is fvo.LiftFactors
@@ -76,7 +78,7 @@ cdata = geom.curvature_precompute(lm.frame, lm.curvature.misfit_gradient, lm.geo
 assert type(cdata) is bgeo.ManifoldCurvatureData
 state = bopt.CurvatureState(lm.curvature.misfit_gradient, cdata)
 assert type(state) is bopt.CurvatureState
-residual = [z - y for z, y in zip(xe.probe_derivatives(wwe, ppe, order), data)]
+residual = [z - y for z, y in zip(derivatives(xe), data)]
 model = fitting.probe_derivatives_model(t3m.MANIFOLD, xe, wwe, ppe, order, residual, hessian='exact')
 assert type(model) is fitting.LocalModel and model.is_exact
 p = t3m.MANIFOLD.randn(model.frame)

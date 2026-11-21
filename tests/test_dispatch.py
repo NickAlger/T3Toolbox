@@ -46,6 +46,9 @@ import t3toolbox.optimizers as topt
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _jet_trs_twins as twins      # the binomial tensor: test-only (the package never contracts it)
 import _jet_contract_cases as jet_cases     # the literal jet_contract strings and their operands: test-only
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+import _derivative_data as dd       # derivative data from the merged methods (P13b)
 
 try:
     import jax
@@ -1788,12 +1791,12 @@ class TestDispatch(unittest.TestCase):
         ww = [jnp.asarray(rng.standard_normal((W, n))) for n in SH]
         pp = [jnp.asarray(rng.standard_normal((W, n))) for n in SH]
         target = t3.TuckerTensorTrain.randn(*STRUCT).to_jax()
-        data = [z + 0.1 for z in target.probe_derivatives(ww, pp, ORDER)]
+        data = [z + 0.1 for z in dd.forward(target, 'probe', ww, pp, ORDER)]
 
         def build(seed, cd, hessian='exact'):
             np.random.seed(seed)
             x = t3.TuckerTensorTrain.randn(*STRUCT).to_jax()
-            r = [z - y for z, y in zip(x.probe_derivatives(ww, pp, ORDER), data)]
+            r = [z - y for z, y in zip(dd.forward(x, 'probe', ww, pp, ORDER), data)]
             if hessian != 'exact':
                 return fitting.probe_derivatives_model(t3m.MANIFOLD, x, ww, pp, ORDER, r)
             return fitting.probe_derivatives_model(t3m.MANIFOLD, x, ww, pp, ORDER, r, hessian=hessian,
@@ -1846,7 +1849,7 @@ class TestDispatch(unittest.TestCase):
 
         ww = [jnp.asarray(rng.standard_normal((W, n))) for n in SH]
         pp = [jnp.asarray(rng.standard_normal((W, n))) for n in SH]
-        data = [z + 0.1 for z in tied_point().probe_derivatives(ww, pp, order)]
+        data = [z + 0.1 for z in dd.forward(tied_point(), 'probe', ww, pp, order)]
         geom = bgeo.ManifoldGeometryOps().with_sharing(labels, SH)
         problem = bopt.least_squares_problem(geom, bfit.ProbeDerivativesKind(order=order), (ww, pp), data)
         x0 = tied_point()
@@ -1896,7 +1899,7 @@ class TestDispatch(unittest.TestCase):
 
         sgeom = sgm.shared_manifold(labels)
         for x, cd in ((x0, None), (tied_point(), 1e-3)):
-            r = [z - yy for z, yy in zip(x.probe_derivatives(ww, pp, order), data)]
+            r = [z - yy for z, yy in zip(dd.forward(x, 'probe', ww, pp, order), data)]
             fm = fitting.probe_derivatives_model(sgeom, x, ww, pp, order, r, hessian='exact', curvature_damping=cd)
             fout = fcurvature(fm, sgeom.randn(fm.frame))
             jax.block_until_ready(fout)
@@ -2159,7 +2162,7 @@ class TestDispatch(unittest.TestCase):
         ww = [rng.standard_normal((W, n)) for n in SH]
         pp = [rng.standard_normal((W, n)) for n in SH]
         np.random.seed(4)
-        data = [np.asarray(z) + 0.01 for z in t3.TuckerTensorTrain.randn(*STRUCT).probe_derivatives(ww, pp, ORDER)]
+        data = [np.asarray(z) + 0.01 for z in dd.forward(t3.TuckerTensorTrain.randn(*STRUCT), 'probe', ww, pp, ORDER)]
         x0 = t3.TuckerTensorTrain.randn(*STRUCT)
         x, stats = topt.newton_cg(t3m.MANIFOLD, 'probe_derivatives', (ww, pp), data, x0, order=ORDER, max_newton=3,
                                   hessian='exact', curvature_damping=1e-5, use_jit=True)
@@ -2317,7 +2320,7 @@ class TestDispatch(unittest.TestCase):
             x = t3.TuckerTensorTrain(tuple(jnp.asarray(c) for c in x.data[0]),
                                      tuple(jnp.asarray(c) for c in x.data[1]))
             r = [jnp.asarray(np.asarray(z) - np.random.randn(*np.shape(z)))
-                 for z in x.probe_derivatives(ww, pp, ORDER)]
+                 for z in dd.forward(x, 'probe', ww, pp, ORDER)]
             return fitting.probe_derivatives_model(t3m.MANIFOLD, x, ww, pp, ORDER, r, weight=wt)
 
         for label, wt in (('unweighted', None), ('weighted', weight)):
@@ -2609,14 +2612,14 @@ class TestDispatch(unittest.TestCase):
         idx = jnp.array([[1, 2], [2, 3], [3, 0]])                          # (d,) + W
 
         xu = ut3.UniformTuckerTensorTrain.from_t3(self.x_np).to_jax()     # plain layer
-        self.assert_jit_jax(lambda u, *w: u.probe_derivatives(w[:3], w[3:], 2), xu, *ww, *pp)
-        self.assert_jit_jax(lambda u, *w: u.apply_derivatives(w[:3], w[3:], 2), xu, *ww, *pp)
-        self.assert_jit_jax(lambda u, i, *w: u.entries_derivatives(i, w, 2), xu, idx, *pp)
+        self.assert_jit_jax(lambda u, *w: dd.forward(u, 'probe', w[:3], w[3:], 2), xu, *ww, *pp)
+        self.assert_jit_jax(lambda u, *w: dd.forward(u, 'apply', w[:3], w[3:], 2), xu, *ww, *pp)
+        self.assert_jit_jax(lambda u, i, *w: dd.forward(u, 'entries', i, w, 2), xu, idx, *pp)
 
         v = ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.frame(xu), stack_shape=(2,)).to_jax()  # K=(2,)
-        self.assert_jit_jax(lambda t, *w: t.probe_derivatives(w[:3], w[3:], 2), v, *ww, *pp)
-        self.assert_jit_jax(lambda t, *w: t.apply_derivatives(w[:3], w[3:], 2), v, *ww, *pp)
-        self.assert_jit_jax(lambda t, i, *w: t.entries_derivatives(i, w, 2), v, idx, *pp)
+        self.assert_jit_jax(lambda t, *w: dd.forward(t, 'probe', w[:3], w[3:], 2), v, *ww, *pp)
+        self.assert_jit_jax(lambda t, *w: dd.forward(t, 'apply', w[:3], w[3:], 2), v, *ww, *pp)
+        self.assert_jit_jax(lambda t, i, *w: dd.forward(t, 'entries', i, w, 2), v, idx, *pp)
 
         # 3b-6'c transpose derivatives 𝒥ᵀ: residual jets -> UT3Tangent (jit the whole op + .to_dense()); the
         # supercores trace through the d-prefixed JET adjoint contractions + scan sweeps, gauge masks host.
@@ -2624,22 +2627,21 @@ class TestDispatch(unittest.TestCase):
         rj = tuple(jnp.array(np.random.randn(3, 2, N)) for N in STRUCT[0])   # probe residual jets, (order+1,W,Ni)
         cj = jnp.array(np.random.randn(3, 2))                            # scalar residual jet, (order+1,W)
         self.assert_jit_jax(
-            lambda r0, r1, r2, *w: ut3m.UT3Tangent.probe_derivatives_transpose(
-                (r0, r1, r2), w[:3], w[3:], bj, 2, sum_over_probes=True).to_dense(), *rj, *ww, *pp)
+            lambda r0, r1, r2, *w: dd.tangent_transpose(ut3m.UT3Tangent, 'probe', (r0, r1, r2), w[:3], w[3:], bj, 2, sum_over_probes=True).to_dense(), *rj, *ww, *pp)
         self.assert_jit_jax(
-            lambda c, *w: ut3m.UT3Tangent.apply_derivatives_transpose(c, w[:3], w[3:], bj, 2, sum_over_probes=True).to_dense(),
+            lambda c, *w: dd.tangent_transpose(ut3m.UT3Tangent, 'apply', c, w[:3], w[3:], bj, 2, sum_over_probes=True).to_dense(),
             cj, *ww, *pp)
         self.assert_jit_jax(
-            lambda c, i, *w: ut3m.UT3Tangent.entries_derivatives_transpose(c, i, w, bj, 2, sum_over_probes=True).to_dense(),
+            lambda c, i, *w: dd.tangent_transpose(ut3m.UT3Tangent, 'entries', c, i, w, bj, 2, sum_over_probes=True).to_dense(),
             cj, idx, *pp)
 
         # corewise (non-manifold) derivative transposes on the plain UT3 (gradient w.r.t. cores; §6.3)
         self.assert_jit_jax(
-            lambda u, c, *w: u.apply_corewise_derivatives_transpose(c, w[:3], w[3:], 2, sum_over_probes=True), xu, cj, *ww, *pp)
+            lambda u, c, *w: dd.corewise_transpose(u, 'apply', c, w[:3], w[3:], 2, sum_over_probes=True), xu, cj, *ww, *pp)
         self.assert_jit_jax(
-            lambda u, c, i, *w: u.entries_corewise_derivatives_transpose(c, i, w, 2, sum_over_probes=True), xu, cj, idx, *pp)
+            lambda u, c, i, *w: dd.corewise_transpose(u, 'entries', c, i, w, 2, sum_over_probes=True), xu, cj, idx, *pp)
         self.assert_jit_jax(
-            lambda u, r0, r1, r2, *w: u.probe_corewise_derivatives_transpose((r0, r1, r2), w[:3], w[3:], 2, sum_over_probes=True),
+            lambda u, r0, r1, r2, *w: dd.corewise_transpose(u, 'probe', (r0, r1, r2), w[:3], w[3:], 2, sum_over_probes=True),
             xu, *rj, *ww, *pp)
 
     # ---------------------------------------------------- stack/unstack: masks must stay host under jax

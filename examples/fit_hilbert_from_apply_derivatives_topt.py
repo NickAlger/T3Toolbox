@@ -29,7 +29,8 @@ import numpy as np
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.manifold as t3m
 import t3toolbox.optimizers as topt
-import t3toolbox.backend.sampling_derivatives as pd   # only for the dense ground-truth derivative oracle
+from t3toolbox.backend.apply import dense_apply
+from t3toolbox.fitting import affine_jet, taylor_to_derivatives
 
 
 # --------------------------------------------------------------------------------------------------
@@ -71,13 +72,11 @@ def unit_pairs_many_p(n_x, n_p, shape, rng):
     return ww, pp
 
 
-def dense_apply_derivatives(A, ww, pp, order):
-    """Ground-truth apply-derivative jets of dense ``A``: shape ``(order+1,) + W`` (``W`` the probe stack)."""
-    W = ww[0].shape[:-1]
-    b = np.zeros((order + 1,) + W)
-    for idx in np.ndindex(*W):
-        b[(slice(None),) + idx] = pd.dense_apply_derivatives([w[idx] for w in ww], [p[idx] for p in pp], A, order)
-    return b
+def dense_apply_jets(A, ww, pp, order):
+    """Ground-truth apply-derivative jets of the dense tensor ``A``: shape ``(order+1,) + W`` (``W`` the probe
+    stack). ``dense_apply`` at the input jet of the line ``ww + s pp`` gives the Taylor coefficients in ``s``
+    (the whole stack ``W`` at once); ``taylor_to_derivatives`` multiplies slot ``t`` by ``t!``."""
+    return taylor_to_derivatives('apply', (order,), dense_apply(A, affine_jet(ww, pp), (order,)))
 
 
 def rms(x):
@@ -130,8 +129,8 @@ def main():
 
     ww_tr, pp_tr = unit_pairs_many_p(N_X_TRAIN, N_P, SHAPE, rng)
     ww_va, pp_va = unit_pairs_many_p(N_X_VAL, N_P, SHAPE, rng)
-    b_tr_clean = dense_apply_derivatives(A, ww_tr, pp_tr, ORDER)   # (order+1, N_P, N_X_TRAIN)
-    b_va_clean = dense_apply_derivatives(A, ww_va, pp_va, ORDER)
+    b_tr_clean = dense_apply_jets(A, ww_tr, pp_tr, ORDER)   # (order+1, N_P, N_X_TRAIN)
+    b_va_clean = dense_apply_jets(A, ww_va, pp_va, ORDER)
 
     # per-order RMS scale (clean training data) -> the residual weight ω = 1/s_vec balances the orders
     s_vec = np.array([max(rms(b_tr_clean[t]), 1e-12) for t in range(ORDER + 1)])
@@ -146,7 +145,7 @@ def main():
     om_va = omega.reshape((ORDER + 1,) + (1,) * (b_va.ndim - 1))
 
     def weighted_relerr(X, ww, pp, b, om):     # relative error in the ω-normalized measurement space
-        S = np.asarray(X.apply_derivatives(ww, pp, ORDER))
+        S = taylor_to_derivatives('apply', (ORDER,), np.asarray(X.apply(affine_jet(ww, pp), (ORDER,))))
         return rms(om * (S - b)) / rms(om * b)
 
     header = (f"{'level':>5} {'tucker / tt ranks':>24} {'DOF':>5} {'iters':>5} "

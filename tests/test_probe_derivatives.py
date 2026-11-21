@@ -13,6 +13,9 @@ import t3toolbox.backend.apply as apply
 import t3toolbox.backend.entries as entries
 import t3toolbox.backend.sampling_derivatives as pd
 import t3toolbox.uniform_tucker_tensor_train as ut3
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+import _derivative_data as dd       # derivative data from the merged methods (P13b)
 
 np.random.seed(0)
 tol = 1e-9
@@ -39,15 +42,15 @@ class TestProbeDerivatives(unittest.TestCase):
         x = t3.TuckerTensorTrain.randn(*STRUCT)
         ww = tuple(np.random.randn(3, n) for n in STRUCT[0])
         pp = tuple(np.random.randn(3, n) for n in STRUCT[0])
-        ztildes = x.probe_derivatives(ww, pp, 2)
-        g_dense = x.probe_corewise_derivatives_transpose(ztildes, ww, pp, 2, chunk_size=None)
-        g_chunk = x.probe_corewise_derivatives_transpose(ztildes, ww, pp, 2, chunk_size=2)
+        ztildes = dd.forward(x, 'probe', ww, pp, 2)
+        g_dense = dd.corewise_transpose(x, 'probe', ztildes, ww, pp, 2, chunk_size=None)
+        g_chunk = dd.corewise_transpose(x, 'probe', ztildes, ww, pp, 2, chunk_size=2)
         for a, b in zip(g_dense[0] + g_dense[1], g_chunk[0] + g_chunk[1]):
             self.check_relerr(a, b)
         u = ut3.UniformTuckerTensorTrain.from_t3(x)
-        zu = u.probe_derivatives(ww, pp, 2)
-        gu_dense = u.probe_corewise_derivatives_transpose(zu, ww, pp, 2, chunk_size=None)
-        gu_chunk = u.probe_corewise_derivatives_transpose(zu, ww, pp, 2, chunk_size=2)
+        zu = dd.forward(u, 'probe', ww, pp, 2)
+        gu_dense = dd.corewise_transpose(u, 'probe', zu, ww, pp, 2, chunk_size=None)
+        gu_chunk = dd.corewise_transpose(u, 'probe', zu, ww, pp, 2, chunk_size=2)
         self.check_relerr(gu_dense[0], gu_chunk[0])
         self.check_relerr(gu_dense[1], gu_chunk[1])
 

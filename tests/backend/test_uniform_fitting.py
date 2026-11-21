@@ -24,6 +24,9 @@ import t3toolbox.backend.uniform_fitting as uf
 import t3toolbox.backend.utv_operations as utv_operations
 import t3toolbox.backend.utv_sampling as utv_sampling
 import t3toolbox.backend.ut3_operations as uops
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))   # tests/
+import _derivative_data as dd       # derivative data from the merged methods (P13b)
 
 _STRUCT = ((10, 11, 12), (2, 4, 2), (1, 2, 2, 1))   # (shape, tucker, tt); MINIMAL ranks (tucker capped by
                                                     # the tt bonds), still rank-varied -> real padding
@@ -227,8 +230,8 @@ class TestUniformSamplingMirror(unittest.TestCase):
     def test_probe_derivatives_mirrors_and_agrees(self):
         ww_r, pp_r = self._ww(), self._ww()
         ww_p, pp_p = uops.pack_vectors(ww_r, self.N), uops.pack_vectors(pp_r, self.N)
-        out_r = self.x.probe_derivatives(ww_r, pp_r, 3)
-        out_p = self.x.probe_derivatives(ww_p, pp_p, 3)
+        out_r = dd.forward(self.x, 'probe', ww_r, pp_r, 3)
+        out_p = dd.forward(self.x, 'probe', ww_p, pp_p, 3)
         self.assertIsInstance(out_r, tuple)
         self.assertNotIsInstance(out_p, (list, tuple))
         unpacked = uops.unpack_vectors(out_p, _STRUCT[0])

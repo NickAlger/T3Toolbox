@@ -3,6 +3,9 @@ import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
 from o1_common import *
 import t3toolbox.backend.ut3_conversions as ut3c
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))   # tests/
+import _derivative_data as dd       # derivative data from the merged methods (P13b)
 
 ORDER = 3
 PAD = dict(N=8, n=5, r=5)
@@ -64,18 +67,18 @@ def sweep(sname, struct, sh, force_pad):
             check('u_apply', sname, rep, C, W, (), sh, lambda: relerr(ux.apply(ww), dense_apply(X, ww, d)))
             check('u_entries', sname, rep, C, W, (), sh, lambda: relerr(ux.entries(index), dense_entries(X, index, d, shape)))
             check('u_probe', sname, rep, C, W, (), sh, lambda: max(relerr(a, b) for a, b in zip(ux.probe(ww), dense_probe(X, ww, d))))
-            check('u_apply_derivatives', sname, rep, C, W, (), sh, lambda: relerr(ux.apply_derivatives(ww, pp, ORDER), dense_apply_jets(X, ww, pp, d, ORDER)))
-            check('u_entries_derivatives', sname, rep, C, W, (), sh, lambda: relerr(ux.entries_derivatives(index, pp, ORDER), dense_apply_jets(X, onehots(index, shape), pp, d, ORDER)))
-            check('u_probe_derivatives', sname, rep, C, W, (), sh, lambda: max(relerr(a, b) for a, b in zip(ux.probe_derivatives(ww, pp, ORDER), dense_probe_jets(X, ww, pp, d, ORDER))))
+            check('u_apply_derivatives', sname, rep, C, W, (), sh, lambda: relerr(dd.forward(ux, 'apply', ww, pp, ORDER), dense_apply_jets(X, ww, pp, d, ORDER)))
+            check('u_entries_derivatives', sname, rep, C, W, (), sh, lambda: relerr(dd.forward(ux, 'entries', index, pp, ORDER), dense_apply_jets(X, onehots(index, shape), pp, d, ORDER)))
+            check('u_probe_derivatives', sname, rep, C, W, (), sh, lambda: max(relerr(a, b) for a, b in zip(dd.forward(ux, 'probe', ww, pp, ORDER), dense_probe_jets(X, ww, pp, d, ORDER))))
             # corewise transposes vs ragged (masked content)
             rng = np.random.RandomState(11)
             c = np.asarray(rng.randn(*(W + C))); zt = [rng.randn(*(W + C + (N,))) for N in shape]
             cj = np.asarray(rng.randn(*((ORDER + 1,) + W + C))); ztj = [rng.randn(*((ORDER + 1,) + W + C + (N,))) for N in shape]
             def _cw_vs_ragged(kind, sum_, deriv):
                 if deriv:
-                    if kind == 'apply': gu = ux.apply_corewise_derivatives_transpose(cj, ww, pp, ORDER, sum_over_probes=sum_); gr = x.apply_corewise_derivatives_transpose(cj, ww, pp, ORDER, sum_over_probes=sum_)
-                    elif kind == 'entries': gu = ux.entries_corewise_derivatives_transpose(cj, index, pp, ORDER, sum_over_probes=sum_); gr = x.entries_corewise_derivatives_transpose(cj, index, pp, ORDER, sum_over_probes=sum_)
-                    else: gu = ux.probe_corewise_derivatives_transpose(ztj, ww, pp, ORDER, sum_over_probes=sum_); gr = x.probe_corewise_derivatives_transpose(ztj, ww, pp, ORDER, sum_over_probes=sum_)
+                    if kind == 'apply': gu = dd.corewise_transpose(ux, 'apply', cj, ww, pp, ORDER, sum_over_probes=sum_); gr = dd.corewise_transpose(x, 'apply', cj, ww, pp, ORDER, sum_over_probes=sum_)
+                    elif kind == 'entries': gu = dd.corewise_transpose(ux, 'entries', cj, index, pp, ORDER, sum_over_probes=sum_); gr = dd.corewise_transpose(x, 'entries', cj, index, pp, ORDER, sum_over_probes=sum_)
+                    else: gu = dd.corewise_transpose(ux, 'probe', ztj, ww, pp, ORDER, sum_over_probes=sum_); gr = dd.corewise_transpose(x, 'probe', ztj, ww, pp, ORDER, sum_over_probes=sum_)
                 else:
                     if kind == 'apply': gu = ux.apply_corewise_transpose(ww, residual=c, sum_over_samples=sum_); gr = x.apply_corewise_transpose(ww, residual=c, sum_over_samples=sum_)
                     elif kind == 'entries': gu = ux.entries_corewise_transpose(index, residual=c, sum_over_samples=sum_); gr = x.entries_corewise_transpose(index, residual=c, sum_over_samples=sum_)
@@ -105,17 +108,17 @@ def sweep(sname, struct, sh, force_pad):
                 check('utv_apply', sname, rep, C, W, K, sh, lambda: relerr(v.apply(ww), dense_apply(Vd, ww, d)))
                 check('utv_entries', sname, rep, C, W, K, sh, lambda: relerr(v.entries(index), dense_entries(Vd, index, d, shape)))
                 check('utv_probe', sname, rep, C, W, K, sh, lambda: max(relerr(a, b) for a, b in zip(v.probe(ww), dense_probe(Vd, ww, d))))
-                check('utv_apply_derivatives', sname, rep, C, W, K, sh, lambda: relerr(v.apply_derivatives(ww, pp, ORDER), dense_apply_jets(Vd, ww, pp, d, ORDER)))
-                check('utv_entries_derivatives', sname, rep, C, W, K, sh, lambda: relerr(v.entries_derivatives(index, pp, ORDER), dense_apply_jets(Vd, onehots(index, shape), pp, d, ORDER)))
-                check('utv_probe_derivatives', sname, rep, C, W, K, sh, lambda: max(relerr(a, b) for a, b in zip(v.probe_derivatives(ww, pp, ORDER), dense_probe_jets(Vd, ww, pp, d, ORDER))))
+                check('utv_apply_derivatives', sname, rep, C, W, K, sh, lambda: relerr(dd.forward(v, 'apply', ww, pp, ORDER), dense_apply_jets(Vd, ww, pp, d, ORDER)))
+                check('utv_entries_derivatives', sname, rep, C, W, K, sh, lambda: relerr(dd.forward(v, 'entries', index, pp, ORDER), dense_apply_jets(Vd, onehots(index, shape), pp, d, ORDER)))
+                check('utv_probe_derivatives', sname, rep, C, W, K, sh, lambda: max(relerr(a, b) for a, b in zip(dd.forward(v, 'probe', ww, pp, ORDER), dense_probe_jets(Vd, ww, pp, d, ORDER))))
                 rng = np.random.RandomState(21)
                 rk = np.asarray(rng.randn(*(W + K + C))); ztk = [rng.randn(*(W + K + C + (N,))) for N in shape]
                 rkj = np.asarray(rng.randn(*((ORDER + 1,) + W + K + C))); ztkj = [rng.randn(*((ORDER + 1,) + W + K + C + (N,))) for N in shape]
                 def _adj(kind, sum_, deriv):
                     if deriv:
-                        if kind == 'apply': Jv = v.apply_derivatives(ww, pp, ORDER); t = ut3m.UT3Tangent.apply_derivatives_transpose(rkj, ww, pp, frame, ORDER, sum_over_probes=sum_); r = rkj
-                        elif kind == 'entries': Jv = v.entries_derivatives(index, pp, ORDER); t = ut3m.UT3Tangent.entries_derivatives_transpose(rkj, index, pp, frame, ORDER, sum_over_probes=sum_); r = rkj
-                        else: Jv = v.probe_derivatives(ww, pp, ORDER); t = ut3m.UT3Tangent.probe_derivatives_transpose(ztkj, ww, pp, frame, ORDER, sum_over_probes=sum_); r = ztkj
+                        if kind == 'apply': Jv = dd.forward(v, 'apply', ww, pp, ORDER); t = dd.tangent_transpose(ut3m.UT3Tangent, 'apply', rkj, ww, pp, frame, ORDER, sum_over_probes=sum_); r = rkj
+                        elif kind == 'entries': Jv = dd.forward(v, 'entries', index, pp, ORDER); t = dd.tangent_transpose(ut3m.UT3Tangent, 'entries', rkj, index, pp, frame, ORDER, sum_over_probes=sum_); r = rkj
+                        else: Jv = dd.forward(v, 'probe', ww, pp, ORDER); t = dd.tangent_transpose(ut3m.UT3Tangent, 'probe', ztkj, ww, pp, frame, ORDER, sum_over_probes=sum_); r = ztkj
                     else:
                         if kind == 'apply': Jv = v.apply(ww); t = ut3m.UT3Tangent.apply_transpose(frame, ww, residual=rk, sum_over_samples=sum_); r = rk
                         elif kind == 'entries': Jv = v.entries(index); t = ut3m.UT3Tangent.entries_transpose(frame, index, residual=rk, sum_over_samples=sum_); r = rk
@@ -199,8 +202,8 @@ def varying_rank():
         check('vr_apply', 'vary', 'uniform', C, W, (), None, lambda: relerr(U.apply(ww), dense_apply(Xs, ww, d)))
         check('vr_probe', 'vary', 'uniform', C, W, (), None, lambda: max(relerr(a, b) for a, b in zip(U.probe(ww), dense_probe(Xs, ww, d))))
         check('vr_entries', 'vary', 'uniform', C, W, (), None, lambda: relerr(U.entries(index), dense_entries(Xs, index, d, shape)))
-        check('vr_probe_derivatives', 'vary', 'uniform', C, W, (), None, lambda: max(relerr(a, b) for a, b in zip(U.probe_derivatives(ww, pp, ORDER), dense_probe_jets(Xs, ww, pp, d, ORDER))))
-        check('vr_apply_derivatives', 'vary', 'uniform', C, W, (), None, lambda: relerr(U.apply_derivatives(ww, pp, ORDER), dense_apply_jets(Xs, ww, pp, d, ORDER)))
+        check('vr_probe_derivatives', 'vary', 'uniform', C, W, (), None, lambda: max(relerr(a, b) for a, b in zip(dd.forward(U, 'probe', ww, pp, ORDER), dense_probe_jets(Xs, ww, pp, d, ORDER))))
+        check('vr_apply_derivatives', 'vary', 'uniform', C, W, (), None, lambda: relerr(dd.forward(U, 'apply', ww, pp, ORDER), dense_apply_jets(Xs, ww, pp, d, ORDER)))
         # tangents at varying-rank frames
         ts = []
         for x in xs:
@@ -216,7 +219,7 @@ def varying_rank():
             check('vr_tv_apply', 'vary', 'uniform', C, W, K, None, lambda: relerr(V.apply(ww), dense_apply(Vd, ww, d)))
             check('vr_tv_probe', 'vary', 'uniform', C, W, K, None, lambda: max(relerr(a, b) for a, b in zip(V.probe(ww), dense_probe(Vd, ww, d))))
             check('vr_tv_entries', 'vary', 'uniform', C, W, K, None, lambda: relerr(V.entries(index), dense_entries(Vd, index, d, shape)))
-            check('vr_tv_probe_derivatives', 'vary', 'uniform', C, W, K, None, lambda: max(relerr(a, b) for a, b in zip(V.probe_derivatives(ww, pp, ORDER), dense_probe_jets(Vd, ww, pp, d, ORDER))))
+            check('vr_tv_probe_derivatives', 'vary', 'uniform', C, W, K, None, lambda: max(relerr(a, b) for a, b in zip(dd.forward(V, 'probe', ww, pp, ORDER), dense_probe_jets(Vd, ww, pp, d, ORDER))))
             rng = np.random.RandomState(21)
             ztk = [rng.randn(*(W + K + C + (N,))) for N in shape]
             def _adj(sum_):
