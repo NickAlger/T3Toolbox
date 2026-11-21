@@ -1074,3 +1074,12 @@ usual). The plan's call-site list is complete and exact after P12 to P14. Ruled:
 supercores `(Vc_sc, Hc_sc)` (the ragged pair's mirror; `ufv_centers_consistency_residual`'s form); the corewise
 geometries return `None`; the aligned padded frame keeps returning a frame only (it has no centers). For P16: at a
 padded-start frame the oracle runs without `Vc`.
+
+### P15 built; review round 1 (2026-11-21)
+
+Built (`P15_HANDOVER.md`): `frame(x)` returns `(frame, centers)` on the four backend geometries; the 3 library and 27
+test call sites unpack; gate at `-n 2` 1,854. `P15_REVIEW_r1.md` NOT YET: the implementer's "equivalent" surviving
+mutant (`point_norm_sq` from the centers) is NOT equivalent. Each of the 2d centers reproduces X, so the tangent
+(frame, centers) is 2d X, and the mutant makes the regularizer 2d times too large; it survived because the only uniform
+test of `point_norm_sq` was circular. In round 1: a dense |X|^2 test on all four geometries; the P16 suggestion
+retracted; docstrings calling the centers "the point's own coordinates" corrected.
