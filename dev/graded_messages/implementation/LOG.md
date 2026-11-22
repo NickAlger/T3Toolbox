@@ -1351,3 +1351,6 @@ sufficient). The reviewer derived and verified the parameter-side law. The write
 `DATA_METRIC_PLAN_REVIEW_r4.md`: SIGN OFF on section 9 (four minor points for M1's design note). Claude added a short
 "In brief" at the plan's head (the reviewer's readability suggestion). **The plan is final for the maintainer's
 reading:** eleven questions (section 8), plus the audit's decisions 3 and 4.
+Notation decided by the maintainer (2026-11-22; TARGET_DECISIONS, "Notation for the jets and the data metric"): `P`/`Q`
+for the jet/dual-jet groups, `F` the box sizes, `M` the data metric (accepting the collision with the manifold), `[G]`
+structural presence (every group may be empty). The writer applies it across the plan; the reviewer checks.

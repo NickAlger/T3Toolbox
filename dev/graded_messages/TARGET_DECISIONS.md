@@ -836,6 +836,17 @@ block forms (per mode and order) are broadcast cases. A full operator (a covaria
 (corewise as point methods or as tangent operations of `COREWISE`) and 4 (the names: the Hessians, `jet_to_dual_jet`)
 are still with the maintainer. A sub-arc plans and builds 1 and 2 before P17; the maintainer reads the plan first.
 
+**Notation for the jets and the data metric** (the maintainer, 2026-11-22). **Groups:** `P` for the jet group (was
+`J`, which collides with the Jacobian `J`, `Jp`, `JtJp`) and `Q` for the dual-jet group in the engine's turned form
+(used from Part 2's typed grammar); `P`/`Q` collide only with the T4S paper's left/right TT cores, a documentary
+collision. `F` stays the name of the box sizes, `F = (n_1 + 1, ..., n_m + 1)`, the sizes of `P`'s axes for a full jet.
+**The data metric is `M`: Y' -> Y** (was `W`, which collides with the sample stack): today `s * diag(omega^2)`, later
+possibly the Hessian of a loss; the maintainer accepts the collision with the manifold `M` (glossary), and declined
+`Omega` (physical domains in applications; it would tie the notation to weighting). **`[G]`** in a family of shapes
+means the group `G` is in a term only for some variables or settings (structural presence); every group may also be
+empty (zero axes), in `contract` and `jet_contract` alike. Claude's recommendation, to be folded into the plan: the
+`J -> P` rename and the glossary and `naming_conventions.md` entries in M1.
+
 ## Carried to Part 2 from the implementation of Part 1
 
 **Hard typing inside the engine** (the maintainer, 2026-11-22, from Claude's typing ideas 3 and 4; ideas 1, 2 and 6 are
