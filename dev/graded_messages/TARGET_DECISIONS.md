@@ -858,6 +858,11 @@ later finding that a Riesz map overclaims (`M` is not an isomorphism where a wei
 Open: Q3, Q5, Q8 (the design of the weights, to talk through), Q7 (derivative coordinates: decided by how T3Polynomial
 uses jetted probe fitting), Q12 (`J_in_i`, not yet seen).
 
+**The data-metric plan: Q1 and Q12** (the maintainer, 2026-11-22). Q1: the public `M` is named `data_metric` ("equally
+good"). Q12: `J_in_i` becomes `F_in,i` (`J` then means only the Jacobian). Q7: Claude recommends option (i) from the
+T3Polynomial study (`T3POLYNOMIAL_JET_USE.md`); to be confirmed. Q5 (the maintainer leans to the full form only) and Q8
+(does per-element data simplify or complicate the design?) under discussion.
+
 ## Carried to Part 2 from the implementation of Part 1
 
 **Hard typing inside the engine** (the maintainer, 2026-11-22, from Claude's typing ideas 3 and 4; ideas 1, 2 and 6 are
