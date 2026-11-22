@@ -43,25 +43,19 @@ changed on the branch since 2026-11-16 (slices P0 to P4 of Part 1); `main` has n
 **START HERE (updated 2026-11-19, 19:30; Claude Code on Nick's laptop, branch `graded-messages`).** Nothing lives
 in a session: everything is in files.
 
-- **Where it stands (2026-11-21): the sub-arc P12 to P15 is COMMITTED and pushed (P15 = `70489fe6`); the work is at
-  the THIRD PLANNED PAUSE, before the switch (P16).** What the sub-arc did: P12 the backend sampling functions on the
-  engine (+ `*_corewise_tangent`), P13 the frontend methods merged and the `*_derivatives*` methods removed, P14 the
-  least-squares oracle and batch (additive; the engine gained `keep=` and the public `frame_form`), P15 the backend
-  geometry's `frame(x)` returning `(frame, centers)`. Per-slice record and every ruling: `LOG.md`. **At the pause, decided:** `keep=` is
-  replaced by a pure `computed_names` (TARGET_DECISIONS, "The hold list"; slice P14b before P16). **Under discussion:**
-  `frame_form`. **Raised for the
-  pause:** `examples/fit_hilbert_from_apply_derivatives.py` about 11 s instead of 5.8 s (the engine at the jet in place
-  of the old derivative kernels; Part 2). **P16 IS IN PROGRESS ON THE LOCAL BRANCH `p16-wip`** (created from
-  `graded-messages` after P14b, `959eb70b`; never pushed; the parts are committed there as they are signed off, then
-  squashed into one commit on `graded-messages`; to resume: `git checkout p16-wip`, read `LOG.md` there). P14b is
-  committed. P16, the switch, design-first, by
-  a FRESH pair of agents (the maintainer, 2026-11-21; `BRIEF.md`), committed in parts on a local side branch `p16-wip`
-  and squashed into one commit on `graded-messages`. The pause's decisions: `TARGET_DECISIONS.md`, notes of 2026-11-21. Notes carried to P16 are in `P14_HANDOVER.md` and `P15_HANDOVER.md`
-  (`eps|rho|` in the resolution; a test that `held` is not carried across MC-SGD draws; `pack_sample`/`pack_data` new
-  forms; at a padded-start frame the oracle runs without `Vc`). **To resume after a lost session:** read `LOG.md`'s
-  last entries, then the slice in hand's `P<n>_DESIGN_NOTE.md` / `_DESIGN_REVIEW.md` / `_HANDOVER.md` /
-  `_REVIEW_r*.md`; the agents `implementer` and `reviewer` (Opus 5.5, high) may be resumable by name; if not, start
-  fresh ones on `BRIEF.md`, `LOG.md` and those files. Uncommitted work in the tree belongs to the slice in hand.
+- **Where it stands (2026-11-21, late): P16 is COMMITTED (`eb4d5732`, squashed from the local branch `p16-wip`, which
+  is kept as a record); the work is at a PAUSE AFTER P16 that the maintainer asked for**, on the data-space design: (1)
+  first-class data-space weights (his principle: a silent conversion of a data-space covector to a vector without the
+  option of weights is a type error); (2) the typing `J: X -> Y'`, `W: Y' -> Y`, `J^T: Y -> X'`, `R_X`, and where Banach
+  and Hilbert transposes are mixed; (3) where the sampling functions live (his proposal: by the object they act on,
+  point or tangent, and by whether they depend on the objective; corewise as a flat manifold); (4) methods vs functions
+  for the corewise operations, and the name "Hessian"; (5) one `y` per stacked model (a narrowing in P16). All recorded
+  in `LOG.md` (entries after "P16 started"). **Next:** an agent does one combined audit of every sampling function
+  (location, object, typing, metric, weights; findings and options, not decisions), then the discussion, then possibly
+  a slice reorganizing the sampling functions, then the `from_t3` slice (raise for a width below a rank; decided), then
+  P17. The P16 decisions are in `TARGET_DECISIONS.md`'s notes of 2026-11-21 and `LOG.md`. **To resume after a lost
+  session:** read `LOG.md`'s last entries; agents are started fresh on `BRIEF.md` (the first two pairs' contexts are
+  spent); state is in the files.
 - **The design-first rhythm** (from P5): before each slice's code, the implementer writes a design note and the
   reviewer critiques it; Claude settles it into the plan; then build, review rounds, commit. Design notes and reviews
   are beside the slices in `dev/graded_messages/implementation/`.
