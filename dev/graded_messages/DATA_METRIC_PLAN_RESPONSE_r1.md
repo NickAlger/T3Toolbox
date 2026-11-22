@@ -144,3 +144,61 @@ checked by derivation. §9 is rewritten as 9.0 to 9.3. §§1, 3, 7 and 8 follow 
   - Q9 recommends (a), frontend-private and backend-public.
   - Q10 recommends `'`.
   - Q11 recommends backend and frontend.
+
+---
+
+# Round 5 (notation): the maintainer's notation applied (writer, 2026-11-22)
+
+Source: `TARGET_DECISIONS.md`, "Notation for the jets and the data metric". I applied it occurrence by occurrence,
+never by blind replacement. Afterwards every remaining `` `W` `` in the plan was checked: each is the sample stack.
+
+**The data metric `W` -> `M`.**
+- Every place that meant the metric is now `M`: §1's table and equations, the scale paragraph, §3's title, its text and
+  its site table (`M^{-1} ∘ flip`), the engine paragraph, §4, §5, the M1 and M4 rows, Q1, Q3, 9.0, 9.1, 9.2 and 9.3's
+  tables and caveats.
+- The out-of-scope "operator `W` (a covariance)" now reads "non-diagonal `M`".
+- Every `W` that means the sample stack is unchanged: `F+W`, `W = (7,)`, `len(W)`, the `W` axes in `take`, and so on.
+
+**The jet group `J` -> `P`.**
+- The plan used no `J` as the jet group. `J`, `Jp` and `JtJp` are the Jacobian throughout and stay. `J_in_i` stays the
+  input jet sizes, a size name like `F`.
+- The rename goes in M1's scope, under "M1's notation work" in §7. It is unreleased: neither `jet_contract` nor
+  `GroupLengths` is in `v2026.5.0`.
+- The counts, by grep at `ccf10b0a`:
+  - about 216 grouped strings with `J`, in 173 `jet_contract(` call lines;
+  - 32 `GroupLengths(` constructions and 14 `lens.J` reads;
+  - 5 `'J'` literals in the parser (`contractions.py:578-629`);
+  - none in `docs/` or `examples/`.
+- Checked: an unknown group letter already raises in `jet_contract`. So a string left with `J` after the rename fails
+  loudly, and M1 tests that it does.
+
+**9.0.** It becomes "The notation, and the dictionary with §1", with the table the coordinator listed:
+- `P`, as both the ring and its group, and `P_in,i`;
+- `Q`, used from Part 2;
+- `P'`, `F` (shape comments write `F`, strings the group `P`), `J_in_i`;
+- `V_i` / `V_i'`, `E` / `E'`, `X` / `X'`, `Y'` / `Y`;
+- `M`, with the accepted collision with the manifold `M`;
+- `R_X`, the Jacobian `J`, the stacks `W`, `K`, `C`, and `[G]`.
+
+The turned form is tied to `Q` in one line.
+
+**The glossary and `naming_conventions.md`** entries are in M1, not P19: they are the durable record of a decision.
+- The glossary's Symbols table gains `P`, `Q`, `F`, `M`, `Y` / `Y'` and `[G]`.
+- "Index letters" gains `P`, `Q` and `[G]`.
+
+**Do the names still read right?** One does not: `data_riesz_map`.
+- A Riesz map is an isomorphism. `M` is not one where a weight is zero (audit D5), and not as a future loss Hessian.
+  The decided name of `M` is "the data metric".
+- Q1 now recommends **`apply_data_metric`**:
+  - it names the operator as the maintainer named it;
+  - it stays right in both cases above;
+  - it is verb-object, like `prepare_derivative_data` and `rescale_direction`.
+- Its stated blemish: "apply" is also a sampling kind, so `apply_data_metric('apply', …)` says it twice.
+- `data_riesz_map` is option (b), with the reason it fell; `data_metric` and `weigh` are options (c) and (d).
+- The plan's body uses the recommended name.
+
+The other names still read right:
+- `c` (Q2);
+- `jet_to_dual_jet` / `dual_jet_to_jet`, whose names stay with decision 4;
+- `check_weight`;
+- `minibatch_scale`.
