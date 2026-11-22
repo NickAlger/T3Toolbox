@@ -4,9 +4,9 @@
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
 """``contractions.jet_contract`` and ``contractions.GroupLengths``.
 
-``jet_contract`` is ``contract`` with the jet group ``J`` multiplying as truncated polynomials in ``m`` jet
-variables: each operand with ``J`` is a polynomial with jet sizes of its own (zero beyond them), and the result
-is the product on the box ``order + 1``, or its corner coefficient when the output has no ``J``. Lines of
+``jet_contract`` is ``contract`` with the jet group ``P`` multiplying as truncated polynomials in ``m`` jet
+variables: each operand with ``P`` is a polynomial with jet sizes of its own (zero beyond them), and the result
+is the product on the box ``order + 1``, or its corner coefficient when the output has no ``P``. Lines of
 evidence, each independent of the others:
 
 1. **The reference** (`TestAgainstReference`): every one of the 38 strings of the sampling terms against a
@@ -69,7 +69,7 @@ RANK_MESSAGE = r"jet_contract\('[A-Za-z,]+->[A-Za-z]*'\): operand %d \(term '[A-
 
 
 def lens_of(order, shape_of):
-    return GroupLengths(J=len(order), W=len(shape_of['W']), K=len(shape_of['K']), C=len(shape_of['C']))
+    return GroupLengths(P=len(order), W=len(shape_of['W']), K=len(shape_of['K']), C=len(shape_of['C']))
 
 
 def stack_matrix(string):
@@ -86,7 +86,7 @@ def random_sizes(rng, string, order):
 class TestTheStrings(unittest.TestCase):
     """The table of strings is the one the terms have: the 29 strings of the seven families, the three readouts of
     ``eta_top`` (the short forms of ``eta_tilde``, P6, and ``eta_D_tilde_dot``, P8), and the six readouts that keep
-    ``W`` (P10, ``sum_over_samples=False``), over the groups J, W, K, C and no others."""
+    ``W`` (P10, ``sum_over_samples=False``), over the groups P, W, K, C and no others."""
 
     def test_29_strings_in_seven_families_and_two_slot_readouts(self):
         self.assertEqual({'xi': 5, 'z': 3, 'mu': 4, 'nu': 4, 'eta': 4, 'V': 8, 'H': 7, 'eta_top': 3},
@@ -94,13 +94,13 @@ class TestTheStrings(unittest.TestCase):
         strings = [string for _, string in cases.ALL_STRINGS]
         self.assertEqual(38, len(strings))
         self.assertEqual(38, len(set(strings)))
-        self.assertEqual(set('JWKC'), {ch for s in strings for ch in s if ch.isupper()})
+        self.assertEqual(set('PWKC'), {ch for s in strings for ch in s if ch.isupper()})
         self.assertEqual(12, sum(cases.is_product(s) for s in strings))         # mu, nu, eta
         self.assertEqual(18, sum(cases.is_readout(s) for s in strings))         # V, H (six keeping W), eta_top
         self.assertEqual(8, sum(len(cases.jet_operands(s)) == 1 and not cases.is_readout(s) for s in strings))
-        for s in strings:                                                       # J leads every term that has it
+        for s in strings:                                                       # P leads every term that has it
             for term in cases.input_terms(s) + [cases.output_term(s)]:
-                self.assertTrue('J' not in term or term[0] == 'J', s)
+                self.assertTrue('P' not in term or term[0] == 'P', s)
 
 
 class TestAgainstReference(unittest.TestCase):
@@ -159,8 +159,8 @@ class TestAgainstReference(unittest.TestCase):
 
     def test_three_variables_on_a_few_strings(self):
         rng = np.random.default_rng(4)
-        strings = ['JWo,KCio->JWKCi', 'JWCa,KCaib,JWCi->JWKCb', 'Caib,JWKCi,JWCb->JWKCa', 'JWKCi,JWo->KCio',
-                   'JWCa,JWCi,JWKCb->KCaib']
+        strings = ['PWo,KCio->PWKCi', 'PWCa,KCaib,PWCi->PWKCb', 'Caib,PWKCi,PWCb->PWKCa', 'PWKCi,PWo->KCio',
+                   'PWCa,PWCi,PWKCb->KCaib']
         for order in ((1, 0, 2), (1, 1, 1)):
             for string in strings:
                 for sizes in ({p: cases.box_of(order) for p in cases.jet_operands(string)},
@@ -171,12 +171,12 @@ class TestAgainstReference(unittest.TestCase):
 
     def test_whitespace_in_the_string_is_allowed(self):
         rng = np.random.default_rng(5)
-        string = 'JWCa,Caib,JWCi->JWCb'
+        string = 'PWCa,Caib,PWCi->PWCb'
         shape_of = dict(W=(3,), K=(), C=(2,))
         arrays = cases.build(string, {0: (4,), 2: (2,)}, shape_of, rng)
         lens = lens_of((3,), shape_of)
         plain = jet_contract(string, *arrays, lens=lens, order=(3,), over_orders='loop')
-        spaced = jet_contract('JWCa, Caib, JWCi -> JWCb', *arrays, lens=lens, order=(3,), over_orders='loop')
+        spaced = jet_contract('PWCa, Caib, PWCi -> PWCb', *arrays, lens=lens, order=(3,), over_orders='loop')
         self.assertTrue(np.array_equal(plain, spaced))
 
     def test_beyond_the_29(self):
@@ -188,8 +188,8 @@ class TestAgainstReference(unittest.TestCase):
         of its dtype)."""
         rng = np.random.default_rng(6)
         shape_of = dict(W=(3,), K=(), C=())
-        strings = ['JWCi,Cio->WCo', 'JWCa,JWCi,JWCb->JWCaib', 'JWa,Caib,JWi,JWb->JWC',
-                   'JWCa,JWCi,JWCb,JWCc->Caibc', 'JWCa,JWCb,JWCc,JWCj->Cabcj']
+        strings = ['PWCi,Cio->WCo', 'PWCa,PWCi,PWCb->PWCaib', 'PWa,Caib,PWi,PWb->PWC',
+                   'PWCa,PWCi,PWCb,PWCc->Caibc', 'PWCa,PWCb,PWCc,PWCj->Cabcj']
         line = lambda order: tuple(min(2, n + 1) for n in order)
         for order in ((1,), (2,), (4,), (1, 2)):
             for string in strings:
@@ -211,12 +211,12 @@ class TestAgainstReference(unittest.TestCase):
                                 self.assertLess(cases.relerr(got, ref), tol)
 
     def test_against_numpy_polynomial(self):
-        """At m = 1, on strings whose operands are scalar polynomials (every group but J empty): the product
+        """At m = 1, on strings whose operands are scalar polynomials (every group but P empty): the product
         truncated to the box equals ``numpy.polynomial.polynomial.polymul`` truncated, and the readout equals
         its coefficient at the corner. ``polymul`` shares nothing with ``jet_contract`` or the reference."""
         P = np.polynomial.polynomial
         rng = np.random.default_rng(7)
-        lens = GroupLengths(J=1, W=0, K=0, C=0)      # W of zero axes: each operand is one polynomial
+        lens = GroupLengths(P=1, W=0, K=0, C=0)      # W of zero axes: each operand is one polynomial
         for n in (0, 1, 2, 5, 9):
             for sizes in ((n + 1, n + 1), (2, n + 1), (n + 3, 1), (1, 1), (n + 1, n + 1, n + 1), (3, n + 2, 2)):
                 polys = [rng.standard_normal(size) for size in sizes]
@@ -224,10 +224,10 @@ class TestAgainstReference(unittest.TestCase):
                 for q in polys[1:]:
                     full = P.polymul(full, q)
                 full = np.concatenate([full, np.zeros(max(0, n + 1 - full.shape[0]))])
-                string = ','.join(['JW'] * len(polys))
+                string = ','.join(['PW'] * len(polys))
                 for form in FORMS:
                     with self.subTest(order=n, sizes=sizes, form=form):
-                        got = jet_contract(string + '->JW', *polys, lens=lens, order=(n,), over_orders=form)
+                        got = jet_contract(string + '->PW', *polys, lens=lens, order=(n,), over_orders=form)
                         self.assertEqual((n + 1,), got.shape)
                         self.assertLess(cases.relerr(got, full[:n + 1]), TOL)
                         top = jet_contract(string + '->', *polys, lens=lens, order=(n,), over_orders=form)
@@ -295,11 +295,11 @@ class TestTheCases(unittest.TestCase):
         rng = np.random.default_rng(2)
         shape_of = dict(W=(3,), K=(), C=(2,))
         order = (2, 3)
-        for string, sizes in (('JWCa,JWCi,JWCb->Caib', {0: (3, 1), 1: (1, 4), 2: (3, 4)}),
-                              ('JWCi,JWCo->Cio', {0: (3, 4), 1: (1, 4)}),
-                              ('JWCi,JWCo->Cio', {0: (1, 1), 1: (3, 4)}),
-                              ('JWCa,Caib,JWCi->JWCb', {0: (3, 1), 2: (1, 4)}),
-                              ('JWCi,Cio->JWCo', {0: (1, 1)})):
+        for string, sizes in (('PWCa,PWCi,PWCb->Caib', {0: (3, 1), 1: (1, 4), 2: (3, 4)}),
+                              ('PWCi,PWCo->Cio', {0: (3, 4), 1: (1, 4)}),
+                              ('PWCi,PWCo->Cio', {0: (1, 1), 1: (3, 4)}),
+                              ('PWCa,Caib,PWCi->PWCb', {0: (3, 1), 2: (1, 4)}),
+                              ('PWCi,Cio->PWCo', {0: (1, 1)})):
             arrays = cases.build(string, sizes, shape_of, rng)
             ref = cases.reference(string, arrays, order, shape_of)
             padded = [np.pad(x, [(0, 3 - x.shape[0]), (0, 4 - x.shape[1])] + [(0, 0)] * (x.ndim - 2))
@@ -318,12 +318,12 @@ class TestTheCases(unittest.TestCase):
         operands' dtype and numpy type, for a pair and for a lone operand alike."""
         rng = np.random.default_rng(3)
         shape_of = dict(W=(3,), K=(), C=(2,))
-        for string, sizes, order in (('JWCa,Caib,JWCi->JWCb', {0: (2,), 2: (2,)}, (5,)),
-                                     ('JWCi,Cio->JWCo', {0: (2, 1)}, (3, 2)),
-                                     ('JWCa,JWCi,JWCb->Caib', {0: (2,), 1: (2,), 2: (2,)}, (6,)),
-                                     ('JWCi,JWCo->Cio', {0: (2, 2), 1: (1, 3)}, (2, 4)),
-                                     ('JWCi,Cio->WCo', {0: (2,)}, (2,)),
-                                     ('JWCi,Cio->WCo', {0: (3, 1)}, (2, 1))):
+        for string, sizes, order in (('PWCa,Caib,PWCi->PWCb', {0: (2,), 2: (2,)}, (5,)),
+                                     ('PWCi,Cio->PWCo', {0: (2, 1)}, (3, 2)),
+                                     ('PWCa,PWCi,PWCb->Caib', {0: (2,), 1: (2,), 2: (2,)}, (6,)),
+                                     ('PWCi,PWCo->Cio', {0: (2, 2), 1: (1, 3)}, (2, 4)),
+                                     ('PWCi,Cio->WCo', {0: (2,)}, (2,)),
+                                     ('PWCi,Cio->WCo', {0: (3, 1)}, (2, 1))):
             for dtype in (np.float64, np.float32):
                 arrays = [x.astype(dtype) for x in cases.build(string, sizes, shape_of, rng)]
                 ref = cases.reference(string, arrays, order, shape_of)
@@ -348,7 +348,7 @@ class TestTheCases(unittest.TestCase):
         rng = np.random.default_rng(4)
         for order in ((3,), (2, 3), (1, 0)):
             m, box = len(order), cases.box_of(order)
-            lens = GroupLengths(J=m, W=1, K=0, C=0)
+            lens = GroupLengths(P=m, W=1, K=0, C=0)
             a, b = rng.standard_normal(box + (5, 2)), rng.standard_normal(box + (5, 2))
             omega = rng.standard_normal(box)
             dual = (omega ** 2).reshape(box + (1, 1)) * b
@@ -356,7 +356,7 @@ class TestTheCases(unittest.TestCase):
             want = float(np.sum((omega ** 2).reshape(box + (1, 1)) * a * b))
             for form in FORMS:
                 with self.subTest(order=order, form=form):
-                    got = jet_contract('JWi,JWi->', a, dual, lens=lens, order=order, over_orders=form)
+                    got = jet_contract('PWi,PWi->', a, dual, lens=lens, order=order, over_orders=form)
                     self.assertLess(abs(float(got) - want), TOL * max(1.0, abs(want)))
 
 
@@ -457,7 +457,7 @@ class TestSensitivity(unittest.TestCase):
                     ref = cases.reference(string, arrays, out_order, shape_of)
                     lens = lens_of(out_order, shape_of)
                     for p, term in enumerate(cases.input_terms(string)):
-                        slots = list(np.ndindex(*sizes[p])) if 'J' in term else [None]
+                        slots = list(np.ndindex(*sizes[p])) if 'P' in term else [None]
                         for slot in slots:
                             perturbed = [x.copy() for x in arrays]
                             target = perturbed[p][slot] if slot is not None else perturbed[p]
@@ -508,11 +508,11 @@ class TestStrictness(unittest.TestCase):
         self.assertGreater(n_checked, 4000)
 
     def test_a_wrong_record_raises(self):
-        """A record wrong in W, K or C: the ranks no longer match. A record wrong in J with the jet shape of the
-        same length: the ranks no longer match. A record whose J disagrees with the length of the jet shape: the
+        """A record wrong in W, K or C: the ranks no longer match. A record wrong in P with the jet shape of the
+        same length: the ranks no longer match. A record whose P disagrees with the length of the jet shape: the
         jet shape's error."""
         rng = np.random.default_rng(0)
-        string = 'JWKCo,Cio->JWKCi'         # W and K stand together on the only operand that has them
+        string = 'PWKCo,Cio->PWKCi'         # W and K stand together on the only operand that has them
         shape_of = dict(W=(2, 2), K=(2,), C=(2,))
         order = (3,)
         arrays = cases.build(string, {0: (4,)}, shape_of, rng)
@@ -527,13 +527,13 @@ class TestStrictness(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, 'ndim'):
                         jet_contract(string, *arrays, lens=dc.replace(good, **{field: value}), order=order,
                                      over_orders='loop')
-        for J, wrong_order in ((0, ()), (2, (3, 0))):
-            with self.subTest(J=J, order=wrong_order):
+        for P, wrong_order in ((0, ()), (2, (3, 0))):
+            with self.subTest(P=P, order=wrong_order):
                 with self.assertRaisesRegex(ValueError, 'ndim'):
-                    jet_contract(string, *arrays, lens=dc.replace(good, J=J), order=wrong_order, over_orders='loop')
-            with self.subTest(J=J, order=order):
-                with self.assertRaisesRegex(ValueError, 'entries, but lens.J'):
-                    jet_contract(string, *arrays, lens=dc.replace(good, J=J), order=order, over_orders='loop')
+                    jet_contract(string, *arrays, lens=dc.replace(good, P=P), order=wrong_order, over_orders='loop')
+            with self.subTest(P=P, order=order):
+                with self.assertRaisesRegex(ValueError, 'entries, but lens.P'):
+                    jet_contract(string, *arrays, lens=dc.replace(good, P=P), order=order, over_orders='loop')
         # W and K traded one axis for the other: the same total, so the same ranks. Not an error, and the
         # same contraction (the split inside a run of co-traveling groups is unobservable).
         traded = dc.replace(good, W=good.W - 1, K=good.K + 1)
@@ -544,7 +544,7 @@ class TestStrictness(unittest.TestCase):
         """``order`` is a tuple (an integer or a list raises, before any cache lookup); its entries are Python ints
         or numpy integer scalars, normalized to Python ints, and never a bool, a float or negative."""
         rng = np.random.default_rng(1)
-        string = 'JWCa,Caib,JWCi->JWCb'
+        string = 'PWCa,Caib,PWCi->PWCb'
         shape_of = dict(W=(3,), K=(), C=())
         arrays = cases.build(string, {0: (4,), 2: (2,)}, shape_of, rng)
         lens = lens_of((3,), shape_of)
@@ -571,11 +571,11 @@ class TestStrictness(unittest.TestCase):
         self.assertIs(int, type(args[2][0]))
 
     def test_a_jet_axis_of_size_zero_raises(self):
-        lens = GroupLengths(J=2, W=1, K=0, C=0)
+        lens = GroupLengths(P=2, W=1, K=0, C=0)
         mu, G, xi = np.ones((2, 3, 5, 2)), np.ones((2, 3, 4)), np.ones((2, 0, 5, 3))
         for form in FORMS:
-            with self.assertRaisesRegex(ValueError, r"operand 2 \(term 'JWCi'\) has the jet sizes \(2, 0\)"):
-                jet_contract('JWCa,Caib,JWCi->JWCb', mu, G, xi, lens=lens, order=(1, 2), over_orders=form)
+            with self.assertRaisesRegex(ValueError, r"operand 2 \(term 'PWCi'\) has the jet sizes \(2, 0\)"):
+                jet_contract('PWCa,Caib,PWCi->PWCb', mu, G, xi, lens=lens, order=(1, 2), over_orders=form)
 
 
 class TestStructure(unittest.TestCase):
@@ -602,7 +602,7 @@ class TestStructure(unittest.TestCase):
                         self.assertTrue(all(a is b for a, b in zip(args[1:], arrays)))    # the operands, untouched
                         groups = {ch for ch in string if ch.isupper()}
                         self.assertEqual({'len_' + g for g in groups}, set(kwargs))       # every group it names
-                        self.assertEqual(0, kwargs['len_J'])
+                        self.assertEqual(0, kwargs['len_P'])
                         self.assertTrue(np.array_equal(got, contractions.contract(string, *arrays, **kwargs)))
 
     def test_one_variable_with_the_library_shapes_makes_the_contractions_of_today(self):
@@ -638,7 +638,7 @@ class TestStructure(unittest.TestCase):
         numpy; one for a corner nothing reaches. The rule is ``_jet_contract_cases.n_contractions``, a regression
         pin of the rule as built (the independent pin of the counts is the test above, P1's table)."""
         rng = np.random.default_rng(2)
-        strings = [string for _, string in cases.ALL_STRINGS] + ['JWCa,JWCi,JWCb->JWCaib', 'JWCa,JWCi,JWCb,JWCc->Caibc']
+        strings = [string for _, string in cases.ALL_STRINGS] + ['PWCa,PWCi,PWCb->PWCaib', 'PWCa,PWCi,PWCb,PWCc->Caibc']
         for order in ((1,), (3,), (1, 2)):
             for string in strings:
                 for trial in range(4):
@@ -658,14 +658,14 @@ class TestStructure(unittest.TestCase):
         rng = np.random.default_rng(8)
         shape_of = dict(W=(2,), K=(), C=())
         for string, sizes, order, n_scans in (
-                ('JWCa,Caib,JWCb->JWCi', {0: (4,), 2: (4,)}, (3,), 1),         # a full partner
-                ('JWCa,Caib,JWCb->JWCi', {0: (6,), 2: (5,)}, (3,), 1),         # larger than the box: sliced, then full
-                ('JWCa,Caib,JWCb->JWCi', {0: (4,), 2: (3,)}, (3,), 0),         # smaller: looped
-                ('JWCa,Caib,JWCb->JWCi', {0: (2, 3), 2: (2, 3)}, (1, 2), 0),   # two jet variables: looped
-                ('JWCa,JWCi,JWCb->Caib', {0: (4,), 1: (2,), 2: (4,)}, (3,), 0),  # a readout with no third full jet
-                ('JWCa,JWCi,JWCb->Caib', {0: (4,), 1: (5,), 2: (4,)}, (3,), 1),  # ... and with one
-                ('JWCa,JWCi,JWCb->JWCaib', {0: (4,), 1: (4,), 2: (3,)}, (3,), 3),  # two partners: one looped
-                ('JWCa,JWCi,JWCb->JWCaib', {0: (4,), 1: (3,), 2: (4,)}, (3,), 3)):  #   (3 slots), the other scanned
+                ('PWCa,Caib,PWCb->PWCi', {0: (4,), 2: (4,)}, (3,), 1),         # a full partner
+                ('PWCa,Caib,PWCb->PWCi', {0: (6,), 2: (5,)}, (3,), 1),         # larger than the box: sliced, then full
+                ('PWCa,Caib,PWCb->PWCi', {0: (4,), 2: (3,)}, (3,), 0),         # smaller: looped
+                ('PWCa,Caib,PWCb->PWCi', {0: (2, 3), 2: (2, 3)}, (1, 2), 0),   # two jet variables: looped
+                ('PWCa,PWCi,PWCb->Caib', {0: (4,), 1: (2,), 2: (4,)}, (3,), 0),  # a readout with no third full jet
+                ('PWCa,PWCi,PWCb->Caib', {0: (4,), 1: (5,), 2: (4,)}, (3,), 1),  # ... and with one
+                ('PWCa,PWCi,PWCb->PWCaib', {0: (4,), 1: (4,), 2: (3,)}, (3,), 3),  # two partners: one looped
+                ('PWCa,PWCi,PWCb->PWCaib', {0: (4,), 1: (3,), 2: (4,)}, (3,), 3)):  #   (3 slots), the other scanned
             arrays = cases.build(string, sizes, shape_of, rng)
             for form in FORMS:
                 with self.subTest(string=string, sizes=sizes, order=order, form=form):
@@ -674,8 +674,8 @@ class TestStructure(unittest.TestCase):
                     self.assertEqual(n_scans if form == 'scan' else 0, spy.call_count)
 
     def test_no_contraction_names_a_pair_of_orders(self):
-        """No dense order-by-order form: every string ``contract`` is handed is the literal with J deleted from
-        some input terms (so J at most once per term, the output's as written), with len_J = m; no array carries
+        """No dense order-by-order form: every string ``contract`` is handed is the literal with P deleted from
+        some input terms (so P at most once per term, the output's as written), with len_P = m; no array carries
         two sets of jet axes, and no lowercase letter is added (no table over the orders)."""
         rng = np.random.default_rng(3)
         for order in ((3,), (1, 2)):
@@ -690,8 +690,8 @@ class TestStructure(unittest.TestCase):
                             with self.subTest(string=string, order=order, shapes=label, form=form, made=made):
                                 self.assertEqual(cases.output_term(string), cases.output_term(made))
                                 for term, made_term in zip(cases.input_terms(string), cases.input_terms(made)):
-                                    self.assertIn(made_term, (term, term.replace('J', '')))
-                                self.assertEqual(len(order), call.kwargs.get('len_J', len(order)))
+                                    self.assertIn(made_term, (term, term.replace('P', '')))
+                                self.assertEqual(len(order), call.kwargs.get('len_P', len(order)))
                                 lowercase = lambda s: {ch for ch in s if ch.islower()}
                                 self.assertEqual(lowercase(string), lowercase(made))    # no table over the orders
 
@@ -737,63 +737,64 @@ class TestStructure(unittest.TestCase):
                     self.assertTrue(all(np.array_equal(x, c) for x, c in zip(arrays, copies)), string)
 
     def test_over_orders_and_order_have_no_default_and_over_orders_two_values(self):
-        lens0, lens1 = GroupLengths(J=0, W=1, K=0, C=0), GroupLengths(J=1, W=1, K=0, C=0)
+        lens0, lens1 = GroupLengths(P=0, W=1, K=0, C=0), GroupLengths(P=1, W=1, K=0, C=0)
         eta, D = np.ones((3, 4)), np.ones((4, 5))
         for lens, x, order in ((lens0, eta, ()), (lens1, np.ones((2, 3, 4)), (1,))):   # with no jets too
             for bad in ('dense', 'Scan', None, True):
-                with self.subTest(J=lens.J, over_orders=bad):
+                with self.subTest(P=lens.P, over_orders=bad):
                     with self.assertRaisesRegex(ValueError, 'over_orders'):
-                        jet_contract('JWCi,Cio->JWCo', x, D, lens=lens, order=order, over_orders=bad)
+                        jet_contract('PWCi,Cio->PWCo', x, D, lens=lens, order=order, over_orders=bad)
             with self.assertRaises(TypeError):
-                jet_contract('JWCi,Cio->JWCo', x, D, lens=lens, order=order)            # no default
+                jet_contract('PWCi,Cio->PWCo', x, D, lens=lens, order=order)            # no default
             with self.assertRaises(TypeError):
-                jet_contract('JWCi,Cio->JWCo', x, D, lens=lens, over_orders='loop')     # no default for the jet shape
+                jet_contract('PWCi,Cio->PWCo', x, D, lens=lens, over_orders='loop')     # no default for the jet shape
             with self.assertRaises(TypeError):
-                jet_contract('JWCi,Cio->JWCo', x, D, order=order, over_orders='loop')   # nor for the record
+                jet_contract('PWCi,Cio->PWCo', x, D, order=order, over_orders='loop')   # nor for the record
             with self.assertRaises(TypeError):
-                jet_contract('JWCi,Cio->JWCo', x, D, lens, order, 'loop')               # keyword-only
+                jet_contract('PWCi,Cio->PWCo', x, D, lens, order, 'loop')               # keyword-only
 
     def test_lens_must_be_the_record(self):
         eta, D = np.ones((3, 4)), np.ones((4, 5))
-        for bad in ((0, 1, 0, 0), dict(J=0, W=1, K=0, C=0), None):
+        for bad in ((0, 1, 0, 0), dict(P=0, W=1, K=0, C=0), None):
             with self.subTest(lens=bad):
                 with self.assertRaisesRegex(TypeError, 'GroupLengths'):
-                    jet_contract('JWCi,Cio->JWCo', eta, D, lens=bad, order=(), over_orders='loop')
+                    jet_contract('PWCi,Cio->PWCo', eta, D, lens=bad, order=(), over_orders='loop')
 
     def test_malformed_strings_raise_at_every_order(self):
         """Whether a string is a jet_contract string is decided from the string alone, so a call site is wrong at
         every order or at none (`order = ()` included)."""
         one = np.ones(())
         malformed = [
-            ('WJCa,Caib,JWCi->JWCb', 'lead'),               # J does not lead an operand's term
-            ('JWCa,Caib,JWCi->WJCb', 'lead'),               # ... or the output's
-            ('WCa,Caib,WCi->WCb', 'no operand has'),        # no J at all: a contract string
+            ('WPCa,Caib,PWCi->PWCb', 'lead'),               # P does not lead an operand's term
+            ('PWCa,Caib,PWCi->WPCb', 'lead'),               # ... or the output's
+            ('WCa,Caib,WCi->WCb', 'no operand has'),        # no P at all: a contract string
             ('WCi,Cio->', 'no operand has'),                # ... a readout of no jet
-            ('WCa,Caib->JWCb', 'do not appear'),            # J in the output and on no operand (contract's parser)
+            ('WCa,Caib->PWCb', 'do not appear'),            # P in the output and on no operand (contract's parser)
             ('TWCa,Caib,AWCi->TWCb', 'not groups'),         # the groups of P1 are gone
-            ('JWCa,Caib,AWCi->JWCb', 'not groups'),
+            ('PWCa,Caib,AWCi->PWCb', 'not groups'),
             ('TWCi,Cio->TWCo', 'not groups'),
-            ('JWGa,Gab->JWGb', 'not groups'),               # a group the record does not count
+            ('PWGa,Gab->PWGb', 'not groups'),               # a group the record does not count
+            ('JWCa,Caib,JWCi->JWCb', 'not groups'),         # the jet group was J until M0 (2026-11-22)
             ('SWCi,SCio->SWCo', 'not groups'),              # S like any other: there is no site group,
-            ('JSWCi,SCio->JSWCo', 'not groups'),            #     after the jet group
-            ('SJWCi,SCio->SJWCo', 'not groups'),            #     or before it
-            ('JWCa,Caib->JWCb,', 'invalid'),                # the grouped-string parser's own errors pass through
-            ('JWCa,Caib', "'->'"),
-            ('J,JWCi->JWCi', 'J alone'),                    # a term of J alone: no term left to take a coefficient
+            ('PSWCi,SCio->PSWCo', 'not groups'),            #     after the jet group
+            ('SPWCi,SCio->SPWCo', 'not groups'),            #     or before it
+            ('PWCa,Caib->PWCb,', 'invalid'),                # the grouped-string parser's own errors pass through
+            ('PWCa,Caib', "'->'"),
+            ('P,PWCi->PWCi', 'P alone'),                    # a term of P alone: no term left to take a coefficient
         ]
-        for J in (0, 1, 2):
-            lens = GroupLengths(J=J, W=0, K=0, C=0)
+        for P in (0, 1, 2):
+            lens = GroupLengths(P=P, W=0, K=0, C=0)
             for string, message in malformed:
-                with self.subTest(string=string, J=J):
+                with self.subTest(string=string, P=P):
                     with self.assertRaisesRegex(ValueError, message):
                         jet_contract(string, *([one] * len(string.split('->')[0].split(','))),
-                                     lens=lens, order=(1,) * J, over_orders='loop')
+                                     lens=lens, order=(1,) * P, over_orders='loop')
 
     def test_a_product_of_three_jets_is_a_product(self):
-        """'JWCa,JWCi,JWCb->JWCa' (three jets and J in the output; P1 refused it) is a truncated product like any
+        """'PWCa,PWCi,PWCb->PWCa' (three jets and P in the output; P1 refused it) is a truncated product like any
         other: against the reference."""
         rng = np.random.default_rng(7)
-        string = 'JWCa,JWCi,JWCb->JWCa'
+        string = 'PWCa,PWCi,PWCb->PWCa'
         shape_of = dict(W=(3,), K=(), C=())
         self.assertTrue(cases.is_product(string))
         for order in ((3,), (1, 2)):
@@ -805,9 +806,9 @@ class TestStructure(unittest.TestCase):
                     self.assertLess(cases.relerr(got, ref), TOL)
 
     def test_operand_count_mismatch_raises(self):
-        lens = GroupLengths(J=1, W=1, K=0, C=0)
+        lens = GroupLengths(P=1, W=1, K=0, C=0)
         with self.assertRaisesRegex(ValueError, 'operand'):
-            jet_contract('JWCa,Caib,JWCi->JWCb', np.ones((4, 3, 2)), np.ones((2, 3, 4)), lens=lens, order=(3,),
+            jet_contract('PWCa,Caib,PWCi->PWCb', np.ones((4, 3, 2)), np.ones((2, 3, 4)), lens=lens, order=(3,),
                          over_orders='loop')
 
 
@@ -816,45 +817,48 @@ class TestGroupLengths(unittest.TestCase):
     is jax static data)."""
 
     def test_fields_in_order(self):
-        self.assertEqual(['J', 'W', 'K', 'C'], [f.name for f in dc.fields(GroupLengths)])
+        self.assertEqual(['P', 'W', 'K', 'C'], [f.name for f in dc.fields(GroupLengths)])
         lens = GroupLengths(1, 2, 3, 4)
-        self.assertEqual((1, 2, 3, 4), (lens.J, lens.W, lens.K, lens.C))
+        self.assertEqual((1, 2, 3, 4), (lens.P, lens.W, lens.K, lens.C))
         with self.assertRaises(TypeError):
-            GroupLengths(J=1, W=2, K=0)                         # no defaults: every count is said
+            GroupLengths(P=1, W=2, K=0)                         # no defaults: every count is said
         with self.assertRaises(TypeError):
-            GroupLengths(S=0, J=1, W=2, K=0, C=0)               # there is no site group
+            GroupLengths(S=0, P=1, W=2, K=0, C=0)               # there is no site group
         with self.assertRaises(TypeError):
             GroupLengths(T=1, W=2, K=0, C=0)                    # nor the order group of P1
+        with self.assertRaises(TypeError):
+            GroupLengths(J=1, W=2, K=0, C=0)                    # nor the jet group's letter before M0
+        self.assertFalse(hasattr(GroupLengths(1, 2, 3, 4), 'J'))
 
     def test_value_equality_and_hash(self):
-        a, b = GroupLengths(J=2, W=2, K=0, C=1), GroupLengths(J=2, W=2, K=0, C=1)
+        a, b = GroupLengths(P=2, W=2, K=0, C=1), GroupLengths(P=2, W=2, K=0, C=1)
         self.assertIsNot(a, b)
         self.assertEqual(a, b)
         self.assertEqual(hash(a), hash(b))
         self.assertEqual(1, len({a, b}))
-        for field in ('J', 'W', 'K', 'C'):
+        for field in ('P', 'W', 'K', 'C'):
             self.assertNotEqual(a, dc.replace(a, **{field: getattr(a, field) + 1}))
 
     def test_frozen(self):
         with self.assertRaises(dc.FrozenInstanceError):
-            GroupLengths(J=1, W=2, K=0, C=1).W = 3
+            GroupLengths(P=1, W=2, K=0, C=1).W = 3
 
-    def test_counts_are_nonnegative_ints_and_J_any_count(self):
-        for J in (0, 1, 2, 3, 7):
-            self.assertEqual(J, GroupLengths(J=J, W=0, K=0, C=0).J)
-        for bad in (dict(W=-1), dict(J=-1), dict(W=1.0), dict(W=None), dict(C=True), dict(K=(2,)),
-                    dict(W=np.int64(2)), dict(J=np.int64(1))):
+    def test_counts_are_nonnegative_ints_and_P_any_count(self):
+        for P in (0, 1, 2, 3, 7):
+            self.assertEqual(P, GroupLengths(P=P, W=0, K=0, C=0).P)
+        for bad in (dict(W=-1), dict(P=-1), dict(W=1.0), dict(W=None), dict(C=True), dict(K=(2,)),
+                    dict(W=np.int64(2)), dict(P=np.int64(1))):
             with self.subTest(bad=repr(bad)):     # a builtin label (as above)
                 with self.assertRaises(ValueError):
-                    GroupLengths(**{**dict(J=1, W=2, K=0, C=1), **bad})
+                    GroupLengths(**{**dict(P=1, W=2, K=0, C=1), **bad})
 
     def test_an_equal_record_gets_the_same_scan_body(self):
         """The scan body comes from a factory memoized on the statics it reads (the step string, the record, the
         carried and the scanned positions): an equal record built anew is the same key, so the body is ONE object
         and an eager jax scan finds its compiled program again. What the body closes over is static: strings,
         ints and a dict of ints, nothing else."""
-        for step, carrier, partner in (('JWCa,Caib,WCb->JWCi', 0, 2), ('JWCa,WCi,JWCb->Caib', 0, 1)):
-            a, b = GroupLengths(J=1, W=2, K=0, C=1), GroupLengths(J=1, W=2, K=0, C=1)
+        for step, carrier, partner in (('PWCa,Caib,WCb->PWCi', 0, 2), ('PWCa,WCi,PWCb->Caib', 0, 1)):
+            a, b = GroupLengths(P=1, W=2, K=0, C=1), GroupLengths(P=1, W=2, K=0, C=1)
             body = contractions._jet_scan_body(step, a, carrier, partner)
             self.assertIs(body, contractions._jet_scan_body(step, b, carrier, partner))
             self.assertIsNot(body, contractions._jet_scan_body(step, dc.replace(a, W=1), carrier, partner))
@@ -868,15 +872,15 @@ class TestGroupLengths(unittest.TestCase):
 
     def test_the_scan_body_key_holds_every_static_it_reads(self):
         """The step string does not always say which operand is scanned: in a readout of four jets the pair keeps
-        J and both other operands lose it, so the same step string serves a scan of either. Calls in turn that
+        P and both other operands lose it, so the same step string serves a scan of either. Calls in turn that
         scan the third and then the fourth operand (by their sizes) must each get their own body: checked by
         value against the reference, in both orders of the calls. Likewise a product whose carrier moves."""
         rng = np.random.default_rng(0)
         shape_of = dict(W=(3,), K=(), C=())
         lens = lens_of((3,), shape_of)
-        for string, variants in (('JWCa,JWCb,JWCc,JWCj->Cabcj', ({0: (4,), 1: (4,), 2: (4,), 3: (2,)},
+        for string, variants in (('PWCa,PWCb,PWCc,PWCj->Cabcj', ({0: (4,), 1: (4,), 2: (4,), 3: (2,)},
                                                                  {0: (4,), 1: (4,), 2: (2,), 3: (4,)})),
-                                 ('Caib,JWCi,JWCb->JWCa', ({1: (4,), 2: (4,)}, {1: (4,), 2: (2,)}, {1: (2,), 2: (4,)}))):
+                                 ('Caib,PWCi,PWCb->PWCa', ({1: (4,), 2: (4,)}, {1: (4,), 2: (2,)}, {1: (2,), 2: (4,)}))):
             for ordering in (variants, variants[::-1]):
                 contractions._jet_scan_body.cache_clear()
                 for sizes in ordering:
@@ -927,7 +931,7 @@ class TestOrderInsideAStep(unittest.TestCase):
         carried jets have ALL the box's slots:
         ``(the derived string, the positions paired first, the carried positions, the no-jet positions)``.
 
-        The carried positions are the terms of the derived string that still have ``J``; the no-jet positions are
+        The carried positions are the terms of the derived string that still have ``P``; the no-jet positions are
         the terms with no jet group in the literal; the remaining one is a coefficient.
 
         Only the steps with every slot are looked at, because jax's path depends on the sizes: under ``'loop'``
@@ -938,13 +942,13 @@ class TestOrderInsideAStep(unittest.TestCase):
         with unittest.mock.patch.dict(cases.SIZE, self.SIZES):
             arrays = cases.build(string, sizes, shape_of, np.random.default_rng(0))
         arrays = [xnp.asarray(x) for x in arrays]
-        lens = GroupLengths(J=1, W=1, K=len(shape_of['K']), C=1)
+        lens = GroupLengths(P=1, W=1, K=len(shape_of['K']), C=1)
         with unittest.mock.patch.object(contractions, 'contract', wraps=contractions.contract) as contract_spy, \
                 unittest.mock.patch.object(xnp, 'einsum', wraps=xnp.einsum) as einsum_spy:
             jet_contract(string, *arrays, lens=lens, order=(self.ORDER,), over_orders='loop')
         self.assertEqual(contract_spy.call_count, einsum_spy.call_count)       # one einsum per contraction
         literal_terms = cases.input_terms(string)
-        no_jet = frozenset(p for p, t in enumerate(literal_terms) if 'J' not in t)
+        no_jet = frozenset(p for p, t in enumerate(literal_terms) if 'P' not in t)
         steps = []
         for contract_call, einsum_call in zip(contract_spy.call_args_list, einsum_spy.call_args_list):
             made = contract_call.args[0]
@@ -955,7 +959,7 @@ class TestOrderInsideAStep(unittest.TestCase):
                 self.assertNotIn('optimize', einsum_call.kwargs)    # jax: `jnp.einsum`'s own default
                 path = xnp.einsum_path(*einsum_call.args, optimize=self._jax_default_optimize())[0]
             first = next(step for step in path if not isinstance(step, str))    # numpy's path leads with a label
-            carried = frozenset(p for p, t in enumerate(cases.input_terms(made)) if 'J' in t)
+            carried = frozenset(p for p, t in enumerate(cases.input_terms(made)) if 'P' in t)
             if all(contract_call.args[1 + p].shape[0] == self.ORDER + 1 for p in carried):
                 steps.append((made, frozenset(int(p) for p in first), carried, no_jet))
         self.assertGreater(len(steps), 0)

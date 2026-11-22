@@ -87,7 +87,7 @@ def _mask_once(
 def utv_probe(
         frame:             typ.Tuple,                    # UT3Frame .data: (D, U, L, R, shape, masks), stack C
         variations:        typ.Tuple,                    # UT3Variations .data: (V, H) read, the frame's masks
-        ww:                Vectors,                      # input jets: len=d, J_in_i+W+(Ni,); or packed (d,)+J+W+(N,)
+        ww:                Vectors,                      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
 ) -> Vectors:                               # Jp, MIRRORS ww: len=d, F+W+K+C+(Ni,); or packed
     """The uniform twin of :py:func:`~t3toolbox.backend.probing.tv_probe` (the bare ``J``, no gauge projector): one
@@ -103,7 +103,7 @@ def utv_probe(
 def utv_apply(
         frame:             typ.Tuple,                    # UT3Frame .data: (D, U, L, R, shape, masks), stack C
         variations:        typ.Tuple,                    # UT3Variations .data: (V, H) read, the frame's masks
-        ww:                Vectors,                      # input jets: len=d, J_in_i+W+(Ni,); or packed (d,)+J+W+(N,)
+        ww:                Vectors,                      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
 ) -> NDArray:                               # Jp. shape=F+W+K+C
     """The uniform twin of :py:func:`~t3toolbox.backend.apply.tv_apply` (the bare ``J``, no gauge projector): one
@@ -466,7 +466,7 @@ def _remasked_transpose_output(
 
 def utv_probe_transpose(
         frame:             typ.Tuple,                    # UT3Frame .data: (D, U, L, R, shape, masks), stack C
-        ww:                Vectors,                      # input jets: len=d, J_in_i+W+(Ni,); or packed (d,)+J+W+(N,)
+        ww:                Vectors,                      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
         residual:          Vectors,                      # of the type of z: len=d, F+W+[K]+C+(Ni,); or packed
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
@@ -483,7 +483,7 @@ def utv_probe_transpose(
 
 def utv_apply_transpose(
         frame:             typ.Tuple,                    # UT3Frame .data: (D, U, L, R, shape, masks), stack C
-        ww:                Vectors,                      # input jets: len=d, J_in_i+W+(Ni,); or packed (d,)+J+W+(N,)
+        ww:                Vectors,                      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
         residual:          NDArray,                      # of the type of z: shape=F+W+[K]+C
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C

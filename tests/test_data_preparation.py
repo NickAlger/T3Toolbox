@@ -5,7 +5,7 @@
 """``backend.data_preparation``, and ``unscale_coordinates`` on the two tensor classes.
 
 The jet shape ``order = (n_1, ..., n_m)`` is a tuple, the box ``F = (n_1 + 1, ...)``, and a sample of the probe and
-apply kinds is its input jets ``ww`` (``J_in_i + W + (Ni,)``); the entries kind has no jets.
+apply kinds is its input jets ``ww`` (``F_in_i + W + (Ni,)``); the entries kind has no jets.
 
 1. **The block norms and the equalizing weight** (`TestEqualizing`): the norms against ``numpy.linalg.norm``
    block by block, in the shape of the weight for every jet shape (``check_weight`` accepts them); the weight

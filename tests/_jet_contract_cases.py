@@ -10,9 +10,9 @@ P8): the short forms of ``eta_tilde`` and ``eta_D_tilde_dot`` read one slot of t
 lowered corner that keeps ``W``. And the six readouts of P10 with ``sum_over_samples=False``: the ``V`` and ``H`` blocks
 with ``W`` first in their output (``K`` being a group, its placements are the same six).
 
-A variable has the shape ``J + W + [K] + C + (size,)``:
+A variable has the shape ``P + W + [K] + C + (size,)``:
 
-    J   the jet axes: m of them, one per jet variable, with sizes of the operand's own (a full jet has
+    P   the jet axes: m of them, one per jet variable, with sizes of the operand's own (a full jet has
         order + 1 on each; a leaf or an input has its own, two for a line); () at order ()
     W   the sample stack, K the stack of directions (on the one operand that carries it),
     C   the stack of base points (on every core and every variable, not on an input)
@@ -37,23 +37,23 @@ import numpy as np
 # family -> its strings. The operands are in the order (xi: w or a seed, D) (z: eta, D) (mu: mu, G, xi)
 # (nu: G, xi, nu) (eta: mu, G, nu) (V: eta, w or a seed) (H: mu, xi, nu).
 STRINGS = {
-    'xi':  ['JWo,Cio->JWCi',                'JWo,KCio->JWKCi',                  # an input
-            'JWCo,Cio->JWCi',               'JWKCo,Cio->JWKCi',                 'JWCo,KCio->JWKCi'],    # a seed
-    'z':   ['JWCi,Cio->JWCo',               'JWKCi,Cio->JWKCo',                 'JWCi,KCio->JWKCo'],
-    'mu':  ['JWCa,Caib,JWCi->JWCb',         'JWKCa,Caib,JWCi->JWKCb',           'JWCa,KCaib,JWCi->JWKCb',
-            'JWCa,Caib,JWKCi->JWKCb'],                                          # the leaf xi: two slots, or full
-    'nu':  ['Caib,JWCi,JWCb->JWCa',         'Caib,JWCi,JWKCb->JWKCa',           'KCaib,JWCi,JWCb->JWKCa',
-            'Caib,JWKCi,JWCb->JWKCa'],
-    'eta': ['JWCa,Caib,JWCb->JWCi',         'JWKCa,Caib,JWCb->JWKCi',           'JWCa,KCaib,JWCb->JWKCi',
-            'JWCa,Caib,JWKCb->JWKCi'],
-    'V':   ['JWCi,JWo->Cio',                'JWKCi,JWo->KCio',                  # an input
-            'JWCi,JWCo->Cio',               'JWKCi,JWCo->KCio',                 'JWCi,JWKCo->KCio',     # a seed
-            'JWKCi,JWo->WKCio',             'JWKCi,JWCo->WKCio',                'JWCi,JWKCo->WKCio'],   # W kept (P10)
-    'H':   ['JWCa,JWCi,JWCb->Caib',         'JWKCa,JWCi,JWCb->KCaib',           'JWCa,JWKCi,JWCb->KCaib',
-            'JWCa,JWCi,JWKCb->KCaib',
-            'JWKCa,JWCi,JWCb->WKCaib',      'JWCa,JWKCi,JWCb->WKCaib',          'JWCa,JWCi,JWKCb->WKCaib'],   # W kept
-    'eta_top': ['JWKCa,Caib,JWCb->WKCi',    'JWCa,Caib,JWKCb->WKCi',            # a slot of eta_tilde (P6)
-                'JWCa,KCaib,JWCb->WKCi'],                                       # ... of eta_D_tilde_dot (P8)
+    'xi':  ['PWo,Cio->PWCi',                'PWo,KCio->PWKCi',                  # an input
+            'PWCo,Cio->PWCi',               'PWKCo,Cio->PWKCi',                 'PWCo,KCio->PWKCi'],    # a seed
+    'z':   ['PWCi,Cio->PWCo',               'PWKCi,Cio->PWKCo',                 'PWCi,KCio->PWKCo'],
+    'mu':  ['PWCa,Caib,PWCi->PWCb',         'PWKCa,Caib,PWCi->PWKCb',           'PWCa,KCaib,PWCi->PWKCb',
+            'PWCa,Caib,PWKCi->PWKCb'],                                          # the leaf xi: two slots, or full
+    'nu':  ['Caib,PWCi,PWCb->PWCa',         'Caib,PWCi,PWKCb->PWKCa',           'KCaib,PWCi,PWCb->PWKCa',
+            'Caib,PWKCi,PWCb->PWKCa'],
+    'eta': ['PWCa,Caib,PWCb->PWCi',         'PWKCa,Caib,PWCb->PWKCi',           'PWCa,KCaib,PWCb->PWKCi',
+            'PWCa,Caib,PWKCb->PWKCi'],
+    'V':   ['PWCi,PWo->Cio',                'PWKCi,PWo->KCio',                  # an input
+            'PWCi,PWCo->Cio',               'PWKCi,PWCo->KCio',                 'PWCi,PWKCo->KCio',     # a seed
+            'PWKCi,PWo->WKCio',             'PWKCi,PWCo->WKCio',                'PWCi,PWKCo->WKCio'],   # W kept (P10)
+    'H':   ['PWCa,PWCi,PWCb->Caib',         'PWKCa,PWCi,PWCb->KCaib',           'PWCa,PWKCi,PWCb->KCaib',
+            'PWCa,PWCi,PWKCb->KCaib',
+            'PWKCa,PWCi,PWCb->WKCaib',      'PWCa,PWKCi,PWCb->WKCaib',          'PWCa,PWCi,PWKCb->WKCaib'],   # W kept
+    'eta_top': ['PWKCa,Caib,PWCb->WKCi',    'PWCa,Caib,PWKCb->WKCi',            # a slot of eta_tilde (P6)
+                'PWCa,KCaib,PWCb->WKCi'],                                       # ... of eta_D_tilde_dot (P8)
 }
 ALL_STRINGS = [(family, string) for family, strings in STRINGS.items() for string in strings]
 
@@ -73,18 +73,18 @@ def output_term(string):
 
 
 def jet_operands(string):
-    """The positions of the operands whose term has J."""
-    return [p for p, t in enumerate(input_terms(string)) if 'J' in t]
+    """The positions of the operands whose term has P."""
+    return [p for p, t in enumerate(input_terms(string)) if 'P' in t]
 
 
 def is_product(string):
-    """Two or more jet operands and J in the output: a truncated product."""
-    return 'J' in output_term(string) and len(jet_operands(string)) >= 2
+    """Two or more jet operands and P in the output: a truncated product."""
+    return 'P' in output_term(string) and len(jet_operands(string)) >= 2
 
 
 def is_readout(string):
-    """No J in the output: the corner coefficient."""
-    return 'J' not in output_term(string)
+    """No P in the output: the corner coefficient."""
+    return 'P' not in output_term(string)
 
 
 def box_of(order):
@@ -110,10 +110,10 @@ def library_shapes(family, string, order):
 
 
 def make(rng, shape_of, term, jet_sizes):
-    """A random operand for one term: jet_sizes for J (absent at order ()), shape_of for W, K, C."""
+    """A random operand for one term: jet_sizes for P (absent at order ()), shape_of for W, K, C."""
     shape = ()
     for ch in term:
-        if ch == 'J':
+        if ch == 'P':
             shape += jet_sizes
         elif ch.isupper():
             shape += shape_of[ch]
@@ -123,7 +123,7 @@ def make(rng, shape_of, term, jet_sizes):
 
 
 def build(string, sizes, shape_of, rng):
-    """Random operands for one string. sizes: {position: jet sizes} for every operand with J (any jet sizes; empty
+    """Random operands for one string. sizes: {position: jet sizes} for every operand with P (any jet sizes; empty
     tuples, or no entry, at order ())."""
     return [make(rng, shape_of, term, tuple(sizes.get(p, ()))) for p, term in enumerate(input_terms(string))]
 
@@ -138,7 +138,7 @@ def _flattened(x, term, m, shape_of):
     einsum letters of that flattened array: each stack group by its own letter, the jet group dropped."""
     shape, new_shape, letters, pos = x.shape, (), '', 0
     for ch in term:
-        if ch == 'J':
+        if ch == 'P':
             new_shape, pos = new_shape + shape[pos:pos + m], pos + m
         elif ch.isupper():
             n = len(shape_of[ch])
@@ -152,14 +152,14 @@ def reference(string, arrays, order, shape_of):
     """The value ``jet_contract(string, *arrays, order=order, ...)`` must return, in the shape it must have.
     Float64. By definition: every combination of the jet operands' multi-indices (all of their slots, beyond the
     box too) is contracted with one fixed einsum, and added at the sum of the indices where it lies in the box
-    (J in the output) or where it equals the corner (no J in the output)."""
+    (P in the output) or where it equals the corner (no P in the output)."""
     m = len(order)
     terms, out = input_terms(string), output_term(string)
     flats = [_flattened(np.asarray(x, dtype=np.float64), t, m, shape_of) for x, t in zip(arrays, terms)]
-    out_letters = ''.join(ch for ch in out if ch != 'J')
+    out_letters = ''.join(ch for ch in out if ch != 'P')
     subscripts = ','.join(letters for _, letters in flats) + '->' + out_letters
     jets = jet_operands(string)
-    keep = 'J' in out
+    keep = 'P' in out
     result = None
     first = None
     for ks in itertools.product(*(list(np.ndindex(*arrays[p].shape[:m])) for p in jets)):
@@ -182,7 +182,7 @@ def reference(string, arrays, order, shape_of):
         result = np.zeros(box_of(order) + first.shape) if keep else first
     shape = ()
     for ch in out:
-        if ch == 'J':
+        if ch == 'P':
             shape += box_of(order)
         elif ch.isupper():
             shape += shape_of[ch]
@@ -204,7 +204,7 @@ def n_contractions(string, sizes, order, form):
     clipped = {p: tuple(min(s, f) for s, f in zip(sizes[p], box)) for p in jets}
     n_slots = {p: int(np.prod(clipped[p])) for p in jets}
     ranked = sorted(jets, key=lambda p: (-n_slots[p], p))
-    keep = 'J' in output_term(string)
+    keep = 'P' in output_term(string)
     if keep and len(jets) == 1:
         return 1                                            # a ride
     if not keep and len(jets) == 1:

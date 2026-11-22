@@ -86,7 +86,7 @@ __all__ = [
 
 def t3_probe(
         x:                 typ.Tuple,                    # (tucker_cores, tt_cores), elm_shapes C+(nDi,Ni), C+(ri,nDi,r(i+1))
-        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=J_in_i+W+(Ni,): input jets
+        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=F_in_i+W+(Ni,): input jets
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
 ) -> typ.Tuple[NDArray, ...]:               # z. len=d, elm_shape=F+W+C+(Ni,)
     '''Probe a Tucker tensor train: contract every mode but one with the input jets, ``d`` vectors.
@@ -557,7 +557,7 @@ def tv_probe_jacobian_from_sweep(
 def tv_probe(
         frame:             typ.Tuple,                    # (D, U, L, R)
         variations:        typ.Tuple,                    # (V, H), elm_shapes K+C+(nUi,Ni), K+C+(rLi,nDi,rR(i+1))
-        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=J_in_i+W+(Ni,): input jets
+        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=F_in_i+W+(Ni,): input jets
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
 ) -> typ.Tuple[NDArray, ...]:               # Jp. len=d, elm_shape=F+W+K+C+(Ni,)
     '''The probe of a tangent vector: ``J p``, the derivative along the direction ``variations`` at ``frame``.
@@ -1029,7 +1029,7 @@ def tv_probe_transpose_from_sweep(
 
 def tv_probe_transpose(
         frame:             typ.Tuple,                    # (D, U, L, R)
-        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=J_in_i+W+(Ni,): input jets
+        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=F_in_i+W+(Ni,): input jets
         residual:          typ.Sequence[NDArray],         # of the type of z: len=d, elm_shape=F+W+[K]+C+(Ni,)
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
@@ -1137,7 +1137,7 @@ def t3_probe_ambient_transpose(
 
 def t3_probe_corewise_tangent(
         x:                 typ.Tuple,                    # (B, G): the point whose cores the directions vary
-        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=J_in_i+W+(Ni,): input jets
+        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=F_in_i+W+(Ni,): input jets
         core_directions:   typ.Tuple,                    # (B_dot, G_dot), the shapes of B, G with K+C
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
 ) -> typ.Tuple[NDArray, ...]:               # J x_dot. len=d, elm_shape=F+W+K+C+(Ni,)
@@ -1177,7 +1177,7 @@ def t3_probe_corewise_tangent(
 
 def t3_probe_corewise_transpose(
         x:                 typ.Tuple,                    # (tucker_cores, tt_cores): the point
-        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=J_in_i+W+(Ni,): input jets
+        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=F_in_i+W+(Ni,): input jets
         residual:          typ.Sequence[NDArray],         # of the type of z: len=d, elm_shape=F+W+[K]+C+(Ni,)
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
@@ -1536,7 +1536,7 @@ def t3_probe_corewise_hessian_from_sweep(
 
 def t3_probe_corewise_hessian(
         x:                 typ.Tuple,                    # (B, G): the point whose cores the directions vary
-        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=J_in_i+W+(Ni,): input jets
+        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=F_in_i+W+(Ni,): input jets
         residual:          typ.Sequence[NDArray],         # c, of the type of z: len=d, elm_shape=F+W+C+(Ni,); no weight
         core_directions:   typ.Tuple,                    # (B_dot, G_dot), the shapes of B, G with K+C
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
@@ -1606,7 +1606,7 @@ def _dense_contract_one_mode(
 
 def _dense_jet(
         T:          NDArray,                    # shape=C+(N0,...,N(d-1))
-        ww:         typ.Sequence[NDArray],      # len=d, elm_shape=J_in_i+W+(Ni,): the input jets
+        ww:         typ.Sequence[NDArray],      # len=d, elm_shape=F_in_i+W+(Ni,): the input jets
         order:      typ.Tuple[int, ...],        # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         open_mode:  typ.Optional[int],          # the mode left open, or None: every mode is contracted
         name:       str,                        # the public function, for the error messages
@@ -1676,7 +1676,7 @@ def _dense_jet(
 
 def dense_probe(
         T:      NDArray,                                # shape=C+(N0,...,N(d-1))
-        ww:     typ.Sequence[NDArray],                  # len=d, elm_shape=J_in_i+W+(Ni,): the input jets
+        ww:     typ.Sequence[NDArray],                  # len=d, elm_shape=F_in_i+W+(Ni,): the input jets
         order:  typ.Tuple[int, ...] = (),               # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
 ) -> typ.Tuple[NDArray, ...]:                           # z. len=d, elm_shape=F+W+C+(Ni,)
     """Probe a dense tensor: contract it with a vector in every mode but one, for each mode in turn.
@@ -1685,7 +1685,7 @@ def dense_probe(
     ``j != i``.
 
     **Jets.** With a jet shape ``order = (n_1, ..., n_m)`` the inputs are input jets in ``m`` variables
-    ``s_1 ... s_m``: ``ww[j]`` has ``m`` leading jet axes of sizes of its own, ``J_in_j``, and its slot at the
+    ``s_1 ... s_m``: ``ww[j]`` has ``m`` leading jet axes of sizes of its own, ``F_in_j``, and its slot at the
     multi-index ``k`` is the Taylor coefficient of ``s_1^k_1 ... s_m^k_m`` of the input vector ``w_j(s)`` (zero
     beyond its sizes). ``z[i]`` is then the polynomial ``T`` contracted with ``w_j(s)`` for ``j != i``, given by
     its Taylor coefficients (**not** derivatives) on the box ``F = (n_1 + 1, ..., n_m + 1)``, on ``m`` leading jet
@@ -1694,7 +1694,7 @@ def dense_probe(
     ``order`` is never read off the inputs: with the default ``order = ()`` an input jet's leading axes are read
     as sample axes.
 
-    In the shape comments ``F`` is the full jet sizes, ``J_in_i`` the jet sizes of the input ``ww[i]``; the
+    In the shape comments ``F`` is the full jet sizes, ``F_in_i`` the jet sizes of the input ``ww[i]``; the
     argument ``T`` is the tensor.
 
     Parameters
@@ -1702,7 +1702,7 @@ def dense_probe(
     T: NDArray
         The tensor to be probed. shape=C+(N0,...,N(d-1)); ``d`` is the number of vectors.
     ww: typ.Sequence[NDArray]
-        The input jets. len=d, elm_shape=J_in_i+W+(Ni,); with ``order = ()``, W+(Ni,).
+        The input jets. len=d, elm_shape=F_in_i+W+(Ni,); with ``order = ()``, W+(Ni,).
     order: typ.Tuple[int, ...]
         The jet shape: the maximum order in each jet variable. ``()`` (the default) for no jets.
 
@@ -1803,7 +1803,7 @@ def dense_probe(
     one mode takes ``q`` and those where two modes take ``p``:
 
     >>> qq = [np.random.randn(2, N) for N in (10, 11, 12)]
-    >>> curve = [np.stack([w, p, q]) for w, p, q in zip(ww, pp, qq)]               # J_in = (3,): slots 0, 1, 2
+    >>> curve = [np.stack([w, p, q]) for w, p, q in zip(ww, pp, qq)]               # F_in = (3,): slots 0, 1, 2
     >>> zz = t3p.dense_probe(T, curve, order=(2,))
     >>> slot2 = (np.einsum('ijk,wj,wk->wi', T, qq[1], ww[2]) + np.einsum('ijk,wj,wk->wi', T, ww[1], qq[2])
     ...          + np.einsum('ijk,wj,wk->wi', T, pp[1], pp[2]))

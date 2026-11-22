@@ -325,7 +325,7 @@ class TestDeclaredJetSizes(unittest.TestCase):
 
     def test_the_shapes_are_those_of_the_table(self):
         """Every indexed variable has, at every index, the shape ``_shape`` gives from the table ``_SHAPES``:
-        ``J + W + C + (size,)``, ``J`` the input's jet sizes clipped to ``F`` for the leaves and ``F`` otherwise."""
+        ``P + W + C + (size,)``, ``P`` of the input's jet sizes clipped to ``F`` for the leaves and of ``F`` otherwise."""
         names = tuple(name for name in sv._SHAPES if name in sv._public(sv._PROBE_GRAPH))
         for problem_name, make in PROBLEMS:
             problem = make()
@@ -361,7 +361,7 @@ class TestDeclaredJetSizes(unittest.TestCase):
                                                                    tuple(a.shape for a in Kp[1])))
 
     def test_every_jet_contract_call_is_given_the_output_jet_shape_of_the_table(self):
-        """The calls are recorded through ``contractions.jet_contract``. The leaf string ``'JWo,Cio->JWCi'`` is
+        """The calls are recorded through ``contractions.jet_contract``. The leaf string ``'PWo,Cio->PWCi'`` is
         given the input's jet sizes clipped to ``F``, minus one; every other string the call's jet shape, and its
         result has the full jet sizes ``F``."""
         problem = defs.small()
@@ -379,15 +379,15 @@ class TestDeclaredJetSizes(unittest.TestCase):
                 engine(problem, case, ('z', 'eta', 'f'))
             with self.subTest(jets=case.label):
                 self.assertEqual(len(calls), 7 * problem.d)         # xi, mu, nu, nu_L, eta, eta_D, z: d each
-                leaves = [call for call in calls if call[0] == 'JWo,Cio->JWCi']
+                leaves = [call for call in calls if call[0] == 'PWo,Cio->PWCi']
                 self.assertEqual(len(leaves), problem.d)
                 for i, (_, operands, lens, order, form, shape) in enumerate(leaves):
                     clipped = tuple(min(a, f) for a, f in zip(sample[i].shape[:case.m], case.box))
                     self.assertEqual(order, tuple(a - 1 for a in clipped))
                     self.assertEqual(shape[:case.m], clipped)
                 for subscripts, _, lens, order, form, shape in calls:
-                    self.assertEqual((lens.J, lens.K, form), (case.m, 0, 'loop'))
-                    if subscripts != 'JWo,Cio->JWCi':
+                    self.assertEqual((lens.P, lens.K, form), (case.m, 0, 'loop'))
+                    if subscripts != 'PWo,Cio->PWCi':
                         self.assertEqual(order, case.order)
                         self.assertEqual(shape[:case.m], case.box)
 

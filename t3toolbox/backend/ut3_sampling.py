@@ -83,7 +83,7 @@ def ut3_entries(
 
 def ut3_apply(
         x:                 UT3Data,                      # the point's .data: (B, G, shape, masks), stack C
-        ww:                Vectors,                      # input jets: len=d, J_in_i+W+(Ni,); or packed (d,)+J+W+(N,)
+        ww:                Vectors,                      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
 ) -> NDArray:                               # z. shape=F+W+C
     """Contract a uniform Tucker tensor train with the input jets in all modes: the uniform twin of
@@ -95,13 +95,13 @@ def ut3_apply(
 
 def ut3_probe(
         x:                 UT3Data,                      # the point's .data: (B, G, shape, masks), stack C
-        ww:                Vectors,                      # input jets: len=d, J_in_i+W+(Ni,); or packed (d,)+J+W+(N,)
+        ww:                Vectors,                      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
 ) -> Vectors:                               # z, MIRRORS ww: len=d, F+W+C+(Ni,); or packed
     """Probe a uniform Tucker tensor train (all modes but one contracted, for each mode in turn): the uniform twin of
     :py:func:`~t3toolbox.backend.probing.t3_probe`, one call of the engine on ``x`` wanting ``z``. **Mirrors** the
     sample's form: a ragged ``ww`` gives a ``len=d`` tuple sliced to the real widths, a packed ``ww`` the packed
-    array (zero padding). The engine packs a ragged ``ww`` (``len_J=len(order)``) and masks on entry and exit."""
+    array (zero padding). The engine packs a ragged ``ww`` (``len_P=len(order)``) and masks on entry and exit."""
     ragged_in = not ut3_operations.is_packed(ww)
     (z,) = sampling_variables.sampling_variables('probe', x, ww, ('z',), order=order)
     return ut3_operations.unpack_vectors(z, x[2]) if ragged_in else z
@@ -142,7 +142,7 @@ def _remasked_core_gradient(
 
 def ut3_apply_corewise_tangent(
         x:                 UT3Data,                      # the point's .data: (B, G, shape, masks), stack C
-        ww:                Vectors,                      # input jets: len=d, J_in_i+W+(Ni,); or packed (d,)+J+W+(N,)
+        ww:                Vectors,                      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
         core_directions:   typ.Tuple[NDArray, NDArray],  # (B_dot, G_dot): supercores (d,)+K+C+(...), the point's sizes
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
 ) -> NDArray:                               # J x_dot. shape=F+W+K+C
@@ -157,7 +157,7 @@ def ut3_apply_corewise_tangent(
 
 def ut3_apply_corewise_transpose(
         x:                 UT3Data,                      # the point's .data: (B, G, shape, masks), stack C
-        ww:                Vectors,                      # input jets: len=d, J_in_i+W+(Ni,); or packed (d,)+J+W+(N,)
+        ww:                Vectors,                      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
         residual:          NDArray,                      # of the type of z: shape=F+W+[K]+C
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
@@ -208,7 +208,7 @@ def ut3_entries_corewise_transpose(
 
 def ut3_probe_corewise_tangent(
         x:                 UT3Data,                      # the point's .data: (B, G, shape, masks), stack C
-        ww:                Vectors,                      # input jets: len=d, J_in_i+W+(Ni,); or packed (d,)+J+W+(N,)
+        ww:                Vectors,                      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
         core_directions:   typ.Tuple[NDArray, NDArray],  # (B_dot, G_dot): supercores (d,)+K+C+(...), the point's sizes
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
 ) -> Vectors:                               # J x_dot, MIRRORS ww: len=d, F+W+K+C+(Ni,); or packed
@@ -224,7 +224,7 @@ def ut3_probe_corewise_tangent(
 
 def ut3_probe_corewise_transpose(
         x:                 UT3Data,                      # the point's .data: (B, G, shape, masks), stack C
-        ww:                Vectors,                      # input jets: len=d, J_in_i+W+(Ni,); or packed (d,)+J+W+(N,)
+        ww:                Vectors,                      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
         residual:          Vectors,                      # of the type of z: len=d, F+W+[K]+C+(Ni,); or packed
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
@@ -478,7 +478,7 @@ def _masked_point_and_directions(
 
 def ut3_probe_corewise_hessian(
         x:                 UT3Data,                      # the point's .data: (B, G, shape, masks), stack C
-        ww:                Vectors,                      # input jets: len=d, J_in_i+W+(Ni,); or packed (d,)+J+W+(N,)
+        ww:                Vectors,                      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
         residual:          Vectors,                      # c, of the type of z: len=d, F+W+C+(Ni,); or packed
         core_directions:   typ.Tuple[NDArray, NDArray],  # (B_dot, G_dot): supercores (d,)+K+C+(...), the point's sizes
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
@@ -549,7 +549,7 @@ def ut3_probe_corewise_hessian_from_sweep(
 
 def ut3_apply_corewise_hessian(
         x:                 UT3Data,                      # the point's .data: (B, G, shape, masks), stack C
-        ww:                Vectors,                      # input jets: len=d, J_in_i+W+(Ni,); or packed (d,)+J+W+(N,)
+        ww:                Vectors,                      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
         residual:          NDArray,                      # c, of the type of z: shape=F+W+C; no weight
         core_directions:   typ.Tuple[NDArray, NDArray],  # (B_dot, G_dot): supercores (d,)+K+C+(...), the point's sizes
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)

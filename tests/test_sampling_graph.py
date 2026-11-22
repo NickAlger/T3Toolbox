@@ -82,7 +82,7 @@ class TestGraph(unittest.TestCase):
             index, jets, size = sv._SHAPES[name]
             with self.subTest(name=name):
                 self.assertEqual(row[1], index)
-                self.assertEqual(row[2], {'leaf': 'min(J_in_i, F)', 'F': 'F', 'none': 'none'}[jets])
+                self.assertEqual(row[2], {'leaf': 'min(F_in_i, F)', 'F': 'F', 'none': 'none'}[jets])
                 self.assertEqual(row[3], {'V': '(nU_i, N_i)', 'H': '(rL_i, nD_i, rR_(i+1))', 'VD': '(nD_i, N_i)',
                                           'HL': '(rL_i, nD_i, rL_(i+1))'}.get(size, size + '_i'))
 

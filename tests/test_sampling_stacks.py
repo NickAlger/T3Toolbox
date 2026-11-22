@@ -55,7 +55,7 @@ D_SITES = 3
 STACKS = (((), ()), ((2,), ()), ((), (3,)), ((2,), (3,)), ((2, 3), ()), ((), (2, 3)))   # (C, K)
 SAMPLE_STACKS = ((), (3,), (2, 2))
 ORDERS = {'probe': ((), (2,), (1, 1)), 'apply': ((), (2,), (1, 1)), 'entries': ((),)}
-J_IN = {(): (), (2,): (2,), (1, 1): (2, 2)}                                         # a line; two directions
+F_IN = {(): (), (2,): (2,), (1, 1): (2, 2)}                                         # a line; two directions
 BLOCKS = ('V_tilde', 'H_tilde', 'V_tilde_dot', 'H_tilde_dot')
 PAIRS = {'g': ('V_tilde', 'H_tilde'), 'JtJp': ('V_tilde', 'H_tilde'), 'Kp': ('V_tilde_dot', 'H_tilde_dot')}
 
@@ -81,7 +81,7 @@ class Case:
             self.y = rng.standard_normal(W)
             self.weight = np.asarray(0.5 + rng.random())
         else:
-            self.sample = [rng.standard_normal(J_IN[order] + W + (N[i],)) for i in range(d)]
+            self.sample = [rng.standard_normal(F_IN[order] + W + (N[i],)) for i in range(d)]
             if kind == 'probe':
                 self.y = [rng.standard_normal(self.box + W + (N[i],)) for i in range(d)]
                 self.weight = 0.5 + rng.random((d,) + self.box)
@@ -115,7 +115,7 @@ class Case:
             if self.kind == 'probe':
                 return [y.reshape(self.box + size + y.shape[-1:]) for y in value]
             return value.reshape(self.box + size)
-        return [w.reshape(J_IN[self.order] + size + w.shape[-1:]) for w in value]
+        return [w.reshape(F_IN[self.order] + size + w.shape[-1:]) for w in value]
 
     def names(self):
         return tuple(name for name in sv._names(self.kind, self.call) if name != 'w' or self.kind == 'entries')

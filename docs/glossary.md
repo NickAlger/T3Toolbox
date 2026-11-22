@@ -752,12 +752,12 @@ different pages are collected at the end, in [Symbols](#symbols).
 
 ## Symbols
 
-Uppercase `C`, `W`, `K` are reserved for the batch blocks in shape comments and contraction strings; lowercase
-letters are single axes. A frame's stores are written `D`, `U`, `L`, `R` (down, up, left, right), with widths `nD`
-(the down store's: the Tucker factor's rows), `nU` (the up store's: the up core's mode leg), `rL` and `rR`; a T3's own
-cores are `B` (Tucker) and `G` (TT). Before 2026.5.0 the words up and down, and with them `nU` and `nD`, named the
-other store ([Four rank stores](frame_variations.md#four-rank-stores--and-why-excess-rank-is-inert)). The letters
-below also carry other meanings on some pages.
+Uppercase `C`, `W`, `K` are reserved for the batch blocks in shape comments and contraction strings, `P` for the
+jet axes and `Q` for the dual-jet axes; lowercase letters are single axes. `J` is the Jacobian only. A frame's stores
+are written `D`, `U`, `L`, `R` (down, up, left, right), with widths `nD` (the down store's: the Tucker factor's
+rows), `nU` (the up store's: the up core's mode leg), `rL` and `rR`; a T3's own cores are `B` (Tucker) and `G` (TT).
+Before 2026.5.0 the words up and down, and with them `nU` and `nD`, named the other store ([Four rank stores](frame_variations.md#four-rank-stores--and-why-excess-rank-is-inert)).
+The letters below also carry other meanings on some pages.
 
 | symbol | meanings, and the pages that use each |
 |---|---|
@@ -767,7 +767,11 @@ below also carry other meanings on some pages.
 | `r` | TT rank `ri`; the padded TT width (uniform); the residual `r` (fitting pages) |
 | `K` | the tangent stack (batching, naming conventions, shape comments); the curvature operators `K_{Aᵀω²r}`, `K_{grad f}` (§4.12, `LocalModel` docstrings) and `K_N = K_{Aᵀω²r} − K_{grad f}` (§4.14). Before 2026.5.0 some pages also wrote `K` for the derivative order, now `order` |
 | `W` | the probe stack (batching, shape comments); a `T3Weights` variable (`weighting.md`); the Khatri–Rao factor `Wi` (`t3m_methods.md`); the up-matricization `Wi` (shared-factor math note) |
-| `P` | the derivative direction (`pp`); a completion `P⁺` (`aligned_padded_frame.md` movement, the padded-frame note); the tangent projector `P_X` / `P_F`; the core parameter space (`CorewiseGeometry`); T4S's left frame core, our `L` (see **T4S**; the paper ↔ code maps, `batching_and_stacking.md` §8 and `entries_apply_probe.md` §8, keep the paper's letters) |
+| `P` | the jets on the box `F` (Taylor coefficients, the product truncated to `F`): the ring, and its group of jet axes in contraction strings (`'PWCa,Caib,PWCi->PWCb'`) and shape families (`P + W + [K] + C`); `P*` its dual, in slot coordinates. Also: the derivative direction (`pp`); a completion `P⁺` (`aligned_padded_frame.md` movement, the padded-frame note); the tangent projector `P_X` / `P_F`; the core parameter space (`CorewiseGeometry`); T4S's left frame core, our `L` (see **T4S**; the paper ↔ code maps, `batching_and_stacking.md` §8 and `entries_apply_probe.md` §8, keep the paper's letters) |
+| `Q` | the dual-jet group (dual jets held in the sampling engine's turned form); reserved, in no string yet |
+| `F` | the box `F = (n_1 + 1, ..., n_m + 1)` of a jet shape `order = (n_1, ..., n_m)`, the sizes of a full jet's axes; `F_in,i`, the jet sizes of the input jets `w[i]`, written `F_in_i` in shape comments (packed for the uniform layout, `F_in`: the largest `F_in_i` on each axis); a frame in `P_F`, `T(F)`, `Π_{T(F)}` and the padded-frame note's edge frame `F_{x→t}` |
+| `M` | the data metric `M: Y* → Y`, `γ · diag(ω²)` in the misfit `½ <r, M r>`, possibly a loss Hessian later; the manifold (**manifold**, `T_xM`), a collision accepted |
+| `Y*`, `Y` | `Y*`: the measurements, the type of `z`, `y` and the residual `r` (the Jacobian maps `X → Y*`); `Y`: its predual, where `M` lands and the transposes start (`Jᵀ: Y → X*`). `*` is the algebraic dual throughout (`P*`, `V_i*`, `X*`) |
 | `L` | the left frame cores `Li` and the left store's letter (user guide, `frame_variations.md`, `update`); the lift `L` (§4.12, curvature pages) |
 | `H` | the TT variations `Hi` (frame pages); the Hessian `H` (fitting pages); the centers `Hi = Li Ti` (`curvature_internals.md`, CHANGELOG 2026.3.0); `H_R`, the regularizer's Hessian |
 | `S` | the sampling operator `S(x)` (fitting pages); the hint `S` (padded-frame note); the frame factors `Si` (`sharing.md`, `curvature_internals.md`); `S` in the T/S transforms (`curvature_internals.md`) |
@@ -783,5 +787,8 @@ below also carry other meanings on some pages.
 | `T` | the frame factors `Ti` (exact-Hessian note); the tangent space `T(F)` (padded-frame pages); the represented tensor (shared-factor note) |
 | `d` | the number of modes; the leading supercore axis (uniform layer); a leading `d` in a local name's suffix is the supercore or derivative axis; upright, the differential (`dΦ`, `d²Φ`: `curvature_internals.md`, the exact-Hessian and symmetric-probe notes), told apart from the mode count by context. Before 2026.5.0 the differential was `D` |
 | `sh` | the jet shift: forward `(sh x)^(t) = t x^(t-1)` and its adjoint, reverse `(shᵀ x)^(s) = (s+1) x^(s+1)` (`backend/sampling_derivatives.py`, whose functions `_shift_down`, `_shift_up` keep their names; the exact-Hessian note's `\mathsf{sh}`); before 2026.5.0 written `D` and `U` |
-| `m` | the maximum derivative order in `symmetric_probe_derivatives.tex` (the code's `order`); the cone merit `m_c`; the Gauss-Newton model `m(p)`; the switch's two models' predicted changes `m_GN(s)`, `m_N(s)` (§4.14) |
+| `m` | the number of jet variables, `len(order)` (the sampling engine, `jet_contract`); the maximum derivative order in `symmetric_probe_derivatives.tex` (the code's `order`); the cone merit `m_c`; the Gauss-Newton model `m(p)`; the switch's two models' predicted changes `m_GN(s)`, `m_N(s)` (§4.14) |
+| `γ` | the minibatch scale in `M = γ · diag(ω²)`: 1 on a full batch; on a draw of `b` samples, the batch's number of samples over `b` |
+| `ℓ` | `ℓ_j`, the scale of the jet variable `s_j` (`rescale_direction`'s `length`: slot `k` multiplied by `ℓ_1^{k_1} ... ℓ_m^{k_m}`); not `λ`, the regularizer's strength |
 | `ε` | the lift damping (`curvature_damping`); machine epsilon in the `objective_floor` test and the switch's rounding gate; `adam`'s `eps` |
+| `[G]` | in a family of shapes, the group `G` is present only for some variables or settings (`P + W + [K] + C`: `K` only on what carries the stack of directions); every group may also be empty (zero axes) |

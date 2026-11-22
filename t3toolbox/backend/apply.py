@@ -53,7 +53,7 @@ def _t3_apply_step(
 
 def t3_apply(
         x:                 typ.Tuple,                    # (tucker_cores, tt_cores), elm_shapes C+(nDi,Ni), C+(ri,nDi,r(i+1))
-        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=J_in_i+W+(Ni,): input jets
+        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=F_in_i+W+(Ni,): input jets
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
 ) -> NDArray:                               # z. shape=F+W+C
     '''Apply a Tucker tensor train in every mode to the input jets: one number per sample and slot.
@@ -141,7 +141,7 @@ def t3_apply_ambient_transpose(
 def tv_apply(
         frame:             typ.Tuple,                    # (D, U, L, R)
         variations:        typ.Tuple,                    # (V, H), elm_shapes K+C+(nUi,Ni), K+C+(rLi,nDi,rR(i+1))
-        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=J_in_i+W+(Ni,): input jets
+        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=F_in_i+W+(Ni,): input jets
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
 ) -> NDArray:                               # Jp. shape=F+W+K+C
     '''The apply of a tangent vector: ``J p``, the derivative along the direction ``variations`` at ``frame``.
@@ -168,7 +168,7 @@ def tv_apply(
 
 def tv_apply_transpose(
         frame:             typ.Tuple,                    # (D, U, L, R)
-        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=J_in_i+W+(Ni,): input jets
+        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=F_in_i+W+(Ni,): input jets
         residual:          NDArray,                       # of the type of z: shape=F+W+[K]+C
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
@@ -310,7 +310,7 @@ def tv_apply_transpose_from_sweep(
 
 def t3_apply_corewise_tangent(
         x:                 typ.Tuple,                    # (B, G): the point whose cores the directions vary
-        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=J_in_i+W+(Ni,): input jets
+        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=F_in_i+W+(Ni,): input jets
         core_directions:   typ.Tuple,                    # (B_dot, G_dot), the shapes of B, G with K+C
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
 ) -> NDArray:                               # J x_dot. shape=F+W+K+C
@@ -350,7 +350,7 @@ def t3_apply_corewise_tangent(
 
 def t3_apply_corewise_transpose(
         x:                 typ.Tuple,                    # (tucker_cores, tt_cores): the point
-        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=J_in_i+W+(Ni,): input jets
+        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=F_in_i+W+(Ni,): input jets
         residual:          NDArray,                       # of the type of z: shape=F+W+[K]+C
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
@@ -421,7 +421,7 @@ def t3_apply_corewise_hessian_from_sweep(
 
 def t3_apply_corewise_hessian(
         x:                 typ.Tuple,                    # (B, G): the point whose cores the directions vary
-        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=J_in_i+W+(Ni,): input jets
+        ww:                typ.Sequence[NDArray],        # len=d, elm_shape=F_in_i+W+(Ni,): input jets
         residual:          NDArray,                       # c, of the type of z: shape=F+W+C; no weight
         core_directions:   typ.Tuple,                    # (B_dot, G_dot), the shapes of B, G with K+C
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
@@ -468,7 +468,7 @@ def t3_apply_corewise_hessian(
 
 def dense_apply(
         T:      NDArray,                                # shape=C+(N0,...,N(d-1))
-        ww:     typ.Sequence[NDArray],                  # len=d, elm_shape=J_in_i+W+(Ni,): the input jets
+        ww:     typ.Sequence[NDArray],                  # len=d, elm_shape=F_in_i+W+(Ni,): the input jets
         order:  typ.Tuple[int, ...] = (),               # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
 ) -> NDArray:                                           # z. shape=F+W+C
     """Apply a dense tensor: contract it with a vector in every mode, one number per sample.
@@ -484,7 +484,7 @@ def dense_apply(
     starts at a grid point are this, at the one-hot vectors of
     :py:func:`~t3toolbox.backend.jets.index_to_one_hot`.
 
-    In the shape comments ``F`` is the full jet sizes, ``J_in_i`` the jet sizes of the input ``ww[i]``; the
+    In the shape comments ``F`` is the full jet sizes, ``F_in_i`` the jet sizes of the input ``ww[i]``; the
     argument ``T`` is the tensor.
 
     Parameters
@@ -492,7 +492,7 @@ def dense_apply(
     T: NDArray
         The tensor to be applied. shape=C+(N0,...,N(d-1)); ``d`` is the number of vectors.
     ww: typ.Sequence[NDArray]
-        The input jets. len=d, elm_shape=J_in_i+W+(Ni,); with ``order = ()``, W+(Ni,).
+        The input jets. len=d, elm_shape=F_in_i+W+(Ni,); with ``order = ()``, W+(Ni,).
     order: typ.Tuple[int, ...]
         The jet shape: the maximum order in each jet variable. ``()`` (the default) for no jets.
 

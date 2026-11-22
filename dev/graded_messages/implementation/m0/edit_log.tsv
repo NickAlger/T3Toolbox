@@ -1,0 +1,1580 @@
+file	line	class	old	new
+t3toolbox/backend/apply.py	56	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/apply.py	144	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/apply.py	171	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/apply.py	313	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/apply.py	353	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/apply.py	424	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/apply.py	471	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/apply.py	487	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/apply.py	495	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/contractions.py	14	W3 group file	J	P
+t3toolbox/backend/contractions.py	440	W3 group file	J	P
+t3toolbox/backend/contractions.py	443	W3 group file	J	P
+t3toolbox/backend/contractions.py	445	W3 group file	J	P
+t3toolbox/backend/contractions.py	447	W3 group file	J	P
+t3toolbox/backend/contractions.py	449	W3 group file	J	P
+t3toolbox/backend/contractions.py	450	W3 group file	J	P
+t3toolbox/backend/contractions.py	456	W3 group file	J	P
+t3toolbox/backend/contractions.py	458	W3 group file	J	P
+t3toolbox/backend/contractions.py	458	W3 group file	J	P
+t3toolbox/backend/contractions.py	463	W3 group file	J	P
+t3toolbox/backend/contractions.py	497	W3 group file	J	P
+t3toolbox/backend/contractions.py	498	W3 group file	J	P
+t3toolbox/backend/contractions.py	503	S2 group literal	J	P
+t3toolbox/backend/contractions.py	513	W3 group file	J	P
+t3toolbox/backend/contractions.py	517	W3 group file	J	P
+t3toolbox/backend/contractions.py	518	W3 group file	J	P
+t3toolbox/backend/contractions.py	520	W3 group file	J	P
+t3toolbox/backend/contractions.py	520	W3 group file	J	P
+t3toolbox/backend/contractions.py	522	W3 group file	J	P
+t3toolbox/backend/contractions.py	525	W3 group file	J	P
+t3toolbox/backend/contractions.py	527	W3 group file	J	P
+t3toolbox/backend/contractions.py	562	W3 group file	J	P
+t3toolbox/backend/contractions.py	576	W3 group file	J	P
+t3toolbox/backend/contractions.py	578	S2 group literal	J	P
+t3toolbox/backend/contractions.py	578	S2 group literal	J	P
+t3toolbox/backend/contractions.py	579	W3 group file	J	P
+t3toolbox/backend/contractions.py	580	S2 group literal	J	P
+t3toolbox/backend/contractions.py	581	W3 group file	J	P
+t3toolbox/backend/contractions.py	581	W3 group file	J	P
+t3toolbox/backend/contractions.py	582	W4 group word	JW	PW
+t3toolbox/backend/contractions.py	583	S2 group literal	J	P
+t3toolbox/backend/contractions.py	585	W3 group file	J	P
+t3toolbox/backend/contractions.py	585	W3 group file	J	P
+t3toolbox/backend/contractions.py	594	W3 group file	J	P
+t3toolbox/backend/contractions.py	595	W3 group file	J	P
+t3toolbox/backend/contractions.py	606	W3 group file	J	P
+t3toolbox/backend/contractions.py	619	W3 group file	J	P
+t3toolbox/backend/contractions.py	620	S2 group literal	J	P
+t3toolbox/backend/contractions.py	629	S2 group literal	J	P
+t3toolbox/backend/contractions.py	659	W2 shape	J	P
+t3toolbox/backend/contractions.py	659	W3 group file	J	P
+t3toolbox/backend/contractions.py	683	W3 group file	J	P
+t3toolbox/backend/contractions.py	741	W3 group file	J	P
+t3toolbox/backend/contractions.py	741	W4 group word	JWCa	PWCa
+t3toolbox/backend/contractions.py	741	W4 group word	JWCi	PWCi
+t3toolbox/backend/contractions.py	741	W4 group word	JWCb	PWCb
+t3toolbox/backend/contractions.py	742	W3 group file	J	P
+t3toolbox/backend/contractions.py	743	W3 group file	J	P
+t3toolbox/backend/contractions.py	744	W3 group file	J	P
+t3toolbox/backend/contractions.py	745	W3 group file	J	P
+t3toolbox/backend/contractions.py	747	W3 group file	J	P
+t3toolbox/backend/contractions.py	748	W3 group file	J	P
+t3toolbox/backend/contractions.py	750	W3 group file	J	P
+t3toolbox/backend/contractions.py	751	W3 group file	J	P
+t3toolbox/backend/contractions.py	753	W3 group file	J	P
+t3toolbox/backend/contractions.py	754	W3 group file	J	P
+t3toolbox/backend/contractions.py	756	W3 group file	J	P
+t3toolbox/backend/contractions.py	757	W3 group file	J	P
+t3toolbox/backend/contractions.py	760	W3 group file	J	P
+t3toolbox/backend/contractions.py	766	W3 group file	J	P
+t3toolbox/backend/contractions.py	767	W3 group file	J	P
+t3toolbox/backend/contractions.py	787	W3 group file	J	P
+t3toolbox/backend/contractions.py	787	W3 group file	J	P
+t3toolbox/backend/contractions.py	787	W3 group file	J	P
+t3toolbox/backend/contractions.py	797	W3 group file	J	P
+t3toolbox/backend/contractions.py	799	W3 group file	J	P
+t3toolbox/backend/contractions.py	800	W3 group file	J	P
+t3toolbox/backend/contractions.py	811	W3 group file	J	P
+t3toolbox/backend/contractions.py	817	W3 group file	J	P
+t3toolbox/backend/contractions.py	826	W3 group file	J	P
+t3toolbox/backend/contractions.py	827	W3 group file	J	P
+t3toolbox/backend/contractions.py	828	W3 group file	J	P
+t3toolbox/backend/contractions.py	839	W3 group file	J	P
+t3toolbox/backend/contractions.py	841	W3 group file	J	P
+t3toolbox/backend/contractions.py	801	W4 group word	JWCa	PWCa
+t3toolbox/backend/contractions.py	801	W4 group word	JWCi	PWCi
+t3toolbox/backend/contractions.py	801	W4 group word	JWCb	PWCb
+t3toolbox/backend/contractions.py	812	W4 group word	JWCa	PWCa
+t3toolbox/backend/contractions.py	812	W4 group word	JWCb	PWCb
+t3toolbox/backend/contractions.py	812	W4 group word	JWCi	PWCi
+t3toolbox/backend/contractions.py	813	W4 group word	JWCa	PWCa
+t3toolbox/backend/contractions.py	813	W4 group word	JWCb	PWCb
+t3toolbox/backend/contractions.py	813	W4 group word	JWCi	PWCi
+t3toolbox/backend/contractions.py	819	W4 group word	JWCa	PWCa
+t3toolbox/backend/contractions.py	819	W4 group word	JWCi	PWCi
+t3toolbox/backend/contractions.py	819	W4 group word	JWCb	PWCb
+t3toolbox/backend/contractions.py	830	W4 group word	JWCa	PWCa
+t3toolbox/backend/contractions.py	830	W4 group word	JWCi	PWCi
+t3toolbox/backend/contractions.py	830	W4 group word	JWCb	PWCb
+t3toolbox/backend/contractions.py	842	W4 group word	JWCa	PWCa
+t3toolbox/backend/contractions.py	842	W4 group word	JWCi	PWCi
+t3toolbox/backend/contractions.py	842	W4 group word	JWCb	PWCb
+t3toolbox/backend/contractions.py	848	W4 group word	JWCa	PWCa
+t3toolbox/backend/contractions.py	848	W4 group word	JWCi	PWCi
+t3toolbox/backend/contractions.py	848	W4 group word	JWCb	PWCb
+t3toolbox/backend/contractions.py	851	W4 group word	JWCa	PWCa
+t3toolbox/backend/contractions.py	851	W4 group word	JWCi	PWCi
+t3toolbox/backend/contractions.py	851	W4 group word	JWCb	PWCb
+t3toolbox/backend/contractions.py	852	W4 group word	JWCa	PWCa
+t3toolbox/backend/contractions.py	852	W4 group word	JWCi	PWCi
+t3toolbox/backend/contractions.py	852	W4 group word	JWCb	PWCb
+t3toolbox/backend/contractions.py	855	W4 group word	JWCa	PWCa
+t3toolbox/backend/contractions.py	855	W4 group word	JWCi	PWCi
+t3toolbox/backend/contractions.py	855	W4 group word	JWCb	PWCb
+t3toolbox/backend/contractions.py	855	W4 group word	JWCa	PWCa
+t3toolbox/backend/contractions.py	864	N2 field	J	P
+t3toolbox/backend/contractions.py	865	W3 group file	J	P
+t3toolbox/backend/contractions.py	865	W3 group file	J	P
+t3toolbox/backend/contractions.py	876	N2 field	J	P
+t3toolbox/backend/data_preparation.py	13	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/data_preparation.py	52	W1 size/name word	J_in	F_in
+t3toolbox/backend/data_preparation.py	269	N1 suffix	J	P
+t3toolbox/backend/data_preparation.py	269	W2 shape	J	P
+t3toolbox/backend/data_preparation.py	272	W2 shape	J	P
+t3toolbox/backend/data_preparation.py	273	N1 suffix	J	P
+t3toolbox/backend/data_preparation.py	273	N1 suffix	J	P
+t3toolbox/backend/data_preparation.py	275	N1 name	factors_J	factors_P
+t3toolbox/backend/data_preparation.py	275	N1 suffix	J	P
+t3toolbox/backend/data_preparation.py	275	N1 suffix	J	P
+t3toolbox/backend/data_preparation.py	276	N1 name	factors_J	factors_P
+t3toolbox/backend/data_preparation.py	276	N1 name	factors_J	factors_P
+t3toolbox/backend/data_preparation.py	276	N1 suffix	J	P
+t3toolbox/backend/data_preparation.py	276	N1 suffix	J	P
+t3toolbox/backend/data_preparation.py	282	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/data_preparation.py	385	N1 suffix	J	P
+t3toolbox/backend/data_preparation.py	385	N1 suffix	J	P
+t3toolbox/backend/data_preparation.py	394	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/data_preparation.py	489	N1 suffix	J	P
+t3toolbox/backend/data_preparation.py	489	N1 suffix	J	P
+t3toolbox/backend/fitting.py	762	W2 packed	(d,)+J	(d,)+F_in
+t3toolbox/backend/fitting.py	761	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/jets.py	995	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/jets.py	999	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/jets.py	1002	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/jets.py	1033	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/jets.py	1055	W2 packed	(d,) + J	(d,) + F_in
+t3toolbox/backend/jets.py	1041	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/jets.py	1103	W1 size/name word	J_in	F_in
+t3toolbox/backend/jets.py	1184	W1 size/name word	J_in	F_in
+t3toolbox/backend/probing.py	89	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/probing.py	560	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/probing.py	1032	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/probing.py	1140	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/probing.py	1180	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/probing.py	1539	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/probing.py	1609	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/probing.py	1679	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/probing.py	1688	W1 size/name word	J_in_j	F_in_j
+t3toolbox/backend/probing.py	1697	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/probing.py	1705	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/probing.py	1806	W1 size/name word	J_in	F_in
+t3toolbox/backend/sampling_definitions.py	67	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	96	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	229	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	231	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	240	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	292	W2 shape	J	P
+t3toolbox/backend/sampling_definitions.py	849	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	858	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	862	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	870	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	887	W1 size/name word	J_in	F_in
+t3toolbox/backend/sampling_definitions.py	889	W1 size/name word	J_in	F_in
+t3toolbox/backend/sampling_definitions.py	918	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	960	W1 size/name word	J_in	F_in
+t3toolbox/backend/sampling_definitions.py	1001	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	1010	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	1020	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	1047	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	1132	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	1180	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	1230	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	1277	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	1332	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	1341	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	1351	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	1381	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	1443	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	1550	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	1626	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	1635	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	1645	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	1675	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	1749	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	1811	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	1879	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	1964	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	2029	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	2093	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	2166	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	2226	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	2301	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	2375	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	2457	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	2526	W1 size/name word	J_in	F_in
+t3toolbox/backend/sampling_definitions.py	2553	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	2598	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	2659	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	2722	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	2775	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	2844	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	2898	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	2956	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	3015	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	3090	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	3138	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_definitions.py	3170	W1 size/name word	J_in	F_in
+t3toolbox/backend/sampling_definitions.py	3194	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_steps.py	36	W4 group word	JWKCa	PWKCa
+t3toolbox/backend/sampling_steps.py	36	W4 group word	JWCi	PWCi
+t3toolbox/backend/sampling_steps.py	36	W4 group word	JWKCb	PWKCb
+t3toolbox/backend/sampling_steps.py	66	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	69	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	78	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	78	W1 size/name word	J_in	F_in
+t3toolbox/backend/sampling_steps.py	83	W1 size/name word	J_in	F_in
+t3toolbox/backend/sampling_steps.py	86	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	86	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	86	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	87	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	91	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	93	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	93	W1 size/name word	J_in	F_in
+t3toolbox/backend/sampling_steps.py	100	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	100	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	100	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	100	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	100	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	105	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	107	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	107	W1 size/name word	J_in	F_in
+t3toolbox/backend/sampling_steps.py	116	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	116	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	116	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	116	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	116	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	121	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	123	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	131	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	131	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	131	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	131	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	131	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	136	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	144	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	144	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	144	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	154	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	161	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	161	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	161	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	166	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	168	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	169	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	169	W1 size/name word	J_in	F_in
+t3toolbox/backend/sampling_steps.py	170	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	177	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	177	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	177	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	177	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	177	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	179	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	179	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	179	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	179	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	179	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	184	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	186	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	187	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	188	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	195	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	195	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	195	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	195	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	195	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	197	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	197	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	197	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	197	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	197	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	202	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	203	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	205	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	206	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	213	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	213	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	213	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	213	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	213	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	215	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	215	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	215	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	215	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	215	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	220	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	221	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	223	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	224	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	225	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	230	W1 size/name word	J_in	F_in
+t3toolbox/backend/sampling_steps.py	234	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	234	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	234	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	234	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	235	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	239	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	239	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	239	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	239	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	241	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	241	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	241	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	241	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	247	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	248	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	249	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	249	W1 size/name word	J_in	F_in
+t3toolbox/backend/sampling_steps.py	250	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	261	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	261	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	261	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	261	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	262	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	263	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	263	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	263	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	263	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	265	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	265	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	265	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	265	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	266	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	267	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	267	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	267	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	267	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	272	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	273	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	274	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	275	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	276	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	277	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	287	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	287	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	287	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	287	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	287	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	287	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	289	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	289	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	289	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	289	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	289	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	289	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	291	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	291	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	291	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	291	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	291	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	291	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	304	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	309	W1 size/name word	J_in	F_in
+t3toolbox/backend/sampling_steps.py	311	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	311	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	311	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	312	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	313	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	313	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	313	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	313	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	313	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	313	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	315	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	315	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	315	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	315	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	315	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	315	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	317	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	317	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	317	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	317	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	317	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	317	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	330	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	335	W1 size/name word	J_in	F_in
+t3toolbox/backend/sampling_steps.py	337	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	337	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	337	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	338	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	342	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	344	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	345	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	346	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	356	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	356	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	356	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	356	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	356	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	358	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	358	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	358	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	358	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	358	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	360	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	360	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	360	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	360	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	360	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	365	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	367	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	368	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	369	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	379	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	379	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	379	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	379	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	379	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	381	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	381	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	381	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	381	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	381	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	383	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	383	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	383	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	383	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	383	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	388	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	390	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	393	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	394	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	402	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	402	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	402	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	402	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	402	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	404	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	404	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	404	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	404	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	404	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	406	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	406	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	406	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	406	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	406	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	411	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	413	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	421	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	421	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	421	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	423	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	423	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	423	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	435	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	442	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	442	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	442	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	447	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	449	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	450	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	451	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	452	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	453	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	454	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	455	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	465	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	465	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	465	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	465	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	465	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	467	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	467	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	467	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	467	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	467	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	469	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	469	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	469	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	469	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	469	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	471	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	471	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	471	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	471	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	471	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	473	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	473	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	473	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	473	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	473	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	475	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	475	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	475	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	475	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	475	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	480	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	482	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	483	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	484	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	485	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	486	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	487	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	488	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	498	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	498	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	498	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	498	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	498	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	500	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	500	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	500	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	500	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	500	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	502	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	502	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	502	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	502	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	502	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	504	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	504	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	504	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	504	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	504	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	506	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	506	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	506	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	506	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	506	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	508	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	508	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	508	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	508	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	508	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	513	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	514	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	515	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	516	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	518	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	519	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	520	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	521	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	531	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	531	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	531	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	531	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	531	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	533	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	533	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	533	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	533	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	533	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	535	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	535	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	535	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	535	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	535	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	537	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	537	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	537	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	537	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	537	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	539	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	539	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	539	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	539	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	539	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	541	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	541	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	541	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	541	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	541	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	546	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	547	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	548	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	549	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	551	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	552	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	553	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	554	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	556	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	561	W1 size/name word	J_in	F_in
+t3toolbox/backend/sampling_steps.py	564	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	564	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	564	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	564	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	565	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	565	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	565	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	566	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	567	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	571	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	571	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	571	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	571	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	573	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	573	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	573	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	573	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	575	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	575	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	575	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	575	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	577	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	577	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	577	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	577	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	579	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	579	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	579	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	579	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	581	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	581	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	581	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	581	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	587	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	588	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	589	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	590	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	600	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	600	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	600	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	600	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	601	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	602	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	602	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	602	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	602	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	604	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	604	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	604	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	604	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	605	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	606	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	606	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	606	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	606	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	611	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	612	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	613	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	614	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	615	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	616	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	617	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	618	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	619	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	620	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	621	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	622	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	632	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	632	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	632	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	632	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	632	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	632	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	634	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	634	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	634	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	634	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	634	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	634	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	636	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	636	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	636	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	636	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	636	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	636	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	638	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	638	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	638	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	638	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	638	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	638	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	640	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	640	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	640	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	640	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	640	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	640	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	642	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	642	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	642	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	642	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	642	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	642	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	644	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	644	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	644	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	644	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	644	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	644	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	646	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	646	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	646	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	646	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	646	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	646	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	648	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	648	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	648	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	648	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	648	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	648	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	661	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	663	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	664	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	669	W1 size/name word	J_in	F_in
+t3toolbox/backend/sampling_steps.py	673	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	673	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	674	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	678	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	678	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	678	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	678	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	681	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	681	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	681	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	681	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	681	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	681	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	683	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	683	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	683	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	683	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	683	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	683	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	685	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	685	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	685	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	685	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	685	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	685	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	687	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	687	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	687	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	687	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	687	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	687	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	689	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	689	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	689	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	689	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	689	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	689	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	691	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	691	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	691	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	691	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	691	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	691	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	693	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	693	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	693	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	693	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	693	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	693	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	695	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	695	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	695	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	695	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	695	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	695	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	697	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	697	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	697	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	697	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	697	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	697	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	710	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	712	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	713	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	718	W1 size/name word	J_in	F_in
+t3toolbox/backend/sampling_steps.py	722	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	722	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	723	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	727	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	727	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	727	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	727	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	733	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	735	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	738	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	739	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	740	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	745	W1 size/name word	J_in	F_in
+t3toolbox/backend/sampling_steps.py	749	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	749	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	750	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	750	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	751	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	755	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	755	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	755	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	755	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	757	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	757	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	757	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	757	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	759	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	759	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	759	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	759	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	765	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	766	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	766	W1 size/name word	J_in	F_in
+t3toolbox/backend/sampling_steps.py	776	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	776	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	776	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	776	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	777	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	778	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	778	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	778	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	778	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	779	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	783	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	784	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	785	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	795	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	795	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	795	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	795	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	795	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	795	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	820	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	820	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	820	S1 subscripts	J	P
+t3toolbox/backend/sampling_steps.py	820	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	820	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	820	N1 suffix	J	P
+t3toolbox/backend/sampling_steps.py	965	N2 field	J	P
+t3toolbox/backend/sampling_steps.py	1048	N2 field	J	P
+t3toolbox/backend/sampling_steps.py	1072	N2 field	J	P
+t3toolbox/backend/sampling_steps.py	28	E explicit	``J``	``P``
+t3toolbox/backend/sampling_steps.py	39	E explicit	``J``	``P``
+t3toolbox/backend/sampling_variables.py	212	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_variables.py	222	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_variables.py	228	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_variables.py	241	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_variables.py	244	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_variables.py	249	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_variables.py	253	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_variables.py	258	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_variables.py	265	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_variables.py	300	W1 size/name word	len_J	len_P
+t3toolbox/backend/sampling_variables.py	219	W2 shape	J	P
+t3toolbox/backend/sampling_variables.py	267	W2 shape	J	P
+t3toolbox/backend/sampling_variables.py	284	W2 shape	J	P
+t3toolbox/backend/sampling_variables.py	788	W2 shape	J	P
+t3toolbox/backend/sampling_variables.py	889	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_variables.py	909	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_variables.py	911	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_variables.py	995	N1 name	J_in	F_in
+t3toolbox/backend/sampling_variables.py	1058	N1 name	J_in	F_in
+t3toolbox/backend/sampling_variables.py	1060	N1 name	J_in	F_in
+t3toolbox/backend/sampling_variables.py	1073	N1 name	J_in	F_in
+t3toolbox/backend/sampling_variables.py	1073	N1 name	J_in	F_in
+t3toolbox/backend/sampling_variables.py	1188	N1 name	J_in	F_in
+t3toolbox/backend/sampling_variables.py	1630	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_variables.py	1680	W2 packed	(d,)+J	(d,)+F_in
+t3toolbox/backend/sampling_variables.py	1678	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/sampling_variables.py	1747	W1 size/name word	J_in	F_in
+t3toolbox/backend/sampling_variables.py	1809	N1 name	len_J	len_P
+t3toolbox/backend/sampling_variables.py	1848	N2 field	J	P
+t3toolbox/backend/sampling_variables.py	219	E explicit	with ``J``	with ``P``
+t3toolbox/backend/sampling_variables.py	1188	E explicit	J = tuple	jet_sizes = tuple
+t3toolbox/backend/sampling_variables.py	1189	E explicit	return J +	return jet_sizes +
+t3toolbox/backend/uniform_fitting.py	378	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/uniform_fitting.py	380	W2 packed	(d,)+J	(d,)+F_in
+t3toolbox/backend/uniform_fitting.py	382	W1 size/name word	len_J	len_P
+t3toolbox/backend/uniform_fitting.py	394	N1 name	len_J	len_P
+t3toolbox/backend/uniform_fitting.py	419	W1 size/name word	len_J	len_P
+t3toolbox/backend/ut3_operations.py	129	F file word	J_i	F_in_i
+t3toolbox/backend/ut3_operations.py	131	N1 name	len_J	len_P
+t3toolbox/backend/ut3_operations.py	132	F file word	J_i	F_in_i
+t3toolbox/backend/ut3_operations.py	132	W2 packed	(d,)+J	(d,)+F_in
+t3toolbox/backend/ut3_operations.py	133	F file word	J_i	F_in_i
+t3toolbox/backend/ut3_operations.py	140	W1 size/name word	len_J	len_P
+t3toolbox/backend/ut3_operations.py	144	W1 size/name word	len_J	len_P
+t3toolbox/backend/ut3_operations.py	150	W1 size/name word	len_J	len_P
+t3toolbox/backend/ut3_operations.py	159	N1 name	len_J	len_P
+t3toolbox/backend/ut3_operations.py	160	N1 name	len_J	len_P
+t3toolbox/backend/ut3_operations.py	162	N1 name	len_J	len_P
+t3toolbox/backend/ut3_operations.py	165	N1 name	len_J	len_P
+t3toolbox/backend/ut3_operations.py	171	N1 name	len_J	len_P
+t3toolbox/backend/ut3_operations.py	199	F file word	J_i	F_in_i
+t3toolbox/backend/ut3_operations.py	201	N1 name	len_J	len_P
+t3toolbox/backend/ut3_operations.py	202	W2 packed	(d,)+J	(d,)+F_in
+t3toolbox/backend/ut3_operations.py	204	W1 size/name word	len_J	len_P
+t3toolbox/backend/ut3_operations.py	206	N1 name	len_J	len_P
+t3toolbox/backend/ut3_operations.py	206	N1 name	len_J	len_P
+t3toolbox/backend/ut3_operations.py	132	E explicit	, J the largest	, F_in the largest
+t3toolbox/backend/ut3_operations.py	159	E explicit	J = tuple	F_in = tuple
+t3toolbox/backend/ut3_operations.py	171	E explicit	zip(J, v	zip(F_in, v
+t3toolbox/backend/ut3_sampling.py	86	W2 packed	(d,)+J	(d,)+F_in
+t3toolbox/backend/ut3_sampling.py	86	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/ut3_sampling.py	98	W2 packed	(d,)+J	(d,)+F_in
+t3toolbox/backend/ut3_sampling.py	98	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/ut3_sampling.py	104	W1 size/name word	len_J	len_P
+t3toolbox/backend/ut3_sampling.py	145	W2 packed	(d,)+J	(d,)+F_in
+t3toolbox/backend/ut3_sampling.py	145	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/ut3_sampling.py	160	W2 packed	(d,)+J	(d,)+F_in
+t3toolbox/backend/ut3_sampling.py	160	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/ut3_sampling.py	211	W2 packed	(d,)+J	(d,)+F_in
+t3toolbox/backend/ut3_sampling.py	211	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/ut3_sampling.py	227	W2 packed	(d,)+J	(d,)+F_in
+t3toolbox/backend/ut3_sampling.py	227	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/ut3_sampling.py	481	W2 packed	(d,)+J	(d,)+F_in
+t3toolbox/backend/ut3_sampling.py	481	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/ut3_sampling.py	552	W2 packed	(d,)+J	(d,)+F_in
+t3toolbox/backend/ut3_sampling.py	552	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/utv_sampling.py	90	W2 packed	(d,)+J	(d,)+F_in
+t3toolbox/backend/utv_sampling.py	90	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/utv_sampling.py	106	W2 packed	(d,)+J	(d,)+F_in
+t3toolbox/backend/utv_sampling.py	106	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/utv_sampling.py	469	W2 packed	(d,)+J	(d,)+F_in
+t3toolbox/backend/utv_sampling.py	469	W1 size/name word	J_in_i	F_in_i
+t3toolbox/backend/utv_sampling.py	486	W2 packed	(d,)+J	(d,)+F_in
+t3toolbox/backend/utv_sampling.py	486	W1 size/name word	J_in_i	F_in_i
+t3toolbox/fitting.py	111	W1 size/name word	J_in_i	F_in_i
+t3toolbox/fitting.py	141	W1 size/name word	J_in_i	F_in_i
+t3toolbox/fitting.py	186	N1 suffix	J	P
+t3toolbox/fitting.py	186	N1 suffix	J	P
+t3toolbox/manifold.py	701	W1 size/name word	J_in_i	F_in_i
+t3toolbox/manifold.py	754	W1 size/name word	J_in_i	F_in_i
+t3toolbox/manifold.py	834	W1 size/name word	J_in_i	F_in_i
+t3toolbox/manifold.py	908	W1 size/name word	J_in_i	F_in_i
+t3toolbox/tucker_tensor_train.py	72	W1 size/name word	J_in_i	F_in_i
+t3toolbox/tucker_tensor_train.py	3570	W1 size/name word	J_in_i	F_in_i
+t3toolbox/tucker_tensor_train.py	3662	W1 size/name word	J_in_i	F_in_i
+t3toolbox/tucker_tensor_train.py	3820	W1 size/name word	J_in_i	F_in_i
+t3toolbox/tucker_tensor_train.py	3979	W1 size/name word	J_in_i	F_in_i
+t3toolbox/tucker_tensor_train.py	4065	W1 size/name word	J_in_i	F_in_i
+t3toolbox/tucker_tensor_train.py	4106	W1 size/name word	J_in_i	F_in_i
+t3toolbox/tucker_tensor_train.py	4128	W1 size/name word	J_in_i	F_in_i
+t3toolbox/tucker_tensor_train.py	4173	W1 size/name word	J_in_i	F_in_i
+t3toolbox/uniform_manifold.py	553	W2 packed	(d,)+J	(d,)+F_in
+t3toolbox/uniform_manifold.py	553	W1 size/name word	J_in_i	F_in_i
+t3toolbox/uniform_manifold.py	585	W2 packed	(d,)+J	(d,)+F_in
+t3toolbox/uniform_manifold.py	585	W1 size/name word	J_in_i	F_in_i
+t3toolbox/uniform_manifold.py	634	W2 packed	(d,)+J	(d,)+F_in
+t3toolbox/uniform_manifold.py	634	W1 size/name word	J_in_i	F_in_i
+t3toolbox/uniform_manifold.py	680	W2 packed	(d,)+J	(d,)+F_in
+t3toolbox/uniform_manifold.py	680	W1 size/name word	J_in_i	F_in_i
+t3toolbox/uniform_tucker_tensor_train.py	55	W2 packed	(d,)+J	(d,)+F_in
+t3toolbox/uniform_tucker_tensor_train.py	426	W2 packed	(d,)+J	(d,)+F_in
+t3toolbox/uniform_tucker_tensor_train.py	426	W1 size/name word	J_in_i	F_in_i
+t3toolbox/uniform_tucker_tensor_train.py	451	W2 packed	(d,)+J	(d,)+F_in
+t3toolbox/uniform_tucker_tensor_train.py	451	W1 size/name word	J_in_i	F_in_i
+t3toolbox/uniform_tucker_tensor_train.py	456	W2 packed	(d,)+J	(d,)+F_in
+t3toolbox/uniform_tucker_tensor_train.py	488	W2 packed	(d,)+J	(d,)+F_in
+t3toolbox/uniform_tucker_tensor_train.py	488	W1 size/name word	J_in_i	F_in_i
+t3toolbox/uniform_tucker_tensor_train.py	544	W2 packed	(d,)+J	(d,)+F_in
+t3toolbox/uniform_tucker_tensor_train.py	544	W1 size/name word	J_in_i	F_in_i
+t3toolbox/uniform_tucker_tensor_train.py	559	W2 packed	(d,)+J	(d,)+F_in
+t3toolbox/uniform_tucker_tensor_train.py	559	W1 size/name word	J_in_i	F_in_i
+t3toolbox/uniform_tucker_tensor_train.py	573	W2 packed	(d,)+J	(d,)+F_in
+t3toolbox/uniform_tucker_tensor_train.py	573	W1 size/name word	J_in_i	F_in_i
+t3toolbox/uniform_tucker_tensor_train.py	590	W2 packed	(d,)+J	(d,)+F_in
+t3toolbox/uniform_tucker_tensor_train.py	590	W1 size/name word	J_in_i	F_in_i
+t3toolbox/uniform_tucker_tensor_train.py	604	W2 packed	(d,)+J	(d,)+F_in
+t3toolbox/uniform_tucker_tensor_train.py	604	W1 size/name word	J_in_i	F_in_i
+tests/_generic_twin.py	103	W1 size/name word	J_in_i	F_in_i
+tests/_jet_contract_cases.py	13	W2 shape	J	P
+tests/_jet_contract_cases.py	15	W3 group file	J	P
+tests/_jet_contract_cases.py	40	S1 subscripts	J	P
+tests/_jet_contract_cases.py	40	S1 subscripts	J	P
+tests/_jet_contract_cases.py	40	S1 subscripts	J	P
+tests/_jet_contract_cases.py	40	S1 subscripts	J	P
+tests/_jet_contract_cases.py	41	S1 subscripts	J	P
+tests/_jet_contract_cases.py	41	S1 subscripts	J	P
+tests/_jet_contract_cases.py	41	S1 subscripts	J	P
+tests/_jet_contract_cases.py	41	S1 subscripts	J	P
+tests/_jet_contract_cases.py	41	S1 subscripts	J	P
+tests/_jet_contract_cases.py	41	S1 subscripts	J	P
+tests/_jet_contract_cases.py	42	S1 subscripts	J	P
+tests/_jet_contract_cases.py	42	S1 subscripts	J	P
+tests/_jet_contract_cases.py	42	S1 subscripts	J	P
+tests/_jet_contract_cases.py	42	S1 subscripts	J	P
+tests/_jet_contract_cases.py	42	S1 subscripts	J	P
+tests/_jet_contract_cases.py	42	S1 subscripts	J	P
+tests/_jet_contract_cases.py	43	S1 subscripts	J	P
+tests/_jet_contract_cases.py	43	S1 subscripts	J	P
+tests/_jet_contract_cases.py	43	S1 subscripts	J	P
+tests/_jet_contract_cases.py	43	S1 subscripts	J	P
+tests/_jet_contract_cases.py	43	S1 subscripts	J	P
+tests/_jet_contract_cases.py	43	S1 subscripts	J	P
+tests/_jet_contract_cases.py	43	S1 subscripts	J	P
+tests/_jet_contract_cases.py	43	S1 subscripts	J	P
+tests/_jet_contract_cases.py	43	S1 subscripts	J	P
+tests/_jet_contract_cases.py	44	S1 subscripts	J	P
+tests/_jet_contract_cases.py	44	S1 subscripts	J	P
+tests/_jet_contract_cases.py	44	S1 subscripts	J	P
+tests/_jet_contract_cases.py	45	S1 subscripts	J	P
+tests/_jet_contract_cases.py	45	S1 subscripts	J	P
+tests/_jet_contract_cases.py	45	S1 subscripts	J	P
+tests/_jet_contract_cases.py	45	S1 subscripts	J	P
+tests/_jet_contract_cases.py	45	S1 subscripts	J	P
+tests/_jet_contract_cases.py	45	S1 subscripts	J	P
+tests/_jet_contract_cases.py	45	S1 subscripts	J	P
+tests/_jet_contract_cases.py	45	S1 subscripts	J	P
+tests/_jet_contract_cases.py	45	S1 subscripts	J	P
+tests/_jet_contract_cases.py	46	S1 subscripts	J	P
+tests/_jet_contract_cases.py	46	S1 subscripts	J	P
+tests/_jet_contract_cases.py	46	S1 subscripts	J	P
+tests/_jet_contract_cases.py	47	S1 subscripts	J	P
+tests/_jet_contract_cases.py	47	S1 subscripts	J	P
+tests/_jet_contract_cases.py	47	S1 subscripts	J	P
+tests/_jet_contract_cases.py	47	S1 subscripts	J	P
+tests/_jet_contract_cases.py	47	S1 subscripts	J	P
+tests/_jet_contract_cases.py	47	S1 subscripts	J	P
+tests/_jet_contract_cases.py	47	S1 subscripts	J	P
+tests/_jet_contract_cases.py	47	S1 subscripts	J	P
+tests/_jet_contract_cases.py	47	S1 subscripts	J	P
+tests/_jet_contract_cases.py	48	S1 subscripts	J	P
+tests/_jet_contract_cases.py	48	S1 subscripts	J	P
+tests/_jet_contract_cases.py	48	S1 subscripts	J	P
+tests/_jet_contract_cases.py	49	S1 subscripts	J	P
+tests/_jet_contract_cases.py	49	S1 subscripts	J	P
+tests/_jet_contract_cases.py	49	S1 subscripts	J	P
+tests/_jet_contract_cases.py	49	S1 subscripts	J	P
+tests/_jet_contract_cases.py	50	S1 subscripts	J	P
+tests/_jet_contract_cases.py	50	S1 subscripts	J	P
+tests/_jet_contract_cases.py	50	S1 subscripts	J	P
+tests/_jet_contract_cases.py	50	S1 subscripts	J	P
+tests/_jet_contract_cases.py	50	S1 subscripts	J	P
+tests/_jet_contract_cases.py	50	S1 subscripts	J	P
+tests/_jet_contract_cases.py	51	S1 subscripts	J	P
+tests/_jet_contract_cases.py	51	S1 subscripts	J	P
+tests/_jet_contract_cases.py	51	S1 subscripts	J	P
+tests/_jet_contract_cases.py	51	S1 subscripts	J	P
+tests/_jet_contract_cases.py	51	S1 subscripts	J	P
+tests/_jet_contract_cases.py	51	S1 subscripts	J	P
+tests/_jet_contract_cases.py	52	S1 subscripts	J	P
+tests/_jet_contract_cases.py	52	S1 subscripts	J	P
+tests/_jet_contract_cases.py	52	S1 subscripts	J	P
+tests/_jet_contract_cases.py	52	S1 subscripts	J	P
+tests/_jet_contract_cases.py	52	S1 subscripts	J	P
+tests/_jet_contract_cases.py	52	S1 subscripts	J	P
+tests/_jet_contract_cases.py	52	S1 subscripts	J	P
+tests/_jet_contract_cases.py	52	S1 subscripts	J	P
+tests/_jet_contract_cases.py	52	S1 subscripts	J	P
+tests/_jet_contract_cases.py	53	S1 subscripts	J	P
+tests/_jet_contract_cases.py	53	S1 subscripts	J	P
+tests/_jet_contract_cases.py	53	S1 subscripts	J	P
+tests/_jet_contract_cases.py	54	S1 subscripts	J	P
+tests/_jet_contract_cases.py	54	S1 subscripts	J	P
+tests/_jet_contract_cases.py	54	S1 subscripts	J	P
+tests/_jet_contract_cases.py	54	S1 subscripts	J	P
+tests/_jet_contract_cases.py	54	S1 subscripts	J	P
+tests/_jet_contract_cases.py	54	S1 subscripts	J	P
+tests/_jet_contract_cases.py	54	S1 subscripts	J	P
+tests/_jet_contract_cases.py	54	S1 subscripts	J	P
+tests/_jet_contract_cases.py	54	S1 subscripts	J	P
+tests/_jet_contract_cases.py	55	S1 subscripts	J	P
+tests/_jet_contract_cases.py	55	S1 subscripts	J	P
+tests/_jet_contract_cases.py	55	S1 subscripts	J	P
+tests/_jet_contract_cases.py	55	S1 subscripts	J	P
+tests/_jet_contract_cases.py	56	S1 subscripts	J	P
+tests/_jet_contract_cases.py	56	S1 subscripts	J	P
+tests/_jet_contract_cases.py	76	W3 group file	J	P
+tests/_jet_contract_cases.py	77	S2 group literal	J	P
+tests/_jet_contract_cases.py	81	W3 group file	J	P
+tests/_jet_contract_cases.py	82	S2 group literal	J	P
+tests/_jet_contract_cases.py	86	W3 group file	J	P
+tests/_jet_contract_cases.py	87	S2 group literal	J	P
+tests/_jet_contract_cases.py	113	W3 group file	J	P
+tests/_jet_contract_cases.py	116	S2 group literal	J	P
+tests/_jet_contract_cases.py	126	W3 group file	J	P
+tests/_jet_contract_cases.py	141	S2 group literal	J	P
+tests/_jet_contract_cases.py	155	W3 group file	J	P
+tests/_jet_contract_cases.py	155	W3 group file	J	P
+tests/_jet_contract_cases.py	159	S2 group literal	J	P
+tests/_jet_contract_cases.py	162	S2 group literal	J	P
+tests/_jet_contract_cases.py	185	S2 group literal	J	P
+tests/_jet_contract_cases.py	207	S2 group literal	J	P
+tests/backend/test_uniform_fitting.py	718	E explicit	standard_normal((J, W, n)) for J, n	standard_normal((F_in, W, n)) for F_in, n
+tests/test_contractions_interpreter.py	30	W3 group file	J	P
+tests/test_contractions_interpreter.py	446	W3 group file	J	P
+tests/test_contractions_interpreter.py	752	W3 group file	J	P
+tests/test_contractions_interpreter.py	756	N1 name	test_every_J_literal_is_a_jet_contract_literal	test_every_P_literal_is_a_jet_contract_literal
+tests/test_contractions_interpreter.py	763	S2 group literal	J	P
+tests/test_contractions_interpreter.py	776	W3 group file	J	P
+tests/test_contractions_interpreter.py	778	W3 group file	J	P
+tests/test_contractions_interpreter.py	823	N2 field	J	P
+tests/test_contractions_interpreter.py	835	S2 group literal	J	P
+tests/test_contractions_interpreter.py	847	W3 group file	J	P
+tests/test_contractions_interpreter.py	855	S2 group literal	J	P
+tests/test_contractions_interpreter.py	855	S2 group literal	J	P
+tests/test_contractions_sharding.py	159	S1 subscripts	J	P
+tests/test_contractions_sharding.py	159	S1 subscripts	J	P
+tests/test_contractions_sharding.py	159	S1 subscripts	J	P
+tests/test_contractions_sharding.py	159	S1 subscripts	J	P
+tests/test_contractions_sharding.py	159	S1 subscripts	J	P
+tests/test_contractions_sharding.py	159	S1 subscripts	J	P
+tests/test_contractions_sharding.py	159	S1 subscripts	J	P
+tests/test_contractions_sharding.py	159	S1 subscripts	J	P
+tests/test_contractions_sharding.py	159	S1 subscripts	J	P
+tests/test_contractions_sharding.py	160	S1 subscripts	J	P
+tests/test_contractions_sharding.py	160	S1 subscripts	J	P
+tests/test_contractions_sharding.py	160	S1 subscripts	J	P
+tests/test_contractions_sharding.py	160	S1 subscripts	J	P
+tests/test_contractions_sharding.py	160	S1 subscripts	J	P
+tests/test_contractions_sharding.py	166	N2 field	J	P
+tests/test_contractions_sharding.py	177	S2 group literal	J	P
+tests/test_contractions_sharding.py	297	N1 name	J_in	F_in
+tests/test_contractions_sharding.py	299	N1 name	J_in	F_in
+tests/test_data_preparation.py	8	W1 size/name word	J_in_i	F_in_i
+tests/test_dispatch.py	436	S1 subscripts	J	P
+tests/test_dispatch.py	436	S1 subscripts	J	P
+tests/test_dispatch.py	436	S1 subscripts	J	P
+tests/test_dispatch.py	436	S1 subscripts	J	P
+tests/test_dispatch.py	436	S1 subscripts	J	P
+tests/test_dispatch.py	436	S1 subscripts	J	P
+tests/test_dispatch.py	436	S1 subscripts	J	P
+tests/test_dispatch.py	436	S1 subscripts	J	P
+tests/test_dispatch.py	437	S1 subscripts	J	P
+tests/test_dispatch.py	437	S1 subscripts	J	P
+tests/test_dispatch.py	437	S1 subscripts	J	P
+tests/test_dispatch.py	437	S1 subscripts	J	P
+tests/test_dispatch.py	437	S1 subscripts	J	P
+tests/test_dispatch.py	437	S1 subscripts	J	P
+tests/test_dispatch.py	447	N2 field	J	P
+tests/test_dispatch.py	492	S1 subscripts	J	P
+tests/test_dispatch.py	493	S1 subscripts	J	P
+tests/test_dispatch.py	493	S1 subscripts	J	P
+tests/test_dispatch.py	493	S1 subscripts	J	P
+tests/test_dispatch.py	496	N2 field	J	P
+tests/test_dispatch.py	536	S1 subscripts	J	P
+tests/test_dispatch.py	536	S1 subscripts	J	P
+tests/test_dispatch.py	707	W1 size/name word	J_in	F_in
+tests/test_dispatch.py	779	W1 size/name word	J_in	F_in
+tests/test_dispatch.py	815	W1 size/name word	J_in	F_in
+tests/test_frontend_sampling.py	131	N1 name	len_J	len_P
+tests/test_jet_contract.py	7	W3 group file	J	P
+tests/test_jet_contract.py	8	W3 group file	J	P
+tests/test_jet_contract.py	9	W3 group file	J	P
+tests/test_jet_contract.py	72	N2 field	J	P
+tests/test_jet_contract.py	89	W3 group file	J	P
+tests/test_jet_contract.py	97	S2 group literal	J	P
+tests/test_jet_contract.py	101	W3 group file	J	P
+tests/test_jet_contract.py	103	S2 group literal	J	P
+tests/test_jet_contract.py	103	S2 group literal	J	P
+tests/test_jet_contract.py	162	S1 subscripts	J	P
+tests/test_jet_contract.py	162	S1 subscripts	J	P
+tests/test_jet_contract.py	162	S1 subscripts	J	P
+tests/test_jet_contract.py	162	S1 subscripts	J	P
+tests/test_jet_contract.py	162	S1 subscripts	J	P
+tests/test_jet_contract.py	162	S1 subscripts	J	P
+tests/test_jet_contract.py	162	S1 subscripts	J	P
+tests/test_jet_contract.py	162	S1 subscripts	J	P
+tests/test_jet_contract.py	162	S1 subscripts	J	P
+tests/test_jet_contract.py	162	S1 subscripts	J	P
+tests/test_jet_contract.py	163	S1 subscripts	J	P
+tests/test_jet_contract.py	163	S1 subscripts	J	P
+tests/test_jet_contract.py	163	S1 subscripts	J	P
+tests/test_jet_contract.py	174	S1 subscripts	J	P
+tests/test_jet_contract.py	174	S1 subscripts	J	P
+tests/test_jet_contract.py	174	S1 subscripts	J	P
+tests/test_jet_contract.py	179	S1 subscripts	J	P
+tests/test_jet_contract.py	179	S1 subscripts	J	P
+tests/test_jet_contract.py	179	S1 subscripts	J	P
+tests/test_jet_contract.py	191	S1 subscripts	J	P
+tests/test_jet_contract.py	191	S1 subscripts	J	P
+tests/test_jet_contract.py	191	S1 subscripts	J	P
+tests/test_jet_contract.py	191	S1 subscripts	J	P
+tests/test_jet_contract.py	191	S1 subscripts	J	P
+tests/test_jet_contract.py	191	S1 subscripts	J	P
+tests/test_jet_contract.py	191	S1 subscripts	J	P
+tests/test_jet_contract.py	191	S1 subscripts	J	P
+tests/test_jet_contract.py	191	S1 subscripts	J	P
+tests/test_jet_contract.py	192	S1 subscripts	J	P
+tests/test_jet_contract.py	192	S1 subscripts	J	P
+tests/test_jet_contract.py	192	S1 subscripts	J	P
+tests/test_jet_contract.py	192	S1 subscripts	J	P
+tests/test_jet_contract.py	192	S1 subscripts	J	P
+tests/test_jet_contract.py	192	S1 subscripts	J	P
+tests/test_jet_contract.py	192	S1 subscripts	J	P
+tests/test_jet_contract.py	192	S1 subscripts	J	P
+tests/test_jet_contract.py	214	W3 group file	J	P
+tests/test_jet_contract.py	219	N2 field	J	P
+tests/test_jet_contract.py	227	S2 group literal	J	P
+tests/test_jet_contract.py	230	S1 subscripts	J	P
+tests/test_jet_contract.py	298	S1 subscripts	J	P
+tests/test_jet_contract.py	298	S1 subscripts	J	P
+tests/test_jet_contract.py	298	S1 subscripts	J	P
+tests/test_jet_contract.py	299	S1 subscripts	J	P
+tests/test_jet_contract.py	299	S1 subscripts	J	P
+tests/test_jet_contract.py	300	S1 subscripts	J	P
+tests/test_jet_contract.py	300	S1 subscripts	J	P
+tests/test_jet_contract.py	301	S1 subscripts	J	P
+tests/test_jet_contract.py	301	S1 subscripts	J	P
+tests/test_jet_contract.py	301	S1 subscripts	J	P
+tests/test_jet_contract.py	302	S1 subscripts	J	P
+tests/test_jet_contract.py	302	S1 subscripts	J	P
+tests/test_jet_contract.py	321	S1 subscripts	J	P
+tests/test_jet_contract.py	321	S1 subscripts	J	P
+tests/test_jet_contract.py	321	S1 subscripts	J	P
+tests/test_jet_contract.py	322	S1 subscripts	J	P
+tests/test_jet_contract.py	322	S1 subscripts	J	P
+tests/test_jet_contract.py	323	S1 subscripts	J	P
+tests/test_jet_contract.py	323	S1 subscripts	J	P
+tests/test_jet_contract.py	323	S1 subscripts	J	P
+tests/test_jet_contract.py	324	S1 subscripts	J	P
+tests/test_jet_contract.py	324	S1 subscripts	J	P
+tests/test_jet_contract.py	325	S1 subscripts	J	P
+tests/test_jet_contract.py	326	S1 subscripts	J	P
+tests/test_jet_contract.py	351	N2 field	J	P
+tests/test_jet_contract.py	359	S1 subscripts	J	P
+tests/test_jet_contract.py	359	S1 subscripts	J	P
+tests/test_jet_contract.py	460	S2 group literal	J	P
+tests/test_jet_contract.py	511	W3 group file	J	P
+tests/test_jet_contract.py	512	W3 group file	J	P
+tests/test_jet_contract.py	515	S1 subscripts	J	P
+tests/test_jet_contract.py	515	S1 subscripts	J	P
+tests/test_jet_contract.py	530	W3 group file	J	P
+tests/test_jet_contract.py	531	N2 field	J	P
+tests/test_jet_contract.py	531	W3 group file	J	P
+tests/test_jet_contract.py	533	N2 field	J	P
+tests/test_jet_contract.py	533	W3 group file	J	P
+tests/test_jet_contract.py	534	N2 field	J	P
+tests/test_jet_contract.py	534	W3 group file	J	P
+tests/test_jet_contract.py	535	W3 group file	J	P
+tests/test_jet_contract.py	536	N2 field	J	P
+tests/test_jet_contract.py	536	W3 group file	J	P
+tests/test_jet_contract.py	547	S1 subscripts	J	P
+tests/test_jet_contract.py	547	S1 subscripts	J	P
+tests/test_jet_contract.py	547	S1 subscripts	J	P
+tests/test_jet_contract.py	574	N2 field	J	P
+tests/test_jet_contract.py	577	W4 group word	JWCi	PWCi
+tests/test_jet_contract.py	578	S1 subscripts	J	P
+tests/test_jet_contract.py	578	S1 subscripts	J	P
+tests/test_jet_contract.py	578	S1 subscripts	J	P
+tests/test_jet_contract.py	605	W1 size/name word	len_J	len_P
+tests/test_jet_contract.py	641	S1 subscripts	J	P
+tests/test_jet_contract.py	641	S1 subscripts	J	P
+tests/test_jet_contract.py	641	S1 subscripts	J	P
+tests/test_jet_contract.py	641	S1 subscripts	J	P
+tests/test_jet_contract.py	641	S1 subscripts	J	P
+tests/test_jet_contract.py	641	S1 subscripts	J	P
+tests/test_jet_contract.py	641	S1 subscripts	J	P
+tests/test_jet_contract.py	641	S1 subscripts	J	P
+tests/test_jet_contract.py	661	S1 subscripts	J	P
+tests/test_jet_contract.py	661	S1 subscripts	J	P
+tests/test_jet_contract.py	661	S1 subscripts	J	P
+tests/test_jet_contract.py	662	S1 subscripts	J	P
+tests/test_jet_contract.py	662	S1 subscripts	J	P
+tests/test_jet_contract.py	662	S1 subscripts	J	P
+tests/test_jet_contract.py	663	S1 subscripts	J	P
+tests/test_jet_contract.py	663	S1 subscripts	J	P
+tests/test_jet_contract.py	663	S1 subscripts	J	P
+tests/test_jet_contract.py	664	S1 subscripts	J	P
+tests/test_jet_contract.py	664	S1 subscripts	J	P
+tests/test_jet_contract.py	664	S1 subscripts	J	P
+tests/test_jet_contract.py	665	S1 subscripts	J	P
+tests/test_jet_contract.py	665	S1 subscripts	J	P
+tests/test_jet_contract.py	665	S1 subscripts	J	P
+tests/test_jet_contract.py	666	S1 subscripts	J	P
+tests/test_jet_contract.py	666	S1 subscripts	J	P
+tests/test_jet_contract.py	666	S1 subscripts	J	P
+tests/test_jet_contract.py	667	S1 subscripts	J	P
+tests/test_jet_contract.py	667	S1 subscripts	J	P
+tests/test_jet_contract.py	667	S1 subscripts	J	P
+tests/test_jet_contract.py	667	S1 subscripts	J	P
+tests/test_jet_contract.py	668	S1 subscripts	J	P
+tests/test_jet_contract.py	668	S1 subscripts	J	P
+tests/test_jet_contract.py	668	S1 subscripts	J	P
+tests/test_jet_contract.py	668	S1 subscripts	J	P
+tests/test_jet_contract.py	678	W1 size/name word	len_J	len_P
+tests/test_jet_contract.py	677	W3 group file	J	P
+tests/test_jet_contract.py	678	W3 group file	J	P
+tests/test_jet_contract.py	693	S2 group literal	J	P
+tests/test_jet_contract.py	694	W1 size/name word	len_J	len_P
+tests/test_jet_contract.py	740	N2 field	J	P
+tests/test_jet_contract.py	740	N2 field	J	P
+tests/test_jet_contract.py	744	N2 field	J	P
+tests/test_jet_contract.py	744	N2 field	J	P
+tests/test_jet_contract.py	746	S1 subscripts	J	P
+tests/test_jet_contract.py	746	S1 subscripts	J	P
+tests/test_jet_contract.py	748	S1 subscripts	J	P
+tests/test_jet_contract.py	748	S1 subscripts	J	P
+tests/test_jet_contract.py	750	S1 subscripts	J	P
+tests/test_jet_contract.py	750	S1 subscripts	J	P
+tests/test_jet_contract.py	752	S1 subscripts	J	P
+tests/test_jet_contract.py	752	S1 subscripts	J	P
+tests/test_jet_contract.py	754	S1 subscripts	J	P
+tests/test_jet_contract.py	754	S1 subscripts	J	P
+tests/test_jet_contract.py	758	N2 field	J	P
+tests/test_jet_contract.py	761	S1 subscripts	J	P
+tests/test_jet_contract.py	761	S1 subscripts	J	P
+tests/test_jet_contract.py	768	S1 subscripts	J	P
+tests/test_jet_contract.py	768	S1 subscripts	J	P
+tests/test_jet_contract.py	768	S1 subscripts	J	P
+tests/test_jet_contract.py	768	W3 group file	J	P
+tests/test_jet_contract.py	769	S1 subscripts	J	P
+tests/test_jet_contract.py	769	S1 subscripts	J	P
+tests/test_jet_contract.py	769	S1 subscripts	J	P
+tests/test_jet_contract.py	770	W3 group file	J	P
+tests/test_jet_contract.py	772	S1 subscripts	J	P
+tests/test_jet_contract.py	772	W3 group file	J	P
+tests/test_jet_contract.py	774	S1 subscripts	J	P
+tests/test_jet_contract.py	774	S1 subscripts	J	P
+tests/test_jet_contract.py	776	S1 subscripts	J	P
+tests/test_jet_contract.py	776	S1 subscripts	J	P
+tests/test_jet_contract.py	778	S1 subscripts	J	P
+tests/test_jet_contract.py	778	S1 subscripts	J	P
+tests/test_jet_contract.py	779	S1 subscripts	J	P
+tests/test_jet_contract.py	779	S1 subscripts	J	P
+tests/test_jet_contract.py	780	W4 group word	JWCa	PWCa
+tests/test_jet_contract.py	780	W4 group word	JWCb	PWCb
+tests/test_jet_contract.py	781	W4 group word	JWCa	PWCa
+tests/test_jet_contract.py	782	S1 subscripts	J	P
+tests/test_jet_contract.py	782	S1 subscripts	J	P
+tests/test_jet_contract.py	782	S1 subscripts	J	P
+tests/test_jet_contract.py	782	W3 group file	J	P
+tests/test_jet_contract.py	782	W3 group file	J	P
+tests/test_jet_contract.py	784	W3 group file	J	P
+tests/test_jet_contract.py	785	N2 field	J	P
+tests/test_jet_contract.py	785	W3 group file	J	P
+tests/test_jet_contract.py	787	N2 field	J	P
+tests/test_jet_contract.py	787	W3 group file	J	P
+tests/test_jet_contract.py	790	W3 group file	J	P
+tests/test_jet_contract.py	793	W3 group file	J	P
+tests/test_jet_contract.py	793	W4 group word	JWCa	PWCa
+tests/test_jet_contract.py	793	W4 group word	JWCi	PWCi
+tests/test_jet_contract.py	793	W4 group word	JWCb	PWCb
+tests/test_jet_contract.py	793	W4 group word	JWCa	PWCa
+tests/test_jet_contract.py	796	S1 subscripts	J	P
+tests/test_jet_contract.py	796	S1 subscripts	J	P
+tests/test_jet_contract.py	796	S1 subscripts	J	P
+tests/test_jet_contract.py	796	S1 subscripts	J	P
+tests/test_jet_contract.py	808	N2 field	J	P
+tests/test_jet_contract.py	810	S1 subscripts	J	P
+tests/test_jet_contract.py	810	S1 subscripts	J	P
+tests/test_jet_contract.py	810	S1 subscripts	J	P
+tests/test_jet_contract.py	819	S2 group literal	J	P
+tests/test_jet_contract.py	821	N2 field	J	P
+tests/test_jet_contract.py	823	N2 field	J	P
+tests/test_jet_contract.py	825	N2 field	J	P
+tests/test_jet_contract.py	830	N2 field	J	P
+tests/test_jet_contract.py	830	N2 field	J	P
+tests/test_jet_contract.py	835	S2 group literal	J	P
+tests/test_jet_contract.py	840	N2 field	J	P
+tests/test_jet_contract.py	842	N1 name	test_counts_are_nonnegative_ints_and_J_any_count	test_counts_are_nonnegative_ints_and_P_any_count
+tests/test_jet_contract.py	843	W3 group file	J	P
+tests/test_jet_contract.py	844	W3 group file	J	P
+tests/test_jet_contract.py	844	N2 field	J	P
+tests/test_jet_contract.py	844	W3 group file	J	P
+tests/test_jet_contract.py	844	N2 field	J	P
+tests/test_jet_contract.py	845	N2 field	J	P
+tests/test_jet_contract.py	846	N2 field	J	P
+tests/test_jet_contract.py	849	N2 field	J	P
+tests/test_jet_contract.py	856	S1 subscripts	J	P
+tests/test_jet_contract.py	856	S1 subscripts	J	P
+tests/test_jet_contract.py	856	S1 subscripts	J	P
+tests/test_jet_contract.py	856	S1 subscripts	J	P
+tests/test_jet_contract.py	857	N2 field	J	P
+tests/test_jet_contract.py	857	N2 field	J	P
+tests/test_jet_contract.py	871	W3 group file	J	P
+tests/test_jet_contract.py	877	S1 subscripts	J	P
+tests/test_jet_contract.py	877	S1 subscripts	J	P
+tests/test_jet_contract.py	877	S1 subscripts	J	P
+tests/test_jet_contract.py	877	S1 subscripts	J	P
+tests/test_jet_contract.py	879	S1 subscripts	J	P
+tests/test_jet_contract.py	879	S1 subscripts	J	P
+tests/test_jet_contract.py	879	S1 subscripts	J	P
+tests/test_jet_contract.py	930	W3 group file	J	P
+tests/test_jet_contract.py	941	N2 field	J	P
+tests/test_jet_contract.py	947	S2 group literal	J	P
+tests/test_jet_contract.py	958	S2 group literal	J	P
+tests/test_jets.py	807	W1 size/name word	J_in	F_in
+tests/test_least_squares_oracle.py	77	E explicit	standard_normal(J + (n, N)) for J, N	standard_normal(F_in + (n, N)) for F_in, N
+tests/test_sampling_apply.py	159	N2 field	J	P
+tests/test_sampling_apply.py	163	S1 subscripts	J	P
+tests/test_sampling_apply.py	163	S1 subscripts	J	P
+tests/test_sampling_apply.py	163	S1 subscripts	J	P
+tests/test_sampling_definitions.py	437	F file name	J	ring
+tests/test_sampling_definitions.py	440	F file name	J	ring
+tests/test_sampling_definitions.py	441	F file name	J	ring
+tests/test_sampling_definitions.py	442	F file name	J	ring
+tests/test_sampling_definitions.py	446	F file name	J	ring
+tests/test_sampling_definitions.py	447	F file name	J	ring
+tests/test_sampling_definitions.py	448	F file name	J	ring
+tests/test_sampling_definitions.py	450	F file name	J	ring
+tests/test_sampling_definitions.py	454	F file name	J	ring
+tests/test_sampling_definitions.py	461	F file name	J	ring
+tests/test_sampling_definitions.py	464	F file name	J	ring
+tests/test_sampling_definitions.py	469	F file name	J	ring
+tests/test_sampling_definitions.py	481	F file name	J	ring
+tests/test_sampling_definitions.py	499	F file name	J	ring
+tests/test_sampling_definitions.py	504	F file name	J	ring
+tests/test_sampling_definitions.py	505	F file name	J	ring
+tests/test_sampling_definitions.py	516	F file name	J	ring
+tests/test_sampling_definitions.py	517	F file name	J	ring
+tests/test_sampling_definitions.py	527	F file name	J	ring
+tests/test_sampling_definitions.py	536	F file name	J	ring
+tests/test_sampling_definitions.py	538	F file name	J	ring
+tests/test_sampling_definitions.py	549	F file name	J	ring
+tests/test_sampling_definitions.py	558	F file name	J	ring
+tests/test_sampling_definitions.py	572	F file name	J	ring
+tests/test_sampling_definitions.py	575	F file name	J	ring
+tests/test_sampling_definitions.py	576	F file name	J	ring
+tests/test_sampling_definitions.py	577	F file name	J	ring
+tests/test_sampling_definitions.py	578	F file name	J	ring
+tests/test_sampling_definitions.py	579	F file name	J	ring
+tests/test_sampling_definitions.py	580	F file name	J	ring
+tests/test_sampling_definitions.py	587	F file name	J	ring
+tests/test_sampling_definitions.py	588	F file name	J	ring
+tests/test_sampling_definitions.py	593	F file name	J	ring
+tests/test_sampling_definitions.py	597	F file name	J	ring
+tests/test_sampling_definitions.py	599	F file name	J	ring
+tests/test_sampling_definitions.py	599	F file name	J	ring
+tests/test_sampling_definitions.py	600	F file name	J	ring
+tests/test_sampling_definitions.py	602	F file name	J	ring
+tests/test_sampling_definitions.py	602	F file name	J	ring
+tests/test_sampling_definitions.py	603	F file name	J	ring
+tests/test_sampling_definitions.py	605	F file name	J	ring
+tests/test_sampling_definitions.py	605	F file name	J	ring
+tests/test_sampling_definitions.py	606	F file name	J	ring
+tests/test_sampling_definitions.py	613	F file name	J	ring
+tests/test_sampling_definitions.py	617	F file name	J	ring
+tests/test_sampling_definitions.py	619	F file name	J	ring
+tests/test_sampling_definitions.py	619	F file name	J	ring
+tests/test_sampling_definitions.py	620	F file name	J	ring
+tests/test_sampling_definitions.py	622	F file name	J	ring
+tests/test_sampling_definitions.py	622	F file name	J	ring
+tests/test_sampling_definitions.py	623	F file name	J	ring
+tests/test_sampling_definitions.py	625	F file name	J	ring
+tests/test_sampling_definitions.py	625	F file name	J	ring
+tests/test_sampling_definitions.py	626	F file name	J	ring
+tests/test_sampling_definitions.py	632	F file name	J	ring
+tests/test_sampling_definitions.py	632	F file name	J	ring
+tests/test_sampling_definitions.py	635	F file name	J	ring
+tests/test_sampling_definitions.py	636	F file name	J	ring
+tests/test_sampling_definitions.py	637	F file name	J	ring
+tests/test_sampling_definitions.py	639	F file name	J	ring
+tests/test_sampling_definitions.py	647	F file name	J	ring
+tests/test_sampling_definitions.py	653	F file name	J	ring
+tests/test_sampling_definitions.py	653	F file name	J	ring
+tests/test_sampling_definitions.py	655	F file name	J	ring
+tests/test_sampling_definitions.py	655	F file name	J	ring
+tests/test_sampling_definitions.py	658	F file name	J	ring
+tests/test_sampling_definitions.py	658	F file name	J	ring
+tests/test_sampling_definitions.py	661	F file name	J	ring
+tests/test_sampling_definitions.py	661	F file name	J	ring
+tests/test_sampling_definitions.py	664	F file name	J	ring
+tests/test_sampling_definitions.py	664	F file name	J	ring
+tests/test_sampling_definitions.py	676	F file name	J	ring
+tests/test_sampling_definitions.py	683	F file name	J	ring
+tests/test_sampling_definitions.py	683	F file name	J	ring
+tests/test_sampling_definitions.py	684	F file name	J	ring
+tests/test_sampling_definitions.py	684	F file name	J	ring
+tests/test_sampling_definitions.py	685	F file name	J	ring
+tests/test_sampling_definitions.py	685	F file name	J	ring
+tests/test_sampling_definitions.py	688	F file name	J	ring
+tests/test_sampling_definitions.py	689	F file name	J	ring
+tests/test_sampling_definitions.py	690	F file name	J	ring
+tests/test_sampling_definitions.py	691	F file name	J	ring
+tests/test_sampling_definitions.py	692	F file name	J	ring
+tests/test_sampling_definitions.py	693	F file name	J	ring
+tests/test_sampling_definitions.py	695	F file name	J	ring
+tests/test_sampling_definitions.py	696	F file name	J	ring
+tests/test_sampling_definitions.py	697	F file name	J	ring
+tests/test_sampling_definitions.py	698	F file name	J	ring
+tests/test_sampling_definitions.py	699	F file name	J	ring
+tests/test_sampling_definitions.py	700	F file name	J	ring
+tests/test_sampling_definitions.py	715	F file name	J	ring
+tests/test_sampling_definitions.py	719	F file name	J	ring
+tests/test_sampling_definitions.py	720	F file name	J	ring
+tests/test_sampling_definitions.py	720	F file name	J	ring
+tests/test_sampling_definitions.py	728	F file name	J	ring
+tests/test_sampling_definitions.py	731	F file name	J	ring
+tests/test_sampling_definitions.py	733	F file name	J	ring
+tests/test_sampling_definitions.py	736	F file name	J	ring
+tests/test_sampling_definitions.py	736	F file name	J	ring
+tests/test_sampling_definitions.py	737	F file name	J	ring
+tests/test_sampling_definitions.py	742	F file name	J	ring
+tests/test_sampling_definitions.py	745	F file name	J	ring
+tests/test_sampling_definitions.py	747	F file name	J	ring
+tests/test_sampling_definitions.py	756	F file name	J	ring
+tests/test_sampling_definitions.py	773	F file name	J	ring
+tests/test_sampling_definitions.py	774	F file name	J	ring
+tests/test_sampling_definitions.py	774	F file name	J	ring
+tests/test_sampling_definitions.py	775	F file name	J	ring
+tests/test_sampling_definitions.py	775	F file name	J	ring
+tests/test_sampling_definitions.py	794	F file name	J	ring
+tests/test_sampling_definitions.py	800	F file name	J	ring
+tests/test_sampling_definitions.py	805	F file name	J	ring
+tests/test_sampling_definitions.py	808	F file name	J	ring
+tests/test_sampling_definitions.py	812	F file name	J	ring
+tests/test_sampling_definitions.py	816	F file name	J	ring
+tests/test_sampling_definitions.py	823	F file name	J	ring
+tests/test_sampling_definitions.py	828	F file name	J	ring
+tests/test_sampling_definitions.py	832	F file name	J	ring
+tests/test_sampling_definitions.py	837	F file name	J	ring
+tests/test_sampling_definitions.py	852	F file name	J	ring
+tests/test_sampling_definitions.py	856	F file name	J	ring
+tests/test_sampling_definitions.py	857	F file name	J	ring
+tests/test_sampling_definitions.py	858	F file name	J	ring
+tests/test_sampling_definitions.py	863	F file name	J	ring
+tests/test_sampling_definitions.py	864	F file name	J	ring
+tests/test_sampling_definitions.py	865	F file name	J	ring
+tests/test_sampling_definitions.py	870	F file name	J	ring
+tests/test_sampling_definitions.py	874	F file name	J	ring
+tests/test_sampling_definitions.py	875	F file name	J	ring
+tests/test_sampling_definitions.py	876	F file name	J	ring
+tests/test_sampling_definitions.py	878	F file name	J	ring
+tests/test_sampling_definitions.py	879	F file name	J	ring
+tests/test_sampling_definitions.py	880	F file name	J	ring
+tests/test_sampling_definitions.py	888	F file name	J	ring
+tests/test_sampling_definitions.py	895	F file name	J	ring
+tests/test_sampling_definitions.py	897	F file name	J	ring
+tests/test_sampling_definitions.py	898	F file name	J	ring
+tests/test_sampling_definitions.py	898	F file name	J	ring
+tests/test_sampling_definitions.py	903	F file name	J	ring
+tests/test_sampling_definitions.py	905	F file name	J	ring
+tests/test_sampling_definitions.py	906	F file name	J	ring
+tests/test_sampling_definitions.py	906	F file name	J	ring
+tests/test_sampling_definitions.py	1124	F file name	J	ring
+tests/test_sampling_definitions.py	1126	F file name	J	ring
+tests/test_sampling_definitions.py	1127	F file name	J	ring
+tests/test_sampling_definitions.py	1136	F file name	J	ring
+tests/test_sampling_definitions.py	1630	W1 size/name word	J_in	F_in
+tests/test_sampling_entries.py	120	N2 field	J	P
+tests/test_sampling_entries.py	137	N2 field	J	P
+tests/test_sampling_functions.py	501	N1 name	len_J	len_P
+tests/test_sampling_functions.py	503	N1 name	len_J	len_P
+tests/test_sampling_functions.py	503	N1 name	len_J	len_P
+tests/test_sampling_functions.py	491	E explicit	standard_normal(J + W + (N,)) for J, N	standard_normal(F_in + W + (N,)) for F_in, N
+tests/test_sampling_graph.py	85	W1 size/name word	J_in_i	F_in_i
+tests/test_sampling_stacks.py	58	N1 name	J_IN	F_IN
+tests/test_sampling_stacks.py	84	N1 name	J_IN	F_IN
+tests/test_sampling_stacks.py	118	N1 name	J_IN	F_IN
+tests/test_sampling_uniform.py	17	W1 size/name word	len_J	len_P
+tests/test_sampling_uniform.py	54	W1 size/name word	J_in	F_in
+tests/test_sampling_uniform.py	81	N1 name	J_in	F_in
+tests/test_sampling_uniform.py	123	N1 name	J_in	F_in
+tests/test_sampling_uniform.py	123	N1 name	J_in	F_in
+tests/test_sampling_uniform.py	123	N1 name	J_in	F_in
+tests/test_sampling_uniform.py	123	N1 name	J_in	F_in
+tests/test_sampling_uniform.py	125	N1 name	len_J	len_P
+tests/test_sampling_uniform.py	202	N1 name	lead_J	lead_P
+tests/test_sampling_uniform.py	226	W2 shape	J	P
+tests/test_sampling_uniform.py	228	N1 name	lead_J	lead_P
+tests/test_sampling_uniform.py	231	W2 shape	J	P
+tests/test_sampling_uniform.py	233	N1 name	lead_J	lead_P
+tests/test_sampling_uniform.py	261	N1 name	J_in	F_in
+tests/test_sampling_uniform.py	263	N1 name	J_in	F_in
+tests/test_sampling_uniform.py	280	N1 name	J_in	F_in
+tests/test_sampling_uniform.py	281	N1 name	J_in	F_in
+tests/test_sampling_uniform.py	313	N1 name	len_J	len_P
+tests/test_sampling_uniform.py	323	N1 name	len_J	len_P
+tests/test_sampling_uniform.py	331	N1 name	len_J	len_P
+tests/test_sampling_uniform.py	333	N1 name	len_J	len_P
+tests/test_sampling_uniform.py	334	N1 name	len_J	len_P
+tests/test_sampling_uniform.py	335	N1 name	len_J	len_P
+tests/test_sampling_uniform.py	335	N1 name	len_J	len_P
+tests/test_sampling_uniform.py	337	N1 name	len_J	len_P
+tests/test_sampling_uniform.py	337	N1 name	len_J	len_P
+tests/test_sampling_variables.py	328	W2 shape	J	P
+tests/test_sampling_variables.py	364	W4 group word	JWo	PWo
+tests/test_sampling_variables.py	364	W4 group word	JWCi	PWCi
+tests/test_sampling_variables.py	382	S1 subscripts	J	P
+tests/test_sampling_variables.py	382	S1 subscripts	J	P
+tests/test_sampling_variables.py	389	N2 field	J	P
+tests/test_sampling_variables.py	390	S1 subscripts	J	P
+tests/test_sampling_variables.py	390	S1 subscripts	J	P
+tests/test_sampling_variables.py	328	E explicit	``J`` the	``P`` the

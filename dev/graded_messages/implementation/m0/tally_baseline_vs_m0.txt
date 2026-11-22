@@ -1,0 +1,9 @@
+baseline: 1903 nodes {'PASSED': 1897, 'SKIPPED': 5, 'SUBPASSED': 90942, 'XFAIL': 1}
+new:      1904 nodes {'PASSED': 1898, 'SKIPPED': 5, 'SUBPASSED': 90945, 'XFAIL': 1}
+  tests/test_contractions_interpreter.py::TestJetLiteralsStayInJetContract::test_no_literal_names_the_retired_J
+      baseline {}
+      new      {'PASSED': 1}
+  tests/test_jet_contract.py::TestStructure::test_malformed_strings_raise_at_every_order
+      baseline {'SUBPASSED': 45, 'PASSED': 1}
+      new      {'SUBPASSED': 48, 'PASSED': 1}
+2 nodes differ

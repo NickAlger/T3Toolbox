@@ -375,11 +375,11 @@ def uniform_derivatives_kind(
 def pack_sample(
         kind:    str,                       # 'probe' | 'apply' | 'entries'
         order:   typ.Tuple[int, ...],       # the jet shape: the number of leading jet axes of each input jet
-        sample:  typ.Any,                   # ww (input jets, len=d, elm_shape=J_in_i+W+(Ni,)) | index ((d,)+W, int)
+        sample:  typ.Any,                   # ww (input jets, len=d, elm_shape=F_in_i+W+(Ni,)) | index ((d,)+W, int)
         N:       int,                       # the packed mode width
-) -> typ.Any:                               # ww packed (d,)+J+W+(N,) | index unchanged
+) -> typ.Any:                               # ww packed (d,)+F_in+W+(N,) | index unchanged
     """Pack the loop-invariant sample once for the uniform layout: the input jets with
-    :py:func:`~t3toolbox.backend.ut3_operations.pack_if_ragged` and ``len_J=len(order)`` (each jet axis brought to its
+    :py:func:`~t3toolbox.backend.ut3_operations.pack_if_ragged` and ``len_P=len(order)`` (each jet axis brought to its
     largest size across the modes by zero coefficients, which are data: an input jet is zero beyond its slots, O-45;
     the modes padded to ``N`` with zeros). The entries ``index`` is never packed. A packed sample is kept as it is.
 
@@ -391,7 +391,7 @@ def pack_sample(
     """
     if kind == 'entries':
         return sample
-    return ut3_operations.pack_if_ragged(sample, N, len_J=len(order))
+    return ut3_operations.pack_if_ragged(sample, N, len_P=len(order))
 
 
 def pack_data(
@@ -416,7 +416,7 @@ def pack_batch(
         N:      int,                                # the packed mode width
 ) -> 'bfit.LeastSquaresBatch':                      # the sample's vectors and the probe data packed to N
     """Pack a :py:class:`~t3toolbox.backend.fitting.LeastSquaresBatch` once for the uniform layout: the input jets
-    with ``pack_if_ragged(sample, N, len_J=len(order))``, which brings each jet axis to its largest size across the
+    with ``pack_if_ragged(sample, N, len_P=len(order))``, which brings each jet axis to its largest size across the
     modes by writing zero coefficients (data, not padding: an input jet is zero beyond its slots, O-45), and the
     probe data ``y`` to ``(d,)+F+W+(N,)``. The entries ``index`` and the scalar data of apply and entries are not
     packed; the weight, the scale and the drawn indices pass through. A packed sample or ``y`` is kept as it is.

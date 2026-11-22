@@ -488,7 +488,7 @@ def jet_sample(kind, rng, order, shape=STRUCT[0]):
     """The kind's sample with input jets of mixed sizes per mode (a constant, a line, a full jet)."""
     if kind == 'entries':
         return np.stack([rng.integers(0, N, size=W) for N in shape])
-    return [rng.standard_normal(J + W + (N,)) for J, N in zip(JET_SIZES[order], shape)]
+    return [rng.standard_normal(F_in + W + (N,)) for F_in, N in zip(JET_SIZES[order], shape)]
 
 
 def corrupt(obj):
@@ -498,9 +498,9 @@ def corrupt(obj):
     return type(obj)(*([sc + GARBAGE * (1.0 - i) for sc, i in zip(scs, ind)] + [obj.shape, obj.masks]))
 
 
-def packed_with_garbage(vectors, N, len_J=0):
+def packed_with_garbage(vectors, N, len_P=0):
     """Pack ragged per-mode vectors to ``N``, with garbage beyond each mode's ``N_i`` (the mode padding)."""
-    packed = np.array(ut3o.pack_vectors(vectors, N, len_J=len_J))
+    packed = np.array(ut3o.pack_vectors(vectors, N, len_P=len_P))
     for i, v in enumerate(vectors):
         packed[i, ..., np.shape(v)[-1]:] = GARBAGE
     return packed

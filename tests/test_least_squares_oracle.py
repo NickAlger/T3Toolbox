@@ -74,7 +74,7 @@ def jet_sample(kind, rng, order, n=6):
     if kind == 'entries':
         return np.stack([rng.integers(0, N, size=n) for N in SHAPE])
     sizes = {(): [()] * 3, (2,): [(3,), (2,), (1,)], (1, 1): [(2, 1), (1, 2), (2, 2)]}[order]
-    return [rng.standard_normal(J + (n, N)) for J, N in zip(sizes, SHAPE)]
+    return [rng.standard_normal(F_in + (n, N)) for F_in, N in zip(sizes, SHAPE)]
 
 
 def weight_of(kind, rng, order):

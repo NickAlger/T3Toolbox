@@ -698,7 +698,7 @@ class T3Tangent(common.ExplicitEquality):
 
     def probe(
             self,
-            ww:     typ.Sequence[NDArray],      # input jets, len=d, elm_shape=J_in_i+W+(Ni,)
+            ww:     typ.Sequence[NDArray],      # input jets, len=d, elm_shape=F_in_i+W+(Ni,)
             order:  typ.Tuple[int, ...] = (),   # the jet shape; F=tuple(n+1 for n in order)
     ) -> typ.Tuple[NDArray, ...]:               # Jp. len=d, elm_shape=F+W+K+C+(Ni,)
         """Probe this tangent vector: apply the single-sample least-squares Jacobian J^(s).
@@ -751,7 +751,7 @@ class T3Tangent(common.ExplicitEquality):
     @staticmethod
     def probe_transpose(
             frame:             bvf.T3Frame,
-            ww:                typ.Sequence[NDArray],      # input jets, len=d, elm_shape=J_in_i+W+(Ni,)
+            ww:                typ.Sequence[NDArray],      # input jets, len=d, elm_shape=F_in_i+W+(Ni,)
             residual:          typ.Sequence[NDArray],      # of the type of z: len=d, elm_shape=F+W+[K]+C+(Ni,)
             order:             typ.Tuple[int, ...] = (),   # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: keep the sample stack W (W+K tangents)
@@ -831,7 +831,7 @@ class T3Tangent(common.ExplicitEquality):
 
     def apply(
             self,
-            ww:     typ.Sequence[NDArray],      # input jets, len=d, elm_shape=J_in_i+W+(Ni,)
+            ww:     typ.Sequence[NDArray],      # input jets, len=d, elm_shape=F_in_i+W+(Ni,)
             order:  typ.Tuple[int, ...] = (),   # the jet shape; F=tuple(n+1 for n in order)
     ) -> NDArray:                               # Jp. shape=F+W+K+C
         """Apply this tangent vector in all modes: contract the dense tangent with ``ww`` everywhere.
@@ -905,7 +905,7 @@ class T3Tangent(common.ExplicitEquality):
     @staticmethod
     def apply_transpose(
             frame:             bvf.T3Frame,
-            ww:                typ.Sequence[NDArray],      # input jets, len=d, elm_shape=J_in_i+W+(Ni,)
+            ww:                typ.Sequence[NDArray],      # input jets, len=d, elm_shape=F_in_i+W+(Ni,)
             residual:          NDArray,                    # of the type of z: shape=F+W+[K]+C
             order:             typ.Tuple[int, ...] = (),   # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: keep the sample stack W (W+K tangents)

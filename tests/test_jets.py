@@ -804,7 +804,7 @@ class TestCheckers(unittest.TestCase):
         self.assertIsNone(jets.check_data('probe', (1, 2), mixed, self.good_data('probe', (1, 2))))
 
     def test_check_data_raises_on_each_wrong_y(self):
-        line = jets.affine_jet(self.ww, self.pp)                        # J_in = (2,)
+        line = jets.affine_jet(self.ww, self.pp)                        # F_in = (2,)
         order = (2,)
         good = self.good_data('probe', order)
         self.assert_raises('one array per mode: expected 3, got 2', jets.check_data, 'probe', order, line, good[:2])

@@ -108,7 +108,7 @@ __all__ = ['LocalModel', 'local_model',
 def rescale_coordinates(
         kind:    str,                      # 'probe' | 'apply'
         order:   typ.Tuple[int, ...],      # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
-        sample:  typ.Any,                  # ww, the input jets: len=d, elm_shape=J_in_i+W+(Ni,)
+        sample:  typ.Any,                  # ww, the input jets: len=d, elm_shape=F_in_i+W+(Ni,)
         y:       typ.Any,                  # of the type of z: probe len=d, elm_shape=F+W+(Ni,); apply F+W
         scales:  typ.Sequence[NDArray],    # len=d, elm_shape=(Ni,): coordinate j of mode i times scales[i][j]
 ) -> typ.Tuple[
@@ -138,7 +138,7 @@ def rescale_coordinates(
     order: tuple of int
         The jet shape (``()`` for no jets).
     sample
-        The input jets ``ww``: ``len=d``, ``elm_shape=J_in_i+W+(Ni,)``.
+        The input jets ``ww``: ``len=d``, ``elm_shape=F_in_i+W+(Ni,)``.
     y: tuple of NDArray or NDArray
         Of the type of ``z`` (a tuple of ``d`` arrays for probe, one array otherwise).
         The data. probe: ``len=d``, ``elm_shape=F+W+(Ni,)``. apply: ``shape=F+W``.
@@ -183,7 +183,7 @@ def rescale_coordinates(
     """
     backend_jets._kind_and_order(kind, order, 'rescale_coordinates')   # the kind and the jet shape first, as dual_jet_to_jet
     if kind in ('probe', 'apply'):                      # any other kind: the backend function raises
-        backend_preparation.check_coordinate_scales(scales, tuple(np.shape(w_JWo)[-1] for w_JWo in sample))
+        backend_preparation.check_coordinate_scales(scales, tuple(np.shape(w_PWo)[-1] for w_PWo in sample))
     return backend_preparation.rescale_coordinates(kind, order, sample, y, scales)
 
 

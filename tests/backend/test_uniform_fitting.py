@@ -715,7 +715,7 @@ class TestPackSampleAndData(unittest.TestCase):
     def test_the_forms(self):
         rng = np.random.default_rng(0)
         shape, N, W = (4, 5, 3), 7, 6
-        ww = [rng.standard_normal((J, W, n)) for J, n in zip((2, 1, 2), shape)]     # mixed jet sizes, order (2,)
+        ww = [rng.standard_normal((F_in, W, n)) for F_in, n in zip((2, 1, 2), shape)]     # mixed jet sizes, order (2,)
         y = [rng.standard_normal((3, W, n)) for n in shape]                         # F = (3,)
         packed = uf.pack_sample('probe', (2,), ww, N)
         self.assertEqual(packed.shape, (3, 2, W, N))

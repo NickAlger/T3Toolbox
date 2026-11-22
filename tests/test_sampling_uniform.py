@@ -14,7 +14,7 @@
    sample and of ``y``); and every output's padding is exactly zero, the real block read off the RAGGED result's shape
    (non-circular). Plus the maximal case per kind, with ``sum_over_samples=False`` on one.
 2. **The packed jet zeros are data** (`TestPackedJets`): a nonzero written into a jet slot that packing filled changes
-   the result as the ragged call with that slot added to the input jet; ``pack_vectors`` with ``len_J``.
+   the result as the ragged call with that slot added to the input jet; ``pack_vectors`` with ``len_P``.
 3. **Held variables** (`TestHeld`): held variables with garbage padding give the clean result (``f`` included).
 4. **The index** (`TestTheIndex`): a numpy index out of ``[-N_i, N_i)`` raises as on ragged; a negative one counts
    from ``N_i``; entries' one-hot ``'w'`` has the padded length.
@@ -51,7 +51,7 @@ SMALLER = dict(nD=(1, 2, 2), nU=(2, 2, 1), rL=(2, 1, 2, 2), rR=(1, 2, 2, 3))    
 CONFIGS = (((), (), False, False), ((2,), (), False, False), ((), (3,), False, False), ((2,), (3,), False, False),
            ((), (), True, False), ((2,), (), True, False), ((2, 3), (), False, False), ((), (2, 3), False, False),
            ((3,), (), False, True))                                                 # (C, K, force_pad, varying)
-JET_CASES = (((), None), ((2,), (2,)), ((1, 1), (2, 2)), ((1, 2), ((3, 2), (1, 1), (2, 3))))   # (order, J_in)
+JET_CASES = (((), None), ((2,), (2,)), ((1, 1), (2, 2)), ((1, 2), ((3, 2), (1, 1), (2, 3))))   # (order, F_in)
 BLOCKS = ('V_tilde', 'H_tilde', 'V_tilde_dot', 'H_tilde_dot')
 BLOCK_PAIRS = {'g': ('V_tilde', 'H_tilde'), 'JtJp': ('V_tilde', 'H_tilde'), 'Kp': ('V_tilde_dot', 'H_tilde_dot')}
 
@@ -78,7 +78,7 @@ class UniformCase:
     """A uniform call and, per element ``(k, c)``, its ragged twin: random cores of each element's ranks, padded (tight,
     or one more on every axis), the padding filled with garbage."""
 
-    def __init__(self, kind, C, K, force_pad, varying, order, J_in, call, W=(3,), seed=0):
+    def __init__(self, kind, C, K, force_pad, varying, order, F_in, call, W=(3,), seed=0):
         rng = np.random.default_rng(seed)
         self.kind, self.C, self.K, self.order, self.call, self.W = kind, C, K, order, call, W
         self.m, self.box = len(order), tuple(n + 1 for n in order)
@@ -120,9 +120,9 @@ class UniformCase:
             self.ragged_sample, self.sample = self.index, self.index
             self.y, self.weight = rng.standard_normal(W), np.asarray(0.7)
         else:
-            sizes = [(J_in if J_in is None or isinstance(J_in[0], int) else J_in[i]) or () for i in range(d)]
+            sizes = [(F_in if F_in is None or isinstance(F_in[0], int) else F_in[i]) or () for i in range(d)]
             self.ragged_sample = [rng.standard_normal(tuple(sizes[i]) + W + (N[i],)) for i in range(d)]
-            packed = np.asarray(ut3_operations.pack_if_ragged(self.ragged_sample, self.Np, len_J=self.m))
+            packed = np.asarray(ut3_operations.pack_if_ragged(self.ragged_sample, self.Np, len_P=self.m))
             garbage = GARBAGE * rng.standard_normal(packed.shape)
             garbage[..., :min(N)] = 0.0
             for i in range(d):
@@ -199,7 +199,7 @@ def check_real_and_zero(test, uniform, ragged, label):
 def compare(test, case, name, value, ragged_by_element, keep_W=False):
     """Compare a uniform output with the ragged ones, element by element and site by site."""
     with_K = case.with_K()
-    lead_J = case.m
+    lead_P = case.m
     if name == 'w':                                 # entries' one-hot vectors: (d,) + W + (N,), no stack
         for i, want in enumerate(next(iter(ragged_by_element.values()))):
             check_real_and_zero(test, np.asarray(value)[i], want, 'w %d' % i)
@@ -223,14 +223,14 @@ def compare(test, case, name, value, ragged_by_element, keep_W=False):
             test.assertLessEqual(defs.relative_error(np.asarray(value)[k + c], ragged), TOL, label)
         elif name == 'r_block_sumsq':
             continue                                # a sum over C: below
-        elif isinstance(ragged, tuple):             # an indexed variable: (lead,) + J + W + [K] + C + (size,)
+        elif isinstance(ragged, tuple):             # an indexed variable: (lead,) + P + W + [K] + C + (size,)
             array = np.asarray(value)
-            taken = array[(slice(None),) * (1 + lead_J + len(case.W)) + k_ + c]
+            taken = array[(slice(None),) * (1 + lead_P + len(case.W)) + k_ + c]
             for i in range(len(ragged)):
                 check_real_and_zero(test, taken[i], ragged[i], label + ' index %d' % i)
-        else:                                       # the apply and entries kinds' one array: J + W + [K] + C
+        else:                                       # the apply and entries kinds' one array: P + W + [K] + C
             array = np.asarray(value)
-            taken = array[(slice(None),) * (lead_J + len(case.W)) + k_ + c]
+            taken = array[(slice(None),) * (lead_P + len(case.W)) + k_ + c]
             test.assertLessEqual(defs.relative_error(taken, ragged), TOL, label)
     if name == 'r_block_sumsq':
         k0 = next(iter(ragged_by_element))[0]
@@ -258,9 +258,9 @@ def run_and_compare(test, case, sum_over_samples=True):
 def covering_cases():
     cases = []
     for kind in ('probe', 'apply'):
-        for (s, config), (j, (order, J_in)) in itertools.product(enumerate(CONFIGS), enumerate(JET_CASES)):
+        for (s, config), (j, (order, F_in)) in itertools.product(enumerate(CONFIGS), enumerate(JET_CASES)):
             call = '_manifold' if (s + j) % 2 == 0 else '_corewise'
-            cases.append(UniformCase(kind, *config, order, J_in, call, seed=100 * s + 10 * j))
+            cases.append(UniformCase(kind, *config, order, F_in, call, seed=100 * s + 10 * j))
     for s, config in enumerate(CONFIGS):
         cases.append(UniformCase('entries', *config, (), None, '_manifold' if s % 2 == 0 else '_corewise', seed=7 + s))
     return cases
@@ -277,8 +277,8 @@ class TestEquivalence(unittest.TestCase):
     def test_the_maximal_case_of_each_kind(self):
         """Forced padding, ranks varying across ``C = (2, 3)``... as far as the generator varies them (every element
         but the first smaller), ``K = (2, 3)``, ``W = (2, 2)``, two jet axes; unsummed on the apply kind."""
-        for kind, order, J_in in (('probe', (1, 1), (2, 2)), ('apply', (1, 1), (2, 2)), ('entries', (), None)):
-            case = UniformCase(kind, (2, 3), (2, 3), True, True, order, J_in, '_manifold', W=(2, 2), seed=99)
+        for kind, order, F_in in (('probe', (1, 1), (2, 2)), ('apply', (1, 1), (2, 2)), ('entries', (), None)):
+            case = UniformCase(kind, (2, 3), (2, 3), True, True, order, F_in, '_manifold', W=(2, 2), seed=99)
             run_and_compare(self, case, sum_over_samples=kind != 'apply')
 
 
@@ -310,7 +310,7 @@ class TestPackedJets(unittest.TestCase):
         coefficients on the jet axes, zero mode padding): the same as the call given them packed."""
         case = UniformCase('probe', (2,), (), True, False, (1, 2), ((3, 2), (1, 1), (2, 3)), '_corewise', seed=9)
         names = ('z', 'g', 'xi')
-        packed = np.asarray(ut3_operations.pack_if_ragged(case.ragged_sample, case.Np, len_J=2))
+        packed = np.asarray(ut3_operations.pack_if_ragged(case.ragged_sample, case.Np, len_P=2))
         given_packed = sv.sampling_variables('probe', case.frame, packed, names, **case.arguments())
         given_ragged = sv.sampling_variables('probe', case.frame, case.ragged_sample, names, **case.arguments())
         for a, b in zip(defs_arrays(given_ragged), defs_arrays(given_packed)):
@@ -320,7 +320,7 @@ class TestPackedJets(unittest.TestCase):
         rng = np.random.default_rng(8)
         modes = [rng.standard_normal((3, 2, 4, 5)), rng.standard_normal((1, 1, 4, 3)),
                  rng.standard_normal((2, 3, 4, 2))]
-        packed = ut3_operations.pack_vectors(modes, len_J=2)
+        packed = ut3_operations.pack_vectors(modes, len_P=2)
         self.assertEqual(packed.shape, (3, 3, 3, 4, 5))
         for i, v in enumerate(modes):
             real = (i,) + tuple(slice(0, s) for s in v.shape)
@@ -328,13 +328,13 @@ class TestPackedJets(unittest.TestCase):
             rest = packed[i].copy()
             rest[tuple(slice(0, s) for s in v.shape)] = 0.0
             self.assertFalse(rest.any())
-        self.assertIs(ut3_operations.pack_if_ragged(packed, len_J=2), packed)
+        self.assertIs(ut3_operations.pack_if_ragged(packed, len_P=2), packed)
         old = [rng.standard_normal((4, 5)), rng.standard_normal((4, 3))]
-        self.assertTrue(np.array_equal(ut3_operations.pack_vectors(old), ut3_operations.pack_vectors(old, len_J=0)))
-        for len_J in (0, 1):
-            with self.subTest(len_J=len_J):
+        self.assertTrue(np.array_equal(ut3_operations.pack_vectors(old), ut3_operations.pack_vectors(old, len_P=0)))
+        for len_P in (0, 1):
+            with self.subTest(len_P=len_P):
                 with self.assertRaisesRegex(ValueError, 'every vector must have the stack shape of the first'):
-                    ut3_operations.pack_vectors([np.ones((2, 4, 5)), np.ones((2, 3, 3))], len_J=len_J)
+                    ut3_operations.pack_vectors([np.ones((2, 4, 5)), np.ones((2, 3, 3))], len_P=len_P)
 
 
 class TestHeld(unittest.TestCase):

@@ -209,23 +209,23 @@ names, its corewise point and its shapes (``z``, ``r``, ``w_tilde`` and ``Jp`` a
 ``r_block_sumsq`` a number) are the apply kind's.
 
 **The short form of** ``eta_tilde``. ``V_tilde`` reads only the slots of ``eta_tilde`` that meet the input at the
-corner: the top ``a = min(J_in_i, F)`` slots on every jet axis (two for a line). The private node ``_eta_tilde_top``
+corner: the top ``a = min(F_in_i, F)`` slots on every jet axis (two for a line). The private node ``_eta_tilde_top``
 holds those slots, ``eta_tilde[i][c - a + 1 : c + 1]`` (``c`` the corner), each made by readouts at a lowered corner,
 and ``V_tilde`` always reads it. The full ``eta_tilde`` has its own row, run only when it is wanted, so what ``g`` is
 never depends on whether ``eta_tilde`` is wanted. ``eta_D_tilde`` (read by the corewise gradient) and
 ``eta_D_tilde_dot`` (read by ``V_tilde_dot``) have short nodes in the same way.
 
 **The shapes** (ragged layout): a variable at index ``i`` is
-``J + W + C + (size,)``, with ``J`` its declared jet sizes, ``W`` the sample stack and ``C`` the stack of base
-points; a block (no jet sizes) is ``C`` and the shape of the core it stands for, summed over the samples (with
-``sum_over_samples=False``, ``W`` first: ``W + [K] + C`` and the core's shape).
-``F = tuple(n + 1 for n in order)`` and ``J_in_i`` are the jet sizes of ``w[i]``. The tilde variables are dual jets,
+``P + W + C + (size,)``, with ``P`` its jet axes (of the declared sizes below), ``W`` the sample stack and ``C`` the
+stack of base points; a block (no jet sizes) is ``C`` and the shape of the core it stands for, summed over the
+samples (with ``sum_over_samples=False``, ``W`` first: ``W + [K] + C`` and the core's shape).
+``F = tuple(n + 1 for n in order)`` and ``F_in_i`` are the jet sizes of ``w[i]``. The tilde variables are dual jets,
 stored with every jet axis turned. For the apply kind ``z``, ``r``, ``w_tilde`` and ``Jp`` are one array each,
 ``F + W + [K] + C``, with no index and no mode edge, and ``r_block_sumsq`` has the shape of its weight, ``F``.
 
 | Variable | Index | Jet sizes | Size |
 | --- | --- | --- | --- |
-| `xi` | site | min(J_in_i, F) | nD_i |
+| `xi` | site | min(F_in_i, F) | nD_i |
 | `mu` | bond | F | rL_i |
 | `nu` | bond | F | rR_i |
 | `nu_L` | bond | F | rL_i |
@@ -238,33 +238,33 @@ stored with every jet axis turned. For the apply kind ``z``, ``r``, ``w_tilde`` 
 | `mu_tilde` | bond | F | rL_i |
 | `nu_tilde` | bond | F | rR_i |
 | `eta_tilde` | site | F | nU_i |
-| `_eta_tilde_top` | site | min(J_in_i, F) | nU_i |
+| `_eta_tilde_top` | site | min(F_in_i, F) | nU_i |
 | `V_tilde` | site | none | (nU_i, N_i) |
 | `H_tilde` | site | none | (rL_i, nD_i, rR_(i+1)) |
-| `xi_U_dot` | site | min(J_in_i, F) | nU_i |
+| `xi_U_dot` | site | min(F_in_i, F) | nU_i |
 | `mu_R_dot` | bond | F | rR_i |
 | `nu_L_dot` | bond | F | rL_i |
 | `eta_D_dot` | site | F | nD_i |
 | `Jp` | mode | F | N_i |
-| `xi_dot` | site | min(J_in_i, F) | nD_i |
+| `xi_dot` | site | min(F_in_i, F) | nD_i |
 | `mu_dot` | bond | F | rL_i |
 | `nu_L_tilde` | bond | F | rL_i |
 | `eta_D_tilde` | site | F | nD_i |
-| `_eta_D_tilde_top` | site | min(J_in_i, F) | nD_i |
+| `_eta_D_tilde_top` | site | min(F_in_i, F) | nD_i |
 | `xi_tilde_dot` | site | F | nD_i |
 | `mu_tilde_dot` | bond | F | rL_i |
 | `nu_L_tilde_dot` | bond | F | rL_i |
 | `eta_D_tilde_dot` | site | F | nD_i |
-| `_eta_D_tilde_dot_top` | site | min(J_in_i, F) | nD_i |
+| `_eta_D_tilde_dot_top` | site | min(F_in_i, F) | nD_i |
 | `V_tilde_dot` | site | none | (nD_i, N_i) |
 | `H_tilde_dot` | site | none | (rL_i, nD_i, rL_(i+1)) |
 | `nu_dot` | bond | F | rL_i |
 | `eta_dot` | site | F | nD_i |
 | `nu_tilde_dot` | bond | F | rL_i |
 | `eta_tilde_dot` | site | F | nD_i |
-| `_eta_tilde_dot_top` | site | min(J_in_i, F) | nD_i |
+| `_eta_tilde_dot_top` | site | min(F_in_i, F) | nD_i |
 
-A variable made by a row with ``K = yes`` has ``K`` after ``W`` (``J + W + K + C + (size,)``; a block ``K + C`` and the
+A variable made by a row with ``K = yes`` has ``K`` after ``W`` (``P + W + K + C + (size,)``; a block ``K + C`` and the
 core's shape); a private node's shape is its base's. ``f`` has the shape ``C``; ``r_block_sumsq`` the shape of the
 weight, ``(d,) + F`` (``F`` for apply); ``Jp_norm_sq`` the shape ``K + C``; ``g`` is the pair ``(V_tilde, H_tilde)``, ``JtJp`` the
 pair of their twins and ``Kp`` the pair ``(V_tilde_dot, H_tilde_dot)``. On a corewise point the sizes of ``R`` and ``U``
@@ -281,7 +281,7 @@ site.
 
 **The stacks.** ``W`` is read once off ``w[0]`` (after its jet axes; for entries off ``index``), ``C`` off ``D[0]`` and
 ``K`` off ``V[0]`` or ``D_dot[0]``; the steps see only their lengths (``GroupLengths``), and every variable is laid out
-``J + W + [K] + C`` and its edge, a block ``[W] + [K] + C`` and its core. Every other operand that carries a stack must
+``P + W + [K] + C`` and its edge, a block ``[W] + [K] + C`` and its core. Every other operand that carries a stack must
 have exactly it (``_check_stacks`` for ``W`` and ``C``, ``_read_K`` for ``K``: tuple equality, not broadcast
 compatibility), since a size-1 axis would broadcast silently. With ``sum_over_samples=False`` the block rows (read off
 the shape table) keep ``W``: ``g``, ``JtJp`` and ``Kp`` are then ``W + [K] + C``; ``f``, ``r_block_sumsq`` and
@@ -297,7 +297,7 @@ their own; ``V``, ``H`` and ``Vc`` with the frame's variation masks; ``D_dot`` a
 ``L`` masks, never the point's (a superset at TT slack); every Tucker-shaped input, the sample and probe's ``y``
 with the shape mask on the mode axis ``N`` (the sample's jet axes untouched: their slots are coefficients); a held
 variable with its table's masks (padding is not a value). The start values carry ones on the real slots of their end
-bond only. The sample is packed (``pack_if_ragged`` with ``len_J=len(order)``: the modes' jet axes brought to their
+bond only. The sample is packed (``pack_if_ragged`` with ``len_P=len(order)``: the modes' jet axes brought to their
 largest size by zero coefficients, which are data). The entries kind's numpy index outside ``[-N_i, N_i)`` raises an
 ``IndexError`` as on ragged, and a negative one counts from ``N_i``; a jax index is not checked (out of range it reads
 a zero column). The steps see no mask: the site rows go through ``xmap`` and the sweeps through ``xscan`` over the
@@ -785,7 +785,7 @@ _SHAPES = {
 }
 
 # What differs by kind: the type of z. The apply kind's output, its residual, its seed and its direction's output are
-# one array each (the index 'one': no index and no mode edge), J+W+[K]+C.
+# one array each (the index 'one': no index and no mode edge), P+W+[K]+C.
 _KIND_SHAPES = {
     'apply': {'z': ('one', 'F', None), 'r': ('one', 'F', None), 'w_tilde': ('one', 'F', None),
               'Jp': ('one', 'F', None)},
@@ -886,7 +886,7 @@ class HeldVariables:
         ...
     KeyError: "HeldVariables: the slot 'nu' is not filled"
     """
-    xi:             typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=min(J_in_i,F)+W+C+(nDi,)
+    xi:             typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=min(F_in_i,F)+W+C+(nDi,)
     mu:             typ.Optional[typ.Sequence[NDArray]] = None      # len=d+1, elm_shape=F+W+C+(rLi,)
     nu:             typ.Optional[typ.Sequence[NDArray]] = None      # len=d+1, elm_shape=F+W+C+(rRi,)
     nu_L:           typ.Optional[typ.Sequence[NDArray]] = None      # len=d+1, elm_shape=F+W+C+(rLi,)
@@ -906,9 +906,9 @@ class HeldVariables:
     V_tilde:        typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=C+(nUi,Ni)
     H_tilde:        typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=C+(rLi,nDi,rR(i+1))
     g:              typ.Optional[typ.Tuple] = None                  # (V_tilde, H_tilde)
-    xi_U_dot:       typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=min(J_in_i,F)+W+K+C+(nUi,)
+    xi_U_dot:       typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=min(F_in_i,F)+W+K+C+(nUi,)
     mu_R_dot:       typ.Optional[typ.Sequence[NDArray]] = None      # len=d+1, elm_shape=F+W+K+C+(rRi,)
-    xi_dot:         typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=min(J_in_i,F)+W+K+C+(nDi,)
+    xi_dot:         typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=min(F_in_i,F)+W+K+C+(nDi,)
     mu_dot:         typ.Optional[typ.Sequence[NDArray]] = None      # len=d+1, elm_shape=F+W+K+C+(rLi,)
     nu_L_dot:       typ.Optional[typ.Sequence[NDArray]] = None      # len=d+1, elm_shape=F+W+K+C+(rLi,)
     eta_D_dot:      typ.Optional[typ.Sequence[NDArray]] = None      # len=d,   elm_shape=F+W+K+C+(nDi,)
@@ -992,7 +992,7 @@ class _Setting(typ.NamedTuple):
     d:      int
     order:  typ.Tuple[int, ...]
     box:    typ.Tuple[int, ...]             # F
-    J_in:   typ.Tuple[typ.Tuple[int, ...], ...]     # the jet sizes of each input, len=d
+    F_in:   typ.Tuple[typ.Tuple[int, ...], ...]     # the jet sizes of each input, len=d
     W:      typ.Tuple[int, ...]
     C:      typ.Tuple[int, ...]
     sizes:  typ.Dict[str, typ.Tuple[int, ...]]      # 'rL', 'rR' (len=d+1), 'nD', 'nU', 'N' (len=d)
@@ -1055,9 +1055,9 @@ def _read_setting(
     m = len(order)
     C = tuple(np.shape(D[0])[:-2])
     if kind == 'entries':                               # the grid points, (d,) + W: no jets
-        J_in, W = ((),) * len(D), tuple(np.shape(sample)[1:])
+        F_in, W = ((),) * len(D), tuple(np.shape(sample)[1:])
     else:
-        J_in, W = tuple(tuple(np.shape(w)[:m]) for w in sample), tuple(np.shape(sample[0])[m:-1])
+        F_in, W = tuple(tuple(np.shape(w)[:m]) for w in sample), tuple(np.shape(sample[0])[m:-1])
     K = _read_K(variations, core_directions, C)
     if held_Jp is not None:                             # K + C after the jets and W, before the mode edge (probe)
         first = held_Jp[0] if kind == 'probe' else held_Jp
@@ -1070,7 +1070,7 @@ def _read_setting(
                              'give K = %s' % (held_K, K))
     return _Setting(
         d=len(D), order=order, box=tuple(n + 1 for n in order),
-        J_in=J_in, W=W, C=C,
+        F_in=F_in, W=W, C=C,
         sizes=dict(rL=_bonds(L), rR=_bonds(R), nD=tuple(np.shape(B)[-2] for B in D),
                    nU=tuple(np.shape(G)[-2] for G in U), N=tuple(np.shape(B)[-1] for B in D)),
         K=() if K is None else K, with_K=frozenset(rule.name for rule in graph if rule.carries_K),
@@ -1185,8 +1185,8 @@ def _shape(
                 'VD': lambda: (sizes['nD'][i], sizes['N'][i]),
                 'HL': lambda: (sizes['rL'][i], sizes['nD'][i], sizes['rL'][i + 1])}[size]()
         return (setting.W if setting.keep_W else ()) + K + setting.C + core
-    J = tuple(min(a, f) for a, f in zip(setting.J_in[i], setting.box)) if jets == 'leaf' else setting.box
-    return J + setting.W + K + setting.C + (sizes[size][i],)
+    jet_sizes = tuple(min(a, f) for a, f in zip(setting.F_in[i], setting.box)) if jets == 'leaf' else setting.box
+    return jet_sizes + setting.W + K + setting.C + (sizes[size][i],)
 
 
 def _count(name: str, setting: _Setting) -> int:
@@ -1627,7 +1627,7 @@ def frame_form(
 def sampling_variables(
         kind:              str,                              # 'probe' | 'apply' | 'entries'
         frame:             typ.Tuple,                        # (D, U, L, R), four tuples of d arrays; or (B, G)
-        sample:            typ.Any,                          # ww: the input jets, len=d, elm_shape=J_in_i+W+(Ni,);
+        sample:            typ.Any,                          # ww: the input jets, len=d, elm_shape=F_in_i+W+(Ni,);
                                                              #   entries: index, int, shape=(d,)+W
         want:              typ.Sequence[str],                # variable names; the return is aligned with them
 
@@ -1675,9 +1675,9 @@ def sampling_variables(
         without a basis (the module docstring). On the uniform layout ``(D, U, L, R, shape, masks)`` or
         ``(B, G, shape, masks)``: supercores with ``d`` leading, the static ``shape`` and host masks.
     sample: sequence of NDArray, or NDArray
-        The input jets ``ww``: ``len=d``, ``elm_shape=J_in_i+W+(Ni,)``, with ``len(order)`` leading jet axes. For
+        The input jets ``ww``: ``len=d``, ``elm_shape=F_in_i+W+(Ni,)``, with ``len(order)`` leading jet axes. For
         ``'entries'``, the grid points ``index``: integer, ``shape=(d,)+W`` (never cast, and not counted for the
-        dtype). On the uniform layout the input jets may come packed, ``(d,)+J+W+(N,)``, or ragged (the engine packs
+        dtype). On the uniform layout the input jets may come packed, ``(d,)+F_in+W+(N,)``, or ragged (the engine packs
         them).
     want: sequence of str
         The names wanted (the module's graph, and ``'w'``, the input vectors: for probe and apply the sample as
@@ -1744,7 +1744,7 @@ def sampling_variables(
 
     >>> pp = [rng.standard_normal((7, n)) for n in N]
     >>> y = [rng.standard_normal((4, 7, n)) for n in N]                  # F + W + (Ni,)
-    >>> line = affine_jet(ww, pp)                                         # J_in = (2,)
+    >>> line = affine_jet(ww, pp)                                         # F_in = (2,)
     >>> z, xi, f = sv.sampling_variables('probe', frame, line, ('z', 'xi', 'f'), order=(3,), y=y)
     >>> print([zi.shape for zi in z], [x.shape for x in xi], f.shape)    # the leaves keep the line's two slots
     [(4, 7, 4), (4, 7, 5), (4, 7, 6)] [(2, 7, 2), (2, 7, 3), (2, 7, 2)] ()
@@ -1806,7 +1806,7 @@ def sampling_variables(
         if kind == 'entries':
             sample = _uniform_index(sample, shape)
         else:
-            sample = ut3_operations.pack_if_ragged(sample, N, len_J=len(order))
+            sample = ut3_operations.pack_if_ragged(sample, N, len_P=len(order))
         if kind == 'probe' and y is not None:
             y = ut3_operations.pack_if_ragged(y, N)
     graph = _GRAPHS[kind, call]
@@ -1845,7 +1845,7 @@ def sampling_variables(
 
     # 5. to 7. run the rows
     m = len(order)
-    lens = contractions.GroupLengths(J=m, W=len(setting.W), K=len(setting.K), C=len(setting.C))
+    lens = contractions.GroupLengths(P=m, W=len(setting.W), K=len(setting.K), C=len(setting.C))
     lens_no_K = dc.replace(lens, K=0)
     form = 'scan' if uniform else 'loop'                   # over the orders: a real scan on the uniform layout
     for rule in rules:

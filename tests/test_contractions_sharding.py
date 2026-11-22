@@ -156,14 +156,14 @@ class TestInterpreterAnyAxisSharding(unittest.TestCase):
         import t3toolbox.backend.contractions as ctr
 
         checked = 0
-        two_variables = ['JWCa,KCaib,JWCi->JWKCb', 'KCaib,JWCi,JWCb->JWKCa', 'JWCa,Caib,JWKCb->JWKCi',
-                         'JWKCi,JWo->KCio', 'JWCa,JWKCi,JWCb->KCaib']
+        two_variables = ['PWCa,KCaib,PWCi->PWKCb', 'KCaib,PWCi,PWCb->PWKCa', 'PWCa,Caib,PWKCb->PWKCi',
+                         'PWKCi,PWo->KCio', 'PWCa,PWKCi,PWCb->KCaib']
         for order in ((2,), (1, 2)):
             for family, string in jet_cases.ALL_STRINGS:
                 if len(order) == 2 and string not in two_variables:
                     continue
                 for label, sizes, out_order in jet_cases.library_shapes(family, string, order):
-                    lens = ctr.GroupLengths(J=len(out_order), W=2, K=1, C=1)
+                    lens = ctr.GroupLengths(P=len(out_order), W=2, K=1, C=1)
                     for ax in range(2):                         # W has 2 sub-axes; ax=1 is the minor one
                         W = tuple(self.n_dev if j == ax else 2 for j in range(2))
                         shape_of = dict(W=W, K=(2,), C=(2,))    # K on the operand that names it (lens.K is its count)
@@ -174,7 +174,7 @@ class TestInterpreterAnyAxisSharding(unittest.TestCase):
                             for ch in term:
                                 if ch == 'W':
                                     parts += ['m' if j == ax else None for j in range(2)]
-                                elif ch == 'J':
+                                elif ch == 'P':
                                     parts += [None] * len(out_order)
                                 elif ch.isupper():
                                     parts += [None] * len(shape_of[ch])
@@ -294,9 +294,9 @@ class TestTheEngineShardsOverW(unittest.TestCase):
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         import test_sampling_uniform as tsu
         W = (2 * self.n_dev,)
-        for layout, order, J_in in (('uniform', (), None), ('uniform', (3,), (2,)), ('uniform', (1, 1), (2, 2)),
+        for layout, order, F_in in (('uniform', (), None), ('uniform', (3,), (2,)), ('uniform', (1, 1), (2, 2)),
                                     ('ragged', (3,), (2,))):
-            case = tsu.UniformCase('probe', (), (), True, False, order, J_in, '_manifold', W=W, seed=5)
+            case = tsu.UniformCase('probe', (), (), True, False, order, F_in, '_manifold', W=W, seed=5)
             arguments = case.arguments() if layout == 'uniform' else case.ragged_arguments((), ())
             arguments = {k: v for k, v in arguments.items() if k not in ('y', 'order')}
             frame = case.frame if layout == 'uniform' else case.ragged_frame(())

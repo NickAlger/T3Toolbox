@@ -758,8 +758,8 @@ _SCALED = ('f', 'g', 'JtJp', 'Jp_norm_sq', 'Kp')        # the minibatch scale's 
 class LeastSquaresBatch:
     """The data of a least-squares fit, arrays only: a registered pytree, every field a leaf (``None`` allowed).
 
-    ``sample`` is the input jets ``ww`` (probe, apply: ``len=d``, ``elm_shape=J_in_i+W+(Ni,)``, or packed
-    ``(d,)+J+W+(N,)`` on the uniform layout, :py:func:`~t3toolbox.backend.uniform_fitting.pack_batch`), or the
+    ``sample`` is the input jets ``ww`` (probe, apply: ``len=d``, ``elm_shape=F_in_i+W+(Ni,)``, or packed
+    ``(d,)+F_in+W+(N,)`` on the uniform layout, :py:func:`~t3toolbox.backend.uniform_fitting.pack_batch`), or the
     integer ``index`` ``(d,)+W`` (entries). ``y`` is of the type of ``z``, in forward order: probe ``F+W+(Ni,)``
     per mode (or packed), apply ``F+W``, entries ``W``. ``weight`` has exactly the shape ``(d,)+F`` (probe), ``F``
     (apply) or ``()`` (entries); ``None`` is ones. ``minibatch_scale`` is ``n / batch_size`` on a drawn batch

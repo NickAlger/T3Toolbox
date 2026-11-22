@@ -52,7 +52,7 @@ __all__ = [
 def _check_sample(
         kind:    str,                       # 'probe' | 'apply' | 'entries'
         order:   Tuple[int, ...],
-        sample,                             # ragged (len=d) or packed ((d,)+J+W+(N,)) input jets; or index
+        sample,                             # ragged (len=d) or packed ((d,)+F_in+W+(N,)) input jets; or index
         shape:   Tuple[int, ...],           # the mode sizes
 ) -> None:
     '''``jets.check_sample`` on a ragged sample (or an index); a packed sample is the engine's to check (its ``d`` and
@@ -423,7 +423,7 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
 
     def apply(
             self,
-            ww:                Sequence[NDArray],          # input jets: len=d, J_in_i+W+(Ni,); or packed (d,)+J+W+(N,)
+            ww:                Sequence[NDArray],          # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
     ) -> NDArray:                                          # z. shape=F+W+C
         """Contract the represented tensor with vectors in **all** modes, without forming it (shares
@@ -448,12 +448,12 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
 
     def probe(
             self,
-            ww:                Sequence[NDArray],          # input jets: len=d, J_in_i+W+(Ni,); or packed (d,)+J+W+(N,)
+            ww:                Sequence[NDArray],          # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
     ) -> Sequence[NDArray]:                                # z, MIRRORS ww: len=d, F+W+C+(Ni,); or packed
         """Probe: contract all-but-one mode, for each mode (leaving mode ``i`` free), without forming the
         dense tensor (shares :py:func:`~t3toolbox.backend.ut3_sampling.ut3_probe`). **Mirrors** the sample's form:
-        ragged ``ww`` in, a ``len=d`` tuple out; packed ``(d,)+J+W+(N,)`` in, the packed array out.
+        ragged ``ww`` in, a ``len=d`` tuple out; packed ``(d,)+F_in+W+(N,)`` in, the packed array out.
 
         The probe stack ``W`` (on ``ww``) is frame-inner with the T3 stack: each probe is ``W + stack_shape +
         (Ni,)``. Precondition-free. Uniform mirror of
@@ -485,7 +485,7 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
     # --------------------------------------------------------- corewise (non-manifold) sampling transposes
     def apply_corewise_transpose(
             self,
-            ww:                Sequence[NDArray],          # input jets: len=d, J_in_i+W+(Ni,); or packed (d,)+J+W+(N,)
+            ww:                Sequence[NDArray],          # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
             residual:          NDArray,                    # of the type of z: shape=F+W+[K]+C
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: W joins the stack
@@ -541,7 +541,7 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
 
     def probe_corewise_transpose(
             self,
-            ww:                Sequence[NDArray],          # input jets: len=d, J_in_i+W+(Ni,); or packed (d,)+J+W+(N,)
+            ww:                Sequence[NDArray],          # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
             residual:          Sequence[NDArray],          # of the type of z: len=d, F+W+[K]+C+(Ni,); or packed
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: W joins the stack
@@ -556,7 +556,7 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
 
     def probe_corewise_tangent(
             self,
-            ww:                Sequence[NDArray],          # input jets: len=d, J_in_i+W+(Ni,); or packed (d,)+J+W+(N,)
+            ww:                Sequence[NDArray],          # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
             core_directions:   Tuple[NDArray, NDArray],    # (tucker, tt) supercores (d,)+K+C+(...): the point's sizes
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
     ) -> Sequence[NDArray]:                                # J x_dot, MIRRORS ww: len=d, F+W+K+C+(Ni,); or packed
@@ -570,7 +570,7 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
 
     def probe_corewise_hessian(
             self,
-            ww:                Sequence[NDArray],          # input jets: len=d, J_in_i+W+(Ni,); or packed (d,)+J+W+(N,)
+            ww:                Sequence[NDArray],          # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
             residual:          Sequence[NDArray],          # c, of the type of z: len=d, F+W+C+(Ni,); or packed
             core_directions:   Tuple[NDArray, NDArray],    # (tucker, tt) supercores (d,)+K+C+(...): the point's sizes
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
@@ -587,7 +587,7 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
 
     def apply_corewise_tangent(
             self,
-            ww:                Sequence[NDArray],          # input jets: len=d, J_in_i+W+(Ni,); or packed (d,)+J+W+(N,)
+            ww:                Sequence[NDArray],          # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
             core_directions:   Tuple[NDArray, NDArray],    # (tucker, tt) supercores (d,)+K+C+(...): the point's sizes
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
     ) -> NDArray:                                          # J x_dot. shape=F+W+K+C
@@ -601,7 +601,7 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
 
     def apply_corewise_hessian(
             self,
-            ww:                Sequence[NDArray],          # input jets: len=d, J_in_i+W+(Ni,); or packed (d,)+J+W+(N,)
+            ww:                Sequence[NDArray],          # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
             residual:          NDArray,                    # c, of the type of z: shape=F+W+C
             core_directions:   Tuple[NDArray, NDArray],    # (tucker, tt) supercores (d,)+K+C+(...): the point's sizes
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)

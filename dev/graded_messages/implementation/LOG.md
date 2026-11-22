@@ -1385,3 +1385,14 @@ a guard against `J` in library subscripts literals; two small doc additions; the
 `implementation/m0/`; HEAD's per-test counts from one local `-v` run of a `git archive` copy before the build (the
 reviewer's reference too); the shape rule (a concrete shape spells the sizes `F`, `min(F_in_i, F)`; a family spells
 the group `P`); `F_in,i` spelled `F_in_i` in code. Building.
+
+### M0 committed (2026-11-22)
+
+`M0_HANDOVER.md`, `M0_REVIEW_r1.md` (SIGN OFF, one round). The rename `J -> P` (the jet group, `GroupLengths.P`,
+`len_P`, the suffixed locals), `J_in_i -> F_in_i` (`F_in,i` in prose), the test-local ring `J -> ring`, by one logged
+script (`m0/rename.py`, 1,579 edits); the guard against `J` in library literals, a floor in the literal scan, the
+retired `J` raising; the glossary and naming-conventions entries. Evidence: the round trip empty; the implementer's
+battery (23,577 outputs bitwise equal, 154,550 einsum calls identical) and the reviewer's own (24,038 calls
+byte-identical incl. jitted float32 jax, 743 outputs bitwise equal); per-test counts against a local baseline, exactly
+the two expected nodes differ; 8 reviewer mutants killed. Gate at `-n 2`: suite 1,898 passed (90,945 subtests), 321
+module doctests, 47 pages, 14 examples, Sphinx 0 warnings. The baseline log is kept gzipped. Next: M1.

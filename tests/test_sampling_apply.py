@@ -156,11 +156,11 @@ class TestTheSeedOnBondD(unittest.TestCase):
             for case in defs.JET_CASES:
                 nu_tilde, nu_L_tilde, nu, nu_L, w_tilde = apply_call(
                     problem, case, ('nu_tilde', 'nu_L_tilde', 'nu', 'nu_L', 'w_tilde'))
-                lens = contractions.GroupLengths(J=case.m, W=len(problem.W), K=0, C=0)
+                lens = contractions.GroupLengths(P=case.m, W=len(problem.W), K=0, C=0)
                 for tilde, plain in ((nu_tilde, nu), (nu_L_tilde, nu_L)):
                     with self.subTest(problem=problem_name, jets=case.label):
                         for a, b in zip(tilde, plain):
-                            product = contractions.jet_contract('JW,JWa->JWa', w_tilde, b, lens=lens,
+                            product = contractions.jet_contract('PW,PWa->PWa', w_tilde, b, lens=lens,
                                                                 order=case.order, over_orders='loop')
                             self.assertLessEqual(defs.relative_error(a, product), 1e-12)
                         self.assertTrue(np.array_equal(tilde[-1], w_tilde[..., None] * np.ones(plain[-1].shape[-1])))

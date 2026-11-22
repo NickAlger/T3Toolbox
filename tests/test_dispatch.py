@@ -433,8 +433,8 @@ class TestDispatch(unittest.TestCase):
     # the cases of jet_contract, as (string, the position of a leaf of two slots or None): a ride; a product with a
     # leaf; a product of two full jets and a readout of three (where the forms over the orders differ with one jet
     # variable); a readout with a leaf
-    JET_RIDE, JET_LEAF, JET_FULL = ('JWKCo,Cio->JWKCi', None), ('JWCa,KCaib,JWCi->JWKCb', 2), ('JWCa,KCaib,JWCb->JWKCi', None)
-    JET_READOUT, JET_READOUT_FULL = ('JWCa,JWCi,JWKCb->KCaib', 1), ('JWCa,JWCi,JWKCb->KCaib', None)
+    JET_RIDE, JET_LEAF, JET_FULL = ('PWKCo,Cio->PWKCi', None), ('PWCa,KCaib,PWCi->PWKCb', 2), ('PWCa,KCaib,PWCb->PWKCi', None)
+    JET_READOUT, JET_READOUT_FULL = ('PWCa,PWCi,PWKCb->KCaib', 1), ('PWCa,PWCi,PWKCb->KCaib', None)
     JET_CASES = (JET_RIDE, JET_LEAF, JET_FULL, JET_READOUT, JET_READOUT_FULL)
 
     def _jet_operands(self, case, order, dtype=np.float64):
@@ -444,7 +444,7 @@ class TestDispatch(unittest.TestCase):
         box = tuple(n + 1 for n in order)
         sizes = {p: (tuple(min(2, f) for f in box) if p == leaf else box) for p in jet_cases.jet_operands(string)}
         arrays = jet_cases.build(string, sizes, shape_of, rng)
-        lens = contractions.GroupLengths(J=len(order), W=2, K=1, C=1)
+        lens = contractions.GroupLengths(P=len(order), W=2, K=1, C=1)
         return [a.astype(dtype) for a in arrays], lens
 
     def test_jit_jet_contract(self):
@@ -489,11 +489,11 @@ class TestDispatch(unittest.TestCase):
         # a lone readout whose corner its operand does not reach (the zeros of a coefficient), and a pair no
         # combination brings to the corner (the empty-sum fallback, with the looped coefficients zeroed). Each
         # jitted, and with each operand in turn closed over as numpy: a host numpy call in either branch raises.
-        for string, sizes, order in (('JWCi,Cio->WCo', {0: (2,)}, (3,)),
-                                     ('JWCa,JWCi,JWCb->Caib', {0: (2,), 1: (2,), 2: (2,)}, (6,))):
+        for string, sizes, order in (('PWCi,Cio->WCo', {0: (2,)}, (3,)),
+                                     ('PWCa,PWCi,PWCb->Caib', {0: (2,), 1: (2,), 2: (2,)}, (6,))):
             shape_of = dict(W=(2, 2), K=(), C=(2,))
             arrays = [a.astype(np.float32) for a in jet_cases.build(string, sizes, shape_of, np.random.default_rng(0))]
-            lens = contractions.GroupLengths(J=1, W=2, K=0, C=1)
+            lens = contractions.GroupLengths(P=1, W=2, K=0, C=1)
             fn = lambda *ops: contractions.jet_contract(string, *ops, lens=lens, order=order, over_orders='loop')
             on_numpy = fn(*arrays)
             self.assertFalse(np.any(on_numpy))                  # nothing reaches the corner: zeros
@@ -533,7 +533,7 @@ class TestDispatch(unittest.TestCase):
                 self.assertEqual(0, program(case, (3,), 'loop').count('scan['))
                 self.assertEqual(n_lines(case, (2,), 'scan'), n_lines(case, (8,), 'scan'))
                 self.assertLess(n_lines(case, (2,), 'loop'), n_lines(case, (8,), 'loop'))
-        for case in (self.JET_RIDE, self.JET_LEAF, self.JET_READOUT, ('JWCi,JWKCo->KCio', None)):
+        for case in (self.JET_RIDE, self.JET_LEAF, self.JET_READOUT, ('PWCi,PWKCo->KCio', None)):
             for form in ('scan', 'loop'):
                 with self.subTest(case=case, over_orders=form):
                     self.assertEqual(0, program(case, (3,), form).count('scan['))
@@ -704,7 +704,7 @@ class TestDispatch(unittest.TestCase):
         shape, W, order = (4, 3, 5), (2,), (2,)
         ww = [rng.standard_normal(W + (n,)) for n in shape]
         pp = [rng.standard_normal(W + (n,)) for n in shape]
-        line, plane = list(jets.affine_jet(ww, pp)), list(jets.affine_jet(ww, pp, pp))     # J_in = (2,), (2, 2)
+        line, plane = list(jets.affine_jet(ww, pp)), list(jets.affine_jet(ww, pp, pp))     # F_in = (2,), (2, 2)
         scales = [0.5 + rng.random(n) for n in shape]
         y = [rng.standard_normal((3,) + W + (n,)) for n in shape]
         y_plane = rng.standard_normal((2, 3) + W)                   # apply at (1, 2)
@@ -776,7 +776,7 @@ class TestDispatch(unittest.TestCase):
         shape, W, order = (4, 3, 5), (2,), (2,)
         ww = [rng.standard_normal(W + (n,)) for n in shape]
         pp = [rng.standard_normal(W + (n,)) for n in shape]
-        line = list(jets.affine_jet(ww, pp))                                # the input jets, J_in = (2,)
+        line = list(jets.affine_jet(ww, pp))                                # the input jets, F_in = (2,)
         scales = [0.5 + rng.random(n) for n in shape]
         to_jax = lambda tree: jax.tree_util.tree_map(jnp.asarray, tree)
         for kind, y in (('probe', [rng.standard_normal((3,) + W + (n,)) for n in shape]),
@@ -812,7 +812,7 @@ class TestDispatch(unittest.TestCase):
         shape, W = (4, 3, 5), (2,)
         ww = [rng.standard_normal(W + (n,)) for n in shape]
         pp = [rng.standard_normal(W + (n,)) for n in shape]
-        line = [jnp.asarray(w) for w in jets.affine_jet(ww, pp)]            # J_in = (2,)
+        line = [jnp.asarray(w) for w in jets.affine_jet(ww, pp)]            # F_in = (2,)
         index = jnp.asarray(np.stack([rng.integers(0, n, size=W) for n in shape]))
         y_probe = [jnp.zeros((3,) + W + (n,)) for n in shape]
         y_apply, w_probe, w_apply = jnp.zeros((3,) + W), jnp.ones((3, 3)), jnp.ones(3)

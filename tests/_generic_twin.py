@@ -100,7 +100,7 @@ def run(B, G, w, left, right, box):
 
 
 def twin(frame, ww, order, y, weight):
-    """The probe kind's variables at a manifold frame ``(D, U, L, R)`` and input jets ``ww`` (``J_in_i + W +
+    """The probe kind's variables at a manifold frame ``(D, U, L, R)`` and input jets ``ww`` (``F_in_i + W +
     (N_i,)``), the jet shape ``order``, the data ``y`` (``F + W + (N_i,)`` per mode) and the weight ``(d,) + F``.
 
     Returns a dict of tuples over the index (the engine's shapes): ``z``, ``r``, ``w_tilde``, ``xi``, ``mu``, ``nu``,

@@ -992,14 +992,14 @@ def index_to_one_hot(
 ######################################################################
 
 def _require_input_jets(
-        ww:     typ.Any,                     # expected: len=d, elm_shape=J_in_i+W+(Ni,)
+        ww:     typ.Any,                     # expected: len=d, elm_shape=F_in_i+W+(Ni,)
         shape:  typ.Sequence[int],           # the mode sizes N_i, len=d
         m:      int,                         # the number of jet variables
 ) -> typ.Tuple[int, ...]:                    # W, read from the first input after its m jet axes
-    '''A tuple or a list of ``d`` arrays, the ``i``-th of shape ``J_in_i + W + (N_i,)`` with ``m`` jet axes of at
+    '''A tuple or a list of ``d`` arrays, the ``i``-th of shape ``F_in_i + W + (N_i,)`` with ``m`` jet axes of at
     least one slot each, and one ``W`` for all.'''
     d = len(shape)
-    form = 'J_in_i+W+(Ni,), with %d leading jet axes' % m if m else 'W+(Ni,)'
+    form = 'F_in_i+W+(Ni,), with %d leading jet axes' % m if m else 'W+(Ni,)'
     if not isinstance(ww, (tuple, list)):
         raise ValueError('ww must be a tuple or a list of %d arrays, one per mode, the i-th of shape %s; got a %s'
                          % (d, form, type(ww).__name__))
@@ -1030,7 +1030,7 @@ def check_sample(
         order:   typ.Tuple[int, ...],      # the jet shape (n_1, ..., n_m); entries: ()
         sample:  typ.Any,                  # ww (probe, apply: input jets) | index (entries)
         shape:   typ.Sequence[int],        # the mode sizes N_i, len=d
-) -> None:                                 # d arrays J_in_i+W+(Ni,), each with len(order) jet axes of size >= 1 and
+) -> None:                                 # d arrays F_in_i+W+(Ni,), each with len(order) jet axes of size >= 1 and
                                            #   one W for all; or index (d,)+W, integer
     """Check the form and the shapes of a sample against the jet shape and the mode sizes; raise a ``ValueError``
     if wrong.
@@ -1038,7 +1038,7 @@ def check_sample(
     What a good sample is:
 
     - for ``'probe'`` and ``'apply'``, the input jets ``ww``: a tuple or a list of ``d`` arrays, the ``i``-th of
-      shape ``J_in_i + W + (N_i,)``. Its first ``m = len(order)`` axes are the jet axes, of sizes of its own, each
+      shape ``F_in_i + W + (N_i,)``. Its first ``m = len(order)`` axes are the jet axes, of sizes of its own, each
       at least 1 (an input with fewer slots than the box is zero beyond them; one with more is not read beyond
       the box); then the sample stack ``W``, the same for every mode; then the mode axis, of size ``N_i``;
     - for ``'entries'``, one integer array ``index`` of shape ``(d,) + W``, with ``order = ()``: the entries kind
@@ -1052,7 +1052,7 @@ def check_sample(
     and pass; and a jet shape with one variable too many reads an axis of ``W`` as a jet axis (``(1, 1)`` given for a
     line), and passes too. The jet shape is never inferred from the sample; say it.
 
-    This is the ragged form of a sample. Vectors packed for the uniform layout, one array ``(d,) + J + W + (N,)``,
+    This is the ragged form of a sample. Vectors packed for the uniform layout, one array ``(d,) + F_in + W + (N,)``,
     are not accepted: check before packing. The values are not looked at (an index out of range is not caught).
     Shapes are static, so the check also runs under ``jax.jit``.
 
@@ -1100,7 +1100,7 @@ def check_sample(
     Traceback (most recent call last):
         ...
     ValueError: ww[0] has shape (7, 4): too few axes for the jet shape, which has 2 jet axes, before ...
-    >>> mixed = [np.random.randn(2, 7, 4), np.random.randn(3, 7, 5), np.random.randn(1, 7, 6)]  # J_in: (2,), (3,), (1,)
+    >>> mixed = [np.random.randn(2, 7, 4), np.random.randn(3, 7, 5), np.random.randn(1, 7, 6)]  # F_in: (2,), (3,), (1,)
     >>> jets.check_sample('probe', (2,), mixed, shape)          # good: one jet axis, sizes of their own
     >>> jets.check_sample('probe', (), mixed, shape)            # doctest: +IGNORE_EXCEPTION_DETAIL
     Traceback (most recent call last):
@@ -1181,7 +1181,7 @@ def check_data(
     >>> np.random.seed(0)
     >>> ww = [np.random.randn(7, N) for N in (4, 5, 6)]         # W = (7,)
     >>> pp = [np.random.randn(7, N) for N in (4, 5, 6)]
-    >>> line = jets.affine_jet(ww, pp)                          # J_in = (2,)
+    >>> line = jets.affine_jet(ww, pp)                          # F_in = (2,)
     >>> jets.check_data('apply', (2,), line, np.zeros((3, 7)))                         # F + W: good
     >>> jets.check_data('probe', (2,), line, [np.zeros((3, 7, N)) for N in (4, 5, 6)])
 

@@ -128,7 +128,7 @@ class TestEachMethodIsItsBackendFunction(Fixture):
             for order in ([(), (2,)] if kind != 'entries' else [()]):
                 s, kw = sample_of(kind, self.rng, order), okw(kind, order)
                 forms = [('ragged', s)] + ([] if kind == 'entries' else
-                                           [('packed', ut3o.pack_vectors(s, 6, len_J=len(order)))])
+                                           [('packed', ut3o.pack_vectors(s, 6, len_P=len(order)))])
                 for form, su in forms:
                     with self.subTest(kind=kind, order=order, sample=form):
                         for name, args in (('', ()), ('_corewise_tangent', (None,))):

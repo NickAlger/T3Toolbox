@@ -117,7 +117,7 @@ class TestTheScatter(unittest.TestCase):
         self.index = np.array([[1, 1, 3, 1], [0, 2, 2, 0]])               # W = (2, 4): 1 thrice, then 2, 0 twice
         self.eta = rng.standard_normal((2, 4, 2, 3, 5))                   # W + K + C + (n,), K = (2,), C = (3,)
         self.D = rng.standard_normal((3, 5, 6))                           # C + (n, N), N = 6
-        self.lens = sv.contractions.GroupLengths(J=0, W=2, K=1, C=1)
+        self.lens = sv.contractions.GroupLengths(P=0, W=2, K=1, C=1)
 
     def test_duplicates_add_up(self):
         one_hot = np.eye(6)[self.index]                                   # W + (N,)
@@ -134,7 +134,7 @@ class TestTheScatter(unittest.TestCase):
         """The block's last axis is ``D``'s mode size ``N``, read off ``D`` even where the Tucker rank ``n`` is larger."""
         rng = np.random.default_rng(8)
         eta, index, D = rng.standard_normal((4, 5)), np.array([1, 0, 1, 1]), rng.standard_normal((5, 2))
-        lens = sv.contractions.GroupLengths(J=0, W=1, K=0, C=0)
+        lens = sv.contractions.GroupLengths(P=0, W=1, K=0, C=0)
         got = sampling_steps.V_scatter_step(eta, index, D, lens=lens, order=(), form='loop')
         self.assertEqual(got.shape, (5, 2))
         self.assertLessEqual(defs.relative_error(got, np.einsum('wn,wo->no', eta, np.eye(2)[index])), 1e-14)

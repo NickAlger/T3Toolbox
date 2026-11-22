@@ -550,7 +550,7 @@ class UT3Tangent(common.ExplicitEquality):
     # ------------------------------------------------------------- sampling (the bare Jacobian 𝒥)
     def probe(
             self,
-            ww:                typ.Sequence[NDArray],      # input jets: len=d, J_in_i+W+(Ni,); or packed (d,)+J+W+(N,)
+            ww:                typ.Sequence[NDArray],      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
             order:             typ.Tuple[int, ...] = (),   # the jet shape; F=tuple(n+1 for n in order)
     ) -> typ.Sequence[NDArray]:                            # Jp, MIRRORS ww: len=d, F+W+K+C+(Ni,); or packed
         """Probe this tangent vector: the single-sample bare Jacobian ``𝒥`` (contract all-but-one
@@ -582,7 +582,7 @@ class UT3Tangent(common.ExplicitEquality):
 
     def apply(
             self,
-            ww:                typ.Sequence[NDArray],      # input jets: len=d, J_in_i+W+(Ni,); or packed (d,)+J+W+(N,)
+            ww:                typ.Sequence[NDArray],      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
             order:             typ.Tuple[int, ...] = (),   # the jet shape; F=tuple(n+1 for n in order)
     ) -> NDArray:                                          # Jp. shape=F+W+K+C
         """Apply this tangent vector in all modes (the all-modes special case of :py:meth:`probe`; a scalar
@@ -631,7 +631,7 @@ class UT3Tangent(common.ExplicitEquality):
     @staticmethod
     def probe_transpose(
             frame:             ubv.UT3Frame,               # the orthogonal frame the tangent attaches at
-            ww:                typ.Sequence[NDArray],      # input jets: len=d, J_in_i+W+(Ni,); or packed (d,)+J+W+(N,)
+            ww:                typ.Sequence[NDArray],      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
             residual:          typ.Sequence[NDArray],      # of the type of z: len=d, F+W+[K]+C+(Ni,); or packed
             order:             typ.Tuple[int, ...] = (),   # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: keep the sample stack W (W+K tangents)
@@ -677,7 +677,7 @@ class UT3Tangent(common.ExplicitEquality):
     @staticmethod
     def apply_transpose(
             frame:             ubv.UT3Frame,               # the orthogonal frame the tangent attaches at
-            ww:                typ.Sequence[NDArray],      # input jets: len=d, J_in_i+W+(Ni,); or packed (d,)+J+W+(N,)
+            ww:                typ.Sequence[NDArray],      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
             residual:          NDArray,                    # of the type of z: shape=F+W+[K]+C
             order:             typ.Tuple[int, ...] = (),   # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: keep the sample stack W (W+K tangents)

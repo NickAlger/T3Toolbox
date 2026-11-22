@@ -69,7 +69,7 @@ def _as_index(
 
 
 def _sample_shape(
-        ww,                 # input jets, len=d, elm_shape=J_in_i+W+(Ni,)
+        ww,                 # input jets, len=d, elm_shape=F_in_i+W+(Ni,)
 ) -> Tuple[int, ...]:       # (N0, ..., N(d-1)) read off the vectors' last axes; () if ww is not a sequence
     '''The mode sizes a frame-free sample implies (the ambient transposes have no object to read them from).'''
     return tuple(np.shape(w)[-1] for w in ww) if isinstance(ww, (tuple, list)) else ()
@@ -3567,7 +3567,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
 
     def apply(
             self,
-            ww:     Sequence[NDArray],          # input jets, len=d, elm_shape=J_in_i+W+(Ni,)
+            ww:     Sequence[NDArray],          # input jets, len=d, elm_shape=F_in_i+W+(Ni,)
             order:  Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
     ) -> NDArray:                               # z. shape=F+W+C
         '''Contract a Tucker tensor train with vectors in all indices.
@@ -3659,7 +3659,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
 
     def probe(
             self,
-            ww:     Sequence[NDArray],          # input jets, len=d, elm_shape=J_in_i+W+(Ni,)
+            ww:     Sequence[NDArray],          # input jets, len=d, elm_shape=F_in_i+W+(Ni,)
             order:  Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
     ) -> Tuple[NDArray, ...]:                   # z. len=d, elm_shape=F+W+C+(Ni,)
         """Probe a TuckerTensorTrain.
@@ -3817,7 +3817,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
 
     def probe_corewise_transpose(
             self,
-            ww:                Sequence[NDArray],          # input jets, len=d, elm_shape=J_in_i+W+(Ni,)
+            ww:                Sequence[NDArray],          # input jets, len=d, elm_shape=F_in_i+W+(Ni,)
             residual:          Sequence[NDArray],          # of the type of z: len=d, elm_shape=F+W+[K]+C+(Ni,)
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: W joins the stack
@@ -3976,7 +3976,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
 
     def apply_corewise_transpose(
             self,
-            ww:                Sequence[NDArray],          # input jets, len=d, elm_shape=J_in_i+W+(Ni,)
+            ww:                Sequence[NDArray],          # input jets, len=d, elm_shape=F_in_i+W+(Ni,)
             residual:          NDArray,                    # of the type of z: shape=F+W+[K]+C
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: W joins the stack
@@ -4062,7 +4062,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
 
     def probe_corewise_tangent(
             self,
-            ww:                Sequence[NDArray],          # input jets, len=d, elm_shape=J_in_i+W+(Ni,)
+            ww:                Sequence[NDArray],          # input jets, len=d, elm_shape=F_in_i+W+(Ni,)
             core_directions:   Tuple,                      # (tucker_dirs, tt_dirs): the cores' shapes with K
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
     ) -> Tuple[NDArray, ...]:                              # J x_dot. len=d, elm_shape=F+W+K+C+(Ni,)
@@ -4103,7 +4103,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
 
     def apply_corewise_tangent(
             self,
-            ww:                Sequence[NDArray],          # input jets, len=d, elm_shape=J_in_i+W+(Ni,)
+            ww:                Sequence[NDArray],          # input jets, len=d, elm_shape=F_in_i+W+(Ni,)
             core_directions:   Tuple,                      # (tucker_dirs, tt_dirs): the cores' shapes with K
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
     ) -> NDArray:                                          # J x_dot. shape=F+W+K+C
@@ -4125,7 +4125,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
 
     def probe_corewise_hessian(
             self,
-            ww:                Sequence[NDArray],          # input jets, len=d, elm_shape=J_in_i+W+(Ni,)
+            ww:                Sequence[NDArray],          # input jets, len=d, elm_shape=F_in_i+W+(Ni,)
             residual:          Sequence[NDArray],          # c, of the type of z: len=d, elm_shape=F+W+C+(Ni,)
             core_directions:   Tuple,                      # (tucker_dirs, tt_dirs): the cores' shapes with K
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
@@ -4170,7 +4170,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
 
     def apply_corewise_hessian(
             self,
-            ww:                Sequence[NDArray],          # input jets, len=d, elm_shape=J_in_i+W+(Ni,)
+            ww:                Sequence[NDArray],          # input jets, len=d, elm_shape=F_in_i+W+(Ni,)
             residual:          NDArray,                    # c, of the type of z: shape=F+W+C
             core_directions:   Tuple,                      # (tucker_dirs, tt_dirs): the cores' shapes with K
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)

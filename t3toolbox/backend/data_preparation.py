@@ -10,7 +10,7 @@ the batch is made; no fitting function has a keyword for any of them. They are p
 of a sample and its data (for the probe kind a tuple or a list, one array per mode; not arrays packed for the
 uniform layout). Each chooses numpy or jax once, over all the arrays it is given: if any is a jax array, every
 array it computes is. The jet shape ``order = (n_1, ..., n_m)`` is a tuple (an integer raises), the samples are
-input jets (``J_in_i + W + (Ni,)``, ``m`` leading jet axes of sizes of their own), and the data have the full jet
+input jets (``F_in_i + W + (Ni,)``, ``m`` leading jet axes of sizes of their own), and the data have the full jet
 sizes ``F = (n_1 + 1, ..., n_m + 1)``; the entries kind has no jets.
 
 Three kinds of preparation, in the order in which they are usually applied:
@@ -49,7 +49,7 @@ directions that are too short.
 >>> T = np.random.randn(*shape)                                          # a dense tensor, for the data
 >>> ww = [np.random.randn(W, N) for N in shape]
 >>> pp = [1e-2 * np.random.randn(W, N) for N in shape]                   # directions 100 times too short
->>> line = affine_jet(ww, pp)                                            # the input jets: J_in = (2,)
+>>> line = affine_jet(ww, pp)                                            # the input jets: F_in = (2,)
 >>> y = probing.dense_probe(T, line, order)                              # len=d, elm_shape=F+W+(Ni,)
 
 The norm of each block, one row per mode and one column per slot, falls by about 100 per slot:
@@ -266,20 +266,20 @@ def _slot_factors(
 
 
 def _scale_jet(
-        jet_JX:   typ.Any,                  # shape=J+X: m leading jet axes of sizes of its own
+        jet_PX:   typ.Any,                  # shape=P+X: m leading jet axes of sizes of its own
         lengths:  typ.Sequence[typ.Any],    # len=m
         xnp,
-) -> NDArray:                               # shape=J+X: slot k multiplied by length_1**k_1 ... length_m**k_m
-    jet_JX = xnp.asarray(jet_JX)
+) -> NDArray:                               # shape=P+X: slot k multiplied by length_1**k_1 ... length_m**k_m
+    jet_PX = xnp.asarray(jet_PX)
     m = len(lengths)
-    factors_J = _slot_factors(lengths, tuple(jet_JX.shape[:m]), _lowest_precision_dtype(xnp, jet_JX), xnp)
-    return factors_J.reshape(factors_J.shape + (1,) * (jet_JX.ndim - m)) * jet_JX
+    factors_P = _slot_factors(lengths, tuple(jet_PX.shape[:m]), _lowest_precision_dtype(xnp, jet_PX), xnp)
+    return factors_P.reshape(factors_P.shape + (1,) * (jet_PX.ndim - m)) * jet_PX
 
 
 def rescale_direction(
         kind:    str,                      # 'probe' | 'apply'
         order:   typ.Tuple[int, ...],      # the jet shape (n_1, ..., n_m), at least one jet variable
-        sample:  typ.Any,                  # ww, the input jets: len=d, elm_shape=J_in_i+W+(Ni,)
+        sample:  typ.Any,                  # ww, the input jets: len=d, elm_shape=F_in_i+W+(Ni,)
         y:       typ.Any,                  # of the type of z: probe len=d, elm_shape=F+W+(Ni,); apply F+W
         length:  typ.Any,                  # a number or a 0-d array, or one per jet variable (len=m): slot k of the
                                            #   input jets and of y times length_1**k_1 ... length_m**k_m   (loss-only)
@@ -382,7 +382,7 @@ def rescale_direction(
         raise ValueError('rescale_direction: length is one number, or one per jet variable (%d); got shape %s'
                          % (m, np.shape(length)))
     xnp, _, _ = get_backend(False, tree_contains_jax((sample, y, length)))  # once, over all the inputs
-    scaled_sample = tuple(_scale_jet(w_JWo, lengths, xnp) for w_JWo in sample)
+    scaled_sample = tuple(_scale_jet(w_PWo, lengths, xnp) for w_PWo in sample)
     if kind == 'probe':
         return scaled_sample, tuple(_scale_jet(y_FWo, lengths, xnp) for y_FWo in y)
     return scaled_sample, _scale_jet(y, lengths, xnp)
@@ -391,7 +391,7 @@ def rescale_direction(
 def rescale_coordinates(
         kind:    str,                      # 'probe' | 'apply'
         order:   typ.Tuple[int, ...],      # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
-        sample:  typ.Any,                  # ww, the input jets: len=d, elm_shape=J_in_i+W+(Ni,)
+        sample:  typ.Any,                  # ww, the input jets: len=d, elm_shape=F_in_i+W+(Ni,)
         y:       typ.Any,                  # of the type of z: probe len=d, elm_shape=F+W+(Ni,); apply F+W
         scales:  typ.Sequence[NDArray],    # len=d, elm_shape=(Ni,): coordinate j of mode i times scales[i][j]
 ) -> typ.Tuple[
@@ -486,7 +486,7 @@ def rescale_coordinates(
         raise ValueError("rescale_coordinates is for 'probe' and 'apply': the entries kind takes grid points, "
                          "which have no coordinates to rescale")
     xnp, _, _ = get_backend(False, tree_contains_jax((sample, y, scales)))  # once, over all the inputs
-    scaled_sample = tuple(_scaled(w_JWo, s_o, xnp) for w_JWo, s_o in zip(sample, scales))
+    scaled_sample = tuple(_scaled(w_PWo, s_o, xnp) for w_PWo, s_o in zip(sample, scales))
     if kind == 'probe':
         return scaled_sample, tuple(_scaled(y_FWo, s_o, xnp, divide=True) for y_FWo, s_o in zip(y, scales))
     return scaled_sample, y

@@ -27,7 +27,7 @@ suite carries the weight the per-function oracles used to. Independent lines of 
    expanded einsum, hence bitwise-equal results.
 5. Generic strings beyond the library, and the error contract.
 6. **The strings ``jet_contract`` derives** (`TestJetContractDerivedStrings`): ``jet_contract`` hands
-   ``contract`` its literal with the jet group ``J`` deleted from the operands it takes one coefficient at
+   ``contract`` its literal with the jet group ``P`` deleted from the operands it takes one coefficient at
    a time. Every string it hands over, for every literal, is a valid grouped string, comes with the length
    of every group it names, and gives the definition's value.
 
@@ -443,7 +443,7 @@ def scan_vocabulary():
     The first argument of a ``jet_contract`` call is left out (P5, option (b) of the P1 handover, decided by the
     orchestrator 2026-11-20): ``jet_contract`` never hands it to ``contract`` without the length of every group, so
     its identifiability is moot, and ``TestJetContractDerivedStrings`` checks every string it hands over against
-    the loop oracle. ``TestJetLiteralsStayInJetContract`` pins that no other literal names ``J``."""
+    the loop oracle. ``TestJetLiteralsStayInJetContract`` pins that no other literal names ``P``."""
     vocab = set()
     for path in sorted(LIBRARY_ROOT.rglob('*.py')):
         tree = ast.parse(path.read_text())
@@ -749,20 +749,41 @@ def scan_literal_jet_call_sites():
 
 class TestJetLiteralsStayInJetContract(unittest.TestCase):
     """The two guards of leaving the ``jet_contract`` literals out of ``scan_vocabulary``: (i) a grouped string
-    literal of the library that names the jet group ``J`` is the first argument of a ``jet_contract`` call (so no
+    literal of the library that names the jet group ``P`` is the first argument of a ``jet_contract`` call (so no
     such string reaches ``contract`` unswept); (ii) every literal of a ``jet_contract`` call is in
     ``_jet_contract_cases.STRINGS`` (so the case file stays the list of what the library writes)."""
 
-    def test_every_J_literal_is_a_jet_contract_literal(self):
+    def test_every_P_literal_is_a_jet_contract_literal(self):
+        found = set()
         for path in sorted(LIBRARY_ROOT.rglob('*.py')):
             tree = ast.parse(path.read_text())
             jet_literals = _jet_contract_literals(tree)
             for node in ast.walk(tree):
                 if isinstance(node, ast.Constant) and isinstance(node.value, str):
                     s = node.value.replace(' ', '')
-                    if SUBS_RE.match(s) and 'J' in s:
+                    if SUBS_RE.match(s) and 'P' in s:
+                        found.add(s)
                         with self.subTest(site='%s:%d' % (path.relative_to(LIBRARY_ROOT), node.lineno), subs=s):
                             self.assertIn(id(node), jet_literals)
+        # The floor: the scan finds exactly the jet_contract literals. A filter that reads another letter than the
+        # jet group finds none, and the loop above would pass with nothing checked (M0).
+        self.assertEqual(scan_literal_jet_call_sites(), found)
+
+    def test_no_literal_names_the_retired_J(self):
+        """The jet group was ``J`` until M0 (2026-11-22). ``jet_contract`` refuses a ``J`` string, but ``contract``
+        takes any letter as a group, so a stale ``J`` string handed to it would run. No grouped string of the
+        library names ``J``."""
+        stale, scanned = [], 0
+        for path in sorted(LIBRARY_ROOT.rglob('*.py')):
+            for node in ast.walk(ast.parse(path.read_text())):
+                if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                    s = node.value.replace(' ', '')
+                    if SUBS_RE.match(s):
+                        scanned += 1
+                        if 'J' in s:
+                            stale.append('%s:%d %s' % (path.relative_to(LIBRARY_ROOT), node.lineno, s))
+        self.assertGreater(scanned, 100, 'the scan found suspiciously few subscripts')
+        self.assertEqual([], stale)
 
     def test_every_jet_contract_literal_is_in_the_cases(self):
         strings = {string for _, string in jet_cases.ALL_STRINGS}
@@ -773,9 +794,9 @@ class TestJetLiteralsStayInJetContract(unittest.TestCase):
 
 class TestJetContractDerivedStrings(unittest.TestCase):
     """``jet_contract`` carries a term out with ``contract`` calls on slices of the jet axes, each on a string
-    it DERIVES from its literal: the literal itself, or the literal with ``J`` deleted from the operands taken
+    it DERIVES from its literal: the literal itself, or the literal with ``P`` deleted from the operands taken
     one coefficient at a time. Recorded by spying on ``contract``, over the 29 strings of the sampling terms
-    and every literal ``jet_contract`` call site in the library, with three records (``J = 0, 1, 2``: no jets,
+    and every literal ``jet_contract`` call site in the library, with three records (``P = 0, 1, 2``: no jets,
     one jet variable at the jet shape ``(2,)``, two at ``(1, 2)``), the operand shapes the library gives each
     string, under both forms over the orders. For every recorded call:
 
@@ -820,7 +841,7 @@ class TestJetContractDerivedStrings(unittest.TestCase):
                 shape_of = dict(W=(3,), K=(2,) if 'K' in literal else (), C=(2,))
                 for label, sizes, out_order in (self._library_shapes(literal, order) if order else [('', {}, ())]):
                     arrays = jet_cases.build(literal, sizes, shape_of, rng)
-                    record = contractions.GroupLengths(J=len(out_order), W=1, K=len(shape_of['K']), C=1)
+                    record = contractions.GroupLengths(P=len(out_order), W=1, K=len(shape_of['K']), C=1)
                     with unittest.mock.patch.object(contractions, 'contract', wraps=contract) as spy:
                         contractions.jet_contract(literal, *arrays, lens=record, order=out_order, over_orders=form)
                     self.assertGreaterEqual(spy.call_count, 1)
@@ -832,7 +853,7 @@ class TestJetContractDerivedStrings(unittest.TestCase):
                             self.assertEqual(out, made_out)
                             self.assertEqual(len(terms), len(made_terms))
                             for term, made_term in zip(terms, made_terms):
-                                self.assertIn(made_term, (term, term.replace('J', '')))
+                                self.assertIn(made_term, (term, term.replace('P', '')))
                             self.assertEqual({'len_' + g for g in groups_of(made)}, set(lens))
                             for g in groups_of(made):
                                 self.assertEqual(getattr(record, g), lens['len_' + g])
@@ -844,7 +865,7 @@ class TestJetContractDerivedStrings(unittest.TestCase):
                             derived.add(made)
         # Every literal is handed over as written (with no jets, and for the rides). Of the 29 strings of the
         # sampling terms, 21 multiply jets (the products and the readouts); the 5 V readouts fold their pair on
-        # the literal itself, and the other 16 give 24 distinct strings with J deleted from one operand: one per
+        # the literal itself, and the other 16 give 24 distinct strings with P deleted from one operand: one per
         # mu and per eta string (the carrier is the first operand, whatever the leaf), two per nu string (a leaf
         # of two slots is taken one coefficient at a time; a full leaf ties with nu and, first in the string,
         # carries), two per H string (with a leaf of two slots the pair is mu and nu, with a full leaf mu and the
@@ -852,7 +873,7 @@ class TestJetContractDerivedStrings(unittest.TestCase):
         # three H, two each: 30.
         self.assertEqual(set(literals), derived & set(literals))
         from_the_29 = {made for made in derived - set(literals)
-                       if any(made.replace('J', '') == string.replace('J', '') for _, string in jet_cases.ALL_STRINGS)}
+                       if any(made.replace('P', '') == string.replace('P', '') for _, string in jet_cases.ALL_STRINGS)}
         self.assertEqual(30, len(from_the_29))
 
     def test_the_literal_call_sites_pass_the_record_and_the_form(self):

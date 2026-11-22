@@ -64,7 +64,7 @@ zero).
 
 **Jets.** The jet shape ``order = (n_1, ..., n_m)`` is a tuple of maximum orders, one per jet variable ``s_1 ...
 s_m``; ``order = ()`` is no jets. The inputs are then **input jets**: ``ww[i]`` has ``m`` leading jet axes of
-sizes of its own, ``J_in_i``, and its slot at the multi-index ``k`` is the Taylor coefficient of
+sizes of its own, ``F_in_i``, and its slot at the multi-index ``k`` is the Taylor coefficient of
 ``s_1^k_1 ... s_m^k_m`` of the input vector (zero beyond its sizes). The line ``w + s p`` is the input jet of two
 slots, ``np.stack([w, p])``; two directions make a jet in two variables; a curve has more slots. Every variable is
 then a polynomial in ``s``, returned as its Taylor coefficients (not derivatives) on the box ``F = (n_1 + 1, ...,
@@ -93,7 +93,7 @@ of the residual, or ``w_tilde`` for a seed of your own; ``w_tilde`` wins where b
 - ``kind``: ``'probe'``, ``'apply'`` or ``'entries'``.
 - ``frame``: ``(D, U, L, R)``, each ``len=d``. A corewise point ``(B, G)`` is the frame ``(B, G, G, G)``; on it
   ``nu_L`` and ``nu`` are one array, and so are ``eta_D`` and ``eta``.
-- ``sample``: the input jets ``ww`` (``len=d``, ``elm_shape=J_in_i+W+(Ni,)``; with ``order = ()``, ``W+(Ni,)``),
+- ``sample``: the input jets ``ww`` (``len=d``, ``elm_shape=F_in_i+W+(Ni,)``; with ``order = ()``, ``W+(Ni,)``),
   or for ``'entries'`` the grid points ``index`` (int, ``shape=(d,)+W``). ``order`` says how many leading axes of
   ``ww[i]`` are jet axes, never the shape of the array.
 - ``i``: the index of the variable: a bond ``0 .. d`` for ``mu`` and ``nu`` (in any basis and grade), a site
@@ -226,9 +226,9 @@ class _Setting:
     U:           typ.List[NDArray]         # len=d, elm_shape=(rLi,nUi,rR(i+1))
     L:           typ.List[NDArray]         # len=d, elm_shape=(rLi,nDi,rL(i+1))
     R:           typ.List[NDArray]         # len=d, elm_shape=(rRi,nDi,rR(i+1))
-    ww:          typ.List[NDArray]         # len=d, elm_shape=J_in_i+W+(Ni,): the input jets as given (unit vectors
+    ww:          typ.List[NDArray]         # len=d, elm_shape=F_in_i+W+(Ni,): the input jets as given (unit vectors
                                            #   for entries)
-    leaf_sizes:  typ.List[typ.Tuple[int, ...]]     # len=d: the input jet sizes clipped to F, min(J_in_i, F)
+    leaf_sizes:  typ.List[typ.Tuple[int, ...]]     # len=d: the input jet sizes clipped to F, min(F_in_i, F)
     nodes:       typ.Tuple[np.ndarray, ...]        # HOST complex128, len=m, elm_shape=(M_j,): the values of s_j
     inputs:      typ.List[NDArray]         # len=d, elm_shape=M+(Ni,): the input jets on the grid; complex if m >= 1
     M:           typ.Tuple[int, ...]       # G + W
@@ -237,7 +237,7 @@ class _Setting:
 def _setting(
         kind:    str,           # 'probe' | 'apply' | 'entries'
         frame:   typ.Tuple,     # (D, U, L, R)
-        sample:  typ.Any,       # ww (the input jets, len=d, elm_shape=J_in_i+W+(Ni,)) | index (entries)
+        sample:  typ.Any,       # ww (the input jets, len=d, elm_shape=F_in_i+W+(Ni,)) | index (entries)
         order:   typ.Any,       # the jet shape
 ) -> _Setting:
     '''Read the common arguments. Raises only on what cannot be run: a jet shape that is not one, an unknown kind,
@@ -289,7 +289,7 @@ def _complex(
 
 def _on_grid(
         nodes:  typ.Tuple[np.ndarray, ...],     # HOST complex128, len=m, elm_shape=(M_j,)
-        jet:    NDArray,                        # shape=J+X: a polynomial in s_1 .. s_m, its m leading axes the slots
+        jet:    NDArray,                        # shape=P+X: a polynomial in s_1 .. s_m, its m leading axes the slots
 ) -> NDArray:                                   # shape=G+X: its values on the grid, G = (M_1, ..., M_m)
     '''A jet evaluated on the grid of nodes: the sum over its slots ``k`` of ``jet[k] s_1^k_1 ... s_m^k_m``. With no
     jet variable, the jet itself.'''
@@ -846,7 +846,7 @@ def _Kp(S: _Setting, seed: typ.Any, core_directions: typ.Tuple) -> typ.Tuple:
 def w(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -855,11 +855,11 @@ def w(
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
         weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # w[i]. shape=min(J_in_i,F)+W+(Ni,)
+) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # w[i]. shape=min(F_in_i,F)+W+(Ni,)
     """``w[i]``: the input of site ``i``, as a jet.
 
     With no jets it is the input vector itself: ``ww[i]``, or for ``'entries'`` the unit vector ``e_index[i]``.
-    With a jet shape it is the input jet ``ww[i]`` as it is given, of its own jet sizes ``J_in_i`` (slots beyond the
+    With a jet shape it is the input jet ``ww[i]`` as it is given, of its own jet sizes ``F_in_i`` (slots beyond the
     box ``F`` are kept here, though no other variable reads them). For the line ``w + s p`` it has two slots,
     ``w[i][0] = ww[i]`` and ``w[i][1] = pp[i]``, whatever the order.
 
@@ -867,7 +867,7 @@ def w(
     -------
     NDArray or tuple of NDArray
         One array; with ``i`` None, a tuple of ``d`` of them.
-        ``w[i]``. shape=J_in_i+W+(Ni,)
+        ``w[i]``. shape=F_in_i+W+(Ni,)
 
     Examples
     --------
@@ -884,9 +884,9 @@ def w(
     >>> frame = (D, U, L, R)
     >>> ww = [rng.standard_normal((7, n)) for n in N]                      # W=(7,)
     >>> pp = [rng.standard_normal((7, n)) for n in N]                      # the direction the inputs move in
-    >>> line = [np.stack([w, p]) for w, p in zip(ww, pp)]                  # the input jets: J_in = (2,)
+    >>> line = [np.stack([w, p]) for w, p in zip(ww, pp)]                  # the input jets: F_in = (2,)
     >>> w1 = sdef.w('probe', frame, line, 1, order=(3,))
-    >>> print(w1.shape)                                                    # J_in + W + (N1,) = (2,) + (7,) + (5,)
+    >>> print(w1.shape)                                                    # F_in + W + (N1,) = (2,) + (7,) + (5,)
     (2, 7, 5)
     >>> print(bool(np.all(w1[0] == ww[1])), bool(np.all(w1[1] == pp[1])))
     True True
@@ -915,7 +915,7 @@ def w(
 def w_tilde(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the mode, 0 .. d-1 (probe only); None = all of it
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -957,7 +957,7 @@ def w_tilde(
     >>> frame = (D, U, L, R)
     >>> ww = [rng.standard_normal((7, n)) for n in N]                      # W=(7,)
     >>> pp = [rng.standard_normal((7, n)) for n in N]                      # the direction the inputs move in
-    >>> line = [np.stack([w, p]) for w, p in zip(ww, pp)]                  # the input jets: J_in = (2,)
+    >>> line = [np.stack([w, p]) for w, p in zip(ww, pp)]                  # the input jets: F_in = (2,)
     >>> y = [rng.standard_normal((3, 7, n)) for n in N]                    # the data: F + W + (Ni,), order (2,)
     >>> weight = 0.5 + rng.random((3, 3))                                  # (d,) + F
     >>> args = dict(order=(2,), y=y, weight=weight)
@@ -998,7 +998,7 @@ def w_tilde(
 def xi(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -1007,7 +1007,7 @@ def xi(
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
         weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # xi[i]. shape=min(J_in_i,F)+W+(nDi,)
+) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # xi[i]. shape=min(F_in_i,F)+W+(nDi,)
     """``xi[i]``: the leaf below Tucker edge ``i``, in the ``D`` basis: ``D[i]`` applied to the input ``w[i]``.
 
     Recurrence: ``xi[i] = xi_term(D[i], w[i])``, the contraction ``'io,Wo->Wi'``. It is a polynomial of the input's
@@ -1017,7 +1017,7 @@ def xi(
     -------
     NDArray or tuple of NDArray
         One array; with ``i`` None, a tuple of ``d`` of them.
-        ``xi[i]``. shape=min(J_in_i,F)+W+(nDi,)
+        ``xi[i]``. shape=min(F_in_i,F)+W+(nDi,)
 
     Examples
     --------
@@ -1044,7 +1044,7 @@ def xi(
 def mu(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the bond, 0 .. d; None = every bond
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -1129,7 +1129,7 @@ def mu(
 def nu(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the bond, 0 .. d; None = every bond
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -1177,7 +1177,7 @@ def nu(
 def eta(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -1227,7 +1227,7 @@ def eta(
 def nu_L(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the bond, 0 .. d; None = every bond
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -1274,7 +1274,7 @@ def nu_L(
 def eta_D(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -1329,7 +1329,7 @@ def eta_D(
 def xi_U_dot(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -1338,7 +1338,7 @@ def xi_U_dot(
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
         weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # xi_U_dot[i]. shape=min(J_in_i,F)+W+(nUi,)
+) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # xi_U_dot[i]. shape=min(F_in_i,F)+W+(nUi,)
     """``xi_U_dot[i]``: the leaf below Tucker edge ``i`` with the direction in it, in the ``U`` basis: ``V[i]`` applied
     to the input ``w[i]``. Needs ``variations``.
 
@@ -1348,7 +1348,7 @@ def xi_U_dot(
     -------
     NDArray or tuple of NDArray
         One array; with ``i`` None, a tuple of ``d`` of them.
-        ``xi_U_dot[i]``. shape=min(J_in_i,F)+W+(nUi,)
+        ``xi_U_dot[i]``. shape=min(F_in_i,F)+W+(nUi,)
 
     Examples
     --------
@@ -1378,7 +1378,7 @@ def xi_U_dot(
 def mu_R_dot(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the bond, 0 .. d; None = every bond
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -1440,7 +1440,7 @@ def mu_R_dot(
 def nu_L_dot(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the bond, 0 .. d; None = every bond
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -1547,7 +1547,7 @@ def nu_L_dot(
 def eta_D_dot(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -1623,7 +1623,7 @@ def eta_D_dot(
 def xi_dot(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -1632,7 +1632,7 @@ def xi_dot(
         y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
         weight:           typ.Optional[NDArray] = None,      # probe (d,)+F; apply F; entries (); None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
-) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # xi_dot[i]. shape=min(J_in_i,F)+W+(nDi,)
+) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # xi_dot[i]. shape=min(F_in_i,F)+W+(nDi,)
     """``xi_dot[i]``: the leaf below Tucker edge ``i`` with the raw direction in it, in the ``D`` basis: ``D_dot[i]``
     applied to the input ``w[i]``. Needs ``core_directions``.
 
@@ -1642,7 +1642,7 @@ def xi_dot(
     -------
     NDArray or tuple of NDArray
         One array; with ``i`` None, a tuple of ``d`` of them.
-        ``xi_dot[i]``. shape=min(J_in_i,F)+W+(nDi,)
+        ``xi_dot[i]``. shape=min(F_in_i,F)+W+(nDi,)
 
     Examples
     --------
@@ -1672,7 +1672,7 @@ def xi_dot(
 def mu_dot(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the bond, 0 .. d; None = every bond
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -1746,7 +1746,7 @@ def mu_dot(
 def xi_tilde(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -1808,7 +1808,7 @@ def xi_tilde(
 def mu_tilde(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the bond, 0 .. d; None = every bond
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -1876,7 +1876,7 @@ def mu_tilde(
 def nu_tilde(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the bond, 0 .. d; None = every bond
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -1961,7 +1961,7 @@ def nu_tilde(
 def eta_tilde(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -2026,7 +2026,7 @@ def eta_tilde(
 def nu_L_tilde(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the bond, 0 .. d; None = every bond
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -2090,7 +2090,7 @@ def nu_L_tilde(
 def eta_D_tilde(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -2163,7 +2163,7 @@ def eta_D_tilde(
 def xi_tilde_dot(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -2223,7 +2223,7 @@ def xi_tilde_dot(
 def mu_tilde_dot(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the bond, 0 .. d; None = every bond
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -2298,7 +2298,7 @@ def mu_tilde_dot(
 def nu_L_tilde_dot(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the bond, 0 .. d; None = every bond
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -2372,7 +2372,7 @@ def nu_L_tilde_dot(
 def eta_D_tilde_dot(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -2454,7 +2454,7 @@ def eta_D_tilde_dot(
 def z(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the mode, 0 .. d-1 (probe only); None = all of it
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -2523,7 +2523,7 @@ def z(
     >>> frame = (D, U, L, R)
     >>> ww = [rng.standard_normal((7, n)) for n in N]                      # W=(7,)
     >>> pp = [rng.standard_normal((7, n)) for n in N]                      # the direction the inputs move in
-    >>> line = [np.stack([w, p]) for w, p in zip(ww, pp)]                  # the input jets: J_in = (2,)
+    >>> line = [np.stack([w, p]) for w, p in zip(ww, pp)]                  # the input jets: F_in = (2,)
     >>> z1 = sdef.z('probe', frame, line, 1, order=(2,))
     >>> print(z1.shape)                                                    # F + W + (N1,) = (3,) + (7,) + (5,)
     (3, 7, 5)
@@ -2550,7 +2550,7 @@ def z(
 def r(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the mode, 0 .. d-1 (probe only); None = all of it
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -2595,7 +2595,7 @@ def r(
 def Jp(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the mode, 0 .. d-1 (probe only); None = all of it
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -2656,7 +2656,7 @@ def Jp(
 def g(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # None: it has no index
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -2719,7 +2719,7 @@ def g(
 def JtJp(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # None: it has no index
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -2772,7 +2772,7 @@ def JtJp(
 def Kp(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # None: it has no index
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -2841,7 +2841,7 @@ def Kp(
 def V_tilde(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -2895,7 +2895,7 @@ def V_tilde(
 def H_tilde(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -2953,7 +2953,7 @@ def H_tilde(
 def V_tilde_dot(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -3012,7 +3012,7 @@ def V_tilde_dot(
 def H_tilde_dot(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # the site, 0 .. d-1; None = every site
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -3087,7 +3087,7 @@ def H_tilde_dot(
 def f(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # None: it has no index
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -3135,7 +3135,7 @@ def f(
 def r_block_sumsq(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # None: it has no index
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,
@@ -3167,7 +3167,7 @@ def r_block_sumsq(
     >>> frame = (D, U, L, R)
     >>> ww = [rng.standard_normal((7, n)) for n in N]                      # W=(7,)
     >>> pp = [rng.standard_normal((7, n)) for n in N]                      # the direction the inputs move in
-    >>> line = [np.stack([w, p]) for w, p in zip(ww, pp)]                  # the input jets: J_in = (2,)
+    >>> line = [np.stack([w, p]) for w, p in zip(ww, pp)]                  # the input jets: F_in = (2,)
     >>> y = [rng.standard_normal((3, 7, n)) for n in N]                    # the data at (2,): F + W + (Ni,)
     >>> sums = sdef.r_block_sumsq('probe', frame, line, order=(2,), y=y)
     >>> print(sums.shape)                                                  # (d,) + F: one number per mode and slot
@@ -3191,7 +3191,7 @@ def r_block_sumsq(
 def Jp_norm_sq(
         kind:             str,                               # 'probe' | 'apply' | 'entries'
         frame:            typ.Tuple,                         # (D, U, L, R), each len=d
-        sample:           typ.Any,                           # ww (input jets, J_in_i+W+(Ni,)) | index (entries)
+        sample:           typ.Any,                           # ww (input jets, F_in_i+W+(Ni,)) | index (entries)
         i:                typ.Optional[int] = None,          # None: it has no index
         order:            typ.Tuple[int, ...] = (),          # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
         *,

@@ -126,10 +126,10 @@ def ut3_reverse(data: UT3Data) -> UT3Data:
 
 
 def pack_vectors(
-        unpacked_vectors: typ.Sequence[NDArray],  # len=d, ith elm_shape=J_i+stack_shape+(Ni,)
+        unpacked_vectors: typ.Sequence[NDArray],  # len=d, ith elm_shape=F_in_i+stack_shape+(Ni,)
         N: int = None,                            # padded length (default max(Ni))
-        len_J: int = 0,                           # the number of leading jet axes (sizes may differ by mode)
-) -> NDArray:                                     # packed, shape=(d,)+J+stack_shape+(N,), J the largest J_i
+        len_P: int = 0,                           # the number of leading jet axes (sizes may differ by mode)
+) -> NDArray:                                     # packed, shape=(d,)+F_in+stack_shape+(N,), F_in the largest F_in_i
     """Zero-pad and stack a sequence of (ragged-length) vectors into one supercore-shaped tensor.
 
     The pad fill is zeros, and must stay FINITE: masking works by multiplication, and
@@ -137,17 +137,19 @@ def pack_vectors(
     (``docs/uniform_equivalence_contract.md``). Shape information always travels alongside the
     packed array; the fill is never used to infer shape.
 
-    With ``len_J`` leading jet axes (input jets, ``J_i + W + (Ni,)``), each of those axes is brought to its
+    With ``len_P`` leading jet axes (input jets, ``F_in_i + W + (Ni,)``), each of those axes is brought to its
     largest size across the modes with zeros. Those zeros are coefficients, not padding: an input jet's
     coefficients beyond its sizes are zero, so the packed jet is the same polynomial (every slot of a jet axis
     is data). Every other axis but the last must agree across the modes; a mismatch raises a ``ValueError``.
-    With ``len_J=0`` (the default) it is the function it always was.
+    The packed jet sizes are written ``F_in``: the largest ``F_in_i`` on each jet axis (the shape comments of the
+    uniform sampling functions, ``(d,)+F_in+W+(N,)``, mean this). With ``len_P=0`` (the default) it is the function
+    it always was.
 
     >>> import numpy as np
     >>> from t3toolbox.backend.ut3_operations import pack_vectors
     >>> line = np.ones((2, 3, 4))                     # a line input: 2 jet slots, W = (3,), N0 = 4
     >>> still = np.ones((1, 3, 5))                    # a mode that does not move: 1 jet slot, N1 = 5
-    >>> packed = pack_vectors([line, still], len_J=1)
+    >>> packed = pack_vectors([line, still], len_P=1)
     >>> print(packed.shape, float(packed[1, 1].sum()), float(packed[0, :, :, 4].sum()))
     (2, 2, 3, 5) 0.0 0.0
     """
@@ -156,19 +158,19 @@ def pack_vectors(
     use_jax = tree_contains_jax(unpacked_vectors)
     xnp, _, _ = get_backend(False, use_jax)
 
-    J = tuple(max(v.shape[j] for v in unpacked_vectors) for j in range(len_J))
-    stack_shape = unpacked_vectors[0].shape[len_J:-1]
+    F_in = tuple(max(v.shape[j] for v in unpacked_vectors) for j in range(len_P))
+    stack_shape = unpacked_vectors[0].shape[len_P:-1]
     for i, v in enumerate(unpacked_vectors):
-        if v.shape[len_J:-1] != stack_shape:
+        if v.shape[len_P:-1] != stack_shape:
             raise ValueError('pack_vectors: every vector must have the stack shape of the first after its %d jet '
                              'axes: vector %d has shape %s, where the first gives %s'
-                             % (len_J, i, v.shape, stack_shape))
+                             % (len_P, i, v.shape, stack_shape))
     if N is None:
         N = max(v.shape[-1] for v in unpacked_vectors)
 
     padded = []
     for v in unpacked_vectors:
-        pad = tuple((0, a - b) for a, b in zip(J, v.shape[:len_J])) + ((0, 0),) * len(stack_shape) \
+        pad = tuple((0, a - b) for a, b in zip(F_in, v.shape[:len_P])) + ((0, 0),) * len(stack_shape) \
             + ((0, N - v.shape[-1]),)
         padded.append(xnp.pad(v, pad))
     return xnp.stack(padded)
@@ -196,14 +198,14 @@ def is_packed(
 
 
 def pack_if_ragged(
-        vectors,        # packed array (returned as-is) OR ragged len=d sequence, ith elm_shape=J_i+stack+(Ni,)
+        vectors,        # packed array (returned as-is) OR ragged len=d sequence, ith elm_shape=F_in_i+stack+(Ni,)
         N:  int = None,  # padded length (default max Ni); ignored when ``vectors`` is already packed
-        len_J: int = 0,  # the number of leading jet axes, brought to their largest size with zero coefficients
-) -> NDArray:            # packed, shape=(d,)+J+stack_shape+(N,)
+        len_P: int = 0,  # the number of leading jet axes, brought to their largest size with zero coefficients
+) -> NDArray:            # packed, shape=(d,)+F_in+stack_shape+(N,)
     """Pack ``vectors`` iff ragged (a ``len=d`` sequence); an already-packed array is returned unchanged.
-    The input side of the sampling-op packedness mirror (:py:func:`is_packed`). ``len_J`` as in
+    The input side of the sampling-op packedness mirror (:py:func:`is_packed`). ``len_P`` as in
     :py:func:`pack_vectors`."""
-    return vectors if is_packed(vectors) else pack_vectors(vectors, N, len_J=len_J)
+    return vectors if is_packed(vectors) else pack_vectors(vectors, N, len_P=len_P)
 
 
 def ut3_unstack(
