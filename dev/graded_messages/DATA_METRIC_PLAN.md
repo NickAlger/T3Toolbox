@@ -1,12 +1,20 @@
-# The data metric: a sub-arc between P16 and P17 (revised after review round 1, 2026-11-22)
+# The data metric: a sub-arc between P16 and P17 (revised after review round 3, 2026-11-22)
 
-Status: Claude's first draft (2026-11-21), revised by the writer after `DATA_METRIC_PLAN_REVIEW_r1.md` (the
-answers: `DATA_METRIC_PLAN_RESPONSE_r1.md`). The maintainer reads it before any build.
+Status: Claude's first draft (2026-11-21), revised by the writer after review rounds 1 and 3 (the answers:
+`DATA_METRIC_PLAN_RESPONSE_r1.md`; round 2 signed off §§1-8). §9 folds in the maintainer's typing ideas. The maintainer
+reads it before any build.
 Implements: `TARGET_DECISIONS.md`, "The data metric: decisions 1 and 2 of the sampling audit", with O-21.
 Evidence: `SAMPLING_AUDIT.md`. `file:line` refers to `aaee0b04`.
-Out of scope: decisions 3 and 4 (corewise as point methods or `COREWISE` tangent operations; the names of the
-Hessians; whether `jet_to_dual_jet` stays public), an operator `W` (a covariance), nonlinear losses, a weight or a `y`
-carrying the frame stack `C` (question 8).
+Out of scope: decision 3 (corewise as point methods or `COREWISE` tangent operations); decision 4 except the
+frontend status of the dual-jet converters (question 9): the names of the Hessians and of the backend converters; an
+operator `W` (a covariance); nonlinear losses; a weight or a `y` carrying the frame stack `C` (question 8).
+
+**In brief.** The transposes and second-order transposes take an element of `Y` (dual jets in slot coordinates), with
+no weight inside, and their argument `residual` becomes `c`. One public function, proposed `data_riesz_map(kind,
+order, r, weight, minibatch_scale)`, applies `W: Y' -> Y`; every place that applies `omega^2` goes through it. The
+weight becomes elementwise: today's block form, or the full shape of `y`, read by an exact rule. Lightweight typing
+(section 9): algebraic types in the signature comments, the dual-jet converters private in the frontend, and
+transformation-law tests. Five slices, M1 to M5, before P17. Eleven questions for the maintainer in section 8.
 
 ## 1. The mathematics, typed
 
@@ -20,6 +28,9 @@ carrying the frame stack `C` (question 8).
 | `J^T: Y -> X'` | the metric-free transposes: `<J^T c, ẋ> = <c, J ẋ>` | `tv_*_transpose`, `*_corewise_transpose`, `*_ambient_transpose` |
 | `W: Y' -> Y` | the data Riesz map: `W = s · diag(ω²)` | today inside the engine and the oracle only |
 | `R_X: X -> X'` | the parameter metric; `R_X^{-1}` is `geometry.project` | unchanged here |
+
+Concretely (§9.0): `Y' = P` and `Y = P'` for apply, `⊕_i P⊗V_i'` and `⊕_i P'⊗V_i` for probe, `R` for entries,
+per sample.
 
 **The pairing of `Y` with `Y'`** is slot by slot on Taylor coefficients: `<c, a> = Σ c·a` over the modes (probe),
 the slots `k` of the box `F`, the samples `W` and the mode edge, one pairing per element of the stacks `K` and `C`.
@@ -118,8 +129,8 @@ def data_riesz_map(                             # name: question 1
 - **Home: `backend/jets.py`**, beside `jet_to_dual_jet`, in its `__all__`. `backend/fitting.py` imports
   `sampling_variables` → `sampling_steps` → `jets` (`fitting.py:37`, `sampling_variables.py:320`), and `jets` imports
   only `contractions` and `common`. So the engine and the oracle can both call it, with no cycle. Re-exported by
-  `t3toolbox.fitting` under the same name (as `jet_to_dual_jet` is, `fitting.py:83`). There is one backend home; not
-  also `backend/fitting.py`.
+  `t3toolbox.fitting` under the same name (as the other `jets` helpers are, `fitting.py:78-87`). There is one backend
+  home; not also `backend/fitting.py`.
 - **One implementation of `ω²`.** A private helper in `jets` gives `ω²` aligned to a value by §2 (rules 1, 2, 5),
   in the lower floating precision of the two (as `_squared_weights` does today). `data_riesz_map` is `s × helper × r`.
   Every other site goes through the helper:
@@ -132,11 +143,11 @@ def data_riesz_map(                             # name: question 1
 | `_modes` (`:913-922`) | `asarray(weight)[i]` | per array by rule 1 (a ragged tuple cannot be `asarray`-ed) |
 | `f_resolution` (`fitting.py:935`) | `ω² × y_block_sumsq` | `Σ y · helper × y` (§4) |
 | `dual_jet_to_jet` (`jets.py:498-507`) | divide by `_squared_weights` | `W^{-1} ∘ flip`: flip, then divide by the helper |
-| frontend zero check (`fitting.py:275`) | `_squared_weights` | the helper |
+| frontend zero check (`fitting.py:275`) | `_squared_weights` | deleted with the frontend `dual_jet_to_jet` (9.2, Q9 (a)); else the helper |
 
 - **`jet_to_dual_jet` keeps its signature and behaviour,** implemented as `flip ∘ data_riesz_map(…, weight, None)`.
-  `dual_jet_to_jet` is `W^{-1} ∘ flip`. Their public status and D3 (a dual jet passed to a transpose is flipped twice)
-  stay with decision 4. Only their weight argument widens to §2.
+  `dual_jet_to_jet` is `W^{-1} ∘ flip`. Their frontend status is 9.2 (Q9); D3 (a dual jet passed to a transpose is
+  flipped twice) and their backend names stay with decision 4. Only their weight argument widens to §2.
 - The engine keeps its `weight` input. Its seed is `flip(W r)` with `s` left to the oracle, as today. The oracle
   multiplies its `W`-bearing outputs by `s`. Both are exact, since every scaled output is linear in `W`.
 
@@ -241,14 +252,25 @@ stay. P17's `point_value_and_gradient` composes `J^T(W r)` with the scale.
 ## 7. Slices
 
 Each slice is design-first (a design note, the reviewer's critique, Claude's rulings, then the build). Its oracles are
-independent of the code under test, and it ends with the full suite, the module doctests and the pages green.
+independent of the code under test, and it ends with the full suite, the module doctests and the pages green. The
+law tests are §9.3's; types in comments are §9.1's.
 
 | Slice | What changes | Tested against | Leaves green |
 | --- | --- | --- | --- |
-| **M1. The rule and `W`** (`jets`) | the `ω²` helper; `data_riesz_map`; `check_weight(kind, order, sample, weight)`; `jet_to_dual_jet` / `dual_jet_to_jet` through the helper; the factorial conversions per §4, with `kind`; the frontend zero check; D4 docstrings | arrays written by hand per case, with `F` and `W` sizes **distinct and equal** (equal sizes hide the factorial bug), `K` and `C` non-empty; the ruled rejection table; `jet_to_dual_jet = flip ∘ W` and its inverse | everything: block forms read as before, the 19 translation pins unchanged |
-| **M2. The engine and the reference** | `f_step`, `Jp_norm_sq_step`, `_modes`, the seed through the helper; `_UNIFORM_MASKS['weight']`; `sampling_definitions` extended to §2 **independently** (its `_weight_squared`, `:655-697`; the independence test forbids importing `jets`) | the reference over the jet matrix: `f`, `g`, `JtJp`, `Jp_norm_sq`, `Kp` with full-form weights, `K` and `C`; uniform against ragged; a garbage-padded weight; **a sample with `ω = 0` gives the `f` and `g` of the batch without it** | the engine's existing by-definition tests (block weights) |
+| **M1. The rule and `W`** (`jets`) | the `ω²` helper; `data_riesz_map`; `check_weight(kind, order, sample, weight)`; `jet_to_dual_jet` / `dual_jet_to_jet` through the helper; the factorial conversions per §4, with `kind`; D4 docstrings; 9.2 (the frontend converters and O-20's check removed; the backend converters retyped); the law helper `tests/_typing.py` with §9.3's full tables; `signature_style.md`'s grammar (9.1), and its own new signatures written in it | arrays written by hand per case, with `F` and `W` sizes **distinct and equal** (equal sizes hide the factorial bug), `K` and `C` non-empty; the ruled rejection table; `jet_to_dual_jet = flip ∘ W` and its inverse; **the laws**: `W` maps the `P` law to the `P'` law with `ω` moved by its own, and the converters map `P'` to the turned law; `rescale_coordinates` / `t3_unscale_coordinates` and `rescale_direction` as law instances | everything: block forms read as before, the 19 translation pins unchanged |
+| **M2. The engine and the reference** | `f_step`, `Jp_norm_sq_step`, `_modes`, the seed through the helper; `_UNIFORM_MASKS['weight']`; `sampling_definitions` extended to §2 **independently** (its `_weight_squared`, `:655-697`; the independence test forbids importing `jets`) | the reference over the jet matrix: `f`, `g`, `JtJp`, `Jp_norm_sq`, `Kp` with full-form weights, `K` and `C`; uniform against ragged; a garbage-padded weight; **a sample with `ω = 0` gives the `f` and `g` of the batch without it**; the laws on the seed, `g`, `JtJp`, `Kp` | the engine's existing by-definition tests (block weights) |
 | **M3. The fitting layer** | `LeastSquaresBatch` docs, `check_batch`, `take`, `pack_batch`, `f_resolution`, the display (as ruled), `data_preparation` docs; `tests/oracle_sweeps/oracle.py` extended with a full-form weight written with its own alignment (not `jets`) | the extended dense oracle: per-sample-weighted fits; unbiasedness by exact subset enumeration with a **partly broadcast** per-sample weight; an entries fit with per-sample weights; the compile test (a new weight shape recompiles, a new value does not); the display pinned on block weights | the optimizers, the translation, the slow tier |
-| **M4. The typed transposes** | the rename and the docstrings of §5 (mechanical; 42 functions, 140 call sites); the example comments | the adjoint doctests renamed; on a **drawn batch**, `<J^T(W r), ẋ>` against a central difference of the dense misfit `½ s Σ ω² r²` (`oracle.py`) along a random core direction | everything |
+| **M4. The typed transposes** | the rename and the docstrings of §5 (mechanical; 42 functions, 140 call sites); the example comments | the adjoint doctests renamed; on a **drawn batch**, `<J^T(W r), ẋ>` against a central difference of the dense misfit `½ s Σ ω² r²` (`oracle.py`) along a random core direction; the laws on all 42 | everything |
+| **M5. The types** (comments only) | §9.1's types in the ~100 public sampling signatures, backend and frontend; the type column of `sampling_variables.py`'s variable table | the laws on the functions no earlier slice tested (forwards, tangents, dense functions, `jets` helpers) | everything; no line of code changes |
+
+**Types in one comments-only slice (M5), not per slice.** M1 writes the grammar and its own new signatures in it.
+Every existing signature is typed in M5:
+- the notation is reviewed once, as a whole, and a change to it after M1 touches one slice, not four;
+- M4 stays mechanical (a rename and prose);
+- the ~50 forwards, tangents and helpers no other slice touches would need a slice of their own anyway.
+
+The cost: M5 edits the comments of the 42 signature lines M4 renamed. The alternative is per slice, with M4 also
+typing the untouched forwards, which would roughly double M4.
 
 ## 8. Questions for the maintainer
 
@@ -274,40 +296,179 @@ independent of the code under test, and it ends with the full suite, the module 
    fix). Or add a converter for `Y` elements (a second name for the same arithmetic; its name belongs with decision 4).
 8. **A weight or `y` carrying `C`** (a stacked model with data per element, narrowed in P16, LOG:1240). Out of scope
    here, recommended: a CHANGELOG line, and a later arc if wanted. §2's rule extends to it by one more stack position.
+9. **Where the dual-jet converters are public** (9.2).
+   - (a) **Frontend-private, backend-public,** retyped as the converters to and from the engine's turned form
+     (recommended: the razor, since `w_tilde` and the tilde variables are public in the backend).
+   - (b) Private everywhere, with `w_tilde` also made engine-internal: a larger change, to the engine and the reference
+     module.
+   - (c) Unchanged, with decision 4 left open.
 
-## 9. Lightweight typing (DRAFT, Claude, 2026-11-22; folded in by the maintainer)
+   (a) and (b) both supersede O-20.
+10. **One dual symbol.** `'` (recommended: yours, as in `J: X -> Y'`), with `P'`, `V_i'`, `E'`, and the dictionary of
+    9.0 tying `Y'`/`Y` to `P`/`P'`. Or `*` throughout, with §1 rewritten to match.
+11. **The scope of 9.1.** Backend and frontend (recommended: backend users read the backend signatures, the razor's
+    first reader). Or the frontend only (about half the comments).
 
-The jet/dual-jet and vector/covector distinctions are traps (`SAMPLING_AUDIT.md`; finding A of P13). The maintainer
-folded three of Claude's typing ideas into this arc; two more (types in `jet_contract`'s strings; types on the declared
-graph, checked at import) are carried to Part 2. Notation: `P` the jets on the box `F` (Taylor coefficients); `P*` the
-dual jets **in slot coordinates** (the only public form, 9.2); `V_i = R^{N_i}` the input space of mode `i`, `V_i*` its
-dual; `X`, `X'` the parameter space and its dual. Per sample; the sample stack is a direct sum.
+## 9. Lightweight typing (folded in by the maintainer, 2026-11-22)
 
-**9.1 The algebraic type in the signature comment.** The comment grammar (`docs/contributor/signature_style.md`) gains
-the algebraic type before the shape: `# P*⊗V_i, len=d, elm_shape=F+W+[K]+C+(Ni,)`. Scope: every public sampling
-function, backend and frontend (forwards, tangents, transposes, second-order transposes, `W`, the dense functions, the
-jets helpers, the oracle's outputs); `SAMPLE_VARIABLES.md` gains a type column for the engine's variables. The typing
-table (Claude's, 2026-11-22): apply at a point `(P⊗V_j)^d -> P`; probe `(P⊗V_j)^d -> ⊕_i P⊗V_i*`; tangent forwards `X ×
-(P⊗V_j)^d -> P` resp. `⊕_i P⊗V_i*`; transposes `P* -> X'` resp. `⊕_i P*⊗V_i -> X'` (given the inputs); probe is apply
-with one slot open, `Hom_P(P⊗V_i, P) = P⊗V_i*`.
+The jet/dual-jet and vector/covector distinctions are traps (audit D3, D4; finding A of P13). This section adds three
+things:
+- types in the signature comments (9.1);
+- one frontend representation of `Y` (9.2);
+- transformation-law tests (9.3).
 
-**9.2 One public representation of `P*`.** Slot coordinates only. The Frobenius (flipped) form becomes engine-private:
-`jet_to_dual_jet` and `dual_jet_to_jet` lose their public status (underscored; removed from `t3toolbox.fitting`'s
-exports), and the public `W` returns slot coordinates. **This settles the part of decision 4 about their public status;
-to be confirmed by the maintainer.** Count their public uses (tests, doctests, examples, pages).
+Two further ideas are carried to Part 2: types in `jet_contract`'s strings, and types on the declared graph checked
+at import. M1's design note settles the notation and the comment grammar before any slice writes a type.
 
-**9.3 Transformation-law tests.** A test helper (`tests/_typing.py`) checks a function against the transformation laws
-of its declared types, on raw arrays, at no run-time cost:
-- **Jet rescaling `s -> lambda s`:** a `P` coefficient of multi-index `k` scales by `lambda^|k|` (per jet variable,
-  one `lambda_j` each), a `P*` slot coordinate by `lambda^-|k|`; the point and `X`, `X'` do not depend on `s`. This
-  catches a missing, double or misplaced flip (a flipped dual jet scales as `lambda^(n-k)`) and a jet/dual-jet swap.
-  **Correction to Claude's earlier claim:** it does NOT catch a Taylor/derivative mix-up (`d_t = t! a_t` scales as
-  `a_t` does); that stays the dense oracles' job.
-- **Input rescaling `V_i -> D_i V_i`** (diagonal `D_i`), with the point's Tucker cores (and core directions) transformed
-  contragrediently so that the represented forms are unchanged: `V_i` entries scale by `D_i`, `V_i*` entries by
-  `D_i^-1`. This catches a `V`/`V*` swap (the probe residual/sample trap). The exact law on the parameter side (`X`,
-  `X'` under the core transformation) to be derived in M1's design.
-Applied per slice to that slice's functions; in M4 to every public sampling function.
+### 9.0 The vocabulary, and the dictionary with §1
 
-**9.4 Where it goes in the slices.** 9.2 and the 9.3 helper in M1 (with the public `W`); 9.1 for the functions each
-slice touches, completed in M4 (the rename touches every transpose signature anyway); 9.3 applied in M2 to M4.
+One dual symbol, `'`, always the real dual (question 10). Everything below is per sample. The sample stack `W` is a
+direct sum, and `K` and `C` are stacks of separate elements.
+
+| Symbol | Meaning |
+| --- | --- |
+| `P` | real jets on the box `F`: Taylor coefficients, with the product truncated to `F` |
+| `P_in,i` | the input jets of mode `i`, on their own box `J_in_i` (read clipped to `min(J_in_i, F)`) |
+| `P'` | the dual of `P`, in **slot coordinates**: `<c, a> = Σ_k c_k a_k` |
+| `V_i = R^{N_i}`, `V_i'` | mode `i`'s input space and its dual |
+| `E = ⊗_i V_i'`, `E' = ⊗_i V_i` | the tensor (a multilinear form on the inputs), and CP factors |
+| `X`, `X'` | the parameters (§1) and their dual |
+
+| Kind | `Y'`: `z`, `y`, `r`, `Jp` | `Y`: `c`, `W r` |
+| --- | --- | --- |
+| apply | `P` | `P'` |
+| probe | `⊕_i P⊗V_i'` | `⊕_i P'⊗V_i` |
+| entries | `R` | `R` |
+
+Finite dimensions give `P'' = P`. §1's prime marks the measurements as covectors of an abstract `Y`, and `P` names the
+concrete jet space. So for apply `Y' = P` and `Y = P'`.
+
+**Which pairing is meant where.** `'` is always the real dual with the slot pairing. The ring structure of `P` (the
+truncated product) enters in two places only:
+- **The probe type.** Probe is apply with mode `i` left open: `Hom_P(P⊗V_i, P) = P⊗V_i'`. The `Hom` is
+  `P`-linear, and the prime is still the real dual of `V_i`.
+- **The engine's turned form.** The engine represents `P'` inside `P`: slot `k` of a dual jet holds `c_(n-k)`, and
+  `<c, a>` is the corner coefficient of the product. `w_tilde` and the tilde variables are `Y` in this form.
+
+### 9.1 The type in the signature comment
+
+The grammar puts the type first: `# P'⊗V_i, len=d, elm_shape=F+W+[K]+C+(Ni,)`. That changes
+`signature_style.md`'s micro-grammar ("`len` first", `docs/contributor/signature_style.md:74-89`), a durable
+contributor rule. So the doc changes in M1, the first slice that writes types, not in P19.
+
+| Function(s), ragged and uniform, backend and frontend | Type |
+| --- | --- |
+| `*_apply` | `∏_j P_in,j⊗V_j -> P` |
+| `*_probe` | `∏_j P_in,j⊗V_j -> ⊕_i P⊗V_i'` |
+| `*_entries` | `index^d -> R`. An index is a basis vector, not an element of `V_i` |
+| `dense_*` | `E × inputs -> Y'`, linear in `E` |
+| the tangents `tv_*`, `*_corewise_tangent` | `X × inputs -> Y'`, linear in `X` |
+| the transposes `tv_*_transpose`, `*_corewise_transpose` | `inputs × Y -> X'`, linear in `Y` |
+| the second-order transposes `*_corewise_hessian` | `inputs × Y × X -> X'`, bilinear |
+| the ambient transposes `*_ambient_transpose` | `inputs × Y -> E'` (CP factors `c·⊗w`). Read as a tensor (`from_canonical`), `E'` is identified with `E` by Hilbert-Schmidt: the one silent metric on the parameter side (audit G) |
+| `data_riesz_map` | `Y' -> Y`, `W = s·diag(ω²)` |
+| `jet_to_dual_jet` / `dual_jet_to_jet` (backend) | `Y' -> Y` in turned coordinates, and back (9.2) |
+| the oracle's outputs | `r`, `Jp`: `Y'`. `g`, `JtJp`, `Kp`: `X'`, before the projection. `f`, `Jp_norm_sq`, `f_resolution`: `R`. The block sums: `R` per block |
+
+- **Scope** (question 11): about 100 public signatures, backend and frontend.
+  - the 42 transposes and second-order transposes;
+  - about 30 forwards and tangents;
+  - the 3 dense functions;
+  - about 12 `jets` helpers;
+  - `W`;
+  - the oracle.
+- **The engine's types** go in a type column of the variable table in `sampling_variables.py`'s module docstring, a
+  page users reach. Not in `dev/graded_messages/SAMPLE_VARIABLES.md`, which is under `dev/` (the routing rule).
+  There, `z`, `r` and `Jp` are `Y'`; `w_tilde` and every tilde variable are `Y` in turned form; `g`, `JtJp` and `Kp`
+  are `X'`.
+
+### 9.2 One representation of `Y` in the frontend (question 9)
+
+- **Frontend: slot coordinates only.** `jet_to_dual_jet` and `dual_jet_to_jet` leave `t3toolbox.fitting` and its
+  `__all__`, and the frontend `dual_jet_to_jet` is deleted. No frontend function takes or returns a turned form.
+  The public `W` returns slot coordinates.
+- **Backend: both stay public in `backend/jets`,** retyped as the converters between slot coordinates and the
+  engine's turned form. Their docstrings say: "for `sampling_variables`' `w_tilde` and held tilde variables; never for
+  a transpose (D3)".
+  - The reason: `w_tilde` and every tilde variable are public engine variables in turned form. They can be wanted,
+    and `HeldVariables` holds them, marked "turned" (`sampling_variables.py:899-905`; the module text `:222`).
+    `sampling_definitions` takes a turned `w_tilde=` (`:86-89`).
+  - A backend user who holds or seeds one needs the converter, and a missing flip passes every shape check (the
+    razor).
+- **This supersedes O-20** (`TARGET_DECISIONS.md:358`): "raise in safe mode" in the frontend `dual_jet_to_jet`, the
+  backend dividing by zero. With the frontend function gone, the backend's documented division by zero is the only
+  behaviour.
+- It settles the frontend part of decision 4. The backend names stay with decision 4.
+
+**Blast radius**, in lines naming either function, at `c3f37d34`:
+
+| Where | Lines | Fate |
+| --- | --- | --- |
+| `backend/jets.py` | 26 | stays; docstrings retyped |
+| `fitting.py` | 18 | the export, the frontend function, its doctests, the module text (`:45-47`) go |
+| `sampling_steps.py` | 2 | stays |
+| `test_jets` | 71 | `TestDualJet` stays; `TestFrontendDualJetToJet` (O-20) goes |
+| `test_dispatch`, `test_jax_absent` | 16, 7 | frontend uses go to the backend names |
+| examples, `docs/` | 0 | |
+
+The transposes' prose "turned inside (a dual jet)", about 70 lines, is retyped in M4 anyway.
+
+### 9.3 Transformation-law tests
+
+A test helper, `tests/_typing.py`, checks functions against the laws of their declared types. It works on raw backend
+arrays and costs nothing at run time. The reviewer verified both laws on 8 functions at orders `()`, `(2,)` and
+`(1, 1)`, to 1e-15 or better, with the faults below caught at `O(1)` (`DATA_METRIC_PLAN_REVIEW_r3.md`).
+
+**The jet law**, `s_j -> λ_j s_j`, with `λ^k = ∏_j λ_j^(k_j)`:
+
+| Object | Law |
+| --- | --- |
+| a `P` coefficient `k`: `z`, `y`, `r`, `Jp`; the input jets on `J_in` | `λ^k` |
+| a `P'` slot `k`: `c`, `W r` | `λ^-k` |
+| a turned `P'` slot `k`: `w_tilde` | `λ^-(n-k)` |
+| `ω` at slot `k` | `λ^-k`, so `f` is invariant |
+| `X`, `X'`, `V_i`, the point | unchanged |
+
+- It catches a missing, double or one-axis flip, and a jet/dual-jet swap.
+- It needs `λ_j ≠ 1`, distinct per variable, and some `n_j ≥ 1`. At `order = ()` it is vacuous.
+- It does not catch a Taylor/derivative mix: `k! a_k` scales as `a_k` does.
+
+**The input law**, `w_i -> Δ_i w_i` (`Δ_i` diagonal and positive, `(N_i,)`), with every represented value fixed:
+
+| Object | Law |
+| --- | --- |
+| the input jets `w_i` | `Δ_i w_i` |
+| `X` on the mode axis: the Tucker cores `B_i` and their directions; the down store `D_i`; the variations `V_i` | `· Δ_i^-1` |
+| the TT cores `G`, the stores `U`, `L`, `R`, the variations `H`, and their directions | unchanged |
+| `X'` on the mode axis: the blocks `g_B`, `K_B`, `Ṽ_i` | `· Δ_i` |
+| `X'` TT blocks | unchanged |
+| probe `z_i`, `y_i`, `r_i`, `Jp_i` (`P⊗V_i'`) | `Δ_i^-1 ·` |
+| probe `c_i`, `W r_i` (`P'⊗V_i`) | `Δ_i ·` |
+| apply `z`, `c` | unchanged |
+| entries `z`; entries `c` (by duality) | `/ ∏_i Δ_i[n_i]`; `· ∏_i Δ_i[n_i]` |
+| the ambient transposes' CP factors (`E'`) | `Δ_i ·` per factor |
+| `ω` | the inverse of its `Y'` law, so `f` is invariant. Probe, full form with the edge: `ω_i Δ_i`. A block form follows only for `Δ_i = λ_i I`, which is audit D6: under a block weight, rescaling a mode changes the loss |
+
+- It catches treating `c` as `V_i'` inside library code (a probe residual handled where `c` is meant).
+- It also catches wrong co- or contravariance in anything that changes `V_i` coordinates.
+- **Caveats:**
+  - It holds for the metric-free maps only: forwards, tangents, transposes, second-order transposes and `W`. The
+    transformed frame is not orthonormal, and Hilbert-Schmidt on `E` is not invariant under a non-orthogonal `Δ`. So
+    it does not hold for `MANIFOLD.project`, `retract`, `inner`, `frame(x)` or `t3svd`.
+  - On a shared geometry, `Δ_i` is equal within each sharing group.
+  - On the uniform layout, `Δ` is arbitrary on the padding, which the masks zero.
+
+**What no scaling law catches.** The probe transpose called with the residual and the sample swapped.
+- Both arguments are `V_i`-typed (`c ∈ P'⊗V_i`, `w ∈ P_in⊗V_i`), so the input law moves them alike.
+- The swapped function at `λ` is the original at `1/λ`, so it passes the jet law exactly.
+- A swapped call is a valid transpose of another problem (LOG). The right/wrong adjoint doctests stay the only guard.
+
+**Both laws are homogeneity tests: necessary, not sufficient.** A wrong constant, sign or binomial factor passes them.
+The dense oracles stay the primary tests.
+
+**The library's own instances.** `rescale_coordinates` / `t3_unscale_coordinates` are the input law with `Δ` = the
+scales. `rescale_direction` is the jet law, one `λ` per variable (O-40). M1 adds law tests for them. Audit
+D8 is the jet law applied to `ω`: `rescale_direction` leaves `ω` fixed, so the loss changes.
+
+**Where the laws run:** M1 for `W`, the converters and the rescalings; M2 for the engine; M4 for the 42 transposes;
+M5 for the rest (§7).

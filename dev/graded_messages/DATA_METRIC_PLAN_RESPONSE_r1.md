@@ -89,3 +89,58 @@ the batch with that sample deleted.
 - 10: `sampling_definitions._weight_squared` (`:655-667`); `oracle.weighted_residual` on `omega[mode, order]`; the
   independence test forbids `jets`.
 - 12: the translation emits `(d,)`, `(d, n+1)`, `(n+1,)` (`optimizers.py:173-192`).
+
+---
+
+# Round 3: response to `DATA_METRIC_PLAN_REVIEW_r3.md` (writer, 2026-11-22)
+
+All seven findings are accepted. Every code claim was checked at `c3f37d34`, and the two scaling-law claims were
+checked by derivation. §9 is rewritten as 9.0 to 9.3. §§1, 3, 7 and 8 follow it.
+
+| # | Finding | Verdict | Where |
+| --- | --- | --- | --- |
+| 1 | 9.2: the turned form stays public in the backend | Accepted. O-20 named as superseded; blast radius given | 9.2, §3 (the frontend zero check row and the converters' paragraph), out-of-scope line, M1, Q9 |
+| 2 | No law catches the residual/sample swap | Accepted. What each law catches; both are homogeneity tests | 9.3 |
+| 3 | The parameter-side input law | Accepted, with its caveats, entries' law, and the rescalings as law instances | 9.3 |
+| 4 | One dictionary; missing rows; `J_in`; pairings; the sign | Accepted | 9.0, 9.1 table, §1 (one line), 9.3 |
+| 5 | 9.1's scope and placement | Accepted | 9.1, M1 |
+| 6 | Slicing | Accepted. **Decided: a comments-only M5** | §7 |
+| 7 | Q9 to Q11 | Accepted | §8 |
+
+**What was verified.**
+- **1.** `HeldVariables` holds `w_tilde` and six tilde variables, each commented "turned"
+  (`sampling_variables.py:899-905`). The module text says the tilde variables are stored turned (`:222`).
+  `sampling_definitions` takes a turned `w_tilde=` (`:86-89`). Tests use `w_tilde` in 8 files. O-20 is
+  `TARGET_DECISIONS.md:358`.
+- **1, the blast radius.** Counted as lines naming either function: `jets.py` 26, `fitting.py` 18, `sampling_steps.py`
+  2, `test_jets` 71, `test_dispatch` 16, `test_jax_absent` 7, `examples/` and `docs/` 0. The plan gives these line
+  counts, not the reviewer's reference counts; they agree in substance.
+- **2, the swap.** Write `F(w, c) = T(c, w)`. Then `F(λ^k w, λ^-k c) = T(μ^k c, μ^-k w)` with `μ = 1/λ`, which is
+  `T(c, w)` by `T`'s own invariance. Under the input law both arguments carry `· Δ_i`, so the swapped call transforms
+  as the original. The swap is an exact symmetry of both laws, as the reviewer measured.
+- **3, entries and duality.** Entries' `z = Σ … B_i[:, n_i] …` gives `z / ∏ Δ_i[n_i]` under `B_i -> B_i Δ_i^-1`. By
+  duality its `c` (and `ω`) carry `· ∏ Δ_i[n_i]`; the plan states this.
+- **3, the rescalings.** `rescale_coordinates` (inputs times the scales, probe data divided by them) is the input law.
+  `rescale_direction` (slot `k` times `length^k`) is the jet law.
+- **4.** The input jets are read on `min(J_in_i, F)` (`sampling_variables.py:212, 228`).
+- **5.** The grammar's "`len` first" is at `signature_style.md:74-77`. `SAMPLE_VARIABLES.md` is under `dev/`.
+
+**Notes.**
+- **4, the dictionary.** One symbol, `'`, is the plan's recommendation (Q10). The dictionary states `Y' = P` and
+  `Y = P'` for apply. In finite dimensions `P'' = P`, so §1's prime (measurements as covectors of an abstract `Y`)
+  and the concrete name `P` are consistent, not inverted. The ring structure of `P` is confined to two named places:
+  `Hom_P` in the probe type, and the engine's turned form.
+- **4, the entries row.** It is typed `index^d -> R`, with "an index is a basis vector, not an element of `V_i`". That
+  is why its input law differs.
+- **6, the decision.** Comments only in M5. M1 writes the grammar and its own new signatures in it, and the law helper
+  with the full tables.
+  - The notation is reviewed once, as a whole, and a later change touches one slice.
+  - M4 stays a rename.
+  - The ~50 untouched forwards and helpers would need a slice anyway.
+  - The cost is that M5 re-edits the comments on M4's 42 signature lines.
+  - The laws run in M1 (`W` under the laws, the converters, the rescalings), M2 (the engine), M4 (the 42 transposes)
+    and M5 (the rest).
+- **7.**
+  - Q9 recommends (a), frontend-private and backend-public.
+  - Q10 recommends `'`.
+  - Q11 recommends backend and frontend.

@@ -1348,3 +1348,6 @@ public representation of P*" is false in the backend (`w_tilde` and the tilde va
 in the turned form; the converters stay backend-public, frontend-private); (2) no scaling law catches the probe
 residual/sample swap (both arguments carry the input type; the laws are homogeneity tests, necessary not
 sufficient). The reviewer derived and verified the parameter-side law. The writer revises.
+`DATA_METRIC_PLAN_REVIEW_r4.md`: SIGN OFF on section 9 (four minor points for M1's design note). Claude added a short
+"In brief" at the plan's head (the reviewer's readability suggestion). **The plan is final for the maintainer's
+reading:** eleven questions (section 8), plus the audit's decisions 3 and 4.
