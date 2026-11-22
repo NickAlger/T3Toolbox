@@ -1407,3 +1407,7 @@ ragged weight raises; the batch method raises by rank on block weights until M2 
 converters leave `fitting` entirely (not in 2026.5.0); M0's log is M1's reference (verified). Folded in: exact mode
 count for a ragged `r`; the static axis check (`data_metric` never grows `r`); the docstrings (Q7's recipe; the
 converters retyped); an input-law negative control. Building.
+M1 built (`M1_HANDOVER.md`; gate at `-n 2`: suite 1,918 passed, 91,249 subtests; doc steps green; the tally against
+M0's log: 37 nodes, all expected). `M1_REVIEW_r1.md`: NOT YET on two small points (a mixed-precision case missing from
+the bitwise bridge test; a comment block deleted by accident). Ruled by Claude: type comments use Unicode for the
+algebraic types, identifiers stay ASCII. In round 1.
