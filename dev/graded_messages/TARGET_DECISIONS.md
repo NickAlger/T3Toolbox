@@ -826,6 +826,16 @@ geometry's own shape and point masks), so the backend optimizers can sample a tr
 classes; used by `point_objective` and P17's `point_value_and_gradient`. **D7:** the top level exports
 `LeastSquaresOracle`, `LeastSquaresBatch` and `local_model` in place of the six model factories.
 
+**The data metric: decisions 1 and 2 of the sampling audit** (the maintainer, 2026-11-21, at the pause after P16;
+`SAMPLING_AUDIT.md`). **1.** The transposes' (and the second-order transposes') data argument is an element of `Y`
+(under the maintainer's typing `J: X -> Y'`, `J^T: Y -> X'`, `W: Y' -> Y`), paired with `z` slot by slot, with no
+weight inside the objective-free maps; it is renamed from `residual` and documented so; a first-class public
+function applies `W` (`Y' -> Y`) in the fitting layer, the weight being the objective's. **2.** `W` is an elementwise
+diagonal weight broadcastable to the shape of the data `y` (per sample, per output entry, per jet slot); the current
+block forms (per mode and order) are broadcast cases. A full operator (a covariance) is out of scope. Decisions 3
+(corewise as point methods or as tangent operations of `COREWISE`) and 4 (the names: the Hessians, `jet_to_dual_jet`)
+are still with the maintainer. A sub-arc plans and builds 1 and 2 before P17; the maintainer reads the plan first.
+
 ## Carried to Part 2 from the implementation of Part 1
 
 **The measured slowdown of Part 1, and its cause** (2026-11-21, at the third planned pause; the maintainer asked

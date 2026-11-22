@@ -1326,3 +1326,6 @@ the scheme in full; on the parameter side `T3Tangent` holds both `X` and `X'`; c
 core pairs on the TT methods; `T3Tangent` at `(B,G,G,G)` in the frontend local model). Four decisions for the
 maintainer: the type of the transposes' data argument; how much `W` expresses; corewise as point methods or as
 tangent operations of `COREWISE`; then the names.
+Decisions 1 and 2 of the audit taken by the maintainer (TARGET_DECISIONS, "The data metric"); 3 and 4 still with him.
+A sub-arc between P16 and P17 is planned for 1 and 2: Claude's first draft `dev/graded_messages/DATA_METRIC_PLAN.md`,
+refined by a writer/reviewer pair; the maintainer reads it before any build.
