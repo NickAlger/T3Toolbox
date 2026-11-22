@@ -1414,3 +1414,10 @@ algebraic types, identifiers stay ASCII. In round 1.
 Round 1 (`M1_RESPONSE_r1.md`): the bridge test over the four float32/float64 pairings (the reviewer's mutant now
 fails 8); the comment block restored verbatim; the Unicode/ASCII ruling in `signature_style.md`. `M1_REVIEW_r2.md`:
 SIGN OFF. **M1 committed.** Next: M2, the switch to the rule (one change, built in parts on a side branch as P16 was).
+
+### The M slices continue without stopping (the maintainer, 2026-11-22)
+
+"Go ahead with M2 and continue through the rest of the M slices, unless a major issue arises. Please track decisions
+you make and we will discuss them after the M slice arc is complete." Claude's decisions are tracked in
+`implementation/M_ARC_DECISIONS.md` (M0 and M1 entered). M2 starts on a local side branch `m2-wip` with a fresh
+implementer; the sub-arc's reviewer is kept.
