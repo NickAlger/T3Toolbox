@@ -880,6 +880,12 @@ Plus `LeastSquaresBatch.data_metric(r)`, reading its own weight and scale. It li
 by `t3toolbox.fitting`. With this, every question of the plan is decided; the writer folds them in and the reviewer
 checks once more before the maintainer's final read.
 
+**The data-metric plan: the last names** (the maintainer, 2026-11-22). The constructor is `blocks_to_weight(kind,
+order, blocks, y)`. The checkers' keyword `stack_shape=()` is approved. Under discussion: `prepare_derivative_data`'s
+`weight=None`, and whether the weighted block sums supersede the plain ones (the maintainer's view: they do; an
+unweighted sum is the weighted one with weight 1, and a plain sum of squares of a data-space element does not type
+without a metric).
+
 ## Carried to Part 2 from the implementation of Part 1
 
 **Hard typing inside the engine** (the maintainer, 2026-11-22, from Claude's typing ideas 3 and 4; ideas 1, 2 and 6 are
