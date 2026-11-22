@@ -886,6 +886,15 @@ order, blocks, y)`. The checkers' keyword `stack_shape=()` is approved. Under di
 unweighted sum is the weighted one with weight 1, and a plain sum of squares of a data-space element does not type
 without a metric).
 
+**Defaults, and the block sums** (the maintainer, 2026-11-22). **A general principle: "unweighted" or "default" means
+weights of 1.0 in the natural coordinates of the object in question.** So `prepare_derivative_data(weight=None)` keeps
+returning the factorials (weight 1 on the derivatives, its natural coordinates). (The type-error principle concerns the
+*absence of the option* of weights; a default of ones in the natural coordinates is not silent in that sense.
+`data_metric` keeps both factors required, as decided in Q3.) **The weighted block sums supersede the plain ones:**
+`r_block_sumsq` and `y_block_sumsq` keep their names and become `<., M .>` per block (the scale inside `M`); unweighted
+is `omega = 1`; no new engine variables or oracle outputs; O-21's "plain sums" superseded; `f_resolution` is `<y, M
+y>`. **The display's `(unwt ...)` header figure is dropped.**
+
 ## Carried to Part 2 from the implementation of Part 1
 
 **Hard typing inside the engine** (the maintainer, 2026-11-22, from Claude's typing ideas 3 and 4; ideas 1, 2 and 6 are
