@@ -1402,3 +1402,8 @@ module doctests, 47 pages, 14 examples, Sphinx 0 warnings. The baseline log is k
 `M1_DESIGN_NOTE.md`: `data_metric` and `blocks_to_weight` in `jets`, the batch method, the frontend converters made
 private (O-20's frontend check deleted), the law helper `tests/_typing.py` with negative controls, the type-first
 comment grammar. Five decisions to rule after the reviewer's critique.
+`M1_DESIGN_REVIEW.md`: sound. Ruled by Claude: `_with_K` moves to M2 (nothing calls it in M1); a packed `r` with a
+ragged weight raises; the batch method raises by rank on block weights until M2 (pinned by a test); the frontend
+converters leave `fitting` entirely (not in 2026.5.0); M0's log is M1's reference (verified). Folded in: exact mode
+count for a ragged `r`; the static axis check (`data_metric` never grows `r`); the docstrings (Q7's recipe; the
+converters retyped); an input-law negative control. Building.
