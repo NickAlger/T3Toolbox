@@ -1358,3 +1358,6 @@ The plan's notation pass: `DATA_METRIC_PLAN_REVIEW_r5.md` (NOT YET: the rename's
 the writer's round 6, `DATA_METRIC_PLAN_REVIEW_r6.md` (SIGN OFF), then three small edits (`ℓ_j` for the jet rescaling;
 Q1's cost of `data_metric`; Q12 on `J_in_i`). Six slices M0 (the `J -> P` rename) to M5. **Final for the maintainer:
 twelve questions** (section 8), plus the audit's decisions 3 and 4.
+The maintainer answered the plan's questions 2, 4, 6, 9, 10 (`*` for the algebraic dual), 11; Q1 (`data_riesz_map`)
+to confirm; Q3, Q5, Q8 (weights) and Q7 (derivative coordinates, guided by T3Polynomial's use) to discuss; Q12 open.
+An agent studies T3Polynomial's use of jetted probe fitting (read only).

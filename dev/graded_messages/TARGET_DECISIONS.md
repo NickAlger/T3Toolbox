@@ -847,6 +847,17 @@ means the group `G` is in a term only for some variables or settings (structural
 empty (zero axes), in `contract` and `jet_contract` alike. Claude's recommendation, to be folded into the plan: the
 `J -> P` rename and the glossary and `naming_conventions.md` entries in M1.
 
+**The data-metric plan's questions: the maintainer's first answers** (2026-11-22, on `DATA_METRIC_PLAN.md` section 8).
+Q2: the transposes' argument is `c`. Q4: the display shows the weighted ratio `‖ω⊙r_b‖/‖ω⊙y_b‖`. Q6: the input is
+`ω`. Q9: the dual-jet converters are frontend-private and backend-public ("the backend user needs this to work with
+held edge variables"). Q10: the dual symbol is `*` ("these are algebraic duals"; `'` slips in from topological duals),
+so `P*`, `V_i*`, `X*`, `Y*`, and `J: X -> Y*`, `J^T: Y -> X*`, `M: Y* -> Y`. Q11: the types in both backend and
+frontend signatures ("arguably more important in the backend, since we have less guardrails there"). Q1: he chose
+`data_riesz_map`, reading an earlier version whose recommendation it was; Claude asked him to confirm it against the
+later finding that a Riesz map overclaims (`M` is not an isomorphism where a weight is zero, nor as a loss Hessian).
+Open: Q3, Q5, Q8 (the design of the weights, to talk through), Q7 (derivative coordinates: decided by how T3Polynomial
+uses jetted probe fitting), Q12 (`J_in_i`, not yet seen).
+
 ## Carried to Part 2 from the implementation of Part 1
 
 **Hard typing inside the engine** (the maintainer, 2026-11-22, from Claude's typing ideas 3 and 4; ideas 1, 2 and 6 are
