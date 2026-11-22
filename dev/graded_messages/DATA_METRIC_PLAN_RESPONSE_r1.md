@@ -280,3 +280,81 @@ All five findings are accepted. I re-measured the counts with my own AST scan at
   - (b) Keep it.
   - (c) Another name.
 - M0's bit-for-bit evidence is left to M0's design note, as instructed.
+
+---
+
+# Round 7 (decisions): every question decided, folded in (writer, 2026-11-22)
+
+Sources: `TARGET_DECISIONS.md`, the notes of 2026-11-22 from "The data-metric plan's questions: the maintainer's first
+answers" to "The data-metric plan: Q3", and `T3POLYNOMIAL_JET_USE.md`. I rewrote the plan around them, and §8 is now
+a record of the decisions.
+
+- **Q10, `*` for duals.** It replaces `'` throughout: `X*`, `Y*`, `P*`, `V_i*`, `E*`, `Y** = Y`, `P** = P`, and the
+  maps `J: X -> Y*`, `J^T: Y -> X*`, `M: Y* -> Y`. Every `*` is inside backticks. 9.0 states that `*` means
+  multiplication only in Python code (`γ * ω**2 * r`) and is a wildcard in names (`tv_*`). A grep finds no `X'`,
+  `Y'`, `P'`, `E'` or `V_i'` left.
+- **Q5 and Q8, the rule.** §2 is rewritten. Every data-space object has the type of `z`, each axis 1 or `z`'s size,
+  never `K`; the probe mode count is exact. Consequences:
+  - There is no block form. The rank-reading rule and its trap are gone.
+  - `y` and `ω` carry `C`: size 1 for shared data, full for per-element data. `r_step`'s alignment of a `y` without
+    `C` goes.
+  - The checkers gain `stack_shape=()`.
+  - The rejection table is re-ruled. Two of the 19 cases are legal (a size-1 `W` axis); 17 raise; the old accepted
+    block forms raise.
+  - Everything that depended on the block form now uses the full form: `take` and packing (one rule for `y` and `ω`),
+    the factorials (leading jet axes), the display (block shape is only the table's shape), the translation, the
+    bridge and two page doctests (through the constructor), and `f_resolution` (per element of `C`, a consequence of
+    per-element `y`).
+- **The constructor.** I propose `blocks_to_weight(kind, order, blocks, y)`: per-block values on the jet axes (and
+  modes), size 1 elsewhere, shaped like `y`.
+  - The name follows the converter grammar. The alternatives are `weight_from_blocks` and `block_weight`. §8 lists
+    it as the one name to confirm, in M1's design note.
+  - `data_block_norms` and `equalizing_weight` stay block-shaped, as per-block quantities.
+- **Q7.** §1 and §4 give it: Taylor coordinates everywhere, one conversion at the boundary, every stored copy in
+  Taylor coordinates, and the recipe (convert the data, then compute the weight). From the study, I added:
+  - `prepare_derivative_data(weight=None)` keeps returning `k!` (now in full form), documented as rarely right for
+    decaying jets;
+  - `equalizing_weight`'s floor depends on the coordinates (Taylor widens the spread by up to `n!`), covered by
+    "rescale the direction first";
+  - the warning that the real risk is primal mixing of stored derivative copies.
+- **Q3.** §3's signature is `data_metric(r, weight, minibatch_scale)`, plus `LeastSquaresBatch.data_metric(r)`.
+  - Elementwise, with no `kind` or `order`. A tuple or list is read element by element, and a packed array
+    elementwise.
+  - Equal rank per pair, so a `K`-stacked `r` raises. With `weight=None` the result is `γ r`.
+  - The single-implementation table is rebuilt. `_omega_squared` is the one place `ω²` is formed. The engine inserts
+    `K` through a private `_with_K` (its group lengths), and its steps call `data_metric` with `γ = None`.
+    `r_step` and the new display sums are new rows.
+  - `jet_to_dual_jet` / `dual_jet_to_jet` keep their signatures but now reject a `K`-stacked jet, since the engine's
+    `K` path is private.
+- **Q1, Q2, Q4, Q6, Q9, Q11 and Q12** are recorded in §8 and applied. The plan's body uses `data_metric` and `c`.
+  9.2 is marked decided. `J_in_i -> F_in,i` joins M0's table: 180 lines and 15 uses of a local `J_in`.
+- **The slices** are re-cut, because the representation must switch atomically. A full-form weight through an
+  unswitched `take` would keep the full batch's samples on a drawn batch, a silent wrong answer.
+  - **M1** is additive: `data_metric`, `_with_K`, `blocks_to_weight`, the batch method, 9.2, the law helper and the
+    grammar.
+  - **M2** is the switch: checkers, engine, reference, converters, factorials, `prepare_derivative_data`, `take`,
+    packing, `f_resolution`, stacked `y`, the translation, the bridge, the pages and the tests. It is tested by, among
+    others, "a zero-weight sample = the batch without it" and "per-element stacked data = separate fits". It may be
+    built in parts, as P16 was.
+  - **M3** is the display, now separate.
+  - **M0, M4 and M5** are as before.
+- **The blast radius.** §6 adds counts at `b5a848d5`:
+  - about 170 `weight=` lines in tests, some of them on old kinds;
+  - 39 `LeastSquaresBatch(` calls in tests;
+  - 12 `check_weight`, 7 `check_data`, 20 `prepare_derivative_data`, 7 `derivative_weight_to_taylor_weight` and 73
+    converter lines in tests;
+  - the stacked-`y` tests.
+
+**Round 7 addendum** (the coordinator's six points from `DATA_METRIC_PLAN_REVIEW_r7.md`, which signed off; no further
+round):
+- **`blocks_to_weight` is §8's one open question:** (a) `blocks_to_weight(kind, order, blocks, y)`, recommended,
+  (b) `weight_from_blocks`, (c) `block_weight`. "In brief" and the status line point to it.
+- **The converters on `K`.** They raise on a `K`-stacked jet only when a weight is given; with `weight=None` they
+  flip it as today. M1's test line now says the same.
+- **Three details are listed in §8 as writer proposals,** to be put to the maintainer in the design note that builds
+  each: `stack_shape=()`, `prepare_derivative_data(weight=None)` returning `k!`, and M3's names.
+- **`data_metric`'s two edge cases** (a packed `r` with a tuple weight; a packed weight with a size-1 mode axis) are
+  noted in §3 for M1.
+- **M2's gate** gains the pre-M2 numbers on every weighted test through `blocks_to_weight`, and the reference's
+  full-form reading pinned against brute-force dense sums first.
+- The status line and §6's "calls" are fixed.

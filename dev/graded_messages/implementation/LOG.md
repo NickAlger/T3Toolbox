@@ -1366,3 +1366,7 @@ weight together; a data-relative weight computed after converting the data), doc
 `data_metric` and the pages. Claude recommended for Q5 and Q8 together: data-space objects (`y`, `omega`, residuals)
 have the type of `z`, each axis 1 or `z`'s size (the full form only, with a constructor helper for block weights;
 per-element data on a stack then removes a special case). The maintainer asked for a T3Polynomial-style example.
+All the maintainer's decisions folded into the plan (the writer's round 7); `DATA_METRIC_PLAN_REVIEW_r7.md`: SIGN OFF
+(the rule checked by script for every kind, layout and stack; M2 a single switch, justified); the writer's last edits
+(`blocks_to_weight` as the one open question in section 8; the converters' `K` behaviour stated exactly; writer
+proposals listed for their design notes; two strengthenings of M2's gate). **Final for the maintainer's read.**
