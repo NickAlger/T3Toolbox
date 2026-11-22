@@ -24,9 +24,6 @@ from unittest import mock
 import numpy as np
 
 import t3toolbox.backend.sampling_derivatives as pd
-import os as _os, sys as _sys
-_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
-import _derivative_data as dd       # derivative data from the merged methods (P13b)
 
 try:
     import jax  # the estimator compiles to measure; skip the module if jax is absent
@@ -231,83 +228,6 @@ class TestBudgetHoldsInTheCompiledProgram(unittest.TestCase):
                     self.assertGreater(cs, 4 * c0)                 # the budget binds (no clamp at |W|)
                     slope = (temp(make(cs), args) - temp(make(c0), args)) / (cs - c0)    # bytes per probe in the chunk
                     self.assertLessEqual(cs * slope, (1 + self.PACKING_RTOL) * target)   # the chunk's share fits
-
-
-@unittest.skipUnless(_HAVE_JAX, "the 'auto' resolver estimates via jax")
-class TestFittingChunkSizeWiring(unittest.TestCase):
-    """chunk_size threads through the optimizer layer: 'auto' resolves to the estimator for a uniform
-    probe_derivatives fit (None for ragged / non-probe), and chunking is exact through the optimizer."""
-
-    STRUCT = ((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
-
-    def _probes(self, W, seed=0):
-        rng = np.random.default_rng(seed)
-        ww = [rng.standard_normal((W, n)) for n in self.STRUCT[0]]
-        pp = [rng.standard_normal((W, n)) for n in self.STRUCT[0]]
-        return ww, pp
-
-    def test_resolver(self):
-        import t3toolbox.optimizers as opt
-        import t3toolbox.tucker_tensor_train as t3
-        import t3toolbox.uniform_tucker_tensor_train as ut3
-        xu = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(*self.STRUCT))
-        xr = t3.TuckerTensorTrain.randn(*self.STRUCT)
-        s = self._probes(300)
-        self.assertIsInstance(opt._resolve_chunk_size('auto', 'probe_derivatives', xu, s, 2), int)   # uniform -> int
-        self.assertIsNone(opt._resolve_chunk_size('auto', 'probe_derivatives', xr, s, 2))            # ragged -> None
-        self.assertIsNone(opt._resolve_chunk_size('auto', 'apply_derivatives', xu, s, 2))            # non-probe -> None
-        self.assertEqual(opt._resolve_chunk_size(7, 'probe_derivatives', xu, s, 2), 7)               # int passthrough
-        self.assertEqual(opt._resolve_chunk_size('auto', 'probe_derivatives', xu, s, 2, batch=40),   # minibatch caps W
-                         opt._resolve_chunk_size('auto', 'probe_derivatives', xu, self._probes(40), 2))
-        # The solver's hessian mode reaches the estimator, so an exact fit's chunk also bounds the two-hole. The two
-        # ANSWERS cannot be told apart through the resolver: it sizes one CG direction (n_tangent = 1), where the
-        # measured balance admits all of W in both modes -- jet floor / per-row cost >= 2.0 for the transpose and
-        # the two-hole alike over 12 measured shapes (d = 3-5, order 0-6, ranks to 36, N to 1000; e.g. this STRUCT
-        # at order 2: 2.89 GN, 2.55 exact) -- so both return W = 40000 here. The pass-through is pinned directly
-        # instead: the forwarded mode (a spy), the estimator's own validation reached through the resolver, and
-        # equality with a direct estimator call.
-        from unittest import mock
-        big = self._probes(40000)
-        with mock.patch.object(pd, 'estimate_chunk_size', wraps=pd.estimate_chunk_size) as spy:
-            exact = opt._resolve_chunk_size('auto', 'probe_derivatives', xu, big, 2, hessian='exact')
-            gn = opt._resolve_chunk_size('auto', 'probe_derivatives', xu, big, 2)
-        self.assertEqual([c.kwargs['hessian'] for c in spy.call_args_list], ['exact', 'gauss_newton'])
-        with self.assertRaisesRegex(ValueError, "hessian must be 'gauss_newton' or 'exact'"):
-            opt._resolve_chunk_size('auto', 'probe_derivatives', xu, big, 2, hessian='newton')
-        d, n, r = 3, int(xu.tucker_supercore.shape[-2]), int(xu.tt_supercore.shape[-1])
-        for mode, got in (('exact', exact), ('gauss_newton', gn)):
-            self.assertEqual(got, pd.estimate_chunk_size(self.STRUCT[0], (n,) * d, (r,) * (d + 1), 2, 40000,
-                                                         dtype=xu.tucker_supercore.dtype, hessian=mode))
-        self.assertIsNone(opt._resolve_chunk_size('auto', 'probe_derivatives', xr, big, 2, hessian='exact'))  # ragged
-        # S12: the other kinds' exact programs (the apply / entries (derivative) two-holes) are unchunked, as their GN
-        # transposes are -- 'auto' resolves to None in BOTH modes without reaching the estimator.
-        with mock.patch.object(pd, 'estimate_chunk_size') as spy:
-            for kind in ('apply', 'entries', 'probe', 'apply_derivatives', 'entries_derivatives'):
-                for mode in ('gauss_newton', 'exact'):
-                    with self.subTest(kind=kind, hessian=mode):
-                        self.assertIsNone(opt._resolve_chunk_size('auto', kind, xu, s, 2, hessian=mode))
-        spy.assert_not_called()
-
-    def test_newton_cg_exact_across_chunk_size(self):
-        # chunk_size is an exact reorganization -> the fit is identical up to float rounding, for any
-        # chunk_size. (Relative tolerance: the add-reducer differs from the dense sum only at ~1e-12.)
-        import t3toolbox.optimizers as opt
-        import t3toolbox.tucker_tensor_train as t3
-        import t3toolbox.uniform_tucker_tensor_train as ut3
-        import t3toolbox.uniform_manifold as ut3m
-        np.random.seed(0)                     # TuckerTensorTrain.randn uses the global RNG; pin it
-        ww, pp = self._probes(200)
-        xtrue = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(*self.STRUCT))
-        data = dd.forward(xtrue, 'probe', ww, pp, 2)
-        x0 = ut3.UniformTuckerTensorTrain.zeros(*self.STRUCT)
-        losses = []
-        for cs in ('auto', 4, None):          # 4 forces chunking (W=200 > 4); all must agree (exact)
-            _, stats = opt.newton_cg(ut3m.UNIFORM_MANIFOLD, 'probe_derivatives', (ww, pp), data, x0,
-                                     order=2, chunk_size=cs, max_newton=2)
-            losses.append(stats['losses'][-1])
-        ref = losses[2]                       # None = the dense assembly
-        for l in losses[:2]:
-            self.assertLessEqual(abs(l - ref), 1e-9 * abs(ref) + 1e-12)
 
 
 if __name__ == '__main__':

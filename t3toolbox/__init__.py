@@ -6,8 +6,8 @@
 stored as a tensor train.
 
 This package root re-exports the **frontend** surface: the tensor classes (ragged and uniform),
-the frame/variations/tangent classes, the geometry singletons, the local models (``LocalModel``
-and its factories), and the optimizers. **Backend users import submodules explicitly** (e.g.
+the frame/variations/tangent classes, the geometry singletons, the local model (``local_model``, ``LocalModel``, the
+least-squares ``LeastSquaresOracle`` and ``LeastSquaresBatch``), and the optimizers. **Backend users import submodules explicitly** (e.g.
 ``from t3toolbox.backend import probing``) -- the backend is namespaced by module and
 deliberately not re-exported here. Naming conventions: ``docs/naming_conventions.md``.
 """
@@ -38,12 +38,9 @@ from t3toolbox.uniform_manifold import UT3Tangent, UNIFORM_MANIFOLD, UNIFORM_COR
 from t3toolbox.shared_geometry import shared, shared_manifold, shared_corewise
 from t3toolbox.fitting import (
     LocalModel,
-    apply_model,
-    entries_model,
-    probe_model,
-    apply_derivatives_model,
-    entries_derivatives_model,
-    probe_derivatives_model,
+    local_model,
+    LeastSquaresOracle,
+    LeastSquaresBatch,
     affine_jet,
     index_to_one_hot,
 )
@@ -101,12 +98,10 @@ __all__ = [
     'shared_corewise',
     # fitting models
     'LocalModel',
-    'apply_model',
-    'entries_model',
-    'probe_model',
-    'apply_derivatives_model',
-    'entries_derivatives_model',
-    'probe_derivatives_model',
+    'local_model',
+    # the least-squares objective (the oracle) and its data (the batch), for the optimizers and local_model (D7)
+    'LeastSquaresOracle',
+    'LeastSquaresBatch',
     # the input jets of a sampling function with a jet shape: a point moved along directions, and one-hot vectors
     'affine_jet',
     'index_to_one_hot',

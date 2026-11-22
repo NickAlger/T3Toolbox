@@ -43,7 +43,7 @@
   T3-T3 term at ``Z = P_X R`` cancels the dense ``K_R`` on a lifted tangent; and at a generic point the
   normal curvature ``K_{R - P_X R}`` annihilates vertical (gauge) directions (the Lagrangian null space).
 
-The exact local model, ``Problem.local_model(hessian='exact')``:
+The exact local model, ``local_model(hessian='exact')``:
 
 * **T7** -- ``<p, H p>`` is ``d^2/dt^2 f(tv_retract(t p))`` (an exact oracle: the T3-SVD retraction is second
   order), resolving the curvature term itself; probe derivatives at orders 0-2 with every weight shape, and an
@@ -110,6 +110,11 @@ import t3toolbox.backend.probing as probing
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _curvature_oracles as oracles
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # tests/
+import _derivative_data as dd       # derivative data from the merged methods (P13b)
+import _fits as F                   # a backend fit (geometry, oracle, batch, regularizer) from plain specs (P16)
+from t3toolbox.backend.fitting import LeastSquaresOracle, LeastSquaresBatch
+from t3toolbox.backend.sampling_variables import frame_form
 
 _MINIMAL = ((5, 6, 7), (2, 3, 2), (1, 2, 2, 1))
 _TUCKER_SLACK = ((6, 6, 6), (4, 4, 4), (1, 2, 2, 1))        # frame up ranks (2, 4, 2) < down (4, 4, 4)
@@ -1615,7 +1620,7 @@ class TestFlatSlotsAndVerticalDirections(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------------------------------
-# S4: the exact local model -- Problem.local_model(hessian='exact')
+# S4: the exact local model -- local_model(hessian='exact')
 # ---------------------------------------------------------------------------------------------------
 _MANIFOLD = bgeo.ManifoldGeometryOps()
 _COREWISE = bgeo.CorewiseGeometryOps()
@@ -1630,20 +1635,49 @@ def _unit_point(struct, C=()):
     return tuple(tk), tuple(tt[:-1]) + (tt[-1] / nrm[..., None, None, None],)
 
 
-def _pd_fit(struct, order, W, rng, C=(), weight=None, geom=_MANIFOLD, regularizer=None, chunk_size=None):
-    """A probe-derivative least-squares problem whose data come from ANOTHER unit point (plus noise), so the
-    residual -- hence the curvature term -- is O(1), and the point ``x`` to linearize at."""
-    x, other = _unit_point(struct, C), _unit_point(struct, C)
+def _probe_weight(weight, d, order):
+    """An old-form probe-derivative weight (per order ``(order+1,)``, per mode ``(d, 1)``, or the matrix ``(d, order+1)``)
+    as the exact ``(d, order+1)`` the oracle takes, on the derivatives (``prepare_derivative_data`` makes it Taylor's)."""
+    return None if weight is None else np.broadcast_to(np.asarray(weight, dtype=float), (d, order + 1)).copy()
+
+
+def _pd_fit(struct, order, W, rng, C=(), weight=None, geom=_MANIFOLD, regularizer=None):
+    """A fit of probe-derivative data along lines (the probe oracle at the jet shape ``(order,)``) whose data come from
+    ANOTHER unit point (plus noise), so the residual -- hence the curvature term -- is O(1), and the point ``x`` to
+    linearize at (stacked ``C``: the data are of one point and broadcast over ``C``, as the oracle's ``y`` does)."""
+    x, other = _unit_point(struct, C), _unit_point(struct)
     ww = [rng.standard_normal(W + (N,)) for N in struct[0]]
     pp = [rng.standard_normal(W + (N,)) for N in struct[0]]
-    data = [z + 0.1 * rng.standard_normal(z.shape) for z in sd.t3_probe_derivatives(ww, pp, other, order)]
-    kind = bfit.ProbeDerivativesKind(order=order, weight=weight, chunk_size=chunk_size)
-    return bopt.least_squares_problem(geom, kind, (ww, pp), data, regularizer=regularizer), x
+    data = [z + 0.1 * rng.standard_normal(z.shape)
+            for z in dd.forward(t3.TuckerTensorTrain(*other), 'probe', ww, pp, order)]
+    return F.derivative_fit(geom, 'probe', order, ww, pp, data, regularizer=regularizer,
+                            weight=_probe_weight(weight, len(struct[0]), order)), x
+
+
+def _K_r(lm, theta_hat):
+    """``K_{A^T omega^2 r} theta_hat``: the oracle's ``Kp`` along raw core directions at the model's frame (its held)."""
+    (Kp,), _ = lm.oracle.query(lm.frame, lm.batch, ('Kp',), Vc=lm._Vc, core_directions=theta_hat, held=lm.held)
+    return Kp
+
+
+def _w2r(lm):
+    """``omega^2 r``, of the type of z (the batch's weight on its axes), from the model's residual."""
+    r, w = lm.residual, lm.batch.weight
+    if w is None:
+        return r
+    if isinstance(r, (tuple, list)):                                   # probe: w is (d,) + F
+        return [np.asarray(w[i]).reshape(np.shape(w[i]) + (1,) * (np.ndim(a) - np.ndim(w[i]))) ** 2 * a
+                for i, a in enumerate(r)]
+    return np.asarray(w).reshape(np.shape(w) + (1,) * (np.ndim(r) - np.ndim(w))) ** 2 * r
 
 
 def _unit_tangent(geom, frame, K=(), C=()):
     """A random tangent at ``frame`` (projected), scaled to unit coordinate norm when unstacked."""
-    v = geom.project(frame, fvo.fv_variations_randn(fvo.fv_variation_shapes(frame), K + C))
+    if frame_form(frame)[1] == 'corewise':                     # the corewise frame is the point (B, G): core directions
+        shapes = (tuple(b.shape[-2:] for b in frame[0]), tuple(g.shape[-3:] for g in frame[1]))
+    else:
+        shapes = fvo.fv_variation_shapes(frame)
+    v = geom.project(frame, fvo.fv_variations_randn(shapes, K + C))
     if K + C:
         return v
     return cw.corewise_scale(v, 1.0 / float(geom.inner(v, v)) ** 0.5)
@@ -1669,41 +1703,28 @@ def _flat_inner(a, b):
 
 
 @dc.dataclass(frozen=True, eq=False)
-class _BlockSumApplyKind(bfit.ApplyKind):
-    """APPLY with an ORACLE corewise_hessian (the block-sum, F5: the one-hole at the doubled-rank ``Y``, read
-    back) -- so the exact local model's machinery can be checked on a second kind, independently of any
-    shipped two-hole kernel."""
+class _BlockSumApplyOracle(LeastSquaresOracle):
+    """The apply oracle with an ORACLE ``Kp`` (the block-sum, F5: the one-hole at the doubled-rank ``Y``, read back,
+    of the corewise transpose at ``omega^2 r``) -- so the exact local model's machinery can be checked on a second
+    kind, independently of the engine's two-hole. (A user oracle: the fitting layer's extension point.)"""
 
-    def corewise_hessian(self, core_directions, r, ww, frame, sweep, base_point):
-        Y = oracles.doubled(base_point, core_directions)
-        return oracles.blocksum(bapply.t3_apply_corewise_transpose(Y, ww, r), base_point)
+    def query(self, frame, batch, want, **kwargs):
+        if 'Kp' not in want:
+            return super().query(frame, batch, want, **kwargs)
+        base = (frame[0], frame[1]) if frame_form(frame)[1] == 'corewise' else (frame[0], frame[2])
+        (r,), held = super().query(frame, batch, ('r',), Vc=kwargs.get('Vc'), held=kwargs.get('held'))
+        Y = oracles.doubled(base, kwargs['core_directions'])
+        Kp = oracles.blocksum(bapply.t3_apply_corewise_transpose(Y, batch.sample, r), base)
+        rest = tuple(name for name in want if name != 'Kp')
+        values = dict(zip(rest, super().query(frame, batch, rest, **kwargs)[0])) if rest else {}
+        values['Kp'] = Kp
+        return tuple(values[name] for name in want), held
 
 
 @dc.dataclass(frozen=True, eq=False)
-class _FiveOperationApplyKind(bfit.ScalarOutputKind):
-    """A user-written kind with the five operations a Gauss-Newton fit needs and NO corewise_hessian."""
-    name = 'five_operation_apply'
-
-    def precompute(self, frame, ww):
-        return bapply.tv_precompute_apply_frame_sweep(frame, ww)
-
-    def forward(self, v, ww, frame, sweep):
-        return bapply.tv_apply_jacobian_from_sweep(v, ww, frame, sweep)
-
-    def transpose(self, r, ww, frame, sweep):
-        return bapply.tv_apply_transpose_from_sweep(r, ww, frame, sweep, sum_over_probes=True)
-
-    def point_forward(self, x_cores, ww):
-        return bapply.t3_apply(x_cores, ww)
-
-    def take(self, sample, data, idx):
-        return bfit._take_apply(sample, data, idx)
-
-    def w_axes(self, sample):
-        return sample[0].ndim - 1
-
-    def n_measurements(self, sample):
-        return int(np.prod(sample[0].shape[:-1]))
+class _NoKpOracle(LeastSquaresOracle):
+    """A user oracle with the four required outputs and no ``Kp``: what a Gauss-Newton fit needs, and nothing more."""
+    optional_outputs = ('Jp', 'r', 'r_block_sumsq', 'y_block_sumsq', 'f_resolution')
 
 
 class _GaussNewtonOnlyGeometry:
@@ -1720,7 +1741,7 @@ class _GaussNewtonOnlyGeometry:
 
 class TestExactLocalModel(unittest.TestCase):
     """T7 (retraction FD), T8 (gauge laws), T9 (dense Lagrangian), T10 (regularized), the full-hvp symmetry and
-    stacking, and the mode / damping contracts of ``Problem.local_model(hessian='exact')``."""
+    stacking, and the mode / damping contracts of ``local_model(hessian='exact')``."""
 
     def setUp(self):
         np.random.seed(31)
@@ -1750,7 +1771,7 @@ class TestExactLocalModel(unittest.TestCase):
                 x, other = _unit_point(_MINIMAL), _unit_point(_MINIMAL)
                 ww = [rng.standard_normal((40, N)) for N in _MINIMAL[0]]
                 data = bapply.t3_apply(other, ww) + 0.1 * rng.standard_normal(40)
-                prob = bopt.least_squares_problem(_MANIFOLD, _BlockSumApplyKind(), ww, data)
+                prob = F.Fit(_MANIFOLD, _BlockSumApplyOracle('apply', ()), LeastSquaresBatch(ww, data))
                 self._check_retraction_fd(prob, x, cd)
 
     def _check_retraction_fd(self, prob, x, cd):
@@ -1790,8 +1811,7 @@ class TestExactLocalModel(unittest.TestCase):
                 p_vert = (tuple(VV), tuple(HH))
                 self.assertLess(np.linalg.norm(tv.tv_to_dense(frame, p_vert)), 1e-12 * _norm_flat(p_vert))
                 theta_hat = geom.lift(frame, p_vert, data)
-                K_r = lm.kind.corewise_hessian(theta_hat, lm.residual, lm.sample, frame, lm.sweep,
-                                               geom.base_point(frame))
+                K_r = _K_r(lm, theta_hat)
                 K_N = cw.corewise_sub(K_r, geom.tangential_curvature(frame, theta_hat, data))
                 self.assertGreater(_norm_flat(K_r), 1e-3)
                 self.assertLess(_norm_flat(K_N), 1e-11 * _norm_flat(K_r))
@@ -1821,15 +1841,14 @@ class TestExactLocalModel(unittest.TestCase):
             with self.subTest(structure=name):
                 shape = struct[0]
                 prob, x = _pd_fit(struct, order, (4,), rng, weight=weight)
-                kind, (ww, pp) = prob.kind, prob.sample
+                line = prob.batch.sample
                 lm = prob.local_model(x, hessian='exact', curvature_damping=0.0)
                 frame = lm.frame
-                omega = kind.weight                                               # canonical omega[mode, order]
+                omega = prob.batch.weight                                         # the Taylor weight, (d, order+1)
 
                 def measure(cores):                                               # omega (.) S(X), flattened
-                    out = sd.t3_probe_derivatives(ww, pp, cores, order)
-                    return np.concatenate([(z * omega[i if omega.shape[0] > 1 else 0].reshape(-1, 1, 1)).ravel()
-                                           for i, z in enumerate(out)])
+                    out = probing.t3_probe(cores, line, (order,))                 # the Taylor coefficients
+                    return np.concatenate([(z * omega[i].reshape(-1, 1, 1)).ravel() for i, z in enumerate(out)])
                 cols = []
                 for idx in np.ndindex(*shape):
                     unit = (tuple(np.eye(N)[j][None, :] for N, j in zip(shape, idx)),
@@ -1837,8 +1856,7 @@ class TestExactLocalModel(unittest.TestCase):
                     cols.append(measure(unit))
                 A = np.stack(cols, axis=1)
                 y = A @ np.asarray(t3c.t3_to_dense(x)).ravel() - np.concatenate(
-                    [(r * omega[i if omega.shape[0] > 1 else 0].reshape(-1, 1, 1)).ravel()
-                     for i, r in enumerate(lm.residual)])                         # so that A X - y = omega (.) r
+                    [(r * omega[i].reshape(-1, 1, 1)).ravel() for i, r in enumerate(lm.residual)])   # A X - y = omega r
                 theta = (tuple(frame[0]), tuple(frame[2]))
                 G = tv.tv_to_dense(frame, lm.curvature.misfit_gradient)          # grad f, dense
                 lf = fvo.fv_lift_factors(frame, 0.0)
@@ -1857,7 +1875,7 @@ class TestExactLocalModel(unittest.TestCase):
             with self.subTest(strength=lam):
                 prob, x = _pd_fit(_MINIMAL, 1, (12,), rng, regularizer=bopt.IdentityRegularizer(lam))
                 self._check_retraction_fd(prob, x, None)
-                plain = dc.replace(prob, regularizer=None)
+                plain = prob.with_(regularizer=None)
                 lm, lm0 = prob.local_model(x, hessian='exact'), plain.local_model(x, hessian='exact')
                 g_R = prob.regularizer.gradient(prob.geom, lm.frame)
                 self.assertTrue(all(np.array_equal(a, b) for a, b in zip(sum(lm.curvature.misfit_gradient, ()),
@@ -1897,10 +1915,8 @@ class TestExactLocalModel(unittest.TestCase):
                 Hp, q, qc = lm.hvp(p), np.asarray(lm.quadratic(p)), np.asarray(lm.curvature_quadratic(p))
                 self.assertEqual(q.shape, K + C)
                 self.assertEqual(qc.shape, K + C)
-                for cc in np.ndindex(*C):
-                    nW = 1
-                    data_c = [z[(slice(None),) * (1 + nW) + cc] for z in prob.data]
-                    lm_c = dc.replace(prob, data=data_c).local_model(_elem(x, cc), hessian='exact')
+                for cc in np.ndindex(*C):                                      # the data broadcast over C
+                    lm_c = prob.local_model(_elem(x, cc), hessian='exact')
                     for kk in np.ndindex(*K):
                         p_kc = _elem(p, kk + cc)
                         self.assertLess(_relerr_tree(_elem(Hp, kk + cc), lm_c.hvp(p_kc)), 1e-12)
@@ -1933,17 +1949,22 @@ class TestExactLocalModel(unittest.TestCase):
         for method in ('curvature_hvp', 'curvature_quadratic'):
             with self.assertRaisesRegex(ValueError, 'needs an exact-mode model'):
                 getattr(gn, method)(p)
-        # the ONE misfit transpose: built once with the exact model, then read (GN transposes on demand)
-        with mock.patch.object(bfit.ProbeDerivativesKind, 'transpose', autospec=True,
-                               side_effect=bfit.ProbeDerivativesKind.transpose) as spy:
+        # the ONE misfit transpose: the exact build's query wants g, then the gradient is read (GN queries on demand)
+        wants, real = [], LeastSquaresOracle.query
+
+        def spy(oracle, frame, batch, want, **kwargs):
+            wants.append(tuple(want))
+            return real(oracle, frame, batch, want, **kwargs)
+        g_count = lambda: sum('g' in w for w in wants)
+        with mock.patch.object(LeastSquaresOracle, 'query', spy):
             ex2 = prob.local_model(x, hessian='exact')
-            self.assertEqual(spy.call_count, 1)
+            self.assertEqual((g_count(), wants), (1, [('f', 'g')]))
             ex2.gradient, ex2.gradient
-            self.assertEqual(spy.call_count, 1)
+            self.assertEqual(g_count(), 1)
             gn2 = prob.local_model(x)
-            self.assertEqual(spy.call_count, 1)
+            self.assertEqual((g_count(), wants[-1]), (1, ('f',)))
             gn2.gradient
-            self.assertEqual(spy.call_count, 2)
+            self.assertEqual(g_count(), 2)
         for bad in (True, None, 'newton', 'Gauss-Newton', ''):
             with self.subTest(hessian=bad):
                 with self.assertRaisesRegex(ValueError, "hessian must be 'gauss_newton' or 'exact'"):
@@ -2020,41 +2041,48 @@ class TestExactLocalModel(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'curvature_damping must be >= 0'):
             sprob.local_model(sx, hessian='exact', curvature_damping=-1e-6)
 
-    def test_the_kind_operation_weights_the_residual_and_passes_the_chunk_size(self):
-        """``ProbeDerivativesKind.corewise_hessian`` is the shipped two-hole at ``omega^2 r`` with the model's sweep
-        and the kind's own ``chunk_size`` (bitwise), so hvp's curvature block is exactly that kernel's."""
+    def test_the_curvature_block_is_the_oracles_Kp_at_the_weighted_residual(self):
+        """The model's curvature block reads the oracle's Kp along the lifted direction: K_{A^T omega^2 r} theta_hat with
+        the weight SQUARED on the residual, against the independent block-sum oracle (the corewise transpose at the
+        doubled-rank point, read back, at omega^2 r); and an exact hvp is ONE oracle query, wanting JtJp and Kp
+        together, at the model's frame with the model's held."""
         from unittest import mock
         rng = np.random.default_rng(39)
         w = rng.uniform(0.3, 2.0, (3, 3))
-        prob, x = _pd_fit(_MINIMAL, 2, (8,), rng, weight=w, chunk_size=7)
+        prob, x = _pd_fit(_MINIMAL, 2, (8,), rng, weight=w)
         lm = prob.local_model(x, hessian='exact')
-        th = _raw_like_frame_cores(lm.frame, (2,), rng)
-        got = lm.kind.corewise_hessian(th, lm.residual, lm.sample, lm.frame, lm.sweep, _MANIFOLD.base_point(lm.frame))
-        ref = sd.t3_probe_corewise_derivatives_hessian(lm.kind._apply_weight(list(lm.residual), 2), *lm.sample,
-                                                       _MANIFOLD.base_point(lm.frame), th, 2)
-        self.assertTrue(all(np.array_equal(a, b) for a, b in zip(got[0] + got[1], ref[0] + ref[1])))
-        with mock.patch.object(sd, 't3_probe_corewise_derivatives_hessian_from_sweep',
-                               wraps=sd.t3_probe_corewise_derivatives_hessian_from_sweep) as spy:
+        th = _raw_like_frame_cores(lm.frame, (), rng)              # unstacked: the doubled point's transpose has no K
+        base = _MANIFOLD.base_point(lm.frame)
+        got = _K_r(lm, th)
+        ref = oracles.blocksum(probing.t3_probe_corewise_transpose(oracles.doubled(base, th), prob.batch.sample,
+                                                                   _w2r(lm), (2,)), base)
+        self.assertLess(_relerr_tree(got, ref), 1e-11)
+        unweighted = oracles.blocksum(probing.t3_probe_corewise_transpose(oracles.doubled(base, th), prob.batch.sample,
+                                                                          lm.residual, (2,)), base)
+        self.assertGreater(_relerr_tree(got, unweighted), 1e-2)          # the weight is not dropped
+        calls, real = [], LeastSquaresOracle.query
+
+        def spy(oracle, frame, batch, want, **kwargs):
+            calls.append((tuple(want), frame is lm.frame, batch is lm.batch, kwargs.get('held') is lm.held))
+            return real(oracle, frame, batch, want, **kwargs)
+        with mock.patch.object(LeastSquaresOracle, 'query', spy):
             lm.hvp(_unit_tangent(prob.geom, lm.frame))
-        self.assertEqual(spy.call_count, 1)
-        self.assertEqual(spy.call_args.kwargs['chunk_size'], 7)
-        self.assertIs(spy.call_args.args[6], lm.sweep)                    # the model's sweep, reused
+        self.assertEqual(calls, [(('JtJp', 'Kp'), True, True, True)])
 
 
 def _plain_fit(kind, struct, W, rng, C=(), weight=None, geom=_MANIFOLD, noise=0.1):
     """A plain-kind least-squares problem (probe / apply / entries) whose data come from ANOTHER unit point plus
     noise -- so the residual, hence the curvature term, is O(1) -- and the point ``x`` to linearize at."""
-    x, other = _unit_point(struct, C), _unit_point(struct, C)
+    x, other = _unit_point(struct, C), _unit_point(struct)                 # the data broadcast over C
     shape = struct[0]
     if kind == 'entries':
         sample = np.stack([rng.integers(0, N, size=W) for N in shape])
     else:
         sample = [rng.standard_normal(W + (N,)) for N in shape]
-    bkind = {'probe': bfit.ProbeKind(weight=weight), 'apply': bfit.APPLY, 'entries': bfit.ENTRIES}[kind]
-    clean = bkind.point_forward(other, sample)
+    clean = {'probe': probing.t3_probe, 'apply': bapply.t3_apply, 'entries': bentries.t3_entries}[kind](other, sample)
     data = ([z + noise * rng.standard_normal(z.shape) for z in clean] if kind == 'probe'
             else clean + noise * rng.standard_normal(clean.shape))
-    return bopt.least_squares_problem(geom, bkind, sample, data), x
+    return F.fit(geom, kind, sample, data, weight=None if weight is None else np.asarray(weight, dtype=float)), x
 
 
 def _plain_fit_away_from_singular(test, kind, struct, W, seed, weight=None, cd=None):
@@ -2071,7 +2099,7 @@ def _plain_fit_away_from_singular(test, kind, struct, W, seed, weight=None, cd=N
 
 
 class TestPlainKindsExactLocalModel(unittest.TestCase):
-    """``Problem.local_model(hessian='exact')`` for the plain kinds, through their shipped ``corewise_hessian``: T7
+    """``local_model(hessian='exact')`` for the plain kinds, through their shipped ``corewise_hessian``: T7
     (``<p, H p>`` is the second derivative along the T3-SVD retraction, resolving the curvature term itself), T8
     (``K_N L p_vert = 0``: the kind's two-hole and the T3-T3 term agree on a lifted vertical direction), T13 (on the
     corewise geometry the plain Hessian of ``f o Phi``: GN + the block-sum, and the derivative of the gradient), the
@@ -2126,8 +2154,7 @@ class TestPlainKindsExactLocalModel(unittest.TestCase):
                         HH[i + 1] -= np.einsum('jk,kbl->jbl', Y, R[i + 1])
                     p_vert = (tuple(VV), tuple(HH))
                     theta_hat = geom.lift(frame, p_vert, data)
-                    K_r = lm.kind.corewise_hessian(theta_hat, lm.residual, lm.sample, frame, lm.sweep,
-                                                   geom.base_point(frame))
+                    K_r = _K_r(lm, theta_hat)
                     K_N = cw.corewise_sub(K_r, geom.tangential_curvature(frame, theta_hat, data))
                     self.assertGreater(_norm_flat(K_r), 1e-3)
                     self.assertLess(_norm_flat(K_N), 1e-11 * _norm_flat(K_r))
@@ -2145,8 +2172,8 @@ class TestPlainKindsExactLocalModel(unittest.TestCase):
                     p = (tuple(rng.standard_normal(u.shape) for u in x[0]),
                          tuple(rng.standard_normal(g.shape) for g in x[1]))
                     Hp = lm.hvp(p)
-                    w2r = (lm.kind._apply_weight(list(lm.residual), 2) if kind == 'probe' else lm.residual)
-                    K = oracles.blocksum(_plain_ops(kind)[2](w2r, prob.sample, oracles.doubled(x, p)), x)
+                    w2r = _w2r(lm)
+                    K = oracles.blocksum(_plain_ops(kind)[2](w2r, prob.batch.sample, oracles.doubled(x, p)), x)
                     self.assertLess(_relerr_tree(Hp, cw.corewise_add(gn.hvp(p), K)), 1e-12)
                     grad = lambda t: prob.local_model(cw.corewise_add(x, cw.corewise_scale(p, t))).gradient
                     d1 = lambda h: cw.corewise_scale(cw.corewise_sub(grad(h), grad(-h)), 0.5 / h)
@@ -2176,43 +2203,37 @@ class TestPlainKindsExactLocalModel(unittest.TestCase):
                 p = _unit_tangent(prob.geom, lm.frame, K=K, C=C)
                 Hp, q = lm.hvp(p), np.asarray(lm.quadratic(p))
                 self.assertEqual(q.shape, K + C)
-                for cc in np.ndindex(*C):
-                    data_c = _plain_residual_at(kind, prob.data, 1, cc)
-                    lm_c = dc.replace(prob, data=data_c).local_model(_elem(x, cc), hessian='exact')
+                for cc in np.ndindex(*C):                                      # the data broadcast over C
+                    lm_c = prob.local_model(_elem(x, cc), hessian='exact')
                     for kk in np.ndindex(*K):
                         p_kc = _elem(p, kk + cc)
                         self.assertLess(_relerr_tree(_elem(Hp, kk + cc), lm_c.hvp(p_kc)), 1e-12)
                         self.assertAlmostEqual(float(q[kk + cc]), float(lm_c.quadratic(p_kc)),
                                                delta=1e-11 * abs(q[kk + cc]))
 
-    def test_the_kind_operation_weights_the_residual_and_reuses_the_model_sweep(self):
-        """Each plain kind's ``corewise_hessian`` is its shipped two-hole at ``omega^2 r`` (probe; apply / entries are
-        unweighted) on the model's own sweep, bitwise, and the model's hvp calls it once with that sweep."""
+    def test_the_curvature_block_is_the_oracles_Kp_at_the_weighted_residual(self):
+        """Each plain kind's Kp along raw core directions at the model's frame is the two-hole at ``omega^2 r`` (probe;
+        apply / entries unweighted) -- against the merged corewise Hessian at the base point, a function of its own --
+        and the model's exact hvp is one oracle query wanting JtJp and Kp, at its frame with its held."""
         from unittest import mock
         rng = np.random.default_rng(65)
-        modules = {'probe': (probing, 't3_probe_corewise_hessian_from_sweep'),
-                   'apply': (bapply, 't3_apply_corewise_hessian_from_sweep'),
-                   'entries': (bentries, 't3_entries_corewise_hessian_from_sweep')}
         for kind in _PLAIN_KINDS:
             with self.subTest(kind=kind):
                 prob, x = _plain_fit(kind, _MINIMAL, (8,), rng, weight=[0.3, 1.0, 2.0] if kind == 'probe' else None)
                 lm = prob.local_model(x, hessian='exact')
                 th = _raw_like_frame_cores(lm.frame, (2,), rng)
                 base = _MANIFOLD.base_point(lm.frame)
-                got = lm.kind.corewise_hessian(th, lm.residual, lm.sample, lm.frame, lm.sweep, base)
-                w2r = lm.kind._apply_weight(list(lm.residual), 2) if kind == 'probe' else lm.residual
-                ref = _plain_ops(kind)[0](w2r, lm.sample, base, th)
-                self.assertLess(_relerr_tree(got, ref), 1e-13)     # P12: the kind's old tail against the engine
-                module, fname = modules[kind]
-                with mock.patch.object(module, fname, wraps=getattr(module, fname)) as spy:
+                got = _K_r(lm, th)
+                ref = _plain_ops(kind)[0](_w2r(lm), prob.batch.sample, base, th)
+                self.assertLess(_relerr_tree(got, ref), 1e-12)
+                calls, real = [], LeastSquaresOracle.query
+
+                def spy(oracle, frame, batch, want, **kwargs):
+                    calls.append((tuple(want), frame is lm.frame, kwargs.get('held') is lm.held))
+                    return real(oracle, frame, batch, want, **kwargs)
+                with mock.patch.object(LeastSquaresOracle, 'query', spy):
                     lm.hvp(_unit_tangent(prob.geom, lm.frame))
-                self.assertEqual(spy.call_count, 1)
-                self.assertIs(spy.call_args.args[4], lm.sweep)                    # the model's sweep, reused
-
-
-def _deriv_kind(kind, order, weight=None):
-    return (bfit.ApplyDerivativesKind if kind == 'apply_derivatives' else bfit.EntriesDerivativesKind)(
-        order=order, weight=weight)
+                self.assertEqual(calls, [(('JtJp', 'Kp'), True, True)])
 
 
 def _deriv_fit(kind, struct, order, W, rng, C=(), weight=None, geom=_MANIFOLD, noise=0.1, labels=None):
@@ -2220,11 +2241,13 @@ def _deriv_fit(kind, struct, order, W, rng, C=(), weight=None, geom=_MANIFOLD, n
     plus noise -- so the residual, hence the curvature term, is O(1) -- and the point ``x`` to linearize at; with
     ``labels``, both points tied (for a shared geometry)."""
     point = _unit_point if labels is None else (lambda s, cc: _shared_unit_point(s, labels, cc))
-    x, other = point(struct, C), point(struct, C)
-    sample = _deriv_sample(kind, struct[0], W, rng)
-    bkind = _deriv_kind(kind, order, weight)
-    clean = bkind.point_forward(other, sample)
-    return bopt.least_squares_problem(geom, bkind, sample, clean + noise * rng.standard_normal(clean.shape)), x
+    x, other = point(struct, C), point(struct, ())                            # the data broadcast over C
+    sample, pp = _deriv_sample(kind, struct[0], W, rng)
+    base = kind[:-len('_derivatives')]                                        # 'apply' | 'entries'
+    clean = np.asarray(dd.forward(t3.TuckerTensorTrain(*other), base, sample, pp, order))
+    data = clean + noise * rng.standard_normal(clean.shape)
+    return F.derivative_fit(geom, base, order, sample, pp, data, weight=None if weight is None else np.asarray(
+        weight, dtype=float), shape=struct[0]), x
 
 
 def _deriv_fit_away_from_singular(test, kind, struct, order, W, seed, weight=None, cd=None):
@@ -2241,7 +2264,7 @@ def _deriv_fit_away_from_singular(test, kind, struct, order, W, seed, weight=Non
 
 
 class TestDerivativeKindsExactLocalModel(unittest.TestCase):
-    """``Problem.local_model(hessian='exact')`` for the apply / entries derivative kinds (S12), through their shipped
+    """``local_model(hessian='exact')`` for the apply / entries derivative kinds (S12), through their shipped
     ``corewise_hessian``: T7 (``<p, H p>`` is the second derivative along the T3-SVD retraction, resolving the curvature
     term itself; orders 0-2, a per-order weight), T8 (``K_N L p_vert = 0`` through each kind), T13 (corewise: GN + the
     block-sum, and the derivative of the gradient), the full-hvp symmetry, stacks, the kind operation (``omega^2 r``,
@@ -2285,8 +2308,7 @@ class TestDerivativeKindsExactLocalModel(unittest.TestCase):
                         HH[i] += np.einsum('iaj,jk->iak', L[i], Y)
                         HH[i + 1] -= np.einsum('jk,kbl->jbl', Y, R[i + 1])
                     theta_hat = geom.lift(frame, (tuple(VV), tuple(HH)), data)
-                    K_r = lm.kind.corewise_hessian(theta_hat, lm.residual, lm.sample, frame, lm.sweep,
-                                                   geom.base_point(frame))
+                    K_r = _K_r(lm, theta_hat)
                     K_N = cw.corewise_sub(K_r, geom.tangential_curvature(frame, theta_hat, data))
                     self.assertGreater(_norm_flat(K_r), 1e-3)
                     self.assertLess(_norm_flat(K_N), 1e-11 * _norm_flat(K_r))
@@ -2304,9 +2326,8 @@ class TestDerivativeKindsExactLocalModel(unittest.TestCase):
                     p = (tuple(rng.standard_normal(u.shape) for u in x[0]),
                          tuple(rng.standard_normal(g.shape) for g in x[1]))
                     Hp = lm.hvp(p)
-                    one = _deriv_ops(kind, order)[2]
-                    K = oracles.blocksum(one(lm.kind._apply_weight(lm.residual, 2), prob.sample,
-                                             oracles.doubled(x, p)), x)
+                    K = oracles.blocksum(bapply.t3_apply_corewise_transpose(        # the one-hole at the doubled
+                        oracles.doubled(x, p), prob.batch.sample, _w2r(lm), (order,)), x)   # point (Taylor, omega^2 r)
                     self.assertLess(_relerr_tree(Hp, cw.corewise_add(gn.hvp(p), K)), 1e-12)
                     grad = lambda t: prob.local_model(cw.corewise_add(x, cw.corewise_scale(p, t))).gradient
                     d1 = lambda h: cw.corewise_scale(cw.corewise_sub(grad(h), grad(-h)), 0.5 / h)
@@ -2336,37 +2357,40 @@ class TestDerivativeKindsExactLocalModel(unittest.TestCase):
                 p = _unit_tangent(prob.geom, lm.frame, K=K, C=C)
                 Hp, q = lm.hvp(p), np.asarray(lm.quadratic(p))
                 self.assertEqual(q.shape, K + C)
-                for cc in np.ndindex(*C):
-                    lm_c = dc.replace(prob, data=_deriv_residual_at(prob.data, 1, cc)).local_model(
-                        _elem(x, cc), hessian='exact')
+                for cc in np.ndindex(*C):                                      # the data broadcast over C
+                    lm_c = prob.local_model(_elem(x, cc), hessian='exact')
                     for kk in np.ndindex(*K):
                         p_kc = _elem(p, kk + cc)
                         self.assertLess(_relerr_tree(_elem(Hp, kk + cc), lm_c.hvp(p_kc)), 1e-12)
                         self.assertAlmostEqual(float(q[kk + cc]), float(lm_c.quadratic(p_kc)),
                                                delta=1e-11 * abs(q[kk + cc]))
 
-    def test_the_kind_operation_weights_the_residual_and_reuses_the_model_sweep(self):
-        """Each derivative kind's ``corewise_hessian`` is its shipped two-hole at ``omega^2 r`` (a per-order row) on
-        the model's own lean jet sweep, bitwise, and the model's hvp calls it once with that sweep."""
+    def test_the_curvature_block_is_the_oracles_Kp_at_the_weighted_residual(self):
+        """Derivative data through the apply oracle at the jet shape (2,) (entries: at the one-hot jet): Kp along raw
+        core directions at the model's frame is the two-hole at ``omega^2 r`` (the per-order Taylor weight squared),
+        against the merged corewise Hessian at the base point; the weight is not a no-op; and the model's exact hvp is
+        one oracle query wanting JtJp and Kp, at its frame with its held."""
         from unittest import mock
         rng = np.random.default_rng(85)
-        fname = {'apply_derivatives': 't3_apply_corewise_derivatives_hessian_from_sweep',
-                 'entries_derivatives': 't3_entries_corewise_derivatives_hessian_from_sweep'}
         for kind in _DERIV_KINDS:
             with self.subTest(kind=kind):
                 prob, x = _deriv_fit(kind, _MINIMAL, 2, (8,), rng, weight=[1.0, 0.3, 2.0])
                 lm = prob.local_model(x, hessian='exact')
                 th = _raw_like_frame_cores(lm.frame, (2,), rng)
                 base = _MANIFOLD.base_point(lm.frame)
-                got = lm.kind.corewise_hessian(th, lm.residual, lm.sample, lm.frame, lm.sweep, base)
-                ref = _deriv_ops(kind, 2)[0](lm.kind._apply_weight(lm.residual, 2), lm.sample, base, th)
-                self.assertTrue(all(np.array_equal(a, b) for a, b in zip(got[0] + got[1], ref[0] + ref[1])))
-                unweighted = _deriv_ops(kind, 2)[0](lm.residual, lm.sample, base, th)
+                got = _K_r(lm, th)
+                ref = bapply.t3_apply_corewise_hessian(base, prob.batch.sample, _w2r(lm), th, (2,))
+                self.assertLess(_relerr_tree(got, ref), 1e-12)
+                unweighted = bapply.t3_apply_corewise_hessian(base, prob.batch.sample, lm.residual, th, (2,))
                 self.assertGreater(_relerr_tree(unweighted, got), 1e-2)                 # the weight is not a no-op
-                with mock.patch.object(sd, fname[kind], wraps=getattr(sd, fname[kind])) as spy:
+                calls, real = [], LeastSquaresOracle.query
+
+                def spy(oracle, frame, batch, want, **kwargs):
+                    calls.append((tuple(want), frame is lm.frame, kwargs.get('held') is lm.held))
+                    return real(oracle, frame, batch, want, **kwargs)
+                with mock.patch.object(LeastSquaresOracle, 'query', spy):
                     lm.hvp(_unit_tangent(prob.geom, lm.frame))
-                self.assertEqual(spy.call_count, 1)
-                self.assertIs(spy.call_args.args[6], lm.sweep)                    # the model's sweep, reused
+                self.assertEqual(calls, [(('JtJp', 'Kp'), True, True)])
 
     def test_shared_subcase(self):
         """One SHARED subcase per kind (ragged; the group-ceiling structure, where the tied lift differs from the
@@ -2415,9 +2439,8 @@ class TestCorewiseExact(unittest.TestCase):
                      tuple(rng.standard_normal(g.shape) for g in x[1]))
                 Hp = lm.hvp(p)
                 # (a) GN + the block-sum K_{A^T r}
-                zt = lm.kind._apply_weight(list(lm.residual), 2)
-                K = oracles.blocksum(sd.t3_probe_corewise_derivatives_transpose(
-                    zt, *prob.sample, oracles.doubled(x, p), order, sum_over_probes=True, chunk_size=None), x)
+                K = oracles.blocksum(probing.t3_probe_corewise_transpose(           # the one-hole at the doubled
+                    oracles.doubled(x, p), prob.batch.sample, _w2r(lm), (order,)), x)   # point (Taylor, omega^2 r)
                 self.assertLess(_relerr_tree(Hp, cw.corewise_add(gn.hvp(p), K)), 1e-12)
                 # (b) the derivative of the corewise gradient along p (a polynomial: Richardson on a central difference)
                 grad = lambda t: prob.local_model(cw.corewise_add(x, cw.corewise_scale(p, t))).gradient
@@ -2440,7 +2463,7 @@ class TestCorewiseExact(unittest.TestCase):
                 prob, x = _pd_fit(struct, order, (8,), rng, geom=geom, weight=weight)
                 x = ((x[0][0], x[0][0], x[0][2]), x[1])                          # a tied point
                 lm = prob.local_model(x, hessian='exact')
-                lm_untied = dc.replace(prob, geom=_COREWISE).local_model(x, hessian='exact')
+                lm_untied = prob.with_(geom=_COREWISE).local_model(x, hessian='exact')
                 p = geom.project(lm.frame, (tuple(rng.standard_normal(u.shape) for u in x[0]),
                                             tuple(rng.standard_normal(g.shape) for g in x[1])))
                 Hp = lm.hvp(p)
@@ -2493,8 +2516,7 @@ class TestFlatSlotsModel(unittest.TestCase):
                                                              bgeo.DEFAULT_CURVATURE_DAMPING if cd is None else cd)
                     p = _unit_tangent(geom, frame)
                     theta_hat = geom.lift(frame, p, data)
-                    K_r = lm.kind.corewise_hessian(theta_hat, lm.residual, lm.sample, frame, lm.sweep,
-                                                   geom.base_point(frame))
+                    K_r = _K_r(lm, theta_hat)
                     K_N = cw.corewise_sub(K_r, geom.tangential_curvature(frame, theta_hat, data))
                     LT_KN, LT_Kr = geom.lift_transpose(frame, K_N, data), geom.lift_transpose(frame, K_r, data)
                     self.assertGreater(_norm_flat(LT_Kr), 1e-3)
@@ -2512,95 +2534,62 @@ class TestFlatSlotsModel(unittest.TestCase):
 
 
 class TestRequiredSixthOperation(unittest.TestCase):
-    """T23: ``corewise_hessian`` is a required sixth ``SamplingKind`` operation, checked structurally (by the
-    stdlib abstractmethod marker) in ``Problem.local_model(hessian='exact')`` before any work; Gauss-Newton never
-    consults it. Every built-in kind implements it, and every uniform kind on its own class (no window stub remains)."""
+    """T23 on the oracle seam (P16): exact mode needs an oracle that supplies ``Kp`` (``'Kp'`` in its
+    ``optional_outputs``, O-7), checked structurally in ``local_model(hessian='exact')`` and ``newton_cg`` before any
+    work; Gauss-Newton never asks for it. (The old kinds' sixth operation ``corewise_hessian`` is no longer consulted:
+    the kinds go in P20.) Every layout builds an exact model through the least-squares oracle; a geometry without the
+    four exact members is rejected likewise."""
 
     def setUp(self):
         np.random.seed(45)
 
-    def test_a_five_operation_kind_works_for_gauss_newton_and_is_rejected_for_exact(self):
+    def test_an_oracle_without_Kp_works_for_gauss_newton_and_is_rejected_for_exact(self):
         rng = np.random.default_rng(45)
-        kind = _FiveOperationApplyKind()
-        self.assertIs(type(kind).corewise_hessian, bfit.SamplingKind.corewise_hessian)        # the identity form
-        self.assertTrue(getattr(type(kind).corewise_hessian, '__isabstractmethod__', False))  # the marker form
         x, other = _unit_point(_MINIMAL), _unit_point(_MINIMAL)
         ww = [rng.standard_normal((30, N)) for N in _MINIMAL[0]]
-        data = bapply.t3_apply(other, ww)
-        prob = bopt.least_squares_problem(_MANIFOLD, kind, ww, data)
-        ref = bopt.least_squares_problem(_MANIFOLD, bfit.APPLY, ww, data)
+        batch = LeastSquaresBatch(ww, bapply.t3_apply(other, ww))
+        prob = F.Fit(_MANIFOLD, _NoKpOracle('apply', ()), batch)
+        ref = F.Fit(_MANIFOLD, LeastSquaresOracle('apply', ()), batch)
         p = _unit_tangent(_MANIFOLD, prob.local_model(x).frame)
         self.assertTrue(all(np.array_equal(a, b) for a, b in zip(sum(prob.local_model(x).hvp(p), ()),
                                                                  sum(ref.local_model(x).hvp(p), ()))))
-        _, stats = bopt.newton_cg(prob, x, max_newton=3)                                    # GN runs
+        _, stats = prob.newton_cg(x, max_newton=3)                                    # GN runs
         self.assertEqual(stats['newton_steps'], 3)
-        with self.assertRaisesRegex(ValueError, "_FiveOperationApplyKind does not implement corewise_hessian"):
-            prob.local_model(x, hessian='exact')
-        with self.assertRaisesRegex(NotImplementedError, 'which hessian=.exact. needs'):
-            kind.corewise_hessian(None, None, None, None, None, None)
+        for call in (lambda: prob.local_model(x, hessian='exact'), lambda: prob.newton_cg(x, hessian='exact'),
+                     lambda: prob.newton_cg(x, hessian='switch')):
+            with self.assertRaisesRegex(ValueError, "_NoKpOracle does not supply 'Kp'"):
+                call()
 
-    def test_the_marker_and_the_identity_forms_agree_on_every_ragged_kind(self):
-        kinds = [bfit.APPLY, bfit.ENTRIES, bfit.PROBE, bfit.ProbeKind(weight=[1.0, 2.0, 0.5]),
-                 bfit.ApplyDerivativesKind(order=1), bfit.EntriesDerivativesKind(order=1),
-                 bfit.ProbeDerivativesKind(order=1), _BlockSumApplyKind(), _FiveOperationApplyKind()]
-        for kind in kinds:
-            with self.subTest(kind=type(kind).__name__):
-                identity = type(kind).corewise_hessian is bfit.SamplingKind.corewise_hessian
-                marker = getattr(type(kind).corewise_hessian, '__isabstractmethod__', False)
-                self.assertEqual(identity, marker)
-        for implemented in (bfit.ProbeDerivativesKind, bfit.ProbeKind, bfit.ApplyKind, bfit.EntriesKind,
-                            bfit.ApplyDerivativesKind, bfit.EntriesDerivativesKind):        # S4, S10, S11, S12: all six
-            self.assertFalse(getattr(implemented.corewise_hessian, '__isabstractmethod__', False))
-            self.assertIsNot(implemented.corewise_hessian, bfit.SamplingKind.corewise_hessian)
-            self.assertIn('corewise_hessian', vars(implemented))                       # its own, not inherited
-        # and instantiation is unaffected (a plain dataclass, not an ABC)
-        self.assertIsInstance(_FiveOperationApplyKind(), bfit.SamplingKind)
-
-    def test_no_uniform_stub_remains(self):
-        """After S12 every uniform kind implements ``corewise_hessian`` ON ITS OWN CLASS: the S4-S12 window stub and its
-        slice table are gone, the uniform-layer mixin (which precedes the ragged kind in the MRO) defines no
-        ``corewise_hessian``, and none is marked abstract -- so each uniform kind's method is its own masked override,
-        never the ragged (mask-free) one. (Mutation check, verified by hand: deleting a uniform override makes that kind
-        inherit the ragged method -- the own-class and not-the-ragged assertions below fail.) Every uniform kind builds
-        an exact local model."""
-        import t3toolbox.backend.uniform_fitting as uf
+    def test_every_layout_builds_an_exact_model(self):
+        """The least-squares oracle supplies Kp on every layout and call type: probe, apply and entries, plain and
+        along lines (entries at the one-hot jet), ragged and uniform."""
         import t3toolbox.uniform_tucker_tensor_train as ut3
-        self.assertFalse(hasattr(uf, '_UNIFORM_HESSIAN_SLICE'))
-        self.assertFalse(hasattr(uf, '_UniformKind'))
-        self.assertNotIn('corewise_hessian', vars(uf._UniformLayerMixin))
-        for cls, ragged in ((uf.UniformApplyKind, bfit.ApplyKind), (uf.UniformEntriesKind, bfit.EntriesKind),
-                            (uf.UniformProbeKind, bfit.ProbeKind),
-                            (uf.UniformApplyDerivativesKind, bfit.ApplyDerivativesKind),
-                            (uf.UniformEntriesDerivativesKind, bfit.EntriesDerivativesKind),
-                            (uf.UniformProbeDerivativesKind, bfit.ProbeDerivativesKind)):
-            with self.subTest(kind=cls.__name__):
-                mro = cls.__mro__
-                self.assertLess(mro.index(uf._UniformLayerMixin), mro.index(ragged))
-                self.assertIn('corewise_hessian', vars(cls))                         # its own masked override
-                self.assertIsNot(cls.corewise_hessian, ragged.corewise_hessian)      # never the ragged (mask-free) one
-                self.assertFalse(getattr(cls.corewise_hessian, '__isabstractmethod__', False))
         rng = np.random.default_rng(46)
-        ux0 = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain(*_unit_point(_MINIMAL)))
+        x = t3.TuckerTensorTrain(*_unit_point(_MINIMAL))
+        ux0 = ut3.UniformTuckerTensorTrain.from_t3(x)
         ww = [rng.standard_normal((10, N)) for N in _MINIMAL[0]]
         pp = [rng.standard_normal((10, N)) for N in _MINIMAL[0]]
         index = np.stack([rng.integers(0, N, size=10) for N in _MINIMAL[0]])
-        sc = (ux0.data[0], ux0.data[1])
-        other = _unit_point(_MINIMAL)
-        for name, sample, order in (('probe', ww, None), ('apply', ww, None), ('entries', index, None),
-                                    ('apply_derivatives', (ww, pp), 1), ('entries_derivatives', (index, pp), 1),
-                                    ('probe_derivatives', (ww, pp), 1)):
-            with self.subTest(builds=name):
-                rk = ({'probe': bfit.PROBE, 'apply': bfit.APPLY, 'entries': bfit.ENTRIES}[name] if order is None else
-                      {'apply_derivatives': bfit.ApplyDerivativesKind, 'entries_derivatives': bfit.EntriesDerivativesKind,
-                       'probe_derivatives': bfit.ProbeDerivativesKind}[name](order=order))
-                prob = uf.uniform_least_squares_problem('manifold', name, ux0, sample, rk.point_forward(other, sample),
-                                                        order=order)
-                self.assertTrue(prob.local_model(sc, hessian='exact').is_exact)
+        other = t3.TuckerTensorTrain(*_unit_point(_MINIMAL))
+        fits = {'probe': F.fit(_MANIFOLD, 'probe', ww, other.probe(ww)),
+                'apply': F.fit(_MANIFOLD, 'apply', ww, other.apply(ww)),
+                'entries': F.fit(_MANIFOLD, 'entries', index, other.entries(index))}
+        for kind in ('apply', 'entries', 'probe'):
+            fits[kind + ' along lines'] = F.derivative_fit(_MANIFOLD, kind, 1, index if kind == 'entries' else ww, pp,
+                                                           dd.forward(other, kind, index if kind == 'entries' else ww,
+                                                                      pp, 1), shape=_MINIMAL[0])
+        for name, fit in fits.items():
+            for layer in ('ragged', 'uniform'):
+                with self.subTest(fit=name, layer=layer):
+                    f, xc = (fit, x.data) if layer == 'ragged' else F.uniform(fit, ux0)
+                    self.assertTrue(f.local_model(xc, hessian='exact').is_exact)
+                    self.assertTrue(f.with_(geom=_COREWISE if layer == 'ragged' else bgeo.UniformCorewiseGeometryOps
+                                            .from_point(ux0.data)).local_model(xc, hessian='exact').is_exact)
 
     def test_a_geometry_without_the_exact_members_works_for_gauss_newton_and_is_rejected_for_exact(self):
         rng = np.random.default_rng(47)
         prob, x = _pd_fit(_MINIMAL, 1, (8,), rng)
-        duck = dc.replace(prob, geom=_GaussNewtonOnlyGeometry())
+        duck = prob.with_(geom=_GaussNewtonOnlyGeometry())
         self.assertTrue(all(np.array_equal(a, b) for a, b in zip(sum(duck.local_model(x).gradient, ()),
                                                                  sum(prob.local_model(x).gradient, ()))))
         with self.assertRaisesRegex(ValueError, 'does not implement curvature_precompute, lift, lift_transpose, '
@@ -2615,7 +2604,12 @@ _EPS64 = float(np.finfo(np.float64).eps)
 
 
 def _data_norm(problem):
-    return float(problem.kind.sumsq(problem.data, problem.kind.w_axes(problem.sample))) ** 0.5
+    """``|omega (.) y|`` of a probe fit's batch (the Taylor data and weight; the same on the derivatives)."""
+    y, w = problem.batch.y, problem.batch.weight
+    if w is None:
+        return float(np.sqrt(sum(np.sum(np.asarray(a) ** 2) for a in y)))
+    return float(np.sqrt(sum(np.sum((np.asarray(w[i]).reshape((-1,) + (1,) * (np.ndim(a) - 1)) * a) ** 2)
+                             for i, a in enumerate(y))))
 
 
 def _newton_steps(problem, stats):
@@ -2643,11 +2637,10 @@ def _t16_problem(seed):
     target = t3.TuckerTensorTrain.randn(shape, (4, 4, 4), (1, 4, 4, 1))
     ww = [rng.standard_normal((200, N)) for N in shape]
     pp = [rng.standard_normal((200, N)) for N in shape]
-    kind = bfit.ProbeDerivativesKind(order=1)
     data = [z + 0.01 * np.linalg.norm(z) / z.size ** 0.5 * rng.standard_normal(z.shape)
-            for z in kind.point_forward(target.data, (ww, pp))]
-    problem = bopt.least_squares_problem(_MANIFOLD, kind, (ww, pp), data)
-    x, _ = bopt.newton_cg(problem, t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)).data,
+            for z in dd.forward(target, 'probe', ww, pp, 1)]
+    problem = F.derivative_fit(_MANIFOLD, 'probe', 1, ww, pp, data)
+    x, _ = problem.newton_cg(t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)).data,
                           max_newton=6, gtol_rel=0.0)
     return problem, x
 
@@ -2666,7 +2659,7 @@ class TestExactNewtonRate(unittest.TestCase):
 
     def _run(self, seed, power):
         problem, x = _t16_problem(seed)
-        _, stats = bopt.newton_cg(problem, x, max_newton=30, gtol_rel=1e-12, g0_reference='warm_start',
+        _, stats = problem.newton_cg(x, max_newton=30, gtol_rel=1e-12, g0_reference='warm_start',
                                   hessian='exact', cg_forcing_power=power)
         self.assertIn(stats['stop_reason'], ('gradient', 'objective_floor'))
         window = [s for s in _newton_steps(problem, stats) if s[0] < 1e-1 and s[3] > 1e3]
@@ -2699,7 +2692,7 @@ class TestExactNewtonRate(unittest.TestCase):
         for seed in (1, 2):
             with self.subTest(seed=seed):
                 problem, x = _t16_problem(seed)
-                _, stats = bopt.newton_cg(problem, x, max_newton=25, gtol_rel=1e-12, g0_reference='warm_start')
+                _, stats = problem.newton_cg(x, max_newton=25, gtol_rel=1e-12, g0_reference='warm_start')
                 e = [row['gnorm'] / row['g0norm'] for row in stats['history']]
                 ratios = [b / a for a, b in zip(e, e[1:]) if 1e-10 < a < 1e-1]
                 self.assertGreaterEqual(len(ratios), 10)
@@ -2723,14 +2716,13 @@ class TestExactNewtonRestart(unittest.TestCase):
         target = t3.TuckerTensorTrain.randn(shape, (4, 4, 4), (1, 4, 4, 1))
         ww = [rng.standard_normal((W, N)) for N in shape]
         pp = [rng.standard_normal((W, N)) for N in shape]
-        kind = bfit.probe_derivatives_kind(2, np.array([1.0, 0.5, 0.25]))
         data = [z + 0.05 * np.linalg.norm(z) / z.size ** 0.5 * rng.standard_normal(z.shape)
-                for z in kind.point_forward(target.data, (ww, pp))]
-        problem = bopt.least_squares_problem(_MANIFOLD, kind, (ww, pp), data)
-        x1, _ = bopt.newton_cg(problem, t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)).data,
+                for z in dd.forward(target, 'probe', ww, pp, 2)]
+        problem = F.derivative_fit(_MANIFOLD, 'probe', 2, ww, pp, data, weight=_probe_weight([1.0, 0.5, 0.25], 3, 2))
+        x1, _ = problem.newton_cg(t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)).data,
                                max_newton=80, gtol_rel=1e-10)
         restart = t3.TuckerTensorTrain(*x1).resize(shape, (3, 3, 3), (1, 3, 3, 1)).data
-        _, stats = bopt.newton_cg(problem, restart, max_newton=40, hessian='exact')
+        _, stats = problem.newton_cg(restart, max_newton=40, hessian='exact')
         h = stats['history']
         self.assertEqual(stats['stop_reason'], 'gradient')
         self.assertLessEqual(sum(row['tr_accepted'] is False for row in h), 2)
@@ -2748,10 +2740,9 @@ def _slack_problem(W, order, x_ranks):
     target = t3.TuckerTensorTrain.randn(shape, (3, 3, 3), (1, 3, 3, 1))
     ww = [rng.standard_normal((W, N)) for N in shape]
     pp = [rng.standard_normal((W, N)) for N in shape]
-    kind = bfit.ProbeDerivativesKind(order=order)
     data = [z + 0.02 * np.linalg.norm(z) / z.size ** 0.5 * rng.standard_normal(z.shape)
-            for z in kind.point_forward(target.data, (ww, pp))]
-    return bopt.least_squares_problem(_MANIFOLD, kind, (ww, pp), data), t3.TuckerTensorTrain.randn(shape, *x_ranks)
+            for z in dd.forward(target, 'probe', ww, pp, order)]
+    return F.derivative_fit(_MANIFOLD, 'probe', order, ww, pp, data), t3.TuckerTensorTrain.randn(shape, *x_ranks)
 
 
 class TestExactNewtonFromNonMinimalPoints(unittest.TestCase):
@@ -2776,7 +2767,7 @@ class TestExactNewtonFromNonMinimalPoints(unittest.TestCase):
         runs = {}
         for name, start in (('slack', x0.data), ('minimal', minimal.data)):
             for cd in curvature_dampings:
-                _, stats = bopt.newton_cg(problem, start, max_newton=80, hessian='exact', curvature_damping=cd)
+                _, stats = problem.newton_cg(start, max_newton=80, hessian='exact', curvature_damping=cd)
                 self.assertEqual(stats['stop_reason'], 'gradient', (name, cd))
                 runs[name, cd] = stats
         reference = runs['slack', None]
@@ -2825,12 +2816,13 @@ def _shared_unit_point(struct, labels, C=()):
 def _shared_fit(struct, labels, order, W, rng, C=(), weight=None, regularizer=None):
     """:py:func:`_pd_fit` on the shared manifold: data from another tied unit point (plus noise), a tied ``x``."""
     geom = _MANIFOLD.with_sharing(labels, struct[0])
-    x, other = _shared_unit_point(struct, labels, C), _shared_unit_point(struct, labels, C)
+    x, other = _shared_unit_point(struct, labels, C), _shared_unit_point(struct, labels)   # data broadcast over C
     ww = [rng.standard_normal(W + (N,)) for N in struct[0]]
     pp = [rng.standard_normal(W + (N,)) for N in struct[0]]
-    data = [z + 0.1 * rng.standard_normal(z.shape) for z in sd.t3_probe_derivatives(ww, pp, other, order)]
-    kind = bfit.ProbeDerivativesKind(order=order, weight=weight)
-    return bopt.least_squares_problem(geom, kind, (ww, pp), data, regularizer=regularizer), x
+    data = [z + 0.1 * rng.standard_normal(z.shape)
+            for z in dd.forward(t3.TuckerTensorTrain(*other), 'probe', ww, pp, order)]
+    return F.derivative_fit(geom, 'probe', order, ww, pp, data, regularizer=regularizer,
+                            weight=_probe_weight(weight, len(struct[0]), order)), x
 
 
 def _per_mode_twin(lm):
@@ -2981,9 +2973,8 @@ class TestSharedExactLocalModel(unittest.TestCase):
         aux = geom.precompute(frame)
         ww = [rng.standard_normal((60, N)) for N in shape]
         pp = [rng.standard_normal((60, N)) for N in shape]
-        kind = bfit.probe_derivatives_kind(2, None)
-        data = [z + 0.3 * rng.standard_normal(z.shape) for z in kind.point_forward(x.data, (ww, pp))]
-        prob = bopt.least_squares_problem(geom, kind, (ww, pp), data)
+        data = [z + 0.3 * rng.standard_normal(z.shape) for z in dd.forward(x, 'probe', ww, pp, 2)]
+        prob = F.derivative_fit(geom, 'probe', 2, ww, pp, data)
         D, U, L, _ = frame
         raw = (tuple(rng.standard_normal(o.shape[-2:-1] + u.shape[-1:]) for o, u in zip(U, D)),
                tuple(rng.standard_normal(l.shape) for l in L))
@@ -3040,16 +3031,15 @@ class TestSharedExactLocalModel(unittest.TestCase):
             with self.subTest(structure=name):
                 shape = struct[0]
                 prob, x = _shared_fit(struct, labels, order, (4,), rng, weight=weight)
-                kind, (ww, pp) = prob.kind, prob.sample
+                line = prob.batch.sample
                 lm = prob.local_model(x, hessian='exact', curvature_damping=0.0)
                 frame, aux = lm.frame, lm.geom_aux
                 self.assertLess(min(o.shape[-2] for o in frame[1]), max(u.shape[-2] for u in frame[0]))
-                omega = kind.weight
+                omega = prob.batch.weight                                         # the Taylor weight, (d, order+1)
 
                 def measure(cores):                                               # omega (.) S(X), flattened
-                    out = sd.t3_probe_derivatives(ww, pp, cores, order)
-                    return np.concatenate([(z * omega[i if omega.shape[0] > 1 else 0].reshape(-1, 1, 1)).ravel()
-                                           for i, z in enumerate(out)])
+                    out = probing.t3_probe(cores, line, (order,))                 # the Taylor coefficients
+                    return np.concatenate([(z * omega[i].reshape(-1, 1, 1)).ravel() for i, z in enumerate(out)])
                 cols = []
                 for idx in np.ndindex(*shape):
                     unit = (tuple(np.eye(N)[j][None, :] for N, j in zip(shape, idx)),
@@ -3057,8 +3047,7 @@ class TestSharedExactLocalModel(unittest.TestCase):
                     cols.append(measure(unit))
                 A = np.stack(cols, axis=1)
                 y = A @ np.asarray(t3c.t3_to_dense(x)).ravel() - np.concatenate(
-                    [(r * omega[i if omega.shape[0] > 1 else 0].reshape(-1, 1, 1)).ravel()
-                     for i, r in enumerate(lm.residual)])
+                    [(r * omega[i].reshape(-1, 1, 1)).ravel() for i, r in enumerate(lm.residual)])
                 theta = (tuple(frame[0]), tuple(frame[2]))
                 G = tv.tv_to_dense(frame, lm.curvature.misfit_gradient)          # grad_sh f, dense
                 groups = sharing.validate_sharing(labels, shape)
@@ -3100,9 +3089,8 @@ class TestSharedExactLocalModel(unittest.TestCase):
         p = _unit_tangent(prob.geom, lm.frame, K=K, C=C)
         Hp, q = lm.hvp(p), np.asarray(lm.quadratic(p))
         self.assertEqual(q.shape, K + C)
-        for cc in np.ndindex(*C):
-            data_c = [z[(slice(None),) * 2 + cc] for z in prob.data]
-            lm_c = dc.replace(prob, data=data_c).local_model(_elem(x, cc), hessian='exact')
+        for cc in np.ndindex(*C):                                              # the data broadcast over C
+            lm_c = prob.local_model(_elem(x, cc), hessian='exact')
             for kk in np.ndindex(*K):
                 p_kc = _elem(p, kk + cc)
                 self.assertLess(_relerr_tree(_elem(Hp, kk + cc), lm_c.hvp(p_kc)), 1e-12)
@@ -3200,9 +3188,9 @@ class TestSharedExactLocalModel(unittest.TestCase):
                 self.assertLess(_relerr_tree(b, a), 1e-14)
         ww = [rng.standard_normal((10, N)) for N in shape]
         pp = [rng.standard_normal((10, N)) for N in shape]
-        data = [z + 0.1 for z in sd.t3_probe_derivatives(ww, pp, _shared_unit_point((shape, (3, 3, 3), (1, 3, 3, 1)),
-                                                                                    labels), 1)]
-        prob = bopt.least_squares_problem(geom, bfit.ProbeDerivativesKind(order=1), (ww, pp), data)
+        data = [z + 0.1 for z in dd.forward(t3.TuckerTensorTrain(*_shared_unit_point(
+            (shape, (3, 3, 3), (1, 3, 3, 1)), labels)), 'probe', ww, pp, 1)]
+        prob = F.derivative_fit(geom, 'probe', 1, ww, pp, data)
         lm = prob.local_model(restart.data, hessian='exact')
         cdata = lm.curvature.geometry_data
         self.assertEqual(float(cdata.sigma_min), float(np.min(aux.svd_s[0])))
@@ -3225,14 +3213,14 @@ class TestSharedExactNewtonRestart(unittest.TestCase):
 
     def test_zero_padded_shared_restart_converges(self):
         problem, restart = _shared_restart_problem(60)
-        _, stats = bopt.newton_cg(problem, restart.data, max_newton=40, hessian='exact')
+        _, stats = problem.newton_cg(restart.data, max_newton=40, hessian='exact')
         h = stats['history']
         self.assertEqual(stats['stop_reason'], 'gradient')
         self.assertLessEqual(sum(row['tr_accepted'] is False for row in h), 2)
         self.assertEqual(h[0]['lift_sigma_min'], 0.0)                 # the zero s_g level: a singular tied lift
         self.assertTrue(all(np.isfinite(row['pKp']) for row in h if not row['converged']))
         self.assertLessEqual(stats['newton_steps'], 14)
-        _, gn = bopt.newton_cg(problem, restart.data, max_newton=25)
+        _, gn = problem.newton_cg(restart.data, max_newton=25)
         self.assertEqual(gn['stop_reason'], 'max_newton')
 
 
@@ -3247,12 +3235,12 @@ def _shared_restart_problem(W):
         t3.TuckerTensorTrain.randn(shape, (4, 4, 4), (1, 4, 4, 1)).data, labels))
     ww = [rng.standard_normal((W, N)) for N in shape]
     pp = [rng.standard_normal((W, N)) for N in shape]
-    kind = bfit.probe_derivatives_kind(2, np.array([1.0, 0.5, 0.25]))
     data = [z + 0.05 * np.linalg.norm(z) / z.size ** 0.5 * rng.standard_normal(z.shape)
-            for z in kind.point_forward(target.data, (ww, pp))]
-    problem = bopt.least_squares_problem(_MANIFOLD.with_sharing(labels, shape), kind, (ww, pp), data)
+            for z in dd.forward(target, 'probe', ww, pp, 2)]
+    problem = F.derivative_fit(_MANIFOLD.with_sharing(labels, shape), 'probe', 2, ww, pp, data,
+                               weight=_probe_weight([1.0, 0.5, 0.25], 3, 2))
     x0 = sharing.t3_tie_tucker_factors(t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)).data, labels)
-    x1, _ = bopt.newton_cg(problem, x0, max_newton=30, gtol_rel=1e-10)
+    x1, _ = problem.newton_cg(x0, max_newton=30, gtol_rel=1e-10)
     return problem, t3.TuckerTensorTrain(*x1).resize(shape, (3, 3, 3), (1, 3, 3, 1), sharing=labels)
 
 

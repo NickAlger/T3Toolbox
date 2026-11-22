@@ -102,10 +102,13 @@ def find_cycle(graph, roots):
 class TestImportGraph(unittest.TestCase):
 
     def test_the_graph_is_on_module_files(self):
-        """``from t3toolbox import corewise`` resolves to the module file, not to the package's __init__."""
-        self.assertIn('t3toolbox.corewise', GRAPH['t3toolbox.backend.optimizer_display'])
-        self.assertNotIn('t3toolbox', GRAPH['t3toolbox.backend.optimizer_display'])
+        """``from t3toolbox import safety`` resolves to the module file, not to the package's __init__ (the package's
+        own ``__init__`` is the one module that imports this way since P16 part 3 dropped the display's
+        ``from t3toolbox import corewise``); a dotted import resolves to its module."""
+        self.assertIn('t3toolbox.safety', GRAPH['t3toolbox'])
+        self.assertNotIn('t3toolbox', GRAPH['t3toolbox'])
         self.assertIn('t3toolbox.backend.optimizers', GRAPH['t3toolbox.backend.optimizer_display'])
+        self.assertNotIn('t3toolbox', GRAPH['t3toolbox.backend.optimizer_display'])
 
     def test_the_backend_graph_is_acyclic(self):
         backend = [m for m in MODULES if m.startswith('t3toolbox.backend.')]

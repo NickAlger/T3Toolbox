@@ -25,6 +25,7 @@ import t3toolbox.backend.linalg as linalg
 import t3toolbox.backend.ranks as ranks
 import t3toolbox.backend.sharing as sharing_module
 from t3toolbox.backend.common import *
+import t3toolbox.backend.fv_operations as fv_operations
 from t3toolbox.backend.fv_operations import ZERO_FRAME_SEED
 
 __all__ = [
@@ -256,6 +257,30 @@ def fv_empty_frame(
     stores = ranks.compute_orthogonal_representation_ranks(shape, (0,) * d, (1,) + (0,) * (d - 1) + (1,))
     return tuple(tuple(xnp.zeros(s) for s in core_shapes)
                  for core_shapes in _frame_core_shapes(shape, *stores, stack_shape))
+
+
+def _fv_padded_centers(
+        old_centers:  typ.Optional[typ.Tuple],   # (Vc, Hc) of the old frame, stack C; None: the old point is zero
+        frame:        FrameData,                  # a padded frame of the old one (its old frame in the leading slots)
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],                      # Vc. len=d, elm_shape=C+(nUi, Ni) at frame's widths
+    typ.Tuple[NDArray, ...],                      # Hc. len=d, elm_shape=C+(rLi, nDi, rR(i+1)) at frame's widths
+]:
+    """The centers of a padded (or aligned padded) frame: the old frame's centers, zero-padded on every rank axis.
+
+    Every frame the alignment makes keeps the old frame bitwise in its leading slots, and the old point has zero
+    coordinates on the new slots, so the old centers in the leading slots, zeros elsewhere, are centers of the new
+    frame (``fv_centers_consistency_residual`` at rounding). At the zero tensor (``None``) the centers are zeros. In
+    the frame's array type and dtype."""
+    xnp, _, _ = get_backend(False, tree_contains_jax(frame))
+    dtype = frame[0][0].dtype
+    stack = tuple(frame[0][0].shape[:-2])
+    tucker_shapes, tt_shapes = fv_operations.fv_variation_shapes(frame)
+    if old_centers is None:
+        return (tuple(xnp.zeros(stack + tuple(s), dtype=dtype) for s in tucker_shapes),
+                tuple(xnp.zeros(stack + tuple(s), dtype=dtype) for s in tt_shapes))
+    return tuple(tuple(xnp.asarray(_embed(c, tuple(s)), dtype=dtype) for c, s in zip(cores, shapes))
+                 for cores, shapes in zip(old_centers, (tucker_shapes, tt_shapes)))
 
 
 def fv_padded_frame(

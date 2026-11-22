@@ -90,9 +90,11 @@ certify a computed tangent's gauge, check that tangent (`Hp.is_gauged()`), not a
 >>> ww, pp = [np.random.randn(20, N) for N in shape], [np.random.randn(20, N) for N in shape]
 >>> derivatives = lambda t: fitting.taylor_to_derivatives('probe', (1,), t.probe(fitting.affine_jet(ww, pp), (1,)))
 >>> y = derivatives(t3.TuckerTensorTrain.randn(shape, *ranks))
+>>> taylor_y, taylor_w, _ = fitting.prepare_derivative_data('probe', (1,), y, None)   # Taylor coefficients
+>>> oracle = fitting.LeastSquaresOracle('probe', order=(1,))
+>>> batch = fitting.LeastSquaresBatch(fitting.affine_jet(ww, pp), taylor_y, taylor_w)
 >>> def model_at(x, hessian='gauss_newton'):
-...     r = [z - yi for z, yi in zip(derivatives(x), y)]
-...     return fitting.probe_derivatives_model(M, x, ww, pp, 1, r, hessian=hessian)
+...     return fitting.local_model(M, oracle, batch, x, hessian=hessian)
 >>> model = model_at(t3.TuckerTensorTrain.randn(shape, *ranks), hessian='exact')
 >>> p = M.randn(model.frame)
 >>> p = p / float(M.norm(p))

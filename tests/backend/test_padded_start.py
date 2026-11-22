@@ -10,7 +10,7 @@ per-stack-element ``(d,)+C`` / ``(d+1,)+C`` rank arrays (each element its own se
 
 T14, the seam (both layers unless stated):
 
-- **(a)** ``require_frame_structure`` through ``Problem.local_model(frame=)``: one rejection per family with every
+- **(a)** ``require_frame_structure`` through ``local_model(frame=)``: one rejection per family with every
   other byte identical (each ragged store's shapes; each uniform variation-mask family; each boundary entry;
   ``shape``; a padded width); it accepts ``geom.frame(x)`` and the aligned frame; a geometry without the member
   raises.
@@ -34,8 +34,15 @@ T14, the seam (both layers unless stated):
 
 (T14 (i), the uniform ``use_jit`` paths, is in ``tests/test_dispatch.py``, where x64 is on.) numpy-only.
 
-The Newton timing plan's T7 at the member level (``TestMemberTiming``): both members return two elements without
-``timing`` and three with ``timing=True``, the frame and movements bitwise those of ``timing=False``; one positive float
+P16 part 1 (``TestThePaddedFrameCenters``): both members return the aligned frame's centers, the old point's zero-padded
+(zeros from the zero tensor): consistent with the frame to rounding (``fv_centers_consistency_residual`` and its uniform
+twin) with zero, one and the default passes; the probe ``z`` read through them equals ``dense_probe`` of ``x0``; the
+uniform helper ignores garbage in the old centers' padding; and zero-padding at the trailing slots instead (a mutant)
+would fail the residual.
+
+The Newton timing plan's T7 at the member level (``TestMemberTiming``): both members return three elements (the frame,
+its centers -- P16 part 1 -- and the movements) without ``timing`` and four with ``timing=True``, the frame, centers and
+movements bitwise those of ``timing=False``; one positive float
 per pass run, every kind of pass included; ``()`` when no pass runs; the start frame synchronized before pass 1, each
 pass ending synchronized, and nothing synchronized when off; the public loops and ``padded_start`` keep their
 signatures and return two; the uniform kernel refuses a clock under ``use_jit``. (Its jax and ``use_jit`` cases are in
@@ -63,10 +70,8 @@ import t3toolbox.uniform_tucker_tensor_train as ut3
 import t3toolbox.manifold as t3m
 import t3toolbox.uniform_manifold as ut3m
 import t3toolbox.shared_geometry as sgm
-import t3toolbox.optimizers as topt
 import t3toolbox.backend.optimizers as bopt
 import t3toolbox.backend.geometry as bgeo
-import t3toolbox.backend.fitting as bfit
 import t3toolbox.backend.padded_frames as padded_frames
 import t3toolbox.backend.uniform_padded_frames as uniform_padded_frames
 import t3toolbox.backend.fv_conversions as fvc
@@ -76,6 +81,11 @@ import t3toolbox.backend.sharing as sharing_module
 import t3toolbox.backend.common as common
 import t3toolbox.backend.tv_operations as tvo
 import t3toolbox.backend.utv_operations as utvo
+import t3toolbox.backend.fv_operations as fvo
+import t3toolbox.backend.ufv_operations as ufvo
+import t3toolbox.backend.ufv_masking as umasking
+import t3toolbox.backend.probing as probing
+import t3toolbox.backend.sampling_variables as sv
 import t3toolbox.corewise as cw
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -86,6 +96,9 @@ import test_optimizers as optimizer_tests              # check_timing, untimed (
 import os as _os, sys as _sys
 _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))   # tests/
 import _derivative_data as dd       # derivative data from the merged methods (P13b)
+import _fits as F                   # a backend fit (geometry, oracle, batch, regularizer) from plain specs (P16)
+import collections
+Setup = collections.namedtuple('Setup', 'problem x0_cores')         # a fit (tests/_fits.py) and its start cores
 
 
 def random_minimal_structure(rng, d, sharing=None):
@@ -258,16 +271,22 @@ def fit_case(layer, shape=SHAPE, old=OLD, target=TARGET, seed=0, kind='probe', s
     if sharing is not None:
         truth = truth.share(sharing, max_tucker_ranks=target[0], max_tt_ranks=target[1])
         x_old = x_old.share(sharing, max_tucker_ranks=old[0], max_tt_ranks=old[1])
-    sample, data = (ww, truth.probe(ww)) if kind == 'probe' else ((ww, pp), dd.forward(truth, 'probe', ww, pp, 1))
-    kw = {} if kind == 'probe' else {'order': 1}
+    geom = bgeo.ManifoldGeometryOps() if sharing is None else bgeo.ManifoldGeometryOps().with_sharing(sharing, shape)
+    fit = F.fit(geom, 'probe', ww, truth.probe(ww)) if kind == 'probe' else \
+        F.derivative_fit(geom, 'probe', 1, ww, pp, dd.forward(truth, 'probe', ww, pp, 1))
     x0 = x_old.resize(shape, *target)
     if layer == 'ragged':
-        geometry = t3m.MANIFOLD if sharing is None else sgm.shared(t3m.MANIFOLD, sharing)
-        return topt.least_squares_problem(geometry, kind, sample, data, x0, **kw), x_old.data, x_old, x0
+        return Setup(fit, x0.data), x_old.data, x_old, x0
     ux0 = ut3.UniformTuckerTensorTrain.from_t3(x0)
-    geometry = ut3m.UNIFORM_MANIFOLD if sharing is None else sgm.shared(ut3m.UNIFORM_MANIFOLD, sharing)
-    setup = topt.least_squares_problem(geometry, kind, sample, data, ux0, **kw)
-    return setup, ut3.UniformTuckerTensorTrain.from_t3(x_old, N=ux0.N).data, x_old, x0
+    return Setup(*F.uniform(fit, ux0, sharing)), ut3.UniformTuckerTensorTrain.from_t3(x_old, N=ux0.N).data, x_old, x0
+
+
+def _no_projection(message):
+    """``_alignment_projector`` patched to a projector that raises ``AssertionError(message)`` when called: no alignment
+    pass may project."""
+    def project(frame, hint):
+        raise AssertionError(message)
+    return unittest.mock.patch.object(bopt, '_alignment_projector', lambda geom, oracle: project)
 
 
 def ragged_view(layer, frame):
@@ -291,7 +310,7 @@ class TestFrameStructure(unittest.TestCase):
                 setup, old, _, _ = fit_case(layer)
                 problem, x = setup.problem, setup.x0_cores
                 problem.local_model(x, frame=problem.geom.frame(x)[0])
-                problem.local_model(x, frame=bopt.padded_start(problem, x, old, max_passes=2)[0])
+                problem.local_model(x, frame=problem.padded_start(x, old, max_passes=2)[0])
 
     def test_ragged_rejections(self):
         setup, _, _, _ = fit_case('ragged')
@@ -330,10 +349,11 @@ class TestFrameStructure(unittest.TestCase):
             problem.local_model(x, frame=(D, np.concatenate([U, U[..., :1, :]], axis=-2), L, R, shape, masks))
 
     def test_a_geometry_without_the_member(self):
-        setup = topt.least_squares_problem(t3m.COREWISE, 'probe', *fit_case('ragged')[0].problem.sample[:0] or (
-            [np.ones((3, n)) for n in SHAPE], [np.ones(3)] * 4), t3.TuckerTensorTrain.randn(SHAPE, *TARGET))
+        fit = F.fit(bgeo.CorewiseGeometryOps(), 'probe', [np.ones((3, n)) for n in SHAPE],
+                    [np.ones((3, n)) for n in SHAPE])
+        x = t3.TuckerTensorTrain.randn(SHAPE, *TARGET).data
         with self.assertRaisesRegex(ValueError, 'require_frame_structure'):
-            setup.problem.local_model(setup.x0_cores, frame=bgeo.ManifoldGeometryOps().frame(setup.x0_cores)[0])
+            fit.local_model(x, frame=bgeo.ManifoldGeometryOps().frame(x)[0])
 
 
 class TestNewtonKeywords(unittest.TestCase):
@@ -343,10 +363,13 @@ class TestNewtonKeywords(unittest.TestCase):
         for layer in LAYERS:
             with self.subTest(layer=layer):
                 setup, old, _, _ = fit_case(layer)
-                x_a, a = bopt.newton_cg(setup.problem, setup.x0_cores, max_newton=4, padded_from=old)
-                frame, movements = bopt.padded_start(setup.problem, setup.x0_cores, old)
-                x_b, b = bopt.newton_cg(setup.problem, setup.x0_cores, max_newton=4, start_frame=frame)
-                self.assertEqual(a['losses'], b['losses'])
+                x_a, a = setup.problem.newton_cg(setup.x0_cores, max_newton=4, padded_from=old)
+                frame, centers, movements = setup.problem.padded_start(setup.x0_cores, old)
+                x_b, b = setup.problem.newton_cg(setup.x0_cores, max_newton=4, start_frame=frame)
+                # the same frame; padded_from also reads z through the padded centers (D3), a given start frame
+                # through the base point: equal to rounding, not bitwise
+                np.testing.assert_allclose(a['losses'], b['losses'], rtol=1e-12, atol=0.0)
+                self.assertEqual(len(a['losses']), len(b['losses']))
                 self.assertEqual((a['start_frame'], b['start_frame']), ('padded', 'given'))
                 self.assertEqual(len(a['start_movements']), int(np.sum(~np.isnan(np.asarray(movements, float)))))
                 self.assertNotIn('start_movements', b)
@@ -354,16 +377,16 @@ class TestNewtonKeywords(unittest.TestCase):
     def test_the_stats_keys(self):
         """The G-bit: the keys of stats and of the history rows without the new keywords; the new keys only with them."""
         setup, old, _, _ = fit_case('ragged')
-        _, plain = bopt.newton_cg(setup.problem, setup.x0_cores, max_newton=3)
+        _, plain = setup.problem.newton_cg(setup.x0_cores, max_newton=3)
         self.assertEqual(set(plain), {'losses', 'newton_steps', 'newton_accepted', 'stop_reason', 'history'})
         keys = set(plain['history'][0])
-        _, padded = bopt.newton_cg(setup.problem, setup.x0_cores, max_newton=3, padded_from=old)
-        _, cone = bopt.newton_cg(setup.problem, setup.x0_cores, max_newton=3, g0_reference='cone')
+        _, padded = setup.problem.newton_cg(setup.x0_cores, max_newton=3, padded_from=old)
+        _, cone = setup.problem.newton_cg(setup.x0_cores, max_newton=3, g0_reference='cone')
         self.assertEqual(set(padded) - set(plain), {'start_frame', 'start_movements'})
         self.assertEqual(set(cone) - set(plain), {'cone_movements'})
         self.assertEqual(set(padded['history'][0]), keys)
         self.assertEqual(cone['history'][0]['g0_reference'], 'cone')
-        _, gd = bopt.gradient_descent(setup.problem, setup.x0_cores, n_iter=2)
+        _, gd = setup.problem.gradient_descent(setup.x0_cores, n_iter=2)
         self.assertEqual(set(gd), {'losses', 'n_iter', 'line_search_failed'})
 
     def test_the_cone(self):
@@ -374,18 +397,17 @@ class TestNewtonKeywords(unittest.TestCase):
             with self.subTest(layer=layer):
                 setup, _, _, _ = fit_case(layer)
                 problem, x = setup.problem, setup.x0_cores
-                g0 = lambda x_, **kw: bopt.newton_cg(problem, x_, max_newton=1, **kw)[1]['history'][0]['g0norm']
+                g0 = lambda x_, **kw: problem.newton_cg(x_, max_newton=1, **kw)[1]['history'][0]['g0norm']
                 cone = g0(x, g0_reference='cone')
                 self.assertEqual(cone, g0(x, g0_reference='cone'))
                 self.assertEqual(cone, g0(cw.corewise_scale(x, -2.0), g0_reference='cone'))
-                F0 = bopt.padded_start(problem, x, None, max_passes=0)[0]
-                r0 = cw.corewise_sub(problem.kind.point_forward(cw.corewise_zeros_like(x), problem.sample), problem.data)
-                g = bopt._misfit_gradient_at(F0, (problem, r0))
+                F0 = problem.padded_start(x, None, max_passes=0)[0]
+                g = bopt._alignment_projector(problem.geom, problem.oracle)(F0, problem.batch)
                 hint_free = float(problem.geom.with_frame(F0).inner(g, g)) ** 0.5
                 self.assertLessEqual(abs(g0(x, g0_reference='cone', cone_max_passes=0) - hint_free), 1e-12 * hint_free)
                 self.assertGreater(cone, hint_free)                            # the aligned frame sees more gradient
-                _, gd = bopt.gradient_descent(problem, x, n_iter=1, g0_reference='cone')
-                _, nc = bopt.newton_cg(problem, x, max_newton=1, g0_reference='cone')
+                _, gd = problem.gradient_descent(x, n_iter=1, g0_reference='cone')
+                _, nc = problem.newton_cg(x, max_newton=1, g0_reference='cone')
                 self.assertEqual(gd['cone_movements'], nc['cone_movements'])
 
     def test_zero_padded_passes_start_from_the_hint_free_frame(self):
@@ -393,8 +415,8 @@ class TestNewtonKeywords(unittest.TestCase):
             with self.subTest(layer=layer):
                 setup, old, x_old, x0 = fit_case(layer)
                 seen = []
-                with unittest.mock.patch.object(bopt, '_misfit_gradient_at', side_effect=AssertionError('projected')):
-                    bopt.newton_cg(setup.problem, setup.x0_cores, max_newton=1, padded_from=old, padded_max_passes=0,
+                with _no_projection('projected'):
+                    setup.problem.newton_cg(setup.x0_cores, max_newton=1, padded_from=old, padded_max_passes=0,
                                    padded_seed=3, callback=lambda info: seen.append(info.lm.frame))
                 if layer == 'ragged':
                     want = padded_frames.fv_padded_frame(fvc.t3_orthogonal_representations(old)[0], *TARGET, seed=3)
@@ -413,17 +435,17 @@ class TestNewtonKeywords(unittest.TestCase):
         for option, value in (('oversampling', 3), ('oversampled_passes', 1), ('tol', 0.1), ('alternate', False)):
             with self.subTest(option=option):
                 with self.assertRaisesRegex(ValueError, 'max_passes=0'):
-                    bopt.padded_start(problem, x, old, max_passes=0, **{option: value})
+                    problem.padded_start(x, old, max_passes=0, **{option: value})
                 with self.assertRaisesRegex(ValueError, 'padded_max_passes=0'):
-                    bopt.newton_cg(problem, x, padded_from=old, padded_max_passes=0, **{'padded_' + option: value})
+                    problem.newton_cg(x, padded_from=old, padded_max_passes=0, **{'padded_' + option: value})
                 with self.assertRaisesRegex(ValueError, 'cone_max_passes=0'):
-                    bopt.newton_cg(problem, x, g0_reference='cone', cone_max_passes=0, **{'cone_' + option: value})
+                    problem.newton_cg(x, g0_reference='cone', cone_max_passes=0, **{'cone_' + option: value})
                 with self.assertRaisesRegex(ValueError, 'cone_max_passes=0'):
-                    bopt.gradient_descent(problem, x, g0_reference='cone', cone_max_passes=0,
+                    problem.gradient_descent(x, g0_reference='cone', cone_max_passes=0,
                                           **{'cone_' + option: value})
-        bopt.padded_start(problem, x, old, max_passes=0, seed=4)              # the seed is read
-        bopt.newton_cg(problem, x, max_newton=1, padded_from=old, padded_max_passes=0, padded_seed=4)
-        bopt.newton_cg(problem, x, max_newton=1, g0_reference='cone', cone_max_passes=0, cone_seed=4)
+        problem.padded_start(x, old, max_passes=0, seed=4)              # the seed is read
+        problem.newton_cg(x, max_newton=1, padded_from=old, padded_max_passes=0, padded_seed=4)
+        problem.newton_cg(x, max_newton=1, g0_reference='cone', cone_max_passes=0, cone_seed=4)
 
     def test_structural_errors(self):
         setup, old, _, _ = fit_case('ragged')
@@ -436,25 +458,23 @@ class TestNewtonKeywords(unittest.TestCase):
                  (dict(g0_reference='cone', g0norm_newton=1.0, cone_tol=0.1), "cone reference is not computed"))
         for kw, message in cases:
             with self.subTest(**{k: repr(v)[:20] for k, v in kw.items()}), self.assertRaisesRegex(ValueError, message):
-                bopt.newton_cg(problem, x, max_newton=1, **kw)
+                problem.newton_cg(x, max_newton=1, **kw)
         with self.assertRaisesRegex(ValueError, "cone reference is not computed"):
-            bopt.gradient_descent(problem, x, n_iter=1, cone_tol=0.1)
-        corewise = topt.least_squares_problem(t3m.COREWISE, 'probe', problem.sample, problem.data,
-                                              t3.TuckerTensorTrain(*x))
+            problem.gradient_descent(x, n_iter=1, cone_tol=0.1)
+        corewise = Setup(problem.with_(geom=bgeo.CorewiseGeometryOps()), x)
         for kw, message in ((dict(g0_reference='cone'), 'aligned_padded_frame member'),
                             (dict(padded_from=old), 'aligned_padded_frame member'),
                             (dict(start_frame=frame), 'require_frame_structure')):
             with self.subTest(corewise=list(kw)), self.assertRaisesRegex(ValueError, message):
-                bopt.newton_cg(corewise.problem, corewise.x0_cores, max_newton=1, **kw)
-        zero_data = topt.least_squares_problem(t3m.MANIFOLD, 'probe', problem.sample,
-                                               [np.zeros_like(y) for y in problem.data], t3.TuckerTensorTrain(*x))
+                corewise.problem.newton_cg(corewise.x0_cores, max_newton=1, **kw)
+        zero_data = Setup(problem.with_(batch=dc.replace(problem.batch, y=[np.zeros_like(y) for y in problem.batch.y])), x)
         with self.assertRaisesRegex(ValueError, 'the cone reference is 0'):
-            bopt.newton_cg(zero_data.problem, zero_data.x0_cores, max_newton=1, g0_reference='cone')
+            zero_data.problem.newton_cg(zero_data.x0_cores, max_newton=1, g0_reference='cone')
 
     def test_cone_with_g0norm_newton_runs_no_loop(self):
         setup, _, _, _ = fit_case('ragged')
-        with unittest.mock.patch.object(bopt, '_misfit_gradient_at', side_effect=AssertionError('the loop ran')):
-            _, stats = bopt.newton_cg(setup.problem, setup.x0_cores, max_newton=1, g0_reference='cone',
+        with _no_projection('the loop ran'):
+            _, stats = setup.problem.newton_cg(setup.x0_cores, max_newton=1, g0_reference='cone',
                                       g0norm_newton=2.0)
         self.assertEqual(stats['history'][0]['g0_reference'], 'override')
         self.assertNotIn('cone_movements', stats)
@@ -472,8 +492,8 @@ class TestSeamNumerics(unittest.TestCase):
         for tol, bound in ((1e-10, 1e-9), (None, 0.2)):
             with self.subTest(tol=tol):
                 kw = {} if tol is None else {'tol': tol, 'max_passes': 300}
-                Fr, mr = bopt.padded_start(rs.problem, rs.x0_cores, rold, **kw)
-                Fu, mu = bopt.padded_start(us.problem, us.x0_cores, uold, **kw)
+                Fr, _, mr = rs.problem.padded_start(rs.x0_cores, rold, **kw)
+                Fu, _, mu = us.problem.padded_start(us.x0_cores, uold, **kw)
                 if tol is not None:                                           # both stopped on tol, not the cap
                     self.assertLess(max(len(mr), len(bopt._movement_record(mu))), 300)
                 self.assertLessEqual(frame_distance(ragged_view('uniform', Fu), Fr), bound)
@@ -488,16 +508,16 @@ class TestSeamNumerics(unittest.TestCase):
         groups = sharing_module.validate_sharing(sharing, shape)
         stores = ranks.compute_orthogonal_representation_ranks(shape, *TARGET)
         setup, old, x_old, x0 = fit_case(layer, shape=shape, sharing=sharing, M=60)
-        F, movements = bopt.padded_start(setup.problem, setup.x0_cores, old, oversampling=0, max_passes=1)
+        F, _, movements = setup.problem.padded_start(setup.x0_cores, old, oversampling=0, max_passes=1)
         if layer == 'ragged':
             old_frame = fvc.t3_orthogonal_representations(old)[0]
             start = padded_frames.fv_padded_frame(old_frame, *TARGET, sharing=sharing)
         else:
             old_frame = ragged_view(layer, ufc.ut3_orthogonal_representations(old)[0])
-            start = ragged_view(layer, bopt.padded_start(setup.problem, setup.x0_cores, old, max_passes=0)[0])
+            start = ragged_view(layer, setup.problem.padded_start(setup.x0_cores, old, max_passes=0)[0])
         ragged_problem = fit_case('ragged', shape=shape, sharing=sharing, M=60)[0].problem   # the same fit
-        residual = [a - b for a, b in zip(x0.probe(ragged_problem.sample), ragged_problem.data)]
-        G = dense_probe_gradient(ragged_problem.sample, residual)
+        residual = [a - b for a, b in zip(x0.probe(ragged_problem.batch.sample), ragged_problem.batch.y)]
+        G = dense_probe_gradient(ragged_problem.batch.sample, residual)
         start_dense = oracles.dense_frames(start)
         dense, move = oracles.dense_pass(oracles.dense_frames(old_frame), start_dense,
                                      dense_tied_project(start_dense, G, groups, x0.to_dense()), stores,
@@ -518,17 +538,16 @@ class TestSeamNumerics(unittest.TestCase):
         shape, rk = (4, 5, 6), ((2, 2, 2), (1, 2, 2, 1))
         ww = [np.random.randn(20, n) for n in shape]
         pp = [np.random.randn(20, n) for n in shape]
-        data = bfit.ProbeDerivativesKind(order=1).point_forward(t3.TuckerTensorTrain.randn(shape, *rk).data, (ww, pp))
-        problem = bopt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.ProbeDerivativesKind(order=1),
-                                             (ww, pp), data)
+        data = dd.forward(t3.TuckerTensorTrain.randn(shape, *rk), 'probe', ww, pp, 1)
+        problem = F.derivative_fit(bgeo.ManifoldGeometryOps(), 'probe', 1, ww, pp, data)
         x = t3.TuckerTensorTrain.randn(shape, *rk).data
         Q = [np.linalg.qr(np.random.randn(n, n))[0] for n in rk[0]]
         x_rot = (tuple(q.T @ B for q, B in zip(Q, x[0])), tuple(np.einsum('anb,nm->amb', G, q) for G, q in zip(x[1], Q)))
-        F = problem.geom.frame(x_rot)[0]
-        default, rotated = problem.local_model(x, hessian='exact'), problem.local_model(x, frame=F, hessian='exact')
+        F_rot = problem.geom.frame(x_rot)[0]
+        default, rotated = problem.local_model(x, hessian='exact'), problem.local_model(x, frame=F_rot, hessian='exact')
         import t3toolbox.backend.tv_operations as tvo
         S = np.random.randn(*shape)
-        p, p_rot = tvo.tv_project_dense_onto_tangent_space(default.frame, S), tvo.tv_project_dense_onto_tangent_space(F, S)
+        p, p_rot = tvo.tv_project_dense_onto_tangent_space(default.frame, S), tvo.tv_project_dense_onto_tangent_space(F_rot, S)
         q, q_rot = float(default.quadratic(p)), float(rotated.quadratic(p_rot))
         self.assertLessEqual(abs(q - q_rot), 1e-10 * abs(q))
         scale = 1.0 / float(problem.geom.inner(p_rot, p_rot)) ** 0.5
@@ -539,8 +558,8 @@ class TestSeamNumerics(unittest.TestCase):
     def test_exact_newton_from_a_padded_start(self):
         """(g2): finite, and the objective decreases."""
         setup, old, _, _ = fit_case('ragged', kind='probe_derivatives')
-        frame, _ = bopt.padded_start(setup.problem, setup.x0_cores, old)
-        _, stats = bopt.newton_cg(setup.problem, setup.x0_cores, max_newton=6, hessian='exact', start_frame=frame)
+        frame, _, _ = setup.problem.padded_start(setup.x0_cores, old)
+        _, stats = setup.problem.newton_cg(setup.x0_cores, max_newton=6, hessian='exact', start_frame=frame)
         self.assertTrue(all(np.isfinite(stats['losses'])))
         self.assertLess(stats['losses'][-1], stats['losses'][0])
 
@@ -583,9 +602,9 @@ def aligned_by_member(layer, x_old='old', **kw):
     hint), plus ``kw``. ``x_old``: 'old' (the case's old point) or None (the zero tensor)."""
     setup, old, _, _ = fit_case(layer)
     problem, x = setup.problem, setup.x0_cores
-    residual = cw.corewise_sub(problem.kind.point_forward(x, problem.sample), problem.data)
-    return problem.geom.aligned_padded_frame(x, old if x_old == 'old' else None, bopt._misfit_gradient_at,
-                                             (problem, residual), **kw)
+    return problem.geom.aligned_padded_frame(x, old if x_old == 'old' else None,
+                                             bopt._alignment_projector(problem.geom, problem.oracle), problem.batch,
+                                             **kw)
 
 
 def frame_arrays(layer, frame):
@@ -593,6 +612,11 @@ def frame_arrays(layer, frame):
     if layer == 'ragged':
         return [c for cores in frame for c in cores]
     return list(frame[:4]) + list(frame[5])
+
+
+def center_arrays(centers):
+    """The centers' arrays in order (ragged: every core of Vc then Hc; uniform: the two supercores)."""
+    return [np.asarray(a) for part in centers for a in (part if isinstance(part, (tuple, list)) else (part,))]
 
 
 def passes_run(layer, movements):
@@ -610,23 +634,25 @@ class TestMemberTiming(unittest.TestCase):
              'defaults':               ('old', {}),
              'the zero tensor':        (None, dict(max_passes=5))}
 
-    def test_two_elements_off_three_on(self):
-        """Off (the keyword absent, or False): (frame, movements). On: the same frame and movements bitwise, then one
-        positive float per pass run."""
+    def test_three_elements_off_four_on(self):
+        """Off (the keyword absent, or False): (frame, centers, movements) (P16 part 1: the centers). On: the same
+        frame, centers and movements bitwise, then one positive float per pass run."""
         for layer in LAYERS:
             for name, (x_old, kw) in self.CASES.items():
                 with self.subTest(layer=layer, case=name):
                     off = aligned_by_member(layer, x_old, **kw)
                     off_explicit = aligned_by_member(layer, x_old, timing=False, **kw)
                     on = aligned_by_member(layer, x_old, timing=True, **kw)
-                    self.assertEqual((len(off), len(off_explicit), len(on)), (2, 2, 3))
+                    self.assertEqual((len(off), len(off_explicit), len(on)), (3, 3, 4))
                     for got in (off_explicit, on):
                         self.assertTrue(all(np.array_equal(a, b) for a, b in zip(frame_arrays(layer, got[0]),
                                                                                  frame_arrays(layer, off[0]))))
-                        np.testing.assert_array_equal(np.asarray(got[1], dtype=float), np.asarray(off[1], dtype=float))
-                    seconds = on[2]
+                        self.assertTrue(all(np.array_equal(a, b) for a, b in zip(center_arrays(got[1]),
+                                                                                 center_arrays(off[1]))))
+                        np.testing.assert_array_equal(np.asarray(got[2], dtype=float), np.asarray(off[2], dtype=float))
+                    seconds = on[3]
                     self.assertIsInstance(seconds, tuple)
-                    self.assertEqual(len(seconds), passes_run(layer, off[1]))
+                    self.assertEqual(len(seconds), passes_run(layer, off[2]))
                     self.assertGreater(len(seconds), 0)
                     self.assertTrue(all(isinstance(t, float) and t > 0.0 for t in seconds))
 
@@ -635,7 +661,7 @@ class TestMemberTiming(unittest.TestCase):
         the target) -- so the seconds are ()."""
         for layer in LAYERS:
             with self.subTest(layer=layer, case='max_passes=0'):
-                self.assertEqual(aligned_by_member(layer, max_passes=0, timing=True)[2], ())
+                self.assertEqual(aligned_by_member(layer, max_passes=0, timing=True)[3], ())
         _, old, uold, _, _, widths = uniform_tests.loop_case(SHAPE, OLD, OLD)
         with self.subTest(layer='ragged', case='nothing to complete'):
             self.assertEqual(padded_frames._fv_aligned_padded_frame(old, *OLD, None, None, timing=True)[2], ())
@@ -670,27 +696,28 @@ class TestMemberTiming(unittest.TestCase):
                         continue
                     self.assertEqual(len(starts), 1)
                     trees = [c.args[0] for c in sync.call_args_list]
-                    self.assertEqual(len(trees), passes_run(layer, out[1]) + 1)
+                    self.assertEqual(len(trees), passes_run(layer, out[2]) + 1)
                     if layer == 'ragged':
                         self.assertIs(trees[0], starts[0])                              # the start frame itself
-                        self.assertTrue(all(t[1] is m for t, m in zip(trees[1:], out[1])))   # pass k's movement
+                        self.assertTrue(all(t[1] is m for t, m in zip(trees[1:], out[2])))   # pass k's movement
                     else:
                         cores, _ = trees[0]                                             # (start cores, the record)
                         self.assertTrue(all(a is b for a, b in zip(cores, starts[0][0][:4])))
                         self.assertTrue(all(len(t) == 2 and len(t[0]) == 4 for t in trees[1:]))
-                        record = np.asarray(out[1])
+                        record = np.asarray(out[2])
                         self.assertTrue(all(np.array_equal(np.asarray(t[1]), record[k])   # pass k's own movement
                                             for k, t in enumerate(trees[1:])))
 
     def test_public_loops_and_padded_start_are_unchanged(self):
-        """The public loops and padded_start keep their signatures (no timing keyword) and return two elements."""
+        """The public loops and padded_start keep their signatures (no timing keyword); the loops return two elements
+        and padded_start three, the frame with its centers (D2, P16)."""
         for fn in (padded_frames.fv_aligned_padded_frame, uniform_padded_frames.ufv_aligned_padded_frame,
                    bopt.padded_start):
             self.assertNotIn('timing', inspect.signature(fn).parameters)
         for layer in LAYERS:
             with self.subTest(layer=layer):
                 setup, old, _, _ = fit_case(layer)
-                self.assertEqual(len(bopt.padded_start(setup.problem, setup.x0_cores, old, max_passes=3)), 2)
+                self.assertEqual(len(setup.problem.padded_start(setup.x0_cores, old, max_passes=3)), 3)
         _, old, uold, hint, uhint, widths = uniform_tests.loop_case(SHAPE, OLD, TARGET)
         self.assertEqual(len(padded_frames.fv_aligned_padded_frame(
             old, *TARGET, hint.data, tvo.tv_project_t3_onto_tangent_space, max_passes=3)), 2)
@@ -717,7 +744,7 @@ class _FixedSignatureMember(bgeo.ManifoldGeometryOps):
 @dc.dataclass(frozen=True, eq=False)
 class _KwargsMember(bgeo.ManifoldGeometryOps):
     """A custom geometry whose member forwards a ``**kwargs`` catch-all to the public loop, which has no ``timing``:
-    passing ``timing=True`` to it would raise."""
+    passing ``timing=True`` to it would raise. It returns no centers (``None``: the protocol allows it)."""
 
     def aligned_padded_frame(self, x0, x_old, project, hint, **kwargs):
         tucker = tuple(int(B.shape[-2]) for B in x0[0])
@@ -726,7 +753,8 @@ class _KwargsMember(bgeo.ManifoldGeometryOps):
             old = padded_frames.fv_empty_frame(tuple(int(B.shape[-1]) for B in x0[0]))
         else:
             old = self.frame(x_old)[0]
-        return padded_frames.fv_aligned_padded_frame(old, tucker, tt, hint, project, **kwargs)
+        frame, movements = padded_frames.fv_aligned_padded_frame(old, tucker, tt, hint, project, **kwargs)
+        return frame, None, movements
 
 
 class _Unreadable:
@@ -761,7 +789,7 @@ class TestNewtonTimingAtTheSeam(unittest.TestCase):
                 setup, old, _, _ = fit_case(layer)
                 kw = dict(max_newton=3, padded_from=old, g0_reference='cone', cone_tol=0.0, cone_max_passes=4)
                 seen = []
-                on = bopt.newton_cg(setup.problem, setup.x0_cores, timing=True, callback=seen.append, **kw)
+                on = setup.problem.newton_cg(setup.x0_cores, timing=True, callback=seen.append, **kw)
                 stats, record = on[1], seen[0].timing
                 optimizer_tests.check_timing(self, stats, seen)
                 for passes, movements, phase in ((record.alignment_passes, stats['start_movements'], record.alignment),
@@ -776,14 +804,14 @@ class TestNewtonTimingAtTheSeam(unittest.TestCase):
                 self.assertEqual(stats['timing']['alignment_passes'], record.alignment_passes)
                 self.assertEqual(stats['timing']['reference_passes'], record.reference_passes)
                 self.assertEqual(optimizer_tests.untimed(on),
-                                 optimizer_tests.untimed(bopt.newton_cg(setup.problem, setup.x0_cores, **kw)))
+                                 optimizer_tests.untimed(setup.problem.newton_cg(setup.x0_cores, **kw)))
 
     def test_a_given_start_frame_and_the_zero_reference(self):
         """start_frame (no alignment) and the 'zero' reference: no one-off but setup, no pass tuple."""
         setup, old, _, _ = fit_case('ragged')
-        frame = bopt.padded_start(setup.problem, setup.x0_cores, old)[0]
+        frame = setup.problem.padded_start(setup.x0_cores, old)[0]
         seen = []
-        x, stats = bopt.newton_cg(setup.problem, setup.x0_cores, max_newton=2, start_frame=frame, timing=True,
+        x, stats = setup.problem.newton_cg(setup.x0_cores, max_newton=2, start_frame=frame, timing=True,
                                   callback=seen.append)
         optimizer_tests.check_timing(self, stats, seen)
         record = seen[0].timing
@@ -802,12 +830,12 @@ class TestNewtonTimingAtTheSeam(unittest.TestCase):
             calls.append(timing)
             return real(self, *args, **kwargs) if timing is None else real(self, *args, timing=timing, **kwargs)
         with unittest.mock.patch.object(bgeo.ManifoldGeometryOps, 'aligned_padded_frame', member):
-            for name, call in (('padded_start', lambda: bopt.padded_start(problem, x, old, max_passes=2)),
-                               ('gradient_descent', lambda: bopt.gradient_descent(problem, x, n_iter=1,
+            for name, call in (('padded_start', lambda: problem.padded_start(x, old, max_passes=2)),
+                               ('gradient_descent', lambda: problem.gradient_descent(x, n_iter=1,
                                                                                   g0_reference='cone')),
-                               ('newton_cg', lambda: bopt.newton_cg(problem, x, max_newton=1, padded_from=old,
+                               ('newton_cg', lambda: problem.newton_cg(x, max_newton=1, padded_from=old,
                                                                     g0_reference='cone')),
-                               ('newton_cg(timing=True)', lambda: bopt.newton_cg(problem, x, max_newton=1, timing=True,
+                               ('newton_cg(timing=True)', lambda: problem.newton_cg(x, max_newton=1, timing=True,
                                                                                  padded_from=old, g0_reference='cone'))):
                 with self.subTest(call=name):
                     calls.clear()
@@ -822,20 +850,24 @@ class TestNewtonTimingAtTheSeam(unittest.TestCase):
         untimed one and the stock member's run, and reports its passes None (the alignment is still timed whole)."""
         setup, old, _, _ = fit_case('ragged')
         kw = dict(max_newton=2, padded_from=old, g0_reference='cone')
-        stock = optimizer_tests.untimed(bopt.newton_cg(setup.problem, setup.x0_cores, **kw))
+        stock_run = setup.problem.newton_cg(setup.x0_cores, **kw)
+        stock, stock_losses = optimizer_tests.untimed(stock_run), stock_run[1]['losses']
         for member in (_FixedSignatureMember(), _KwargsMember(), _UnreadableMember()):
             with self.subTest(member=type(member).__name__):
-                problem = dc.replace(setup.problem, geom=member)
+                problem = setup.problem.with_(geom=member)
                 seen = []
-                on = bopt.newton_cg(problem, setup.x0_cores, timing=True, callback=seen.append, **kw)
+                on = problem.newton_cg(setup.x0_cores, timing=True, callback=seen.append, **kw)
                 optimizer_tests.check_timing(self, on[1], seen)
                 record = seen[0].timing
                 self.assertIsNone(record.alignment_passes)
                 self.assertIsNone(record.reference_passes)
                 self.assertGreater(record.alignment, 0.0)
                 self.assertEqual(optimizer_tests.untimed(on), optimizer_tests.untimed(
-                    bopt.newton_cg(problem, setup.x0_cores, **kw)))
-                self.assertEqual(optimizer_tests.untimed(on), stock)
+                    problem.newton_cg(setup.x0_cores, **kw)))
+                if isinstance(member, _KwargsMember):          # no centers: z read through the base point, the same
+                    np.testing.assert_allclose(on[1]['losses'], stock_losses, rtol=1e-12, atol=0.0)   # to rounding
+                else:
+                    self.assertEqual(optimizer_tests.untimed(on), stock)
 
 
 def dense_probe_gradient(ww, residual):
@@ -873,3 +905,103 @@ def dense_tied_project(dense, S, groups, X):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestThePaddedFrameCenters(unittest.TestCase):
+    """P16 part 1: the members return the aligned frame's centers, the old point's zero-padded (zeros from the zero
+    tensor). Checked against the frame through the consistency residual (the tensor with each center in the frame's
+    hole, against the base point), and against an independent dense construction: the probe ``z`` read through the
+    centers equals ``dense_probe`` of ``x0``."""
+
+    PASSES = {'no pass': dict(max_passes=0), 'one pass': dict(max_passes=1), 'defaults': {}}
+
+    def residual(self, layer, frame, centers):
+        if layer == 'ragged':
+            return np.asarray(fvo.fv_centers_consistency_residual(frame, centers))
+        return np.asarray(ufvo.ufv_centers_consistency_residual(frame, centers))
+
+    def test_consistent_and_reproducing_x0(self):
+        for layer in LAYERS:
+            setup, _, _, x0 = fit_case(layer)
+            ww = [np.random.RandomState(5).randn(9, n) for n in SHAPE]
+            want = probing.dense_probe(np.asarray(x0.to_dense()), ww)
+            for name, kw in self.PASSES.items():
+                for x_old in ('old', None):
+                    with self.subTest(layer=layer, passes=name, old='the old point' if x_old else 'the zero tensor'):
+                        frame, centers, movements = aligned_by_member(layer, x_old, **kw)
+                        self.assertLess(float(self.residual(layer, frame, centers).max()), 1e-12)
+                        if x_old is None:                                   # the cone: zero centers, a zero point
+                            self.assertTrue(all(not np.any(a) for a in center_arrays(centers)))
+                            continue
+                        (z,) = sv.sampling_variables('probe', frame, ww, ('z',), Vc=centers[0])
+                        z = z if layer == 'ragged' else [np.asarray(z[i])[..., :n] for i, n in enumerate(SHAPE)]
+                        self.assertLess(max(float(np.max(np.abs(a - b))) for a, b in zip(z, want)),
+                                        1e-12 * max(float(np.max(np.abs(b))) for b in want))
+
+    def test_a_stack_and_garbage_in_the_old_point(self):
+        """C = (2,), both layers through the members with a fixed hint (one tensor projected at each frame); on the
+        uniform layer the old point carries garbage in its padding, which must not reach the centers."""
+        np.random.seed(17)
+        C = (2,)
+        x_old = t3.TuckerTensorTrain.randn(SHAPE, *OLD, stack_shape=C)
+        x0 = x_old.resize(SHAPE, *TARGET)
+        hint = t3.TuckerTensorTrain.randn(SHAPE, *TARGET, stack_shape=C)
+        geom = bgeo.ManifoldGeometryOps()
+        frame, centers, _ = geom.aligned_padded_frame(x0.data, x_old.data, tvo.tv_project_t3_onto_tangent_space,
+                                                      hint.data, max_passes=3)
+        self.assertEqual(self.residual('ragged', frame, centers).shape, C)
+        self.assertLess(float(self.residual('ragged', frame, centers).max()), 1e-12)
+        ux0 = ut3.UniformTuckerTensorTrain.from_t3(x0, N=8)
+        ux_old = ut3.UniformTuckerTensorTrain.from_t3(x_old, N=8, n=4, r=4)
+        ind = type(ux_old)(np.ones_like(ux_old.data[0]), np.ones_like(ux_old.data[1]), ux_old.shape,
+                           ux_old.masks).apply_masks()
+        dirty = (ux_old.data[0] + 1e3 * (1 - np.asarray(ind.data[0])), ux_old.data[1] - 1e3 * (1 - np.asarray(ind.data[1])),
+                 ux_old.data[2], ux_old.data[3])
+        uhint = ut3.UniformTuckerTensorTrain.from_t3(hint, N=8)
+        ugeom = bgeo.UniformManifoldGeometryOps.from_point(ux0.data)
+        for old in (ux_old.data, dirty):
+            uframe, ucenters, _ = ugeom.aligned_padded_frame((ux0.data[0], ux0.data[1]), old,
+                                                             utvo.utv_project_ut3_onto_tangent_space, uhint.data,
+                                                             max_passes=3)
+            residual = self.residual('uniform', uframe, ucenters)
+            self.assertEqual(residual.shape, C)
+            self.assertLess(float(residual.max()), 1e-12)
+
+    def test_the_uniform_helper_ignores_garbage_in_the_old_centers(self):
+        _, _, _, x0 = fit_case('uniform')
+        x_old = t3.TuckerTensorTrain.randn(SHAPE, *OLD)
+        ux_old = ut3.UniformTuckerTensorTrain.from_t3(x_old, N=8, n=4, r=4)
+        variations = ufc.ut3_orthogonal_representations(ux_old.data)[1]
+        ux0 = ut3.UniformTuckerTensorTrain.from_t3(x0, N=8)
+        frame = bgeo.UniformManifoldGeometryOps.from_point(ux0.data).frame((ux0.data[0], ux0.data[1]))[0]
+        V, H = (np.asarray(a) for a in variations[:2])
+        ones = umasking.ufv_apply_variations_masks((np.ones_like(V), np.ones_like(H)) + tuple(variations[2:]))
+        dirty = (V + 1e3 * (1 - np.asarray(ones[0])), H - 1e3 * (1 - np.asarray(ones[1]))) + tuple(variations[2:])
+        clean = bgeo._ufv_padded_centers(variations, frame)
+        got = bgeo._ufv_padded_centers(dirty, frame)
+        for a, b in zip(got, clean):
+            self.assertTrue(np.array_equal(a, b))
+        self.assertTrue(any(np.any(a) for a in clean))
+
+    def test_the_uniform_helper_reads_real_slots_anywhere(self):
+        """The helper places the old centers' REAL slots first, in their order, wherever they sit: the old centers with
+        the last (padded) slot of every rank axis moved to the front (the masks moved alike, so the real slots no longer
+        form a prefix, and keep their order) give the same padded centers."""
+        _, _, _, x0 = fit_case('uniform')
+        x_old = t3.TuckerTensorTrain.randn(SHAPE, *OLD)
+        ux_old = ut3.UniformTuckerTensorTrain.from_t3(x_old, N=8, n=4, r=4)
+        V, H, shape, (down, up, left, right) = ufc.ut3_orthogonal_representations(ux_old.data)[1]
+        ux0 = ut3.UniformTuckerTensorTrain.from_t3(x0, N=8)
+        frame = bgeo.UniformManifoldGeometryOps.from_point(ux0.data).frame((ux0.data[0], ux0.data[1]))[0]
+        for m in (down, up, left, right):
+            self.assertFalse(np.any(np.asarray(m)[..., -1]))                    # the last slot is padding everywhere
+        pu, pl, pd, pr = (np.roll(np.arange(m.shape[-1]), 1) for m in (up, left, down, right))
+        V2 = np.asarray(V)[..., pu, :]
+        H2 = np.asarray(H)[..., pl, :, :][..., pd, :][..., pr]
+        masks2 = (np.asarray(down)[..., pd], np.asarray(up)[..., pu], np.asarray(left)[..., pl],
+                  np.asarray(right)[..., pr])
+        self.assertFalse(all(np.array_equal(a, b) for a, b in zip(masks2, (down, up, left, right))))
+        want = bgeo._ufv_padded_centers((V, H, shape, (down, up, left, right)), frame)
+        got = bgeo._ufv_padded_centers((V2, H2, shape, masks2), frame)
+        for a, b in zip(got, want):
+            self.assertTrue(np.array_equal(a, b))

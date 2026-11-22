@@ -381,7 +381,8 @@ class TestAuxKeyHygiene(unittest.TestCase):
 class TestTheFrameReturnsTheCenters(unittest.TestCase):
     """P15: the backend ``frame(x)`` returns ``(frame, centers)``. On the manifold geometries the centers are the
     second result of the orthogonal representation (the uniform: its two supercores), consistent with the frame to
-    rounding; the corewise geometries return ``None``; the frame is bitwise what it was."""
+    rounding; the corewise geometries return ``None`` (their frame is the point: P16, ``TestTheCorewiseFrameIsThePoint``);
+    the manifold frame is bitwise what it was."""
 
     def ragged_points(self):
         np.random.seed(51)
@@ -411,18 +412,19 @@ class TestTheFrameReturnsTheCenters(unittest.TestCase):
                     cgeom = cgeom.with_sharing(labels, x.shape)
                 cframe, ccenters = cgeom.frame(x.data)
                 self.assertIsNone(ccenters)
-                from t3toolbox.backend.fv_conversions import t3_corewise_frame
-                for a, b in zip(_leaves(cframe), _leaves(t3_corewise_frame(x.data))):
+                self.assertEqual(len(cframe), 2)                                   # the point itself (P16)
+                for a, b in zip(cframe[0] + cframe[1], x.data[0] + x.data[1]):
                     self.assertIs(a, b)
 
     def test_uniform_with_forced_padding(self):
         from t3toolbox.backend.ufv_operations import ufv_centers_consistency_residual
         for label, x, labels in self.ragged_points():
             with self.subTest(point=label):
-                xu = ut3.UniformTuckerTensorTrain.from_t3(x, N=10, n=4, r=4)
-                ugeom = bgeo.UniformManifoldGeometryOps.from_point(xu.data)
-                if labels is not None:
-                    ugeom = ugeom.with_sharing(labels)
+                # widths at least the ranks (from_t3 below a rank truncates: the slice after P16), and from_point with
+                # the sharing (D5: it requires a minimal point, the shared notion for a shared one)
+                xu = ut3.UniformTuckerTensorTrain.from_t3(x, N=10, n=max(4, max(x.tucker_ranks)),
+                                                          r=max(4, max(x.tt_ranks)))
+                ugeom = bgeo.UniformManifoldGeometryOps.from_point(xu.data, labels)
                 frame, centers = ugeom.frame((xu.data[0], xu.data[1]))
                 ref_frame, ref_variations = ufv_conversions.ut3_orthogonal_representations(xu.data)
                 self.assertEqual(len(centers), 2)
@@ -434,8 +436,9 @@ class TestTheFrameReturnsTheCenters(unittest.TestCase):
                 cgeom = bgeo.UniformCorewiseGeometryOps.from_point(xu.data)
                 cframe, ccenters = cgeom.frame((xu.data[0], xu.data[1]))
                 self.assertIsNone(ccenters)
-                self.assertTrue(np.array_equal(cframe[0], ufv_conversions.ut3_corewise_frame(
-                    (xu.data[0], xu.data[1], cgeom.shape, cgeom.masks))[0]))
+                self.assertEqual(len(cframe), 4)                                   # the point's .data (P16)
+                self.assertIs(cframe[0], xu.data[0])
+                self.assertIs(cframe[1], xu.data[1])
 
 
 def _leaves(x):
@@ -471,3 +474,124 @@ class TestPointNormSq(unittest.TestCase):
                 with self.subTest(C=C, geometry=name):
                     self.assertEqual(np.shape(got), C)
                     self.assertLess(float(np.max(np.abs(np.asarray(got) - ref) / ref)), 1e-12)
+
+
+class TestTheCorewiseFrameIsThePoint(unittest.TestCase):
+    """P16, part 1: on the corewise geometries the frame is the point, as the engine reads a corewise call -- ragged
+    ``(B, G)``, uniform the point's ``.data`` ``(B_sc, G_sc, shape, masks)`` -- with no centers; ``base_point`` and
+    ``point_tangent`` give its cores back; ``retract`` adds a direction (a stack ``K`` sharing the one point); the
+    shared post-pass keeps the tie. The uniform retraction is checked on real parts against the ragged one through
+    dense tensors, with garbage in the padding of the point and of the direction."""
+
+    def points(self):
+        np.random.seed(71)
+        return [('C=()', t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT), None),
+                ('C=(2,)', t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT, stack_shape=(2,)), None),
+                ('shared', t3.TuckerTensorTrain.randn((6, 6, 8), TUCKER, TT).share((0, 0, 1)), (0, 0, 1))]
+
+    @staticmethod
+    def direction(x, K):
+        '''A random raw core direction at x with the stack K before C: ragged (B_dot, G_dot).'''
+        C = tuple(x.stack_shape)
+        return (tuple(np.random.randn(*(K + C + B.shape[len(C):])) for B in x.data[0]),
+                tuple(np.random.randn(*(K + C + G.shape[len(C):])) for G in x.data[1]))
+
+    def test_ragged(self):
+        from t3toolbox.backend.sampling_variables import frame_form
+        for label, x, labels in self.points():
+            geom = bgeo.CorewiseGeometryOps() if labels is None else bgeo.CorewiseGeometryOps().with_sharing(labels,
+                                                                                                                x.shape)
+            with self.subTest(point=label):
+                frame, centers = geom.frame(x.data)
+                self.assertIsNone(centers)
+                self.assertEqual(frame_form(frame), ('ragged', 'corewise'))
+                for got in (geom.base_point(frame), geom.point_tangent(frame)):
+                    self.assertTrue(all(a is b for a, b in zip(got[0] + got[1], x.data[0] + x.data[1])))
+                for K in [(), (3,)]:
+                    v = self.direction(x, K)
+                    new = geom.retract(frame, v)
+                    v_tied = geom.project(frame, v)
+                    for k in np.ndindex(*K):
+                        new_k = t3.TuckerTensorTrain(*(tuple(a[k] for a in part) for part in new))
+                        want = t3.TuckerTensorTrain(*(tuple(a + b[k] for a, b in zip(p, q))
+                                                      for p, q in zip(x.data, v_tied)))
+                        self.assertTrue(np.allclose(new_k.to_dense(), want.to_dense(), rtol=1e-13, atol=1e-13))
+                    if labels is not None:
+                        self.assertIs(new[0][0], new[0][1])                     # one aliased factor per group
+                        self.assertFalse(np.allclose(v[0][0], v[0][1]))         # though the direction was untied
+
+    def test_uniform_against_ragged(self):
+        from t3toolbox.backend.sampling_variables import frame_form
+        for label, x, labels in self.points():
+            n, r = max(x.tucker_ranks) + 1, max(x.tt_ranks) + 1                     # forced padding on every axis
+            xu = ut3.UniformTuckerTensorTrain.from_t3(x, N=10, n=n, r=r)
+            ind = type(xu)(np.ones_like(xu.data[0]), np.ones_like(xu.data[1]), xu.shape, xu.masks).apply_masks()
+            pad = (1 - np.asarray(ind.data[0]), 1 - np.asarray(ind.data[1]))     # 1 on the padding, 0 on real slots
+            dirty = (xu.data[0] + 1e3 * pad[0], xu.data[1] + 1e3 * pad[1])
+            geom = bgeo.UniformCorewiseGeometryOps.from_point(xu.data, labels)
+            rgeom = bgeo.CorewiseGeometryOps() if labels is None else bgeo.CorewiseGeometryOps().with_sharing(labels,
+                                                                                                                 x.shape)
+            with self.subTest(point=label):
+                frame, centers = geom.frame(dirty)
+                self.assertIsNone(centers)
+                self.assertEqual(frame_form(frame), ('uniform', 'corewise'))
+                self.assertIs(frame[0], dirty[0])
+                self.assertIs(frame[1], dirty[1])
+                self.assertEqual(frame[2], tuple(x.shape))
+                self.assertTrue(all(np.array_equal(a, b) for a, b in zip(frame[3], xu.masks.data)))
+                for got in (geom.base_point(frame), geom.point_tangent(frame)):
+                    self.assertIs(got[0], dirty[0])
+                    self.assertIs(got[1], dirty[1])
+                for K in [(), (3,)]:
+                    v = self.direction(x, K)                                        # ragged, then packed
+                    v_u = tuple(ut3.UniformTuckerTensorTrain.from_t3(
+                        t3.TuckerTensorTrain(*v), N=10, n=n, r=r).data[:2])
+                    shape_pad = (pad[0].reshape(pad[0].shape[:1] + (1,) * len(K) + pad[0].shape[1:]),
+                                 pad[1].reshape(pad[1].shape[:1] + (1,) * len(K) + pad[1].shape[1:]))
+                    v_dirty = (v_u[0] - 7e2 * shape_pad[0], v_u[1] - 7e2 * shape_pad[1])
+                    new = geom.retract(frame, v_dirty)
+                    rnew = rgeom.retract(rgeom.frame(x.data)[0], v)
+                    for k in np.ndindex(*K):
+                        at_k = (slice(None),) + k
+                        got = type(xu)(new[0][at_k], new[1][at_k], xu.shape, xu.masks)
+                        want = t3.TuckerTensorTrain(*(tuple(a[k] for a in part) for part in rnew))
+                        self.assertTrue(np.allclose(got.to_dense(), want.to_dense(), rtol=1e-13, atol=1e-12))
+                        if labels is not None:
+                            self.assertTrue(bool(np.all(got.has_shared_tucker_factors(labels))))
+
+    def test_a_frame_of_another_form_raises(self):
+        """Structural: ``base_point`` and ``point_tangent`` (and so ``retract`` on the corewise geometries, which reads
+        the frame through ``base_point``) refuse a frame of another form. Above all the corewise geometries' old four-store frame ``(B, G, G, G)``, which read as the
+        point would pass ``G`` three times (the regularizer's value counted ``G`` three times, silently: review r1,
+        finding 3); and a corewise point handed to a manifold geometry."""
+        import t3toolbox.backend.regularization as breg
+        from t3toolbox.backend.fv_conversions import t3_corewise_frame, t3_orthogonal_representations
+        np.random.seed(73)
+        x = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
+        xu = ut3.UniformTuckerTensorTrain.from_t3(x)
+        old_ragged = t3_corewise_frame(x.data)
+        old_uniform = ufv_conversions.ut3_corewise_frame(xu.data)
+        cases = [
+            ('ragged corewise, (B, G, G, G)', bgeo.CorewiseGeometryOps(), old_ragged),
+            ('uniform corewise, (B, G, G, G, shape, masks)', bgeo.UniformCorewiseGeometryOps.from_point(xu.data),
+             old_uniform),
+            ('ragged manifold, a corewise point', bgeo.ManifoldGeometryOps(), x.data),
+            ('uniform manifold, a uniform point', bgeo.UniformManifoldGeometryOps.from_point(xu.data), xu.data),
+        ]
+        for label, geom, frame in cases:
+            with self.subTest(case=label):
+                with self.assertRaisesRegex(ValueError, 'base_point: expected'):
+                    geom.base_point(frame)
+                with self.assertRaisesRegex(ValueError, '(base_point|point_tangent): expected'):
+                    geom.point_tangent(frame)
+                with self.assertRaisesRegex(ValueError, '(base_point|point_tangent): expected'):
+                    breg.IdentityRegularizer(1.0).gradient(geom, frame)
+        geom = bgeo.CorewiseGeometryOps()                                 # the right form still gives the cores back
+        frame = geom.frame(x.data)[0]
+        reg = breg.IdentityRegularizer(2.0)
+        decay = sum(float(np.sum(np.asarray(a) ** 2)) for part in x.data for a in part)
+        self.assertLess(abs(float(reg.value(geom, geom.base_point(frame))) - decay) / decay, 1e-13)
+        mframe = t3_orthogonal_representations(x.data)[0]                 # and a manifold frame its (D, L)
+        point = bgeo.ManifoldGeometryOps().base_point(mframe)
+        self.assertIs(point[0], mframe[0])
+        self.assertIs(point[1], mframe[2])

@@ -1,0 +1,81 @@
+# P16 part 1: the tests expected red until part 2 (and 4), measured. One test id per line (pytest node ids); a test
+# whose corewise subtests only are red is listed once. Source: the reviewer's full-suite run of part 1 round 0
+# (scratchpad reviewer2/actual_red.txt, 66 ids), less the four that round 1 fixed (TestUniformGeometryOps x2,
+# TestPaddedStartSeam, TestAlignmentTiming), plus one that round 1's structural check turned red, measured on
+# test_fitting and test_sharing after it (TestLocalModel::test_uniform_regularizer: the uniform corewise frontend
+# model read the frontend's six-element frame through the backend point_tangent, right by luck; now a ValueError).
+# Every one is a corewise fit or model reaching the old kinds, the old backend LocalModel or the backend corewise
+# geometry with the frontend's four-store frame. Part 2 judges regressions against this list.
+# Round 2 (Claude, from the reviewer's full run of round 1, 67 red ids, nothing listed green): four more, the
+# corewise subtests of test_uniform_curvature's test_garbage_in_the_frame_padding, which build the old backend
+# LocalModel on a hand-made six-element frame that the exact hvp's base_point now rejects (the same reason as
+# test_uniform_regularizer).
+# Pages, not in tests/ (python -m doctest): docs/fitting_and_optimization.md lines 73, 75 and 1190 (corewise adam and
+# newton_cg through the old Problem).
+tests/backend/test_curvature.py::TestCorewiseExact::test_against_the_block_sum_and_a_finite_difference_of_the_gradient
+tests/backend/test_curvature.py::TestCorewiseExact::test_shared_corewise
+tests/backend/test_curvature.py::TestDerivativeKindsExactLocalModel::test_corewise_is_the_plain_hessian
+tests/backend/test_curvature.py::TestDerivativeKindsExactLocalModel::test_symmetry_and_stacks
+tests/backend/test_curvature.py::TestExactLocalModel::test_curvature_damping_reaches_the_lift_and_is_rejected_where_it_does_nothing
+tests/backend/test_curvature.py::TestExactLocalModel::test_symmetry
+tests/backend/test_curvature.py::TestFlatSlotsModel::test_corewise_d1_runs_exact
+tests/backend/test_curvature.py::TestPlainKindsExactLocalModel::test_corewise_is_the_plain_hessian
+tests/backend/test_curvature.py::TestPlainKindsExactLocalModel::test_symmetry_and_stacks
+tests/backend/test_optimizers.py::TestBackendOptimizers::test_derivative_kinds
+tests/backend/test_optimizers.py::TestBackendOptimizers::test_gradient_descent_descends
+tests/backend/test_optimizers.py::TestBackendOptimizers::test_identity_regularizer_contributions
+tests/backend/test_optimizers.py::TestBackendOptimizers::test_jit_paths_recover
+tests/backend/test_optimizers.py::TestBackendOptimizers::test_oracle_matches_frontend
+tests/backend/test_optimizers.py::TestBackendOptimizers::test_stochastic_optimizers_recover
+tests/backend/test_optimizers.py::TestBackendOptimizers::test_use_jit_without_jax_warns_and_runs_eager
+tests/backend/test_optimizers.py::TestSteihaugCG::test_cg_truncated_excludes_boundary_stops
+tests/backend/test_optimizers.py::TestSteihaugCG::test_infinite_radius_is_the_plain_cg_bit_for_bit
+tests/backend/test_optimizers.py::TestSwitchNewton::test_forced_at_zero_is_exact
+tests/backend/test_optimizers.py::TestSwitchNewton::test_threshold_disabled_is_gauss_newton
+tests/backend/test_optimizers.py::TestWeightCombinations::test_weighted_and_regularized_objective_splits_exactly
+tests/backend/test_padded_start.py::TestNewtonKeywords::test_structural_errors
+tests/backend/test_uniform_curvature.py::TestUniformDerivativeKindsExactLocalModel::test_every_exact_action_per_element
+tests/backend/test_uniform_curvature.py::TestUniformDerivativeKindsExactLocalModel::test_garbage_in_the_frame_padding
+tests/backend/test_uniform_curvature.py::TestUniformDerivativeKindsExactLocalModel::test_shared_uniform_subcase
+tests/backend/test_uniform_curvature.py::TestUniformExactLocalModel::test_every_exact_action_per_element
+tests/backend/test_uniform_curvature.py::TestUniformExactLocalModel::test_garbage_in_the_frame_padding
+tests/backend/test_uniform_curvature.py::TestUniformExactLocalModel::test_m27_the_exact_gradient_is_the_gauss_newton_gradient
+tests/backend/test_uniform_curvature.py::TestUniformGeometryExactMembers::test_d1_and_shared_and_corewise
+tests/backend/test_uniform_curvature.py::TestUniformPlainKindsExactLocalModel::test_every_exact_action_per_element
+tests/backend/test_uniform_curvature.py::TestUniformPlainKindsExactLocalModel::test_garbage_in_the_frame_padding
+tests/backend/test_uniform_curvature.py::TestUniformPlainKindsExactLocalModel::test_shared_uniform_subcase
+tests/backend/test_uniform_curvature.py::TestUniformSharedExactModel::test_every_exact_action_per_element
+tests/backend/test_uniform_curvature.py::TestUniformSharedExactModel::test_garbage_in_the_frame_padding
+tests/backend/test_uniform_curvature.py::TestUniformSharedExactModel::test_m27_the_exact_gradient_is_the_gauss_newton_gradient
+tests/backend/test_uniform_fitting.py::TestUniformOptimizers::test_adam_descends
+tests/backend/test_uniform_fitting.py::TestUniformProblem::test_derivative_kinds_match_ragged
+tests/backend/test_uniform_fitting.py::TestUniformProblem::test_plain_kinds_match_ragged
+tests/backend/test_zero_reference.py::TestReferenceResolution::test_none_is_the_geometrys_own
+tests/backend/test_zero_reference.py::TestReferenceResolution::test_warm_start_is_the_2026_2_reference
+tests/test_dispatch.py::TestDispatch::test_jit_exact_local_model
+tests/test_dispatch.py::TestDispatch::test_jit_shared_uniform_exact
+tests/test_dispatch.py::TestDispatch::test_jit_uniform_exact_local_model_is_one_cache_key
+tests/test_fitting.py::TestExactLocalModel::test_derivative_kinds_match_the_backend_exact_local_model
+tests/test_fitting.py::TestExactLocalModel::test_gradient_is_the_gauss_newton_gradient_bitwise
+tests/test_fitting.py::TestExactLocalModel::test_matches_the_backend_exact_local_model
+tests/test_fitting.py::TestExactLocalModel::test_plain_kinds_match_the_backend_exact_local_model
+tests/test_fitting.py::TestExactLocalModel::test_retract_is_the_geometrys_and_the_backend_models
+tests/test_fitting.py::TestExactLocalModel::test_shared_corewise_matches_the_backend
+tests/test_fitting.py::TestExactLocalModel::test_shared_uniform_matches_the_backend_exact_local_model
+tests/test_fitting.py::TestExactLocalModel::test_uniform_matches_the_backend_exact_local_model
+tests/test_fitting.py::TestLocalModel::test_derivative_models
+tests/test_fitting.py::TestLocalModel::test_regularizer
+tests/test_fitting.py::TestLocalModel::test_uniform_regularizer
+tests/test_fitting.py::TestUniformLayerLocalModel::test_gauged_gradient_and_self_consistency
+tests/test_fitting.py::TestUniformLayerLocalModel::test_matches_backend_local_model
+tests/test_optimizers_frontend.py::TestFrontendExactNewton::test_options_with_no_effect_and_unbuilt_geometries_raise
+tests/test_optimizers_frontend.py::TestFrontendOptimizers::test_gradient_descent_recovers
+tests/test_optimizers_frontend.py::TestFrontendOptimizers::test_mc_sgd_and_adam_adapters
+tests/test_optimizers_frontend.py::TestFrontendOptimizers::test_stochastic_regularizer
+tests/test_optimizers_frontend.py::TestFrontendUniformOptimizers::test_mc_sgd_and_adam_adapters
+tests/test_optimizers_frontend.py::TestLeastSquaresProblemAndKeywords::test_the_four_optimizers_build_through_it
+tests/test_oracle_sweep.py::TestExactHessianOracleSweep::test_full_sweep
+tests/test_oracle_sweep.py::TestO2ModelOracleSweep::test_full_sweep
+tests/test_oracle_sweep.py::TestO2OptimizerOracleSweep::test_pairwise_subset
+tests/test_sharing.py::TestSharedGeometry::test_end_to_end_recovery_iterates_stay_tied
+tests/test_sharing.py::TestUniformSharedGeometry::test_trajectories_match_ragged_and_recovery_stays_tied

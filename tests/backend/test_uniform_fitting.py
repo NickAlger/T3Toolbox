@@ -27,6 +27,7 @@ import t3toolbox.backend.ut3_operations as uops
 import os as _os, sys as _sys
 _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))   # tests/
 import _derivative_data as dd       # derivative data from the merged methods (P13b)
+import _fits as F                   # a backend fit (geometry, oracle, batch, regularizer) from plain specs (P16)
 
 _STRUCT = ((10, 11, 12), (2, 4, 2), (1, 2, 2, 1))   # (shape, tucker, tt); MINIMAL ranks (tucker capped by
                                                     # the tt bonds), still rank-varied -> real padding
@@ -58,7 +59,14 @@ class TestUniformGeometryOps(unittest.TestCase):
         """Backend ops (on bare supercore pairs) vs the frontend geometry (on typed objects), at point x."""
         x_sc = (x.data[0], x.data[1])
         frame_front, frame_back = geom_front.frame(x), ops.frame(x_sc)[0]
-        self.assertTrue(_frame_close(frame_front.data, frame_back), 'frame')
+        if len(frame_back) == 4:                    # a corewise geometry: its frame is the point (P16); the frontend's
+            fd = frame_front.data                   #   is still (B, G, G, G, shape, (tk, tk, tt, tt) masks) until part 4
+            self.assertTrue(_sc_close((fd[0], fd[2]), frame_back[:2]) and np.array_equal(fd[2], fd[1])
+                            and tuple(fd[4]) == tuple(frame_back[2])
+                            and np.array_equal(fd[5][0], frame_back[3][0])
+                            and np.array_equal(fd[5][2], frame_back[3][1]), 'frame')
+        else:
+            self.assertTrue(_frame_close(frame_front.data, frame_back), 'frame')
 
         v1 = ubv.UT3Variations.randn_like(frame_front)     # ungauged variations at the frame
         v2 = ubv.UT3Variations.randn_like(frame_front)
@@ -497,11 +505,10 @@ class TestSplitSeamDefaultParity(unittest.TestCase):
 
 
 class TestUniformProblem(unittest.TestCase):
-    """U4: the uniform least-squares Problem (fully packed) reproduces the ragged backend Problem's
+    """U4: the uniform fit (the batch packed once, pack_batch; the geometry from_point) reproduces the ragged fit's
     LocalModel -- objective, gradient (via <g, p>), and gn_quadratic(p) -- on the equivalent (up to
-    gauge) frame, for
-    every sampling kind and both geometries. This certifies the Problem factory's sample/data packing and
-    the reused LocalModel wiring."""
+    gauge) frame, for every sampling kind (plain, and derivative data along lines through the oracle at a jet shape)
+    and both geometries. This certifies the batch packing and the LocalModel wiring on the uniform layout."""
     _GEOMS = [('manifold', bgeo.ManifoldGeometryOps(), t3m.MANIFOLD), ('corewise', bgeo.CorewiseGeometryOps(), t3m.COREWISE)]
 
     def setUp(self):
@@ -530,12 +537,11 @@ class TestUniformProblem(unittest.TestCase):
                 p_u = ubv.UT3Variations.from_t3variations(p.variations).supercores
             self.trial[name] = (p.variations.data, p_u)
 
-    def _check(self, geom, bgeom, kind_name, ragged_kind, sample, data, order=None, weight=None):
+    def _check(self, geom, prob_r):
         p_r, p_u = self.trial[geom]
-        prob_r = bopt.least_squares_problem(bgeom, ragged_kind, sample, data)
-        prob_u = uf.uniform_least_squares_problem(geom, kind_name, self.ux0, sample, data, order, weight)
+        prob_u, x_u = F.uniform(prob_r, self.ux0)
         lm_r = prob_r.local_model(self.x0.data)
-        lm_u = prob_u.local_model((self.ux0.data[0], self.ux0.data[1]))
+        lm_u = prob_u.local_model(x_u)
         self.assertTrue(np.isclose(float(lm_r.objective), float(lm_u.objective)), 'objective')
         self.assertTrue(np.isclose(float(self.cw.corewise_dot(lm_r.gradient, p_r)),
                                    float(prob_u.geom.inner(lm_u.gradient, p_u))), '<g, p>')
@@ -558,23 +564,21 @@ class TestUniformProblem(unittest.TestCase):
         }[kind_name]
 
     def test_plain_kinds_match_ragged(self):
-        kinds = {'apply': bfit.APPLY, 'entries': bfit.ENTRIES, 'probe': bfit.PROBE}
         for geom, bgeom, _fg in self._GEOMS:
-            for kind_name, ragged_kind in kinds.items():
+            for kind_name in ('apply', 'entries', 'probe'):
                 with self.subTest(geometry=geom, kind=kind_name):
                     sample, data = self._sample_data(kind_name)
-                    self._check(geom, bgeom, kind_name, ragged_kind, sample, data)
+                    self._check(geom, F.fit(bgeom, kind_name, sample, data))
 
     def test_derivative_kinds_match_ragged(self):
-        O, WEIGHT = 3, [1.0, 0.5, 0.3, 0.2]
-        kinds = {'apply_derivatives': bfit.apply_derivatives_kind,
-                 'entries_derivatives': bfit.entries_derivatives_kind,
-                 'probe_derivatives': bfit.probe_derivatives_kind}
+        O, WEIGHT = 3, np.array([1.0, 0.5, 0.3, 0.2])
         for geom, bgeom, _fg in self._GEOMS:
-            for kind_name, factory in kinds.items():
+            for kind_name in ('apply', 'entries', 'probe'):
                 with self.subTest(geometry=geom, kind=kind_name):
-                    sample, data = self._sample_data(kind_name)
-                    self._check(geom, bgeom, kind_name, factory(O, WEIGHT), sample, data, order=O, weight=WEIGHT)
+                    (sample, pp), data = self._sample_data(kind_name + '_derivatives')
+                    weight = np.tile(WEIGHT, (3, 1)) if kind_name == 'probe' else WEIGHT
+                    self._check(geom, F.derivative_fit(bgeom, kind_name, O, sample, pp, data, weight=weight,
+                                                       shape=_STRUCT[0]))
 
 
 class TestUniformOptimizers(unittest.TestCase):
@@ -599,19 +603,19 @@ class TestUniformOptimizers(unittest.TestCase):
 
     def _problems(self, geom):
         bg = {'manifold': bgeo.ManifoldGeometryOps(), 'corewise': bgeo.CorewiseGeometryOps()}[geom]
-        return (bopt.least_squares_problem(bg, bfit.APPLY, self.ww, self.data),
-                uf.uniform_least_squares_problem(geom, 'apply', self.ux0, self.ww, self.data))
+        pr = F.fit(bg, 'apply', self.ww, self.data)
+        return pr, F.uniform(pr, self.ux0)[0]
 
     def test_gradient_descent_matches_ragged(self):
         pr, pu = self._problems('manifold')
-        _, sr = bopt.gradient_descent(pr, self.x0.data, n_iter=8)
-        _, su = bopt.gradient_descent(pu, self._x0u, n_iter=8)
+        _, sr = pr.gradient_descent(self.x0.data, n_iter=8)
+        _, su = pu.gradient_descent(self._x0u, n_iter=8)
         self.assertTrue(np.allclose(sr['losses'], su['losses']))   # deterministic -> matches ragged (to tol)
 
     def test_newton_cg_matches_ragged(self):
         pr, pu = self._problems('manifold')
-        _, sr = bopt.newton_cg(pr, self.x0.data, max_newton=4)
-        _, su = bopt.newton_cg(pu, self._x0u, max_newton=4)
+        _, sr = pr.newton_cg(self.x0.data, max_newton=4)
+        _, su = pu.newton_cg(self._x0u, max_newton=4)
         self.assertLess(su['losses'][-1], su['losses'][0])                          # descends
         self.assertTrue(np.isclose(su['losses'][-1], sr['losses'][-1], rtol=1e-2))  # tracks ragged
 
@@ -619,22 +623,24 @@ class TestUniformOptimizers(unittest.TestCase):
         # same rng + same flat draw + the packed take gives the same minibatch as ragged, so the descent
         # tracks the ragged run.
         pr, pu = self._problems('manifold')
-        _, sr = bopt.mc_sgd(pr, self.x0.data, np.random.default_rng(0), batch=10, max_iter=100)
-        _, su = bopt.mc_sgd(pu, self._x0u, np.random.default_rng(0), batch=10, max_iter=100)
+        _, sr = pr.mc_sgd(self.x0.data, np.random.default_rng(0), 10, max_iter=100)
+        _, su = pu.mc_sgd(self._x0u, np.random.default_rng(0), 10, max_iter=100)
         self.assertLess(su['losses'][-1], 0.7 * su['losses'][0])                    # descends
         self.assertTrue(np.isclose(su['losses'][-1], sr['losses'][-1], rtol=1e-3))  # tracks ragged
 
     def test_adam_descends(self):
         _, pu = self._problems('corewise')
-        _, su = bopt.adam(pu, self._x0u, np.random.default_rng(0), batch=10, lr=5e-2, max_iter=200)
+        _, su = pu.adam(self._x0u, np.random.default_rng(0), 10, lr=5e-2, max_iter=200)
         self.assertLess(su['losses'][-1], 0.5 * su['losses'][0])                    # descends
 
 
 class TestUniformMinimalRank(unittest.TestCase):
     """U5.6: uniform fitting requires a minimal-rank frame (from a non-minimal frame the retraction truncates
     to the realizable rank and desyncs from the fixed masks -> a mid-loop crash). uniform_minimal reduces
-    to it (same tensor; a no-op if already minimal); uniform_least_squares_problem rejects a non-minimal x0
-    with a clear error up front; the optimizer runs cleanly from the reduced frame."""
+    to it (same tensor; a no-op if already minimal); UniformManifoldGeometryOps.from_point rejects a non-minimal
+    x0 with a clear error up front (D5: where uniform_least_squares_problem's guard was; with sharing, the shared
+    notion); the optimizer runs cleanly from the reduced frame. A local model at a non-minimal point (never
+    retracted) builds its geometry from_frame, and its gradient, gn_quadratic and hvp work there."""
     def setUp(self):
         np.random.seed(0)
         self.ww = [np.random.randn(30, n) for n in (6, 6, 6)]
@@ -646,8 +652,41 @@ class TestUniformMinimalRank(unittest.TestCase):
     def test_nonminimal_x0_rejected(self):
         x0 = self._x0((2, 2, 2), (1, 3, 3, 1))          # TT bond rank 3 unrealizable for a 2x2x2 core
         self.assertFalse(bool(np.all(x0.has_minimal_ranks)))
-        with self.assertRaises(ValueError):
-            uf.uniform_least_squares_problem('manifold', 'apply', x0, self.ww, self.data)
+        with self.assertRaisesRegex(ValueError, 'requires a minimal-rank point'):
+            bgeo.UniformManifoldGeometryOps.from_point(x0.data)
+        bgeo.UniformCorewiseGeometryOps.from_point(x0.data)          # additive: no retraction to desync
+
+    def test_shared_minimality_is_the_shared_notion(self):
+        """With sharing, minimal means the shared notion (the group ceiling admits a group rank the per-mode bound
+        clips): Tucker (2, 2, 1), TT (1, 1, 1, 1) on (6, 6, 6) with modes 0 and 1 shared is shared-minimal and not
+        minimal per mode, so from_point accepts it with the sharing and raises without it."""
+        import t3toolbox.backend.ranks as ranks
+        shape, sharing, tk, tt = (6, 6, 6), (0, 0, 1), (2, 2, 1), (1, 1, 1, 1)
+        self.assertEqual([int(n) for n in ranks.compute_minimal_ranks(shape, tk, tt, sharing=sharing)[0]], list(tk))
+        self.assertNotEqual([int(n) for n in ranks.compute_minimal_ranks(shape, tk, tt)[0]], list(tk))
+        x0 = self._x0(tk, tt)
+        bgeo.UniformManifoldGeometryOps.from_point(x0.data, sharing)
+        with self.assertRaisesRegex(ValueError, 'requires a minimal-rank point'):
+            bgeo.UniformManifoldGeometryOps.from_point(x0.data)
+
+    def test_a_local_model_at_a_nonminimal_point(self):
+        """D5's other half: from_frame (the frame in hand) builds the geometry of a non-minimal point, and the model's
+        gradient, gn_quadratic and hvp there agree with the ragged model's (<g, p>, <p, Hp> at the same tangent)."""
+        import t3toolbox.backend.ufv_conversions as ufc
+        import t3toolbox.corewise as cw
+        x = t3.TuckerTensorTrain.randn((6, 6, 6), (2, 2, 2), (1, 3, 3, 1))
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x)
+        self.assertFalse(bool(np.all(ux.has_minimal_ranks)))
+        frame, centers = ufc.ut3_orthogonal_representations(ux.data)
+        geom = bgeo.UniformManifoldGeometryOps.from_frame(frame, ux.data[3])
+        rfit = F.fit(bgeo.ManifoldGeometryOps(), 'apply', self.ww, self.data)
+        ufit = F.uniform(F.fit(bgeo.CorewiseGeometryOps(), 'apply', self.ww, self.data), ux)[0].with_(geom=geom)
+        lm = ufit.local_model((ux.data[0], ux.data[1]), frame=frame, centers=(centers[0], centers[1]))
+        lm_r = rfit.local_model(x.data)
+        g = lm.gradient
+        self.assertTrue(np.isclose(float(geom.inner(g, g)), float(rfit.geom.inner(lm_r.gradient, lm_r.gradient))))
+        self.assertTrue(np.isclose(float(lm.gn_quadratic(g)), float(geom.inner(g, lm.hvp(g)))))
+        self.assertTrue(np.isclose(float(lm.objective), float(lm_r.objective)))
 
     def test_uniform_minimal_reduces_same_tensor(self):
         x0 = self._x0((2, 2, 2), (1, 3, 3, 1))
@@ -661,38 +700,39 @@ class TestUniformMinimalRank(unittest.TestCase):
 
     def test_optimizer_runs_after_minimal(self):
         x0 = uf.uniform_minimal(self._x0((2, 2, 2), (1, 3, 3, 1)))
-        prob = uf.uniform_least_squares_problem('manifold', 'apply', x0, self.ww, self.data)
-        _, s = bopt.gradient_descent(prob, (x0.data[0], x0.data[1]), n_iter=10)
+        prob, xc = F.uniform(F.fit(bgeo.ManifoldGeometryOps(), 'apply', self.ww, self.data), x0)
+        _, s = prob.gradient_descent(xc, n_iter=10)
         self.assertLess(s['losses'][-1], s['losses'][0])
 
 
 
-class TestProblemStringArgs(unittest.TestCase):
-    """Review 2026-08-22 (C12): geometry / kind strings are validated (case-insensitively) and a
-    derivative kind needs order= at construction, not on first use."""
+class TestPackSampleAndData(unittest.TestCase):
+    """pack_sample(kind, order, sample, N) and pack_data(kind, order, y, N), the forms of P16 (in place of the old kind
+    names): the input jets packed with their jet axes brought to the largest size by zero coefficients and the modes
+    padded to N with zeros, the probe data packed likewise; the index and the scalar data unchanged; pack_batch is
+    the two. Checked against the ragged arrays slot by slot (a jet slot beyond a mode's own is zero: data, O-45)."""
 
-    def setUp(self):
-        np.random.seed(8)
-        x = t3.TuckerTensorTrain.randn((4, 5, 3), (2, 2, 2), (1, 2, 2, 1))
-        self.x0 = ut3.UniformTuckerTensorTrain.from_t3(x)
-        self.ww = tuple(np.random.randn(6, n) for n in x.shape)
-        self.b = x.apply(self.ww)
-
-    def test_geometry_string(self):
-        p = uf.uniform_least_squares_problem('Manifold', 'apply', self.x0, self.ww, self.b)
-        self.assertIsInstance(p.geom, bgeo.UniformManifoldGeometryOps)
-        p = uf.uniform_least_squares_problem('COREWISE', 'Apply', self.x0, self.ww, self.b)
-        self.assertIsInstance(p.geom, bgeo.UniformCorewiseGeometryOps)
-        with self.assertRaises(ValueError):
-            uf.uniform_least_squares_problem('manifld', 'apply', self.x0, self.ww, self.b)
-        with self.assertRaises(ValueError):
-            uf.uniform_least_squares_problem('manifold', 'bogus', self.x0, self.ww, self.b)
-
-    def test_derivative_kind_requires_order(self):
-        pp = tuple(np.random.randn(6, n) for n in self.x0.shape)
-        with self.assertRaises(ValueError):
-            uf.uniform_least_squares_problem('manifold', 'apply_derivatives', self.x0, (self.ww, pp), self.b)
-
+    def test_the_forms(self):
+        rng = np.random.default_rng(0)
+        shape, N, W = (4, 5, 3), 7, 6
+        ww = [rng.standard_normal((J, W, n)) for J, n in zip((2, 1, 2), shape)]     # mixed jet sizes, order (2,)
+        y = [rng.standard_normal((3, W, n)) for n in shape]                         # F = (3,)
+        packed = uf.pack_sample('probe', (2,), ww, N)
+        self.assertEqual(packed.shape, (3, 2, W, N))
+        for i, (w, n) in enumerate(zip(ww, shape)):
+            self.assertTrue(np.array_equal(packed[i, :w.shape[0], :, :n], w))
+            self.assertFalse(np.any(packed[i, w.shape[0]:]))                         # the missing jet slot: zero
+            self.assertFalse(np.any(packed[i, :, :, n:]))                            # the mode padding: zero
+        self.assertIs(uf.pack_sample('apply', (2,), packed, N), packed)               # a packed sample is kept
+        py = uf.pack_data('probe', (2,), y, N)
+        self.assertEqual(py.shape, (3, 3, W, N))
+        self.assertTrue(all(np.array_equal(py[i, ..., :n], a) for i, (a, n) in enumerate(zip(y, shape))))
+        index = np.stack([rng.integers(0, n, W) for n in shape])
+        self.assertIs(uf.pack_sample('entries', (), index, N), index)
+        scalar = rng.standard_normal((3, W))
+        self.assertIs(uf.pack_data('apply', (2,), scalar, N), scalar)
+        batch = uf.pack_batch('probe', (2,), bfit.LeastSquaresBatch(ww, y, np.ones((3, 3))), N)
+        self.assertTrue(np.array_equal(batch.sample, packed) and np.array_equal(batch.y, py))
 
 
 class TestSlackPaddedStart(unittest.TestCase):
@@ -700,22 +740,23 @@ class TestSlackPaddedStart(unittest.TestCase):
     real ranks) must run through every uniform optimizer; the retraction used to shrink the padded dims."""
 
     def test_optimizers_run_from_a_slack_padded_x0(self):
-        import t3toolbox.optimizers as topt
         np.random.seed(9)
         x_true = t3.TuckerTensorTrain.randn((4, 5, 6), (3, 3, 2), (1, 2, 2, 1))
         ww = tuple(np.random.randn(10, n) for n in x_true.shape)
         b = x_true.apply(ww)
-        x0 = t3.TuckerTensorTrain.randn((4, 5, 6), (3, 3, 2), (1, 2, 2, 1))
-        ux0 = ut3.UniformTuckerTensorTrain.from_t3(x0, n=5, r=4)              # slack: real max (3, 2)
-        self.assertEqual((ux0.n, ux0.r), (5, 4))
+        x0 = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))   # minimal (the frontend reduced the
+        ux0 = ut3.UniformTuckerTensorTrain.from_t3(x0, n=5, r=4)              # old (3, 3, 2) first); slack: real
+        self.assertEqual((ux0.n, ux0.r), (5, 4))                              # max (3, 2)
+        self.assertTrue(bool(np.all(ux0.has_minimal_ranks)))
         frame = ut3m.UNIFORM_MANIFOLD.frame(ux0)
         y = ut3m.UNIFORM_MANIFOLD.retract(ut3m.UNIFORM_MANIFOLD.randn(frame) * 1e-3)
         self.assertEqual((y.n, y.r), (5, 4))                                   # the frame's padded dims
         self.assertTrue(bool(np.all(np.asarray(y.tucker_ranks) == np.asarray(ux0.tucker_ranks))))
         rng = np.random.default_rng(0)
-        topt.newton_cg(ut3m.UNIFORM_MANIFOLD, 'apply', ww, b, ux0, max_newton=2)
-        topt.mc_sgd(ut3m.UNIFORM_MANIFOLD, 'apply', ww, b, ux0, rng, batch=5, max_iter=3)
-        topt.gradient_descent(ut3m.UNIFORM_MANIFOLD, 'apply', ww, b, ux0, n_iter=2)
+        prob, xc = F.uniform(F.fit(bgeo.ManifoldGeometryOps(), 'apply', ww, b), ux0)
+        prob.newton_cg(xc, max_newton=2)
+        prob.mc_sgd(xc, rng, 5, max_iter=3)
+        prob.gradient_descent(xc, n_iter=2)
 
 if __name__ == '__main__':
     unittest.main()

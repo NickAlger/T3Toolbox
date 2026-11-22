@@ -2189,8 +2189,8 @@ and `_canonical_weight` are deleted.
   `shared(COREWISE, sharing)` the parameters are one factor per group, the raw gradient has one block per mode and must
   be tied, and a raw flat gradient handed to L-BFGS unties the copies on the first step, silently), the regularizer's
   form (`IdentityRegularizer(lam)` is weight decay on `COREWISE` and the HS ridge on `MANIFOLD`), and, with the batch,
-  the minibatch rule (the oracle scales `f` and `g` by `minibatch_scale`, O-21, and the regularizer is scaled as the
-  library's minibatch steps scale it). The recipe is the helper N47 (adopted, O-50):
+  the minibatch rule (the oracle scales `f` and `g` by `minibatch_scale`, O-21, and the regularizer is not scaled, as
+  in P16's minibatch steps). The recipe is the helper N47 (adopted, O-50):
   `point_value_and_gradient(geom, oracle, batch, x_cores, regularizer=None) -> (f, g)`, beside `point_objective`
   (N20), and its frontend `fitting.point_value_and_gradient(geometry, oracle, batch, x, regularizer=None)`; `f` the
   objective with the regularizer's term, `g` the gradient in the geometry's coordinates as the pair of core tuples, so
@@ -2212,7 +2212,7 @@ and `_canonical_weight` are deleted.
   - **regularized:** the value equals `point_objective` with the regularizer, and the gradient passes the gradient
     check;
   - **a drawn batch:** the value and gradient equal the step objective `mc_sgd` minimizes on that batch (the minibatch
-    scale on `f`, `g` and the regularizer).
+    scale on `f` and `g`, the regularizer unscaled).
 - Gate: the full gate, the slow tier. A search for the old call form (a kind string in the second position of a
   frontend optimizer, `val_sample=`, `val_data=`, `chunk_size=`) in `t3toolbox/`, `tests/`, `docs/`, `examples/`
   and the root `README.md` finds none.

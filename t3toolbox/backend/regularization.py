@@ -4,8 +4,8 @@
 """Backend regularization terms for the fitting objective ``min_x ½‖ω⊙(S(x)−y)‖² + ρ(x)``.
 
 A ``Regularizer`` is an additive objective term ``ρ(X)`` folded into the local Gauss-Newton model
-(:py:class:`t3toolbox.backend.optimizers.LocalModel`) and ``Problem.objective``, so it composes with
-**every** optimizer, sampling kind, geometry, and representation with no changes to any of them. This
+(:py:class:`t3toolbox.backend.optimizers.LocalModel`) and :py:func:`~t3toolbox.backend.optimizers.point_objective`, so
+it composes with **every** optimizer, oracle, geometry, and representation with no changes to any of them. This
 layer is **check-free** -- a raw-``.data`` user constructs and attaches a regularizer directly, exactly as
 a frontend user does (design record + the razor check: ``docs/contributor/fitting_internals.md`` §Regularization).
 
@@ -13,7 +13,10 @@ The interface is **geometry-agnostic**: each method receives a geometry (an ``op
 ``ManifoldGeometryOps``) and leans only on its primitives (``point_norm_sq`` / ``point_tangent`` /
 ``project`` / ``inner``), so the SAME regularizer works on manifold or corewise. Extending to a new
 regularizer (e.g. the Grasedyck-Kramer inverse-singular-value weighting of the matricizations and unfoldings)
-is a new subclass with the same four methods -- ``Problem`` / ``LocalModel`` / the optimizers are untouched.
+is a new subclass with the same four methods -- ``LocalModel`` / the optimizers are untouched.
+
+**Under minibatching the regularizer is not scaled** (graded messages, O-21): a drawn batch's misfit is scaled by the
+oracle to estimate the full misfit, and the regularizer is a term of the full objective, not a sum over samples.
 """
 import dataclasses as dc
 import typing as typ
@@ -58,7 +61,7 @@ class Regularizer:
     :py:mod:`t3toolbox.backend.geometry`'s geometry classes; ``frame`` = ``(D,U,L,R)``; ``p`` a tangent
     ``(tucker_var, tt_var)``; ``x_cores`` = ``(tucker_cores, tt_cores)``. Tangent-valued methods return a
     gauged/projected tangent."""
-    def value(self, geom, x_cores):        # ρ(X)          -- for Problem.objective / line search (any point)
+    def value(self, geom, x_cores):        # ρ(X)          -- for point_objective / line search (any point)
         raise NotImplementedError
     def gradient(self, geom, frame, aux=None):     # g_R = Π∇ρ  -- a tangent at frame
         raise NotImplementedError
@@ -93,26 +96,3 @@ class IdentityRegularizer(Regularizer):
     def quadratic(self, geom, frame, p, aux=None): # ⟨p, λ·Π p⟩ = λ‖Π p‖²
         projected = geom.project(frame, p, aux=aux)
         return self.strength * geom.inner(projected, projected)
-
-
-@dc.dataclass(frozen=True)
-class _ScaledRegularizer(Regularizer):
-    """``inner`` scaled by a constant ``factor`` -- ``factor·ρ``. Used by the **stochastic** optimizers,
-    where the minibatch data gradient is a ``batch/n`` estimate of the full data gradient, so the
-    (deterministic) regularizer is scaled by ``batch/n`` to keep ``λ``'s meaning consistent with the
-    full-batch optimizers (``docs/contributor/fitting_internals.md`` §"Stochastic scaling"). Valid for any regularizer: scaling a
-    function by ``factor`` scales its value, gradient, and Hessian all by ``factor``."""
-    inner:  Regularizer
-    factor: float
-
-    def value(self, geom, x_cores):
-        return self.factor * self.inner.value(geom, x_cores)
-
-    def gradient(self, geom, frame, aux=None):
-        return cw.corewise_scale(self.inner.gradient(geom, frame, aux=aux), self.factor)
-
-    def hessian(self, geom, frame, p, aux=None):
-        return cw.corewise_scale(self.inner.hessian(geom, frame, p, aux=aux), self.factor)
-
-    def quadratic(self, geom, frame, p, aux=None):
-        return self.factor * self.inner.quadratic(geom, frame, p, aux=aux)

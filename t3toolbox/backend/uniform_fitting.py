@@ -1,18 +1,22 @@
 # Authors: Nick Alger and Blake Christierson
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
-"""Uniform-layer fitting: the packed ``SamplingKind`` classes and the least-squares ``Problem``.
+"""Uniform-layer fitting: packing a least-squares batch for the uniform layout, the minimal-rank reduction of a
+uniform start, and the old packed ``SamplingKind`` classes.
 
-The uniform twins of :py:mod:`t3toolbox.backend.fitting`'s kinds -- subclasses that override the
-layer-specific operations and, for the probe kinds, where ``omega``'s axes sit in the PACKED output.
+:py:func:`pack_batch` (with :py:func:`pack_sample` and :py:func:`pack_data`) packs the loop-invariant sample and data
+of a :py:class:`~t3toolbox.backend.fitting.LeastSquaresBatch` ONCE, so the optimizers run fully packed -- no
+per-matvec pack/unpack: ``newton_cg(geom, oracle, pack_batch(kind, order, batch, N), (x_sc[0], x_sc[1]))`` with a
+uniform geometry (:py:mod:`t3toolbox.backend.geometry`, ``from_point``). :py:func:`uniform_minimal` reduces a
+uniform start to minimal ranks, which the uniform manifold geometry requires.
+
+The uniform twins of :py:mod:`t3toolbox.backend.fitting`'s old kinds -- subclasses that override the
+layer-specific operations and, for the probe kinds, where ``omega``'s axes sit in the PACKED output -- are no longer
+called by the optimizers (graded messages, P16) and go with the old kinds (P20).
 Each carries the fixed rank it was built at (``shape`` + the plain-UT3 ``masks``) as FIELDS, so a
 rebuilt kind of the same rank is the same jax cache key
 (:py:mod:`t3toolbox.backend.geometry` follows the same rule; the reasoning is
 ``docs/contributor/parameters_not_closures.md``).
-
-:py:func:`uniform_least_squares_problem` packs the loop-invariant sample + data ONCE and returns the
-shared backend ``Problem``, so the optimizers run fully packed -- no per-matvec pack/unpack. The
-**geometry** half lives in :py:mod:`t3toolbox.backend.geometry`.
 
 **Protocol note (ruled: keep and document):** the kinds' ``forward`` / ``transpose`` keep
 the ragged Kind protocol's ``(v, sample, frame_data, sweep)`` signature even though the packed
@@ -25,7 +29,6 @@ import typing as typ
 
 import numpy as np
 
-from t3toolbox.backend import optimizers as bopt
 from t3toolbox.backend.common import readonly_mask_copies
 from t3toolbox.backend import fitting as bfit
 from t3toolbox.backend import geometry as geometry_module
@@ -49,7 +52,6 @@ __all__ = [
     'uniform_sampling_kind',
     'uniform_derivatives_kind',
     'uniform_minimal',
-    'uniform_least_squares_problem',
     'pack_sample',
     'pack_data',
     'pack_batch',
@@ -364,41 +366,47 @@ def uniform_derivatives_kind(
 
 
 # --------------------------------------------------------------------------------------------------
-# The least-squares Problem factory. Packs the LOOP-INVARIANT sample + data ONCE (the probe vectors /
-# perturbations to the supercore mode width N; the probe observed data d-list -> a packed (d,)+...+(N,)
-# array), so the reused backend Problem/LocalModel/optimizers run FULLY PACKED -- no per-matvec pack/unpack
-# (the whole point of the uniform layer). apply/entries scalar data + the entries integer index need no
-# packing. The optimizer's state is the bare supercore pair (x0.data[0], x0.data[1]); the masks of x0's
-# fixed rank are captured by the geometry / kind factories (docs/uniform_backend_jit_recipe.md).
+# Packing a batch. Packs the LOOP-INVARIANT sample + data ONCE (the input jets to the supercore mode width N; the
+# probe observed data d-list -> a packed (d,)+F+W+(N,) array), so the backend LocalModel/optimizers run FULLY PACKED
+# -- no per-matvec pack/unpack (the whole point of the uniform layer). apply/entries scalar data + the entries
+# integer index need no packing. The optimizer's state is the bare supercore pair (x0.data[0], x0.data[1]); the masks
+# of x0's fixed rank are held by the geometry (docs/uniform_backend_jit_recipe.md).
 # --------------------------------------------------------------------------------------------------
-def pack_sample(name, sample, N):
-    """Pack the loop-invariant mode-vectors of ``sample`` once (mirror-tolerant: packed input is kept).
+def pack_sample(
+        kind:    str,                       # 'probe' | 'apply' | 'entries'
+        order:   typ.Tuple[int, ...],       # the jet shape: the number of leading jet axes of each input jet
+        sample:  typ.Any,                   # ww (input jets, len=d, elm_shape=J_in_i+W+(Ni,)) | index ((d,)+W, int)
+        N:       int,                       # the packed mode width
+) -> typ.Any:                               # ww packed (d,)+J+W+(N,) | index unchanged
+    """Pack the loop-invariant sample once for the uniform layout: the input jets with
+    :py:func:`~t3toolbox.backend.ut3_operations.pack_if_ragged` and ``len_J=len(order)`` (each jet axis brought to its
+    largest size across the modes by zero coefficients, which are data: an input jet is zero beyond its slots, O-45;
+    the modes padded to ``N`` with zeros). The entries ``index`` is never packed. A packed sample is kept as it is.
 
-    A boundary helper (the uniform kinds run on packed vectors of width ``N``): dispatches
-    :py:func:`~t3toolbox.backend.ut3_operations.pack_if_ragged` per sampling-kind (``ww`` for apply/probe,
-    both ``ww``/``pp`` for the derivative kinds; the integer ``index`` is never packed). Used by
-    :py:func:`uniform_least_squares_problem` and the frontend :py:mod:`t3toolbox.fitting` uniform models."""
-    pk = ut3_operations.pack_if_ragged
-    if name in ('apply', 'probe'):
-        return pk(sample, N)                                  # ww
-    if name == 'entries':
-        return sample                                         # integer index -- no packing
-    if name in ('apply_derivatives', 'probe_derivatives'):
-        ww, pp = sample
-        return (pk(ww, N), pk(pp, N))
-    if name == 'entries_derivatives':
-        index, pp = sample
-        return (index, pk(pp, N))
-    raise ValueError(f"unknown uniform sampling kind {name!r}")
+    >>> import numpy as np
+    >>> from t3toolbox.backend.uniform_fitting import pack_sample
+    >>> ww = [np.ones((2, 3, 4)), np.ones((1, 3, 5))]                 # jet sizes 2 and 1, W = (3,)
+    >>> print(pack_sample('apply', (1,), ww, 6).shape)
+    (2, 2, 3, 6)
+    """
+    if kind == 'entries':
+        return sample
+    return ut3_operations.pack_if_ragged(sample, N, len_J=len(order))
 
 
-def pack_data(name, data, N):
-    """Pack the observed data (or a residual of the same shape) once: probe kinds -> a packed
-    ``(d,)+...+(N,)`` array; apply/entries -> the scalar data unchanged (mirror-tolerant)."""
-    if name in ('probe', 'probe_derivatives'):
-        return ut3_operations.pack_if_ragged(data, N)
-    return data
-
+def pack_data(
+        kind:   str,                        # 'probe' | 'apply' | 'entries'
+        order:  typ.Tuple[int, ...],        # the jet shape (the probe data's leading F axes ride along)
+        y:      typ.Any,                    # of the type of z: probe len=d, elm_shape=F+W+(Ni,); apply F+W; entries W
+        N:      int,                        # the packed mode width
+) -> typ.Any:                               # probe: (d,)+F+W+(N,); apply, entries: y unchanged
+    """Pack the observed data (or a residual of the same type) once: the probe kind's per-mode data to one
+    ``(d,)+F+W+(N,)`` array (the modes padded to ``N`` with zeros); the scalar data of apply and entries unchanged. A
+    packed ``y`` is kept as it is. ``order`` is the jet shape of the data (its ``F`` axes lead every mode's array and
+    are of one size across the modes, so they need no bringing to a common size)."""
+    if kind == 'probe':
+        return ut3_operations.pack_if_ragged(y, N)
+    return y
 
 
 def pack_batch(
@@ -422,14 +430,8 @@ def pack_batch(
     >>> print(packed.sample.shape, packed.y.shape)
     (2, 2, 3, 6) (2, 3, 3, 6)
     """
-    if kind == 'entries':
-        sample = batch.sample
-    else:
-        sample = ut3_operations.pack_if_ragged(batch.sample, N, len_J=len(order))
-    y = batch.y
-    if kind == 'probe' and y is not None:
-        y = ut3_operations.pack_if_ragged(y, N)
-    return dc.replace(batch, sample=sample, y=y)
+    y = batch.y if batch.y is None else pack_data(kind, order, batch.y, N)
+    return dc.replace(batch, sample=pack_sample(kind, order, batch.sample, N), y=y)
 
 # Packed-aware minibatch `take` (the SamplingKind default-draw hook), so mc_sgd/adam keep minibatches
 # PACKED (a single `(d,)+W'+…` gather via bfit._flat_gather) instead of the ragged `take` iterating the
@@ -472,7 +474,8 @@ def uniform_minimal(
     rank dropped (e.g. a TT bond rank exceeding what the Tucker ranks can realize). A no-op (returns ``x0``
     unchanged) when it is already minimal, which is the common case.
 
-    **Uniform fitting requires a minimal frame** (:py:func:`uniform_least_squares_problem`). The reason is
+    **Uniform fitting requires a minimal frame**
+    (:py:meth:`~t3toolbox.backend.geometry.UniformManifoldGeometryOps.from_point` raises otherwise). The reason is
     structural: from a *non*-minimal frame the manifold retraction truncates to the realizable (minimal)
     rank, which no longer matches the fixed masks the optimizer holds loop-invariant -- so the next step's
     masking desyncs and crashes. The ragged layer tolerates non-minimal ranks (per-core shapes adapt); the
@@ -492,88 +495,3 @@ def uniform_minimal(
         return x0
     left_orthogonal, _ss_tk, _ss_tt = x0.t3svd(sharing=sharing)
     return left_orthogonal.rank_adjustment_sweep('right_to_left', sharing=sharing)
-
-
-def uniform_least_squares_problem(
-        geometry:  str,        # 'manifold' / 'corewise'
-        kind_name: str,        # 'apply' / 'entries' / 'probe' (+ '_derivatives')
-        x0:        typ.Any,    # UniformTuckerTensorTrain -- MINIMAL-rank frame (see uniform_minimal); masks captured
-        sample:    typ.Any,    # ww / index / (ww, pp) / (index, pp) -- ragged or packed (packed once here)
-        data:      typ.Any,    # observed S(x_true): scalar array (apply/entries) or a d-list/packed (probe)
-        order:     typ.Optional[int] = None,  # derivative kinds only (required)
-        weight:    typ.Optional[typ.Any] = None,  # residual weight ω: per-mode (probe) or ω[mode,order] (derivatives)
-        regularizer: typ.Any = None,          # optional backend.regularization.Regularizer (e.g. IdentityRegularizer(λ))
-        chunk_size: typ.Optional[int] = 100,  # probe_derivatives only: W-chunk size for 𝒥ᵀ (docs/chunking.md)
-        sharing:   typ.Optional[typ.Sequence] = None,  # len=d, static; group labels (None = unshared)
-) -> bopt.Problem:
-    """Assemble a fully-packed uniform least-squares :py:class:`~t3toolbox.backend.optimizers.Problem`.
-
-    Builds the uniform geometry (:py:class:`~t3toolbox.backend.geometry.UniformManifoldGeometryOps` /
-    :py:class:`~t3toolbox.backend.geometry.UniformCorewiseGeometryOps`) + sampling kind
-    (:py:func:`uniform_sampling_kind` / :py:func:`uniform_derivatives_kind`) at ``x0``'s fixed rank, packs
-    the loop-invariant ``sample`` + ``data`` once, and returns the reused backend ``Problem``. The optimizer
-    then runs on the bare supercore pair ``(x0.data[0], x0.data[1])`` -- e.g.
-    ``backend.optimizers.newton_cg(problem, (x0.data[0], x0.data[1]))``.
-
-    **``x0`` must have minimal ranks** -- call :py:func:`uniform_minimal` first if it might not. A
-    non-minimal nominal rank is unrealizable and would desync the retraction from the held masks
-    mid-optimization; this is checked (structurally, cheap) and rejected up front rather than crashing
-    later.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-    >>> import t3toolbox.backend.optimizers as bopt
-    >>> import t3toolbox.backend.uniform_fitting as uf
-    >>> from t3toolbox.backend import apply as bapply
-    >>> np.random.seed(0)
-    >>> ww = [np.random.randn(20, n) for n in (6, 6, 6)]
-    >>> data = np.random.randn(20)
-
-    A **non-minimal** frame -- here TT bond rank 3 is unrealizable for a 2x2x2 central core (its TT
-    bonds are at most 2) -- is rejected up front with a clear error:
-
-    >>> x0 = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((6, 6, 6), (2, 2, 2), (1, 3, 3, 1)))
-    >>> uf.uniform_least_squares_problem('manifold', 'apply', x0, ww, data)   # doctest: +IGNORE_EXCEPTION_DETAIL
-    Traceback (most recent call last):
-    ValueError: uniform_least_squares_problem requires a minimal-rank frame x0 ...
-
-    :py:func:`uniform_minimal` reduces it to minimal ranks (the SAME tensor), and then it works:
-
-    >>> x0m = uf.uniform_minimal(x0)
-    >>> print(bool(np.allclose(x0m.to_dense(), x0.to_dense())))   # same tensor, minimal ranks
-    True
-    >>> prob = uf.uniform_least_squares_problem('manifold', 'apply', x0m, ww, data)
-    >>> x_opt, stats = bopt.gradient_descent(prob, (x0m.data[0], x0m.data[1]), n_iter=5)
-    >>> print(bool(stats['losses'][-1] < stats['losses'][0]))     # it descends
-    True
-    """
-    geometry, kind_name = geometry.lower(), kind_name.lower()      # 'Manifold', 'PROBE', ... accepted
-    if geometry not in ('manifold', 'corewise'):
-        raise ValueError("geometry must be 'manifold' or 'corewise'; got %r (a typo used to build the "
-                         "corewise geometry silently)" % (geometry,))
-    if kind_name not in _SAMPLING_KIND and kind_name not in _DERIV_SAMPLING_KIND:
-        raise ValueError("unknown kind_name %r; expected one of %s"
-                         % (kind_name, sorted(_SAMPLING_KIND) + sorted(_DERIV_SAMPLING_KIND)))
-    if kind_name in _DERIV_SAMPLING_KIND and order is None:
-        raise ValueError("derivative kind %r requires order= (the Problem used to build and fail on first use)"
-                         % (kind_name,))
-    min_tucker, min_tt = ranks.compute_minimal_ranks(x0.shape, np.asarray(x0.tucker_ranks),
-                                                     np.asarray(x0.tt_ranks), sharing=sharing)
-    if not bool(np.all(np.asarray(x0.tucker_ranks) == np.asarray(min_tucker))
-                and np.all(np.asarray(x0.tt_ranks) == np.asarray(min_tt))):
-        raise ValueError(
-            "uniform_least_squares_problem requires a minimal-rank frame x0 (a non-minimal nominal rank is "
-            "unrealizable and would desync the retraction from the fixed masks mid-optimization; with "
-            "sharing, minimality is the SHARED notion -- the group ceiling). Reduce it first: "
-            "x0 = uniform_minimal(x0" + (", sharing=...)" if sharing is not None else ")") + ".")
-    x0_data = x0.data
-    N = x0_data[0].shape[-1]
-    geom = (geometry_module.UniformManifoldGeometryOps.from_point(x0_data, sharing) if geometry == 'manifold'
-            else geometry_module.UniformCorewiseGeometryOps.from_point(x0_data, sharing))
-    kind = (uniform_sampling_kind(kind_name, x0_data, weight) if kind_name in ('apply', 'entries', 'probe')
-            else uniform_derivatives_kind(kind_name, x0_data, order, weight, chunk_size=chunk_size))
-    return bopt.least_squares_problem(geom, kind, pack_sample(kind_name, sample, N), pack_data(kind_name, data, N),
-                                      regularizer=regularizer)

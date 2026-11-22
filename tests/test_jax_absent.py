@@ -5,7 +5,7 @@ jax IS installed in the test environment, so the check runs in a subprocess that
 T28 (2026.3.0, the exact Hessian): every class the exact mode adds registers its jax pytree only under
 ``if jax_available:``, so in the jax-hidden subprocess each one is CONSTRUCTED (not merely imported) --
 ``LiftFactors`` (``fv_lift_factors``), ``ManifoldCurvatureData`` (``curvature_precompute``), the backend
-``CurvatureState`` and an exact ``fitting.LocalModel`` (``probe_derivatives_model(..., hessian='exact')``),
+``CurvatureState`` and an exact ``fitting.LocalModel`` (``local_model(..., hessian='exact')``),
 whose ``hessian(p)`` is applied -- and ``newton_cg(hessian='exact', use_jit=True)`` runs to completion on numpy
 with the jax-absent warning.
 
@@ -70,16 +70,17 @@ frame, _ = bvf.t3_orthogonal_representations(xe)
 lift = fvo.fv_lift_factors(frame.data, 1e-6)
 assert type(lift) is fvo.LiftFactors
 geom = bgeo.ManifoldGeometryOps()
-prob = bopt.least_squares_problem(geom, bfit.probe_derivatives_kind(order), (wwe, ppe), tuple(data))
-lm = prob.local_model(xe.data, hessian='exact')
+line = jets_.affine_jet(wwe, ppe)
+oracle = bfit.LeastSquaresOracle('probe', (order,))
+batch = bfit.LeastSquaresBatch(line, target.probe(line, (order,)))     # the Taylor coefficients along the lines
+lm = bopt.local_model(geom, oracle, batch, xe.data, hessian='exact')
 assert type(lm.curvature) is bopt.CurvatureState and lm.is_exact
 assert type(lm.curvature.geometry_data) is bgeo.ManifoldCurvatureData
 cdata = geom.curvature_precompute(lm.frame, lm.curvature.misfit_gradient, lm.geom_aux, None)
 assert type(cdata) is bgeo.ManifoldCurvatureData
 state = bopt.CurvatureState(lm.curvature.misfit_gradient, cdata)
 assert type(state) is bopt.CurvatureState
-residual = [z - y for z, y in zip(derivatives(xe), data)]
-model = fitting.probe_derivatives_model(t3m.MANIFOLD, xe, wwe, ppe, order, residual, hessian='exact')
+model = fitting.local_model(t3m.MANIFOLD, oracle, batch, xe, hessian='exact')
 assert type(model) is fitting.LocalModel and model.is_exact
 p = t3m.MANIFOLD.randn(model.frame)
 Hp = model.hessian(p)

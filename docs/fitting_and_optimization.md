@@ -146,8 +146,9 @@ If you want to write your own iteration (a custom trust region, a different line
 ```python
 >>> import t3toolbox.fitting as fitting
 >>> x = t3.TuckerTensorTrain.randn(shape, tucker_ranks, tt_ranks)   # the current point
->>> residual = x.apply(ww) - data                                   # residual r = apply(x) − y
->>> model = fitting.apply_model(t3m.MANIFOLD, x, ww, residual)
+>>> oracle = fitting.LeastSquaresOracle('apply', order=())           # the objective ½‖apply(x) − y‖²
+>>> batch = fitting.LeastSquaresBatch(ww, data)                      # its data
+>>> model = fitting.local_model(t3m.MANIFOLD, oracle, batch, x)
 >>> g  = model.gradient                   # Π 𝒥ᵀr   (a gauged T3Tangent)
 >>> v  = t3m.MANIFOLD.randn(model.frame)  # any tangent at the model's frame
 >>> Hv = model.gn_hessian(v)              # Π 𝒥ᵀ𝒥Π v (the GN normal operator; symmetric PSD)
@@ -161,14 +162,13 @@ True
 
 ```
 
-Factories: `apply_model` / `entries_model` / `probe_model` (the last takes an optional per-mode
-`weight`), and `apply_derivatives_model` / `entries_derivatives_model` / `probe_derivatives_model` (which
-additionally take `order` + optional `weight`; see §4.6). The model is generic over the geometry — pass
-`t3m.MANIFOLD` or `t3m.COREWISE`. Everything in
-and out is a `T3Tangent` at `model.frame`. The frame sweep is computed once and reused across every
-`gradient`/`gn_hessian`/`evaluate` (so an inner CG pays for it once, not per matvec).
+`fitting.local_model(geometry, oracle, batch, x)` takes any oracle and its batch: the kind (`'apply'`, `'entries'`,
+`'probe'`) and the jet shape `order` are the oracle's; the sample, the data and an optional weight (§4.6) the batch's.
+The model is generic over the geometry — pass `t3m.MANIFOLD` or `t3m.COREWISE`. Everything in and out is a
+`T3Tangent` at `model.frame`. The build queries the oracle once and keeps what it computed, so an inner CG does not
+repeat the sweep per matvec.
 
-Every factory also takes `hessian='gauss_newton'` (the default) or `'exact'`, and the model it returns is a
+`local_model` also takes `hessian='gauss_newton'` (the default) or `'exact'`, and the model it returns is a
 `fitting.LocalModel` in that **mode** — derived, never stored: `model.is_exact`. The exact model adds the
 curvature term of §4.12 to the Hessian actions and leaves everything else as it was:
 
@@ -182,7 +182,7 @@ curvature term of §4.12 to the Hessian actions and leaves everything else as it
 | `retract(p)` | `geometry.retract(p)` at the model's frame | the same |
 
 ```python
->>> emodel = fitting.apply_model(t3m.MANIFOLD, x, ww, residual, hessian='exact')
+>>> emodel = fitting.local_model(t3m.MANIFOLD, oracle, batch, x, hessian='exact')
 >>> emodel.is_exact, model.is_exact
 (True, False)
 >>> bool(np.allclose(float(emodel.quadratic(v)),                    # exact = Gauss-Newton + curvature
@@ -421,16 +421,16 @@ on both layers.
 ```python
 >>> # probe_derivatives: down-weight the noisy high orders AND discount a coarse mode, independently:
 >>> ww3, pp3 = [w[:20] for w in ww], [p[:20] for p in pp]                      # 20 probes is plenty here
->>> r = [zi - yi for zi, yi in zip(derivative_data('probe', x, ww3, pp3, 3),   # RAW r = S(x) − y,
-...                                derivative_data('probe', A, ww3, pp3, 3))]  #   len=d, (order+1)+W+(Ni,)
+>>> y3 = derivative_data('probe', A, ww3, pp3, 3)                              # derivatives, len=d, (order+1)+W+(Ni,)
 >>> mode_w, order_w = [1.0, 0.6, 0.3], [1.0, 0.5, 0.3, 0.2]                    # (d=3,) and (order+1=4,)
->>> model = fitting.probe_derivatives_model(t3m.MANIFOLD, x, ww3, pp3, order=3, residual=r,
-...                                         weight=np.outer(mode_w, order_w))  # ω[mode,order], (3, 4)
->>> np.outer(mode_w, order_w).shape
+>>> y, w, _ = fitting.prepare_derivative_data('probe', (3,), y3, np.outer(mode_w, order_w))   # ω[mode,order], (3, 4)
+>>> model = fitting.local_model(t3m.MANIFOLD, fitting.LeastSquaresOracle('probe', order=(3,)),
+...                             fitting.LeastSquaresBatch(affine_jet(ww3, pp3), y, w), x)
+>>> np.shape(w)
 (3, 4)
 >>> # plain probe: a per-mode vector is 1-D (d,):
->>> rp = [zi - yi for zi, yi in zip(x.probe(ww), pdata)]
->>> model = fitting.probe_model(t3m.MANIFOLD, x, ww, rp, weight=[0.5, 1.0, 2.0])
+>>> model = fitting.local_model(t3m.MANIFOLD, fitting.LeastSquaresOracle('probe', order=()),
+...                             fitting.LeastSquaresBatch(ww, pdata, np.array([0.5, 1.0, 2.0])), x)
 >>> print(model.gradient.is_gauged())
 True
 

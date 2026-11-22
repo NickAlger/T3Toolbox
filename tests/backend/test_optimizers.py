@@ -1,14 +1,19 @@
-"""Tests for the backend-first optimizers (dev/archive/optimizers_plan.md, G3).
+"""Tests for the backend-first optimizers (dev/archive/optimizers_plan.md, G3), on the graded-messages seam (P16):
+a fit is a geometry, an oracle, its batch and a regularizer (`tests/_fits.py` builds them from plain specs).
 
-Correctness gold standard: the check-free backend oracle (`backend.optimizers`) must reproduce the
-frontend `fitting.LocalModel` exactly (it is the same math through the same backend functions).
+Correctness gold standard: the backend LocalModel's values against DENSE ground truth (the dense tensor, its
+Jacobian along a direction, finite differences of the dense objective), never the model against itself; and its
+consistency (`<p, hvp(p)> = gn_quadratic(p)`, the objective equals `point_objective`). `TestOracleSeam`: the head of
+the optimizers, `held` never crossing a frame or a batch (MC-SGD, Adam and a minibatched Newton against references
+built afresh per draw), the minibatch rule (the regularizer unscaled), the structural efficiency of a model query
+given `held`, the model's `f` against `point_objective` at four kinds of frame, the floor's `eps` read off `f`.
 Plus: the optimizers descend; T14 (Steihaug-Toint CG, `TestSteihaugCG`) and T15 (newton_cg's trust-region loop
 and its floors, `TestTrustRegionNewton`). numpy-only (jit dispatch is covered separately in test_dispatch).
 
 The Newton timing plan's T1-T5 on numpy (`TestNewtonTiming`): timing off is today's run; the records tile each row's
-window and the run; timing changes no number, and an overridden `Problem.local_model` keeps its own build; the
-record's shape; every phase carries its own work and waits on its own outputs; the compile listener's events. Its
-`check_timing` is shared with the padded start's and the jax rows (`test_padded_start.py`, `tests/test_dispatch.py`).
+window and the run; timing changes no number; the record's shape; every phase carries its own work and waits on its
+own outputs; the compile listener's events. Its `check_timing` is shared with the padded start's and the jax rows
+(`test_padded_start.py`, `tests/test_dispatch.py`).
 
 The Gauss-Newton-to-exact switch plan's T1-T4 and T6-T8 on numpy (`TestSwitchNewton`): switch_tau=0 is the Gauss-Newton
 run and switch_k=0 the exact run, bit for bit; the junction; what counts and what resets the count; where it fires; the
@@ -16,6 +21,7 @@ options; the stats and row contract; the tracking phase of a timed run. T5 and T
 import collections
 import contextlib
 import dataclasses as dc
+import typing as typ
 import math
 import os
 import re
@@ -28,20 +34,21 @@ import numpy as np
 
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.manifold as t3m
-import t3toolbox.fitting as fitting
-import t3toolbox.backend.fitting as bfit
 import t3toolbox.backend.geometry as bgeo
 import t3toolbox.backend.optimizers as opt
-import t3toolbox.backend.sampling_derivatives as pd
 import t3toolbox.corewise as cw
 import t3toolbox.optimizers as topt
 import t3toolbox.shared_geometry as sgm
 import t3toolbox.uniform_manifold as ut3m
 import t3toolbox.uniform_tucker_tensor_train as ut3
 from t3toolbox.backend.common import is_jax_ndarray
+from t3toolbox.backend.fitting import LeastSquaresOracle, LeastSquaresBatch
+from t3toolbox.backend.jets import affine_jet
+from t3toolbox.backend.sampling_variables import frame_form
 import os as _os, sys as _sys
 _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))   # tests/
 import _derivative_data as dd       # derivative data from the merged methods (P13b)
+import _fits as F                   # a backend fit (geometry, oracle, batch, regularizer) from plain specs (P16)
 
 SHAPE, TUCKER, TT = (8, 8, 8), (3, 3, 3), (1, 3, 3, 1)
 
@@ -165,7 +172,7 @@ class TestSteihaugCG(unittest.TestCase):
         cases = [('pd_toy', _ToyModel([2.0, 3.0, 5.0, 7.0, 0.5]), _toy_rhs(5), 1e-9),
                  ('indefinite_toy', _ToyModel([2.0, -1.0, 3.0]), _toy_rhs(), 1e-12)]
         for gname, geom in (('manifold', bgeo.ManifoldGeometryOps()), ('corewise', bgeo.CorewiseGeometryOps())):
-            pr = opt.least_squares_problem(geom, bfit.PROBE, ww, data)
+            pr = F.fit(geom, 'probe', ww, data)
             lm = pr.local_model(t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).data)
             g = lm.gradient
             cases.append((gname, lm, cw.corewise_scale(g, -1.0), 1e-3 * float(geom.inner(g, g)) ** 0.5))
@@ -188,10 +195,10 @@ class TestSteihaugCG(unittest.TestCase):
         np.random.seed(1)
         ww, pp = unit_vecs(30, SHAPE, rng), unit_vecs(30, SHAPE, rng)
         target = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).data
-        kind = bfit.probe_derivatives_kind(1)
-        pr = opt.least_squares_problem(bgeo.CorewiseGeometryOps(), kind, (ww, pp), kind.point_forward(target, (ww, pp)))
+        line = affine_jet(ww, pp)
+        pr = F.fit(bgeo.CorewiseGeometryOps(), 'probe', line, t3.TuckerTensorTrain(*target).probe(line, (1,)), order=(1,))
         x0 = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).data
-        _, stats = opt.newton_cg(pr, x0, max_newton=8, hessian='exact')
+        _, stats = pr.newton_cg(x0, max_newton=8, hessian='exact')
         rows = [r for r in stats['history'] if not r['converged']]
         for r in rows:
             cap = not (r['cg_converged'] or r['cg_boundary'] or r['cg_truncated'])
@@ -212,45 +219,53 @@ class TestBackendOptimizers(unittest.TestCase):
 
     # (geometry name, backend GeometryOps, frontend geometry singleton)
     GEOMS = [('corewise', bgeo.CorewiseGeometryOps(), t3m.COREWISE), ('manifold', bgeo.ManifoldGeometryOps(), t3m.MANIFOLD)]
-    _FMODEL = {'apply': fitting.apply_model, 'entries': fitting.entries_model, 'probe': fitting.probe_model}
-    _BKIND = {'apply': bfit.APPLY, 'entries': bfit.ENTRIES, 'probe': bfit.PROBE}
 
-    def _problem_and_frontend(self, geom_b, geom_f, kind_name, M=60):
-        """Build a `Problem` (backend geometry) and the matching frontend `fitting.LocalModel` (at self.X)."""
-        rng, A, X = self.rng, self.A, self.X
+    def _fit_and_dense(self, geom_b, kind_name, M=60):
+        """A fit of `kind_name` data of self.A at M samples, and the dense sampler z(T) of a dense T, of the type of z."""
+        rng, A = self.rng, self.A
         if kind_name == 'apply':
-            sample = unit_vecs(M, SHAPE, rng); data = dense_apply(A, sample); r = np.asarray(X.apply(sample)) - data
+            sample = unit_vecs(M, SHAPE, rng); zfun = lambda T: dense_apply(T, sample)
         elif kind_name == 'probe':
-            sample = unit_vecs(M, SHAPE, rng); data = dense_probe(A, sample)
-            r = [np.asarray(p) - d for p, d in zip(X.probe(sample), data)]
+            sample = unit_vecs(M, SHAPE, rng); zfun = lambda T: dense_probe(T, sample)
         else:  # entries
             flat = rng.choice(int(np.prod(SHAPE)), size=M, replace=False)
-            sample = np.array(np.unravel_index(flat, SHAPE)); data = A[tuple(sample)]; r = np.asarray(X.entries(sample)) - data
-        problem = opt.least_squares_problem(geom_b, self._BKIND[kind_name], sample, data)
-        fmodel = self._FMODEL[kind_name](geom_f, X, sample, r)
-        return problem, fmodel
+            sample = np.array(np.unravel_index(flat, SHAPE)); zfun = lambda T: T[tuple(sample)]
+        return F.fit(geom_b, kind_name, sample, zfun(A)), zfun
 
-    def test_oracle_matches_frontend(self):
-        """The backend LocalModel reproduces the frontend fitting.LocalModel's gradient / objective /
-        gn_quadratic / hvp, for every (geometry, sampling-kind) pair -- it is the same math through the same
-        backend functions."""
+    def test_model_matches_dense_ground_truth(self):
+        """The backend LocalModel at self.X, against dense ground truth, for every (geometry, sampling kind) pair:
+        the objective is 1/2 |z(X) - y|^2; the gradient's slope along a tangent p is <z(dX[p]), r>, with dX[p] the
+        tangent's dense direction (on the manifold the tangent's dense tensor at the frame, on corewise the
+        derivative of the cores' tensor, exactly by a polynomial difference quotient); gn_quadratic(p) and
+        <p, hvp(p)> are |z(dX[p])|^2; jacobian(p) is z(dX[p]) and residual is r."""
+        from t3toolbox.backend import tv_operations as tvo
+        flat = lambda z: np.concatenate([np.ravel(a) for a in z]) if isinstance(z, (list, tuple)) else np.ravel(z)
         for gname, geom_b, geom_f in self.GEOMS:
             for kind in ('apply', 'entries', 'probe'):
                 with self.subTest(geometry=gname, kind=kind):
-                    problem, fmodel = self._problem_and_frontend(geom_b, geom_f, kind)
-                    lm = problem.local_model(self.X.data)
-
-                    def relerr_tree(a, b):
-                        return float(cw.corewise_norm(cw.corewise_sub(a, b)) / cw.corewise_norm(b))
-
-                    self.assertLess(relerr_tree(lm.gradient, fmodel.gradient.variations.data), 1e-11)
-                    self.assertLess(abs(float(lm.objective) - float(fmodel.objective_value))
-                                    / abs(float(fmodel.objective_value)), 1e-11)
-
-                    pt = geom_f.randn(geom_f.frame(self.X)); p = pt.variations.data
-                    self.assertLess(abs(float(lm.gn_quadratic(p)) - float(fmodel.gn_quadratic(pt)))
-                                    / abs(float(fmodel.gn_quadratic(pt))), 1e-11)
-                    self.assertLess(relerr_tree(lm.hvp(p), fmodel.gn_hessian(pt).variations.data), 1e-11)
+                    fit, zfun = self._fit_and_dense(geom_b, kind)
+                    lm = fit.local_model(self.X.data)
+                    r = flat(zfun(self.X.to_dense())) - flat(zfun(self.A))
+                    self.assertLess(abs(float(lm.objective) - 0.5 * float(r @ r)) / (0.5 * float(r @ r)), 1e-11)
+                    np.random.seed(5)
+                    frame_f = geom_f.frame(self.X)
+                    p = geom_b.project(lm.frame, geom_f.randn(frame_f).variations.data)
+                    if gname == 'manifold':                            # the tangent's dense tensor at the frame
+                        dX = tvo.tv_to_dense(lm.frame, p, include_shift=False)
+                    else:                                              # d/dt T(cores + t p) at 0: T is of degree 2d = 6
+                        T = lambda t: t3.TuckerTensorTrain(*cw.corewise_add(self.X.data, cw.corewise_scale(p, t))
+                                                           ).to_dense()                     # in t, so its odd part is
+                        dX = (45 * (T(1) - T(-1)) - 9 * (T(2) - T(-2)) + (T(3) - T(-3))) / 60.0   # t, t^3, t^5: exact
+                    Jp = flat(zfun(dX))                                # the samplers are linear in T
+                    self.assertLess(abs(float(geom_b.inner(lm.gradient, p)) - float(Jp @ r)) / abs(float(Jp @ r)), 1e-9)
+                    self.assertLess(abs(float(lm.gn_quadratic(p)) - float(Jp @ Jp)) / float(Jp @ Jp), 1e-9)
+                    Hp = lm.hvp(p)
+                    self.assertLess(abs(float(geom_b.inner(p, Hp)) - float(Jp @ Jp)) / float(Jp @ Jp), 1e-9)
+                    PHp = geom_b.project(lm.frame, Hp)                         # hvp lies in the gauged space
+                    self.assertLess(float(cw.corewise_norm(cw.corewise_sub(PHp, Hp))) / float(cw.corewise_norm(Hp)),
+                                    1e-12)
+                    self.assertLess(np.max(np.abs(flat(lm.jacobian(p)) - Jp)) / np.max(np.abs(Jp)), 1e-9)
+                    self.assertLess(np.max(np.abs(flat(lm.residual) - r)) / np.max(np.abs(r)), 1e-12)
 
     def test_gradient_descent_descends(self):
         """Cauchy + Armijo gradient_descent decreases the loss monotonically on BOTH geometries (the
@@ -260,11 +275,11 @@ class TestBackendOptimizers(unittest.TestCase):
             return float(np.sqrt(ss / sum(np.asarray(a).size for a in arrs)))
         for gname, geom_b, geom_f in self.GEOMS:
             with self.subTest(geometry=gname):
-                problem, _ = self._problem_and_frontend(geom_b, geom_f, 'probe')
+                problem, _ = self._fit_and_dense(geom_b, 'probe')
                 # rescale the start so the initial probes match the data magnitude (well-conditioned start)
-                sc = (rms(problem.data) / rms(self.X.probe(problem.sample))) ** (1.0 / (len(TUCKER) + len(TT) - 1))
+                sc = (rms(problem.batch.y) / rms(self.X.probe(problem.batch.sample))) ** (1.0 / (len(TUCKER) + len(TT) - 1))
                 x0 = (tuple(sc * C for C in self.X.data[0]), tuple(sc * C for C in self.X.data[1]))
-                _, stats = opt.gradient_descent(problem, x0, n_iter=60)
+                _, stats = problem.gradient_descent(x0, n_iter=60)
                 L = stats['losses']
                 self.assertTrue(all(L[i + 1] <= L[i] + 1e-9 * L[0] for i in range(len(L) - 1)), "not monotone")
                 self.assertLess(L[-1], 0.5 * L[0], "did not make substantial progress")
@@ -284,19 +299,21 @@ class TestBackendOptimizers(unittest.TestCase):
         e0 = true_err(x0)
 
         with self.subTest(optimizer='mc_sgd', geometry='manifold'):
-            pm = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data)
-            xm, _ = opt.mc_sgd(pm, x0, np.random.default_rng(3), batch=40, max_iter=500)
+            pm = F.fit(bgeo.ManifoldGeometryOps(), 'probe', ww, data)
+            xm, _ = pm.mc_sgd(x0, np.random.default_rng(3), batch_size=40, max_iter=500)
             self.assertLess(true_err(xm), 0.3 * e0)
         with self.subTest(optimizer='adam', geometry='corewise'):
-            pc = opt.least_squares_problem(bgeo.CorewiseGeometryOps(), bfit.PROBE, ww, data)
-            xc, _ = opt.adam(pc, x0, np.random.default_rng(3), batch=40, lr=2e-2, max_iter=600)
+            pc = F.fit(bgeo.CorewiseGeometryOps(), 'probe', ww, data)
+            xc, _ = pc.adam(x0, np.random.default_rng(3), batch_size=40, lr=2e-2, max_iter=600)
             self.assertLess(true_err(xc), 0.3 * e0)
 
-    def test_derivative_kinds(self):
-        """The derivative SamplingKinds (apply/entries/probe, per-order weight ω) feed the SAME generic
-        Problem/optimizers. Check: (1) the corewise gradient matches a finite difference of the ω-weighted
-        objective; (2) the default flat draw flattens a multi-axis W and builds a minibatch local model;
-        (3) mc_sgd recovers from a zero start."""
+    def test_derivative_data(self):
+        """Derivative data along lines (apply / entries / probe, a per-order weight ω) feed the SAME generic
+        optimizers through the oracle: the apply or probe kind at the jet shape (n,) on affine_jet(ww, pp) (entries:
+        apply at affine_jet(index_to_one_hot(index), pp)), the data in Taylor coefficients and the weight through
+        prepare_derivative_data. Check: (1) the objective is the old derivative kinds' 1/2 sum_t ω_t² |d_t(X) - y_t|²
+        on the derivatives themselves; (2) the corewise gradient matches a finite difference of it; (3) the default
+        flat draw flattens a multi-axis W and builds a minibatch local model; (4) mc_sgd recovers from a zero start."""
         rng = np.random.default_rng(0)
         order, NP, NX = 2, 4, 3
         omega = np.array([1.0, 0.5, 0.3])
@@ -305,17 +322,18 @@ class TestBackendOptimizers(unittest.TestCase):
         ww = [rng.standard_normal((NP, NX, N)) for N in SHAPE]
         pp = [rng.standard_normal((NP, NX, N)) for N in SHAPE]
         index = np.stack([rng.integers(0, N, size=(NP, NX)) for N in SHAPE], axis=0)
-        cases = {
-            'apply':   (bfit.apply_derivatives_kind(order, omega), (ww, pp),
-                        np.asarray(pd.t3_apply_derivatives(ww, pp, Xtrue.data, order))),
-            'entries': (bfit.entries_derivatives_kind(order, omega), (index, pp),
-                        np.asarray(pd.t3_entries_derivatives(index, pp, Xtrue.data, order))),
-            'probe':   (bfit.probe_derivatives_kind(order, omega), (ww, pp),
-                        [np.asarray(z) for z in pd.t3_probe_derivatives(ww, pp, Xtrue.data, order)]),
-        }
-        for name, (kind, sample, data) in cases.items():
+        for name, sample in (('apply', ww), ('entries', index), ('probe', ww)):
             with self.subTest(kind=name):
-                prob = opt.least_squares_problem(bgeo.CorewiseGeometryOps(), kind, sample, data)
+                weight = np.tile(omega, (len(SHAPE), 1)) if name == 'probe' else omega
+                data = dd.forward(Xtrue, name, sample, pp, order)
+                prob = F.derivative_fit(bgeo.CorewiseGeometryOps(), name, order, sample, pp, data, weight=weight,
+                                        shape=SHAPE)
+                d0 = dd.forward(X0, name, sample, pp, order)                  # the derivatives at X0
+                w = weight.reshape(weight.shape + (1,) * (np.ndim(data[0] if name == 'probe' else data) - 1))
+                res = [w[i] * (a - b) for i, (a, b) in enumerate(zip(d0, data))] if name == 'probe' else \
+                      [w * (np.asarray(d0) - np.asarray(data))]
+                misfit = 0.5 * sum(float(np.sum(a ** 2)) for a in res)
+                self.assertLess(abs(float(prob.objective(X0.data)) - misfit) / misfit, 1e-12)
                 gB, gG = prob.local_model(X0.data).gradient
                 dB_dir = [rng.standard_normal(b.shape) for b in X0.tucker_cores]
                 dG = [rng.standard_normal(g.shape) for g in X0.tt_cores]
@@ -328,15 +346,16 @@ class TestBackendOptimizers(unittest.TestCase):
                          tuple(g - eps * dg for g, dg in zip(X0.tt_cores, dG)))
                 fd = (float(prob.objective(plus)) - float(prob.objective(minus))) / (2 * eps)
                 self.assertLess(abs(inner - fd) / max(abs(fd), 1e-30), 1e-5)
-                # default flat draw: a multi-axis W=(NP,NX) flattens to NP*NX; minibatch local model builds
-                self.assertEqual(kind.n_measurements(sample), NP * NX)
-                sB, dB = opt.flat_draw(prob, batch=5)(rng)
-                self.assertTrue(np.isfinite(float(prob.local_model(X0.data, sB, dB).objective)))
-        # recovery: mc_sgd (manifold) from a zero start, with the apply-derivatives kind + flat default
-        prob_m = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.apply_derivatives_kind(order, omega), (ww, pp),
-                                           np.asarray(pd.t3_apply_derivatives(ww, pp, Xtrue.data, order)))
+                # default flat draw: a multi-axis W=(NP,NX) flattens to NP*NX; a minibatch local model builds
+                self.assertEqual(prob.oracle.n_measurements(prob.batch), NP * NX)
+                drawn = opt.flat_draw(prob.oracle, prob.batch, 5)(rng)
+                self.assertEqual(drawn.minibatch_scale, NP * NX / 5)
+                self.assertTrue(np.isfinite(float(opt.local_model(prob.geom, prob.oracle, drawn, X0.data).objective)))
+        # recovery: mc_sgd (manifold) from a zero start, apply-derivative data + the flat default draw
+        prob_m = F.derivative_fit(bgeo.ManifoldGeometryOps(), 'apply', order, ww, pp,
+                                  dd.forward(Xtrue, 'apply', ww, pp, order), weight=omega)
         x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
-        _, stats = opt.mc_sgd(prob_m, x0, np.random.default_rng(1), batch=6, max_iter=400)
+        _, stats = prob_m.mc_sgd(x0, np.random.default_rng(1), 6, max_iter=400)
         self.assertLess(stats['losses'][-1], 0.1 * stats['losses'][0])
 
     def test_newton_cg_recovers_to_high_accuracy(self):
@@ -346,12 +365,12 @@ class TestBackendOptimizers(unittest.TestCase):
         jit path returns a jax-backed result."""
         rng = np.random.default_rng(4)
         ww = unit_vecs(300, SHAPE, rng); data = dense_probe(self.A, ww)
-        problem = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data)
+        problem = F.fit(bgeo.ManifoldGeometryOps(), 'probe', ww, data)
         x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
         A_norm = float(np.linalg.norm(self.A))
         for use_jit in (False, True):
             with self.subTest(use_jit=use_jit):
-                x, stats = opt.newton_cg(problem, x0, max_newton=30, use_jit=use_jit)
+                x, stats = problem.newton_cg(x0, max_newton=30, use_jit=use_jit)
                 true_e = float(np.linalg.norm(np.asarray(t3.TuckerTensorTrain(*x).to_dense()) - self.A)) / A_norm
                 self.assertLess(true_e, 1e-4)
                 self.assertEqual(is_jax_ndarray(x[0][0]), use_jit)   # use_jit auto-converts numpy -> jax-backed
@@ -381,9 +400,9 @@ class TestBackendOptimizers(unittest.TestCase):
         rng = np.random.default_rng(4)
         ww = unit_vecs(200, SHAPE, rng); data = dense_probe(self.A, ww)
         x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
-        pm = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data)
+        pm = F.fit(bgeo.ManifoldGeometryOps(), 'probe', ww, data)
         seen = []
-        x, stats = opt.newton_cg(pm, x0, max_newton=15, callback=seen.append)
+        x, stats = pm.newton_cg(x0, max_newton=15, callback=seen.append)
 
         self.assertIn('losses', stats)
         self.assertNotIn('newton', stats)                                      # removed in 2026.3.0, not aliased
@@ -421,11 +440,11 @@ class TestBackendOptimizers(unittest.TestCase):
         rng = np.random.default_rng(4)
         ww = unit_vecs(200, SHAPE, rng); data = dense_probe(self.A, ww)
         x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
-        pm = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data)
+        pm = F.fit(bgeo.ManifoldGeometryOps(), 'probe', ww, data)
 
         def run(**kw):
             seen = []; kw.setdefault('max_newton', 8)
-            opt.newton_cg(pm, x0, callback=seen.append, **kw)
+            pm.newton_cg(x0, callback=seen.append, **kw)
             return seen
 
         # --- baseline (warm start): the reference is the computed initial gradient norm (== the first ‖g‖) ---
@@ -441,8 +460,11 @@ class TestBackendOptimizers(unittest.TestCase):
         zero = run()
         geom = pm.geom
         F0 = geom.zero_point_frame(pm.local_model(x0).frame)
-        gz = geom.project(F0, pm.kind.transpose(cw.corewise_scale(data, -1.0), ww, F0, pm.kind.precompute(F0, ww)))
-        z0 = float(geom.inner(gz, gz)) ** 0.5                               # hand-built: ‖Π 𝒥ᵀ(0 − data)‖ at F0
+        from t3toolbox.backend import tv_operations as tvo                  # dense: the ambient gradient at 0 is
+        A0 = -sum(np.einsum(','.join('w' + 'abc'[j] for j in range(3)) + '->' + 'abc',   # -sum_i sum_w y_i (x) ww_(j!=i)
+                            *[data[i] if j == i else ww[j] for j in range(3)]) for i in range(3))
+        gz = tvo.tv_project_dense_onto_tangent_space(F0, A0)
+        z0 = float(geom.inner(gz, gz)) ** 0.5                               # ‖Π Aᵀ(0 − data)‖ at F0, dense
         for info in zero:
             self.assertAlmostEqual(info.g0norm, z0, delta=1e-12 * z0)
             self.assertEqual((info.g0_reference, info.cg_reference), ('zero', 'zero'))
@@ -492,7 +514,7 @@ class TestBackendOptimizers(unittest.TestCase):
         rng = np.random.default_rng(4)
         ww = unit_vecs(200, SHAPE, rng); data = dense_probe(self.A, ww)
         x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
-        pm = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data)
+        pm = F.fit(bgeo.ManifoldGeometryOps(), 'probe', ww, data)
 
         def check_common(stats):
             self.assertEqual(set(stats), {'losses', 'newton_steps', 'newton_accepted', 'stop_reason', 'history'})
@@ -514,7 +536,7 @@ class TestBackendOptimizers(unittest.TestCase):
         }
         for reason, kw in cases.items():
             with self.subTest(stop_reason=reason):
-                x, stats = opt.newton_cg(pm, x0, **kw)
+                x, stats = pm.newton_cg(x0, **kw)
                 check_common(stats)
                 self.assertEqual(stats['stop_reason'], reason)
                 h = stats['history']
@@ -530,7 +552,7 @@ class TestBackendOptimizers(unittest.TestCase):
                     self.assertTrue(h[-1]['ls_failed'])
                     self.assertTrue(all(a is b for a, b in zip(x[0] + x[1], x0[0] + x0[1])))
         # 'accept' takes the exhausted trial step: it counts as accepted, and the run ends on the cap
-        _, stats = opt.newton_cg(pm, x0, max_newton=2, c_armijo=10.0, on_line_search_failure='accept')
+        _, stats = pm.newton_cg(x0, max_newton=2, c_armijo=10.0, on_line_search_failure='accept')
         check_common(stats)
         self.assertEqual((stats['stop_reason'], stats['newton_steps'], stats['newton_accepted']),
                          ('max_newton', 2, 2))
@@ -547,11 +569,11 @@ class TestBackendOptimizers(unittest.TestCase):
         for gname, geom, _ in self.GEOMS:
             with self.subTest(geometry=gname):
                 reg = opt.IdentityRegularizer(lam)
-                prob  = opt.least_squares_problem(geom, bfit.PROBE, ww, data, regularizer=reg)
-                prob0 = opt.least_squares_problem(geom, bfit.PROBE, ww, data)
+                prob  = F.fit(geom, 'probe', ww, data, regularizer=reg)
+                prob0 = F.fit(geom, 'probe', ww, data)
                 lm, lm0 = prob.local_model(X0.data), prob0.local_model(X0.data)
                 frame = lm.frame
-                base = (frame[0], frame[2])                                  # the frame's tensor X = (D, L)
+                base = geom.base_point(frame)                                # the frame's point: (D, L) or (B, G)
                 # value: manifold = ½λ‖X‖²_HS ; corewise = ½λ Σ‖core‖²
                 if gname == 'manifold':
                     rho_true = 0.5 * lam * float(np.linalg.norm(t3.TuckerTensorTrain(*base).to_dense())) ** 2
@@ -590,10 +612,10 @@ class TestBackendOptimizers(unittest.TestCase):
         rng = np.random.default_rng(7)
         ww = unit_vecs(200, SHAPE, rng); data = dense_probe(self.A, ww)
         x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
-        pm = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data)
+        pm = F.fit(bgeo.ManifoldGeometryOps(), 'probe', ww, data)
 
         # default 'stop': the run terminates AT the first exhaustion, with the honest alpha
-        x, stats = opt.newton_cg(pm, x0, max_newton=60, gtol_rel=1e-30)
+        x, stats = pm.newton_cg(x0, max_newton=60, gtol_rel=1e-30)
         hist = stats['history']
         failed = [row for row in hist if row.get('ls_failed')]
         self.assertEqual(len(failed), 1, 'expected exactly one failed row (the stop)')
@@ -607,14 +629,14 @@ class TestBackendOptimizers(unittest.TestCase):
 
         # 'accept': the failed step is taken and iteration continues past it
         n_stop = len(hist)
-        x2, stats2 = opt.newton_cg(pm, x0, max_newton=n_stop + 3, gtol_rel=1e-30,
+        x2, stats2 = pm.newton_cg(x0, max_newton=n_stop + 3, gtol_rel=1e-30,
                                    on_line_search_failure='accept')
         hist2 = stats2['history']
         self.assertGreater(len(hist2), n_stop)                     # kept going past the exhaustion
         self.assertTrue(any(row.get('ls_failed') for row in hist2[:-1]))   # a failed row that is NOT last
 
         with self.assertRaises(ValueError):
-            opt.newton_cg(pm, x0, on_line_search_failure='explode')
+            pm.newton_cg(x0, on_line_search_failure='explode')
 
     def test_gradient_descent_line_search_exhaustion(self):
         """R7-7 (gradient_descent): from a floored point the default stops with the flag set;
@@ -622,18 +644,18 @@ class TestBackendOptimizers(unittest.TestCase):
         rng = np.random.default_rng(8)
         ww = unit_vecs(200, SHAPE, rng); data = dense_probe(self.A, ww)
         x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
-        pm = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data)
-        x_floor, _ = opt.newton_cg(pm, x0, max_newton=60, gtol_rel=1e-30)   # drive to the floor
+        pm = F.fit(bgeo.ManifoldGeometryOps(), 'probe', ww, data)
+        x_floor, _ = pm.newton_cg(x0, max_newton=60, gtol_rel=1e-30)   # drive to the floor
 
-        x, stats = opt.gradient_descent(pm, x_floor, n_iter=10, gtol_rel=1e-30)
+        x, stats = pm.gradient_descent(x_floor, n_iter=10, gtol_rel=1e-30)
         self.assertTrue(stats['line_search_failed'])
         self.assertLess(stats['n_iter'], 10)                       # stopped at the exhaustion
 
-        x2, stats2 = opt.gradient_descent(pm, x_floor, n_iter=5, gtol_rel=1e-30,
+        x2, stats2 = pm.gradient_descent(x_floor, n_iter=5, gtol_rel=1e-30,
                                           on_line_search_failure='accept')
         self.assertEqual(stats2['n_iter'], 5)                      # pushed through
         with self.assertRaises(ValueError):
-            opt.gradient_descent(pm, x_floor, on_line_search_failure='explode')
+            pm.gradient_descent(x_floor, on_line_search_failure='explode')
 
     def test_regularized_newton_cg_shrinks(self):
         """Regularized manifold Newton-CG: λ=0 recovers the exact tensor; a larger λ (ridge) shrinks ‖x‖
@@ -647,8 +669,8 @@ class TestBackendOptimizers(unittest.TestCase):
         res = {}
         for lam in (0.0, 1e-3, 1e-1):
             reg = opt.IdentityRegularizer(lam) if lam > 0 else None
-            prob = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data, regularizer=reg)
-            x, _ = opt.newton_cg(prob, x0, max_newton=30)
+            prob = F.fit(bgeo.ManifoldGeometryOps(), 'probe', ww, data, regularizer=reg)
+            x, _ = prob.newton_cg(x0, max_newton=30)
             res[lam] = (err(x), nrm(x))
         self.assertLess(res[0.0][0], 1e-6)                              # λ=0 recovers exactly
         self.assertGreater(res[0.0][1], res[1e-3][1])                   # ridge shrinks ‖x‖ ...
@@ -660,16 +682,16 @@ class TestBackendOptimizers(unittest.TestCase):
         rng = np.random.default_rng(4)
         ww = unit_vecs(300, SHAPE, rng); data = dense_probe(self.A, ww)
         x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
-        prob = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data,
+        prob = F.fit(bgeo.ManifoldGeometryOps(), 'probe', ww, data,
                                          regularizer=opt.IdentityRegularizer(1e-2))
-        _, st = opt.newton_cg(prob, x0, max_newton=8)
+        _, st = prob.newton_cg(x0, max_newton=8)
         for row in st['history']:                                       # regularized: obj = misfit + reg, reg ≥ 0
             self.assertIsNotNone(row['regularization'])
             self.assertGreaterEqual(row['regularization'], 0.0)
             self.assertAlmostEqual(row['misfit'] + row['regularization'], row['objective'],
                                    delta=1e-9 * abs(row['objective']) + 1e-12)
-        prob0 = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data)
-        _, st0 = opt.newton_cg(prob0, x0, max_newton=8)
+        prob0 = F.fit(bgeo.ManifoldGeometryOps(), 'probe', ww, data)
+        _, st0 = prob0.newton_cg(x0, max_newton=8)
         for row in st0['history']:                                      # unregularized: reg None, misfit == obj
             self.assertIsNone(row['regularization'])
             self.assertEqual(row['misfit'], row['objective'])
@@ -691,34 +713,46 @@ class TestBackendOptimizers(unittest.TestCase):
              np.asarray(tt) + 1e6 * (1.0 - np.asarray(onem[1])))
         self.assertAlmostEqual(float(gops.point_norm_sq(g)) / Xn2, 1.0, places=5)            # garbage-robust
 
-    def test_stochastic_regularizer_scaling(self):
-        """The stochastic optimizers scale the (deterministic) regularizer by batch/n per step (so λ matches
-        the full-batch optimizers) while the full-batch stop keeps the full-strength reg; mc_sgd + reg
-        shrinks ‖x‖."""
+    def test_stochastic_regularizer_is_not_scaled(self):
+        """The minibatch rule (O-21; TARGET_DECISIONS 2026-11-21, item 2): a drawn batch's misfit is scaled by n/b
+        (an unbiased estimate of the full misfit) and the regularizer is NOT scaled, so the step objective is
+        (n/b) misfit_B + rho. Checked on the model a stochastic step builds: its objective, gradient and gn_quadratic
+        against the drawn batch's unscaled model (minibatch_scale dropped) and the regularizer's own terms. The
+        full-batch check keeps the full objective. mc_sgd + reg shrinks ‖x‖."""
         rng = np.random.default_rng(4)
-        n = 200
+        n, b = 200, 40
         ww = unit_vecs(n, SHAPE, rng); data = dense_probe(self.A, ww)
         reg = opt.IdentityRegularizer(0.5)
-        prob = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data, regularizer=reg)
-        frame = bgeo.ManifoldGeometryOps().frame(t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).data)[0]
-        tnorm = lambda t: float(cw.corewise_dot(t, t)) ** 0.5
-        g_full = tnorm(reg.gradient(bgeo.ManifoldGeometryOps(), frame))
-        for b in (40, n):                                              # step-problem reg-grad == (b/n)·full
-            sp = opt._minibatch_step_problem(prob, b)
-            self.assertAlmostEqual(tnorm(sp.regularizer.gradient(bgeo.ManifoldGeometryOps(), frame)),
-                                   (min(b, n) / n) * g_full, places=6)
-        self.assertIsNot(opt._minibatch_step_problem(prob, 40), prob)      # a distinct (scaled) problem
-        p_unreg = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data)
-        self.assertIs(opt._minibatch_step_problem(p_unreg, 40), p_unreg)   # unregularized -> no-op (unchanged)
+        prob = F.fit(bgeo.ManifoldGeometryOps(), 'probe', ww, data, regularizer=reg)
+        geom, x = prob.geom, t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).data
+        drawn = opt.flat_draw(prob.oracle, prob.batch, b)(np.random.default_rng(1))
+        self.assertEqual(drawn.minibatch_scale, n / b)
+        plain = dc.replace(drawn, minibatch_scale=None)                          # the same samples, unscaled
+        lm, lm_plain = (opt.local_model(geom, prob.oracle, B, x, regularizer=reg) for B in (drawn, plain))
+        lm_free = opt.local_model(geom, prob.oracle, plain, x)                    # no regularizer
+        s = n / b
+        rho = float(reg.value(geom, geom.base_point(lm.frame)))
+        self.assertGreater(rho, 0.0)
+        self.assertAlmostEqual(float(lm.objective), s * float(lm_free.objective) + rho, delta=1e-10 * float(lm.objective))
+        g, g_free = lm.gradient, lm_free.gradient
+        g_reg = reg.gradient(geom, lm.frame)
+        want = cw.corewise_add(cw.corewise_scale(g_free, s), g_reg)
+        self.assertLess(float(cw.corewise_norm(cw.corewise_sub(g, want))) / float(cw.corewise_norm(want)), 1e-12)
+        q_want = s * float(lm_free.gn_quadratic(g)) + float(reg.quadratic(geom, lm.frame, g))
+        self.assertAlmostEqual(float(lm.gn_quadratic(g)), q_want, delta=1e-10 * q_want)
+        self.assertAlmostEqual(float(lm_plain.objective), float(lm_free.objective) + rho,       # the unscaled control
+                               delta=1e-10 * float(lm_plain.objective))
+        self.assertAlmostEqual(float(prob.objective(x)), float(opt.local_model(geom, prob.oracle, prob.batch, x,
+                                                                               regularizer=reg).objective),
+                               delta=1e-10 * float(prob.objective(x)))           # the full-batch objective
 
         # mc_sgd (manifold) with reg shrinks ‖x‖ toward 0 vs the unregularized fit
         x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
         nrm = lambda c: float(np.linalg.norm(t3.TuckerTensorTrain(*c).to_dense()))
-        xu, _ = opt.mc_sgd(opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data),
-                           x0, np.random.default_rng(7), batch=50, max_iter=500)
-        xr, _ = opt.mc_sgd(opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data,
-                                                     regularizer=opt.IdentityRegularizer(0.3)),
-                           x0, np.random.default_rng(7), batch=50, max_iter=500)
+        xu, _ = F.fit(bgeo.ManifoldGeometryOps(), 'probe', ww, data).mc_sgd(x0, np.random.default_rng(7), 50,
+                                                                           max_iter=500)
+        xr, _ = F.fit(bgeo.ManifoldGeometryOps(), 'probe', ww, data, regularizer=opt.IdentityRegularizer(0.3)
+                      ).mc_sgd(x0, np.random.default_rng(7), 50, max_iter=500)
         self.assertLess(nrm(xr), nrm(xu))
 
     def test_jit_paths_recover(self):
@@ -737,25 +771,25 @@ class TestBackendOptimizers(unittest.TestCase):
         x0_j = jax.tree_util.tree_map(jnp.asarray, (tuple(sc * C for C in self.X.data[0]),
                                                     tuple(sc * C for C in self.X.data[1])))
         e0 = true_err(x0_j)
-        pm = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww_j, data_j)
-        pc = opt.least_squares_problem(bgeo.CorewiseGeometryOps(), bfit.PROBE, ww_j, data_j)
+        pm = F.fit(bgeo.ManifoldGeometryOps(), 'probe', ww_j, data_j)
+        pc = F.fit(bgeo.CorewiseGeometryOps(), 'probe', ww_j, data_j)
 
         with self.subTest(optimizer='newton_cg'):
             x0z = jax.tree_util.tree_map(jnp.asarray, t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data)
-            xn, _ = opt.newton_cg(pm, x0z, max_newton=20, use_jit=True)
+            xn, _ = pm.newton_cg(x0z, max_newton=20, use_jit=True)
             self.assertIsInstance(xn[0][0], jnp.ndarray)
             self.assertLess(true_err(xn), 1e-3)
         with self.subTest(optimizer='newton_cg', regularized=True):     # the reg Hessian λ·Π runs inside the jit CG
-            pm_reg = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww_j, data_j,
+            pm_reg = F.fit(bgeo.ManifoldGeometryOps(), 'probe', ww_j, data_j,
                                                regularizer=opt.IdentityRegularizer(1e-2))
-            xr, _ = opt.newton_cg(pm_reg, x0z, max_newton=15, use_jit=True)
+            xr, _ = pm_reg.newton_cg(x0z, max_newton=15, use_jit=True)
             self.assertIsInstance(xr[0][0], jnp.ndarray)
         with self.subTest(optimizer='mc_sgd'):
-            xm, _ = opt.mc_sgd(pm, x0_j, np.random.default_rng(7), batch=40, max_iter=300, use_jit=True)
+            xm, _ = pm.mc_sgd(x0_j, np.random.default_rng(7), batch_size=40, max_iter=300, use_jit=True)
             self.assertIsInstance(xm[0][0], jnp.ndarray)
             self.assertLess(true_err(xm), 0.4 * e0)
         with self.subTest(optimizer='adam'):
-            xa, _ = opt.adam(pc, x0_j, np.random.default_rng(7), batch=40, lr=2e-2, max_iter=400, use_jit=True)
+            xa, _ = pc.adam(x0_j, np.random.default_rng(7), batch_size=40, lr=2e-2, max_iter=400, use_jit=True)
             self.assertIsInstance(xa[0][0], jnp.ndarray)
             self.assertLess(true_err(xa), 0.4 * e0)
         with self.subTest(optimizer='mc_sgd', kind='apply_derivatives'):
@@ -763,10 +797,10 @@ class TestBackendOptimizers(unittest.TestCase):
             order, NW = 2, 80
             wwa = [jnp.asarray(np.asarray(w)[:NW]) for w in ww]            # (NW, Ni) -- a subset of the W stack
             ppa = [jnp.asarray(rng.standard_normal((NW, N))) for N in SHAPE]
-            da = jnp.asarray(pd.t3_apply_derivatives(wwa, ppa, t3.TuckerTensorTrain(*x0z).data, order)) * 0.0 + 1.0
-            prob_d = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.apply_derivatives_kind(order, [1.0, .5, .3]),
-                                               (wwa, ppa), da)
-            xd, _ = opt.mc_sgd(prob_d, x0z, np.random.default_rng(7), batch=20, max_iter=120, use_jit=True)
+            da = jnp.ones((order + 1, NW))
+            prob_d = F.derivative_fit(bgeo.ManifoldGeometryOps(), 'apply', order, wwa, ppa, da,
+                                      weight=np.array([1.0, .5, .3]))
+            xd, _ = prob_d.mc_sgd(x0z, np.random.default_rng(7), batch_size=20, max_iter=120, use_jit=True)
             self.assertIsInstance(xd[0][0], jnp.ndarray)        # jit-compiled (a stray np.* on a tracer raises)
 
     def test_use_jit_without_jax_warns_and_runs_eager(self):
@@ -778,15 +812,15 @@ class TestBackendOptimizers(unittest.TestCase):
         import t3toolbox.backend.common as common
         rng = np.random.default_rng(4)
         ww = unit_vecs(40, SHAPE, rng); data = dense_probe(self.A, ww)
-        pm = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data)
-        pc = opt.least_squares_problem(bgeo.CorewiseGeometryOps(), bfit.PROBE, ww, data)
+        pm = F.fit(bgeo.ManifoldGeometryOps(), 'probe', ww, data)
+        pc = F.fit(bgeo.CorewiseGeometryOps(), 'probe', ww, data)
         x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
         saved = common.jax_available
         common.jax_available = False
         try:
-            for run in (lambda: opt.newton_cg(pm, x0, max_newton=1, use_jit=True),
-                        lambda: opt.mc_sgd(pm, x0, rng, batch=20, max_iter=1, use_jit=True),
-                        lambda: opt.adam(pc, x0, rng, batch=20, max_iter=1, use_jit=True)):
+            for run in (lambda: pm.newton_cg(x0, max_newton=1, use_jit=True),
+                        lambda: pm.mc_sgd(x0, rng, 20, max_iter=1, use_jit=True),
+                        lambda: pc.adam(x0, rng, 20, max_iter=1, use_jit=True)):
                 common._JAX_WARNED.discard('use_jit=True')
                 with warnings.catch_warnings(record=True) as w:
                     warnings.simplefilter('always')
@@ -796,7 +830,7 @@ class TestBackendOptimizers(unittest.TestCase):
             # use_jit=False is unaffected -- eager on numpy, no warning
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter('always')
-                xf, _ = opt.newton_cg(pm, x0, max_newton=1, use_jit=False)
+                xf, _ = pm.newton_cg(x0, max_newton=1, use_jit=False)
             self.assertFalse(is_jax_ndarray(xf[0][0]))
             self.assertFalse(any('jax' in str(m.message) for m in w))
         finally:
@@ -813,17 +847,16 @@ _PD_SHAPE = (6, 6, 6)
 
 
 def _pd_problem(seed, target_ranks=((3, 3, 3), (1, 3, 3, 1)), W=60, order=1, noise=0.01):
-    """A probe-derivative fit (the kind with an exact Hessian) on the manifold: data from a target T3 plus
-    relative noise ``noise`` (0 = noise-free)."""
+    """A fit of probe-derivative data (order ``order`` along lines; the probe kind at the jet shape ``(order,)``, which
+    has the exact Hessian) on the manifold: data from a target T3 plus relative noise ``noise`` (0 = noise-free)."""
     rng = np.random.default_rng(seed)
     np.random.seed(seed)
-    target = t3.TuckerTensorTrain.randn(_PD_SHAPE, *target_ranks).data
+    target = t3.TuckerTensorTrain.randn(_PD_SHAPE, *target_ranks)
     ww = [rng.standard_normal((W, n)) for n in _PD_SHAPE]
     pp = [rng.standard_normal((W, n)) for n in _PD_SHAPE]
-    kind = bfit.ProbeDerivativesKind(order=order)
     data = [z + noise * np.linalg.norm(z) / math.sqrt(z.size) * rng.standard_normal(z.shape)
-            for z in kind.point_forward(target, (ww, pp))]
-    return opt.least_squares_problem(bgeo.ManifoldGeometryOps(), kind, (ww, pp), data)
+            for z in dd.forward(target, 'probe', ww, pp, order)]
+    return F.derivative_fit(bgeo.ManifoldGeometryOps(), 'probe', order, ww, pp, data)
 
 
 def _rank2_start(seed=5):
@@ -837,20 +870,43 @@ def _pred(row):
 
 
 def _resolution(problem, row):
-    """ε·(‖ω⊙y‖·‖ω⊙r‖ + |f|) at a row's point: the objective's floating-point resolution (float64)."""
-    y = math.sqrt(float(problem.kind.sumsq(problem.data, problem.kind.w_axes(problem.sample))))
-    return _EPS64 * (y * math.sqrt(2.0 * row['misfit']) + abs(row['objective']))
+    """ε·(‖ω⊙y‖·‖ω⊙r‖ + |f|) at a row's point: the objective's floating-point resolution (float64), by hand from the
+    batch (the Taylor data and weight: ω⊙y is the same on the derivatives)."""
+    y, w = problem.batch.y, problem.batch.weight
+    wy = math.sqrt(sum(float(np.sum((w[i].reshape((-1,) + (1,) * (np.ndim(a) - 1)) * a) ** 2)) for i, a in enumerate(y)))
+    return _EPS64 * (wy * math.sqrt(2.0 * row['misfit']) + abs(row['objective']))
 
 
-@dc.dataclass(frozen=True)
-class _OffsetProblem(opt.Problem):
-    """A Problem whose OBJECTIVE (the one the trial step is scored with) is shifted by a constant the local
-    model does not see: every trial step then looks like an ascent, so every one is rejected while the model
-    stays accurate -- the only way to drive the radius to its floor with |pred| far above the resolution."""
+def _point_key(frame):
+    """A fingerprint of a corewise frame's cores (the point itself): the sum of squares of its core entries, bitwise
+    reproducible for the same arrays, different for any other point the tests meet."""
+    def leaves(t):
+        return [t] if hasattr(t, 'shape') else [a for s in t for a in leaves(s)]
+    return float(sum(np.sum(np.asarray(a, dtype=float) ** 2) for a in leaves(frame[:2])))
+
+
+@dc.dataclass(frozen=True, eq=False)
+class _OffsetOracle(LeastSquaresOracle):
+    """A least-squares oracle whose ``f`` at every POINT other than the run's start (a corewise frame whose cores are
+    not the start's, ``start_key``: where the optimizers score a trial step) is raised by a constant. While the run
+    stays at its start, every trial then looks like an ascent, so every one is rejected while the model stays accurate
+    -- the only way to drive the radius to its floor with |pred| far above the resolution. The mechanism does not depend
+    on which route reads the current point's value: that point IS the start, unshifted on either route (D9). (A user
+    oracle: the fitting layer's extension point.)"""
     offset: float = 0.0
+    start_key: typ.Optional[float] = None            # None: every point is shifted
 
-    def objective(self, x_cores, sample=None, data=None):
-        return super().objective(x_cores, sample, data) + self.offset
+    def query(self, frame, batch, want, **kwargs):
+        values, held = super().query(frame, batch, want, **kwargs)
+        if frame_form(frame)[1] == 'corewise' and (self.start_key is None or _point_key(frame) != self.start_key):
+            values = tuple(v + self.offset if name == 'f' else v for name, v in zip(want, values))
+        return values, held
+
+
+def _offset(fit, offset, x0=None):
+    """``fit`` with its oracle's objective raised by ``offset`` away from the start ``x0`` (:class:`_OffsetOracle`)."""
+    key = None if x0 is None else _point_key(fit.geom.point_data(x0))
+    return fit.with_(oracle=_OffsetOracle(fit.oracle.kind, fit.oracle.order, offset, key))
 
 
 def _restart_problem(W=60, order=1):
@@ -862,11 +918,10 @@ def _restart_problem(W=60, order=1):
     target = t3.TuckerTensorTrain.randn(_PD_SHAPE, (2, 2, 2), (1, 2, 2, 1))
     ww = [rng.standard_normal((W, n)) for n in _PD_SHAPE]
     pp = [rng.standard_normal((W, n)) for n in _PD_SHAPE]
-    kind = bfit.ProbeDerivativesKind(order=order)
-    problem = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), kind, (ww, pp),
-                                        kind.point_forward(target.data, (ww, pp)))
-    x1, _ = opt.newton_cg(problem, t3.TuckerTensorTrain.randn(_PD_SHAPE, (2, 2, 2), (1, 2, 2, 1)).data,
-                          max_newton=80, gtol_rel=1e-10)
+    problem = F.derivative_fit(bgeo.ManifoldGeometryOps(), 'probe', order, ww, pp,
+                               dd.forward(target, 'probe', ww, pp, order))
+    x1, _ = problem.newton_cg(t3.TuckerTensorTrain.randn(_PD_SHAPE, (2, 2, 2), (1, 2, 2, 1)).data,
+                              max_newton=80, gtol_rel=1e-10)
     return problem, t3.TuckerTensorTrain(*x1).resize(_PD_SHAPE, (3, 3, 3), (1, 3, 3, 1)).data
 
 
@@ -885,6 +940,12 @@ class TestTrustRegionNewton(unittest.TestCase):
         self.assertEqual(stats['newton_accepted'], sum(row['tr_accepted'] is True for row in stepped))
         self.assertEqual(h[-1]['stop_reason'], stats['stop_reason'])
         self.assertTrue(all(row['stop_reason'] is None for row in h[:-1]))
+        for row, nxt in zip(h, h[1:]):                       # D9: the carried value (accepted: to delta_f's rounding)
+            if row['tr_accepted']:
+                self.assertAlmostEqual(nxt['objective'], row['objective'] + row['delta_f'],
+                                       delta=1e-15 * max(abs(nxt['objective']), abs(row['objective'])))
+            else:
+                self.assertEqual(nxt['objective'], row['objective'])
         for row in h:
             self.assertEqual((row['step_control'], row['hessian']), ('trust_region', 'exact' if exact else 'gauss_newton'))
         for row in stepped:
@@ -904,7 +965,7 @@ class TestTrustRegionNewton(unittest.TestCase):
         trial moves x and rebuilds the model."""
         problem = _pd_problem(0)
         seen = []
-        x, stats = opt.newton_cg(problem, _rank2_start(), max_newton=10, hessian='exact', tr_radius0=1e3,
+        x, stats = problem.newton_cg(_rank2_start(), max_newton=10, hessian='exact', tr_radius0=1e3,
                                  callback=seen.append)
         self.check_bookkeeping(stats)
         self.assertEqual(len(seen), 10)                                              # rejections count toward the cap
@@ -935,7 +996,7 @@ class TestTrustRegionNewton(unittest.TestCase):
         for name, kw in cases.items():
             with self.subTest(radius0=name):
                 seen = []
-                _, stats = opt.newton_cg(problem, x0, max_newton=18 if name == 'tiny' else 10, hessian='exact',
+                _, stats = problem.newton_cg(x0, max_newton=18 if name == 'tiny' else 10, hessian='exact',
                                          callback=seen.append, **kw)
                 self.check_bookkeeping(stats)
                 r0 = kw.get('tr_radius0', cauchy)
@@ -974,7 +1035,7 @@ class TestTrustRegionNewton(unittest.TestCase):
         for step_control, r0 in (('trust_region', 0.1 * gnorm), ('trust_region', 10.0 * gnorm), ('line_search', None)):
             with self.subTest(step_control=step_control, radius0=r0):
                 with unittest.mock.patch.object(opt, '_cg_solve', ascent):
-                    _, stats = opt.newton_cg(problem, x0, max_newton=1, step_control=step_control, tr_radius0=r0)
+                    _, stats = problem.newton_cg(x0, max_newton=1, step_control=step_control, tr_radius0=r0)
                 row = stats['history'][0]
                 scale = min(1.0, r0 / gnorm) if r0 is not None else 1.0
                 self.assertAlmostEqual(row['slope'], -scale * gnorm ** 2, delta=1e-12 * gnorm ** 2)
@@ -989,7 +1050,7 @@ class TestTrustRegionNewton(unittest.TestCase):
             return (ascent if len(calls) == 1 else real)(lm, rhs, tol, maxiter, use_jit, radius)
 
         with unittest.mock.patch.object(opt, '_cg_solve', ascent_once):
-            _, stats = opt.newton_cg(problem, x0, max_newton=2, step_control='trust_region', tr_radius0=1e-5 * gnorm)
+            _, stats = problem.newton_cg(x0, max_newton=2, step_control='trust_region', tr_radius0=1e-5 * gnorm)
         first, second = stats['history'][:2]
         self.assertTrue(first['tr_accepted'] and first['rho'] > 0.75 and not first['cg_boundary'], first)
         self.assertEqual(second['tr_radius'], 2.0 * first['tr_radius'])
@@ -998,9 +1059,8 @@ class TestTrustRegionNewton(unittest.TestCase):
         """Δ ← ¼‖p‖, not ¼Δ: after a rejected INTERIOR step (CG converged well inside a large region) the next
         radius is a quarter of that step's length, far below a quarter of the old radius."""
         base = _pd_problem(0)
-        problem = _OffsetProblem(base.geom, base.kind, base.sample, base.data, None,
-                                 10.0 * float(base.objective(_rank2_start())))   # every trial is rejected
-        _, stats = opt.newton_cg(problem, _rank2_start(), max_newton=2, step_control='trust_region', tr_radius0=1e3)
+        problem = _offset(base, 10.0 * float(base.objective(_rank2_start())), _rank2_start())   # every trial rejected
+        _, stats = problem.newton_cg(_rank2_start(), max_newton=2, step_control='trust_region', tr_radius0=1e3)
         first, second = stats['history']
         p_norm = first['step_rel'] * float(cw.corewise_norm(_rank2_start()))
         self.assertFalse(first['tr_accepted'] or first['cg_boundary'])
@@ -1011,7 +1071,7 @@ class TestTrustRegionNewton(unittest.TestCase):
         """(a) E2's degenerate restart: accepted steps first, then the first rejection's predicted change is below
         the objective's resolution -> 'objective_floor' (converged=False: not the gradient test, not a failure)."""
         problem, x = _restart_problem()
-        _, stats = opt.newton_cg(problem, x, max_newton=40, hessian='exact', g0_reference='warm_start')
+        _, stats = problem.newton_cg(x, max_newton=40, hessian='exact', g0_reference='warm_start')
         self.check_bookkeeping(stats)
         h = stats['history']
         self.assertEqual(stats['stop_reason'], 'objective_floor')
@@ -1025,8 +1085,8 @@ class TestTrustRegionNewton(unittest.TestCase):
         """(b) A misspecified fit already at its floor: the first trial is rejected and its predicted change is
         below the resolution -> 'objective_floor' at once."""
         problem = _pd_problem(1, noise=0.01)
-        x, _ = opt.newton_cg(problem, _rank2_start(), max_newton=40, gtol_rel=0.0)    # GN to the floor
-        _, stats = opt.newton_cg(problem, x, max_newton=10, hessian='exact', g0_reference='warm_start', gtol_rel=1e-14)
+        x, _ = problem.newton_cg(_rank2_start(), max_newton=40, gtol_rel=0.0)    # GN to the floor
+        _, stats = problem.newton_cg(x, max_newton=10, hessian='exact', g0_reference='warm_start', gtol_rel=1e-14)
         self.check_bookkeeping(stats)
         h = stats['history']
         self.assertEqual(stats['stop_reason'], 'objective_floor')
@@ -1044,7 +1104,7 @@ class TestTrustRegionNewton(unittest.TestCase):
         g = lm.gradient
         gnorm = float(problem.geom.inner(g, g)) ** 0.5
         row0 = dict(misfit=float(lm.misfit), objective=float(lm.objective))
-        _, stats = opt.newton_cg(problem, x0, max_newton=4, hessian='exact',
+        _, stats = problem.newton_cg(x0, max_newton=4, hessian='exact',
                                  tr_radius0=5.0 * _resolution(problem, row0) / gnorm)
         self.check_bookkeeping(stats)
         h = stats['history']
@@ -1054,14 +1114,14 @@ class TestTrustRegionNewton(unittest.TestCase):
 
     def test_floor_d_trust_region_floor(self):
         """(d) 'trust_region_floor' fires only after rejections drive Δ below 1e-12·Δ0 -- here every trial is
-        rejected (the scored objective carries an offset the model does not see) while |pred| stays far above
+        rejected (every point but the start carries an offset, _OffsetOracle) while |pred| stays far above
         the resolution, so the objective floor never applies; with GN + trust region too."""
         base = _pd_problem(0)
         f0 = float(base.objective(_rank2_start()))
-        problem = _OffsetProblem(base.geom, base.kind, base.sample, base.data, None, 10.0 * f0)
+        problem = _offset(base, 10.0 * f0, _rank2_start())
         for hessian in ('exact', 'gauss_newton'):
             with self.subTest(hessian=hessian):
-                _, stats = opt.newton_cg(problem, _rank2_start(), max_newton=60, hessian=hessian,
+                _, stats = problem.newton_cg(_rank2_start(), max_newton=60, hessian=hessian,
                                          step_control='trust_region')
                 self.check_bookkeeping(stats, exact=hessian == 'exact')
                 h = stats['history']
@@ -1102,12 +1162,12 @@ class TestTrustRegionNewton(unittest.TestCase):
         for kw in bad:
             with self.subTest(**{k: repr(v) for k, v in kw.items()}):
                 with self.assertRaises(ValueError):
-                    opt.newton_cg(problem, x0, max_newton=1, **kw)
+                    problem.newton_cg(x0, max_newton=1, **kw)
         for kw, mode in ((dict(), 'line_search'), (dict(hessian='EXACT'), 'trust_region'),
                          (dict(hessian='exact', step_control='Line_Search'), 'line_search'),
                          (dict(step_control='trust_region'), 'trust_region')):
             with self.subTest(**kw):
-                _, stats = opt.newton_cg(problem, x0, max_newton=2, **kw)
+                _, stats = problem.newton_cg(x0, max_newton=2, **kw)
                 self.assertEqual(stats['history'][0]['step_control'], mode)
 
     def test_exact_line_search_and_gauss_newton_trust_region(self):
@@ -1115,7 +1175,7 @@ class TestTrustRegionNewton(unittest.TestCase):
         lift diagnostics) on Armijo rows; Gauss-Newton + trust region has no exact fields."""
         problem = _pd_problem(0)
         x0 = _rank2_start()
-        _, ls = opt.newton_cg(problem, x0, max_newton=4, hessian='exact', step_control='line_search')
+        _, ls = problem.newton_cg(x0, max_newton=4, hessian='exact', step_control='line_search')
         for row in ls['history']:
             self.assertEqual((row['hessian'], row['step_control']), ('exact', 'line_search'))
             if not row['converged']:
@@ -1123,39 +1183,46 @@ class TestTrustRegionNewton(unittest.TestCase):
                 self.assertIsNone(row['tr_radius']); self.assertIsNone(row['tr_accepted'])
                 self.assertIsInstance(row['pKp'], float)
                 self.assertFalse(row['cg_boundary'])                                # no trust region, no boundary
-        _, tr = opt.newton_cg(problem, x0, max_newton=4, step_control='trust_region')
+        _, tr = problem.newton_cg(x0, max_newton=4, step_control='trust_region')
         self.check_bookkeeping(tr, exact=False)
         for row in tr['history']:
             self.assertIsNone(row['pKp']); self.assertIsNone(row['lift_sigma_min']); self.assertIsNone(row['lift_eps'])
 
 
 class TestProblemContracts(unittest.TestCase):
-    """Backend ``Problem`` contracts from the 2026-08-22 review: an explicit minibatch is (sample, data)
-    together (S6), and the regularized objective is exact at a RAW, non-left-orthogonal point (S7)."""
+    """Contracts of the objective at a point and of the model's build (the 2026-08-22 review's S6 and S7, on the oracle
+    seam): another batch is another fit, scored on its own data; centers come with the frame they belong to; and the
+    regularized objective is exact at a RAW, non-left-orthogonal point (S7)."""
 
     def _problem(self, regularizer=None):
         np.random.seed(3)
         x_true = t3.TuckerTensorTrain.randn((4, 5, 6), (3, 3, 3), (1, 2, 2, 1))
         ww = tuple(np.random.randn(20, n) for n in (4, 5, 6))
         b = x_true.apply(ww)
-        return opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.APPLY, ww, b,
-                                         regularizer=regularizer), ww, b
+        return F.fit(bgeo.ManifoldGeometryOps(), 'apply', ww, b, regularizer=regularizer), ww, b
 
-    def test_data_without_sample_is_rejected(self):
-        # `objective(x, data=other)` used to silently score the TRAINING data.
+    def test_another_batch_is_scored_on_its_own_data(self):
+        """S6's point on the seam: there is no (sample, data) pair to mismatch -- a batch carries both -- and the
+        objective at a point and the model on another batch score that batch's data, not the training data."""
         problem, ww, b = self._problem()
         x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 2, 2), (1, 2, 2, 1))
-        for bad in (dict(data=b + 1.0), dict(sample=ww)):
-            with self.subTest(**{k: 'given' for k in bad}):
-                with self.assertRaises(ValueError):
-                    problem.objective(x.data, **bad)
-                with self.assertRaises(ValueError):
-                    problem.local_model(x.data, **bad)
-        other = b + 5.0
-        self.assertAlmostEqual(float(problem.objective(x.data, ww, other)),
-                               0.5 * float(np.sum((x.apply(ww) - other) ** 2)), places=8)
-        self.assertAlmostEqual(float(problem.local_model(x.data, ww, other).objective),
-                               0.5 * float(np.sum((x.apply(ww) - other) ** 2)), places=8)
+        other = LeastSquaresBatch(ww, b + 5.0)
+        truth = 0.5 * float(np.sum((x.apply(ww) - (b + 5.0)) ** 2))
+        self.assertAlmostEqual(float(problem.objective(x.data, batch=other)), truth, places=8)
+        self.assertAlmostEqual(float(opt.local_model(problem.geom, problem.oracle, other, x.data).objective), truth,
+                               places=8)
+        self.assertNotAlmostEqual(float(problem.objective(x.data)), truth, places=3)
+
+    def test_centers_need_their_frame(self):
+        """D3: centers= without frame= raises (structural); with the frame they belong to, the model is the
+        geom.frame model."""
+        problem, ww, b = self._problem()
+        x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 2, 2), (1, 2, 2, 1))
+        frame, centers = problem.geom.frame(x.data)
+        with self.assertRaises(ValueError):
+            problem.local_model(x.data, centers=centers)
+        self.assertEqual(float(problem.local_model(x.data, frame=frame, centers=centers).objective),
+                         float(problem.local_model(x.data).objective))
 
     def test_regularized_objective_exact_at_a_raw_point(self):
         # point_norm_sq read ‖last TT core‖², exact only for a left-orthogonal point; a randn point gave
@@ -1174,6 +1241,387 @@ class TestProblemContracts(unittest.TestCase):
                 ux = ut3.UniformTuckerTensorTrain.from_t3(x)
                 ugeom = bgeo.UniformManifoldGeometryOps.from_point(ux.data)
                 self.assertLess(abs(float(ugeom.point_norm_sq(ux.data[:2])) - float(x.norm()) ** 2) / truth, 1e-10)
+
+
+class TestOracleSeam(unittest.TestCase):
+    """The graded-messages seam (P16 part 2): what the optimizers ask of the oracle, and what they must never do with
+    ``held`` (valid for one frame and one batch: TARGET_DECISIONS, the notes carried to P16, item 1)."""
+
+    def setUp(self):
+        np.random.seed(0)
+        self.rng = np.random.default_rng(0)
+        self.A = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
+
+    # ---- helpers -------------------------------------------------------------------------------------------------
+    @staticmethod
+    def _direct_gradient(fit, x, batch):
+        """The model's gradient, gn_quadratic of it and objective at x on batch, by DIRECT oracle queries with no
+        held and no LocalModel (the reference the optimizer loops are compared with)."""
+        geom, oracle, reg = fit.geom, fit.oracle, fit.regularizer
+        frame, centers = geom.frame(x)
+        Vc = None if centers is None else centers[0]
+        aux = geom.precompute(frame)
+        (f, g), _ = oracle.query(frame, batch, ('f', 'g'), Vc=Vc)
+        g = geom.project(frame, g, aux=aux)
+        if reg is not None:
+            g = cw.corewise_add(g, reg.gradient(geom, frame, aux=aux))
+            f = f + reg.value(geom, geom.base_point(frame))
+        (q,), _ = oracle.query(frame, batch, ('Jp_norm_sq',), Vc=Vc, variations=geom.project(frame, g, aux=aux))
+        if reg is not None:
+            q = q + reg.quadratic(geom, frame, g, aux=aux)
+        return frame, aux, g, q, f
+
+    def _probe_fit(self, geometry='manifold', n=60, regularizer=None):
+        ww = unit_vecs(n, SHAPE, self.rng)
+        geom = bgeo.ManifoldGeometryOps() if geometry == 'manifold' else bgeo.CorewiseGeometryOps()
+        return F.fit(geom, 'probe', ww, dense_probe(self.A.to_dense(), ww), regularizer=regularizer)
+
+    @staticmethod
+    def _rules_run(call):
+        """The engine rules ``call()`` runs (the engine's ``_run`` recorded)."""
+        import t3toolbox.backend.sampling_variables as sv
+        ran, real = [], sv._run
+
+        def recording(rule, *args, **kwargs):
+            ran.append(rule.name)
+            return real(rule, *args, **kwargs)
+        with unittest.mock.patch.object(sv, '_run', recording):
+            call()
+        return ran
+
+    # ---- the head ------------------------------------------------------------------------------------------------
+    def test_the_heads(self):
+        """The four optimizers' heads (plan 2.4, N30): (geom, oracle, batch, x0, ...), regularizer after the positional
+        arguments; local_model and point_objective likewise; padded_start (D2) and flat_draw."""
+        import inspect
+        heads = {'newton_cg': ['geom', 'oracle', 'batch', 'x0', 'regularizer'],
+                 'gradient_descent': ['geom', 'oracle', 'batch', 'x0', 'regularizer'],
+                 'mc_sgd': ['geom', 'oracle', 'batch', 'x0', 'rng', 'batch_size', 'regularizer', 'draw'],
+                 'adam': ['geom', 'oracle', 'batch', 'x0', 'rng', 'batch_size', 'regularizer', 'draw'],
+                 'local_model': ['geom', 'oracle', 'batch', 'x_cores', 'regularizer', 'hessian', 'curvature_damping',
+                                 'frame', 'centers'],
+                 'point_objective': ['geom', 'oracle', 'batch', 'x_cores', 'regularizer'],
+                 'padded_start': ['geom', 'oracle', 'batch', 'x0', 'x_old'],
+                 'flat_draw': ['oracle', 'batch', 'batch_size']}
+        for name, head in heads.items():
+            with self.subTest(function=name):
+                self.assertEqual(list(inspect.signature(getattr(opt, name)).parameters)[:len(head)], head)
+        for gone in ('Problem', 'least_squares_problem', '_minibatch_step_problem', '_STOCK_LOCAL_MODEL'):
+            self.assertFalse(hasattr(opt, gone), gone)
+        import t3toolbox.backend.regularization as breg
+        import t3toolbox.backend.uniform_fitting as uf
+        self.assertFalse(hasattr(breg, '_ScaledRegularizer'))
+        self.assertFalse(hasattr(uf, 'uniform_least_squares_problem'))
+
+    def test_want_is_a_literal_at_every_query(self):
+        """Every oracle query of backend/optimizers.py names its want as a literal tuple of strings (the compile key is
+        static and the call site readable; plan 7.7)."""
+        import ast
+        import inspect
+        tree = ast.parse(inspect.getsource(opt))
+        calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
+                 and isinstance(node.func, ast.Attribute) and node.func.attr == 'query']
+        self.assertGreaterEqual(len(calls), 10)
+        for call in calls:
+            with self.subTest(line=call.lineno):
+                want = call.args[2] if len(call.args) > 2 else next(k.value for k in call.keywords if k.arg == 'want')
+                self.assertIsInstance(want, ast.Tuple)
+                self.assertTrue(want.elts and all(isinstance(e, ast.Constant) and isinstance(e.value, str)
+                                                  for e in want.elts))
+
+    # ---- held never crosses a draw, a trial, a build ---------------------------------------------------------------
+    def test_mc_sgd_builds_each_draw_afresh(self):
+        """MC-SGD's iterates equal a reference loop built from direct oracle queries on each drawn batch, with no held
+        (the same rng calls as the flat draw): a step that carried a held (r of the previous draw, same shapes) across
+        draws would give another iterate. Regularized, so the unscaled-regularizer rule is in the reference too."""
+        reg = opt.IdentityRegularizer(0.1)
+        fit = self._probe_fit(n=80, regularizer=reg)
+        x0 = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).data
+        x, stats = fit.mc_sgd(x0, np.random.default_rng(9), 20, max_iter=6, check_every=3)
+        rng, n = np.random.default_rng(9), fit.oracle.n_measurements(fit.batch)
+        xr = x0
+        for _ in range(6):
+            batch = fit.oracle.take(fit.batch, rng.choice(n, size=20, replace=False))
+            frame, aux, g, q, _ = self._direct_gradient(fit, xr, batch)
+            alpha = float(fit.geom.inner(g, g)) / max(float(q), 1e-30)
+            xr = fit.geom.retract(frame, cw.corewise_scale(g, -alpha), aux=aux)
+        self.assertLess(np.linalg.norm(t3.TuckerTensorTrain(*x).to_dense() - t3.TuckerTensorTrain(*xr).to_dense())
+                        / np.linalg.norm(t3.TuckerTensorTrain(*xr).to_dense()), 1e-12)
+        self.assertEqual(stats['n_iter'], 6)
+
+    def test_adam_builds_each_draw_afresh(self):
+        """Adam's iterates equal a reference loop built from direct oracle queries on each drawn batch (no held)."""
+        fit = self._probe_fit('corewise', n=80)
+        x0 = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).data
+        x, _ = fit.adam(x0, np.random.default_rng(4), 16, max_iter=5, lr=1e-2, cosine=False)
+        rng, n = np.random.default_rng(4), fit.oracle.n_measurements(fit.batch)
+        xr, m, v = x0, cw.corewise_zeros_like(x0), cw.corewise_zeros_like(x0)
+        for k in range(5):
+            batch = fit.oracle.take(fit.batch, rng.choice(n, size=16, replace=False))
+            _, _, g, _, _ = self._direct_gradient(fit, xr, batch)
+            m = cw.corewise_map(lambda mi, gi: 0.9 * mi + 0.1 * gi, m, g)
+            v = cw.corewise_map(lambda vi, gi: 0.999 * vi + 0.001 * gi * gi, v, g)
+            b1, b2 = 1.0 - 0.9 ** (k + 1), 1.0 - 0.999 ** (k + 1)
+            xr = cw.corewise_sub(xr, cw.corewise_map(lambda mi, vi: 1e-2 * (mi / b1) / (np.sqrt(vi / b2) + 1e-8), m, v))
+        self.assertLess(float(cw.corewise_norm(cw.corewise_sub(x, xr))) / float(cw.corewise_norm(xr)), 1e-12)
+
+    def test_minibatched_newton_builds_each_point_afresh(self):
+        """Newton on drawn batches (newton_cg called per draw: nothing crosses calls) and, within a call, a model built
+        afresh at each accepted point: every row's objective is the DENSE objective of that call's batch at the row's
+        point, and an accepted row's objective plus its delta_f (the trial, scored by point_objective with nothing
+        held) is the next row's. A build reusing the last model's held, or a trial scored with it, breaks both."""
+        fit = self._probe_fit(n=120)
+        rng, n = np.random.default_rng(2), fit.oracle.n_measurements(fit.batch)
+        x = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).data
+        for draw in range(3):
+            batch = fit.oracle.take(fit.batch, rng.choice(n, size=40, replace=False))
+            seen = []
+            x, stats = opt.newton_cg(fit.geom, fit.oracle, batch, x, max_newton=3, callback=seen.append,
+                                     g0_reference='warm_start')
+            ww = batch.sample
+            for k, info in enumerate(seen):
+                with self.subTest(draw=draw, row=k):
+                    T = t3.TuckerTensorTrain(*info.x_cores).to_dense()
+                    dense = 0.5 * (n / 40) * sum(float(np.sum((z - y) ** 2)) for z, y in zip(dense_probe(T, ww), batch.y))
+                    self.assertAlmostEqual(info.objective, dense, delta=1e-10 * dense)
+                    if k + 1 < len(seen) and not info.converged and not info.ls_failed:
+                        self.assertAlmostEqual(info.objective + info.delta_f, seen[k + 1].objective,
+                                               delta=1e-10 * info.objective)
+
+    def test_a_trial_is_scored_with_nothing_held(self):
+        """Policy a: every trial's objective is point_objective's (its terms) at the trial's raw cores, the dense
+        objective there (trust region and line search), not the model's held residual. So is the start's value, the
+        acceptance's first reference (D9): the first scored point is x0 itself."""
+        fit = self._probe_fit()
+        x0 = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).data
+        trials = []
+        real = opt._point_objective_parts
+
+        def recording(geom, oracle, batch, x_cores, regularizer=None):
+            f, rho = real(geom, oracle, batch, x_cores, regularizer)
+            trials.append((x_cores, float(f)))
+            return f, rho
+        for step_control in ('trust_region', 'line_search'):
+            with self.subTest(step_control=step_control):
+                trials.clear()
+                with unittest.mock.patch.object(opt, '_point_objective_parts', recording):
+                    fit.newton_cg(x0, max_newton=3, step_control=step_control)
+                self.assertGreater(len(trials), 1)
+                self.assertIs(trials[0][0], x0)
+                for x_trial, f in trials:
+                    T = t3.TuckerTensorTrain(*x_trial).to_dense()
+                    dense = 0.5 * sum(float(np.sum((z - y) ** 2)) for z, y in zip(dense_probe(T, fit.batch.sample),
+                                                                                    fit.batch.y))
+                    self.assertAlmostEqual(f, dense, delta=1e-10 * dense)
+
+    def test_the_acceptance_compares_like_with_like(self):
+        """D9: the step acceptance compares point_objective with point_objective. Row 0's objective is the start's
+        point_objective (bitwise); every row's misfit and regularization are point_objective's own terms at that row's
+        point (bitwise: the trial's value carried, never a frame-route one); misfit + regularization = objective; on an
+        accepted row objective + delta_f is the next row's objective (to the rounding of delta_f = f_new - f), on a
+        rejected or failed one the next row keeps it (bitwise). Trust region (a rejection scripted: row 1's trial raised),
+        line search (a backtrack, scripted the same way), the 'accept' after an exhausted search, regularized, ragged
+        and uniform, both geometries. gradient_descent likewise: losses[k] is point_objective at its k-th
+        point."""
+        import t3toolbox.backend.regularization as reg
+        for layer in ('ragged', 'uniform'):
+            for geometry in ('manifold', 'corewise'):
+                fit = self._probe_fit(geometry, regularizer=reg.IdentityRegularizer(1e-3))
+                x0 = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
+                if layer == 'uniform':
+                    fit, xs = F.uniform(fit, ut3.UniformTuckerTensorTrain.from_t3(x0, N=10, n=3, r=3))
+                else:
+                    xs = x0.data
+                runs = {'trust region': dict(step_control='trust_region'),
+                        'line search': dict(step_control='line_search'),
+                        'accept': dict(step_control='line_search', c_armijo=10.0, on_line_search_failure='accept')}
+                for name, kw in runs.items():
+                    with self.subTest(layer=layer, geometry=geometry, run=name):
+                        seen = []
+                        f0 = float(fit.objective(xs))                       # the 2nd trial (row 1's first on a
+                        with _objective_stub_at(2, lambda f: f + 2.0 * f0 + 1.0):   # trust region): an ascent, rejected
+                            _, stats = fit.newton_cg(xs, max_newton=5, callback=seen.append, **kw)
+                        h = stats['history']
+                        self.assertEqual(h[0]['objective'], float(fit.objective(xs)))
+                        rejected = 0
+                        for row, nxt, info in zip(h, h[1:], seen):
+                            moved = row['tr_accepted'] if row['step_control'] == 'trust_region' else (
+                                not row['ls_failed'] or name == 'accept')
+                            rejected += not moved
+                            if moved:
+                                self.assertAlmostEqual(nxt['objective'], row['objective'] + row['delta_f'],
+                                                       delta=1e-15 * max(abs(nxt['objective']), abs(row['objective'])))
+                            else:
+                                self.assertEqual(nxt['objective'], row['objective'])
+                        for row, info in zip(h, seen):
+                            f, rho = opt._point_objective_parts(fit.geom, fit.oracle, fit.batch, info.x_cores,
+                                                                fit.regularizer)
+                            self.assertEqual((row['misfit'], row['regularization']), (float(f), float(rho)))
+                            self.assertEqual(row['objective'], row['misfit'] + row['regularization'])
+                        if name == 'trust region':
+                            self.assertGreaterEqual(rejected, 1)
+                        if name == 'accept':
+                            self.assertTrue(any(row['ls_failed'] for row in h[:-1]))
+                with self.subTest(layer=layer, geometry=geometry, run='gradient_descent'):
+                    _, stats = fit.gradient_descent(xs, n_iter=4, on_line_search_failure='accept')
+                    for k in range(4):
+                        xk, _ = fit.gradient_descent(xs, n_iter=k, on_line_search_failure='accept')
+                        self.assertEqual(stats['losses'][k], float(fit.objective(xk)))
+
+    def test_a_query_given_the_models_held_runs_no_plain_sweep(self):
+        """The review's structural test: at a frame with centers (every frame the library builds), a Gauss-Newton
+        model's gradient, gn_quadratic and hvp, given its held, run no plain sweep (xi, mu, nu, eta, z, r and the
+        frame's nu_L, eta_D): the build computed them and held them. Probe, apply and entries, ragged and uniform, on a
+        manifold frame and a corewise point. Without centers the probe kind's hvp recomputes its right sweep (the
+        documented cost of a start frame with none)."""
+        import t3toolbox.backend.uniform_fitting as uf
+        plain = {'xi', 'mu', 'nu', 'eta', 'z', 'r', 'nu_L', 'eta_D'}
+        x = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
+        ww = unit_vecs(20, SHAPE, self.rng)
+        index = np.stack([self.rng.integers(0, N, 20) for N in SHAPE])
+        Ad = self.A.to_dense()
+        data = {'probe': (ww, dense_probe(Ad, ww)), 'apply': (ww, dense_apply(Ad, ww)), 'entries': (index, Ad[tuple(index)])}
+        for layer in ('ragged', 'uniform'):
+            for geometry in ('manifold', 'corewise'):
+                for kind, (sample, y) in data.items():
+                    with self.subTest(layer=layer, geometry=geometry, kind=kind):
+                        geom = bgeo.ManifoldGeometryOps() if geometry == 'manifold' else bgeo.CorewiseGeometryOps()
+                        fit, xc = F.fit(geom, kind, sample, y), x.data
+                        if layer == 'uniform':
+                            fit, xc = F.uniform(fit, ut3.UniformTuckerTensorTrain.from_t3(x))
+                        lm = fit.local_model(xc)
+                        p = lm.gradient
+                        for name, call in (('gradient', lambda: lm.gradient), ('gn_quadratic', lambda: lm.gn_quadratic(p)),
+                                           ('hvp', lambda: lm.hvp(p))):
+                            ran = set(self._rules_run(call))
+                            self.assertTrue(ran, name)
+                            self.assertEqual(ran & plain, set(), name)
+        frame, _ = bgeo.ManifoldGeometryOps().frame(x.data)
+        lm = F.fit(bgeo.ManifoldGeometryOps(), 'probe', ww, data['probe'][1]).local_model(x.data, frame=frame)
+        self.assertEqual(lm.held.keys(), ('xi', 'mu', 'r'))
+        self.assertEqual(set(self._rules_run(lambda: lm.hvp(lm.gradient))) & plain, {'nu', 'eta'})
+
+    def test_the_models_f_is_point_objective_at_four_frames(self):
+        """The review's test: the model's f (read through the frame, its centers when it has them) equals
+        point_objective(x) (read through the point), at four kinds of frame: a corewise point; geom.frame(x) with its
+        centers; a given frame of x without centers; and a padded start's aligned frame with the zero-padded old
+        centers (D3). Each against the dense objective too."""
+        fit = self._probe_fit()
+        dense = lambda xc: 0.5 * sum(float(np.sum((z - y) ** 2)) for z, y in
+                                     zip(dense_probe(t3.TuckerTensorTrain(*xc).to_dense(), fit.batch.sample), fit.batch.y))
+        x = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
+        x_old = t3.TuckerTensorTrain.randn(SHAPE, (2, 2, 2), (1, 2, 2, 1))
+        x_pad = x_old.resize(SHAPE, TUCKER, TT).data
+        frame, centers, _ = fit.padded_start(x_pad, x_old.data, max_passes=2)
+        cases = [('corewise point', fit.with_(geom=bgeo.CorewiseGeometryOps()), x.data, {}),
+                 ('frame(x) with centers', fit, x.data, {}),
+                 ('a given frame, no centers', fit, x.data, dict(frame=bgeo.ManifoldGeometryOps().frame(x.data)[0])),
+                 ('padded start, its centers', fit, x_pad, dict(frame=frame, centers=centers))]
+        for name, f_, xc, kw in cases:
+            with self.subTest(case=name):
+                lm = f_.local_model(xc, **kw)
+                self.assertEqual(lm.centers is None, name in ('corewise point', 'a given frame, no centers'))
+                self.assertAlmostEqual(float(lm.f), float(f_.objective(xc)), delta=1e-11 * float(lm.f))
+                self.assertAlmostEqual(float(lm.f), dense(xc), delta=1e-11 * float(lm.f))
+
+    def test_point_data_reads_garbage_padding_as_nothing(self):
+        """D1: the uniform geometries' point_data is the point's .data with the geometry's own shape and POINT masks, so
+        point_objective at a bare supercore pair with garbage in its padding is the ragged objective (the dense one),
+        on both uniform geometries and every kind; ragged point_data is the cores themselves."""
+        import t3toolbox.backend.ut3_masking as ut3mask
+        x = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x, N=10, n=4, r=4)                    # forced padding on every axis
+        tk, tt, shape, masks = ux.data
+        ones = ut3mask.ut3_apply_masks((np.ones_like(tk), np.ones_like(tt), shape, masks))
+        dirty = (tk + 1e3 * (1.0 - ones[0]), tt + 1e3 * (1.0 - ones[1]))
+        ww = unit_vecs(20, SHAPE, self.rng)
+        index = np.stack([self.rng.integers(0, N, 20) for N in SHAPE])
+        Ad, X = self.A.to_dense(), x.to_dense()
+        cases = {'probe': (ww, dense_probe(Ad, ww), dense_probe(X, ww)),
+                 'apply': (ww, dense_apply(Ad, ww), dense_apply(X, ww)),
+                 'entries': (index, Ad[tuple(index)], X[tuple(index)])}
+        for geometry, cls in (('manifold', bgeo.UniformManifoldGeometryOps), ('corewise', bgeo.UniformCorewiseGeometryOps)):
+            geom = cls.from_point(ux.data)
+            point = geom.point_data(dirty)
+            self.assertTrue(point[0] is dirty[0] and point[1] is dirty[1] and tuple(point[2]) == tuple(shape))
+            self.assertTrue(all(np.array_equal(a, b) for a, b in zip(point[3], geom.masks)))
+            for kind, (sample, y, z) in cases.items():
+                with self.subTest(geometry=geometry, kind=kind):
+                    fit, _ = F.uniform(F.fit(bgeo.ManifoldGeometryOps(), kind, sample, y), ux)
+                    fit = fit.with_(geom=geom)
+                    truth = 0.5 * sum(float(np.sum((a - b) ** 2)) for a, b in zip(z, y)) if kind == 'probe' \
+                        else 0.5 * float(np.sum((z - y) ** 2))
+                    self.assertAlmostEqual(float(fit.objective(dirty)), truth, delta=1e-11 * truth)
+        self.assertIs(bgeo.ManifoldGeometryOps().point_data(x.data), x.data)
+        self.assertIs(bgeo.CorewiseGeometryOps().point_data(x.data), x.data)
+        self.assertIs(bgeo.CorewiseGeometryOps().frame(x.data)[0][1][0], x.data[1][0])
+
+    # ---- the floor -------------------------------------------------------------------------------------------------
+    def test_the_floor_reads_eps_off_f(self):
+        """D8: the trust region's floor is the oracle's f_resolution plus eps |rho| (the 2026.5.0 floor
+        eps (|wy| |wr| + |misfit + rho|), by hand), eps read off the dtype of the model's f: float32 data give a float32
+        f and eps; an oracle without f_resolution gets eps (|f| + |rho|)."""
+        reg = opt.IdentityRegularizer(0.2)
+        for dtype in (np.float64, np.float32):
+            with self.subTest(dtype=dtype.__name__):
+                ww = [w.astype(dtype) for w in unit_vecs(40, SHAPE, self.rng)]
+                y = [a.astype(dtype) for a in dense_probe(self.A.to_dense(), ww)]
+                fit = F.fit(bgeo.ManifoldGeometryOps(), 'probe', ww, y, regularizer=reg)
+                x = tuple(tuple(c.astype(dtype) for c in cs) for cs in t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).data)
+                lm = fit.local_model(x)
+                eps = float(np.finfo(dtype).eps)
+                self.assertEqual(np.dtype(lm.f.dtype), np.dtype(dtype))
+                self.assertEqual(opt._resolution_eps(lm.f), eps)
+                rho = float(lm.regularization)
+                r = np.concatenate([np.ravel(np.asarray(a, dtype=np.float64)) for a in lm.residual])
+                wy = math.sqrt(sum(float(np.sum(np.asarray(a, dtype=np.float64) ** 2)) for a in y))
+                by_hand = eps * (wy * math.sqrt(float(r @ r)) + abs(float(lm.f) + rho))
+                self.assertAlmostEqual(opt._objective_resolution(lm, rho), by_hand, delta=1e-5 * by_hand)
+                bare = fit.with_(oracle=_NoResolutionOracle('probe', ()))
+                lm_bare = bare.local_model(x)
+                self.assertAlmostEqual(opt._objective_resolution(lm_bare, rho), eps * (abs(float(lm_bare.f)) + rho),
+                                       delta=1e-6 * eps * (abs(float(lm_bare.f)) + rho))
+                self.assertAlmostEqual(opt._objective_resolution(lm_bare, None), eps * abs(float(lm_bare.f)),
+                                       delta=1e-6 * eps * abs(float(lm_bare.f)))
+
+    # ---- what an oracle must supply --------------------------------------------------------------------------------
+    def test_optional_outputs_are_checked_where_needed(self):
+        """Structural, before any work: mc_sgd and adam without a draw need an oracle with take and n_measurements; the
+        exact mode needs Kp; jacobian needs Jp and residual needs r. With a draw, an oracle without take runs."""
+        fit = self._probe_fit()
+        x0 = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).data
+        bare = fit.with_(oracle=_BareOracle('probe', ()))
+        for name, call in (('mc_sgd', lambda: bare.mc_sgd(x0, np.random.default_rng(0), 10, max_iter=1)),
+                           ('adam', lambda: bare.adam(x0, np.random.default_rng(0), 10, max_iter=1))):
+            with self.subTest(optimizer=name):
+                with unittest.mock.patch.object(opt, '_prepare_jit_inputs', wraps=opt._prepare_jit_inputs) as work:
+                    with self.assertRaisesRegex(ValueError, "_BareOracle has no take"):
+                        call()
+                work.assert_not_called()
+        draw = lambda rng: fit.oracle.take(fit.batch, rng.choice(60, size=10, replace=False))
+        x, _ = bare.mc_sgd(x0, np.random.default_rng(0), 10, draw=draw, max_iter=2)
+        self.assertEqual(len(x[0]), 3)
+        lm = bare.local_model(x0)
+        for who, call, name in (('jacobian', lambda: lm.jacobian(lm.gradient), 'Jp'), ('residual', lambda: lm.residual, 'r')):
+            with self.subTest(member=who):
+                with self.assertRaisesRegex(ValueError, "_BareOracle does not supply %r" % name):
+                    call()
+        with self.assertRaisesRegex(ValueError, "does not supply 'Kp'"):
+            bare.local_model(x0, hessian='exact')
+
+
+@dc.dataclass(frozen=True, eq=False)
+class _NoResolutionOracle(LeastSquaresOracle):
+    """An oracle without f_resolution: the floor falls back to eps |f|."""
+    optional_outputs = ('Kp', 'Jp', 'r', 'r_block_sumsq', 'y_block_sumsq')
+
+
+@dc.dataclass(frozen=True, eq=False)
+class _BareOracle(LeastSquaresOracle):
+    """An oracle with the four required outputs only, and no draw (take, n_measurements hidden)."""
+    optional_outputs = ()
+    take = None
+    n_measurements = None
 
 
 class TestStackedPointIsRejected(unittest.TestCase):
@@ -1198,61 +1646,53 @@ class TestStackedPointIsRejected(unittest.TestCase):
         self.rng = np.random.default_rng(0)
         self.A = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT, stack_shape=(3,))
         self.ww = unit_vecs(20, SHAPE, self.rng)
-        self.data = self.A.apply(self.ww)
+        self.data = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).apply(self.ww)   # y is W: it broadcasts over C
         self.reg = opt.IdentityRegularizer(0.5)
 
     def test_every_optimizer_rejects_a_stacked_point(self):
         """All four, unregularized -- the limitation is the scalar reduction, not the regularizer."""
-        problem = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.APPLY, self.ww, self.data)
+        problem = F.fit(bgeo.ManifoldGeometryOps(), 'apply', self.ww, self.data)
         x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT, stack_shape=(3,)).data
         rng = np.random.default_rng(0)
-        for name, call in (('gradient_descent', lambda: opt.gradient_descent(problem, x0, n_iter=2)),
-                           ('newton_cg', lambda: opt.newton_cg(problem, x0, max_newton=2)),
-                           ('mc_sgd', lambda: opt.mc_sgd(problem, x0, rng, 8, max_iter=2)),
-                           ('adam', lambda: opt.adam(problem, x0, rng, 8, max_iter=2))):
+        for name, call in (('gradient_descent', lambda: problem.gradient_descent(x0, n_iter=2)),
+                           ('newton_cg', lambda: problem.newton_cg(x0, max_newton=2)),
+                           ('mc_sgd', lambda: problem.mc_sgd(x0, rng, 8, max_iter=2)),
+                           ('adam', lambda: problem.adam(x0, rng, 8, max_iter=2))):
             with self.subTest(optimizer=name):
                 with self.assertRaises(NotImplementedError):
                     call()
 
     def test_a_stacked_local_model_still_works(self):
-        """The supported stacked path: build the model, drive your own loop. Its objective keeps C."""
-        problem = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.APPLY, self.ww, self.data)
+        """The supported stacked path: build the model, drive your own loop. Its objective keeps C, and each
+        element's is the element's own model's (a size-1 axis or a sum over C would not give that)."""
+        problem = F.fit(bgeo.ManifoldGeometryOps(), 'apply', self.ww, self.data)
         lm = problem.local_model(self.A.data)
         self.assertEqual(np.shape(lm.objective), (3,))
         self.assertEqual(np.shape(problem.objective(self.A.data)), (3,))
+        for k, element in enumerate(self.A.unstack()):
+            with self.subTest(element=k):
+                self.assertAlmostEqual(float(lm.objective[k]), float(problem.local_model(element.data).objective),
+                                       delta=1e-12 * float(lm.objective[k]))
+        g = lm.gradient
+        self.assertEqual(np.shape(problem.geom.inner(g, g)), (3,))
+        self.assertEqual(np.shape(lm.gn_quadratic(g)), (3,))
 
     def test_backend_problem_raises_on_a_stacked_point(self):
-        problem = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.APPLY,
-                                            self.ww, self.data, regularizer=self.reg)
+        problem = F.fit(bgeo.ManifoldGeometryOps(), 'apply', self.ww, self.data, regularizer=self.reg)
         for label, call in (('local_model', lambda: problem.local_model(self.A.data)),
                             ('objective', lambda: problem.objective(self.A.data)),
-                            ('newton_cg', lambda: opt.newton_cg(problem, self.A.data, max_newton=1))):
+                            ('newton_cg', lambda: problem.newton_cg(self.A.data, max_newton=1))):
             with self.subTest(entry=label):
                 with self.assertRaises(NotImplementedError):
                     call()
-
-    def test_frontend_model_raises_on_a_stacked_point(self):
-        """The reachable path: the optimizers already cannot fit a stacked point (their outer loop casts
-        the objective with float()), so the roll-your-own model is where this bug could actually bite."""
-        residual = np.zeros_like(np.asarray(self.data))
-        with self.assertRaises(NotImplementedError):
-            fitting.apply_model(t3m.MANIFOLD, self.A, self.ww, residual, regularizer=self.reg)
 
     def test_unstacked_regularized_is_unaffected(self):
         B = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
         data = B.apply(self.ww)
         x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT)
-        problem = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.APPLY,
-                                            self.ww, data, regularizer=self.reg)
-        _x, stats = opt.newton_cg(problem, x0.data, max_newton=4)
+        problem = F.fit(bgeo.ManifoldGeometryOps(), 'apply', self.ww, data, regularizer=self.reg)
+        _x, stats = problem.newton_cg(x0.data, max_newton=4)
         self.assertLess(stats['losses'][-1], stats['losses'][0])
-
-    def test_stacked_without_a_regularizer_still_builds_its_model(self):
-        """The guard is about the regularizer only -- an unregularized stacked model is untouched, and
-        its objective keeps the stack."""
-        residual = np.zeros_like(np.asarray(self.data))
-        model = fitting.apply_model(t3m.MANIFOLD, self.A, self.ww, residual)
-        self.assertEqual(np.shape(model.objective_value), (3,))
 
 
 
@@ -1268,31 +1708,27 @@ class TestWeightCombinations(unittest.TestCase):
         self.rng = np.random.default_rng(0)
 
     def test_weighted_stacked_model_matches_the_per_element_models(self):
-        """A weighted model on a stacked point must equal the per-element weighted models, elementwise.
-        `_make_weight` places ω by axis, and a frame stack shifts those axes."""
+        """A weighted model on a stacked point must equal the per-element weighted models, elementwise: the weight
+        has exactly the shape (d,) + F, and a frame stack C must not shift where it applies. The data come from one
+        other tensor (y broadcasts over C), so each element's objective is far from zero."""
         import t3toolbox.backend.stacking as stacking
         K = 3
         ww = unit_vecs(20, SHAPE, self.rng)
-        omega = np.linspace(0.5, 1.5, len(SHAPE))                     # per-mode ω for the probe kind
-        kind = bfit.probe_kind(omega)
+        omega = np.linspace(0.5, 1.5, len(SHAPE))                     # per-mode ω for the probe kind: (d,)
         elements = [t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT) for _ in range(K)]
         stacked = t3.TuckerTensorTrain(*stacking.stack(tuple(e.data for e in elements), axes=(0,)))
-
-        # data from DIFFERENT tensors than the evaluation point, so the objective is far from zero --
-        # evaluating a model at its own solution gives ~1e-16 on both sides and compares nothing.
-        targets = [t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT) for _ in range(K)]
-        data_el = [dense_probe(t.to_dense(), ww) for t in targets]
-        stacked_data = [np.stack([d[i] for d in data_el], axis=-2) for i in range(len(SHAPE))]
+        data = dense_probe(t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).to_dense(), ww)
 
         geom = bgeo.ManifoldGeometryOps()
-        stacked_obj = np.asarray(opt.least_squares_problem(geom, kind, ww, stacked_data)
-                                 .local_model(stacked.data).objective)
+        stacked_obj = np.asarray(F.fit(geom, 'probe', ww, data, weight=omega).local_model(stacked.data).objective)
         self.assertEqual(stacked_obj.shape, (K,))
         self.assertGreater(float(np.min(stacked_obj)), 1.0, 'objective must be far from zero to compare')
         for i, element in enumerate(elements):
             with self.subTest(element=i):
-                lone = opt.least_squares_problem(geom, kind, ww, data_el[i]).local_model(element.data)
-                self.assertAlmostEqual(float(stacked_obj[i]) / float(lone.objective), 1.0, places=10)
+                X = element.to_dense()
+                truth = 0.5 * sum(float(np.sum((omega[m] * (z - y)) ** 2))
+                                  for m, (z, y) in enumerate(zip(dense_probe(X, ww), data)))
+                self.assertAlmostEqual(float(stacked_obj[i]) / truth, 1.0, places=10)
 
     def test_weighted_and_regularized_objective_splits_exactly(self):
         """A residual weight and a regularizer together: `objective == misfit + regularization` exactly,
@@ -1307,9 +1743,9 @@ class TestWeightCombinations(unittest.TestCase):
 
         for name, geom in (('manifold', bgeo.ManifoldGeometryOps()), ('corewise', bgeo.CorewiseGeometryOps())):
             with self.subTest(geometry=name):
-                problem = opt.least_squares_problem(
-                    geom, bfit.probe_derivatives_kind(order, omega), (ww, pp), data, regularizer=reg)
-                lm = problem.local_model(A.data)
+                problem = F.derivative_fit(geom, 'probe', order, ww, pp, data, regularizer=reg, weight=omega)
+                lm = problem.local_model(t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).data)   # far from A: f > 0
+                self.assertGreater(float(lm.misfit), 1.0)
                 self.assertAlmostEqual(float(lm.objective),
                                        float(lm.misfit) + float(lm.regularization), places=10)
                 np.random.seed(2)
@@ -1318,28 +1754,6 @@ class TestWeightCombinations(unittest.TestCase):
                 self.assertAlmostEqual(
                     float(reg.quadratic(geom, lm.frame, p)),
                     lam * float(geom.inner(projected, projected)), places=10)
-
-    def test_chunk_size_does_not_change_the_gradient(self):
-        """`chunk_size` is the default ('auto') on every frontend optimizer but was never exercised above
-        the primitive layer. Every setting must give the same gradient."""
-        order = 2
-        ww = unit_vecs(24, SHAPE, self.rng)
-        pp = [self.rng.standard_normal((24, n)) for n in SHAPE]
-        A = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
-        data = [np.asarray(z) for z in dd.forward(A, 'probe', ww, pp, order)]
-        x0 = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).data
-
-        def gradient_at(chunk_size):
-            kind = bfit.probe_derivatives_kind(order, None, chunk_size)
-            lm = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), kind, (ww, pp), data).local_model(x0)
-            return lm.gradient
-
-        reference = gradient_at(None)
-        for chunk_size in (1, 3, 7, 100):
-            with self.subTest(chunk_size=chunk_size):
-                got = gradient_at(chunk_size)
-                self.assertLess(float(cw.corewise_norm(cw.corewise_sub(got, reference)))
-                                / float(cw.corewise_norm(reference)), 1e-12)
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -1351,7 +1765,7 @@ _HISTORY_FIELDS_2026_4 = (                       # _NEWTON_SCALAR_FIELDS before 
     'pHp', 'delta_f', 'rho', 'step_rel', 'wall_time', 'g0_reference', 'cg_reference', 'step_control', 'stop_reason',
     'hessian', 'tr_radius', 'tr_accepted', 'cg_boundary', 'pKp', 'lift_sigma_min', 'lift_eps')
 _PHASES = tuple(f.name for f in dc.fields(opt.PhaseSeconds))
-_MODEL_PHASES = ('frame', 'sweep', 'companion', 'residual', 'curvature', 'gradient')
+_MODEL_PHASES = ('frame', 'oracle', 'companion', 'curvature', 'gradient')
 _STEP_PHASES = ('cg', 'forms', 'trial_retraction', 'trial_objective')
 _ONE_OFFS = ('setup', 'setup_compile', 'alignment', 'alignment_compile', 'alignment_passes', 'reference_passes')
 
@@ -1379,12 +1793,13 @@ def untimed(run):
     return canonical((x, stats))
 
 
-def check_timing(test, stats, seen, compiled=False, override=False, switch=False):
+def check_timing(test, stats, seen, compiled=False, switch=False):
     """T2 + T4 on one timed run: ``stats`` its stats, ``seen`` the NewtonInfo rows its callback received. The rows
     tile their windows (and the run); each phase is None exactly where it did not run; the one-offs sit on row 0;
     stats['timing'] is the rows' sums and records. ``compiled``: a compile listener ran (else every compile field is
-    None). ``override``: an overridden Problem.local_model, timed whole in frame. ``switch``: a hessian='switch' run (its
-    builds are exact-mode; the tracked rows lap the tracking product)."""
+    None). ``switch``: a hessian='switch' run (its builds are exact-mode; the tracked rows lap the tracking
+    product). (The build is always the library's: a Problem whose local_model a subclass overrode, timed whole, went
+    with Problem in P16; the extension point is the oracle, whose query is the build's 'oracle' lap.)"""
     T = stats['timing']
     test.assertEqual(list(T), ['total', 'setup', 'alignment', 'alignment_passes', 'reference_passes', 'last_callback',
                                'phases', 'compile', 'cg_per_iteration', 'rows'])
@@ -1407,9 +1822,9 @@ def check_timing(test, stats, seen, compiled=False, override=False, switch=False
             test.assertTrue(ran['remainder'])
             test.assertEqual(ran['frame'], not reused)
             test.assertEqual(ran['gradient'], not reused)
-            for name in ('sweep', 'companion', 'residual'):
-                test.assertEqual(ran[name], not reused and not override)
-            test.assertEqual(ran['curvature'], not reused and not override and (info.hessian == 'exact' or switch))
+            for name in ('oracle', 'companion'):
+                test.assertEqual(ran[name], not reused)
+            test.assertEqual(ran['curvature'], not reused and (info.hessian == 'exact' or switch))
             for name in _STEP_PHASES:
                 test.assertEqual(ran[name], not info.converged)
             if info.converged:
@@ -1462,16 +1877,6 @@ def check_timing(test, stats, seen, compiled=False, override=False, switch=False
         test.assertIsNone(T['cg_per_iteration'])
 
 
-@dc.dataclass(frozen=True)
-class _ScaledModelProblem(opt.Problem):
-    """A Problem whose ``local_model`` is overridden (a supported pattern: subclassing ``Problem``): its model sees 0.9
-    of the residual, so its runs differ from the stock build's -- timing must call it, never the stock split."""
-
-    def local_model(self, x_cores, sample=None, data=None, hessian='gauss_newton', curvature_damping=None, frame=None):
-        lm = super().local_model(x_cores, sample, data, hessian, curvature_damping, frame)
-        return dc.replace(lm, residual=cw.corewise_scale(lm.residual, 0.9))
-
-
 class TestNewtonTiming(unittest.TestCase):
     """The Newton timing plan's T1-T5 on numpy."""
 
@@ -1489,7 +1894,7 @@ class TestNewtonTiming(unittest.TestCase):
     @staticmethod
     def newton(problem, x0, **kw):
         seen = []
-        out = opt.newton_cg(problem, x0, callback=seen.append, **kw)
+        out = problem.newton_cg(x0, callback=seen.append, **kw)
         return out, seen
 
     def test_off_is_today(self):
@@ -1530,32 +1935,35 @@ class TestNewtonTiming(unittest.TestCase):
         self.assertEqual(stats['timing']['phases'], dict.fromkeys(_PHASES, 0.0))
 
     def test_timing_changes_no_number(self):
-        """T3: x and stats bitwise on vs off (stats['timing'] and wall_time aside); and an overriding Problem
-        subclass runs its own build under both (on == off, and different from the stock build), timed whole in
-        frame."""
+        """T3: x and stats bitwise on vs off (stats['timing'] and wall_time aside), the stock oracle and a user
+        oracle (whose query the build's 'oracle' lap times)."""
         problem, x0 = _pd_problem(0), _rank2_start()
         for name, (_, kw) in self.CASES.items():
             with self.subTest(case=name):
-                self.assertEqual(untimed(opt.newton_cg(problem, x0, timing=True, **kw)),
-                                 untimed(opt.newton_cg(problem, x0, **kw)))
-        scaled = _ScaledModelProblem(problem.geom, problem.kind, problem.sample, problem.data)
-        off = opt.newton_cg(scaled, x0, max_newton=4)
-        (on, seen) = self.newton(scaled, x0, max_newton=4, timing=True)
+                self.assertEqual(untimed(problem.newton_cg(x0, timing=True, **kw)),
+                                 untimed(problem.newton_cg(x0, **kw)))
+        user = _offset(problem, 0.0)                                       # a user oracle, here a no-op one
+        off = user.newton_cg(x0, max_newton=4)
+        (on, seen) = self.newton(user, x0, max_newton=4, timing=True)
         self.assertEqual(untimed(on), untimed(off))
-        self.assertNotEqual(untimed(off), untimed(opt.newton_cg(problem, x0, max_newton=4)))
-        check_timing(self, on[1], seen, override=True)
+        self.assertEqual(untimed(off), untimed(problem.newton_cg(x0, max_newton=4)))
+        check_timing(self, on[1], seen)
 
     def test_each_phase_is_its_own_work(self):
         """Every phase carries exactly its own work: the run's calls of the parts each phase names, and the clock's
         marks, laps and closes, are recorded in order, and each call is attributed to the lap that ends after it (or
         to the remainder, when a mark or a close comes first). Exact + trust region (a rejected trial, the zero
-        reference), Gauss-Newton + line search, and an overridden local_model. (Two library-wide helpers are traced
-        too, so the remainder's own work is pinned: ``‖x‖`` and ``-g`` before CG.)"""
-        geom_cls, kind_cls = bgeo.ManifoldGeometryOps, bfit.ProbeDerivativesKind
-        traced = {'geom.frame': (geom_cls, 'frame'), 'kind.precompute': (kind_cls, 'precompute'),
-                  'geom.precompute': (geom_cls, 'precompute'), 'kind.point_forward': (kind_cls, 'point_forward'),
+        reference), Gauss-Newton + line search. Every value goes through the oracle's one operation, so its query is
+        traced as one part, with where each query happens: the build (``oracle``), the gradient, the reference, CG,
+        the forms, the trial and the start's scored value (``point_objective``'s terms; the start's in the reference
+        lap, D9) and, on a rejection, the floor's ``f_resolution`` (the remainder).
+        (Two library-wide helpers are traced too, so the remainder's own work is pinned: ``‖x‖`` and ``-g`` before
+        CG.)"""
+        geom_cls = bgeo.ManifoldGeometryOps
+        traced = {'geom.frame': (geom_cls, 'frame'), 'oracle.query': (LeastSquaresOracle, 'query'),
+                  'geom.precompute': (geom_cls, 'precompute'), 'point_objective': (opt, '_point_objective_parts'),
                   'geom.curvature_precompute': (geom_cls, 'curvature_precompute'),
-                  'kind.transpose': (kind_cls, 'transpose'), 'kind.corewise_hessian': (kind_cls, 'corewise_hessian'),
+                  '_objective_resolution': (opt, '_objective_resolution'),
                   'geom.retract': (geom_cls, 'retract'), '_lift_diagnostics': (opt, '_lift_diagnostics'),
                   '_resolve_g0_reference': (opt, '_resolve_g0_reference'), '_cg_solve': (opt, '_cg_solve'),
                   '_initial_radius': (opt, '_initial_radius'),
@@ -1593,36 +2001,31 @@ class TestNewtonTiming(unittest.TestCase):
                     stack.enter_context(unittest.mock.patch.object(
                         opt._PhaseClock, method, wrap_clock(method, getattr(opt._PhaseClock, method))))
                 seen = []
-                opt.newton_cg(problem, _rank2_start(), timing=True,
+                problem.newton_cg(_rank2_start(), timing=True,
                               callback=lambda info: (events.append(('call', 'callback')), seen.append(info)), **kw)
             return attribute(events), seen
 
         problem = _pd_problem(0)
-        common = {'geom.frame': {'frame'}, 'kind.precompute': {'sweep', 'reference'},
-                  'geom.precompute': {'companion', 'reference'},
-                  'kind.point_forward': {'residual', 'reference', 'trial_objective'},
-                  'kind.transpose': {'gradient', 'reference', 'cg'}, 'geom.retract': {'trial_retraction'},
+        common = {'geom.frame': {'frame'},
+                  'oracle.query': {'oracle', 'gradient', 'reference', 'cg', 'forms', 'trial_objective'},
+                  'geom.precompute': {'companion', 'reference'}, 'point_objective': {'reference', 'trial_objective'},
+                  'geom.retract': {'trial_retraction'},
                   '_lift_diagnostics': {'gradient'}, '_resolve_g0_reference': {'reference'}, '_cg_solve': {'cg'},
                   'callback': {'previous_callback', 'remainder'},
                   'cw.corewise_norm': {'remainder'},                                  # ‖x‖
-                  'cw.corewise_scale': {'remainder', 'reference', 'cg', 'trial_retraction'}}   # -g; CG; α p
+                  'cw.corewise_scale': {'remainder', 'cg', 'trial_retraction'}}       # -g; CG; α p
         with self.subTest(case='exact, trust region'):
             phases, seen = traced_run(problem, max_newton=4, hessian='exact')        # the default radius: forms
             self.assertTrue(any(i.tr_accepted is False for i in seen) and any(i.tr_accepted for i in seen))
             self.assertEqual(phases, dict(common, **{'geom.curvature_precompute': {'curvature'},
-                                                     'kind.corewise_hessian': {'cg', 'forms'},
+                                                     'oracle.query': {'oracle', 'reference', 'cg', 'forms',
+                                                                      'trial_objective', 'remainder'},
+                                                     '_objective_resolution': {'remainder'},
                                                      '_initial_radius': {'forms'},
-                                                     'cw.corewise_scale': {'remainder', 'reference', 'cg'}}))  # p, α = 1
+                                                     'cw.corewise_scale': {'remainder', 'cg'}}))  # p, α = 1
         with self.subTest(case='Gauss-Newton, line search'):
             phases, _ = traced_run(problem, max_newton=3)
             self.assertEqual(phases, common)
-        with self.subTest(case='an overridden local_model'):
-            scaled = _ScaledModelProblem(problem.geom, problem.kind, problem.sample, problem.data)
-            phases, _ = traced_run(scaled, max_newton=3)
-            self.assertEqual(phases, dict(common, **{'kind.precompute': {'frame', 'reference'},
-                                                     'geom.precompute': {'frame', 'reference'},
-                                                     'kind.point_forward': {'frame', 'reference', 'trial_objective'},
-                                                     'cw.corewise_scale': common['cw.corewise_scale'] | {'frame'}}))
 
     WAIT = 0.03                                     # seconds: every mocked wait sleeps this long
 
@@ -1649,7 +2052,7 @@ class TestNewtonTiming(unittest.TestCase):
         with unittest.mock.patch.object(opt, 'tree_block_until_ready', side_effect=sleeping_wait), \
                 unittest.mock.patch.object(opt._PhaseClock, 'lap', recording_lap), \
                 unittest.mock.patch.object(opt._PhaseClock, 'close', recording_close):
-            _, stats = opt.newton_cg(problem, x0, timing=True, callback=seen.append, **kw)
+            _, stats = problem.newton_cg(x0, timing=True, callback=seen.append, **kw)
         self.assertEqual(stretches[len(seen) + 1:], [[], []])               # nothing waits after the last row
         return stats, seen, stretches
 
@@ -1671,14 +2074,14 @@ class TestNewtonTiming(unittest.TestCase):
 
     def test_each_phase_waits_on_its_outputs(self):
         """With timing, every lap first waits on its own outputs (common.tree_block_until_ready), inside the lap: the
-        start point and problem once at entry; by identity, the model's frame, sweep, companion, residual, misfit
-        gradient and curvature data (an override's whole model); CG's five outputs, the step and each trial's point;
-        the alignment's frame and movements; the laps ending in a float wait on nothing. Exact + trust region (two
-        rows, the first a rejected trial, so the second reuses its model), Gauss-Newton + line search, a padded start
-        and an overridden local_model. Without timing nothing is waited on."""
+        start point and batch once at entry; by identity, the model's frame with its centers, the build query's f and
+        held, the companion, the misfit gradient and the curvature data; CG's five outputs, the step and each trial's
+        point; the alignment's frame, centers and movements; the laps ending in a float wait on nothing. Exact + trust
+        region (two rows, the first a rejected trial, so the second reuses its model), Gauss-Newton + line search and a
+        padded start. Without timing nothing is waited on."""
         problem, x0 = _pd_problem(0), _rank2_start()
         with unittest.mock.patch.object(opt, 'tree_block_until_ready') as sync:
-            opt.newton_cg(problem, x0, max_newton=2, hessian='exact')
+            problem.newton_cg(x0, max_newton=2, hessian='exact')
         sync.assert_not_called()
         with self.subTest(case='exact, trust region'):
             _, seen, stretches = self.waited_run(problem, x0, max_newton=2, hessian='exact')
@@ -1686,15 +2089,16 @@ class TestNewtonTiming(unittest.TestCase):
             self.assertIs(seen[0].tr_accepted, False)                       # so row 1 reuses row 0's model
             lm = seen[0].lm
             (setup_phase, setup), = stretches[0]
-            self.assertTrue(setup[0] is x0 and setup[1] is problem)
+            self.assertTrue(setup[0] is x0 and setup[1] is problem.batch)
             row0, row1 = ([tree for _, tree in waits] for waits in stretches[1:3])
             self.assertEqual([name for name, _ in stretches[1]],
-                             ['frame', 'sweep', 'companion', 'residual', 'gradient', 'curvature', 'gradient',
+                             ['frame', 'oracle', 'companion', 'gradient', 'curvature', 'gradient',
                               'reference', 'forms', 'cg', 'forms', 'trial_retraction', 'trial_objective'])
-            for got, want in zip(row0, (lm.frame, lm.sweep, lm.geom_aux, lm.residual, lm.curvature.misfit_gradient,
-                                        lm.curvature)):
+            self.assertTrue(row0[0][0] is lm.frame and row0[0][1] is lm.centers)
+            self.assertTrue(row0[1][0] is lm.f and row0[1][1] is lm.held)
+            for got, want in zip(row0[2:5], (lm.geom_aux, lm.curvature.misfit_gradient, lm.curvature)):
                 self.assertIs(got, want)
-            gradient, reference, radius, cg, forms, retraction, objective = row0[6:]
+            gradient, reference, radius, cg, forms, retraction, objective = row0[5:]
             self.assertEqual((gradient, reference, radius, objective), (None, None, None, None))
             self.assertEqual((len(cg), len(forms), len(retraction), len(retraction[0])), (5, 2, 2, len(x0[0])))
             self.assertEqual([name for name, _ in stretches[2]],
@@ -1717,30 +2121,10 @@ class TestNewtonTiming(unittest.TestCase):
                                                      padded_max_passes=2)
             self.check_waits_inside_laps(seen, stretches)
             self.assertEqual([name for name, _ in stretches[0]], [None, 'alignment'])
-            frame, movements = stretches[0][1][1]
+            frame, centers, movements = stretches[0][1][1]
             self.assertIs(frame, seen[0].lm.frame)                          # the start frame the model is built at
+            self.assertIs(centers, seen[0].lm.centers)                      # ... with the padded centers (D3)
             self.assertEqual(len(movements), len(stats['start_movements']))
-        with self.subTest(case='an overridden local_model'):
-            scaled = _ScaledModelProblem(problem.geom, problem.kind, problem.sample, problem.data)
-            _, seen, stretches = self.waited_run(scaled, x0, max_newton=2)
-            self.check_waits_inside_laps(seen, stretches)
-            self.assertEqual(stretches[1][0][0], 'frame')
-            self.assertIs(stretches[1][0][1], seen[0].lm)                   # the override's whole model
-
-    def test_a_patched_local_model_is_called_whole(self):
-        """The guard compares with the stock build captured at import, so a class-level patch of
-        Problem.local_model is honoured under timing too (called whole, its build in frame)."""
-        problem, x0 = _pd_problem(0), _rank2_start()
-        calls = []
-
-        def patched(self, *args, **kwargs):
-            calls.append(1)
-            return opt._STOCK_LOCAL_MODEL(self, *args, **kwargs)
-        with unittest.mock.patch.object(opt.Problem, 'local_model', patched):
-            seen = []
-            _, stats = opt.newton_cg(problem, x0, max_newton=2, timing=True, callback=seen.append)
-        self.assertEqual(len(calls), 2)
-        check_timing(self, stats, seen, override=True)
 
     def test_the_compile_listener_counts_three_events(self):
         """T5's listener: exactly jax's three compile events are summed (any other event, e.g. the persistent cache's
@@ -1789,23 +2173,24 @@ def shared_part(run):
 
 
 def _doc_problem():
-    """``newton_cg``'s docstring problem: probe derivatives of order 1 on (5, 5, 5), a rank-3 target with 1 % noise, its
-    rank-2 fit warm-started by five Gauss-Newton steps. Returns (problem, x0)."""
+    """``newton_cg``'s docstring problem: probes along lines (the jet shape (1,)) on (5, 5, 5), a rank-3 target with 1 %
+    noise, its rank-2 fit warm-started by five Gauss-Newton steps. Returns (problem, x0)."""
     np.random.seed(0)
     shape, rng = (5, 5, 5), np.random.default_rng(0)
     ww, pp = ([rng.standard_normal((40, n)) for n in shape] for _ in range(2))
-    kind = bfit.ProbeDerivativesKind(order=1)
-    target = t3.TuckerTensorTrain.randn(shape, (3, 3, 3), (1, 3, 3, 1)).data
-    data = [z + 0.01 * rng.standard_normal(z.shape) for z in kind.point_forward(target, (ww, pp))]
-    problem = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), kind, (ww, pp), data)
-    x0, _ = opt.newton_cg(problem, t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)).data, max_newton=5)
+    target = t3.TuckerTensorTrain.randn(shape, (3, 3, 3), (1, 3, 3, 1))
+    line = affine_jet(ww, pp)
+    y = [z + 0.01 * rng.standard_normal(z.shape) for z in target.probe(line, (1,))]
+    problem = F.fit(bgeo.ManifoldGeometryOps(), 'probe', line, y, order=(1,))
+    x0, _ = problem.newton_cg(t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)).data, max_newton=5)
     return problem, x0
 
 
 def _switch_case(layer, geometry, seed=11, regularizer=None):
-    """(problem, x0) through the frontend's problem constructor: a probe-derivative fit (order 1, 5 % noise) of a rank-3
-    target at rank 2, from a random start. ``layer``: 'ragged' | 'uniform'; ``geometry``: 'manifold' | 'corewise' |
-    'shared' (the shared manifold, groups (0, 1, 1, 0))."""
+    """(problem, x0): a probe-derivative fit (order 1, 5 % noise) of a rank-3 target at rank 2, from a random start.
+    ``layer``: 'ragged' | 'uniform'; ``geometry``: 'manifold' | 'corewise' | 'shared' (the shared manifold, groups
+    (0, 1, 1, 0)). The uniform start is reduced to minimal ranks (the shared notion when shared)."""
+    import t3toolbox.backend.uniform_fitting as uf
     sharing = (0, 1, 1, 0) if geometry == 'shared' else None
     shape = (4, 5, 5, 4) if sharing else (5, 5, 5)
     d = len(shape)
@@ -1819,14 +2204,13 @@ def _switch_case(layer, geometry, seed=11, regularizer=None):
     ww, pp = ([rng.standard_normal((30, n)) for n in shape] for _ in range(2))
     data = [z + 0.05 * np.linalg.norm(z) / math.sqrt(z.size) * rng.standard_normal(z.shape)
             for z in dd.forward(truth, 'probe', ww, pp, 1)]
-    manifold, corewise = (t3m.MANIFOLD, t3m.COREWISE) if layer == 'ragged' else (ut3m.UNIFORM_MANIFOLD,
-                                                                                   ut3m.UNIFORM_COREWISE)
-    G = {'manifold': manifold, 'corewise': corewise}[geometry] if sharing is None else sgm.shared(manifold, sharing)
-    if layer == 'uniform':
-        x0 = ut3.UniformTuckerTensorTrain.from_t3(x0)
-    setup = topt.least_squares_problem(G, 'probe_derivatives', (ww, pp), data, x0, order=1, chunk_size=None,
-                                       regularizer=regularizer)
-    return setup.problem, setup.x0_cores
+    geom = bgeo.CorewiseGeometryOps() if geometry == 'corewise' else bgeo.ManifoldGeometryOps()
+    if sharing:
+        geom = geom.with_sharing(sharing, shape)
+    fit = F.derivative_fit(geom, 'probe', 1, ww, pp, data, regularizer=regularizer)
+    if layer == 'ragged':
+        return fit, x0.data
+    return F.uniform(fit, uf.uniform_minimal(ut3.UniformTuckerTensorTrain.from_t3(x0), sharing), sharing)
 
 
 def _cg_stub_at(n, change):
@@ -1845,15 +2229,17 @@ _OVERSHOOT = lambda p, rhs: cw.corewise_scale(p, 4.0)          # four Newton ste
 
 
 def _objective_stub_at(n, change):
-    """Patch ``Problem.objective`` so that its ``n``-th call (1-based) returns ``change(f)`` in place of ``f``. Under the
-    trust region ``newton_cg`` calls it once per row, on the trial point, so the ``n``-th call is row ``n - 1``'s trial."""
-    real, calls = opt.Problem.objective, []
+    """Patch the scored objective (``point_objective``'s terms, what ``newton_cg`` compares) so that its ``n``-th TRIAL
+    (1-based; the start's one value is not a trial) has its misfit ``change(f)`` in place of ``f``. Under the trust
+    region ``newton_cg`` scores one trial per row, so the ``n``-th trial is row ``n - 1``'s. A changed value is the
+    trial's on either side of the comparison: carried if the trial is accepted, dropped if it is rejected (D9)."""
+    real, calls = opt._point_objective_parts, []
 
-    def stub(self, x_cores, sample=None, data=None):
+    def stub(*args, **kwargs):
         calls.append(1)
-        f = real(self, x_cores, sample, data)
-        return change(f) if len(calls) == n else f
-    return unittest.mock.patch.object(opt.Problem, 'objective', stub)
+        f, rho = real(*args, **kwargs)
+        return (change(f), rho) if len(calls) == n + 1 else (f, rho)
+    return unittest.mock.patch.object(opt, '_point_objective_parts', stub)
 
 
 def _untied_radius(problem, x0):
@@ -1867,9 +2253,10 @@ def _untied_radius(problem, x0):
     return 0.5 * opt._initial_radius(lm, g, float(problem.geom.inner(g, g)) ** 0.5)
 
 
-class _NoTwoHoleKind(bfit.ProbeDerivativesKind):
-    """A kind that re-declares the marked ``corewise_hessian`` stub: it works with Gauss-Newton only."""
-    corewise_hessian = bfit.SamplingKind.corewise_hessian
+@dc.dataclass(frozen=True, eq=False)
+class _NoKpOracle(LeastSquaresOracle):
+    """An oracle that does not supply ``Kp`` (it is not in its ``optional_outputs``): it works with Gauss-Newton only."""
+    optional_outputs = ('Jp', 'r', 'r_block_sumsq', 'y_block_sumsq', 'f_resolution')
 
 
 class TestSwitchNewton(unittest.TestCase):
@@ -1894,8 +2281,8 @@ class TestSwitchNewton(unittest.TestCase):
             for step_control in ('trust_region', 'line_search'):
                 with self.subTest(case=name, step_control=step_control):
                     kw = dict(max_newton=8, step_control=step_control, cg_forcing_power=0.7)
-                    gn = opt.newton_cg(problem, x0, **kw)
-                    sw = opt.newton_cg(problem, x0, hessian='switch', switch_tau=0.0, **kw)
+                    gn = problem.newton_cg(x0, **kw)
+                    sw = problem.newton_cg(x0, hessian='switch', switch_tau=0.0, **kw)
                     self.assertEqual(shared_part(sw), shared_part(gn))
                     stats, rows = sw[1], sw[1]['history']
                     self.assertEqual(list(stats), list(gn[1]) + list(_SWITCH_STATS))
@@ -1907,24 +2294,30 @@ class TestSwitchNewton(unittest.TestCase):
     def test_one_transpose_per_point(self):
         """A Gauss-Newton-phase point costs ONE misfit transpose and ONE geometry companion, as in either pure mode: the
         gradient is read from the exact build, not recomputed by the view, and the view shares the build's companion --
-        so a switch_tau=0 run makes exactly the Gauss-Newton run's transposes (CG's included) and companions (the shared
-        manifold's grouped frame data), on both step controls."""
-        spies = {'transpose': (bfit.ProbeDerivativesKind, 'transpose'),
-                 'companion': (bgeo.ManifoldGeometryOps, 'precompute')}
+        so a switch_tau=0 run makes exactly the Gauss-Newton run's transposes (the oracle queries wanting ``g`` or
+        ``JtJp``: the gradient's and CG's) and companions (the shared manifold's grouped frame data), on both step
+        controls. (The switch run's other queries are its tracking: ``Kp`` and the rounding gate's ``f_resolution``.)"""
         for geometry in ('manifold', 'shared'):
             problem, x0 = _switch_case('ragged', geometry)
             for step_control in ('trust_region', 'line_search'):
                 with self.subTest(geometry=geometry, step_control=step_control):
                     counts = []
                     for kw in (dict(), dict(hessian='switch', switch_tau=0.0)):
-                        with contextlib.ExitStack() as stack:
-                            calls = {name: stack.enter_context(unittest.mock.patch.object(
-                                owner, attr, autospec=True, side_effect=getattr(owner, attr)))
-                                for name, (owner, attr) in spies.items()}
-                            opt.newton_cg(problem, x0, max_newton=6, step_control=step_control, **kw)
-                        counts.append({name: spy.call_count for name, spy in calls.items()})
+                        wants = []
+                        real_query = LeastSquaresOracle.query
+
+                        def query(oracle, frame, batch, want, **more):
+                            wants.append(tuple(want))
+                            return real_query(oracle, frame, batch, want, **more)
+                        with unittest.mock.patch.object(LeastSquaresOracle, 'query', query), \
+                                unittest.mock.patch.object(bgeo.ManifoldGeometryOps, 'precompute', autospec=True,
+                                                           side_effect=bgeo.ManifoldGeometryOps.precompute) as comp:
+                            problem.newton_cg(x0, max_newton=6, step_control=step_control, **kw)
+                        counts.append(dict(transposes=sum(('g' in w) + ('JtJp' in w) for w in wants),
+                                           companion=comp.call_count))
                     self.assertEqual(counts[1], counts[0])
                     self.assertGreater(counts[0]['companion'], 0)
+                    self.assertGreater(counts[0]['transposes'], 0)
 
     def test_defaults(self):
         """The documented defaults (switch_tau 0.25, switch_k 2, switch_cg_forcing_power 1.0, switch_track 'countable')
@@ -1932,8 +2325,8 @@ class TestSwitchNewton(unittest.TestCase):
         self.assertEqual((opt._SWITCH_TAU, opt._SWITCH_K, opt._SWITCH_CG_FORCING_POWER, opt._SWITCH_TRACKS),
                          (0.25, 2, 1.0, ('countable', 'all')))
         problem, x0 = _pd_problem(0), _rank2_start()
-        default = opt.newton_cg(problem, x0, max_newton=12, hessian='switch')
-        spelled = opt.newton_cg(problem, x0, max_newton=12, hessian='switch', switch_tau=0.25, switch_k=2,
+        default = problem.newton_cg(x0, max_newton=12, hessian='switch')
+        spelled = problem.newton_cg(x0, max_newton=12, hessian='switch', switch_tau=0.25, switch_k=2,
                                 switch_cg_forcing_power=1.0, switch_track='countable')
         self.assertIsNotNone(default[1]['switched_at'])
         self.assertEqual(untimed(default), untimed(spelled))
@@ -1945,8 +2338,8 @@ class TestSwitchNewton(unittest.TestCase):
             for step_control in ('trust_region', 'line_search'):
                 with self.subTest(case=name, step_control=step_control):
                     kw = dict(max_newton=8, step_control=step_control)
-                    ex = opt.newton_cg(problem, x0, hessian='exact', cg_forcing_power=0.8, **kw)
-                    sw = opt.newton_cg(problem, x0, hessian='switch', switch_k=0, switch_cg_forcing_power=0.8, **kw)
+                    ex = problem.newton_cg(x0, hessian='exact', cg_forcing_power=0.8, **kw)
+                    sw = problem.newton_cg(x0, hessian='switch', switch_k=0, switch_cg_forcing_power=0.8, **kw)
                     self.assertEqual(shared_part(sw), shared_part(ex))
                     stats, rows = sw[1], sw[1]['history']
                     self.assertEqual([stats[k] for k in _SWITCH_STATS], ['switch', None, 0])
@@ -1961,17 +2354,17 @@ class TestSwitchNewton(unittest.TestCase):
         either run (asserted: Δ0, hence Δ_max and the floor, differ between the two)."""
         problem, x0 = _pd_problem(0), _rank2_start()
         seen = []
-        sw = opt.newton_cg(problem, x0, max_newton=30, hessian='switch', switch_cg_forcing_power=0.9,
+        sw = problem.newton_cg(x0, max_newton=30, hessian='switch', switch_cg_forcing_power=0.9,
                            callback=seen.append)
         rows, j = sw[1]['history'], sw[1]['switched_at']
         self.assertGreaterEqual(j, 3)                                   # a Gauss-Newton phase with a reset and a count
         self.assertTrue(any(row['switch_count'] == 0 for row in rows[:j - 2]))
         drop = lambda row, *more: {k: v for k, v in row.items() if k not in opt._SWITCH_FIELDS + ('wall_time',) + more}
-        gn = opt.newton_cg(problem, x0, max_newton=j + 1, step_control='trust_region')[1]['history']
+        gn = problem.newton_cg(x0, max_newton=j + 1, step_control='trust_region')[1]['history']
         self.assertEqual(canonical([drop(r, 'stop_reason') for r in rows[:j]]),
                          canonical([drop(r, 'stop_reason') for r in gn[:j]]))
         self.assertEqual(rows[j]['tr_radius'], gn[j]['tr_radius'])     # the radius carries across the switch
-        ex = opt.newton_cg(problem, seen[j].x_cores, max_newton=30 - j, hessian='exact', cg_forcing_power=0.9,
+        ex = problem.newton_cg(seen[j].x_cores, max_newton=30 - j, hessian='exact', cg_forcing_power=0.9,
                            tr_radius0=rows[j]['tr_radius'], g0norm_newton=rows[j]['g0norm'],
                            g0norm_cg=rows[j]['g0norm'])
         numeric = lambda row: drop(row, 'iteration', 'g0_reference', 'cg_reference')
@@ -2002,7 +2395,7 @@ class TestSwitchNewton(unittest.TestCase):
         ``_untied_radius`` (half the default Δ0), so rows 0 and 1 stop on the boundary by a factor, not by rounding."""
         base, x0 = _pd_problem(0), _rank2_start()
         f0, radius = float(base.objective(x0)), _untied_radius(base, x0)
-        run = lambda **more: opt.newton_cg(base, x0, hessian='switch', **more, **kw)[1]
+        run = lambda **more: base.newton_cg(x0, hessian='switch', **more, **kw)[1]
         with _objective_stub_at(4, lambda f: f + f0):                 # f(trial) + f(x0) - f(x) > 0 once f(x) < f(x0)
             rejected = run(max_newton=6, tr_radius0=radius)
         with _cg_stub_at(2, _OVERSHOOT):
@@ -2052,7 +2445,7 @@ class TestSwitchNewton(unittest.TestCase):
         for step_control, radius in (('trust_region', dict(tr_radius0=1e3)), ('line_search', dict())):
             with self.subTest(case='capped CG', step_control=step_control):         # at its cap: counted like any step
                 with self.forced_hits():                                       # (the large radius: no boundary stop)
-                    _, stats = opt.newton_cg(_pd_problem(0), _rank2_start(), max_newton=6, hessian='switch',
+                    _, stats = _pd_problem(0).newton_cg(_rank2_start(), max_newton=6, hessian='switch',
                                              switch_k=50, step_control=step_control, cg_maxiter=2, g0norm_cg=1e12,
                                              **radius)
                 rows = stats['history']
@@ -2073,7 +2466,7 @@ class TestSwitchNewton(unittest.TestCase):
         def scripted(delta_f, predicted, curvature, floor, tau):
             return real(delta_f, predicted, curvature, floor, tau)[:2] + next(script)
         with unittest.mock.patch.object(opt, '_switch_sample', scripted):
-            _, stats = opt.newton_cg(_pd_problem(0), _rank2_start(), max_newton=11, hessian='switch', switch_k=3)
+            _, stats = _pd_problem(0).newton_cg(_rank2_start(), max_newton=11, hessian='switch', switch_k=3)
         rows = stats['history']
         self.assertTrue(all(row['tr_accepted'] and row['switch_e_n'] is not None for row in rows[:9]))
         self.assertEqual([row['switch_count'] for row in rows[:9]], [1, 2, 0, 1, 2, 0, 1, 2, 3])
@@ -2115,7 +2508,7 @@ class TestSwitchNewton(unittest.TestCase):
         runs = []                                                       # x bitwise, on a run that also switches
         for track in ('countable', 'all'):
             with _cg_stub_at(2, _ASCENT):
-                runs.append(opt.newton_cg(_pd_problem(0), _rank2_start(), max_newton=12, hessian='switch',
+                runs.append(_pd_problem(0).newton_cg(_rank2_start(), max_newton=12, hessian='switch',
                                           switch_track=track))
         self.assertIsNotNone(runs[0][1]['switched_at'])
         self.assertEqual(runs[0][1]['switched_at'], runs[1][1]['switched_at'])
@@ -2145,8 +2538,8 @@ class TestSwitchNewton(unittest.TestCase):
         steps (rejected trials included) than Gauss-Newton with the trust region."""
         problem, x0 = _doc_problem()
         kw = dict(max_newton=40, g0_reference='warm_start')
-        _, gn = opt.newton_cg(problem, x0, step_control='trust_region', **kw)
-        _, sw = opt.newton_cg(problem, x0, hessian='switch', **kw)
+        _, gn = problem.newton_cg(x0, step_control='trust_region', **kw)
+        _, sw = problem.newton_cg(x0, hessian='switch', **kw)
         rows, j = sw['history'], sw['switched_at']
         self.assertIsNotNone(j)
         for row in rows[j - 2:j]:
@@ -2162,16 +2555,15 @@ class TestSwitchNewton(unittest.TestCase):
         e_N = e_GN on every tracked row: never a hit, never a switch."""
         rng = np.random.default_rng(3)
         np.random.seed(3)
-        kind = bfit.ProbeDerivativesKind(order=1)
         ww, pp = [rng.standard_normal((20, 7))], [rng.standard_normal((20, 7))]
-        target = t3.TuckerTensorTrain.randn((7,), (3,), (1, 1)).data
-        data = [z + 0.05 * rng.standard_normal(z.shape) for z in kind.point_forward(target, (ww, pp))]
-        problem = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), kind, (ww, pp), data)
+        target = t3.TuckerTensorTrain.randn((7,), (3,), (1, 1))
+        data = [z + 0.05 * rng.standard_normal(z.shape) for z in dd.forward(target, 'probe', ww, pp, 1)]
+        problem = F.derivative_fit(bgeo.ManifoldGeometryOps(), 'probe', 1, ww, pp, data)
         x0 = t3.TuckerTensorTrain.randn((7,), (2,), (1, 1)).data
         self.assertIsNone(problem.local_model(x0, hessian='exact').curvature.geometry_data)
         for track in ('countable', 'all'):
             with self.subTest(track=track):
-                _, stats = opt.newton_cg(problem, x0, max_newton=10, hessian='switch', switch_track=track)
+                _, stats = problem.newton_cg(x0, max_newton=10, hessian='switch', switch_track=track)
                 tracked = [row for row in stats['history'] if row['switch_e_n'] is not None]
                 self.assertTrue(tracked)
                 self.assertTrue(all(row['switch_e_n'] == row['switch_e_gn'] for row in tracked))
@@ -2181,9 +2573,9 @@ class TestSwitchNewton(unittest.TestCase):
         """T7 (backend): each rule raises before any work, its message checked: a switch_* option without
         hessian='switch'; each option's type and range; an option the run would not read (switch_tau or switch_track
         with switch_k=0, switch_k or switch_cg_forcing_power with switch_tau=0, so (0, 0) either way); the mode's
-        name; a kind without corewise_hessian (named for 'switch'). step_control=None resolves to the trust region,
+        name; an oracle without Kp (named for 'switch'). step_control=None resolves to the trust region,
         'ALL' to 'all'; the line search, curvature_damping (it reaches every exact build) and numpy scalars are
-        accepted; a model has one Hessian, so Problem.local_model and a fitting factory reject 'switch'."""
+        accepted; a model has one Hessian, so local_model rejects 'switch'."""
         problem, x0 = _pd_problem(0), _rank2_start()
         bad = [(dict(switch_tau=0.5), "newton_cg: switch_tau set without hessian='switch'"),
                (dict(hessian='exact', switch_track='all', switch_k=1),
@@ -2212,34 +2604,33 @@ class TestSwitchNewton(unittest.TestCase):
                (dict(curvature_damping=1e-3), "newton_cg: curvature_damping is only meaningful with hessian='exact' or "
                                               "'switch'"),
                (dict(hessian='switch', step_control='line_search', tr_radius0=1.0), 'tr_radius0 is only meaningful')]
-        no_two_hole = opt.least_squares_problem(problem.geom, _NoTwoHoleKind(order=1), problem.sample, problem.data)
+        no_two_hole = problem.with_(oracle=_NoKpOracle(problem.oracle.kind, problem.oracle.order))
         cases = [(problem, kw, message) for kw, message in bad] + [
-            (no_two_hole, dict(hessian='switch'), "_NoTwoHoleKind does not implement corewise_hessian(), which "
-                                                  "hessian='switch' needs; it still works with hessian='gauss_newton'")]
+            (no_two_hole, dict(hessian='switch'), "_NoKpOracle does not supply 'Kp' (it is not in its optional_outputs), "
+                                                  "which hessian='switch' (it still works with hessian='gauss_newton') "
+                                                  "needs"),
+            (no_two_hole, dict(hessian='exact'), "which hessian='exact' (it still works with hessian='gauss_newton')")]
         for prob, kw, message in cases:
             with self.subTest(**{k: repr(v) for k, v in kw.items()}):
                 with unittest.mock.patch.object(opt, '_prepare_jit_inputs', wraps=opt._prepare_jit_inputs) as work:
                     with self.assertRaisesRegex(ValueError, re.escape(message)):
-                        opt.newton_cg(prob, x0, max_newton=1, **kw)
+                        prob.newton_cg(x0, max_newton=1, **kw)
                 work.assert_not_called()
-        opt.newton_cg(no_two_hole, x0, max_newton=1)                                        # Gauss-Newton runs
-        _, stats = opt.newton_cg(problem, x0, max_newton=2, hessian='SWITCH', switch_track='ALL')
+        no_two_hole.newton_cg(x0, max_newton=1)                                        # Gauss-Newton runs
+        _, stats = problem.newton_cg(x0, max_newton=2, hessian='SWITCH', switch_track='ALL')
         self.assertEqual((stats['history'][0]['step_control'], stats['switch_track']), ('trust_region', 'all'))
-        _, stats = opt.newton_cg(problem, x0, max_newton=2, hessian='switch', step_control='line_search',
+        _, stats = problem.newton_cg(x0, max_newton=2, hessian='switch', step_control='line_search',
                                  switch_k=np.int64(3), switch_tau=np.float32(0.5))
         self.assertEqual(stats['history'][0]['step_control'], 'line_search')
         with unittest.mock.patch.object(bgeo.ManifoldGeometryOps, 'curvature_precompute', autospec=True,
                                         side_effect=bgeo.ManifoldGeometryOps.curvature_precompute) as build:
-            opt.newton_cg(problem, x0, max_newton=9, hessian='switch', curvature_damping=1e-3)
+            problem.newton_cg(x0, max_newton=9, hessian='switch', curvature_damping=1e-3)
         self.assertGreater(build.call_count, 7)                                             # both phases' builds
         self.assertTrue(all(call.args[4] == 1e-3 for call in build.call_args_list))
-        with self.assertRaisesRegex(ValueError, "Problem.local_model: hessian must be 'gauss_newton' or 'exact'"):
+        with self.assertRaisesRegex(ValueError, "local_model: hessian must be 'gauss_newton' or 'exact'"):
             problem.local_model(x0, hessian='switch')
-        ww, pp = problem.sample
-        x = t3.TuckerTensorTrain(*x0)
-        r = [z - y for z, y in zip(dd.forward(x, 'probe', ww, pp, 1), problem.data)]
-        with self.assertRaisesRegex(ValueError, "hessian must be 'gauss_newton' or 'exact'"):
-            fitting.probe_derivatives_model(t3m.MANIFOLD, x, ww, pp, 1, r, hessian='switch')
+        with self.assertRaisesRegex(ValueError, "_NoKpOracle does not supply 'Kp'"):
+            no_two_hole.local_model(x0, hessian='exact')                                      # the model checks too
 
     def test_stats_and_rows(self):
         """T8: switch mode appends the three stats keys; every row has the five switch fields after the others;
@@ -2249,7 +2640,7 @@ class TestSwitchNewton(unittest.TestCase):
         phase); a rejected Gauss-Newton-phase trial keeps x and hands the same view to the next row."""
         problem, x0 = _pd_problem(0), _rank2_start()
         seen = []
-        _, stats = opt.newton_cg(problem, x0, max_newton=30, hessian='switch', callback=seen.append)
+        _, stats = problem.newton_cg(x0, max_newton=30, hessian='switch', callback=seen.append)
         rows, j = stats['history'], stats['switched_at']
         self.assertEqual(list(stats), ['losses', 'newton_steps', 'newton_accepted', 'stop_reason', 'history']
                          + list(_SWITCH_STATS))
@@ -2268,10 +2659,10 @@ class TestSwitchNewton(unittest.TestCase):
                 if not gn_phase:
                     self.assertEqual([row[f] for f in opt._SWITCH_FIELDS], [None] * 4 + [False])
         self.assertTrue(rows[-1]['converged'])
-        _, last = opt.newton_cg(problem, x0, max_newton=j, hessian='switch')                 # fires on its last row
+        _, last = problem.newton_cg(x0, max_newton=j, hessian='switch')                 # fires on its last row
         self.assertEqual(last['switched_at'], len(last['history']))
         self.assertIs(last['history'][-1]['switch_fired'], True)
-        _, late = opt.newton_cg(problem, x0, max_newton=60, hessian='switch', switch_k=50, gtol_rel=1e-3)
+        _, late = problem.newton_cg(x0, max_newton=60, hessian='switch', switch_k=50, gtol_rel=1e-3)
         self.assertIsNone(late['switched_at'])
         self.assertTrue(late['history'][-1]['converged'])
         self.assertGreater(late['history'][-1]['switch_count'], 0)                           # the count carried
@@ -2279,9 +2670,9 @@ class TestSwitchNewton(unittest.TestCase):
         self.assertEqual([late['history'][-1][f] for f in ('switch_pKp', 'switch_e_gn', 'switch_e_n', 'switch_fired')],
                          [None, None, None, False])
         base = problem
-        offset = _OffsetProblem(base.geom, base.kind, base.sample, base.data, None, 0.05 * float(base.objective(x0)))
         seen = []
-        opt.newton_cg(offset, x0, max_newton=6, hessian='switch', callback=seen.append)
+        with _objective_stub_at(3, lambda f: f + float(base.objective(x0))):  # row 2's trial: an ascent, rejected
+            base.newton_cg(x0, max_newton=6, hessian='switch', callback=seen.append)
         rejected = [k for k in range(len(seen) - 1) if seen[k].tr_accepted is False]
         self.assertTrue(rejected)
         for k in rejected:
@@ -2297,13 +2688,13 @@ class TestSwitchNewton(unittest.TestCase):
         for track in ('countable', 'all'):
             with self.subTest(track=track):
                 seen = []
-                timed = opt.newton_cg(problem, x0, max_newton=10, hessian='switch', switch_track=track, timing=True,
+                timed = problem.newton_cg(x0, max_newton=10, hessian='switch', switch_track=track, timing=True,
                                       callback=seen.append)
                 check_timing(self, timed[1], seen, switch=True)
                 self.assertTrue(any(info.hessian == 'exact' for info in seen))
                 self.assertTrue(any(info.timing.seconds.tracking is not None for info in seen))
                 self.assertGreater(timed[1]['timing']['phases']['tracking'], 0.0)
-                self.assertEqual(untimed(timed), untimed(opt.newton_cg(problem, x0, max_newton=10, hessian='switch',
+                self.assertEqual(untimed(timed), untimed(problem.newton_cg(x0, max_newton=10, hessian='switch',
                                                                        switch_track=track)))
 
 

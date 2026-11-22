@@ -33,7 +33,7 @@ fit is well-posed from far fewer samples than entry-completion needs.
 The method -- corewise Adam
 ---------------------------
 We minimize ``f(X) = 1/2 sum_probes sum_modes ||X.probe(ww) - y||^2`` over the cores. Each step draws a
-minibatch of probes, builds a corewise ``fitting.probe_model`` (objective + corewise gradient ``J^T r``),
+minibatch of probes, builds a corewise ``fitting.local_model`` (objective + corewise gradient ``J^T r``),
 and takes an Adam step on the flat core vector, with a **cosine learning-rate decay** so the late steps
 settle (a constant rate leaves the iterate jittering and gives a noisier rank table). Rank by validation,
 cold random restart per level -- corewise cannot warm-start (see ``fit_hilbert_from_entries_lbfgs.py`` /
@@ -149,7 +149,7 @@ def corewise_adam(X0, ww, data, rng,
     ``X.data = (tucker_cores, tt_cores)`` directly -- no flat ``to_vector``/``from_vector`` copies: the
     moments ``m``/``v`` are trees of the same shape and each update is a pytree map over the cores
     (``_tmap``). Adam is elementwise, so this is exactly per-core Adam. The corewise gradient is
-    ``probe_model(...).gradient.variations.data``, a tree matching the cores. (An *external* optimizer that
+    ``local_model(...).gradient.variations.data``, a tree matching the cores. (An *external* optimizer that
     wants a flat array uses the bridge instead -- see the entries/L-BFGS example; our own optimizer steps
     the cores in place.)"""
     b1, b2 = betas
@@ -162,9 +162,9 @@ def corewise_adam(X0, ww, data, rng,
         ww_B = [w[sel] for w in ww]
         data_B = [dd[sel] for dd in data]
         X = t3.TuckerTensorTrain(*cores)
-        pred_B = X.probe(ww_B)
-        r_B = [np.asarray(pred_B[i]) - data_B[i] for i in range(len(ww))]
-        grad = fitting.probe_model(t3m.COREWISE, X, ww_B, r_B).gradient.variations.data   # tree of core grads
+        model = fitting.local_model(t3m.COREWISE, fitting.LeastSquaresOracle('probe', order=()),
+                                    fitting.LeastSquaresBatch(ww_B, data_B), X)    # the minibatch's objective
+        grad = model.gradient.variations.data                                       # tree of core grads
 
         t = k + 1
         m = _tmap(lambda mi, gi: b1 * mi + (1.0 - b1) * gi, m, grad)

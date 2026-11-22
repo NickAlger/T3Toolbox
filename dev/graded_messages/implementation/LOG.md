@@ -1124,3 +1124,193 @@ the hold-list names `computed_names` says the call computes anyway (the rules ru
 exactly: holding adds no work); the public `frame_shape` beside `frame_form`; the plan's text brought in line with the
 decisions of 2026-11-21. Gate at `-n 2` before `frame_shape`: suite 1,857; after it, the oracle tests on both envs,
 the module doctests and Sphinx. **The first pair of agents ends here; P16 starts with a fresh pair.**
+
+### P16 started with a fresh pair (2026-11-21), on the local branch `p16-wip`
+
+A fresh implementer and reviewer (Opus 5.5, high effort), briefed on `BRIEF.md` (the goal first, the required reading,
+the traps, the side branch). Both orient first; the implementer then writes `P16_DESIGN_NOTE.md`. If the session is
+lost, start a fresh pair on the same brief: the state is in the files.
+The P16 reviewer's orientation found the plan's P16 ("the regularizer is not scaled") and P17 ("the minibatch scale
+on f, g and the regularizer") in conflict. Ruled by Claude under O-21: the regularizer is not scaled (the batch's misfit
+is scaled by n/b; the objective is the unbiased estimator (n/b) misfit_b + rho). P17's two sentences and the
+TARGET_DECISIONS note of 2026-11-21 (item 2, which Claude had worded wrongly) corrected; the maintainer told.
+
+### P16 designed (2026-11-21)
+
+`P16_DESIGN_NOTE.md` (the fresh implementer), `P16_DESIGN_REVIEW.md` (the fresh reviewer: the design is right; four
+changes; five tests added). Ruled by Claude: D2 (`padded_start(geom, oracle, batch, x0, x_old, ...) -> (frame,
+centers, movements)`), D3 (backend `local_model(..., frame=None, centers=None)`; centers without a frame raise), D4
+(`order` explicit in the display), D5 (the uniform minimal-rank guard placed by the frontend path), D6 (frontend
+`LocalModel(geometry, backend)`, the frame derived), D8 (the lap rename and the floor in part 2); the alignment
+projector memoized but `with_frame` at every pass; a direct additive uniform corewise retraction; the translation a
+decorator, its custom-draw wrapper doing the full per-draw conversion; the review's five test additions, among them a
+side-by-side script against the pre-P16 library. **With the maintainer:** D1 (a required geometry member, proposed
+name `point_data(x_cores)`) and D7 (top-level exports: `LeastSquaresOracle`, `LeastSquaresBatch`, `local_model` in
+place of the six factories). Part 1 (the geometry) is being built.
+Decided by the maintainer: `from_t3` raises for `n` or `r` below a rank and points to `resize` (TARGET_DECISIONS,
+"`UniformTuckerTensorTrain.from_t3` raises"). A small slice after P16. D1 and D7 still with the maintainer.
+D1 and D7 decided by the maintainer: `point_data(x_cores)` (a required geometry member); the top level exports
+`LeastSquaresOracle`, `LeastSquaresBatch`, `local_model`.
+
+### P16 part 1 (the geometry), review round 1 (2026-11-21)
+
+Built (`P16_part1_HANDOVER.md`): the corewise frame is the point, ragged and uniform; a direct additive uniform
+corewise retraction (`ut3_corewise_frame` no longer used); `aligned_padded_frame` returns `(frame, centers,
+movements)`, the old centers zero-padded. `P16_part1_REVIEW_r1.md` NOT YET (the geometry right; the reviewer's full
+suite: 66 red ids, all corewise fits through the old kinds or model, except four of part 1's own): the two
+`test_dispatch` member tests to update; the expected-red list replaced by the measured one; and a silent wrong answer,
+`CorewiseGeometryOps.base_point` accepting the old four-store frame (the regularizer then counts G three times), to be
+closed by a structural check through `frame_form`. In round 1.
+Round 1 (`P16_part1_RESPONSE_r1.md`): the two `test_dispatch` tests and `TestUniformGeometryOps` fixed; a private
+`_require_frame_form` (through `frame_form`) on the corewise and manifold `base_point`s and the manifold
+`point_tangent`s, so the old four-store frame (and a uniform point given to the manifold geometry) raises; the measured
+expected-red list. `P16_part1_REVIEW_r2.md`: four more ids red for the stated reason, missing from the list; added by
+Claude (the reviewer signs off on that alone). **P16 part 1 committed to `p16-wip`.** The implementer's context is
+near its limit: a fresh implementer for part 2, oriented on the brief, P16's design note and review and part 1's
+handover.
+P16 part 2 (the backend model and optimizers) started with a fresh implementer (the part 1 implementer's context was
+near its limit); the reviewer stays. Brief: `BRIEF.md`, the required reading, P16's design note and review, the
+rulings above, part 1's handover, reviews and expected-red list.
+
+### P16 part 2 (the backend model and optimizers) built (2026-11-21)
+
+`P16_part2_HANDOVER.md`: `LocalModel` (one `query` per method, literal wants, the exact hvp one `('JtJp', 'Kp')`
+query), `local_model(..., frame, centers)`, `point_objective`, `point_data` on the four geometries, the optimizers on
+`(geom, oracle, batch, x0, regularizer)`, a fresh model per draw, the regularizer unscaled, `padded_start` returning
+centers, the floor `f_resolution + eps|rho|`, the `oracle` lap; `Problem` and its kin removed. Full suite: 105 red ids
+measured (`P16_part2_EXPECTED_RED.txt`: 2 for D9, 13 display, 90 frontend; 43 of part 1's ids green). Side by side
+with the pre-P16 library: 35 of 36 cases the same to 1e-9 (one tie in the default radius). **D9 (open):** near the
+floor the acceptance compares the frame-route `f` of the current point with the raw-cores `f` of a trial, rounded
+differently (line-search exhaustion never fires; float32 exact Newton accepts a spurious step). The implementer
+recommends (a) `point_objective(x)` per accepted point; Claude proposes (d) carrying the accepted trial's
+`point_objective` value forward as the next reference (no extra cost); the reviewer assesses both with part 2.
+`P16_part2_REVIEW_r1.md`: NOT YET on D9 only (the red list exact; the reviewer's 18 side-by-side cases and the
+implementer's 36 match; routing, `held`, the regularizer and compile keys right). **D9 ruled by Claude: (d)**, the
+accepted trial's `point_objective` value carried forward as the next reference (one evaluation per run start), sound
+per the reviewer's prototype and the same comparison 2026.5.0 made, without its extra forward per accepted point; the
+history reports the carried value; tests that relied on the mixed routes get a route-independent mechanism. Backlog:
+the pre-existing default-radius tie. In round 1.
+Round 1 (`P16_part2_RESPONSE_r1.md`): D9 built as (d) (`_point_objective_parts`, `_scored`; one scoring per start;
+the carried value through every path; the history reports it; route-independent mechanisms in the tests that relied on
+mixed routes; a like-with-like test). `P16_part2_REVIEW_r2.md`: SIGN OFF (the build bitwise equal to the reviewer's
+prototype on 36 cases; no test weakened, four reviewer mutants killed; the frame-route `f_resolution` is the right
+scale for point-route values, by the rounding analysis). Expected red: 103 ids (display 13, frontend 90). **P16 part 2
+committed to `p16-wip`.** Next: part 3 (the display and record), the same implementer.
+
+### P16 part 3 (the display and record) built (2026-11-21)
+
+`P16_part3_HANDOVER.md`: `make_newton_display(oracle, batch, val_batch, ...)` (denominators once per batch; the
+training numerator through `info.lm`'s held `r`, no sweep; validation without `held`; unweighted, unscaled block sums;
+weight-shaped records; header-only for an oracle without block sums); `format_newton_iter(..., order, error_table)`;
+the multi-index table for `m >= 2`. Full suite: 90 red, all frontend (`P16_part3_EXPECTED_RED.txt`). Claude confirmed
+the implementer's reading that the plan's "the display reads `f_resolution`" is the floor (part 2), no printed cell.
+In review.
+`P16_part3_REVIEW_r1.md` NOT YET on one finding: the training table's numerator (`info.lm.batch`) and denominator (the
+display's `batch`) could come from different batches (0.550 recorded against a true 2.469). Ruled by Claude: the
+display reports its errors on the batch it is given, numerator and denominator both; when that batch is the run's
+(`is`), the numerator reuses the held `r` (no sweep), otherwise it is queried at the model's frame without `held`, as
+validation is. Keeps the planned signature and gives `batch` its meaning. For part 4: the frontend hands the display
+the object the optimizer runs on; the translation keeps the both-or-neither check on `val_sample`/`val_data`.
+Round 1 (`P16_part3_RESPONSE_r1.md`): the display's errors on its own `batch` (fast path on the run's batch, a
+held-free forward otherwise; no unwt on another batch); `P16_part3_REVIEW_r2.md`: SIGN OFF (the reviewer's case now
+equals the dense errors on the display's batch). Expected red: 90, all frontend. **P16 part 3 committed to
+`p16-wip`.** Next: part 4 (the frontend and the translation), the same implementer; a fresh reviewer for part 4 (the
+reviewer's context is near its limit), briefed by the reviewer's own handoff note.
+
+### P16 part 4 (the frontend), first half built; the implementer's context full (2026-11-21)
+
+`P16_part4_HANDOVER.md` (in progress). Built (4a): the frontend `LocalModel(geometry, backend)` and `local_model`; the
+optimizers' heads `(geometry, oracle, batch, x0, ...)`, `_setup`, `start_frame`'s consistency check, the display handed
+the run's batch (also under `use_jit`, via `_prepare_jit_inputs` returning a jax tree as is); the translation as a
+decorator; the removals; D7; `test_optimizers_frontend` and `test_aligned_padded_frame_frontend` migrated. Not done
+(4b): `test_fitting` and the other frontend test files, the translation and frontend-only tests, the pages and
+examples that call a factory, the side-by-side translation cases, the full gate and the slow tier. **Ruled by Claude:**
+tests that call the optimizers in the old form, which the translation keeps working, are converted in P17, as the plan
+already says ("What the translation keeps working moves in P17"). Committed as an UNREVIEWED checkpoint on `p16-wip`;
+a fresh reviewer reviews 4a (briefed by `P16_REVIEWER_HANDOFF.md`) while a fresh implementer orients for 4b.
+
+### A planned pause after P16 (the maintainer, 2026-11-21)
+
+The maintainer asked why `t3_probe_corewise_hessian` has no weights. Claude's answer: by O-22 the transposes and
+Hessians take a data-space covector under the plain pairing (for a weighted fit, `c = omega^2 r`; the engine forms it
+as `w_tilde` from `r` and `weight` inside the fitting layer), and the parameter-space Riesz map is the geometry's.
+**The maintainer: "almost all fits will involve data-space weights of some kind, so weighting should be first-class in
+all these functions. Let's work in a pause after P16 to discuss this more."** So: a PAUSE after P16 (before P17), on
+first-class data-space weights in the sampling functions. Also for that pause (from the 4b implementer's orientation):
+the oracle's `y` cannot carry the frame stack `C`, so a stacked local model now shares one `y` across its elements,
+where the old factories took a residual per element (a capability narrowing, accepted for P16, noted for the
+CHANGELOG, to discuss with the data-space design).
+`P16_part4a_REVIEW_r1.md` (the fresh reviewer): NOT YET, nothing blocking; the translation keeps the old meaning on 25
+old-form calls against the pre-P16 library (dx at most 1.4e-14; Adam 9e-8 by its eps). Ruled by Claude: fix the
+`(1,)` probe weight broadcast, the frame orthogonality tolerance (effective_rtol), the corewise `frame=` (structural
+raise), an untied given frame on a shared geometry (safe-mode check, for `local_model(frame=)` and
+`newton_cg(start_frame=)`; the same gap existed in 2026.5.0), the stacked-`y` shim, `_is_packed`, the duplicated batch
+logic, test form; the translation tests in 4b to cover a regularized custom draw and order >= 2. The 4b implementer
+fixes 4a first; the reviewer checks; then 4b.
+For the pause after P16, the maintainer's principle (2026-11-21): "any place where there is a silent conversion of a
+data space co-vector to vector without the option to use weights should be viewed as a kind of type error."
+And (the maintainer): the jet reversal and the weighting are two parts of one Riesz map. Claude confirmed in the code:
+the engine's `w_tilde_step` calls `jets.jet_to_dual_jet(kind, order, r, weight)`, weight squared then every jet axis
+flipped, one function; the standalone transposes and Hessians reach it with no weight, so they apply the flip and fix
+the weight to the identity, with no option. The pause's audit covers every `jet_to_dual_jet` / `dual_jet_to_jet` call
+site and whether a weight reaches it.
+Round 1 (`P16_part4a_RESPONSE_r1.md`): all ten 4a findings dealt with (`prepare_batch` the one batch helper; the tie
+check on given frames; `effective_rtol`; the corewise `frame=` raises). `P16_part4a_REVIEW_r2.md`: SIGN OFF (25
+old-form cases and 4 new-form cases still match the pre-P16 library). **P16 part 4a committed to `p16-wip`.** For 4b
+from the review: a per-mode probe weight on noisy data in the translation test; a bad `val_batch` in the bad-batch
+test. Next: 4b, the same implementer.
+Also for the pause after P16 (the maintainer, thinking aloud, not final): which corewise operations are methods of
+`TuckerTensorTrain` and which standalone functions. His lean: the raw sampling operations, their derivatives and
+transposes as methods (independent of an objective); the Hessian-related ones as functions (they combine sampling with
+an objective). Claude's view: the corewise "Hessian" is the second derivative of phi_c(x) = <c, z(x)> (O-22), the
+derivative of the transpose along a direction, needing only a data covector, like the transpose; so it belongs with
+the methods, and the objective-dependent Hessian of a fit (Gauss-Newton plus the curvature term, c = omega^2 r) is
+already in the fitting layer. The real issue may be the name "Hessian" (candidate: `*_corewise_transpose_derivative`).
+To decide together with first-class weights.
+And (the maintainer): "the transpose should take a vector. J: X -> Y', J^T: Y'' -> X' or Y -> X'. The (Gauss-Newton)
+Hessian: Hgn = J^T W J, where W: Y' -> Y is the Riesz map. We need to get this all settled and typed consistently. I
+think we may be mixing and matching Banach space transposes with Hilbert space transposes." The audit for the pause
+types every operation this way (data side and parameter side), and marks each place where a Riesz map (data: the
+weight and the jet flip; parameters: the geometry's metric and projection) is applied implicitly or partly.
+The maintainer: the audit for the pause is done by an agent (to preserve Claude's context), when the pause arrives.
+P16 part 4b built (`P16_part4b_HANDOVER.md`): `test_fitting` rewritten (one `y` per stacked model; derivative fits
+against the dense `oracle.py`); the other frontend files converted; `TestTheTranslation` against pinned pre-P16 numbers;
+the frontend-only fit; user oracles; the pages' and examples' factory calls moved to `local_model`. Gate at `-n 2`: the
+suite 1,896 passed with one order-dependent 4a test failing (fixed, passes alone; the suite not re-run); the other five
+steps pass; the slow tier passes; lowest MemAvailable 4.0 GB. Ruled by Claude: a new weight does not recompile (the
+weight is a batch leaf), each jitted result checked against its eager model. In review; the reviewer re-runs the suite.
+
+### For the pause after P16: where the sampling functions live (the maintainer, 2026-11-21; a proposal, not a decision)
+
+The maintainer's proposal, to be assessed: separate the sampling functions and methods (1) by the object they act on,
+a manifold point (with the base modules) or a tangent (in the tangent layer); corewise is a flat manifold with another
+geometry, as the MANIFOLD and COREWISE singletons already treat it; and (2) by whether they need a metric or weighting
+(Riesz maps). Data-space metrics and weights are used only for fitting and optimization (e.g. the Hessian operations),
+so the functions that need them would be confined to the fitting and optimization layers (and the engine), and the rest
+of the library stays valid in the Banach setting. The input space has no weights today (to be checked); input weighting
+can be applied by preparing the data. Data weights could be handled the same way for least squares, but not for
+future nonlinear losses, whose Hessian acts as a data-space metric. "This refactor is the easiest time to reorganize
+sampling functions. Let's get it right now instead of having to break things again if we do it later."
+
+**The audit at the pause (one agent, Claude's judgement: combined with the typing audit, one inventory):** every
+sampling-related function and method, backend and frontend: where it lives; what it acts on (point or tangent;
+corewise as a flat manifold); its typing under the maintainer's scheme (J: X -> Y', W: Y' -> Y, J^T: Y -> X', R_X:
+X -> X'; input space); which metric or Riesz map it applies (data weight, jet flip, parameter metric, input weights),
+fully, partly or silently as the identity; whether weights can be passed; and where it would live under the proposal.
+Then the findings and the options, not decisions.
+The maintainer refines (2026-11-21): the ambient tensor space is implicitly Hilbert-Schmidt almost everywhere, so the
+dividing line is not whether a function needs a metric but **whether it depends on the objective function**.
+**Claude's correction of its own earlier statement** (that the standalone transposes apply "half of the Riesz map",
+the jet flip without the weight): checked in the code, the transposes' contract is the plain slot-wise pairing
+`phi(x) = <residual, z(x)>` (their adjoint doctests pair `sum(r * J x_dot)` slot by slot), and `jet_to_dual_jet`
+stores the functional `a -> sum_k weight[k]^2 r[k] a[k]` turned so that the engine can read it as the corner
+coefficient of a jet product. So the flip is a change of representation of that pairing inside the engine, needed for
+any weight, not a metric; the only metric choice is the weight, which is the objective's. With no weight, the
+standalone transposes are exact metric-free transposes for the slot-wise pairing on Taylor coefficients. The remaining
+type issue is the name: the argument is a data-space element paired slot by slot, not a residual.
+`P16_part4b_REVIEW_r1.md`: SIGN OFF. **P16's gate:** the reviewer's full suite on the final tree at `-n 2`: 1,897
+passed, 5 skipped, 1 xfailed, 90,942 subtests, exit 0; the implementer's module doctests (321), quickstart, 47 pages,
+14 examples, Sphinx with 0 warnings; the slow tier serially (66 passed). The translation's 19 pins equal the pre-P16
+library's own numbers. Notes: the weight compile test may also assert the eager products differ (optional); stale
+`uniform_least_squares_problem` docstrings in two test files (P19); the test-vocabulary helpers and the stacked `y`
+for P17 and the CHANGELOG. **P16 complete; squashed into one commit on `graded-messages`.**

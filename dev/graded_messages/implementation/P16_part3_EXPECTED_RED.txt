@@ -1,0 +1,105 @@
+# P16 part 3: the tests expected red until part 4 (the frontend), MEASURED: the full suite at -n 2 on part 3's tree
+# (229 failed subtests/tests, 1821 passed, 5 skipped, 1 xfailed, 33 min), less one id fixed after the run
+# (tests/test_import_graph.py::TestImportGraph::test_the_graph_is_on_module_files: its example import was the
+# display's `from t3toolbox import corewise`, which part 3 dropped; re-pointed, green). One test id per line; a test
+# whose subtests only are red is listed once.
+#
+# Every id is red for ONE reason, PART 4 (the frontend): fitting.*_model build the old backend LocalModel; topt.*
+# build the removed Problem through least_squares_problem / uniform_least_squares_problem, and the frontend verbose
+# path calls make_newton_display(problem, val_sample, val_data); the frontend chunk_size. In test_fitting,
+# test_optimizers_frontend, test_sharing (fitting cases), test_aligned_padded_frame_frontend, test_chunk_size_estimator,
+# test_jax_absent (its script calls bopt.least_squares_problem and a factory), test_oracle_sweep (O2 through the
+# frontend), and the frontend rows of test_dispatch.
+# Against part 2's list (103): exactly its 90 frontend ids, unchanged; its 13 display ids are green; nothing new.
+# Pages and examples (not in tests/; part 4 / P17 / P19): every page doctest and example that fits through the frontend,
+# and examples/fit_probe_display.py and docs/fitting_and_optimization.md's make_newton_display (the old call form).
+tests/test_aligned_padded_frame_frontend.py::TestNewtonValidation::test_safe_mode_checks
+tests/test_aligned_padded_frame_frontend.py::TestNewtonValidation::test_structural_messages
+tests/test_aligned_padded_frame_frontend.py::TestTwinsAreTheirBackendCalls::test_newton_cg_padded_from
+tests/test_aligned_padded_frame_frontend.py::TestZeroOldPoint::test_newton_cg
+tests/test_chunk_size_estimator.py::TestFittingChunkSizeWiring::test_newton_cg_exact_across_chunk_size
+tests/test_dispatch.py::TestAlignedPaddedFrameFrontend::test_newton_cg_keywords
+tests/test_dispatch.py::TestDispatch::test_frontend_exact_newton_cg_use_jit
+tests/test_dispatch.py::TestDispatch::test_jit_exact_frontend_local_model
+tests/test_dispatch.py::TestDispatch::test_jit_shared_exact_local_model
+tests/test_dispatch.py::TestDispatch::test_jit_shared_uniform_exact
+tests/test_dispatch.py::TestDispatch::test_jit_shared_uniform_local_model
+tests/test_dispatch.py::TestDispatch::test_jit_uniform_local_model
+tests/test_dispatch.py::TestDispatch::test_jit_uniform_weighted_gn_model
+tests/test_dispatch.py::TestDispatch::test_uniform_exact_newton_cg_use_jit
+tests/test_fitting.py::TestExactLocalModel::test_curvature_damping_reaches_the_lift_and_is_rejected_where_it_does_nothing
+tests/test_fitting.py::TestExactLocalModel::test_d1_manifold_is_gauss_newton
+tests/test_fitting.py::TestExactLocalModel::test_derivative_kinds_match_the_backend_exact_local_model
+tests/test_fitting.py::TestExactLocalModel::test_every_kind_builds_exact
+tests/test_fitting.py::TestExactLocalModel::test_gradient_is_the_gauss_newton_gradient_bitwise
+tests/test_fitting.py::TestExactLocalModel::test_hessian_against_a_finite_difference_of_the_riemannian_gradient
+tests/test_fitting.py::TestExactLocalModel::test_hessian_quadratic_and_evaluate_are_mode_dependent
+tests/test_fitting.py::TestExactLocalModel::test_matches_the_backend_exact_local_model
+tests/test_fitting.py::TestExactLocalModel::test_mode_is_derived
+tests/test_fitting.py::TestExactLocalModel::test_plain_kinds_match_the_backend_exact_local_model
+tests/test_fitting.py::TestExactLocalModel::test_retract_is_the_geometrys_and_the_backend_models
+tests/test_fitting.py::TestExactLocalModel::test_shared_corewise_matches_the_backend
+tests/test_fitting.py::TestExactLocalModel::test_shared_manifold_matches_the_backend
+tests/test_fitting.py::TestExactLocalModel::test_shared_uniform_matches_the_backend_exact_local_model
+tests/test_fitting.py::TestExactLocalModel::test_uniform_matches_the_backend_exact_local_model
+tests/test_fitting.py::TestFiniteDifferenceHessianCheckInSafeMode::test_fd_minus_exact_hessian_passes_safe_mode
+tests/test_fitting.py::TestLocalModel::test_derivative_models
+tests/test_fitting.py::TestLocalModel::test_regularizer
+tests/test_fitting.py::TestLocalModel::test_uniform_regularizer
+tests/test_fitting.py::TestUniformBackendGeometryFromFrame::test_from_frame_is_from_point_without_the_orthogonalization
+tests/test_fitting.py::TestUniformBackendGeometryFromFrame::test_gauss_newton_regularized_numbers_unchanged
+tests/test_fitting.py::TestUniformLayerLocalModel::test_gauged_gradient_and_self_consistency
+tests/test_fitting.py::TestUniformLayerLocalModel::test_matches_backend_local_model
+tests/test_fitting.py::TestUniformLayerLocalModel::test_same_frame_guard
+tests/test_jax_absent.py::TestJaxAbsentPolicy::test_requests_for_jax_run_on_numpy_with_a_warning
+tests/test_optimizers_frontend.py::TestFrontendExactNewtonDerivativeKinds::test_apply_derivatives
+tests/test_optimizers_frontend.py::TestFrontendExactNewtonDerivativeKinds::test_entries_derivatives
+tests/test_optimizers_frontend.py::TestFrontendExactNewtonPlainKinds::test_apply
+tests/test_optimizers_frontend.py::TestFrontendExactNewtonPlainKinds::test_entries
+tests/test_optimizers_frontend.py::TestFrontendExactNewtonPlainKinds::test_probe
+tests/test_optimizers_frontend.py::TestFrontendExactNewton::test_chunk_size_auto_is_sized_for_the_exact_mode
+tests/test_optimizers_frontend.py::TestFrontendExactNewton::test_frontend_is_the_backend_run_bitwise
+tests/test_optimizers_frontend.py::TestFrontendExactNewton::test_options_with_no_effect_and_unbuilt_geometries_raise
+tests/test_optimizers_frontend.py::TestFrontendExactNewton::test_zero_padded_restart_through_the_frontend
+tests/test_optimizers_frontend.py::TestFrontendExactNewton::test_zero_padded_shared_restart_through_the_frontend
+tests/test_optimizers_frontend.py::TestFrontendExactNewton::test_zero_padded_shared_restart_through_the_uniform_frontend
+tests/test_optimizers_frontend.py::TestFrontendOptimizers::test_gradient_descent_recovers
+tests/test_optimizers_frontend.py::TestFrontendOptimizers::test_mc_sgd_and_adam_adapters
+tests/test_optimizers_frontend.py::TestFrontendOptimizers::test_newton_cg_adapter
+tests/test_optimizers_frontend.py::TestFrontendOptimizers::test_newton_cg_g0norm_keywords_forward
+tests/test_optimizers_frontend.py::TestFrontendOptimizers::test_newton_cg_regularizer
+tests/test_optimizers_frontend.py::TestFrontendOptimizers::test_newton_cg_use_jit_returns_jax
+tests/test_optimizers_frontend.py::TestFrontendOptimizers::test_per_mode_weight_recovers
+tests/test_optimizers_frontend.py::TestFrontendOptimizers::test_stochastic_regularizer
+tests/test_optimizers_frontend.py::TestFrontendOptimizers::test_verbose_display_and_diagnostics
+tests/test_optimizers_frontend.py::TestFrontendSwitchNewton::test_a_switch_run_is_the_backend_run
+tests/test_optimizers_frontend.py::TestFrontendSwitchNewton::test_forwarded_as_given_and_only_when_set
+tests/test_optimizers_frontend.py::TestFrontendSwitchNewton::test_least_squares_problem_sizes_switch_as_exact
+tests/test_optimizers_frontend.py::TestFrontendUniformOptimizers::test_gradient_descent_matches_ragged
+tests/test_optimizers_frontend.py::TestFrontendUniformOptimizers::test_mc_sgd_and_adam_adapters
+tests/test_optimizers_frontend.py::TestFrontendUniformOptimizers::test_newton_cg_recovers
+tests/test_optimizers_frontend.py::TestFrontendUniformOptimizers::test_nonminimal_x0_handled_transparently
+tests/test_optimizers_frontend.py::TestFrontendUniformOptimizers::test_per_mode_weight_recovers
+tests/test_optimizers_frontend.py::TestFrontendUniformOptimizers::test_regularizer_matches_ragged_and_garbage_robust
+tests/test_optimizers_frontend.py::TestFrontendUniformOptimizers::test_representation_geometry_must_match
+tests/test_optimizers_frontend.py::TestFrontendUniformOptimizers::test_verbose_display_matches_ragged
+tests/test_optimizers_frontend.py::TestLeastSquaresProblemAndKeywords::test_gradient_matches_frontend_local_model
+tests/test_optimizers_frontend.py::TestLeastSquaresProblemAndKeywords::test_named_result
+tests/test_optimizers_frontend.py::TestLeastSquaresProblemAndKeywords::test_newton_cg_forwards_each_keyword
+tests/test_optimizers_frontend.py::TestLeastSquaresProblemAndKeywords::test_newton_cg_forwards_timing_only_when_set
+tests/test_optimizers_frontend.py::TestLeastSquaresProblemAndKeywords::test_newton_cg_keywords_mirror_backend
+tests/test_optimizers_frontend.py::TestLeastSquaresProblemAndKeywords::test_newton_cg_timing_runs
+tests/test_optimizers_frontend.py::TestLeastSquaresProblemAndKeywords::test_the_four_optimizers_build_through_it
+tests/test_optimizers_frontend.py::TestLeastSquaresProblemAndKeywords::test_x0_cores_minimal_on_manifold_only
+tests/test_optimizers_frontend.py::TestReview20260822Frontend::test_adam_on_manifold_with_non_minimal_x0_runs_and_warns
+tests/test_optimizers_frontend.py::TestReview20260822Frontend::test_kind_string_is_case_insensitive
+tests/test_optimizers_frontend.py::TestReview20260822Frontend::test_validation_args_go_together
+tests/test_oracle_sweep.py::TestExactHessianOracleSweep::test_full_sweep
+tests/test_oracle_sweep.py::TestO2ModelOracleSweep::test_full_sweep
+tests/test_oracle_sweep.py::TestO2OptimizerOracleSweep::test_pairwise_subset
+tests/test_sharing.py::TestSharedContinuation::test_end_to_end_continuation_reaches_true_shared_ranks
+tests/test_sharing.py::TestSharedContinuation::test_restart_escape_activates_new_directions
+tests/test_sharing.py::TestSharedGeometry::test_end_to_end_recovery_iterates_stay_tied
+tests/test_sharing.py::TestUniformSharedGeometry::test_layer_mismatch_gates
+tests/test_sharing.py::TestUniformSharedGeometry::test_model_invariants_match_ragged
+tests/test_sharing.py::TestUniformSharedGeometry::test_trajectories_match_ragged_and_recovery_stays_tied

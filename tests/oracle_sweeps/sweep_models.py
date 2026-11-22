@@ -10,11 +10,13 @@ import t3toolbox.manifold as t3m
 import t3toolbox.uniform_manifold as ut3m
 import t3toolbox.shared_geometry as sg
 import t3toolbox.fitting as fitting
+import t3toolbox.backend.jets as jets
 import t3toolbox.corewise as cw
 from t3toolbox.backend.regularization import IdentityRegularizer
 import os as _os, sys as _sys
 _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))   # tests/
 import _derivative_data as dd       # derivative data from the merged methods (P13b)
+import _fits as F                   # the 2026.5.0 vocabulary in the new form (P16)
 
 LAM = 0.3
 TOL = 1e-8
@@ -86,18 +88,11 @@ def make_weight(kind, d, order, wspec):
     raise ValueError(wspec)
 
 
-def build_model(geom, x, kind, sample, residual, order, weight, reg):
-    if kind == 'apply':
-        return fitting.apply_model(geom, x, sample, residual, regularizer=reg)
-    if kind == 'entries':
-        return fitting.entries_model(geom, x, sample, residual, regularizer=reg)
-    if kind == 'probe':
-        return fitting.probe_model(geom, x, sample, residual, weight=weight, regularizer=reg)
-    if kind == 'apply_derivatives':
-        return fitting.apply_derivatives_model(geom, x, sample[0], sample[1], order, residual, weight=weight, regularizer=reg)
-    if kind == 'entries_derivatives':
-        return fitting.entries_derivatives_model(geom, x, sample[0], sample[1], order, residual, weight=weight, regularizer=reg)
-    return fitting.probe_derivatives_model(geom, x, sample[0], sample[1], order, residual, weight=weight, regularizer=reg)
+def build_model(geom, x, kind, sample, y, order, weight, reg):
+    """The frontend local model of a fit stated in the 2026.5.0 vocabulary (the kind name, the data ``y``, a
+    derivative-convention weight), through ``tests/_fits.old_vocabulary`` and ``fitting.local_model``."""
+    oracle, batch = F.old_vocabulary(kind, sample, y, tuple(x.shape), order, weight)
+    return fitting.local_model(geom, oracle, batch, x, regularizer=reg)
 
 
 def lib_S(x, kind, sample, order):
@@ -141,7 +136,6 @@ def run_case(d, rep, geom_name, shared, kind, order, wspec, regspec, W, seed):
                              tuple(rng.standard_normal(c.shape) for c in A0.data[1]))
     y = O.S(kind, A.to_dense(), sample, order)
     Sx = lib_S(x, kind, sample, order)
-    residual = [np.asarray(a) - np.asarray(b) for a, b in zip(Sx, y)] if kind.startswith('probe') else np.asarray(Sx) - y
 
     # the geometry + point in the requested representation
     if rep == 'ragged':
@@ -152,7 +146,7 @@ def run_case(d, rep, geom_name, shared, kind, order, wspec, regspec, W, seed):
         pt = ut3.UniformTuckerTensorTrain.from_t3(x)
     geom = sg.shared(base, sharing) if shared else base
 
-    model = build_model(geom, pt, kind, sample, residual, order, weight, reg)
+    model = build_model(geom, pt, kind, sample, y, order, weight, reg)
     res = {}
     # 1. objective
     obj_hand = O.misfit(kind, X, sample, y, weight, order) + (reg_value(geom_name, X, x.data) if reg else 0.0)
@@ -170,6 +164,8 @@ def run_case(d, rep, geom_name, shared, kind, order, wspec, regspec, W, seed):
         res['packed_pad_zero'] = max(float(np.abs(Jp_lib[i][..., shape[i]:]).max()) if shape[i] < Jp_lib.shape[-1] else 0.0
                                      for i in range(d))
         Jp_lib = [Jp_lib[i][..., :shape[i]] for i in range(d)]
+    if kind.endswith('_derivatives'):        # the model's J p is in Taylor coefficients; the oracle's in derivatives
+        Jp_lib = jets.taylor_to_derivatives('probe' if kind.startswith('probe') else 'apply', (order,), Jp_lib)
     Jp_hand = O.S(kind, dense_of(Pp), sample, order)
     Jq_hand = O.S(kind, dense_of(Pq), sample, order)
     res['jacobian'] = rel_list(Jp_lib, Jp_hand) if kind.startswith('probe') else rel(Jp_lib, Jp_hand)

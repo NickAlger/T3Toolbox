@@ -1,7 +1,9 @@
-"""Tests for the backend Newton-CG diagnostic display (backend/optimizer_display.py, D3).
+"""Tests for the backend Newton-CG diagnostic display (backend/optimizer_display.py, D3; P16 part 3: the oracle's
+block sums, errors in the weight's shape, the multi-index table, error_table).
 
 The formatter is pure (returns a string), so alignment/layout are asserted on the string directly -- no
-stdout capture. Plus an end-to-end `make_newton_display` + `newton_cg` run recording the error matrices.
+stdout capture. Plus end-to-end `make_newton_display` + `newton_cg` runs recording the error arrays, checked against
+dense residuals.
 The whole capability is backend-owned (a raw-.data user gets the identical display; the anti-drift rule)."""
 import dataclasses as dc
 import unittest
@@ -9,10 +11,15 @@ import unittest
 import numpy as np
 
 import t3toolbox.tucker_tensor_train as t3
+import t3toolbox.uniform_tucker_tensor_train as ut3
 import t3toolbox.backend.optimizers as bopt
 import t3toolbox.backend.geometry as bgeo
-import t3toolbox.backend.fitting as bfit
+import t3toolbox.backend.uniform_fitting as uf
 import t3toolbox.backend.optimizer_display as bdisp
+from t3toolbox.backend.fitting import LeastSquaresOracle, LeastSquaresBatch
+from t3toolbox.backend.jets import affine_jet
+import _derivative_data as dd
+import _fits as F                    # a backend fit (geometry, oracle, batch, regularizer) from plain specs (P16)
 
 SHAPE, TUCKER, TT = (8, 8, 8), (2, 2, 2), (1, 2, 2, 1)
 
@@ -46,7 +53,7 @@ class TestFormatter(unittest.TestCase):
         length even with `1.0e+00` next to `5.2e-04` next to `8.1e-16` -- the alignment guarantee."""
         train = np.array([[1.0, 5.2e-4, 8.1e-16], [3.3e-2, 1.0e+00, 2.7e-9]])   # (2 modes, 3 orders)
         val = train * 1.1
-        table = bdisp._format_table(train, val, "%.1e")
+        table = bdisp._format_matrix(train, val, "%.1e")
         self.assertIn("rows=mode", table)
         self.assertIn("cols=order", table)
         self.assertIn("train|val", table)
@@ -59,7 +66,7 @@ class TestFormatter(unittest.TestCase):
         """Plain probe (1 data axis = mode): dataset rows, mode cols; grid lines aligned."""
         train = np.array([[5.2e-4], [1.0e-2], [3.3e-2]])                 # (3 modes, 1 order)
         val = train * 1.2
-        table = bdisp._format_table(train, val, "%.1e")
+        table = bdisp._format_matrix(train, val, "%.1e")
         self.assertIn("rows=train/val", table); self.assertIn("cols=mode", table)
         lines = _grid_lines(table)
         self.assertEqual(len(lines), 1 + 2)                              # header + train + val
@@ -70,7 +77,7 @@ class TestFormatter(unittest.TestCase):
     def test_one_axis_apply_derivatives(self):
         """apply/entries derivatives (1 data axis = order): dataset rows, order cols."""
         train = np.array([[5.2e-4, 2.7e-2, 9.1e-2, 1.8e-1]])            # (1 mode, 4 orders)
-        table = bdisp._format_table(train, None, "%.1e")               # train-only
+        table = bdisp._format_matrix(train, None, "%.1e")               # train-only
         self.assertIn("cols=order", table)
         lines = _grid_lines(table)
         self.assertEqual(len(lines), 1 + 1)                             # header + single train row (no val)
@@ -78,7 +85,7 @@ class TestFormatter(unittest.TestCase):
 
     def test_scalar_one_liner(self):
         """Plain apply/entries (0 data axes): a single line, no grid."""
-        table = bdisp._format_table(np.array([[5.2e-4]]), np.array([[6.1e-4]]), "%.1e")
+        table = bdisp._format_matrix(np.array([[5.2e-4]]), np.array([[6.1e-4]]), "%.1e")
         self.assertNotIn("\n", table)
         self.assertIn("train", table); self.assertIn("val", table)
 
@@ -87,7 +94,7 @@ class TestFormatter(unittest.TestCase):
         rel = bdisp.relative_errors(np.array([[1.0, 4.0]]), np.array([[4.0, 0.0]]))
         self.assertTrue(np.isclose(rel[0, 0], 0.5))
         self.assertTrue(np.isnan(rel[0, 1]))
-        table = bdisp._format_table(rel, None, "%.1e")
+        table = bdisp._format_matrix(rel, None, "%.1e")
         self.assertIn("—", table)
 
     def test_header_converged_vs_stepped(self):
@@ -188,122 +195,454 @@ class TestFormatter(unittest.TestCase):
         self.assertTrue(conv.endswith("| converged (‖g‖ ≤ gtol·‖g₀‖, g₀ = zero tensor)"), conv)
 
 
-class TestMakeNewtonDisplay(unittest.TestCase):
-    def _probe_problem(self, M=120):
-        np.random.seed(0); rng = np.random.default_rng(0)
-        A = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
-        ww = [rng.standard_normal((M, N)) for N in SHAPE]
-        ww = [w / np.linalg.norm(w, axis=1, keepdims=True) for w in ww]
-        def dprobe(A, ww):
-            d = len(ww); out = []
-            for f in range(d):
-                ops = [A.to_dense(), list(range(d))]
-                for j in range(d):
-                    if j != f:
-                        ops += [ww[j], [d, j]]
-                ops += [[d, f]]; out.append(np.einsum(*ops))
-            return out
-        data = dprobe(A, ww)
-        return bopt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data), ww, data, dprobe, A
+class TestTables(unittest.TestCase):
+    """P16 part 3: the table of errors in the weight's shape, laid out by the jet shape ``order`` (D4, O-42)."""
 
-    def test_records_and_silent(self):
-        """make_newton_display records a self-contained per-iteration dict (scalars + train_err/val_err)
-        and honours print_fn=None (silent). One extra val forward per iter; d-mode error matrices."""
-        prob, ww, data, dprobe, A = self._probe_problem()
-        rng = np.random.default_rng(1)
-        wwv = [w / np.linalg.norm(w, axis=1, keepdims=True) for w in (rng.standard_normal((50, N)) for N in SHAPE)]
-        datav = dprobe(A, wwv)
-        x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
-        cb, records = bdisp.make_newton_display(prob, wwv, datav, print_fn=None)   # silent
-        x, stats = bopt.newton_cg(prob, x0, max_newton=5, callback=cb)
-        self.assertEqual(len(records), len(stats['history']))
-        for rec in records:
-            self.assertIn('iteration', rec)                            # scalar fields present
-            self.assertEqual(np.asarray(rec['train_err']).shape, (len(SHAPE), 1))   # plain probe: (d, 1)
-            self.assertEqual(np.asarray(rec['val_err']).shape, (len(SHAPE), 1))
-            self.assertTrue(np.all(np.asarray(rec['train_err']) >= 0))
-        # the fit improves -> final train error below the initial
-        self.assertLess(float(records[-1]['train_err'].mean()), float(records[0]['train_err'].mean()))
-
-    def test_rows_after_a_rejection_reuse_the_tables(self):
-        """n14: a rejected trust-region trial keeps x (and its model), so the NEXT row reuses that row's error
-        tables -- no validation forward for an unchanged point. The validation forwards counted on an exact run
-        with rejections equal the number of distinct points shown."""
-        import unittest.mock
+    def test_at_most_one_jet_variable_is_the_2026_5_table(self):
+        """m <= 1: weight-shaped errors print as the 2026.5.0 table of their (n_mode, n_order) matrix: probe at ()
+        (d,) -> one column per mode; probe at (n,) (d, n+1) -> mode rows, order columns; apply at (n,) (n+1,) -> order
+        columns; apply and entries at () -> one line."""
         rng = np.random.default_rng(0)
+        for shape, order, matrix, legend in (((3,), (), (3, 1), 'cols=mode'), ((3, 2), (1,), (3, 2), 'cols=order'),
+                                             ((4,), (3,), (1, 4), 'cols=order'), ((), (), (1, 1), 'rel err   train')):
+            with self.subTest(shape=shape, order=order):
+                t, v = rng.random(shape), rng.random(shape)
+                table = bdisp._format_table(t, v, '%.1e', order)
+                self.assertEqual(table, bdisp._format_matrix(t.reshape(matrix), v.reshape(matrix), '%.1e'))
+                self.assertIn(legend, table)
+
+    @staticmethod
+    def _cells(table):
+        """{(row label, column label): cell} of a grid table (the legend line first)."""
+        lines = table.split('\n')
+        cols = lines[1].split()
+        return {(line.split()[0], col): cell for line in lines[2:] for col, cell in zip(cols, line.split()[1:])}
+
+    def test_two_or_more_jet_variables(self):
+        """m >= 2: one column per multi-index of the jet axes, in row-major order; probe: mode rows with train|val
+        cells; apply: train / val rows. F = (2, 3) is not square, so row-major is told from column-major: each cell is
+        read back by its labels."""
+        for lead in (0, 1):
+            shape = ((3,) if lead else ()) + (2, 3)
+            t = (1.0 + np.arange(np.prod(shape))).reshape(shape) * 1e-2          # every cell different
+            v = 3.0 * t
+            with self.subTest(kind='probe' if lead else 'apply'):
+                table = bdisp._format_table(t, v, '%.1e', (1, 2))
+                cols = table.split('\n')[1].split()
+                self.assertEqual(cols, ['ord(%d,%d)' % (j, k) for j in range(2) for k in range(3)])
+                cells = self._cells(table)
+                for j in range(2):
+                    for k in range(3):
+                        col = 'ord(%d,%d)' % (j, k)
+                        if lead:
+                            for i in range(3):
+                                self.assertEqual(cells[('m%d' % i, col)], '%.1e|%.1e' % (t[i, j, k], v[i, j, k]))
+                        else:
+                            self.assertEqual(cells[('train', col)], '%.1e' % t[j, k])
+                            self.assertEqual(cells[('val', col)], '%.1e' % v[j, k])
+                lines = table.split('\n')[1:]
+                self.assertEqual(len({len(line) for line in lines}), 1)        # aligned
+
+    def test_axes_by_position_without_an_order(self):
+        """An oracle naming no jet shape: a scalar on one line; one axis in columns ``[j]``; more, the first axis in
+        rows ``[i]`` and the others row-major in columns ``[j,k]``."""
+        self.assertNotIn('\n', bdisp._format_table(np.array(0.5), None, '%.1e'))
+        one = bdisp._format_table(np.array([0.1, 0.2]), None, '%.1e')
+        self.assertEqual(one.split('\n')[1].split(), ['[0]', '[1]'])
+        t = (1.0 + np.arange(12)).reshape(2, 2, 3) * 1e-2
+        cells = self._cells(bdisp._format_table(t, None, '%.1e'))
+        self.assertEqual(cells[('[1]', '[1,0]')], '%.1e' % t[1, 1, 0])
+        self.assertEqual(cells[('[0]', '[0,2]')], '%.1e' % t[0, 0, 2])
+
+    def test_a_shape_that_does_not_fit_raises(self):
+        for t, order in ((np.ones((3, 3)), (1,)), (np.ones((2, 2, 2, 2)), (1,)), (np.ones(3), (1, 1))):
+            with self.subTest(shape=t.shape, order=order):
+                with self.assertRaises(ValueError):
+                    bdisp._format_table(t, None, '%.1e', order)
+        with self.assertRaises(ValueError):
+            bdisp._format_table(np.ones((3, 2)), np.ones((2, 3)), '%.1e', (1,))
+
+    def test_error_table_false_is_the_header_lines(self):
+        """``error_table=False`` (and ``train_err=None``) give exactly the block's header lines -- the header, and the
+        time line on a timed row -- and nothing of the table."""
+        t = np.array([[1.9e-2, 1.3e-2], [1.0e+00, 5.2e-4]])
+        for info, n_header in ((_info(), 1), (_info(timing=_timing()), 2)):
+            with self.subTest(timed=n_header == 2):
+                full = bdisp.format_newton_iter(info, t, 2 * t, order=(1,))
+                off = bdisp.format_newton_iter(info, t, 2 * t, order=(1,), error_table=False)
+                self.assertEqual(off, '\n'.join(full.split('\n')[:n_header]))
+                self.assertNotIn('rel err', off)
+                self.assertEqual(bdisp.format_newton_iter(info, None, order=(1,)), off)
+
+
+SH = (5, 6, 7)
+
+
+def _dense_probe(T, ww):
+    """Per mode i, the dense tensor contracted with ww[j] on every mode j != i: (W, N_i)."""
+    d = T.ndim
+    out = []
+    for i in range(d):
+        ops = [T, list(range(d))]
+        for j in range(d):
+            if j != i:
+                ops += [ww[j], [d, j]]
+        out.append(np.einsum(*ops, [d, i]))
+    return out
+
+
+def _dense_apply(T, ww):
+    d = T.ndim
+    ops = [T, list(range(d))]
+    for j in range(d):
+        ops += [ww[j], [d, j]]
+    return np.einsum(*ops, [d])
+
+
+def _jets(order, W, rng):
+    """Input jets: () the vectors ww; (1,) the line ww + s pp; (1, 1) a two-variable jet, (2, 2) + W + (N,)."""
+    ww, pp, qq = ([rng.standard_normal((W, N)) for N in SH] for _ in range(3))
+    if order == ():
+        return ww
+    if order == (1,):
+        return affine_jet(ww, pp)
+    return [np.stack([np.stack([w, p]), np.stack([q, np.zeros_like(w)])]) for w, p, q in zip(ww, pp, qq)]
+
+
+def _batch(kind, order, W, rng, target, weight=None):
+    """A batch of ``target``'s exact data at a random sample."""
+    if kind == 'entries':
+        index = np.stack([rng.integers(0, N, W) for N in SH])
+        return LeastSquaresBatch(index, target.entries(index), weight)
+    sample = _jets(order, W, rng)
+    y = target.probe(sample, order) if kind == 'probe' else target.apply(sample, order)
+    return LeastSquaresBatch(sample, y, weight)
+
+
+def _weight_shape(kind, order):
+    return ((len(SH),) if kind == 'probe' else ()) + tuple(n + 1 for n in order)
+
+
+def _start():
+    np.random.seed(11)
+    return t3.TuckerTensorTrain.randn(SH, (2, 2, 2), (1, 2, 2, 1)).data
+
+
+class _NoBlockSums(LeastSquaresOracle):
+    """An oracle without the block sums (both, or only y_block_sumsq): the display prints the header lines only."""
+    optional_outputs = ('Kp', 'Jp', 'r', 'f_resolution')
+
+
+class _NoDataBlockSums(LeastSquaresOracle):
+    optional_outputs = ('Kp', 'Jp', 'r', 'r_block_sumsq', 'f_resolution')
+
+
+class TestMakeNewtonDisplay(unittest.TestCase):
+    """P16 part 3: ``make_newton_display(oracle, batch, val_batch, ...)`` -- the errors through the oracle's block sums,
+    the records in the weight's shape, the validation query without the training ``held``, ``error_table``."""
+
+    def setUp(self):
         np.random.seed(0)
-        shape = (6, 6, 6)
-        target = t3.TuckerTensorTrain.randn(shape, (3, 3, 3), (1, 3, 3, 1)).data
-        ww, pp, wv, pv = ([rng.standard_normal((n_w, n)) for n in shape] for n_w in (40, 40, 15, 15))
-        kind = bfit.ProbeDerivativesKind(order=1)
-        prob = bopt.least_squares_problem(bgeo.ManifoldGeometryOps(), kind, (ww, pp), kind.point_forward(target, (ww, pp)))
-        val_sample = (wv, pv)
-        cb, records = bdisp.make_newton_display(prob, val_sample, kind.point_forward(target, val_sample), print_fn=None)
-        np.random.seed(5)
-        x0 = t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)).data
-        original = bfit.ProbeDerivativesKind.point_forward
-        with unittest.mock.patch.object(bfit.ProbeDerivativesKind, 'point_forward', autospec=True,
-                                        side_effect=original) as spy:
-            _, stats = bopt.newton_cg(prob, x0, max_newton=10, hessian='exact', tr_radius0=1e3, callback=cb)
-        val_forwards = sum(1 for call in spy.call_args_list if call.args[2] is val_sample)
+        self.rng = np.random.default_rng(0)
+        self.target = t3.TuckerTensorTrain.randn(SH, (2, 2, 2), (1, 2, 2, 1))
+
+    def run_display(self, oracle, batch, val_batch=None, x0=None, max_newton=3, newton=None, **kw):
+        """A newton_cg run with the display: (stats, records, printed, infos)."""
+        printed, infos = [], []
+        display, records = bdisp.make_newton_display(oracle, batch, val_batch, print_fn=printed.append, **kw)
+
+        def callback(info):
+            infos.append(info)
+            display(info)
+        _, stats = bopt.newton_cg(bgeo.ManifoldGeometryOps(), oracle, batch, _start() if x0 is None else x0,
+                                  max_newton=max_newton, callback=callback, **(newton or {}))
+        return stats, records, printed, infos
+
+    def test_records_in_the_weights_shape(self):
+        """train_err and val_err keep the weight's shape, nothing reduced: () per kind, (2,) and (1, 1) for probe and
+        apply; with and without validation (no val_err key without). The (1, 1) table has one column per multi-index."""
+        cases = [('probe', ()), ('apply', ()), ('entries', ()), ('probe', (1,)), ('apply', (1,)), ('probe', (1, 1)),
+                 ('apply', (1, 1))]
+        for kind, order in cases:
+            oracle = LeastSquaresOracle(kind, order)
+            batch = _batch(kind, order, 40, self.rng, self.target)
+            for validation in (False, True):
+                with self.subTest(kind=kind, order=order, validation=validation):
+                    val_batch = _batch(kind, order, 15, self.rng, self.target) if validation else None
+                    stats, records, printed, _ = self.run_display(oracle, batch, val_batch, max_newton=2)
+                    self.assertEqual(len(records), len(stats['history']))
+                    for rec in records:
+                        self.assertEqual(np.shape(rec['train_err']), _weight_shape(kind, order))
+                        self.assertEqual('val_err' in rec, validation)
+                        if validation:
+                            self.assertEqual(np.shape(rec['val_err']), _weight_shape(kind, order))
+                    if order == (1, 1):
+                        cols = printed[0].split('\n')[2].split()
+                        self.assertEqual(cols, ['ord(0,0)', 'ord(0,1)', 'ord(1,0)', 'ord(1,1)'])
+
+    def test_the_errors_against_dense_residuals(self):
+        """Each row's train and validation errors are the dense per-block relative errors at the row's point (probe
+        per mode, apply and entries a scalar), UNWEIGHTED although the fit is weighted; and the header's (unwt …) is
+        1/2 the dense unweighted residual's squared norm, shown because the weight is nontrivial."""
+        dense = {'probe': lambda T, b: _dense_probe(T, b.sample),
+                 'apply': lambda T, b: _dense_apply(T, b.sample),
+                 'entries': lambda T, b: T[tuple(b.sample)]}
+        for kind in ('probe', 'apply', 'entries'):
+            with self.subTest(kind=kind):
+                weight = 0.5 + self.rng.random(_weight_shape(kind, ()))
+                y_noise = 0.05
+                batch = _batch(kind, (), 40, self.rng, self.target, weight)
+                batch = dc.replace(batch, y=_perturb(batch.y, y_noise, self.rng))
+                val_batch = _batch(kind, (), 15, self.rng, self.target)
+                _, records, printed, infos = self.run_display(LeastSquaresOracle(kind, ()), batch, val_batch)
+                for rec, info, text in zip(records, infos, printed):
+                    T = t3.TuckerTensorTrain(*info.x_cores).to_dense()
+                    for b, err in ((batch, rec['train_err']), (val_batch, rec['val_err'])):
+                        z, y = dense[kind](T, b), b.y
+                        if kind == 'probe':
+                            ref = np.array([np.linalg.norm(zi - yi) / np.linalg.norm(yi) for zi, yi in zip(z, y)])
+                        else:
+                            ref = np.linalg.norm(z - y) / np.linalg.norm(y)
+                        np.testing.assert_allclose(err, ref, rtol=1e-8)
+                    r = dense[kind](T, batch)
+                    unweighted = 0.5 * (sum(float(np.sum((ri - yi) ** 2)) for ri, yi in zip(r, batch.y))
+                                        if kind == 'probe' else float(np.sum((r - batch.y) ** 2)))
+                    self.assertIn('(unwt %.2e)' % unweighted, text.split('\n')[0])
+
+    def test_no_unwt_on_an_unweighted_fit(self):
+        """Unweighted, the (unwt …) figure is the misfit itself and is never shown -- not even near the floor, where
+        the misfit the history reports (the point route, D9) and the block sums (the model's frame route) round
+        differently: the display compares like with like."""
+        batch = _batch('probe', (), 40, self.rng, self.target)
+        stats, _, printed, infos = self.run_display(LeastSquaresOracle('probe', ()), batch, max_newton=40,
+                                                    newton=dict(gtol_rel=0.0))
+        self.assertEqual(stats['stop_reason'], 'line_search')               # the Armijo search exhausted: the floor
+        routes = []
+        for info in infos:                                             # the two routes' 1/2 |r|^2 at each row
+            lm = info.lm
+            (r_bs,), _ = lm.oracle.query(lm.frame, lm.batch, ('r_block_sumsq',), Vc=lm.centers[0], held=lm.held)
+            routes.append(abs(0.5 * float(np.sum(r_bs)) - info.misfit) / info.misfit)
+        self.assertGreater(max(routes), 1e-9)                          # somewhere they differ beyond the old test
+        for text in printed:
+            self.assertNotIn('unwt', text)
+
+    def test_the_queries(self):
+        """What the display asks of the oracle: y_block_sumsq once per batch for the callback's life (two runs); each
+        new point's r_block_sumsq at the model's frame, on its batch, with its held (no sweep: the residual is held);
+        the validation r_block_sumsq at the same frame on val_batch, never with a held (the training one belongs to
+        the training batch)."""
+        import unittest.mock
+        oracle = LeastSquaresOracle('probe', (1,))
+        batch, val_batch = (_batch('probe', (1,), W, self.rng, self.target) for W in (40, 15))
+        calls = []
+        real = LeastSquaresOracle.query
+
+        def recording(self_, frame, b, want, **kw):
+            calls.append((frame, b, tuple(want), kw.get('held'), kw.get('Vc')))
+            return real(self_, frame, b, want, **kw)
+        display, records = bdisp.make_newton_display(oracle, batch, val_batch, print_fn=None)
+        infos = []
+        with unittest.mock.patch.object(LeastSquaresOracle, 'query', recording):
+            for x0 in (_start(), t3.TuckerTensorTrain.randn(SH, (2, 2, 2), (1, 2, 2, 1)).data):
+                bopt.newton_cg(bgeo.ManifoldGeometryOps(), oracle, batch, x0, max_newton=3,
+                               callback=lambda info: (infos.append(info), display(info)))
+        y_calls = [c for c in calls if 'y_block_sumsq' in c[2]]
+        self.assertEqual([(c[1] is batch, c[1] is val_batch) for c in y_calls], [(True, False), (False, True)])
+        train = [c for c in calls if c[2] == ('r_block_sumsq',) and c[1] is batch]
+        val = [c for c in calls if c[2] == ('r_block_sumsq',) and c[1] is val_batch]
+        self.assertEqual(len(train), len(infos))
+        self.assertEqual(len(val), len(infos))
+        for info, t, v in zip(infos, train, val):
+            self.assertIs(t[0], info.lm.frame)
+            self.assertIs(t[3], info.lm.held)
+            self.assertIs(t[4], info.lm.centers[0])
+            self.assertIs(v[0], info.lm.frame)
+            self.assertIsNone(v[3])                                     # never the training held
+
+    def test_the_errors_are_on_the_displays_batch(self):
+        """Review round 1: numerator and denominator both on the display's ``batch``. A display on the full batch, runs on
+        two different draws with the one callback: every row's train_err is the dense relative error on the FULL batch at
+        the row's point (the measured case: 2.469 on the drawn third against 0.550 recorded before); those queries get
+        no held (the run's held belongs to the drawn batch); and no (unwt …) annotates the run's misfit with the full
+        batch's."""
+        import unittest.mock
+        oracle = LeastSquaresOracle('apply', ())
+        full = _batch('apply', (), 60, self.rng, self.target)
+        full = dc.replace(full, y=_perturb(full.y, 0.05, self.rng))
+        geom = bgeo.ManifoldGeometryOps()
+        printed, infos, calls = [], [], []
+        display, records = bdisp.make_newton_display(oracle, full, print_fn=printed.append)
+        real = LeastSquaresOracle.query
+
+        def recording(self_, frame, b, want, **kw):
+            calls.append((b, tuple(want), kw.get('held')))
+            return real(self_, frame, b, want, **kw)
+        with unittest.mock.patch.object(LeastSquaresOracle, 'query', recording):
+            for start in (0, 1):
+                drawn = oracle.take(full, np.arange(start, 60, 3))
+                bopt.newton_cg(geom, oracle, drawn, _start(), max_newton=3,
+                               callback=lambda info: (infos.append(info), display(info)))
+        self.assertEqual(len(records), len(infos))
+        for rec, info, text in zip(records, infos, printed):
+            self.assertIsNot(info.lm.batch, full)
+            T = t3.TuckerTensorTrain(*info.x_cores).to_dense()
+            ref = np.linalg.norm(_dense_apply(T, full.sample) - full.y) / np.linalg.norm(full.y)
+            np.testing.assert_allclose(rec['train_err'], ref, rtol=1e-8)
+            self.assertNotIn('unwt', text)
+        on_full = [c for c in calls if c[0] is full and c[1] == ('r_block_sumsq',)]
+        self.assertEqual(len(on_full), len(infos))
+        self.assertTrue(all(c[2] is None for c in on_full))
+        self.assertEqual(sum(c[0] is full and c[1] == ('y_block_sumsq',) for c in calls), 1)
+
+    def test_on_the_runs_batch_no_sweep(self):
+        """When the display's batch is the run's, a row's numerator is read through the model's held r: the engine runs
+        none of the plain sweep's rules (xi, mu, nu, eta, z, r) while the display works."""
+        import t3toolbox.backend.sampling_variables as sv
+        import unittest.mock
+        oracle = LeastSquaresOracle('probe', (1,))
+        batch = _batch('probe', (1,), 40, self.rng, self.target)
+        display, records = bdisp.make_newton_display(oracle, batch, print_fn=None)
+        ran, real = [], sv._run
+
+        def recording(rule, *args, **kwargs):
+            ran.append(rule.name)
+            return real(rule, *args, **kwargs)
+
+        def callback(info):
+            with unittest.mock.patch.object(sv, '_run', recording):
+                display(info)
+        bopt.newton_cg(bgeo.ManifoldGeometryOps(), oracle, batch, _start(), max_newton=3, callback=callback)
+        self.assertEqual(len(records), 3)
+        self.assertFalse({'xi', 'mu', 'nu', 'eta', 'z', 'r'} & set(ran), ran)
+
+    def test_rows_after_a_rejection_reuse_the_errors(self):
+        """n14: a rejected trust-region trial keeps x (and its model), so the NEXT row reuses that row's errors -- no
+        query for an unchanged point. The validation queries counted on an exact run with rejections equal the number
+        of distinct points shown; a callback shared by two runs recomputes the second run's first row."""
+        import unittest.mock
+        np.random.seed(0)
+        target = t3.TuckerTensorTrain.randn(SH, (3, 3, 3), (1, 3, 3, 1))
+        oracle = LeastSquaresOracle('probe', (1,))
+        batch, val_batch = (_batch('probe', (1,), W, self.rng, target) for W in (40, 15))
+        geom = bgeo.ManifoldGeometryOps()
+        x0 = _start()
+        real = LeastSquaresOracle.query
+        val_queries = []
+
+        def recording(self_, frame, b, want, **kw):
+            if b is val_batch and 'r_block_sumsq' in want:
+                val_queries.append(1)
+            return real(self_, frame, b, want, **kw)
+        cb, records = bdisp.make_newton_display(oracle, batch, val_batch, print_fn=None)
+        with unittest.mock.patch.object(LeastSquaresOracle, 'query', recording):
+            _, stats = bopt.newton_cg(geom, oracle, batch, x0, max_newton=10, hessian='exact', tr_radius0=1e3,
+                                      callback=cb)
         rows = stats['history']
         after_rejection = [k for k in range(1, len(rows)) if rows[k - 1]['tr_accepted'] is False]
         self.assertTrue(after_rejection, 'expected a rejected trial in this run')
-        self.assertEqual(val_forwards, len(rows) - len(after_rejection))
+        self.assertEqual(len(val_queries), len(rows) - len(after_rejection))
         for k in after_rejection:
             self.assertIs(records[k]['train_err'], records[k - 1]['train_err'])
             self.assertIs(records[k]['val_err'], records[k - 1]['val_err'])
         for k in set(range(1, len(rows))) - set(after_rejection):
             self.assertIsNot(records[k]['val_err'], records[k - 1]['val_err'])
-        # One callback shared by two runs (e.g. continuation levels): the first run ENDS on a rejected trial (as a
-        # floor stop always does); the second run's first row is a new point and recomputes its tables.
-        first_rejection = after_rejection[0]                                     # rows[first_rejection - 1] is rejected
-        cb2, records2 = bdisp.make_newton_display(prob, val_sample, kind.point_forward(target, val_sample),
-                                                  print_fn=None)
-        bopt.newton_cg(prob, x0, max_newton=first_rejection, hessian='exact', tr_radius0=1e3, callback=cb2)
+        first_rejection = after_rejection[0]
+        cb2, records2 = bdisp.make_newton_display(oracle, batch, val_batch, print_fn=None)
+        bopt.newton_cg(geom, oracle, batch, x0, max_newton=first_rejection, hessian='exact', tr_radius0=1e3,
+                       callback=cb2)
         self.assertIs(records2[-1]['tr_accepted'], False)
         np.random.seed(6)
-        bopt.newton_cg(prob, t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)).data, max_newton=1,
-                       callback=cb2)
+        bopt.newton_cg(geom, oracle, batch, t3.TuckerTensorTrain.randn(SH, (2, 2, 2), (1, 2, 2, 1)).data,
+                       max_newton=1, callback=cb2)
         self.assertIsNot(records2[-1]['train_err'], records2[-2]['train_err'])
         self.assertFalse(np.allclose(records2[-1]['val_err'], records2[-2]['val_err']))
 
-    def test_needs_block_sumsq(self):
-        """A kind that does not provide block_sumsq raises a clear error (all built-in kinds do).
+    def test_an_oracle_without_block_sums_gets_the_header_lines(self):
+        """An oracle lacking either block sum: each row prints its header line and no table, and its records carry the
+        scalars and no error arrays; with or without a validation batch."""
+        for cls in (_NoBlockSums, _NoDataBlockSums):
+            for validation in (False, True):
+                with self.subTest(oracle=cls.__name__, validation=validation):
+                    oracle = cls('probe', ())
+                    batch = _batch('probe', (), 40, self.rng, self.target)
+                    val_batch = _batch('probe', (), 15, self.rng, self.target) if validation else None
+                    stats, records, printed, _ = self.run_display(oracle, batch, val_batch)
+                    self.assertEqual(len(printed), len(stats['history']))
+                    for text, rec in zip(printed, records):
+                        self.assertEqual(text.count('\n'), 0)
+                        self.assertTrue(text.startswith('iter '))
+                        self.assertNotIn('train_err', rec)
+                        self.assertNotIn('val_err', rec)
+                        self.assertIn('objective', rec)
 
-        `block_sumsq` is optional, so ``has_block_sumsq`` is declared by whoever IMPLEMENTS it -- False on
-        the base, True on the two output-shape bases. The case that matters is a user kind written from
-        the base that simply omits it: it must trip the friendly guard, not sail through to a bare
-        NotImplementedError from the base method (which is what an inherited True default caused)."""
-        import dataclasses as dc
+    def test_error_table_false_changes_no_record(self):
+        """error_table=False: each block is the error_table=True block's header line alone; the records are equal
+        (arrays bitwise)."""
+        import re
+        clock = re.compile(r'\| \d+\.\d\ds\b')
+        oracle = LeastSquaresOracle('apply', (1, 1))
+        batch, val_batch = (_batch('apply', (1, 1), W, self.rng, self.target) for W in (40, 15))
+        runs = [self.run_display(oracle, batch, val_batch, error_table=flag) for flag in (True, False)]
+        (_, rec_on, text_on, _), (_, rec_off, text_off, _) = runs
+        self.assertEqual([clock.sub('| T', t) for t in text_off],
+                         [clock.sub('| T', t.split('\n')[0]) for t in text_on])
+        self.assertEqual(len(rec_on), len(rec_off))
+        for a, b in zip(rec_on, rec_off):
+            self.assertEqual(list(a), list(b))
+            for key in a:
+                if key == 'wall_time':
+                    continue
+                if isinstance(a[key], np.ndarray):
+                    self.assertTrue(np.array_equal(a[key], b[key], equal_nan=True), key)
+                else:
+                    self.assertEqual(a[key], b[key], key)
 
-        prob, ww, data, _, _ = self._probe_problem()
+    def test_uniform_equals_ragged(self):
+        """The uniform layout: the packed batches give the ragged run's errors, in the same (unpadded) shape."""
+        oracle = LeastSquaresOracle('probe', (1,))
+        batch, val_batch = (_batch('probe', (1,), W, self.rng, self.target) for W in (40, 15))
+        x0 = _start()
+        ux = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain(*x0), N=8, n=3, r=3)
+        ufit, usc = F.uniform(F.Fit(bgeo.ManifoldGeometryOps(), oracle, batch), ux)
+        uval = uf.pack_batch(oracle.kind, oracle.order, val_batch, ux.N)
+        _, ragged, _, _ = self.run_display(oracle, batch, val_batch, x0=x0)
+        display, uniform = bdisp.make_newton_display(oracle, ufit.batch, uval, print_fn=None)
+        bopt.newton_cg(ufit.geom, oracle, ufit.batch, usc, max_newton=3, callback=display)
+        self.assertEqual(len(ragged), len(uniform))
+        for a, b in zip(ragged, uniform):
+            for key in ('train_err', 'val_err'):
+                self.assertEqual(np.shape(b[key]), np.shape(a[key]))
+                np.testing.assert_allclose(b[key], a[key], rtol=1e-8)
 
-        @dc.dataclass(frozen=True, eq=False)
-        class KindOmittingBlockSumsq(bfit.SamplingKind):
-            """A user kind written from the base, implementing the operations but not block_sumsq."""
-            def w_axes(self, sample):
-                return 1
+    def test_a_drawn_batch(self):
+        """On a drawn batch the errors and the (unwt …) figure come from the UNSCALED block sums: the errors equal the
+        plain subset's (the scale dropped), and unwt is 1/2 the subset's squared residual while the misfit is scaled."""
+        oracle = LeastSquaresOracle('apply', ())
+        full = _batch('apply', (), 60, self.rng, self.target)
+        drawn = oracle.take(full, np.arange(0, 60, 3))
+        plain = dc.replace(drawn, minibatch_scale=None)
+        x0 = _start()
+        _, on_drawn, printed, infos = self.run_display(oracle, drawn, x0=x0, max_newton=1)
+        display, on_plain = bdisp.make_newton_display(oracle, plain, print_fn=None)
+        lm = bopt.local_model(bgeo.ManifoldGeometryOps(), oracle, plain, x0)
+        display(dc.replace(infos[0], lm=lm))
+        np.testing.assert_allclose(on_drawn[0]['train_err'], on_plain[0]['train_err'], rtol=1e-12)
+        T = t3.TuckerTensorTrain(*infos[0].x_cores).to_dense()
+        unweighted = 0.5 * float(np.sum((_dense_apply(T, drawn.sample) - drawn.y) ** 2))
+        self.assertIn('(unwt %.2e)' % unweighted, printed[0].split('\n')[0])
+        self.assertAlmostEqual(infos[0].objective / unweighted, 3.0, delta=1e-6)   # the scale, 60 / 20
 
-        self.assertFalse(KindOmittingBlockSumsq().has_block_sumsq)
-        with self.assertRaises(ValueError):
-            bdisp.make_newton_display(dc.replace(prob, kind=KindOmittingBlockSumsq()))
 
-        @dc.dataclass(frozen=True, eq=False)                     # and the explicit opt-out still works
-        class ProbeKindOptingOut(bfit.ProbeKind):
-            has_block_sumsq = False
-
-        with self.assertRaises(ValueError):
-            bdisp.make_newton_display(dc.replace(prob, kind=ProbeKindOptingOut()))
-
-        for builtin in (bfit.APPLY, bfit.ENTRIES, bfit.PROBE, bfit.probe_derivatives_kind(2)):
-            self.assertTrue(builtin.has_block_sumsq, f'{builtin.name} implements block_sumsq')
-
+def _perturb(y, noise, rng):
+    """``y`` plus Gaussian noise of relative size ``noise`` (a probe ``y`` is a list per mode)."""
+    if isinstance(y, (list, tuple)):
+        return [yi + noise * np.linalg.norm(yi) / np.sqrt(yi.size) * rng.standard_normal(yi.shape) for yi in y]
+    return y + noise * np.linalg.norm(y) / np.sqrt(max(np.size(y), 1)) * rng.standard_normal(np.shape(y))
 
 
 def _seconds(**kw):
     """A PhaseSeconds of a Gauss-Newton line-search row after row 0 (model built, three trials); override via kwargs."""
-    base = dict(previous_callback=0.01, frame=0.05, sweep=0.06, companion=0.001, residual=0.01, curvature=None,
+    base = dict(previous_callback=0.01, frame=0.05, oracle=0.07, companion=0.001, curvature=None,
                 gradient=0.03, reference=None, cg=0.40, forms=0.02, trial_retraction=0.15, trial_objective=0.06,
                 tracking=None, remainder=0.01)
     base.update(kw)
@@ -338,8 +677,8 @@ class TestTimingDisplay(unittest.TestCase):
         """A timed row's block is the untimed block with one line inserted after the header; an untimed row has
         none."""
         train = np.array([[1.9e-2, 1.3e-2], [1.0e+00, 5.2e-4]])
-        plain = bdisp.format_newton_iter(_info(), train)
-        timed = bdisp.format_newton_iter(_info(timing=_timing()), train)
+        plain = bdisp.format_newton_iter(_info(), train, order=(1,))
+        timed = bdisp.format_newton_iter(_info(timing=_timing()), train, order=(1,))
         self.assertNotIn('  time  ', plain)
         lines = timed.split('\n')
         self.assertTrue(lines[1].startswith('  time  model '), lines[1])
@@ -348,7 +687,7 @@ class TestTimingDisplay(unittest.TestCase):
     def test_the_time_line_cells(self):
         """Each cell, by the record that sets it: a phase that did not run is left out; seconds as ``%.1e``."""
         line = bdisp._format_timing(_info(timing=_timing()))
-        self.assertEqual(line, '  time  model 1.2e-01 [frame 5.0e-02 sweep 6.0e-02 comp 1.0e-03 resid 1.0e-02] | '
+        self.assertEqual(line, '  time  model 1.2e-01 [frame 5.0e-02 oracle 7.0e-02 comp 1.0e-03] | '
                                'grad 3.0e-02 | cg 4.0e-01 (2.9e-02/it) | forms 2.0e-02 | '
                                'trials 2.1e-01 ×3 [retr 1.5e-01 obj 6.0e-02] (accepted 7.0e-02) | cb 1.0e-02 | '
                                'rest 1.0e-02')                           # cg per iteration: 0.40 / 14
@@ -358,10 +697,10 @@ class TestTimingDisplay(unittest.TestCase):
         rejected = cell(timing=_timing(trials=1, accepted_retraction=None))
         self.assertNotIn('accepted', rejected)
         exact = cell(timing=_timing(_seconds(curvature=0.2)))
-        self.assertIn('model 3.2e-01 [frame 5.0e-02 sweep 6.0e-02 comp 1.0e-03 resid 1.0e-02 curv 2.0e-01] |', exact)
+        self.assertIn('model 3.2e-01 [frame 5.0e-02 oracle 7.0e-02 comp 1.0e-03 curv 2.0e-01] |', exact)
         tracked = cell(timing=_timing(_seconds(tracking=0.05)))
         self.assertIn('(accepted 7.0e-02) | track 5.0e-02 | cb 1.0e-02 |', tracked)
-        reused = cell(timing=_timing(_seconds(frame=None, sweep=None, companion=None, residual=None, gradient=None)))
+        reused = cell(timing=_timing(_seconds(frame=None, oracle=None, companion=None, gradient=None)))
         self.assertTrue(reused.startswith('  time  cg 4.0e-01'), reused)   # a row after a rejection: no build
         converged = cell(converged=True, cg_iters=None,
                          timing=_timing(_seconds(cg=None, forms=None, trial_retraction=None, trial_objective=None),
@@ -410,7 +749,7 @@ class TestTimingDisplay(unittest.TestCase):
         self.assertEqual(lines[0], "  timing  3 rows, Σ window 2.0e+00 s (the last row's callback is not in it)")
         self.assertEqual(lines[1].split(), ['seconds', '%', 'window', 'compile', 'mean/row'])
         rows = {line.split()[0]: line.split()[1:] for line in lines[2:-1]}
-        self.assertEqual(list(rows), ['previous_callback', 'frame', 'sweep', 'companion', 'residual', 'gradient',
+        self.assertEqual(list(rows), ['previous_callback', 'frame', 'oracle', 'companion', 'gradient',
                                       'reference', 'cg', 'forms', 'trial_retraction', 'trial_objective', 'remainder',
                                       'setup', 'alignment'])             # no curvature, no tracking: they never ran
         self.assertEqual(rows['cg'], ['8.0e-01', '40.0', '—', '4.0e-01'])   # two rows ran CG
@@ -432,11 +771,10 @@ class TestTimingDisplay(unittest.TestCase):
         np.random.seed(0)
         rng = np.random.default_rng(0)
         shape = (6, 6, 6)
-        target = t3.TuckerTensorTrain.randn(shape, (3, 3, 3), (1, 3, 3, 1)).data
+        target = t3.TuckerTensorTrain.randn(shape, (3, 3, 3), (1, 3, 3, 1))
         ww, pp = ([rng.standard_normal((40, n)) for n in shape] for _ in range(2))
-        kind = bfit.ProbeDerivativesKind(order=1)
-        data = [z + 0.01 * rng.standard_normal(z.shape) for z in kind.point_forward(target, (ww, pp))]
-        problem = bopt.least_squares_problem(bgeo.ManifoldGeometryOps(), kind, (ww, pp), data)
+        data = [z + 0.01 * rng.standard_normal(z.shape) for z in dd.forward(target, 'probe', ww, pp, 1)]
+        problem = F.derivative_fit(bgeo.ManifoldGeometryOps(), 'probe', 1, ww, pp, data)
         return problem, t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)).data
 
     def test_a_timed_run(self):
@@ -451,10 +789,10 @@ class TestTimingDisplay(unittest.TestCase):
                          ('converged at row 0', dict(max_newton=30, gtol_rel=10.0))):
             with self.subTest(name):
                 timed, untimed = [], []
-                cb, _ = bdisp.make_newton_display(problem, print_fn=timed.append)
-                _, stats = bopt.newton_cg(problem, x0, timing=True, callback=cb, **kw)
-                cb_plain, _ = bdisp.make_newton_display(problem, print_fn=untimed.append)
-                bopt.newton_cg(problem, x0, callback=cb_plain, **kw)
+                cb, _ = bdisp.make_newton_display(problem.oracle, problem.batch, print_fn=timed.append)
+                _, stats = problem.newton_cg(x0, timing=True, callback=cb, **kw)
+                cb_plain, _ = bdisp.make_newton_display(problem.oracle, problem.batch, print_fn=untimed.append)
+                problem.newton_cg(x0, callback=cb_plain, **kw)
                 rows = len(stats['history'])
                 self.assertEqual(len(timed), rows + 1)                       # a block per row, then the table
                 header = '  timing  1 row, ' if rows == 1 else '  timing  %d rows, ' % rows
@@ -472,7 +810,7 @@ class TestTimingDisplay(unittest.TestCase):
                 stripped = ['\n'.join(line for line in block.split('\n') if not line.startswith('  time  '))
                             for block in timed[:-1]]
                 self.assertEqual([clock.sub('| T', b) for b in stripped], [clock.sub('| T', b) for b in untimed])
-                again = bopt.newton_cg(problem, x0, timing=True, callback=cb, max_newton=2)[1]   # the same callback
+                again = problem.newton_cg(x0, timing=True, callback=cb, max_newton=2)[1]   # the same callback
                 self.assertEqual(len(again['history']), 2)
                 self.assertTrue(timed[-1].startswith('  timing  2 rows, '), timed[-1])           # this run's rows only
                 self.assertEqual(sum(text.startswith('  timing  ') for text in timed), 2)
@@ -481,9 +819,9 @@ class TestTimingDisplay(unittest.TestCase):
         """The table follows a converged row without a stop reason (a hand-replayed run), and only the last row."""
         problem, x0 = self._problem()
         infos = []
-        bopt.newton_cg(problem, x0, timing=True, max_newton=3, callback=infos.append)
+        problem.newton_cg(x0, timing=True, max_newton=3, callback=infos.append)
         printed = []
-        cb, _ = bdisp.make_newton_display(problem, print_fn=printed.append)
+        cb, _ = bdisp.make_newton_display(problem.oracle, problem.batch, print_fn=printed.append)
         last = dc.replace(infos[-1], converged=True, stop_reason=None)
         for info in infos[:-1] + [last]:
             cb(info)
@@ -496,10 +834,10 @@ class TestTimingDisplay(unittest.TestCase):
         problem, x0 = self._problem()
         for name, kw in (('capped', dict(max_newton=4)), ('converged at row 0', dict(max_newton=30, gtol_rel=10.0))):
             with self.subTest(name):
-                cb, timed = bdisp.make_newton_display(problem, print_fn=None)
-                bopt.newton_cg(problem, x0, timing=True, callback=cb, **kw)
-                cb_plain, untimed = bdisp.make_newton_display(problem, print_fn=None)
-                bopt.newton_cg(problem, x0, callback=cb_plain, **kw)
+                cb, timed = bdisp.make_newton_display(problem.oracle, problem.batch, print_fn=None)
+                problem.newton_cg(x0, timing=True, callback=cb, **kw)
+                cb_plain, untimed = bdisp.make_newton_display(problem.oracle, problem.batch, print_fn=None)
+                problem.newton_cg(x0, callback=cb_plain, **kw)
                 self.assertEqual(len(timed), len(untimed))
                 for a, b in zip(timed, untimed):
                     self.assertEqual(list(a), list(b))                       # the same keys, in the same order
@@ -582,11 +920,10 @@ class TestSwitchDisplay(unittest.TestCase):
         np.random.seed(0)
         shape, rng = (5, 5, 5), np.random.default_rng(0)
         ww, pp = ([rng.standard_normal((40, n)) for n in shape] for _ in range(2))
-        kind = bfit.ProbeDerivativesKind(order=1)
-        target = t3.TuckerTensorTrain.randn(shape, (3, 3, 3), (1, 3, 3, 1)).data
-        data = [z + 0.01 * rng.standard_normal(z.shape) for z in kind.point_forward(target, (ww, pp))]
-        problem = bopt.least_squares_problem(bgeo.ManifoldGeometryOps(), kind, (ww, pp), data)
-        x0, _ = bopt.newton_cg(problem, t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)).data, max_newton=5)
+        target = t3.TuckerTensorTrain.randn(shape, (3, 3, 3), (1, 3, 3, 1))
+        data = [z + 0.01 * rng.standard_normal(z.shape) for z in dd.forward(target, 'probe', ww, pp, 1)]
+        problem = F.derivative_fit(bgeo.ManifoldGeometryOps(), 'probe', 1, ww, pp, data)
+        x0, _ = problem.newton_cg(t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)).data, max_newton=5)
         return problem, x0
 
     def test_a_switch_run(self):
@@ -597,12 +934,12 @@ class TestSwitchDisplay(unittest.TestCase):
         import re
         problem, x0 = self._problem()
         printed, rows = [], []
-        display, _ = bdisp.make_newton_display(problem, print_fn=printed.append)
+        display, _ = bdisp.make_newton_display(problem.oracle, problem.batch, print_fn=printed.append)
 
         def callback(info):
             rows.append(info)
             display(info)
-        _, stats = bopt.newton_cg(problem, x0, max_newton=40, hessian='switch', callback=callback)
+        _, stats = problem.newton_cg(x0, max_newton=40, hessian='switch', callback=callback)
         j = stats['switched_at']
         self.assertIsNotNone(j)
         headers = [block.split('\n')[0] for block in printed]
@@ -623,26 +960,12 @@ class TestSwitchDisplay(unittest.TestCase):
         texts = []
         for kw in (dict(hessian='switch', switch_tau=0.0), dict(step_control='trust_region')):
             text = []
-            cb, _ = bdisp.make_newton_display(problem, print_fn=text.append)
-            bopt.newton_cg(problem, x0, max_newton=6, callback=cb, **kw)
+            cb, _ = bdisp.make_newton_display(problem.oracle, problem.batch, print_fn=text.append)
+            problem.newton_cg(x0, max_newton=6, callback=cb, **kw)
             texts.append('\n'.join(text))
         self.assertEqual(texts[0].count(' | sw '), 6)                   # every row a Gauss-Newton-phase step row
         self.assertEqual(clock.sub('| T', segment.sub('', texts[0])), clock.sub('| T', texts[1]))
 
-
-class TestValidationArgsGoTogether(unittest.TestCase):
-    """Review 2026-08-22 (C9): val_data without val_sample used to fail deep inside the kind, and
-    val_sample without val_data was silently ignored."""
-
-    def test_one_without_the_other_raises(self):
-        np.random.seed(4)
-        x = t3.TuckerTensorTrain.randn((4, 5, 3), (2, 2, 2), (1, 2, 2, 1))
-        ww = tuple(np.random.randn(6, n) for n in x.shape)
-        problem = bopt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.APPLY, ww, x.apply(ww))
-        with self.assertRaises(ValueError):
-            bdisp.make_newton_display(problem, val_data=x.apply(ww))
-        with self.assertRaises(ValueError):
-            bdisp.make_newton_display(problem, val_sample=ww)
 
 if __name__ == "__main__":
     unittest.main()

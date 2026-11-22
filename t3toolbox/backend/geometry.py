@@ -69,12 +69,14 @@ from t3toolbox.backend import ut3_masking
 from t3toolbox.backend import t3_orthogonalization as ragged_orth
 from t3toolbox.backend import tt_operations
 from t3toolbox.backend import ranks
+from t3toolbox.backend import linalg
 from t3toolbox.backend import padded_frames
+from t3toolbox.backend.sampling_variables import frame_form
 from t3toolbox.backend import uniform_padded_frames
 from t3toolbox.backend.fv_operations import ZERO_FRAME_SEED
 from t3toolbox.backend.padded_frames import (ALIGN_OVERSAMPLING, ALIGN_OVERSAMPLED_PASSES, ALIGN_MAX_PASSES,
                                              ALIGN_TOL, ALIGN_ALTERNATE)
-from t3toolbox.backend.fv_conversions import t3_orthogonal_representations, t3_corewise_frame
+from t3toolbox.backend.fv_conversions import t3_orthogonal_representations
 import t3toolbox.corewise as cw
 
 __all__ = [
@@ -263,6 +265,26 @@ def _structurally_zero(
     return bool(np.all(zero))
 
 
+def _require_frame_form(
+        frame:     typ.Tuple,               # a frame or a corewise point, any of the four forms
+        expected:  typ.Tuple[str, str],     # (layout, call): what this geometry's frame is
+        who:       str,                     # the geometry and member, for the message
+) -> None:
+    """Structural: ``frame`` has the form of this geometry's frame (:py:func:`~t3toolbox.backend.sampling_variables.frame_form`,
+    the engine's one reader), else a ``ValueError``. Above all it refuses the corewise geometries' old four-store frame
+    ``(B, G, G, G)`` (``t3_corewise_frame``): read as a point it would pass ``G`` three times, a silent wrong answer
+    (the regularizer's value counted ``G`` three times). Raises in both safety modes and under ``jit`` (it reads only
+    the structure)."""
+    try:
+        form = frame_form(frame)
+    except ValueError:
+        form = None
+    if form != expected:
+        raise ValueError('%s: expected a %s %s %s; got %s. The corewise frame is the point (P16): pass geom.frame(x)[0]'
+                         % (who, expected[0], expected[1], 'point' if expected[1] == 'corewise' else 'frame',
+                            'the form %r' % (form,) if form is not None else 'a structure of %d elements' % len(frame)))
+
+
 @dc.dataclass(frozen=True, eq=False)   # eq=False + ValueHashedFields: value hash/eq, see the module docstring
 class ManifoldGeometryOps(ValueHashedFields):
     """The fixed-rank T3 manifold geometry on raw ``(tucker_cores, tt_cores)`` data -- the check-free twin
@@ -314,7 +336,9 @@ class ManifoldGeometryOps(ValueHashedFields):
             frame:  typ.Tuple,   # (D, U, L, R)
     ) -> typ.Tuple:              # (tucker_cores, tt_cores) = (D, L) -- the tensor the frame is attached to
         """The point ``X = (D, L)`` the frame is attached to. What a frame *is* belongs to the geometry,
-        so consumers (the regularizer, diagnostics) ask for the point rather than indexing the tuple."""
+        so consumers (the regularizer, diagnostics) ask for the point rather than indexing the tuple. A frame of
+        another form (a corewise point) raises (structural)."""
+        _require_frame_form(frame, ('ragged', 'manifold'), 'ManifoldGeometryOps.base_point')
         return (frame[0], frame[2])
 
     def precompute(
@@ -361,8 +385,18 @@ class ManifoldGeometryOps(ValueHashedFields):
             ragged_orth.t3_left_orthogonalize((tucker, tt_operations.tt_squash_tails(tt))))
 
     def point_tangent(self, frame):
-        """The attachment point as a gauged tangent ``v_X`` -- the regularizer's gradient direction."""
+        """The attachment point as a gauged tangent ``v_X`` -- the regularizer's gradient direction. A frame of
+        another form raises (structural)."""
+        _require_frame_form(frame, ('ragged', 'manifold'), 'ManifoldGeometryOps.point_tangent')
         return fv_base_point_tangent(frame)
+
+    def point_data(
+            self,
+            x_cores:  typ.Tuple,   # (tucker_cores, tt_cores)
+    ) -> typ.Tuple:                # (B, G): the point as an oracle reads it, a ragged corewise frame
+        """The point as an oracle reads it, a corewise frame: on the ragged layout the cores themselves. The
+        optimizers sample a point with no local model through it (``backend.optimizers.point_objective``)."""
+        return x_cores
 
     def zero_point_frame(
             self,
@@ -399,14 +433,19 @@ class ManifoldGeometryOps(ValueHashedFields):
     ) -> typ.Union[
         typ.Tuple[
             typ.Tuple,                 # the aligned frame of x0
+            typ.Tuple,                 # its centers (Vc, Hc): the old point's, zero-padded (zeros from the zero tensor)
             typ.Tuple[NDArray, ...],   # movements, one per pass, each shape=C
         ],
-        typ.Tuple[typ.Tuple, typ.Tuple[NDArray, ...], typ.Tuple[float, ...]],   # timing=True: the two, then the seconds per pass
+        typ.Tuple[typ.Tuple, typ.Tuple, typ.Tuple[NDArray, ...], typ.Tuple[float, ...]],   # timing=True: the three, then the seconds per pass
     ]:
-        """The aligned padded frame of ``x0`` from ``x_old``: :py:func:`~t3toolbox.backend.padded_frames.fv_aligned_padded_frame`.
+        """The aligned padded frame of ``x0`` from ``x_old``
+        (:py:func:`~t3toolbox.backend.padded_frames.fv_aligned_padded_frame`), with its centers, as :py:meth:`frame`
+        returns them: the old point's centers zero-padded on every rank axis. Every frame of the alignment keeps the
+        old frame bitwise in its leading slots and ``x0`` has zero coordinates on the new slots, so these are centers
+        of the aligned frame; from the zero tensor they are zeros.
 
         ``timing=True`` adds the seconds per pass (``()`` when no pass runs), each from a synchronized start to a
-        synchronized end; the frame and movements are those of ``timing=False``, bitwise."""
+        synchronized end; the frame, centers and movements are those of ``timing=False``, bitwise."""
         tucker = tuple(int(B.shape[-2]) for B in x0[0])
         tt = (int(x0[1][0].shape[-3]),) + tuple(int(G.shape[-1]) for G in x0[1])
         point = x0 if x_old is None else x_old
@@ -415,14 +454,16 @@ class ManifoldGeometryOps(ValueHashedFields):
         old_tt = np.array([point[1][0].shape[-3]] + [G.shape[-1] for G in point[1]])
         if x_old is None or _structurally_zero(old_tucker, old_tt, 'aligned_padded_frame'):
             old = padded_frames.fv_empty_frame(shape, self.stack_shape(point), use_jax=tree_contains_jax(point))
+            old_centers = None
         else:
-            old, _ = self.frame(x_old)
+            old, old_centers = self.frame(x_old)
         options = dict(sharing=_sharing_labels(self.groups, len(tucker)), oversampling=oversampling,
                        oversampled_passes=oversampled_passes, max_passes=max_passes, tol=tol, alternate=alternate,
                        seed=seed, use_jit=use_jit)
-        if timing:
-            return padded_frames._fv_aligned_padded_frame(old, tucker, tt, hint, project, **options, timing=True)
-        return padded_frames.fv_aligned_padded_frame(old, tucker, tt, hint, project, **options)
+        frame, movements, seconds = padded_frames._fv_aligned_padded_frame(old, tucker, tt, hint, project, **options,
+                                                                           timing=timing)
+        centers = padded_frames._fv_padded_centers(old_centers, frame)
+        return (frame, centers, movements, seconds) if timing else (frame, centers, movements)
 
     def require_frame_structure(
             self,
@@ -505,11 +546,13 @@ class CorewiseGeometryOps(ValueHashedFields):
     """The core-parameter Euclidean geometry on raw ``(tucker_cores, tt_cores)`` data -- the check-free
     twin of :py:data:`t3toolbox.manifold.COREWISE`.
 
-    The raw cores ARE the frame (the Section 6.3 substitution ``(U, L, R) -> G``), there is no gauge, and
-    the retraction is additive (``cores += variations``). With a non-empty ``groups`` the projection is
-    the per-group arithmetic mean (the corewise coordinates are raw factor copies, so that IS the
-    orthogonal projection onto the tied subspace) and the additive retraction preserves tying exactly, so
-    ``retract`` only mean-ties its input first -- a bitwise no-op on already-tied input.
+    **The frame is the point** ``(B, G)`` itself (graded messages, P16): the engine reads a pair of core tuples as a
+    corewise call, with one basis on each edge and each sweep run once
+    (:py:func:`~t3toolbox.backend.sampling_variables.frame_form`). There is no gauge, and the retraction is additive
+    (``cores += variations``). With a non-empty ``groups`` the projection is the per-group arithmetic mean (the
+    corewise coordinates are raw factor copies, so that IS the orthogonal projection onto the tied subspace) and the
+    additive retraction preserves tying exactly, so ``retract`` only mean-ties its input first -- a bitwise no-op on
+    already-tied input.
 
     Secondary to the manifold geometry: its Gauss-Newton Hessian is gauge-singular, which first-order and
     quasi-Newton methods tolerate but Newton must truncate around."""
@@ -524,11 +567,12 @@ class CorewiseGeometryOps(ValueHashedFields):
             self,
             x_cores:  typ.Tuple,   # (tucker_cores, tt_cores)
     ) -> typ.Tuple[
-            typ.Tuple,             # (D, U, L, R) = (B, G, G, G) -- the raw cores ARE the frame
+            typ.Tuple,             # (B, G): the point itself, its cores as two tuples
             None,                  # centers: a corewise frame has none
     ]:
-        """The (non-orthonormal) corewise frame: the Section 6.3 substitution ``(U, L, R) -> G``; no centers."""
-        return t3_corewise_frame(x_cores), None
+        """The corewise frame: the point ``(B, G)`` itself, as two tuples of cores; no centers."""
+        tucker_cores, tt_cores = x_cores
+        return (tuple(tucker_cores), tuple(tt_cores)), None
 
     def stack_shape(
             self,
@@ -539,8 +583,12 @@ class CorewiseGeometryOps(ValueHashedFields):
         return tuple(x_cores[0][0].shape[:-2])
 
     def base_point(self, frame):
-        """The point ``X = (B, G)`` the frame is attached to (see :py:meth:`ManifoldGeometryOps.base_point`)."""
-        return (frame[0], frame[2])
+        """The point ``X = (B, G)`` the frame is attached to: the frame itself (see
+        :py:meth:`ManifoldGeometryOps.base_point`). Any other form raises (structural), the old four-store frame
+        ``(B, G, G, G)`` above all, which would give ``G`` three times. ``point_tangent`` and ``retract`` read the
+        frame through this member."""
+        _require_frame_form(frame, ('ragged', 'corewise'), 'CorewiseGeometryOps.base_point')
+        return frame
 
     def precompute(self, frame):
         """No per-frame companion on this geometry -- the tied mean needs only the static partition."""
@@ -573,6 +621,14 @@ class CorewiseGeometryOps(ValueHashedFields):
     def point_tangent(self, frame):
         """The cores ``(B, G)`` as a tangent (the projection is the identity here; ``X_ref = 0``)."""
         return self.base_point(frame)
+
+    def point_data(
+            self,
+            x_cores:  typ.Tuple,   # (tucker_cores, tt_cores)
+    ) -> typ.Tuple:                # (B, G): the point as an oracle reads it, frame(x_cores)[0]
+        """The point as an oracle reads it, a corewise frame: the cores themselves, which is :py:meth:`frame`'s frame
+        here (see :py:meth:`ManifoldGeometryOps.point_data`)."""
+        return x_cores
 
     def zero_point_frame(self, frame) -> None:
         """``None``: this geometry has no zero-point reference. The objective is multilinear in the cores,
@@ -684,6 +740,40 @@ def _uniform_manifold_curvature_data(
     return ManifoldCurvatureData(lift_factors, z, z_sweep, _uniform_lift_sigma_min(lift_factors, frame_data[5]))
 
 
+def _ufv_padded_centers(
+        old_variations:  typ.Optional[typ.Tuple],   # the old point's centers as variations .data (Vc_sc, Hc_sc, shape,
+                                                    #   variation masks), the second result of
+                                                    #   ut3_orthogonal_representations; None: the old point is zero
+        frame_data:      typ.Tuple,                 # uniform frame .data: a compacted (aligned) padded frame of the old one
+) -> typ.Tuple[
+    NDArray,                                        # Vc_sc, (d,)+C+(nU, N) at the frame's widths
+    NDArray,                                        # Hc_sc, (d,)+C+(rL, nD, rR) at the frame's widths
+]:
+    """The uniform twin of :py:func:`~t3toolbox.backend.padded_frames._fv_padded_centers`: the old centers in the
+    leading real slots, zeros elsewhere. The compaction
+    (:py:func:`~t3toolbox.backend.uniform_padded_frames.ufv_compact_frame`) puts each store's real slots first, in
+    their order, and the old block's real slots come before the completion's; so the old centers are masked
+    (their padding is not data), gathered real-first along each rank axis with their own variation masks, and padded
+    or truncated to the frame's widths (truncation drops masked zeros only: the frame's stores contain the old ones).
+    In the frame's array type and dtype."""
+    xnp, _, _ = get_backend(True, tree_contains_jax(frame_data[:4]))
+    dtype = frame_data[0].dtype
+    shapes = ufv_operations.ufv_variation_shapes(frame_data)
+    if old_variations is None:
+        return tuple(xnp.zeros(s, dtype=dtype) for s in shapes)
+    down, up, left, right = old_variations[3]
+    require_concrete_masks(down, up, left, right)
+    V, H = ufv_masking.ufv_apply_variations_masks(old_variations)
+    first = lambda m: np.argsort(~np.asarray(m, dtype=bool), axis=-1, kind='stable')     # real slots first
+    take = lambda A, index, axis: xnp.take_along_axis(A, xnp.asarray(index), axis=axis)
+    V = take(V, first(up)[..., :, None], -2)
+    H = take(take(take(H, first(left)[..., :, None, None], -3), first(down)[..., None, :, None], -2),
+             first(right)[..., None, None, :], -1)
+    V = linalg.pad_or_truncate(V, [(0, 0)] * (V.ndim - 2) + [(0, t - a) for t, a in zip(shapes[0][-2:], V.shape[-2:])])
+    H = linalg.pad_or_truncate(H, [(0, 0)] * (H.ndim - 3) + [(0, t - a) for t, a in zip(shapes[1][-3:], H.shape[-3:])])
+    return xnp.asarray(V, dtype=dtype), xnp.asarray(H, dtype=dtype)
+
+
 @dc.dataclass(frozen=True, eq=False)
 class UniformManifoldGeometryOps(ValueHashedFields):
     """The uniform **manifold** geometry at a fixed rank -- the raw-supercore twin of
@@ -715,8 +805,27 @@ class UniformManifoldGeometryOps(ValueHashedFields):
         """The geometry at ``x0``'s fixed rank. The variation masks come from ``x0``'s orthogonal
         representation (:py:func:`~t3toolbox.backend.ufv_conversions.ut3_orthogonal_representations`),
         which is where the SVD-prefix mask contract is established -- do not build them by hand
-        (``docs/contributor/uniform_svd_prefix_orthogonalization.md``)."""
+        (``docs/contributor/uniform_svd_prefix_orthogonalization.md``).
+
+        **``x0`` must have minimal ranks** (with ``sharing``, the shared notion), checked structurally from its host
+        masks: from a non-minimal point the retraction truncates to the realizable rank, which no longer matches the
+        masks held here, so an optimizer's next step would desync mid-run. Reduce it first with
+        :py:func:`~t3toolbox.backend.uniform_fitting.uniform_minimal` (the same tensor). A local model at a
+        non-minimal point (which is never retracted) builds its geometry from the frame in hand with
+        :py:meth:`from_frame`, which does not check."""
         _tk_sc, _tt_sc, shape, base_masks = x0_data
+        require_concrete_masks(*base_masks)
+        tucker_ranks, tt_ranks = (np.asarray(m).sum(axis=-1) for m in base_masks)
+        min_tucker, min_tt = ranks.compute_minimal_ranks(tuple(shape), tucker_ranks, tt_ranks, sharing=sharing)
+        if not (np.array_equal(tucker_ranks, np.asarray(min_tucker)) and np.array_equal(tt_ranks, np.asarray(min_tt))):
+            raise ValueError(
+                'UniformManifoldGeometryOps.from_point requires a minimal-rank point (Tucker ranks %s, TT ranks %s; '
+                'minimal: %s, %s%s): a non-minimal nominal rank is unrealizable and would desync the retraction from the '
+                'held masks mid-optimization. Reduce it first: uniform_minimal(x0%s); or, for a local model at this '
+                'point, build the geometry with from_frame'
+                % (tucker_ranks.tolist(), tt_ranks.tolist(), np.asarray(min_tucker).tolist(), np.asarray(min_tt).tolist(),
+                   '; with sharing, the shared notion' if sharing is not None else '',
+                   ', sharing=...' if sharing is not None else ''))
         _frame, variation_data = ufv_conversions.ut3_orthogonal_representations(x0_data)
         return cls(tuple(shape), readonly_mask_copies(base_masks), readonly_mask_copies(variation_data[3]),
                    canonical_groups(sharing, tuple(shape)))
@@ -778,7 +887,8 @@ class UniformManifoldGeometryOps(ValueHashedFields):
         return tuple(x_sc[0].shape[1:-2])
 
     def base_point(self, frame_data):
-        """The bare supercore pair ``(D, L)`` the frame is attached to."""
+        """The bare supercore pair ``(D, L)`` the frame is attached to. A frame of another form raises (structural)."""
+        _require_frame_form(frame_data, ('uniform', 'manifold'), 'UniformManifoldGeometryOps.base_point')
         return (frame_data[0], frame_data[2])
 
     def precompute(self, frame_data):
@@ -821,8 +931,20 @@ class UniformManifoldGeometryOps(ValueHashedFields):
         return self.inner(v_x, v_x)
 
     def point_tangent(self, frame_data):
-        """The attachment point as a gauged tangent ``v_X`` (the direct construction)."""
+        """The attachment point as a gauged tangent ``v_X`` (the direct construction). A frame of another form raises
+        (structural)."""
+        _require_frame_form(frame_data, ('uniform', 'manifold'), 'UniformManifoldGeometryOps.point_tangent')
         return ufv_base_point_tangent(frame_data)
+
+    def point_data(
+            self,
+            x_sc:  typ.Tuple,   # bare (tucker_supercore, tt_supercore) at this geometry's rank
+    ) -> typ.Tuple:             # (B_sc, G_sc, shape, masks): the point's UniformTuckerTensorTrain.data
+        """The point as an oracle reads it, a uniform corewise frame: the bare pair with this geometry's ``shape`` and
+        point ``masks`` (the plain-UT3 masks, never the frame's), which the bare pair does not carry. The optimizers
+        sample a point with no local model through it (``backend.optimizers.point_objective``); a point retracted from
+        this geometry's frame keeps its ranks, so these masks are its own."""
+        return (x_sc[0], x_sc[1], self.shape, self.masks)
 
     def zero_point_frame(
             self,
@@ -860,18 +982,23 @@ class UniformManifoldGeometryOps(ValueHashedFields):
     ) -> typ.Union[
         typ.Tuple[
             typ.Tuple,   # the aligned frame of x0 at the widths of self.var_masks, prefix masks
+            typ.Tuple,   # its centers (Vc_sc, Hc_sc): the old point's, zero-padded (zeros from the zero tensor)
             NDArray,     # movements, (max_passes,)+C, NaN after the last pass
         ],
-        typ.Tuple[typ.Tuple, NDArray, typ.Optional[typ.Tuple[float, ...]]],   # timing=True: the two, then the seconds per pass
+        typ.Tuple[typ.Tuple, typ.Tuple, NDArray, typ.Optional[typ.Tuple[float, ...]]],   # timing=True: the three, then the seconds per pass
     ]:
-        """The aligned padded frame of ``x0`` from ``x_old``: :py:func:`~t3toolbox.backend.uniform_padded_frames.ufv_aligned_padded_frame`.
+        """The aligned padded frame of ``x0`` from ``x_old``
+        (:py:func:`~t3toolbox.backend.uniform_padded_frames.ufv_aligned_padded_frame`), with its centers as the two
+        supercores :py:meth:`frame` returns: the old point's centers in the leading real slots, zeros elsewhere (zeros
+        from the zero tensor), as on the ragged layout (:py:meth:`ManifoldGeometryOps.aligned_padded_frame`).
 
         ``timing=True`` adds the seconds per pass (``()`` when no pass runs), each from a synchronized start to a
-        synchronized end; under ``use_jit`` the whole loop is one program and the third element is ``None``. The frame
-        and movements are those of ``timing=False``, bitwise."""
+        synchronized end; under ``use_jit`` the whole loop is one program and the fourth element is ``None``. The
+        frame, centers and movements are those of ``timing=False``, bitwise."""
         tucker, tt = (np.asarray(m).sum(axis=-1) for m in self.masks)
         C = self.stack_shape(x0)
         N = int(x0[0].shape[-1])
+        old_centers = None
         if x_old is None:
             old = uniform_padded_frames.ufv_empty_frame(self.shape, N, C, use_jax=tree_contains_jax(x0))
         else:
@@ -881,15 +1008,15 @@ class UniformManifoldGeometryOps(ValueHashedFields):
                                                             tuple(x_old[0].shape[1:-2]),
                                                             use_jax=tree_contains_jax(x_old[:2]))
             else:
-                old = ufv_conversions.ut3_orthogonal_representations(x_old)[0]
+                old, old_centers = ufv_conversions.ut3_orthogonal_representations(x_old)
         widths = tuple(int(m.shape[-1]) for m in self.var_masks)
         options = dict(sharing=_sharing_labels(self.groups, len(self.shape)), oversampling=oversampling,
                        oversampled_passes=oversampled_passes, max_passes=max_passes, tol=tol, alternate=alternate,
                        seed=seed, use_jit=use_jit)
-        if timing:
-            return uniform_padded_frames._ufv_aligned_padded_frame(old, tucker, tt, hint, project, widths, **options,
-                                                                   timing=True)
-        return uniform_padded_frames.ufv_aligned_padded_frame(old, tucker, tt, hint, project, widths, **options)
+        frame, movements, seconds = uniform_padded_frames._ufv_aligned_padded_frame(old, tucker, tt, hint, project,
+                                                                                    widths, **options, timing=timing)
+        centers = _ufv_padded_centers(old_centers, frame)
+        return (frame, centers, movements, seconds) if timing else (frame, centers, movements)
 
     def require_frame_structure(
             self,
@@ -982,15 +1109,28 @@ class UniformManifoldGeometryOps(ValueHashedFields):
             curvature_data.z, _uniform_point(frame_data), core_directions, curvature_data.z_sweep)
 
 
+def _uniform_additive_retraction(
+        point_sc:  typ.Tuple,   # bare (B_sc, G_sc): (d,)+C+(n, N), (d,)+C+(rL, n, rR)
+        var_sc:    typ.Tuple,   # bare (B_dot, G_dot), the same with a direction stack K before C: (d,)+K+C+...
+) -> typ.Tuple:                 # bare (B_sc + B_dot, G_sc + G_dot), stack K + C
+    """The uniform corewise retraction ``cores += variations`` on bare supercore pairs. The supercores lead with the site
+    axis ``d`` and the stack is inside, so a direction stack ``K`` cannot broadcast against the point by plain
+    broadcasting (it would align ``d`` with ``K``): the point gets ``len(K)`` size-1 axes after ``d``, and the ``K``
+    directions share the one point. The result's padding is the sum of the operands' (don't-care, as theirs is)."""
+    n_K = var_sc[0].ndim - point_sc[0].ndim
+    return tuple(P.reshape(P.shape[:1] + (1,) * n_K + P.shape[1:]) + dP for P, dP in zip(point_sc, var_sc))
+
+
 @dc.dataclass(frozen=True, eq=False)
 class UniformCorewiseGeometryOps(ValueHashedFields):
     """The uniform **corewise** geometry at a fixed rank -- the raw-supercore twin of
     :py:data:`t3toolbox.uniform_manifold.UNIFORM_COREWISE`.
 
-    As :py:class:`CorewiseGeometryOps`: the cores are the frame, no gauge, additive retraction; and as
+    As :py:class:`CorewiseGeometryOps`: the frame is the point, no gauge, additive retraction; and as
     :py:class:`UniformManifoldGeometryOps`, the rank structure is held here because the optimizer state
-    is a bare supercore pair. The variation masks are a pure derivation of the plain masks here (the
-    ``(B, G, G, G)`` frame's gauge shift), so ``from_point`` needs no orthogonalization."""
+    is a bare supercore pair. The frame is the point's ``UniformTuckerTensorTrain.data``,
+    ``(B_sc, G_sc, shape, masks)``, which the engine reads as a uniform corewise call. The variation masks are a pure
+    derivation of the plain masks here, so ``from_point`` needs no orthogonalization."""
 
     shape:   typ.Tuple[int, ...]   # the mode sizes
     masks:   typ.Tuple             # plain-UT3 rank masks (tucker_edge_mask, tt_edge_mask); HOST numpy
@@ -1017,9 +1157,10 @@ class UniformCorewiseGeometryOps(ValueHashedFields):
 
     @property
     def var_masks(self) -> typ.Tuple:
-        """The variation masks of the ``(B, G, G, G)`` frame -- the corewise frame's mask set put
-        through the gauge shift. A pure derivation of :py:attr:`masks`, so it is a property rather
-        than a stored field."""
+        """The masks of a core direction ``(B_dot, G_dot)`` at the point, in the variation-mask form
+        ``(down, up, left[:-1], right[1:])`` with up = down and right = left: the point's Tucker mask on ``B_dot``'s
+        rank axis, its TT masks on ``G_dot``'s bonds. A pure derivation of :py:attr:`masks`, so it is a property
+        rather than a stored field."""
         tucker_mask, tt_mask = self.masks
         return ufv_masking.ufv_variation_masks((tucker_mask, tucker_mask, tt_mask, tt_mask))
 
@@ -1030,11 +1171,12 @@ class UniformCorewiseGeometryOps(ValueHashedFields):
             self,
             x_sc:  typ.Tuple,   # bare (tucker_supercore, tt_supercore)
     ) -> typ.Tuple[
-            typ.Tuple,          # uniform frame .data = (B, G, G, G, shape, masks)
+            typ.Tuple,          # the point's .data = (B_sc, G_sc, shape, masks)
             None,               # centers: a corewise frame has none
     ]:
-        """The corewise frame: the cores themselves, with the doubled mask set; no centers."""
-        return ufv_conversions.ut3_corewise_frame((x_sc[0], x_sc[1], self.shape, self.masks)), None
+        """The corewise frame: the point itself, ``(B_sc, G_sc, shape, masks)`` with this geometry's shape and plain
+        masks (a ``UniformTuckerTensorTrain.data``); no centers."""
+        return (x_sc[0], x_sc[1], self.shape, self.masks), None
 
     def stack_shape(
             self,
@@ -1044,8 +1186,11 @@ class UniformCorewiseGeometryOps(ValueHashedFields):
         return tuple(x_sc[0].shape[1:-2])
 
     def base_point(self, frame_data):
-        """The bare supercore pair ``(B, G)`` the frame is attached to."""
-        return (frame_data[0], frame_data[2])
+        """The bare supercore pair ``(B, G)`` the frame is attached to: the frame's two supercores. Any other form
+        raises (structural): the old six-element frame ``(B, G, G, G, shape, masks)`` among them. ``point_tangent`` and
+        ``retract`` read the frame through this member."""
+        _require_frame_form(frame_data, ('uniform', 'corewise'), 'UniformCorewiseGeometryOps.base_point')
+        return (frame_data[0], frame_data[1])
 
     def precompute(self, frame_data):
         """No per-frame companion on this geometry."""
@@ -1060,8 +1205,7 @@ class UniformCorewiseGeometryOps(ValueHashedFields):
 
     def retract(self, frame_data, var_sc, aux=None):
         """The additive retraction (mean-tied first when shared, which keeps tied-in giving tied-out)."""
-        new_x = utv_ops.utv_corewise_retract(frame_data, self._variations(self.project(frame_data, var_sc)))
-        return (new_x[0], new_x[1])
+        return _uniform_additive_retraction(self.base_point(frame_data), self.project(frame_data, var_sc))
 
     def inner(self, a_sc, b_sc):
         """The MASKED coordinate ``<.,.>`` (the Euclidean metric here), per-element over ``K + C``."""
@@ -1074,6 +1218,14 @@ class UniformCorewiseGeometryOps(ValueHashedFields):
     def point_tangent(self, frame_data):
         """The cores ``(B, G)`` as a tangent (the projection is the identity here)."""
         return self.base_point(frame_data)
+
+    def point_data(
+            self,
+            x_sc:  typ.Tuple,   # bare (tucker_supercore, tt_supercore)
+    ) -> typ.Tuple:             # (B_sc, G_sc, shape, masks): frame(x_sc)[0]
+        """The point as an oracle reads it: the bare pair with this geometry's shape and masks, which is
+        :py:meth:`frame`'s frame here (see :py:meth:`UniformManifoldGeometryOps.point_data`)."""
+        return (x_sc[0], x_sc[1], self.shape, self.masks)
 
     def zero_point_frame(self, frame_data) -> None:
         """``None``: no zero-point reference on a corewise geometry (see

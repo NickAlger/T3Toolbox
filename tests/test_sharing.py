@@ -826,8 +826,7 @@ class TestSharedGeometry(unittest.TestCase):
         b = np.random.randn(40)
         for geom in [sg.shared_manifold(spec), sg.shared_corewise(spec)]:
             with self.subTest(base=geom.base_name):
-                r = np.asarray(x.apply(ww)) - b
-                model = fitting.apply_model(geom, x, ww, r)
+                model = _apply_model(geom, x, ww, b)
                 g = model.gradient
                 xi = geom.randn(model.frame)
                 h = 1e-6
@@ -845,21 +844,20 @@ class TestSharedGeometry(unittest.TestCase):
         # (fixed points of the post-pass); the companion rides the model once per frame
         x, spec, groups = self._tied_point(SHARED_STRUCTURES[2])
         ww = [np.random.randn(60, N) for N in x.shape]
-        r = np.asarray(x.apply(ww)) - np.random.randn(60)
+        y = np.random.randn(60)
         geom = sg.shared_manifold(spec)
-        model = fitting.apply_model(geom, x, ww, r)
-        self.assertIsInstance(model.geometry_aux, sharing.SharedFrameData)
+        model = _apply_model(geom, x, ww, y)
+        self.assertIsInstance(model.backend.geom_aux, sharing.SharedFrameData)
         g = model.gradient
-        tied_again = sharing.fv_share_tucker_variations(g.variations.data, model.geometry_aux)
+        tied_again = sharing.fv_share_tucker_variations(g.variations.data, model.backend.geom_aux)
         for A, B in zip(tied_again[0], g.variations.tucker_variations):
             self.assertTrue(np.allclose(np.asarray(A), np.asarray(B), atol=1e-9))
         Hp = model.gn_hessian(geom.randn(model.frame))
-        tied_H = sharing.fv_share_tucker_variations(Hp.variations.data, model.geometry_aux)
+        tied_H = sharing.fv_share_tucker_variations(Hp.variations.data, model.backend.geom_aux)
         for A, B in zip(tied_H[0], Hp.variations.tucker_variations):
             self.assertTrue(np.allclose(np.asarray(A), np.asarray(B), atol=1e-9))
         # regularizer path composes (the backend GeometryOps mapping accepts the wrapper)
-        model_reg = fitting.apply_model(geom, x, ww, r,
-                                        regularizer=optimizers.IdentityRegularizer(1e-3))
+        model_reg = _apply_model(geom, x, ww, y, regularizer=optimizers.IdentityRegularizer(1e-3))
         self.assertGreater(float(model_reg.objective_value), float(model.objective_value))
         _ = model_reg.gradient
 
@@ -1311,17 +1309,17 @@ class TestUniformSharedGeometry(unittest.TestCase):
 
     def test_model_invariants_match_ragged(self):
         # the frontend fitting-model path: shared uniform GaussNewton model == shared ragged model on
-        # every gauge-invariant quantity; the companion rides as the model's geometry_aux leaf
+        # every gauge-invariant quantity; the companion rides as the backend model's geom_aux leaf
         import t3toolbox.uniform_manifold as um
         from t3toolbox.backend.regularization import IdentityRegularizer
         shape, spec = (6, 6, 5), (0, 0, 1)
         x = _tied_t3(shape, (3, 3, 2), (1, 3, 2, 1), spec)
         ux = ut3.UniformTuckerTensorTrain.from_t3(x)
         ww = [np.random.randn(15, N) for N in shape]
-        r = np.asarray(x.apply(ww)) - np.random.randn(15)
-        mr = fitting.apply_model(sg.shared_manifold(spec), x, ww, r)
-        mu = fitting.apply_model(sg.shared(um.UNIFORM_MANIFOLD, spec), ux, ww, r)
-        self.assertIsInstance(mu.geometry_aux, sharing.SharedFrameData)
+        y = np.random.randn(15)
+        mr = _apply_model(sg.shared_manifold(spec), x, ww, y)
+        mu = _apply_model(sg.shared(um.UNIFORM_MANIFOLD, spec), ux, ww, y)
+        self.assertIsInstance(mu.backend.geom_aux, sharing.SharedFrameData)
         self.assertTrue(np.isclose(float(mr.objective_value), float(mu.objective_value)))
         self.assertTrue(np.isclose(float(mr.gradient.corewise_inner(mr.gradient)),
                                    float(mu.gradient.corewise_inner(mu.gradient))))
@@ -1329,10 +1327,8 @@ class TestUniformSharedGeometry(unittest.TestCase):
                                    float(mu.gn_quadratic(mu.gradient))))
         self.assertTrue(np.isclose(float(mr.gradient.corewise_inner(mr.gn_hessian(mr.gradient))),
                                    float(mu.gradient.corewise_inner(mu.gn_hessian(mu.gradient)))))
-        mu_reg = fitting.apply_model(sg.shared(um.UNIFORM_MANIFOLD, spec), ux, ww, r,
-                                     regularizer=IdentityRegularizer(0.1))
-        mr_reg = fitting.apply_model(sg.shared_manifold(spec), x, ww, r,
-                                     regularizer=IdentityRegularizer(0.1))
+        mu_reg = _apply_model(sg.shared(um.UNIFORM_MANIFOLD, spec), ux, ww, y, regularizer=IdentityRegularizer(0.1))
+        mr_reg = _apply_model(sg.shared_manifold(spec), x, ww, y, regularizer=IdentityRegularizer(0.1))
         self.assertTrue(np.isclose(float(mu_reg.objective_value), float(mr_reg.objective_value)))
 
     def test_regularizer_uses_the_precomputed_companion(self):
@@ -1344,10 +1340,10 @@ class TestUniformSharedGeometry(unittest.TestCase):
         spec = (0, 0, 1)
         x = _tied_t3((6, 6, 5), (3, 3, 2), (1, 3, 2, 1), spec)
         ww = [np.random.randn(15, N) for N in x.shape]
-        r = np.asarray(x.apply(ww)) - np.random.randn(15)
+        y = np.random.randn(15)
         geom = sg.shared_manifold(spec)
-        m = fitting.apply_model(geom, x, ww, r, regularizer=IdentityRegularizer(0.1))
-        self.assertIsNotNone(m.geometry_aux)
+        m = _apply_model(geom, x, ww, y, regularizer=IdentityRegularizer(0.1))
+        self.assertIsNotNone(m.backend.geom_aux)
         p = geom.randn(m.frame)
         _ = m.gradient                                     # realize the cached property first
         with mock.patch.object(sharing, 'fv_shared_frame_data',
@@ -1372,9 +1368,9 @@ class TestUniformSharedGeometry(unittest.TestCase):
         with self.assertRaises(ValueError):
             optimizers.gradient_descent(sg.shared_manifold(spec), 'apply', ww, b, ux, n_iter=1)
         with self.assertRaises(ValueError):
-            fitting.apply_model(sg.shared(um.UNIFORM_MANIFOLD, spec), x, ww, np.zeros(10))
+            _apply_model(sg.shared(um.UNIFORM_MANIFOLD, spec), x, ww, np.zeros(10))
         with self.assertRaises(ValueError):
-            fitting.apply_model(sg.shared_manifold(spec), ux, ww, np.zeros(10))
+            _apply_model(sg.shared_manifold(spec), ux, ww, np.zeros(10))
 
 
 class TestSharedMinimalRanksGroundTruth(unittest.TestCase):
@@ -1454,6 +1450,12 @@ class TestSharedManifoldDimGroundTruth(unittest.TestCase):
                 dense_dim = int(np.sum(ss > 1e-9 * ss[0]))
                 self.assertEqual(dense_dim, formula)
                 self.assertLess(formula, t3m.manifold_dim((shape, tucker, tt)))   # tying removes params
+
+
+def _apply_model(geometry, x, ww, y, **kw):
+    '''The local model of the plain apply fit of the data ``y`` at ``x`` (``fitting.local_model``).'''
+    return fitting.local_model(geometry, fitting.LeastSquaresOracle('apply', ()), fitting.LeastSquaresBatch(ww, y), x,
+                               **kw)
 
 
 def _tied_t3(shape, tucker_ranks, tt_ranks, spec):

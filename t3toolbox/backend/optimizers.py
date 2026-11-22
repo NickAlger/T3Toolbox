@@ -6,8 +6,7 @@
 These operate on **raw cores / tangent tuples** via backend functions only -- no frontend imports
 (no ``TuckerTensorTrain`` / ``T3Tangent`` / ``fitting.LocalModel`` / geometry classes). A raw-``.data``
 user can call them directly; the frontend ``optimizers.py`` is a thin adapter that validates the input
-once and assembles the ``Problem`` oracle from the same backend functions (design:
-``docs/contributor/fitting_internals.md`` §"Backend-first").
+once and calls the same backend functions (design: ``docs/contributor/fitting_internals.md`` §"Backend-first").
 
 Because the numerical safety preconditions live only in the frontend, this layer is **check-free** of
 them (structural shape guards inside the backend functions remain, and are jit-safe). So ``jit`` needs no
@@ -15,18 +14,24 @@ them (structural shape guards inside the backend functions remain, and are jit-s
 numpy/jax dispatch (the per-step kernels jit via ``_jitted``; the inner CG runs as a
 ``lax.while_loop`` -- eager-vs-jit agreement is covered in ``tests/backend/test_optimizers.py``).
 
-The oracle:
+An optimizer touches four things (graded messages, P16), and knows nothing of what is fitted:
 
-* ``Problem``     -- (geometry ops, sampling kind, sample, data); builds per-point ``LocalModel``
-  objects and retracts.
-* ``LocalModel``  -- the local model linearized at a point (``.gradient`` / ``.objective`` /
-  ``.hvp`` / ``.gn_quadratic`` / ``.retract``; Gauss-Newton by default, the exact Riemannian Hessian with
-  ``Problem.local_model(..., hessian='exact')``), the backend twin of the frontend ``fitting.LocalModel``.
 * ``Geometry``    -- the *where you optimize* axis: frame / project / retract / inner on raw data.
   This module declares only the **protocol** it needs; the T3 implementations live in
   :py:mod:`t3toolbox.backend.geometry`, so nothing here depends on the T3 representation.
+* ``Oracle``      -- *what is fitted*: one operation, ``query``, which answers the values an optimizer asks for at a
+  frame (``f``, ``g``, ``JtJp``, ``Jp_norm_sq``, and the optional ones). The built-in one is
+  :py:class:`~t3toolbox.backend.fitting.LeastSquaresOracle`. Its data are a **batch** the optimizers pass through
+  unread (a :py:class:`~t3toolbox.backend.fitting.LeastSquaresBatch` for the built-in oracle).
+* ``Regularizer`` -- an optional term ``rho(x)`` of the objective
+  (:py:mod:`t3toolbox.backend.regularization`).
+* ``LocalModel``  -- the geometry, the oracle, the batch and the regularizer at one frame, built by
+  :py:func:`local_model` (``.gradient`` / ``.objective`` / ``.hvp`` / ``.gn_quadratic`` / ``.retract``; Gauss-Newton
+  by default, the exact Riemannian Hessian with ``hessian='exact'``), the backend twin of the frontend
+  ``fitting.LocalModel``.
 
-Tangent vectors are raw ``(tucker_var, tt_var)`` tuples; vector arithmetic is the ``corewise`` ops.
+The value of the objective at a point with no model is :py:func:`point_objective` (a trial point, a full-batch
+check). Tangent vectors are raw ``(tucker_var, tt_var)`` tuples; vector arithmetic is the ``corewise`` ops.
 """
 import dataclasses as dc
 import functools as ft
@@ -41,12 +46,10 @@ import numpy as np
 
 from t3toolbox.backend.common import *
 from t3toolbox.backend.regularization import Regularizer, IdentityRegularizer   # re-exported for backend users
-from t3toolbox.backend.regularization import _ScaledRegularizer                 # internal: minibatch reg scaling
 from t3toolbox.backend.regularization import require_unstacked_for_regularizer
 import t3toolbox.corewise as cw
 
 __all__ = [
-    'Problem',
     'LocalModel',
     'CurvatureState',
     'NewtonInfo',
@@ -54,7 +57,8 @@ __all__ = [
     'PhaseSeconds',
     'Regularizer',
     'IdentityRegularizer',
-    'least_squares_problem',
+    'local_model',
+    'point_objective',
     'flat_draw',
     'gradient_descent',
     'mc_sgd',
@@ -84,9 +88,16 @@ class Geometry(typ.Protocol):
     ``frame(x_cores)`` returns the pair ``(frame, centers)`` (graded messages, P15): the linearization frame, and its
     centers ``(Vc, Hc)`` (on the uniform layout the two supercores), from the same sweep: at every site the center in
     the frame's hole is the point. They are not the point as a tangent (read so, ``(frame, centers)`` is ``2d`` times
-    the point; the point as a tangent is ``point_tangent(frame)``). A corewise geometry, whose frame is the point
-    itself, returns ``None`` as centers. An oracle may read the probe ``z`` through the centers (``Vc``) instead of
+    the point; the point as a tangent is ``point_tangent(frame)``). A corewise geometry's frame is the point itself,
+    as the engine reads a corewise call (ragged ``(B, G)``, uniform ``(B_sc, G_sc, shape, masks)``), and its centers
+    are ``None``. An oracle may read the probe ``z`` through the centers (``Vc``) instead of
     the base point's sweep.
+
+    ``point_data(x_cores)`` returns the point as an oracle reads it, a corewise frame: on the ragged layout the cores
+    themselves, on the uniform layout ``(B_sc, G_sc, shape, masks)`` with the geometry's own shape and point masks (the
+    bare supercore pair does not carry them). On a corewise geometry it is ``frame(x_cores)[0]``. It is how the
+    optimizers ask for the objective at a point with no local model (:py:func:`point_objective`: a trial point, a
+    full-batch check), so the point is never sampled through a frame of it.
 
     **Optional member** (looked up duck-typed, ``getattr(geom, 'zero_point_frame', None)``; a geometry
     without it keeps working):
@@ -104,18 +115,20 @@ class Geometry(typ.Protocol):
       the frame's own; the ragged geometry returns itself).
     * ``require_frame_structure(x_cores, frame)`` -- raises ``ValueError`` unless ``frame`` has the structure of
       this geometry's frame at ``x_cores``, from integers and held masks only (never orthogonalizes); needed by
-      ``Problem.local_model(frame=)``.
+      ``local_model(frame=)``.
     * ``aligned_padded_frame(x0, x_old, project, hint, oversampling, oversampled_passes, max_passes, tol,
-      alternate, seed, use_jit)`` -- the padded frame of ``x0`` from ``x_old`` (``None``: the zero tensor) aligned
-      with ``hint`` through ``project(frame, hint)``, and the movements; needed by ``padded_start``,
-      ``newton_cg(padded_from=)`` and ``g0_reference='cone'``. One more keyword is optional, ``timing=False``: with
-      ``timing=True`` the member returns a third element, the seconds per pass (``None`` when it cannot read them,
+      alternate, seed, use_jit)`` -- ``(frame, centers, movements)``: the padded frame of ``x0`` from ``x_old``
+      (``None``: the zero tensor) aligned with ``hint`` through ``project(frame, hint)``, its centers as ``frame(x)``
+      returns them (the old point's zero-padded; zeros from the zero tensor; ``None`` if the geometry has none), and
+      the movements; needed by ``padded_start``, ``newton_cg(padded_from=)`` and ``g0_reference='cone'``. One more
+      keyword is optional, ``timing=False``: with ``timing=True`` the member returns a fourth element, the seconds
+      per pass (``None`` when it cannot read them,
       as under the uniform whole-loop jit). The optimizers pass ``timing`` only to a member whose signature names it
       (a ``**kwargs`` catch-all does not count), so a member without it keeps working: ``newton_cg(timing=True)``,
       the only caller that asks, then reports ``alignment_passes`` and ``reference_passes`` as ``None``.
 
     **The exact-mode members** -- needed **only** for ``hessian='exact'``.
-    ``Problem.local_model(hessian='exact')`` checks that all four exist (a structural ``ValueError`` naming
+    ``local_model(hessian='exact')`` checks that all four exist (a structural ``ValueError`` naming
     the missing ones), so a Gauss-Newton-only custom geometry keeps working:
 
     * ``curvature_precompute(frame, misfit_gradient, aux, curvature_damping)`` -- the per-frame curvature
@@ -158,15 +171,17 @@ class Geometry(typ.Protocol):
     def point_tangent(self, frame):                    # X as a gauged tangent v_X (regularizer)
         ...
 
+    def point_data(self, x_cores):                     # x_cores -> the point as an oracle reads it (a corewise frame)
+        ...
 
 
 # --------------------------------------------------------------------------------------------------
-# The problem oracle
+# The oracle
 # --------------------------------------------------------------------------------------------------
 class Oracle(typ.Protocol):
     """What an optimizer asks of a fit (graded messages, Part 1; the fitting layer's extension point): one
-    operation, ``query``, at a frame. Declared here, by the consumer, as documentation: the optimizers switch to it in
-    P16. The built-in implementation is :py:class:`~t3toolbox.backend.fitting.LeastSquaresOracle`.
+    operation, ``query``, at a frame. Declared here, by the consumer, as documentation. The built-in implementation is
+    :py:class:`~t3toolbox.backend.fitting.LeastSquaresOracle`.
 
     An oracle is a frozen description with no arrays (it rides as jax ``aux_data``; value-hashed); its data are its
     ``batch``, which the optimizers pass through unread (``None`` for an oracle with no data). ``query`` returns the
@@ -176,8 +191,19 @@ class Oracle(typ.Protocol):
     ``Jp_norm_sq``; ``optional_outputs`` names which of ``Kp``, ``Jp``, ``r``, ``r_block_sumsq``, ``y_block_sumsq``
     and ``f_resolution`` it supplies (O-7). The blocks are returned before the geometry's projection.
 
-    **Optional member** ``check_batch(batch, shape) -> None`` (O-29): the structural checker of a batch, which the
-    frontend calls where a batch enters when the oracle has one, and nothing about the batch otherwise.
+    **What the optimizers rely on.** ``held`` is valid for one frame and one batch: the optimizers hand a model's
+    ``held`` back only to queries at that model's frame on that model's batch, and never across a draw, a trial point,
+    a new model, a validation batch or an alignment pass (nothing in the record says which frame or batch it is
+    for). ``f`` and the blocks are per element of the frame stack ``C``. A drawn batch's ``f`` and its blocks
+    estimate the full batch's (the least-squares oracle's ``minibatch_scale``, O-21); the optimizers add the
+    regularizer unscaled. ``Kp`` is needed by ``hessian='exact'`` and ``'switch'``, ``Jp`` by
+    :py:meth:`LocalModel.jacobian` and ``r`` by :py:attr:`LocalModel.residual` (each checked structurally where it
+    is needed). Without ``f_resolution`` the trust region's floor is ``eps |f|``, ``eps`` read off ``f``'s dtype.
+
+    **Optional members** ``check_batch(batch, shape) -> None`` (O-29): the structural checker of a batch, which the
+    frontend calls where a batch enters when the oracle has one, and nothing about the batch otherwise; and
+    ``n_measurements(batch)`` with ``take(batch, indices)``, the default draw of ``mc_sgd`` and ``adam``
+    (:py:func:`flat_draw`), which without them need a ``draw``.
     """
     optional_outputs: typ.ClassVar[typ.Tuple[str, ...]]
 
@@ -209,30 +235,33 @@ def _check_hessian(
         modes:    typ.Tuple[str, ...] = _HESSIAN_MODES,    # the caller's allowed modes
 ) -> str:                                                  # the lower-cased mode
     """Validate a ``hessian`` mode selector (structural: anything else raises, a ``bool`` included -- the
-    keyword is the solver's string mode everywhere, as in ``sampling_derivatives.estimate_chunk_size``). ``modes``
-    are the caller's: a local model's two by default, ``newton_cg``'s three (``_NEWTON_HESSIAN_MODES``)."""
+    keyword is the solver's string mode everywhere). ``modes`` are the caller's: a local model's two by default,
+    ``newton_cg``'s three (``_NEWTON_HESSIAN_MODES``)."""
     if not isinstance(hessian, str) or hessian.lower() not in modes:
         raise ValueError("%s: hessian must be %s or %r (case-insensitive); got %r"
                          % (who, ', '.join(map(repr, modes[:-1])), modes[-1], hessian))
     return hessian.lower()
 
 
+def _require_output(
+        oracle,                   # an Oracle
+        name:     str,            # an optional output: 'Kp', 'Jp', 'r', ...
+        needed:   str,            # what needs it, for the message
+) -> None:
+    """Structural: the oracle lists ``name`` in its ``optional_outputs`` (O-7), else a ``ValueError`` before any work."""
+    if name not in tuple(getattr(oracle, 'optional_outputs', ())):
+        raise ValueError("%s does not supply %r (it is not in its optional_outputs), which %s needs"
+                         % (type(oracle).__name__, name, needed))
+
+
 def _require_exact_capable(
-        kind,                     # the problem's SamplingKind
-        geom,                     # the problem's Geometry
+        oracle,                   # the fit's Oracle
+        geom,                     # the fit's Geometry
         hessian:  str = 'exact',  # the mode that needs them, for the message: 'exact' | 'switch'
 ) -> None:
-    """The structural checks of ``hessian='exact'`` (and ``'switch'``), run before any work: the kind implements the
-    sixth operation ``corewise_hessian`` and the geometry has the four exact-mode members.
-
-    "Implements" means the method the kind would run is not an unimplemented stub -- one carrying the stdlib
-    :py:func:`abc.abstractmethod` marker, as the ``SamplingKind`` base method (or a stub a subclass re-declares) does.
-    Reading the marker keeps this module free of T3-specific imports; for a kind that does not re-declare a
-    marked stub it agrees exactly with ``type(kind).corewise_hessian is SamplingKind.corewise_hessian``."""
-    method = getattr(type(kind), 'corewise_hessian', None)
-    if method is None or getattr(method, '__isabstractmethod__', False):
-        raise ValueError("%s does not implement corewise_hessian(), which hessian=%r needs; it still "
-                         "works with hessian='gauss_newton'" % (type(kind).__name__, hessian))
+    """The structural checks of ``hessian='exact'`` (and ``'switch'``), run before any work: the oracle supplies
+    ``Kp`` (it lists it in ``optional_outputs``, O-7) and the geometry has the four exact-mode members."""
+    _require_output(oracle, 'Kp', "hessian=%r (it still works with hessian='gauss_newton')" % hessian)
     missing = [name for name in _EXACT_GEOMETRY_MEMBERS if not callable(getattr(geom, name, None))]
     if missing:
         raise ValueError("%s does not implement %s, which hessian=%r needs (the exact-mode geometry "
@@ -243,51 +272,59 @@ def _require_exact_capable(
 @dc.dataclass(frozen=True, eq=False)   # eq=False -> identity hash/eq: array fields (a leaf container)
 class CurvatureState:
     """The exact-mode companion of a :py:class:`~t3toolbox.backend.optimizers.LocalModel` (``hessian='exact'``):
-    a pytree LEAF beside ``sweep`` / ``geom_aux``, built once per model by
-    :py:meth:`~t3toolbox.backend.optimizers.Problem.local_model`.
+    a pytree LEAF beside ``held`` / ``geom_aux``, built once per model by :py:func:`local_model`.
 
-    ``misfit_gradient`` is the misfit's Riemannian gradient ``Pi J^T omega^2 r`` -- computed ONCE per model
-    and read by both :py:attr:`~t3toolbox.backend.optimizers.LocalModel.gradient` and the geometry's curvature
+    ``misfit_gradient`` is the misfit's Riemannian gradient ``Pi J^T omega^2 r`` -- the projection of the build's
+    one ``g``, read by both :py:attr:`~t3toolbox.backend.optimizers.LocalModel.gradient` and the geometry's curvature
     data, so exact mode costs no second transpose. ``geometry_data`` is ``geom.curvature_precompute(...)``;
     ``None`` means the curvature term vanishes at this frame (the manifold at ``d = 1``), and ``hvp`` is then
     the Gauss-Newton one."""
-    misfit_gradient:  typ.Any   # Pi J^T omega^2 r (no regularizer): the model's one misfit transpose
+    misfit_gradient:  typ.Any   # Pi J^T omega^2 r (no regularizer): the projection of the build's g
     geometry_data:    typ.Any   # geom.curvature_precompute(frame, misfit_gradient, aux, curvature_damping)
 
 
 @dc.dataclass(frozen=True)
 class LocalModel:
-    """The local model linearized at a point -- the backend twin of the frontend
-    :py:class:`t3toolbox.fitting.LocalModel` (same name, one level down).
-    Built by ``Problem.local_model``; the frame sweep is computed once and reused by every method below.
+    """The local model at one frame: the geometry, the oracle, the batch and the regularizer put together, and the
+    holder of what the oracle computed there -- the backend twin of the frontend
+    :py:class:`t3toolbox.fitting.LocalModel` (same name, one level down). Built by :py:func:`local_model`, never
+    changed after: its ``f`` and ``held`` are the build's, and every method below is one oracle query at the frame on
+    the batch, with ``held`` passed back and a literal ``want``.
 
     **Two modes**, derived rather than stored (:py:attr:`is_exact` is ``curvature is not None``):
 
-    * **Gauss-Newton** (``hessian='gauss_newton'``, the default): ``hvp(p) = Pi J^T omega^2 J Pi p (+ H_R p)``.
+    * **Gauss-Newton** (``hessian='gauss_newton'``, the default): ``hvp(p) = Pi J^T omega^2 J Pi p (+ H_R p)``, the
+      oracle's ``JtJp`` at ``Pi p``, projected.
     * **Exact** (``hessian='exact'``): the exact Riemannian Hessian,
 
       ``hvp(p) = Pi [J^T omega^2 J Pi p + L^T (K_{A^T omega^2 r} - K_{grad f}) L Pi p] (+ H_R p)``,
 
-      with ``L`` the geometry's lift from coordinates to raw core variations, ``K_{A^T omega^2 r}`` the
-      kind's :py:meth:`~t3toolbox.backend.fitting.SamplingKind.corewise_hessian` (the derivative of the
-      corewise transpose at the fixed residual) and ``K_{grad f}`` the geometry's tangential curvature
-      (Absil, Mahony & Trumpf (2013), "An extrinsic look at the Riemannian Hessian": the Weingarten term as
-      ``<N, d^2 Phi>`` with ``N`` the normal part of ``A^T omega^2 r``). On a corewise geometry it is the
-      plain Hessian of ``f o Phi`` (no lift, no tangential term).
+      with ``L`` the geometry's lift from coordinates to raw core variations, ``K_{A^T omega^2 r}`` the oracle's
+      ``Kp`` along the lifted direction (the second derivative of ``<omega^2 r, z>`` at the fixed residual; one query
+      with ``JtJp``) and ``K_{grad f}`` the geometry's tangential curvature (Absil, Mahony & Trumpf (2013), "An
+      extrinsic look at the Riemannian Hessian": the Weingarten term as ``<N, d^2 Phi>`` with ``N`` the normal part
+      of ``A^T omega^2 r``). On a corewise geometry it is the plain Hessian of ``f o Phi`` (no lift, no tangential
+      term).
 
-    ``gn_quadratic`` / ``jacobian`` / ``retract`` mean the same in both modes (``gn_quadratic`` is always
-    ``‖ω J Pi p‖² (+ <p, H_R p>)``); ``quadratic`` is the mode's model ``<p, H p>``."""
+    ``gn_quadratic`` (the oracle's ``Jp_norm_sq``) / ``jacobian`` / ``residual`` / ``retract`` mean the same in both
+    modes (``gn_quadratic`` is always ``‖ω J Pi p‖² (+ <p, H_R p>)``); ``quadratic`` is the mode's model
+    ``<p, H p>``. On a drawn batch every misfit value is the oracle's scaled one (an estimate of the full batch's),
+    the regularizer's terms unscaled."""
     geom:     typ.Any        # a Geometry (backend.geometry.*GeometryOps); aux_data, so it must hash by VALUE
-    kind:     typ.Any        # backend fitting.SamplingKind (forward / transpose / sumsq / w_axes)
-    sample:   typ.Any        # ww (probe/apply) or index (entries)
-    frame:    typ.Tuple      # (D, U, L, R)
-    sweep:    typ.Tuple      # precomputed frame sweep (reused across gradient/jacobian/hvp)
-    residual: typ.Any        # r = S(x) - data
-    n_w:      int            # number of leading sample-stack axes
+    oracle:   typ.Any        # an Oracle (backend.fitting.LeastSquaresOracle); aux_data, value-hashed
+    batch:    typ.Any        # the oracle's data (a LeastSquaresBatch); leaves; held belongs to it
+    frame:    typ.Tuple      # the frame: (D, U, L, R), a corewise point (B, G), or their uniform .data
+    centers:  typ.Any        # (Vc, Hc) when the geometry returned them (or the caller gave them), else None
+    held:     typ.Any        # what the build's query returned to hand back here (a HeldVariables): this frame, this batch
+    f:        typ.Any        # the misfit at the build, shape C (the oracle's f; scaled on a drawn batch)
 
     regularizer: typ.Any = None   # optional backend.regularization.Regularizer; ρ folded into obj/grad/gn_quadratic/hvp
-    geom_aux:    typ.Any = None   # = geom.precompute(frame) (per-frame companion, e.g. SF-T3); a leaf, like sweep
-    curvature:   typ.Any = None   # CurvatureState in exact mode, else None; a leaf, like sweep
+    geom_aux:    typ.Any = None   # = geom.precompute(frame) (per-frame companion, e.g. SF-T3); a leaf
+    curvature:   typ.Any = None   # CurvatureState in exact mode, else None; a leaf
+
+    @property
+    def _Vc(self):                                       # the centers' Vc, what the oracle may read z through
+        return None if self.centers is None else self.centers[0]
 
     @property
     def is_exact(self) -> bool:                          # exact mode (hessian='exact'): derived, never stored
@@ -299,12 +336,12 @@ class LocalModel:
 
     def _require_exact(self, who: str) -> None:
         if self.curvature is None:
-            raise ValueError("LocalModel.%s needs an exact-mode model (Problem.local_model(..., "
-                             "hessian='exact')); this one is Gauss-Newton" % who)
+            raise ValueError("LocalModel.%s needs an exact-mode model (local_model(..., hessian='exact')); "
+                             "this one is Gauss-Newton" % who)
 
     @property
-    def misfit(self):                                    # ½‖ω⊙r‖²  (the weighted data misfit alone)
-        return 0.5 * self.kind.sumsq(self.residual, self.n_w)
+    def misfit(self):                                    # ½‖ω⊙r‖²  (the weighted data misfit alone): the build's f
+        return self.f
 
     @property
     def regularization(self):                            # ρ(X) at X = geom.base_point(frame); 0 if unregularized
@@ -317,50 +354,67 @@ class LocalModel:
         return self.misfit + self.regularization
 
     @property
-    def gradient(self) -> Tangent:                       # g = Π 𝒥ᵀ r  (+ g_R)
-        if self.curvature is not None:                   # exact: the model's one misfit transpose, already done
-            g = self.curvature.misfit_gradient           #   (by the same expression -- bit-identical to GN's)
+    def residual(self):                                  # r = z(X) - y, of the type of z (the oracle's optional r)
+        _require_output(self.oracle, 'r', 'LocalModel.residual')
+        (r,), _ = self.oracle.query(self.frame, self.batch, ('r',), Vc=self._Vc, held=self.held)
+        return r
+
+    @property
+    def gradient(self) -> Tangent:                       # g = Π 𝒥ᵀ ω² r  (+ g_R)
+        if self.curvature is not None:                   # exact: the build's g, projected once already
+            g = self.curvature.misfit_gradient
         else:
-            g = self.geom.project(self.frame, self.kind.transpose(self.residual, self.sample, self.frame,
-                                                                  self.sweep), aux=self.geom_aux)
+            (g,), _ = self.oracle.query(self.frame, self.batch, ('g',), Vc=self._Vc, held=self.held)
+            g = self.geom.project(self.frame, g, aux=self.geom_aux)
         if self.regularizer is not None:
             g = cw.corewise_add(g, self.regularizer.gradient(self.geom, self.frame, aux=self.geom_aux))
         return g
 
-    def jacobian(self, p: Tangent):                      # 𝒥 Π p
-        return self.kind.forward(self.geom.project(self.frame, p, aux=self.geom_aux),
-                                 self.sample, self.frame, self.sweep)
+    def jacobian(self, p: Tangent):                      # 𝒥 Π p, of the type of z with K (the oracle's optional Jp)
+        _require_output(self.oracle, 'Jp', 'LocalModel.jacobian')
+        pp = self.geom.project(self.frame, p, aux=self.geom_aux)
+        (Jp,), _ = self.oracle.query(self.frame, self.batch, ('Jp',), Vc=self._Vc, variations=pp, held=self.held)
+        return Jp
 
-    def gn_quadratic(self, p: Tangent):                  # ‖𝒥 Π p‖²  (+ ⟨p, H_R p⟩) -- the Cauchy denominator
-        q = self.kind.sumsq(self.jacobian(p), self.n_w)
+    def gn_quadratic(self, p: Tangent):                  # ‖ω 𝒥 Π p‖²  (+ ⟨p, H_R p⟩) -- the Cauchy denominator; K+C
+        pp = self.geom.project(self.frame, p, aux=self.geom_aux)
+        (q,), _ = self.oracle.query(self.frame, self.batch, ('Jp_norm_sq',), Vc=self._Vc, variations=pp,
+                                    held=self.held)
         if self.regularizer is not None:
             q = q + self.regularizer.quadratic(self.geom, self.frame, p, aux=self.geom_aux)
         return q
 
-    def hvp(self, p: Tangent) -> Tangent:                # GN: H p = Π 𝒥ᵀ 𝒥 Π p  (+ H_R p)
-        if not self._has_curvature_term:                 # exact: Π [𝒥ᵀ𝒥 Πp + Lᵀ K_N L Πp]  (+ H_R p)
-            z = self.jacobian(p)
-            Hp = self.geom.project(self.frame, self.kind.transpose(z, self.sample, self.frame, self.sweep),
-                                   aux=self.geom_aux)
+    def hvp(self, p: Tangent) -> Tangent:                # GN: H p = Π 𝒥ᵀ ω² 𝒥 Π p  (+ H_R p)
+        pp = self.geom.project(self.frame, p, aux=self.geom_aux)
+        if not self._has_curvature_term:                 # exact: Π [𝒥ᵀω²𝒥 Πp + Lᵀ K_N L Πp]  (+ H_R p)
+            (JtJp,), _ = self.oracle.query(self.frame, self.batch, ('JtJp',), Vc=self._Vc, variations=pp,
+                                           held=self.held)
+            Hp = self.geom.project(self.frame, JtJp, aux=self.geom_aux)
         else:
-            pp = self.geom.project(self.frame, p, aux=self.geom_aux)
-            z = self.kind.forward(pp, self.sample, self.frame, self.sweep)
-            y = self._curvature_block(pp)
-            Hp = self.geom.project(self.frame, cw.corewise_add(
-                self.kind.transpose(z, self.sample, self.frame, self.sweep), y), aux=self.geom_aux)
+            theta_hat = self.geom.lift(self.frame, pp, self.curvature.geometry_data)   # raw core directions
+            (JtJp, Kp), _ = self.oracle.query(self.frame, self.batch, ('JtJp', 'Kp'), Vc=self._Vc, variations=pp,
+                                              core_directions=theta_hat, held=self.held)
+            Hp = self.geom.project(self.frame, cw.corewise_add(JtJp, self._curvature_from(theta_hat, Kp)),
+                                   aux=self.geom_aux)
         if self.regularizer is not None:
             Hp = cw.corewise_add(Hp, self.regularizer.hessian(self.geom, self.frame, p, aux=self.geom_aux))
         return Hp
 
-    def _curvature_block(self, pp: Tangent) -> Tangent:  # Lᵀ (K_{Aᵀω²r} − K_{grad f}) L pp -- UNGAUGED, K+C
+    def _curvature_from(                                 # Lᵀ (K_{Aᵀω²r} − K_{grad f}) θ̂ -- UNGAUGED, K+C
+            self,
+            theta_hat:  Tangent,                         # the lifted direction L Π p (raw core directions)
+            Kp:         Tangent,                         # the oracle's Kp along it: K_{Aᵀω²r} θ̂ (ω² inside)
+    ) -> Tangent:
         geom, data = self.geom, self.curvature.geometry_data
-        theta_hat = geom.lift(self.frame, pp, data)                               # raw core directions
-        K = self.kind.corewise_hessian(theta_hat, self.residual, self.sample, self.frame, self.sweep,
-                                       geom.base_point(self.frame))               # K_{Aᵀω²r} θ̂ (ω² inside)
         K_grad = geom.tangential_curvature(self.frame, theta_hat, data)           # K_{grad f} θ̂, or None
-        if K_grad is not None:
-            K = cw.corewise_sub(K, K_grad)
+        K = Kp if K_grad is None else cw.corewise_sub(Kp, K_grad)
         return geom.lift_transpose(self.frame, K, data)
+
+    def _curvature_block(self, pp: Tangent) -> Tangent:  # Lᵀ (K_{Aᵀω²r} − K_{grad f}) L pp -- UNGAUGED, K+C
+        theta_hat = self.geom.lift(self.frame, pp, self.curvature.geometry_data)
+        (Kp,), _ = self.oracle.query(self.frame, self.batch, ('Kp',), Vc=self._Vc, core_directions=theta_hat,
+                                     held=self.held)
+        return self._curvature_from(theta_hat, Kp)
 
     def curvature_hvp(self, p: Tangent) -> Tangent:      # Π Lᵀ K_N L Π p -- the exact Hessian's curvature term alone
         self._require_exact('curvature_hvp')
@@ -386,211 +440,218 @@ class LocalModel:
         return self.geom.retract(self.frame, p, aux=self.geom_aux)
 
 
-@dc.dataclass(frozen=True)
-class Problem:
-    """A fixed-rank least-squares fitting problem ``min_x ½‖S(x) - data‖²`` for a sampling op ``S`` on
-    geometry ``geom``. **Layout-agnostic**: it holds the operator (``kind``), the geometry, and the FULL
-    ``(sample, data)``. ``local_model`` / ``objective`` linearize / evaluate at a point on the full data,
-    or on an explicitly-passed minibatch ``(sample, data)`` (e.g. from a ``draw``). The ``Problem`` itself
-    owns **no** minibatch-layout logic -- where the probe stack ``W`` lives, how to slice it -- that is
-    the ``kind``'s (``kind.take`` for the default flat draw) or the user's ``draw``."""
-    geom:   typ.Any       # a Geometry (see the Geometry protocol above)
-    kind:   typ.Any       # backend fitting.SamplingKind
-    sample: typ.Any       # the FULL sample (ww / index / (ww,pp) / (index,pp))
-    data:   typ.Any       # the FULL observed data S(x_true) (+ noise)
+def local_model(
+        geom:               typ.Any,                       # a Geometry (backend.geometry.*GeometryOps)
+        oracle:             typ.Any,                       # an Oracle (backend.fitting.LeastSquaresOracle)
+        batch:              typ.Any,                       # its batch (a LeastSquaresBatch; None for an oracle with no data)
+        x_cores:            Cores,                         # the point to linearize at (uniform: the bare supercore pair)
+        regularizer:        typ.Any = None,                # optional backend.regularization.Regularizer
+        hessian:            str = 'gauss_newton',          # or 'exact' (case-insensitive): the model's Hessian
+        curvature_damping:  typ.Optional[float] = None,    # exact only: the lift damping; None -> the geometry's
+        frame:              typ.Any = None,                # a frame of x_cores to linearize at; None -> geom.frame(x_cores)
+        centers:            typ.Any = None,                # the centers of `frame` (only with frame=); None: none
+) -> LocalModel:
+    """The local model at ``x_cores``: the frame (and its centers) from ``geom.frame``, then **one** oracle query
+    wanting ``f`` (and ``g`` in exact mode), with the centers' ``Vc``. The model keeps the build's ``f`` and the
+    ``held`` the query returned, and every later method of the model is one query at this frame on this batch with that
+    ``held`` (:py:class:`LocalModel`).
 
-    regularizer: typ.Any = None   # optional backend.regularization.Regularizer; ρ folded into local_model + objective
+    It checks only what is structural, before any work: the ``hessian`` mode; ``hessian='exact'`` needs an oracle that
+    supplies ``Kp`` (``'Kp'`` in ``oracle.optional_outputs``) and a geometry with the four exact-mode members (see
+    :py:class:`Geometry`); ``curvature_damping`` with Gauss-Newton raises, where nothing would read it; a regularizer
+    on a stacked point raises (:py:func:`~t3toolbox.backend.regularization.require_unstacked_for_regularizer`);
+    ``centers`` without ``frame`` raises; a given frame's structure is checked by the geometry's
+    ``require_frame_structure`` (integers and held masks only; a geometry without that member raises). Nothing
+    numerical (O-6): **a given frame and its centers are the caller's to vouch for**. A frame of another point gives
+    the model of that other point, and wrong centers give a wrong ``f`` and wrong values read off the probe ``z``, with
+    no error: check them with :py:func:`~t3toolbox.backend.fv_operations.fv_frame_consistency_residual` and
+    :py:func:`~t3toolbox.backend.fv_operations.fv_centers_consistency_residual` (uniform:
+    :py:func:`~t3toolbox.backend.ufv_operations.ufv_frame_consistency_residual`,
+    :py:func:`~t3toolbox.backend.ufv_operations.ufv_centers_consistency_residual`). A frame given without centers is
+    right, read through the base point (the probe kind then holds less: each Hessian product recomputes its right
+    sweep).
 
-    def _sample_and_data(self, sample, data, where: str):
-        """The full ``(sample, data)`` when neither is given, the explicit pair when both are; exactly one
-        is a structural error (``data=`` alone used to be silently dropped in favour of the training data)."""
-        if sample is None and data is None:
-            return self.sample, self.data
-        if sample is None or data is None:
-            raise ValueError('%s: pass `sample` and `data` together (an explicit minibatch), or neither '
-                             '(the full training data); got sample=%s, data=%s'
-                             % (where, 'None' if sample is None else 'given', 'None' if data is None else 'given'))
-        return sample, data
+    Examples
+    --------
+    A backend-only fit's model, from the oracle and the batch (no frontend object), and its gradient check:
 
-    def local_model(
-            self,
-            x_cores:            Cores,                   # the point to linearize at
-            sample:             typ.Any = None,          # an explicit minibatch sample (with data), or None
-            data:               typ.Any = None,          # its observed data (with sample), or None
-            hessian:            str = 'gauss_newton',    # or 'exact' (case-insensitive): the model's Hessian
-            curvature_damping:  typ.Optional[float] = None,  # exact only: the lift damping; None -> the geometry's
-            frame:              typ.Any = None,          # a frame of x_cores to linearize at (checked by geom.require_frame_structure); None -> geom.frame(x_cores)
-    ) -> LocalModel:
-        """Linearize at ``x_cores`` on the full data (``sample=None``) or an explicit minibatch
-        (``sample`` AND ``data`` -- passing one without the other is a structural error).
+    >>> import numpy as np
+    >>> import t3toolbox.backend.optimizers as bopt
+    >>> import t3toolbox.corewise as cw
+    >>> from t3toolbox.backend.fitting import LeastSquaresOracle, LeastSquaresBatch
+    >>> from t3toolbox.backend.geometry import ManifoldGeometryOps
+    >>> from t3toolbox.backend.t3_constructors import t3_corewise_randn
+    >>> from t3toolbox.backend.probing import t3_probe
+    >>> np.random.seed(0)
+    >>> shape, ranks = (4, 5, 6), ((2, 2, 2), (1, 2, 2, 1))
+    >>> ww = [np.random.randn(20, N) for N in shape]
+    >>> oracle = LeastSquaresOracle('probe', order=())
+    >>> batch = LeastSquaresBatch(ww, t3_probe(t3_corewise_randn(shape, *ranks), ww))
+    >>> geom = ManifoldGeometryOps()
+    >>> x = t3_corewise_randn(shape, *ranks)
+    >>> model = bopt.local_model(geom, oracle, batch, x)
+    >>> print(model.held.keys(), bool(np.isclose(model.objective, bopt.point_objective(geom, oracle, batch, x))))
+    ('xi', 'mu', 'nu', 'eta', 'r') True
+    >>> g = model.gradient
+    >>> print(bool(np.isclose(geom.inner(g, model.hvp(g)), model.gn_quadratic(g))))     # <g, H g> = ‖J g‖²
+    True
 
-        ``hessian='exact'`` builds the exact-mode model (:py:class:`~t3toolbox.backend.optimizers.LocalModel`): it
-        checks, structurally and before any work, that the kind implements ``corewise_hessian`` and the geometry
-        the four exact-mode members (see :py:class:`~t3toolbox.backend.optimizers.Geometry`), then does the
-        model's ONE misfit transpose and the geometry's per-frame curvature data. ``curvature_damping``
-        (relative to ``‖X‖_HS``) is handed to the geometry unread; ``None`` means the geometry's own default,
-        and a value with ``hessian='gauss_newton'`` -- where nothing would read it -- raises.
+    The exact model's quadratic form is the objective's second derivative along the retraction (the T3-SVD retraction
+    is second order on a minimal, numerically full-rank frame, as here), where the Gauss-Newton one misses the
+    curvature term:
 
-        ``frame`` linearizes at a given frame of ``x_cores`` (a padded start's aligned frame) instead of
-        ``geom.frame(x_cores)``. Its structure is checked by the geometry's ``require_frame_structure`` (integers
-        and held masks only); a geometry without that member raises.
-
-        Examples
-        --------
-        The exact model's quadratic form is the objective's second derivative along the retraction (the T3-SVD
-        retraction is second order on a minimal, numerically full-rank frame, as here), where the Gauss-Newton one
-        misses the curvature term:
-
-        >>> import numpy as np
-        >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.corewise as cw
-        >>> import t3toolbox.backend.fitting as bfit
-        >>> import t3toolbox.backend.geometry as bgeo
-        >>> import t3toolbox.backend.optimizers as bopt
-        >>> import t3toolbox.backend.sampling_derivatives as sd
-        >>> np.random.seed(0)
-        >>> shape, ranks = (4, 5, 6), ((2, 2, 2), (1, 2, 2, 1))
-        >>> ww = [np.random.randn(20, N) for N in shape]
-        >>> pp = [np.random.randn(20, N) for N in shape]
-        >>> data = sd.t3_probe_derivatives(ww, pp, t3.TuckerTensorTrain.randn(shape, *ranks).data, 1)
-        >>> problem = bopt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.ProbeDerivativesKind(order=1),
-        ...                                      (ww, pp), data)
-        >>> x = t3.TuckerTensorTrain.randn(shape, *ranks).data
-        >>> gn, exact = problem.local_model(x), problem.local_model(x, hessian='exact')
-        >>> gn.is_exact, exact.is_exact
-        (False, True)
-        >>> g = exact.gradient                                         # the Gauss-Newton gradient, bit for bit
-        >>> p = cw.corewise_scale(g, 1.0 / float(problem.geom.inner(g, g)) ** 0.5)
-        >>> f = lambda t: float(problem.objective(exact.retract(cw.corewise_scale(p, t))))
-        >>> fd = (f(1e-3) - 2 * f(0.0) + f(-1e-3)) / 1e-6
-        >>> bool(abs(float(exact.quadratic(p)) - fd) < 1e-4 * abs(fd))
-        True
-        >>> bool(abs(float(gn.quadratic(p)) - fd) < 1e-2 * abs(fd))
-        False
-        """
-        return _local_model_phases(self, x_cores, sample, data, hessian, curvature_damping, frame, None)
-
-    def objective(self, x_cores: Tangent, sample=None, data=None):
-        """``½‖S(x)-data‖²`` (+ ``ρ(x)`` if regularized) on the full data (``sample=None``) or an explicit
-        minibatch; no frame sweep (cheap -- for the line search / the full-batch stop signal). The reg term
-        reads ``x_cores`` directly through ``geom.point_norm_sq`` (exact for any point;
-        ``docs/contributor/fitting_internals.md`` §"The base point as a tangent"). ``sample`` and ``data`` go together: one without the
-        other is a structural error (the data used to be silently ignored when only it was passed)."""
-        sample, data = self._sample_and_data(sample, data, 'Problem.objective')
-        if self.regularizer is not None:
-            require_unstacked_for_regularizer(self.geom.stack_shape(x_cores), 'Problem.objective')
-        residual = cw.corewise_sub(self.kind.point_forward(x_cores, sample), data)
-        c = 0.5 * self.kind.sumsq(residual, self.kind.w_axes(sample))
-        if self.regularizer is not None:
-            c = c + self.regularizer.value(self.geom, x_cores)
-        return c
-
-
-_STOCK_LOCAL_MODEL = Problem.local_model   # newton_cg(timing=True) splits only this build; any other is called whole
+    >>> exact = bopt.local_model(geom, oracle, batch, x, hessian='exact')
+    >>> p = cw.corewise_scale(g, 1.0 / float(geom.inner(g, g)) ** 0.5)
+    >>> f = lambda t: float(bopt.point_objective(geom, oracle, batch, exact.retract(cw.corewise_scale(p, t))))
+    >>> fd = (f(1e-3) - 2 * f(0.0) + f(-1e-3)) / 1e-6
+    >>> bool(abs(float(exact.quadratic(p)) - fd) < 1e-4 * abs(fd)), bool(abs(float(model.quadratic(p)) - fd) < 1e-2 * abs(fd))
+    (True, False)
+    """
+    return _local_model_phases(geom, oracle, batch, x_cores, regularizer, hessian, curvature_damping, frame, centers,
+                               None)
 
 
 def _local_model_phases(
-        problem:            Problem,
-        x_cores:            Cores,                         # the point to linearize at
-        sample:             typ.Any,                       # an explicit minibatch sample (with data), or None
-        data:               typ.Any,                       # its observed data (with sample), or None
+        geom:               typ.Any,                       # as local_model
+        oracle:             typ.Any,
+        batch:              typ.Any,
+        x_cores:            Cores,
+        regularizer:        typ.Any,
         hessian:            str,                           # 'gauss_newton' | 'exact' (case-insensitive)
-        curvature_damping:  typ.Optional[float],           # exact only: the lift damping; None -> the geometry's
+        curvature_damping:  typ.Optional[float],
         frame:              typ.Any,                       # a frame of x_cores, or None -> geom.frame(x_cores)
+        centers:            typ.Any,                       # its centers (with frame only), or None
         clock:              typ.Optional['_PhaseClock'],   # None: no synchronization, no clock reading
 ) -> LocalModel:
-    """:py:meth:`Problem.local_model`'s body, its parts lapped on ``clock`` in run order: ``frame``, ``sweep``,
-    ``companion``, ``residual`` and, in exact mode, ``gradient`` (the model's one misfit transpose) then
-    ``curvature``. ``local_model`` calls it with ``clock=None``: the same operations in the same order, nothing else;
-    ``newton_cg(timing=True)`` calls it with its clock, unless ``local_model`` is overridden."""
-    exact = _check_hessian(hessian, 'Problem.local_model') == 'exact'
+    """:py:func:`local_model`'s body (the build phase), its parts lapped on ``clock`` in run order: ``frame``,
+    ``oracle`` (the one query), ``companion`` and, in exact mode, ``gradient`` (the projection of the build's ``g``)
+    then ``curvature``. ``local_model`` calls it with ``clock=None``: the same operations in the same order, nothing
+    else; ``newton_cg(timing=True)`` calls it with its clock."""
+    exact = _check_hessian(hessian, 'local_model') == 'exact'
     if curvature_damping is not None and not exact:
-        raise ValueError("Problem.local_model: curvature_damping is only meaningful with hessian='exact'")
+        raise ValueError("local_model: curvature_damping is only meaningful with hessian='exact'")
     if exact:
-        _require_exact_capable(problem.kind, problem.geom)
-    sample, data = problem._sample_and_data(sample, data, 'Problem.local_model')
-    if problem.regularizer is not None:
-        require_unstacked_for_regularizer(problem.geom.stack_shape(x_cores), 'Problem.local_model')
+        _require_exact_capable(oracle, geom)
+    if centers is not None and frame is None:
+        raise ValueError('local_model: centers= needs the frame= they belong to (geom.frame(x) returns its own)')
+    if regularizer is not None:
+        require_unstacked_for_regularizer(geom.stack_shape(x_cores), 'local_model')
     _mark(clock)
     if frame is None:
-        frame, _ = problem.geom.frame(x_cores)
+        frame, centers = geom.frame(x_cores)
     else:
-        require = getattr(problem.geom, 'require_frame_structure', None)
+        require = getattr(geom, 'require_frame_structure', None)
         if require is None:
-            raise ValueError('Problem.local_model: frame= needs a geometry with a require_frame_structure member; '
-                             '%s has none' % type(problem.geom).__name__)
+            raise ValueError('local_model: frame= needs a geometry with a require_frame_structure member; '
+                             '%s has none' % type(geom).__name__)
         require(x_cores, frame)
-    _lap(clock, 'frame', frame)
-    sweep = problem.kind.precompute(frame, sample)
-    _lap(clock, 'sweep', sweep)
-    geom_aux = problem.geom.precompute(frame)     # None when the geometry has no companion
+    _lap(clock, 'frame', (frame, centers))
+    Vc = None if centers is None else centers[0]
+    if exact:
+        (f, g), held = oracle.query(frame, batch, ('f', 'g'), Vc=Vc)
+    else:
+        (f,), held = oracle.query(frame, batch, ('f',), Vc=Vc)
+    _lap(clock, 'oracle', (f, held))
+    geom_aux = geom.precompute(frame)             # None when the geometry has no companion
     _lap(clock, 'companion', geom_aux)
-    residual = cw.corewise_sub(problem.kind.point_forward(x_cores, sample), data)
-    _lap(clock, 'residual', residual)
     curvature = None
-    if exact:                                     # the one misfit transpose (LocalModel.gradient reads it)
-        misfit_gradient = problem.geom.project(frame, problem.kind.transpose(residual, sample, frame, sweep),
-                                               aux=geom_aux)
+    if exact:                                     # the build's g, projected once (LocalModel.gradient reads it)
+        misfit_gradient = geom.project(frame, g, aux=geom_aux)
         _lap(clock, 'gradient', misfit_gradient)
-        curvature = CurvatureState(misfit_gradient, problem.geom.curvature_precompute(
+        curvature = CurvatureState(misfit_gradient, geom.curvature_precompute(
             frame, misfit_gradient, geom_aux, curvature_damping))
         _lap(clock, 'curvature', curvature)
-    return LocalModel(problem.geom, problem.kind, sample, frame, sweep, residual, problem.kind.w_axes(sample),
-                      problem.regularizer, geom_aux, curvature)
+    return LocalModel(geom, oracle, batch, frame, centers, held, f, regularizer, geom_aux, curvature)
 
 
-def least_squares_problem(
-        geom:        typ.Any,         # a Geometry (backend.geometry.{Manifold,Corewise}GeometryOps, or uniform)
-        kind:        typ.Any,         # backend fitting.{APPLY,ENTRIES,PROBE} or a derivative kind
-        sample:      typ.Any,         # ww / index / (ww,pp) / (index,pp)
-        data:        typ.Any,         # observed values
-        regularizer: typ.Any = None,  # optional backend.regularization.Regularizer (e.g. IdentityRegularizer(λ))
-) -> Problem:
-    """Assemble a least-squares ``Problem`` from a geometry, a sampling kind, the sample, and the observed
-    data, plus an optional ``regularizer`` (adds ``ρ(x)`` to the objective, folded into the local GN model).
-    (The frontend adapter calls this with the same backend objects a raw-data user would.)"""
-    return Problem(geom, kind, sample, data, regularizer)
+def point_objective(
+        geom:         typ.Any,                 # a Geometry
+        oracle:       typ.Any,                 # an Oracle
+        batch:        typ.Any,                 # its batch
+        x_cores:      Cores,                   # the raw cores (B, G), ragged or the uniform supercore pair
+        regularizer:  typ.Any = None,          # optional backend.regularization.Regularizer
+) -> NDArray:                                  # f (+ rho(x)), shape C
+    """The objective at a point with no local model: the oracle's ``f`` at the point read as a corewise frame
+    (``geom.point_data(x_cores)``: one query wanting ``f``, nothing held), plus the regularizer's ``rho(x)`` read off
+    the cores (``geom.point_norm_sq`` for :py:class:`~t3toolbox.backend.regularization.IdentityRegularizer`; exact for
+    any point). The trial points of the line search and the trust region (policy a) and the full-batch checks of
+    ``mc_sgd`` and ``adam`` evaluate it. On a drawn batch ``f`` is the oracle's scaled one and ``rho`` is not scaled.
+    A regularizer on a stacked point raises (structural).
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.optimizers as bopt
+    >>> from t3toolbox.backend.fitting import LeastSquaresOracle, LeastSquaresBatch
+    >>> from t3toolbox.backend.geometry import CorewiseGeometryOps
+    >>> from t3toolbox.backend.t3_constructors import t3_corewise_randn
+    >>> from t3toolbox.backend.apply import t3_apply
+    >>> np.random.seed(0)
+    >>> x = t3_corewise_randn((4, 5, 6), (2, 2, 2), (1, 2, 2, 1))
+    >>> ww = [np.random.randn(10, N) for N in (4, 5, 6)]
+    >>> y = np.random.randn(10)
+    >>> f = bopt.point_objective(CorewiseGeometryOps(), LeastSquaresOracle('apply', order=()),
+    ...                          LeastSquaresBatch(ww, y), x)
+    >>> print(bool(np.isclose(f, 0.5 * np.sum((t3_apply(x, ww) - y) ** 2))))
+    True
+    """
+    f, rho = _point_objective_parts(geom, oracle, batch, x_cores, regularizer)
+    return f if rho is None else f + rho
+
+
+def _point_objective_parts(geom, oracle, batch, x_cores, regularizer=None):
+    """:py:func:`point_objective`'s two terms, ``(f, rho(x))`` (``rho`` ``None`` without a regularizer): the scored
+    misfit and regularization that ``newton_cg`` carries and reports (D9)."""
+    if regularizer is not None:
+        require_unstacked_for_regularizer(geom.stack_shape(x_cores), 'point_objective')
+    (f,), _ = oracle.query(geom.point_data(x_cores), batch, ('f',))
+    return f, (None if regularizer is None else regularizer.value(geom, x_cores))
+
+
+def _scored(geom, oracle, batch, x_cores, regularizer):
+    """The point-route objective of ``x_cores`` as host floats ``(misfit, regularization, objective)``
+    (``regularization`` ``None`` without a regularizer; ``objective = misfit + regularization``): what the step
+    acceptance of ``newton_cg`` compares and carries (D9)."""
+    f, rho = _point_objective_parts(geom, oracle, batch, x_cores, regularizer)
+    misfit, reg = float(f), (None if rho is None else float(rho))
+    return misfit, reg, misfit + (reg or 0.0)
 
 
 def flat_draw(
-        problem: Problem,
-        batch:   int,        # measurements per minibatch
-) -> typ.Callable:           # draw(rng) -> (sample_B, data_B)
-    """The **default** minibatch draw: a uniform random subset of ``batch`` measurements across the whole
-    (flattened) probe stack ``W`` -- the robust default. Returns a ``draw(rng) -> (sample_B, data_B)``
-    over ``problem``'s full data, via the kind's ``take``. A user may pass **any** ``draw`` instead (slice
-    X / P / order, importance-sample, ...). Host numpy by default; pass jax data + a jax draw to keep the
-    minibatch on device (the optimizer never compiles the draw -- only the per-step kernel)."""
-    n = problem.kind.n_measurements(problem.sample)
+        oracle:      typ.Any,       # an oracle with n_measurements(batch) and take(batch, indices)
+        batch:       typ.Any,       # the full batch
+        batch_size:  int,           # samples per minibatch
+) -> typ.Callable:                  # draw(rng) -> a drawn batch
+    """The **default** minibatch draw: a uniform random subset of ``min(batch_size, n)`` of the ``n`` samples
+    (``oracle.n_measurements(batch)``), flat across the whole sample stack ``W``, as ``oracle.take(batch, indices)``
+    returns it: for the least-squares oracle a batch with ``minibatch_scale = n / b`` and the ``drawn_indices``. Returns
+    ``draw(rng) -> batch``, which calls ``rng.choice(n, size=min(batch_size, n), replace=False)`` once per draw. A user
+    may pass **any** ``draw`` instead (slice ``W``, importance-sample, ...), returning a batch of the oracle. Host numpy
+    indices; on a jax batch the gather runs on device (the optimizer never compiles the draw, only the step)."""
+    n = oracle.n_measurements(batch)
+    size = min(batch_size, n)
 
     def draw(rng):
-        idx = rng.choice(n, size=min(batch, n), replace=False)
-        return problem.kind.take(problem.sample, problem.data, idx)
+        return oracle.take(batch, rng.choice(n, size=size, replace=False))
     return draw
 
 
-def _minibatch_step_problem(
-        problem: Problem,
-        batch:   int,        # nominal minibatch size (the ``batch`` arg; = the default flat draw's size)
-) -> Problem:
-    """The problem the **stochastic** per-step kernel linearizes against: identical to ``problem`` but with
-    the regularizer scaled by ``batch/n``. The minibatch data gradient is a ``batch/n`` estimate of the
-    full-data gradient, so scaling the (deterministic) regularizer to match keeps ``λ``'s meaning the same
-    as in the full-batch optimizers (``docs/contributor/fitting_internals.md`` §"Stochastic scaling"). No-op when unregularized. The
-    **full-batch** stop/loss keeps the full-strength ``problem.regularizer``. The factor is ``batch/n`` for
-    the NOMINAL ``batch`` -- ``batch`` is not ignored when a custom ``draw`` is given: a draw of another size
-    gets a mismatched factor, so pass ``batch`` equal to the size your ``draw`` produces."""
-    if problem.regularizer is None:
-        return problem
-    n = problem.kind.n_measurements(problem.sample)
-    return dc.replace(problem, regularizer=_ScaledRegularizer(problem.regularizer, min(batch, n) / n))
+def _require_draw(
+        oracle:  typ.Any,
+        draw:    typ.Optional[typ.Callable],   # the user's draw, or None (the default flat_draw)
+        who:     str,
+) -> None:
+    """Structural, at entry: without a ``draw`` the oracle needs ``take(batch, indices)`` and ``n_measurements(batch)``,
+    the default draw (:py:func:`flat_draw`); else a ``ValueError``."""
+    if draw is None and not (callable(getattr(oracle, 'take', None))
+                             and callable(getattr(oracle, 'n_measurements', None))):
+        raise ValueError('%s: %s has no take(batch, indices) and n_measurements(batch), the default draw; pass '
+                         'draw=, a function draw(rng) returning a batch of the oracle' % (who, type(oracle).__name__))
 
 
 # --------------------------------------------------------------------------------------------------
 # Optimizers
 # --------------------------------------------------------------------------------------------------
 def _require_unstacked(
-        geom,             # the problem's geometry (supplies stack_shape)
+        geom,             # the fit's geometry (supplies stack_shape)
         x0,               # the initial point
         who:      str,    # the optimizer name, for the message
 ) -> None:
@@ -603,8 +664,8 @@ def _require_unstacked(
     logging first fires, tens of iterations in. Raise at entry instead.
 
     Fit the stack elements separately (``backend.stacking.unstack``), or build the local model directly
-    -- :py:meth:`Problem.local_model` and the frontend ``fitting.LocalModel`` DO support a stacked point
-    and return a shape-``C`` objective, so rolling your own loop over a stacked problem works. It is only
+    -- :py:func:`local_model` and the frontend ``fitting.LocalModel`` DO support a stacked point
+    and return a shape-``C`` objective, so rolling your own loop over a stacked fit works. It is only
     the library optimizers' scalar reductions that do not. (A **regularizer** on a stacked point is a
     separate matter and raises on that path too --
     :py:func:`~t3toolbox.backend.regularization.require_unstacked_for_regularizer`.) A possible future
@@ -617,36 +678,63 @@ def _require_unstacked(
             "%s: optimizing a STACKED point (stack C = %r) is not supported. The objective is an array "
             "of shape C -- one value per stack element -- and the optimizers' convergence tests and line "
             "searches reduce it to a scalar. Fit the elements separately (backend.stacking.unstack), or "
-            "drive your own loop from Problem.local_model / fitting.LocalModel, which do support a "
+            "drive your own loop from local_model / fitting.LocalModel, which do support a "
             "stacked point." % (who, stack))
 
 
-def _prepare_jit_inputs(use_jit, x0, problem):
+def _array_leaves(
+        tree:  typ.Any,          # a pytree: nested tuples / lists, None, registered records (a batch), arrays
+) -> typ.List[typ.Any]:          # its numpy and jax array leaves
+    """The array leaves of any pytree: through jax's own flattening when jax is importable (so a registered record,
+    such as a :py:class:`~t3toolbox.backend.fitting.LeastSquaresBatch`, is walked), else through tuples and lists."""
+    if jax_available:
+        import jax
+        leaves = jax.tree_util.tree_leaves(tree)
+    else:
+        leaves = []
+        stack = [tree]
+        while stack:
+            node = stack.pop()
+            if isinstance(node, (tuple, list)):
+                stack.extend(node)
+            elif node is not None:
+                leaves.append(node)
+    return [leaf for leaf in leaves if is_ndarray(leaf)]
+
+
+def _prepare_jit_inputs(use_jit, x0, batch):
     """When ``use_jit``, move the optimizer inputs onto jax so the jit path actually engages -- the
     **auto-convert** contract: asking for jit is opting into "jax world" (device residency + jax's default
-    float32), so we ``jnp.asarray`` ``x0`` and the problem's ``sample`` / ``data`` rather than silently
-    dropping the request. ``geom`` / ``kind`` (and any uniform masks / residual weight they hold) are left
-    untouched -- masks stay host-numpy per the uniform jit recipe, and a numpy weight folds in as a
-    constant. Returns ``(x0, problem)`` unchanged when ``use_jit`` is False.
+    float32), so we ``jnp.asarray`` ``x0`` and every array of the ``batch`` (any pytree: its sample, data and weight)
+    rather than silently dropping the request. The geometry, the oracle and the regularizer (and any uniform masks
+    they hold) are left untouched -- masks stay host-numpy per the uniform jit recipe. Returns ``(x0, batch)``
+    unchanged when ``use_jit`` is False.
 
     When ``use_jit`` but jax is unavailable: runs eager on numpy with a one-time warning (the library-wide
     jax-absent policy, ``common.jax_or_warn`` -- a script developed without jax and deployed with it must
     run unchanged on both machines). Loud, not silent: the 2026.1.0 silent eager drop is what this replaces."""
     if not use_jit:
-        return x0, problem
+        return x0, batch
     if not jax_or_warn('use_jit=True'):
-        return x0, problem
-    return (tree_to_jax(x0),
-            dc.replace(problem, sample=tree_to_jax(problem.sample), data=tree_to_jax(problem.data)))
+        return x0, batch
+    import jax
+    import jax.numpy as jnp
+
+    def converted(tree):                     # an already-jax tree is returned AS IS: the same object (a caller that
+        leaves = jax.tree_util.tree_leaves(tree)   # converted first, e.g. to hand a display this very batch, keeps it)
+        if all(is_jax_ndarray(a) or not is_ndarray(a) for a in leaves):
+            return tree
+        return jax.tree_util.tree_map(lambda a: jnp.asarray(a) if is_ndarray(a) else a, tree)
+    return converted(x0), converted(batch)
 
 
-def _jit_engaged(use_jit, x0, problem) -> bool:
-    """Whether the jit path actually engages: asked for, jax present, and the inputs (x0, sample, data)
-    are **all** jax so the minibatch gather + kernel run on device. Under ``use_jit`` the inputs are
-    guaranteed jax by :py:func:`_prepare_jit_inputs`; this stays a check because a raw-``.data`` caller
-    may reach these functions directly."""
+def _jit_engaged(use_jit, x0, batch) -> bool:
+    """Whether the jit path actually engages: asked for, jax present, ``x0`` jax and every array of the batch jax (a
+    batch with no arrays, an oracle with no data, is no obstacle), so the minibatch gather and the kernel run on device.
+    Under ``use_jit`` the inputs are guaranteed jax by :py:func:`_prepare_jit_inputs`; this stays a check because a
+    raw-``.data`` caller may reach these functions directly."""
     return bool(use_jit and jax_available and tree_contains_jax(x0)
-                and tree_contains_jax(problem.sample) and tree_contains_jax(problem.data))
+                and all(is_jax_ndarray(leaf) for leaf in _array_leaves(batch)))
 
 
 @ft.lru_cache(maxsize=None)
@@ -664,39 +752,54 @@ def _jitted(fn, static_argnums=()):
     return jax.jit(fn, static_argnums=static_argnums)
 
 
+# The phases (TARGET_DECISIONS 8.3): build (local_model), gradient (_model_gradient), CG solve (_cg_core), trial
+# (point_objective) and the stochastic steps below -- module-level functions of pytrees and statics, so a phase can
+# be compiled as one program; with use_jit the CG solve and the stochastic step are, as before P16.
+def _model_gradient(
+        lm:  LocalModel,
+) -> Tangent:                # the model's gradient, Π 𝒥ᵀ ω² r (+ g_R)
+    """The gradient phase: :py:attr:`LocalModel.gradient` (one query wanting ``g`` with the model's ``held``)."""
+    return lm.gradient
+
+
 def _mc_sgd_step(
-        problem,             # the (reg-scaled) minibatch Problem
+        geom,                # the Geometry (static)
+        oracle,              # the Oracle (static)
+        regularizer,         # the Regularizer or None (static)
         cores:     Tangent,  # the current point
-        sample_B,            # the drawn minibatch sample
-        data_B,              # its observed data
+        batch_B,             # the drawn batch (its misfit scaled by the oracle; the regularizer is not)
 ) -> Tangent:                # the retracted next point
-    """One Manifold Cauchy SGD step: gradient, the tuning-free Cauchy length ``α = ‖g‖²/‖𝒥g‖²``, retract.
+    """One Manifold Cauchy SGD step on the drawn batch: a model built afresh there (nothing held across draws), its
+    gradient, the tuning-free Cauchy length ``α = ‖g‖²/‖𝒥g‖²``, retract. The step objective is ``s misfit_B + rho``
+    (``s`` the batch's minibatch scale), an estimate of the full objective; the Cauchy step is invariant under scaling
+    the objective, so ``s`` does not change it (a regularizer weighs ``rho`` against the misfit's estimate).
 
     Module-level and closure-free so the jit wrapper memoized on it is stable -- see :py:func:`_jitted`."""
-    lm = problem.local_model(cores, sample_B, data_B)
+    lm = local_model(geom, oracle, batch_B, cores, regularizer)
     g = lm.gradient
-    gg = problem.geom.inner(g, g)
+    gg = geom.inner(g, g)
     xnp, _, _ = get_backend(False, tree_contains_jax(g))
     alpha = gg / xnp.maximum(lm.gn_quadratic(g), 1e-30)
     return lm.retract(cw.corewise_scale(g, -alpha))
 
 
 def _adam_step(
-        problem,             # the (reg-scaled) minibatch Problem
+        geom,                # the Geometry (static)
+        oracle,              # the Oracle (static)
+        regularizer,         # the Regularizer or None (static)
         cores:     Tangent,  # the current point
         m:         Tangent,  # first-moment EMA, a tree matching the cores
         v:         Tangent,  # second-moment EMA
-        sample_B,            # the drawn minibatch sample
-        data_B,              # its observed data
+        batch_B,             # the drawn batch
         lr_t,                # the scheduled learning rate for this step
         t,                   # 1-based step index (bias correction)
         b1,                  # beta_1
         b2,                  # beta_2
         eps,                 # denominator floor
 ) -> typ.Tuple[Tangent, Tangent, Tangent]:   # (next point, m, v)
-    """One Adam step over the cores, elementwise (so this IS per-core Adam). Module-level and
-    closure-free; ``lr_t`` / ``t`` flow in as arguments so the schedule forces no recompile."""
-    lm = problem.local_model(cores, sample_B, data_B)
+    """One Adam step over the cores, elementwise (so this IS per-core Adam), on a model built afresh at the drawn batch.
+    Module-level and closure-free; ``lr_t`` / ``t`` flow in as arguments so the schedule forces no recompile."""
+    lm = local_model(geom, oracle, batch_B, cores, regularizer)
     g = lm.gradient
     m = cw.corewise_map(lambda mi, gi: b1 * mi + (1.0 - b1) * gi, m, g)
     v = cw.corewise_map(lambda vi, gi: b2 * vi + (1.0 - b2) * gi * gi, v, g)
@@ -738,27 +841,27 @@ def _check_positive_reference(
 
 
 def _zero_reference_gnorm(
-        problem:  'Problem',   # the level's own Problem (its kind carries the resolved chunk_size)
+        geom:     typ.Any,     # the fit's geometry
+        oracle:   typ.Any,     # the fit's oracle
+        batch:    typ.Any,     # the full batch
         frame0:   typ.Any,     # geom.zero_point_frame(frame): the canonical frame at the zero tensor
-        x0:       Cores,       # the start point (only its STRUCTURE is used: the zero tensor at its ranks)
-) -> float:                    # ‖Π 𝒥ᵀ r(0)‖ at frame0 -- the zero reference
-    """The gradient norm at the zero tensor of ``x0``'s ranks, evaluated at the canonical zero-point frame.
+) -> float:                    # ‖Π 𝒥ᵀ ω² r(0)‖ at frame0 -- the zero reference
+    """The gradient norm at the zero tensor of the frame's ranks, evaluated at the canonical zero-point frame.
 
-    One frame sweep plus one transpose -- the cost of one Newton gradient -- on the level's own problem.
-    The residual is ``point_forward(0) - data`` (``Problem.local_model``'s formula, so a custom kind with
-    ``S(0) != 0`` is handled; for the built-in kinds it is ``-data``). A regularizer is not included: its
-    gradient vanishes at the zero tensor, so the reference is the data-gradient scale alone."""
-    geom, kind, sample = problem.geom, problem.kind, problem.sample
-    sweep0 = kind.precompute(frame0, sample)
-    r0 = cw.corewise_sub(kind.point_forward(cw.corewise_zeros_like(x0), sample), problem.data)
-    g = geom.project(frame0, kind.transpose(r0, sample, frame0, sweep0), aux=geom.precompute(frame0))
+    One query wanting ``g`` at ``frame0``, then the projection: the cost of one Newton gradient. The zero-point frame's
+    base point is the zero tensor exactly (its last left core is zero), so the oracle's residual there is ``z(0) - y``
+    (``-y`` for the least-squares oracle). A regularizer is not included: its gradient vanishes at the zero tensor, so
+    the reference is the data-gradient scale alone."""
+    (g,), _ = oracle.query(frame0, batch, ('g',))
+    g = geom.project(frame0, g, aux=geom.precompute(frame0))
     return float(geom.inner(g, g)) ** 0.5
 
 
 def _resolve_g0_reference(
-        problem:       'Problem',           # the level's own Problem
+        geom:          typ.Any,             # the fit's geometry
+        oracle:        typ.Any,             # the fit's oracle
+        batch:         typ.Any,             # the full batch
         frame:         typ.Any,             # iteration 0's local-model frame (its structure is copied)
-        x0:            Cores,               # the start point
         g0_reference:  typ.Optional[str],   # the validated selector (_check_g0_reference)
         compute:       bool,                # False when g0norm_newton is given: both references are fixed
         who:           str,                 # the optimizer name, for the messages
@@ -774,7 +877,7 @@ def _resolve_g0_reference(
     optional ``zero_point_frame`` member). An explicit ``'zero'`` with no zero-point frame is a structural
     error. A vanishing zero reference is never silently replaced: by default it falls back to the warm
     start with a ``RuntimeWarning``; an explicit ``'zero'`` raises."""
-    zpf = getattr(problem.geom, 'zero_point_frame', None)
+    zpf = getattr(geom, 'zero_point_frame', None)
     if g0_reference == 'warm_start':
         return 'warm_start', None
     if g0_reference is None and not compute:
@@ -784,7 +887,7 @@ def _resolve_g0_reference(
         if explicit:
             raise ValueError("%s: g0_reference='zero' needs a geometry with a zero_point_frame member; %s "
                              "has none (pass g0_reference='warm_start', or give the geometry a "
-                             "zero_point_frame)" % (who, type(problem.geom).__name__))
+                             "zero_point_frame)" % (who, type(geom).__name__))
         return 'warm_start', None
     frame0 = zpf(frame)
     if frame0 is None:
@@ -792,11 +895,11 @@ def _resolve_g0_reference(
             raise ValueError("%s: g0_reference='zero' has no meaning on %s, which defines no zero-point frame "
                              "(on a corewise geometry the zero cores are a critical point, so the reference "
                              "would be exactly 0); pass g0_reference='warm_start' or None"
-                             % (who, type(problem.geom).__name__))
+                             % (who, type(geom).__name__))
         return 'warm_start', None
     if not compute:
         return 'zero', None
-    zero_ref = _zero_reference_gnorm(problem, frame0, x0)
+    zero_ref = _zero_reference_gnorm(geom, oracle, batch, frame0)
     if zero_ref > 0.0:
         return 'zero', zero_ref
     if explicit:
@@ -815,16 +918,25 @@ def _resolve_g0_reference(
 _ALIGNMENT_OPTIONS = ('oversampling', 'oversampled_passes', 'max_passes', 'tol', 'alternate', 'seed')
 
 
-def _misfit_gradient_at(
-        frame:  typ.Any,      # a frame of the problem's geometry, any structure (ragged frame / uniform frame .data)
-        hint:   typ.Tuple,    # (problem, residual): the problem, and its residual at the loop's point (computed once)
-) -> typ.Any:                 # Π 𝒥ᵀ residual at `frame` (ragged variations / uniform bare pair); no regularizer term
-    """The misfit gradient at ``frame``: the alignment loops' projection of the fixed tensor ``𝒥ᵀ residual``."""
-    problem, residual = hint
-    geom = problem.geom.with_frame(frame)
-    sweep = problem.kind.precompute(frame, problem.sample)
-    return geom.project(frame, problem.kind.transpose(residual, problem.sample, frame, sweep),
-                        aux=geom.precompute(frame))
+@ft.lru_cache(maxsize=None)     # unbounded: one entry per (geometry, oracle), i.e. one per rank level -- negligible
+def _alignment_projector(
+        geom:    typ.Any,     # the fit's geometry (value-hashed)
+        oracle:  typ.Any,     # the fit's oracle (value-hashed)
+) -> typ.Callable:            # project(frame, batch) -> Π 𝒥ᵀ ω² r at frame (ragged variations / uniform bare pair)
+    """The alignment loops' projector of the misfit gradient: at each pass's ``frame``, one query wanting ``g`` on the
+    batch (the loop's ``hint``), projected by the geometry **at that frame's structure** (``geom.with_frame(frame)``:
+    the loop's frames change width, and on the uniform layout the projection's masks are the frame's own). Nothing is
+    held across passes: each pass has its own frame. Every frame of the loop has the loop's base point (``x0``, or the
+    zero tensor at the cone), so the residual each pass reads is the one the alignment is for.
+
+    A factory memoized on its two value-hashed statics (``scan_body_principles.md``, rule 4): the projector is a stable
+    function object per ``(geom, oracle)``, a static argument of the uniform whole-loop jit, and the batch rides as
+    the loop's pytree hint."""
+    def project(frame, batch):
+        frame_geom = geom.with_frame(frame)
+        (g,), _ = oracle.query(frame, batch, ('g',))
+        return frame_geom.project(frame, g, aux=frame_geom.precompute(frame))
+    return project
 
 
 def _alignment_options(
@@ -843,7 +955,9 @@ def _alignment_options(
 
 
 def padded_start(
-        problem:             'Problem',
+        geom:                typ.Any,                   # the fit's Geometry (a manifold one: it needs aligned_padded_frame)
+        oracle:              typ.Any,                   # the fit's Oracle
+        batch:               typ.Any,                   # its batch (uniform: packed)
         x0:                  Cores,                     # the zero-padded point at the target ranks (minimal); uniform: bare pair
         x_old:               typ.Optional[typ.Any],     # the old point at minimal ranks (ragged cores / uniform full .data, rank 0 allowed); None = the zero tensor (the cone)
 
@@ -856,54 +970,53 @@ def padded_start(
         use_jit:             bool = False,                 # forwarded to the loop; newton_cg passes its own use_jit
 ) -> typ.Tuple[
     typ.Any,   # the aligned frame of x0 (ragged frame / uniform frame .data at the level's widths)
+    typ.Any,   # its centers (Vc, Hc): the old point's zero-padded (zeros from the zero tensor)
     typ.Any,   # movements, as the member returns them (ragged tuple; uniform NaN-padded array)
 ]:
-    """The frame of ``x0`` aligned with the problem's misfit gradient: the start of a Newton run after a rank increase
-    (the aligned padded frame with the misfit gradient as its hint; user guide :doc:`/aligned_padded_frame`).
+    """The frame of ``x0`` aligned with the misfit gradient, and its centers: the start of a Newton run after a rank
+    increase (the aligned padded frame with the misfit gradient as its hint; user guide :doc:`/aligned_padded_frame`).
 
     ``x0`` is the zero-padded point at the target ranks and ``x_old`` the old point (``None``: the zero tensor, the
-    ``'cone'`` reference's frame). The alignment runs on the geometry's ``aligned_padded_frame`` member against
-    :py:func:`_misfit_gradient_at` of the residual at ``x0`` (at the zero tensor when ``x_old`` is ``None``). Unset
-    options take the member's defaults; ``max_passes=0`` returns the hint-free padded start, and an option it would
-    not read then raises.
+    ``'cone'`` reference's frame). The alignment runs on the geometry's ``aligned_padded_frame`` member; each pass
+    projects the oracle's ``g`` on ``batch`` at its own frame (every frame of the loop has ``x0`` as its base point, the
+    zero tensor at the cone). Unset options take the member's defaults; ``max_passes=0`` returns the hint-free padded
+    start, and an option it would not read then raises. The centers are the old point's zero-padded, so
+    ``local_model(..., frame=frame, centers=centers)`` reads the probe ``z`` through them as at ``geom.frame(x)``.
 
     Examples
     --------
-    A problem's aligned frame without running Newton -- the route from the frontend ``least_squares_problem``:
-
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.frame_variations_format as bvf
-    >>> import t3toolbox.manifold as t3m
-    >>> import t3toolbox.optimizers as topt
     >>> import t3toolbox.backend.optimizers as bopt
+    >>> from t3toolbox.backend.fitting import LeastSquaresOracle, LeastSquaresBatch
+    >>> from t3toolbox.backend.geometry import ManifoldGeometryOps
     >>> np.random.seed(0)
     >>> shape = (5, 6, 5)
     >>> ww = [np.random.randn(60, n) for n in shape]
-    >>> data = t3.TuckerTensorTrain.randn(shape, (3, 4, 3), (1, 3, 3, 1)).probe(ww)
+    >>> batch = LeastSquaresBatch(ww, t3.TuckerTensorTrain.randn(shape, (3, 4, 3), (1, 3, 3, 1)).probe(ww))
+    >>> geom, oracle = ManifoldGeometryOps(), LeastSquaresOracle('probe', order=())
     >>> x_old = t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1))
     >>> x0 = x_old.resize(shape, (3, 4, 3), (1, 3, 3, 1))                 # zero-padded to the target ranks
-    >>> setup = topt.least_squares_problem(t3m.MANIFOLD, 'probe', ww, data, x0)
-    >>> frame, movements = bopt.padded_start(setup.problem, setup.x0_cores, x_old.data)
-    >>> F = bvf.T3Frame(*frame)                                           # rewrap
-    >>> F.down_ranks, len(movements) <= 10
+    >>> frame, centers, movements = bopt.padded_start(geom, oracle, batch, x0.data, x_old.data)
+    >>> bvf.T3Frame(*frame).down_ranks, len(movements) <= 10               # rewrap
     ((3, 4, 3), True)
 
     Newton can start from it (``newton_cg(start_frame=...)``; ``padded_from=x_old.data`` does both steps):
 
-    >>> lm = setup.problem.local_model(setup.x0_cores, frame=frame)
-    >>> bool(float(lm.objective) > 0)
+    >>> lm = bopt.local_model(geom, oracle, batch, x0.data, frame=frame, centers=centers)
+    >>> print(bool(np.isclose(lm.objective, bopt.point_objective(geom, oracle, batch, x0.data))))
     True
     """
-    _alignment_member(problem.geom)                     # a geometry without the member raises before the options
+    _alignment_member(geom)                             # a geometry without the member raises before the options
     options = _alignment_options(dict(oversampling=oversampling, oversampled_passes=oversampled_passes,
                                       max_passes=max_passes, tol=tol, alternate=alternate, seed=seed),
                                  '', 'padded_start')
-    return _padded_start(problem, x0, x_old, options, use_jit, False)[:2]
+    return _padded_start(geom, oracle, batch, x0, x_old, options, use_jit, False)[:3]
 
 
 def _alignment_member(
-        geom:  typ.Any,      # the problem's geometry
+        geom:  typ.Any,      # the fit's geometry
 ) -> typ.Callable:           # its aligned_padded_frame member
     """The geometry's ``aligned_padded_frame`` member; a geometry without one raises (a padded start needs it)."""
     member = getattr(geom, 'aligned_padded_frame', None)
@@ -914,7 +1027,9 @@ def _alignment_member(
 
 
 def _padded_start(
-        problem:  'Problem',
+        geom:     typ.Any,
+        oracle:   typ.Any,
+        batch:    typ.Any,
         x0:       Cores,                     # as padded_start
         x_old:    typ.Optional[typ.Any],     # as padded_start
         options:  typ.Dict[str, typ.Any],    # the set alignment options (unprefixed, validated)
@@ -922,26 +1037,27 @@ def _padded_start(
         timing:   bool,                      # True: ask the member for its seconds per pass (_aligned_padded_frame)
 ) -> typ.Tuple[
     typ.Any,                                 # the aligned frame of x0
+    typ.Any,                                 # its centers
     typ.Any,                                 # movements, as the member returns them
     typ.Optional[typ.Tuple[float, ...]],     # the seconds per pass; None unless timing and the member reports them
 ]:
     """:py:func:`padded_start` after its option validation, with ``timing`` (``newton_cg(padded_from=)``'s call)."""
-    member = _alignment_member(problem.geom)
-    point = x0 if x_old is not None else cw.corewise_zeros_like(x0)
-    residual = cw.corewise_sub(problem.kind.point_forward(point, problem.sample), problem.data)
-    return _aligned_padded_frame(member, x0, x_old, (problem, residual), options, use_jit, timing)
+    return _aligned_padded_frame(_alignment_member(geom), x0, x_old, _alignment_projector(geom, oracle), batch,
+                                 options, use_jit, timing)
 
 
 def _aligned_padded_frame(
         member:   typ.Callable,              # a geometry's aligned_padded_frame
         x0:       Cores,
         x_old:    typ.Optional[typ.Any],
-        hint:     typ.Tuple,                 # (problem, residual): _misfit_gradient_at's hint
+        project:  typ.Callable,              # _alignment_projector(geom, oracle)
+        hint:     typ.Any,                   # the batch: the projector's second argument
         options:  typ.Dict[str, typ.Any],    # the set alignment options (unprefixed)
         use_jit:  bool,
         timing:   bool,
 ) -> typ.Tuple[
     typ.Any,                                 # the aligned frame of x0
+    typ.Any,                                 # its centers (None if the member returns none)
     typ.Any,                                 # movements, as the member returns them
     typ.Optional[typ.Tuple[float, ...]],     # the member's seconds per pass, or None
 ]:
@@ -954,9 +1070,9 @@ def _aligned_padded_frame(
         except (TypeError, ValueError):      # no signature to read
             parameter = None
         if parameter is not None and parameter.kind in (parameter.POSITIONAL_OR_KEYWORD, parameter.KEYWORD_ONLY):
-            return member(x0, x_old, _misfit_gradient_at, hint, use_jit=use_jit, timing=True, **options)
-    frame, movements = member(x0, x_old, _misfit_gradient_at, hint, use_jit=use_jit, **options)
-    return frame, movements, None
+            return member(x0, x_old, project, hint, use_jit=use_jit, timing=True, **options)
+    frame, centers, movements = member(x0, x_old, project, hint, use_jit=use_jit, **options)
+    return frame, centers, movements, None
 
 
 def _cone_options(
@@ -973,7 +1089,9 @@ def _cone_options(
 
 
 def _cone_reference(
-        problem:  'Problem',
+        geom:     typ.Any,
+        oracle:   typ.Any,
+        batch:    typ.Any,                   # the full batch
         x0:       Cores,                     # the start point (its structure: the zero tensor at its ranks)
         options:  typ.Dict[str, typ.Any],    # the set cone_* options (unprefixed)
         use_jit:  bool,
@@ -981,20 +1099,20 @@ def _cone_reference(
         hint:     str,                       # what to pass instead, for the vanishing-reference ValueError
         timing:   bool,                      # True: ask the member for its seconds per pass (_aligned_padded_frame)
 ) -> typ.Tuple[
-    float,                                   # ‖Π 𝒥ᵀ r(0)‖ at the aligned frame of the zero tensor
+    float,                                   # ‖Π 𝒥ᵀ ω² r(0)‖ at the aligned frame of the zero tensor
     typ.Tuple[float, ...],                   # the alignment's movements, one per pass
     typ.Optional[typ.Tuple[float, ...]],     # the seconds per pass; None unless timing and the member reports them
 ]:
     """The 'cone' reference: the misfit gradient norm at the zero tensor, at the frame aligned with it."""
-    member = getattr(problem.geom, 'aligned_padded_frame', None)
+    member = getattr(geom, 'aligned_padded_frame', None)
     if member is None:
         raise ValueError("%s: g0_reference='cone' needs a geometry with an aligned_padded_frame member; %s has none "
-                         "(pass %s)" % (who, type(problem.geom).__name__, hint))
-    r0 = cw.corewise_sub(problem.kind.point_forward(cw.corewise_zeros_like(x0), problem.sample), problem.data)
-    frame, movements, pass_seconds = _aligned_padded_frame(member, x0, None, (problem, r0), options, use_jit,
-                                                           timing)             # padded_start's call, its residual reused
-    g = _misfit_gradient_at(frame, (problem, r0))
-    value = float(problem.geom.with_frame(frame).inner(g, g)) ** 0.5
+                         "(pass %s)" % (who, type(geom).__name__, hint))
+    project = _alignment_projector(geom, oracle)
+    frame, _centers, movements, pass_seconds = _aligned_padded_frame(member, x0, None, project, batch, options,
+                                                                     use_jit, timing)
+    g = project(frame, batch)                       # the frames of the cone's loop are at the zero tensor
+    value = float(geom.with_frame(frame).inner(g, g)) ** 0.5
     if not value > 0.0:
         raise ValueError("%s: the cone reference is 0 at these ranks; pass %s" % (who, hint))
     return value, _movement_record(movements), pass_seconds
@@ -1012,8 +1130,11 @@ def _movement_record(
 
 
 def gradient_descent(
-        problem:  Problem,    # the fixed-rank least-squares problem
-        x0:       Tangent,    # initial cores (B, G)
+        geom:     typ.Any,    # the Geometry
+        oracle:   typ.Any,    # the Oracle
+        batch:    typ.Any,    # its batch
+        x0:       Tangent,    # initial cores (B, G); uniform: the bare supercore pair
+        regularizer: typ.Any = None,   # optional backend.regularization.Regularizer
         n_iter:   int   = 100,
         gtol_rel: float = 1e-8,   # stop when ‖g‖ <= gtol_rel * ‖g_0‖
         c_armijo: float = 1e-4,   # Armijo sufficient-decrease constant
@@ -1032,8 +1153,8 @@ def gradient_descent(
     along ``−g``) and backtracks (``α ← α/2``) until ``f(retract(−α g)) ≤ f − c·α‖g‖²`` -- so it descends
     on any geometry, including the additive corewise chart where a bare Cauchy step overshoots the
     high-degree objective. Exercises the whole backend-first stack (``gradient`` / ``gn_quadratic`` /
-    ``objective`` / ``retract``). **Eager only, deliberately** -- the reference implementation of the
-    backend-first stack; ``use_jit`` lives on ``mc_sgd`` / ``adam`` / ``newton_cg``.
+    ``objective`` / ``retract``; the trials through :py:func:`point_objective`). **Eager only, deliberately** -- the
+    reference implementation of the backend-first stack; ``use_jit`` lives on ``mc_sgd`` / ``adam`` / ``newton_cg``.
 
     ``on_line_search_failure``: as in :py:func:`newton_cg` -- exhausting all 50 halvings means the
     objective's floor; ``'stop'`` (default) rejects the step and terminates, ``'accept'`` takes the
@@ -1044,7 +1165,7 @@ def gradient_descent(
     :py:func:`newton_cg` -- by default the gradient norm at the zero tensor of ``x0``'s ranks on a manifold
     geometry, the warm-start ``‖g(x0)‖`` on a corewise one; ``'cone'`` and its ``cone_*`` options as in
     :py:func:`newton_cg` (the alignment runs eagerly here)."""
-    _require_unstacked(problem.geom, x0, 'gradient_descent')
+    _require_unstacked(geom, x0, 'gradient_descent')
     olsf = str(on_line_search_failure).lower()
     if olsf not in ('stop', 'accept'):
         raise ValueError("on_line_search_failure must be 'stop' or 'accept'; got %r" % (on_line_search_failure,))
@@ -1057,18 +1178,21 @@ def gradient_descent(
     losses = []
     any_ls_failed = False
     g0norm = None
+    f = None            # D9: the point-route objective of exactly the current x (the start's, then the accepted trial's)
     for it in range(n_iter):
-        lm = problem.local_model(x)
-        f = float(lm.objective)
+        lm = local_model(geom, oracle, batch, x, regularizer)
+        if f is None:
+            f = float(point_objective(geom, oracle, batch, x, regularizer))
         losses.append(f)
-        g = lm.gradient
-        gg = float(problem.geom.inner(g, g))                # ‖g‖²
+        g = _model_gradient(lm)
+        gg = float(geom.inner(g, g))                        # ‖g‖²
         if g0norm is None and ref_selector == 'cone':       # iteration 0: the cone reference (once)
-            g0norm, extra['cone_movements'], _ = _cone_reference(problem, x0, cone_options, False,
-                                                                 'gradient_descent', "g0_reference='warm_start'", False)
+            g0norm, extra['cone_movements'], _ = _cone_reference(geom, oracle, batch, x0, cone_options, False,
+                                                                 'gradient_descent', "g0_reference='warm_start'",
+                                                                 False)
         if g0norm is None:                                  # iteration 0: resolve the reference (once)
-            ref, zero_ref = _resolve_g0_reference(problem, lm.frame, x0, ref_selector, True, 'gradient_descent',
-                                                  "g0_reference='warm_start'")
+            ref, zero_ref = _resolve_g0_reference(geom, oracle, batch, lm.frame, ref_selector, True,
+                                                  'gradient_descent', "g0_reference='warm_start'")
             g0norm = zero_ref if ref == 'zero' else (gg ** 0.5 if gg > 0 else 1.0)
         if gg ** 0.5 <= gtol_rel * g0norm:                  # converged
             break
@@ -1077,7 +1201,8 @@ def gradient_descent(
         ls_failed = True
         for _bt in range(50):                               # Armijo backtracking
             x_trial = lm.retract(cw.corewise_scale(g, -alpha))
-            if float(problem.objective(x_trial)) <= f - c_armijo * alpha * gg:
+            f_trial = float(point_objective(geom, oracle, batch, x_trial, regularizer))
+            if f_trial <= f - c_armijo * alpha * gg:
                 ls_failed = False
                 break
             if _bt < 49:
@@ -1086,16 +1211,19 @@ def gradient_descent(
             any_ls_failed = True
             if olsf == 'stop':
                 break                                        # reject the step: x unchanged
-        x = x_trial
+        x, f = x_trial, f_trial                              # 'accept' after exhaustion: the last trial's value
     return x, {'losses': losses, 'n_iter': len(losses), 'line_search_failed': any_ls_failed, **extra}
 
 
 def mc_sgd(
-        problem:     Problem,    # the fixed-rank least-squares problem
-        x0:          Tangent,    # initial cores (B, G)
+        geom:        typ.Any,    # the Geometry
+        oracle:      typ.Any,    # the Oracle
+        batch:       typ.Any,    # its full batch
+        x0:          Tangent,    # initial cores (B, G); uniform: the bare supercore pair
         rng,                     # np.random.Generator -- passed to the draw each step
-        batch:       int,        # measurements per minibatch (for the default flat draw; ignored if draw given)
-        draw:        typ.Optional[typ.Callable] = None,  # custom draw(rng)->(sample_B,data_B); None = flat default
+        batch_size:  int,        # samples per minibatch (the default flat draw's; unread with a draw)
+        regularizer: typ.Any = None,   # optional backend.regularization.Regularizer (unscaled on a draw)
+        draw:        typ.Optional[typ.Callable] = None,  # custom draw(rng) -> a batch; None = flat_draw(oracle, batch, batch_size)
         max_iter:    int   = 3000,
         check_every: int   = 25,     # iterations between full-batch loss checks (the absolute-iteration window)
         smooth_tau:  float = 2.0,    # EMA timescale of the loss check, in checks
@@ -1104,30 +1232,32 @@ def mc_sgd(
 ) -> typ.Tuple[Tangent, dict]:       # (x_cores, stats)
     """Manifold Cauchy SGD (T4S §5.3.2): minibatch + the tuning-free Cauchy step
     ``α = ‖g‖² / ‖𝒥g‖²`` -- no learning rate. Intended for the **manifold** geometry (its bounded
-    retraction makes the raw Cauchy step stable; on the additive corewise chart use ``adam``). Stops on an
-    exponentially-smoothed **full-batch** loss with an **absolute-iteration window** (``plateau_lag *
-    check_every`` iterations) -- decoupled from batch size (the epoch-based window made small batches
-    fragile; findings in a separate research repo, maintainer-local). ``stats['losses']`` records the
-    **smoothed** check values (the stop signal), not the raw full-batch losses. ``use_jit`` jits the per-step kernel (the host loop
-    draws minibatches; the full-batch stop check stays on the host), auto-converting numpy inputs to jax
-    first (:py:func:`_prepare_jit_inputs`) -- so the **default** ``flat_draw`` then slices the on-device
-    ``sample`` / ``data`` (a custom ``draw`` should return jax minibatches to stay on device)."""
-    _require_unstacked(problem.geom, x0, 'mc_sgd')
-    x0, problem = _prepare_jit_inputs(use_jit, x0, problem)
-    draw = draw if draw is not None else flat_draw(problem, batch)
-    step_problem = _minibatch_step_problem(problem, batch)  # reg scaled by batch/n; full reg kept for the stop
+    retraction makes the raw Cauchy step stable; on the additive corewise chart use ``adam``). Each step draws a batch
+    (``draw(rng)``; by default :py:func:`flat_draw`, which needs an oracle with ``take``, else a ``ValueError`` at
+    entry) and builds a model there afresh: the step objective is the drawn batch's misfit, scaled by the oracle to
+    estimate the full one, plus the **unscaled** regularizer. Stops on an exponentially-smoothed **full-batch** loss
+    (:py:func:`point_objective`) with an **absolute-iteration window** (``plateau_lag * check_every`` iterations) --
+    decoupled from batch size (the epoch-based window made small batches fragile; findings in a separate research repo,
+    maintainer-local). ``stats['losses']`` records the **smoothed** check values (the stop signal), not the raw
+    full-batch losses. ``use_jit`` jits the per-step kernel (the host loop draws minibatches; the full-batch stop check
+    stays on the host), auto-converting numpy inputs to jax first (:py:func:`_prepare_jit_inputs`) -- so the
+    **default** draw then slices the on-device batch (a custom ``draw`` should return jax batches to stay on device)."""
+    _require_unstacked(geom, x0, 'mc_sgd')
+    _require_draw(oracle, draw, 'mc_sgd')
+    x0, batch = _prepare_jit_inputs(use_jit, x0, batch)
+    draw = draw if draw is not None else flat_draw(oracle, batch, batch_size)
     a_smooth = 1.0 - math.exp(-1.0 / smooth_tau)
 
-    step = _jitted(_mc_sgd_step) if _jit_engaged(use_jit, x0, problem) else _mc_sgd_step
+    step = _jitted(_mc_sgd_step, (0, 1, 2)) if _jit_engaged(use_jit, x0, batch) else _mc_sgd_step
 
     x = x0
     s_hist = []
     n_iter = 0
     for k in range(max_iter):
         n_iter = k + 1
-        x = step(step_problem, x, *draw(rng))
+        x = step(geom, oracle, regularizer, x, draw(rng))
         if n_iter % check_every == 0:                       # full-batch loss check (the stop signal, host)
-            L = float(problem.objective(x))
+            L = float(point_objective(geom, oracle, batch, x, regularizer))
             s = L if not s_hist else a_smooth * L + (1.0 - a_smooth) * s_hist[-1]
             s_hist.append(s)
             if len(s_hist) > plateau_lag and (s_hist[-1] - s_hist[-1 - plateau_lag]) > 0.0:
@@ -1136,11 +1266,14 @@ def mc_sgd(
 
 
 def adam(
-        problem:  Problem,    # the fixed-rank least-squares problem
-        x0:       Tangent,    # initial cores (B, G)
+        geom:     typ.Any,    # the Geometry
+        oracle:   typ.Any,    # the Oracle
+        batch:    typ.Any,    # its full batch
+        x0:       Tangent,    # initial cores (B, G); uniform: the bare supercore pair
         rng,                  # np.random.Generator -- passed to the draw each step
-        batch:    int,        # measurements per minibatch (for the default flat draw; ignored if draw given)
-        draw:     typ.Optional[typ.Callable] = None,  # custom draw(rng)->(sample_B,data_B); None = flat default
+        batch_size:  int,     # samples per minibatch (the default flat draw's; unread with a draw)
+        regularizer: typ.Any = None,   # optional backend.regularization.Regularizer (unscaled on a draw)
+        draw:     typ.Optional[typ.Callable] = None,  # custom draw(rng) -> a batch; None = flat_draw(oracle, batch, batch_size)
         lr:       float = 1e-2,
         max_iter: int   = 2000,
         betas:    typ.Tuple[float, float] = (0.9, 0.999),
@@ -1151,27 +1284,29 @@ def adam(
     """Adam over the cores -- the dependency-free first-order method for the **corewise** geometry. The
     moments ``m`` / ``v`` are trees matching the cores (a ``corewise_map`` per step); elementwise, so this
     is exactly per-core Adam. (``lr`` is a real hyperparameter -- Adam is not tuning-free, unlike the Cauchy
-    step.) On corewise the step is additive (``lm.retract`` = ``cores += step``). ``use_jit`` jits the
-    per-step kernel (``lr_t``/``t`` flow in as traced args, so the schedule does not force a recompile),
-    auto-converting numpy inputs to jax first (:py:func:`_prepare_jit_inputs`)."""
-    _require_unstacked(problem.geom, x0, 'adam')
-    x0, problem = _prepare_jit_inputs(use_jit, x0, problem)
-    step_problem = _minibatch_step_problem(problem, batch)  # reg scaled by batch/n; full reg kept for the stop
+    step.) On corewise the step is additive (``lm.retract`` = ``cores += step``). Each step builds a model afresh at a
+    drawn batch, as :py:func:`mc_sgd` does (the regularizer unscaled; an oracle without ``take`` needs a ``draw``).
+    ``use_jit`` jits the per-step kernel (``lr_t``/``t`` flow in as traced args, so the schedule does not force a
+    recompile), auto-converting numpy inputs to jax first (:py:func:`_prepare_jit_inputs`). ``stats['losses']`` is
+    the full-batch objective (:py:func:`point_objective`) every 50 steps."""
+    _require_unstacked(geom, x0, 'adam')
+    _require_draw(oracle, draw, 'adam')
+    x0, batch = _prepare_jit_inputs(use_jit, x0, batch)
     b1, b2 = betas
 
-    step = _jitted(_adam_step) if _jit_engaged(use_jit, x0, problem) else _adam_step
+    step = _jitted(_adam_step, (0, 1, 2)) if _jit_engaged(use_jit, x0, batch) else _adam_step
 
-    draw = draw if draw is not None else flat_draw(problem, batch)
+    draw = draw if draw is not None else flat_draw(oracle, batch, batch_size)
     cores = x0
     m = cw.corewise_zeros_like(cores)
     v = cw.corewise_zeros_like(cores)
     losses = []
     for k in range(max_iter):
-        sample_B, data_B = draw(rng)
+        batch_B = draw(rng)
         lr_t = lr * (0.5 * (1.0 + math.cos(math.pi * k / max_iter)) if cosine else 1.0)
-        cores, m, v = step(step_problem, cores, m, v, sample_B, data_B, lr_t, k + 1, b1, b2, eps)
+        cores, m, v = step(geom, oracle, regularizer, cores, m, v, batch_B, lr_t, k + 1, b1, b2, eps)
         if (k + 1) % 50 == 0:
-            losses.append(float(problem.objective(cores)))
+            losses.append(float(point_objective(geom, oracle, batch, cores, regularizer)))
     return cores, {'losses': losses, 'n_iter': max_iter}
 
 
@@ -1297,30 +1432,29 @@ class PhaseSeconds:
 
     * ``previous_callback`` -- the previous row's records, its ``callback`` and its history append (so a heavy
       display appears on the next row); ``None`` on row 0.
-    * ``frame``, ``sweep``, ``companion``, ``residual``, ``curvature`` -- the local model's build: ``geom.frame`` (or
-      the start frame's structure check), ``kind.precompute``, ``geom.precompute``, the residual, and in exact mode
-      ``geom.curvature_precompute`` (with ``hessian='switch'`` every build is exact-mode, the Gauss-Newton phase's
-      included). ``None`` on a row that reuses the model (after a rejected trust-region trial); ``curvature`` also in
-      Gauss-Newton mode. A ``Problem`` subclass that overrides ``local_model`` is timed whole: its build is ``frame``,
-      and the other four are ``None``.
-    * ``gradient`` -- the misfit transpose ``Π 𝒥ᵀ r`` (in exact mode, and with ``hessian='switch'``, it runs inside the
-      build and is counted here), the misfit and regularization values, the gradient, ``‖g‖`` and the lift
-      diagnostics; ``None`` as ``frame``.
+    * ``frame``, ``oracle``, ``companion``, ``curvature`` -- the local model's build (:py:func:`local_model`):
+      ``geom.frame`` (or the start frame's structure check), the build's one oracle query (wanting ``f``, and ``g`` in
+      exact mode), ``geom.precompute``, and in exact mode ``geom.curvature_precompute`` (with ``hessian='switch'``
+      every build is exact-mode, the Gauss-Newton phase's included). ``None`` on a row that reuses the model (after a
+      rejected trust-region trial); ``curvature`` also in Gauss-Newton mode.
+    * ``gradient`` -- the misfit gradient's query and projection ``Π 𝒥ᵀ ω² r`` (in exact mode, and with
+      ``hessian='switch'``, the projection of the build's ``g``, inside the build and counted here), the misfit and
+      regularization values, the gradient, ``‖g‖`` and the lift diagnostics; ``None`` as ``frame``.
     * ``reference`` -- resolving the reference ``‖g0‖`` (``g0_reference``; the ``'cone'`` loop included): row 0 only.
     * ``cg`` -- the CG solve (under ``use_jit``, one compiled call); ``forms`` -- the first trust-region radius, the
       slope, the descent fallback, ``pᵀHp`` and ``‖p‖``; ``trial_retraction`` / ``trial_objective`` -- every trial's
       retraction / objective. All four ``None`` on the converged row.
     * ``tracking`` -- ``hessian='switch'``: the tracking product ``⟨p, Lᵀ K_N L p⟩`` of the point's exact build, on a
       tracked Gauss-Newton-phase row (:py:class:`NewtonInfo`'s ``switch_pKp``); ``None`` on every other row.
-    * ``remainder`` -- the window minus the phases above (the forcing term, ``‖x‖``, the trust region's data norm,
-      Python bookkeeping); never ``None``, ``>= 0`` up to rounding."""
+    * ``remainder`` -- the window minus the phases above (the forcing term, ``‖x‖``, the trust region's floor and the
+      switch's rounding gate, which query the oracle's ``f_resolution`` on a rejection or a tracked row, Python
+      bookkeeping); never ``None``, ``>= 0`` up to rounding."""
     previous_callback:  typ.Optional[float]      # the previous row's record, callback and history append; None on row 0
-    frame:              typ.Optional[float]      # frame .. gradient: None on a row that reuses the model; an override's whole build
-    sweep:              typ.Optional[float]
+    frame:              typ.Optional[float]      # frame .. gradient: None on a row that reuses the model
+    oracle:             typ.Optional[float]      # the build's one query (O-17: in place of sweep and residual)
     companion:          typ.Optional[float]
-    residual:           typ.Optional[float]
     curvature:          typ.Optional[float]      # also None in Gauss-Newton mode
-    gradient:           typ.Optional[float]      # the misfit transpose (wherever it runs) .. the lift diagnostics
+    gradient:           typ.Optional[float]      # the misfit gradient (wherever it runs) .. the lift diagnostics
     reference:          typ.Optional[float]      # row 0 only
     cg:                 typ.Optional[float]      # cg .. trial_objective: None on the converged row
     forms:              typ.Optional[float]
@@ -1527,7 +1661,7 @@ class NewtonInfo:
     """Per-iteration diagnostics passed to a ``newton_cg`` ``callback`` -- everything one Newton step
     produces, so a custom callback (or the display in :py:mod:`t3toolbox.backend.optimizer_display`) can
     report anything without the loop anticipating it. ``x_cores`` (the point *before* the step) and ``lm``
-    (its :py:class:`LocalModel` -- residual / sample / frame) are carried so a callback can compute
+    (its :py:class:`LocalModel` -- oracle / batch / frame / held) are carried so a callback can compute
     per-block errors or evaluate a validation forward. The step-related fields are ``None`` on the final
     **converged** line (no CG / line search ran). The scalar subset (all but ``x_cores`` / ``lm`` / ``timing``) is
     what lands in ``stats['history']``.
@@ -1582,12 +1716,13 @@ class NewtonInfo:
     ``lm`` it is not a history field (``stats['timing']['rows']`` holds the records as dicts). The display prints it
     as the row's ``time`` line (:py:func:`~t3toolbox.backend.optimizer_display.format_newton_iter`)."""
     iteration:    int              # Newton iteration index (0-based)
-    objective:    float            # total objective ½‖ω⊙r‖² + ρ(X) at x (= misfit + regularization; = lm.objective)
+    objective:    float            # total objective ½‖ω⊙r‖² + ρ(X) at x (= misfit + regularization), point_objective's
+                                   # value (the one the acceptance compares; lm.objective is the frame route's, = to rounding)
     gnorm:        float            # ‖g‖ (Riemannian gradient norm, geom.inner)
     g0norm:       float            # ‖g₀‖ Newton-stop reference in effect (its kind: g0_reference)
     converged:    bool             # gnorm <= gtol_rel*g0norm -- this is the final line (step fields None)
     x_cores:      typ.Any = None                       # the point BEFORE the step (for a val forward)
-    lm:           typ.Any = None                       # the LocalModel at x (residual/sample/frame)
+    lm:           typ.Any = None                       # the LocalModel at x (oracle/batch/frame/held)
     misfit:       typ.Optional[float] = None           # ½‖ω⊙r‖² data-misfit part of the objective
     regularization: typ.Optional[float] = None         # ρ(X) regularization part (None when no regularizer is attached)
     forcing_eta:  typ.Optional[float] = None           # inexact-Newton forcing term η
@@ -1672,7 +1807,7 @@ def _check_step_control(
 
 
 def _floating_dtypes(
-        tree:  typ.Any,              # a residual tree: nested tuples / lists of numpy or jax arrays
+        tree:  typ.Any,              # an array, or nested tuples / lists of numpy or jax arrays
 ) -> typ.Iterator[np.dtype]:         # the dtype of each floating leaf, in tree order
     """The dtypes of a tree's floating leaves (nested tuples / lists of arrays), read off the leaves only."""
     if isinstance(tree, typ.Sequence) and not isinstance(tree, (str, bytes)):
@@ -1685,25 +1820,37 @@ def _floating_dtypes(
 
 
 def _resolution_eps(
-        residual:  typ.Any,          # the local model's residual tree (numpy or jax leaves)
+        value:  typ.Any,             # the model's f (an array), or any tree of arrays; numpy or jax
 ) -> float:                          # np.finfo(dtype).eps, maximised over the floating leaves
-    """The machine epsilon of the residual -- host-side and **dtype-only** (no array is read, so no device
-    sync): the largest ``np.finfo(dtype).eps`` over the residual's floating leaves, so a mixed float32 /
-    float64 tree is judged at float32's resolution. ``float64``'s eps if there is no floating leaf."""
-    eps = [float(np.finfo(dtype).eps) for dtype in _floating_dtypes(residual)]
+    """The machine epsilon the objective is computed in -- host-side and **dtype-only** (no array is read, so no device
+    sync): the largest ``np.finfo(dtype).eps`` over the floating leaves of ``value`` (the optimizers pass the model's
+    ``f``), so a float32 run is judged at float32's resolution and a mixed tree at its coarsest. ``float64``'s eps if
+    there is no floating leaf."""
+    eps = [float(np.finfo(dtype).eps) for dtype in _floating_dtypes(value)]
     return max(eps) if eps else float(np.finfo(np.float64).eps)
 
 
 def _objective_resolution(
-        eps:        float,           # _resolution_eps(residual): the residual dtype's machine epsilon
-        data_norm:  float,           # ‖ω⊙y‖
-        misfit:     float,           # ½‖ω⊙r‖² at the point
-        f:          float,           # the objective at the point
-) -> float:                          # ε·(‖ω⊙y‖·‖ω⊙r‖ + |f|)
-    """The objective's floating-point resolution at a point: the cancellation error of ``f = ½‖S(x) − y‖²`` (+ ρ), the
-    scale below which a change of ``f`` cannot be measured. The trust region's ``objective_floor`` reads it (times
-    ``_TR_RESOLUTION_FACTOR``), and so does the switch's rounding gate (times ``_SWITCH_ROUNDING`` on top)."""
-    return eps * (data_norm * math.sqrt(2.0 * misfit) + abs(f))
+        lm:              'LocalModel',         # the model at the point
+        regularization:  typ.Optional[float],  # rho(X) at the point; None when unregularized
+) -> float:                                    # f_resolution + eps |rho|, or eps (|f| + |rho|)
+    """The objective's floating-point resolution at the model's point, the scale below which a change of the objective
+    cannot be measured. The trust region's ``objective_floor`` reads it (times ``_TR_RESOLUTION_FACTOR``), and so does
+    the switch's rounding gate (times ``_SWITCH_ROUNDING`` on top).
+
+    The misfit's part is the oracle's optional ``f_resolution`` (for least squares the cancellation error of
+    ``1/2 |S(x) - y|^2``, ``eps (|omega y| |omega r| + |f|)``, scaled on a drawn batch), queried here at the model's
+    frame with its ``held``; the regularizer adds ``eps |rho|`` (the oracle's covers the misfit only; together they are
+    the 2026.5.0 floor ``eps (|omega y| |omega r| + |f + rho|)``). An oracle without ``f_resolution``: ``eps |f|`` and
+    ``eps |rho|``. ``eps`` is read off the dtype of the model's ``f`` (TARGET_DECISIONS 8.4). The resolution is a scale
+    estimate, so either route's ``|r|`` serves: the frame route's here sizes the point-route values the acceptance
+    compares (D9) as well."""
+    eps = _resolution_eps(lm.f)
+    rho = 0.0 if regularization is None else abs(float(regularization))
+    if 'f_resolution' in tuple(getattr(lm.oracle, 'optional_outputs', ())):
+        (f_resolution,), _ = lm.oracle.query(lm.frame, lm.batch, ('f_resolution',), Vc=lm._Vc, held=lm.held)
+        return float(f_resolution) + eps * rho
+    return eps * (abs(float(lm.f)) + rho)
 
 
 _TINY = float(np.finfo(np.float64).tiny)   # the smallest positive normal float (== sys.float_info.min)
@@ -1819,19 +1966,24 @@ def _switch_sample(
 
 
 def _gauss_newton_view(
-        local_model:  LocalModel,    # an exact-mode model (Problem.local_model(..., hessian='exact'))
+        local_model:  LocalModel,    # an exact-mode model (local_model(..., hessian='exact'))
 ) -> LocalModel:                     # the same linearization in Gauss-Newton mode
     """The Gauss-Newton model of an exact-mode model's linearization: ``curvature=None``, every other field shared
-    (frame, sweep, residual, companion, regularizer), so its ``hvp`` / ``quadratic`` / ``gn_quadratic`` /
-    ``retract`` are a Gauss-Newton model's bit for bit, gauge and regularizer included, and its pytree structure is a
-    Gauss-Newton model's (under ``use_jit`` CG reuses the Gauss-Newton program). Its ``gradient`` redoes the misfit
-    transpose; ``newton_cg`` reads the exact model's, which is the same expression."""
+    (frame, centers, held, f, companion, regularizer), so its ``hvp`` / ``quadratic`` / ``gn_quadratic`` / ``retract``
+    are a Gauss-Newton model's bit for bit, gauge and regularizer included. Its ``gradient`` redoes the misfit
+    gradient's query; ``newton_cg`` reads the exact model's, which is the same value. Its pytree structure is a
+    Gauss-Newton build's when the two builds hold the same slots, as at every frame the library builds (which carries
+    its centers): there under ``use_jit`` CG reuses the Gauss-Newton program. At a user's start frame without centers
+    the exact build of the probe kind holds more (its ``g`` computed the right sweeps), so one more program compiles."""
     return dc.replace(local_model, curvature=None)
 
 
 def newton_cg(
-        problem:                Problem,  # the fixed-rank least-squares problem
-        x0:                     Tangent,  # initial cores (B, G)
+        geom:                   typ.Any,  # the Geometry
+        oracle:                 typ.Any,  # the Oracle
+        batch:                  typ.Any,  # its batch (a LeastSquaresBatch; uniform: packed, pack_batch)
+        x0:                     Tangent,  # initial cores (B, G); uniform: the bare supercore pair
+        regularizer:            typ.Any = None,  # optional backend.regularization.Regularizer
 
         max_newton:             int   = 30,    # Newton iterations (history rows) -- rejected trust-region trials included
         gtol_rel:               float = 1e-8,  # stop when ‖g‖ <= gtol_rel * ‖g0‖  (‖g0‖: g0norm_newton, else the g0_reference)
@@ -1854,7 +2006,7 @@ def newton_cg(
         callback:               typ.Optional[typ.Callable] = None,  # callback(NewtonInfo) each iteration (host-side; e.g. a display)
         *,
         start_frame:                typ.Any = None,             # a frame of x0 for iteration 0 (structurally checked)
-        padded_from:                typ.Any = None,             # the old point: start_frame = padded_start(problem, x0, padded_from, padded_*)
+        padded_from:                typ.Any = None,             # the old point: start_frame = padded_start(geom, oracle, batch, x0, padded_from, padded_*)
 
         padded_oversampling:        typ.Optional[int]   = None, # None = 5    (padded_from only, else a structural error)
         padded_oversampled_passes:  typ.Optional[int]   = None, # None = 2
@@ -1888,8 +2040,8 @@ def newton_cg(
     **The Hessian** (``hessian``). ``'gauss_newton'`` (default): ``H = Π 𝒥ᵀω²𝒥 Π`` (+ the regularizer's),
     positive semidefinite -- the gauged ``H`` is positive-definite on the manifold, and CG truncates on the
     gauge-singular corewise ``H``. ``'exact'``: the exact Riemannian Hessian, which adds the curvature term
-    ``Π Lᵀ(K_{Aᵀω²r} − K_{grad f}) L Π`` (:py:meth:`Problem.local_model`; it needs a kind implementing
-    ``corewise_hessian`` and a geometry with the four exact-mode members). Gauss-Newton converges linearly at
+    ``Π Lᵀ(K_{Aᵀω²r} − K_{grad f}) L Π`` (:py:func:`local_model`; it needs an oracle supplying ``Kp`` and a geometry
+    with the four exact-mode members). Gauss-Newton converges linearly at
     a rate set by that missing term (``|1 − ρ|`` measures it); the exact Hessian gives the superlinear Newton
     tail -- q-quadratic with ``cg_forcing_power=1.0``, order about 1.5 at the default ``0.5``. It costs a
     few times a Gauss-Newton Hessian-apply. ``curvature_damping`` (exact and switch only; a value with Gauss-Newton
@@ -1935,8 +2087,9 @@ def newton_cg(
       local model, which is rebuilt only after an accepted step -- emits its own history row
       (``tr_accepted=False``) and counts toward ``max_newton``. Two **floors**, checked only after a rejection
       (an accepted step never stops the run): ``'objective_floor'`` when the predicted change is below the
-      objective's floating-point resolution, ``|pred| ≤ 10·ε·(‖ω⊙y‖·‖ω⊙r‖ + |f|)`` with ``ε`` the residual
-      dtype's machine epsilon -- the attainable accuracy is reached, which is **not a failure** (``converged``
+      objective's floating-point resolution, ``|pred| ≤ 10·(f_resolution + ε|ρ|)`` with ``f_resolution`` the oracle's
+      (for least squares ``ε·(‖ω⊙y‖·‖ω⊙r‖ + |f|)``; ``ε|f|`` for an oracle without it) and ``ε`` the machine epsilon
+      of ``f``'s dtype -- the attainable accuracy is reached, which is **not a failure** (``converged``
       stays ``False`` because the gradient test did not fire); else ``'trust_region_floor'`` when ``Δ`` has
       fallen below ``10⁻¹²·Δ0``. ``tr_radius0`` with ``'line_search'`` raises, as does
       ``on_line_search_failure='accept'`` with ``'trust_region'`` (neither would have an effect).
@@ -1950,8 +2103,8 @@ def newton_cg(
       with a ``zero_point_frame``), ``'warm_start'`` on a corewise one (the zero cores are a critical point
       there, so the zero reference would be exactly 0) and on a custom geometry without the member.
     * ``'zero'`` -- the gradient norm at the **zero tensor of x0's ranks**, evaluated at the canonical
-      zero-point frame (:py:func:`~t3toolbox.backend.fv_operations.fv_zero_point_frame`): one extra sweep
-      and transpose on this problem. A deterministic data-gradient scale at these ranks, fixed by
+      zero-point frame (:py:func:`~t3toolbox.backend.fv_operations.fv_zero_point_frame`): one extra query
+      wanting ``g`` on the batch. A deterministic data-gradient scale at these ranks, fixed by
       convention and good to an O(1) factor -- comparable across rank-continuation levels and identical on
       the ragged and uniform layers. It is the right reference after a **warm start**, whose initial
       gradient is deflated (the guess is already near the solution). An explicit ``'zero'`` on a geometry
@@ -1998,8 +2151,8 @@ def newton_cg(
     describe a step that was genuinely tried.
 
     ``callback``, if given, is called with a :py:class:`NewtonInfo` each iteration (including the final
-    converged line) -- the hook for a live diagnostic display; it runs **host-side** (it reads the concrete
-    residual), so it composes with ``use_jit`` (only the inner CG jits) but not with a hypothetical
+    converged line) -- the hook for a live diagnostic display; it runs **host-side** (it reads concrete
+    values), so it composes with ``use_jit`` (only the inner CG jits) but not with a hypothetical
     fully-jitted outer loop. Ready-made displays: :py:func:`t3toolbox.backend.optimizer_display.make_newton_display`.
 
     ``stats`` is ``{'losses', 'newton_steps', 'newton_accepted', 'stop_reason', 'history'}``:
@@ -2007,7 +2160,11 @@ def newton_cg(
     taken (``newton_steps`` minus the rejections: an Armijo-exhausted one under ``'stop'``, or the rejected
     trust-region trials), ``stop_reason`` is ``'gradient'`` / ``'max_newton'`` / ``'line_search'`` /
     ``'objective_floor'`` / ``'trust_region_floor'`` (see :py:class:`NewtonInfo`), and ``history`` is one
-    :py:func:`_newton_scalar_record` per iteration (``losses[k] == history[k]['objective']``). (The 2026.2.0
+    :py:func:`_newton_scalar_record` per iteration (``losses[k] == history[k]['objective']``). The reported objective,
+    misfit and regularization are :py:func:`point_objective`'s at the row's point, the values the step acceptance
+    compares: the start's is one query, each later one the accepted trial's, carried, so on an accepted row the
+    next row's objective is the trial's value itself and ``objective + delta_f`` equals it to the rounding of
+    ``delta_f``. (The 2026.2.0
     ``stats['newton']`` is removed; it is ``newton_steps``.) ``hessian='switch'`` adds ``stats['hessian'] = 'switch'``,
     ``stats['switch_track']`` (``'countable'`` or ``'all'``; ``None`` with ``switch_k=0``) and ``stats['switched_at']``,
     the index of the first row whose model is exact (``len(history)`` when the switch fired on the last row; ``0``
@@ -2024,8 +2181,7 @@ def newton_cg(
     Every phase ends by waiting on its outputs (jax dispatch is asynchronous), so a timed jax run is serialized and
     slower than an untimed one; work dispatched without waiting (a callback's, or ``-g`` before CG) is charged to the
     next phase that waits for it. The compile listener is process-global: compiles in other threads, or in a timed
-    run nested inside a callback, are counted too. A ``Problem`` subclass that overrides ``local_model`` is called as
-    without timing, and its whole build is reported in ``frame``. The geometry member ``aligned_padded_frame`` is
+    run nested inside a callback, are counted too. The geometry member ``aligned_padded_frame`` is
     asked for its seconds per pass only when its signature names ``timing`` (see :py:class:`Geometry`). With
     :py:func:`~t3toolbox.backend.optimizer_display.make_newton_display` as the callback, each row prints a ``time``
     line and the run ends with a closing table. What each phase covers, what the synchronization costs and how the
@@ -2033,25 +2189,28 @@ def newton_cg(
 
     Examples
     --------
-    The exact Hessian with its default trust region, against Gauss-Newton with its default line search, on
-    a noisy probe-derivative fit warm-started near the solution:
+    A backend-only fit: the geometry, the oracle and its batch, and ``newton_cg``. The exact Hessian with its default
+    trust region, against Gauss-Newton with its default line search, on a noisy fit of probes along lines (the jet
+    shape ``(1,)``) warm-started near the solution:
 
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.backend.fitting as bfit
-    >>> import t3toolbox.backend.geometry as bgeo
     >>> import t3toolbox.backend.optimizers as bopt
+    >>> from t3toolbox.backend.fitting import LeastSquaresOracle, LeastSquaresBatch
+    >>> from t3toolbox.backend.geometry import ManifoldGeometryOps
+    >>> from t3toolbox.backend.jets import affine_jet
+    >>> from t3toolbox.backend.probing import t3_probe
     >>> np.random.seed(0)
     >>> shape, rng = (5, 5, 5), np.random.default_rng(0)
     >>> ww, pp = ([rng.standard_normal((40, n)) for n in shape] for _ in range(2))
-    >>> kind = bfit.ProbeDerivativesKind(order=1)
+    >>> oracle = LeastSquaresOracle('probe', order=(1,))
     >>> target = t3.TuckerTensorTrain.randn(shape, (3, 3, 3), (1, 3, 3, 1)).data
-    >>> data = [z + 0.01 * rng.standard_normal(z.shape) for z in kind.point_forward(target, (ww, pp))]
-    >>> problem = bopt.least_squares_problem(bgeo.ManifoldGeometryOps(), kind, (ww, pp), data)
-    >>> x0, _ = bopt.newton_cg(problem, t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)).data,
+    >>> y = [z + 0.01 * rng.standard_normal(z.shape) for z in t3_probe(target, affine_jet(ww, pp), (1,))]
+    >>> geom, batch = ManifoldGeometryOps(), LeastSquaresBatch(affine_jet(ww, pp), y)
+    >>> x0, _ = bopt.newton_cg(geom, oracle, batch, t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)).data,
     ...                        max_newton=5)
-    >>> _, gn = bopt.newton_cg(problem, x0, max_newton=40, g0_reference='warm_start')
-    >>> _, ex = bopt.newton_cg(problem, x0, max_newton=40, g0_reference='warm_start',
+    >>> _, gn = bopt.newton_cg(geom, oracle, batch, x0, max_newton=40, g0_reference='warm_start')
+    >>> _, ex = bopt.newton_cg(geom, oracle, batch, x0, max_newton=40, g0_reference='warm_start',
     ...                        hessian='exact', cg_forcing_power=1.0)
     >>> ex['history'][0]['step_control'], ex['stop_reason'] in ('gradient', 'objective_floor')
     ('trust_region', True)
@@ -2059,14 +2218,14 @@ def newton_cg(
     True
     """
     t_entry = time.perf_counter() if timing else None                   # timing: the run's first reading
-    _require_unstacked(problem.geom, x0, 'newton_cg')
+    _require_unstacked(geom, x0, 'newton_cg')
     olsf = str(on_line_search_failure).lower()
     if olsf not in ('stop', 'accept'):
         raise ValueError("on_line_search_failure must be 'stop' or 'accept'; got %r" % (on_line_search_failure,))
     hessian = _check_hessian(hessian, 'newton_cg', _NEWTON_HESSIAN_MODES)
     switch = _check_switch_options(hessian, switch_tau, switch_k, switch_cg_forcing_power, switch_track)
-    if switch is not None:                                              # the exact-mode members, at the call
-        _require_exact_capable(problem.kind, problem.geom, hessian)
+    if hessian != 'gauss_newton':                                       # exact / switch: Kp and the members, at the call
+        _require_exact_capable(oracle, geom, hessian)
     exact = hessian == 'exact'
     model_hessian = 'gauss_newton' if hessian == 'gauss_newton' else 'exact'   # 'switch' builds exact-mode models
     if curvature_damping is not None and model_hessian != 'exact':
@@ -2096,23 +2255,23 @@ def newton_cg(
     cone_options = _cone_options(dict(oversampling=cone_oversampling, oversampled_passes=cone_oversampled_passes,
                                       max_passes=cone_max_passes, tol=cone_tol, alternate=cone_alternate,
                                       seed=cone_seed), cone, 'newton_cg')
-    x0, problem = _prepare_jit_inputs(use_jit, x0, problem)             # auto-convert to jax when jitting
+    x0, batch = _prepare_jit_inputs(use_jit, x0, batch)                 # auto-convert to jax when jitting
     clock = None                                                        # timing: the phase clock
     if timing:
-        tree_block_until_ready((x0, problem))
+        tree_block_until_ready((x0, batch))
         clock = _PhaseClock(_CompileSeconds.register(x0), t_entry)      # the compile listener, unregistered below
     try:
         extra = {}                                                      # stats keys of the new keywords only
         one_offs = dict(alignment_passes=None, reference_passes=None)   # timing: row 0's run-level fields
+        start_centers = None                                            # a given start frame has none (D3)
         if padded_from is not None:
             _mark(clock)
-            start_frame, movements, one_offs['alignment_passes'] = _padded_start(problem, x0, padded_from,
-                                                                                 padded_options, use_jit, timing)
-            _lap(clock, 'alignment', (start_frame, movements))
+            start_frame, start_centers, movements, one_offs['alignment_passes'] = _padded_start(
+                geom, oracle, batch, x0, padded_from, padded_options, use_jit, timing)
+            _lap(clock, 'alignment', (start_frame, start_centers, movements))
             extra.update(start_frame='padded', start_movements=_movement_record(movements))
         elif start_frame is not None:
             extra['start_frame'] = 'given'
-        model_options = dict(hessian='exact', curvature_damping=curvature_damping) if model_hessian == 'exact' else {}
         if switch is not None:
             tau, k, switch_power, track = switch
         switched = switch is not None and k == 0                        # switch mode: the exact phase (k = 0: from 0)
@@ -2120,11 +2279,16 @@ def newton_cg(
         count = 0                                                       # switch mode: the consecutive hits so far
         x = x0
         lm = None                                                       # rebuilt only after an accepted step
+        # D9: the step acceptance compares like with like. `scored` is the point-route objective (point_objective's
+        # misfit, regularization and sum) of EXACTLY the current x: the start's (one query, in the reference lap),
+        # then the accepted trial's, carried. A rejected trial keeps x and it; the exact rebuild of the switch is at
+        # the same x. INVARIANT: any future step that changes x between iterations (e.g. a re-gauging) must
+        # recompute it. The model's frame-route f stays LocalModel.misfit (the floor's dtype, the display).
+        scored = None
         lm_track = None                                                 # switch mode, GN phase: the exact build
         newton_ref = cg_ref = None                                      # resolved once, at iteration 0
         g0_ref_kind = cg_ref_kind = None
         radius = radius0 = radius_max = None                            # trust region: set at the first step
-        data_norm = None                                                # ‖ω⊙y‖: once, at the first rejection
         losses, newton_steps, newton_accepted, history, timings = [], 0, 0, [], []
         stop_reason = 'max_newton'
         t_prev = time.perf_counter()
@@ -2136,40 +2300,34 @@ def newton_cg(
         for it in range(max_newton):
             if it > 0:
                 _lap(clock, 'previous_callback')
-            if lm is None:                                              # a new point: linearize there
-                if clock is not None and type(problem).local_model is _STOCK_LOCAL_MODEL:    # the stock build, by part
-                    lm = _local_model_phases(problem, x, None, None, model_hessian, curvature_damping, start_frame,
-                                             clock)
-                else:                                                   # an override's build is one lap, in frame
-                    _mark(clock)
-                    lm = problem.local_model(x, frame=start_frame, **model_options)
-                    _lap(clock, 'frame', lm)
+            if lm is None:                                              # a new point: build its model there (fresh held)
+                lm = _local_model_phases(geom, oracle, batch, x, regularizer, model_hessian, curvature_damping,
+                                         start_frame, start_centers, clock)
                 if switch is not None and not switched:                 # the GN phase: the exact build tracks, and
                     lm_track, lm = lm, _gauss_newton_view(lm)           #   CG, the step and the row use its GN view
-                start_frame = None                                      # iteration 0 only
+                start_frame = start_centers = None                      # iteration 0 only
                 _mark(clock)
-                misfit = float(lm.misfit)
-                reg_val = float(lm.regularization) if lm.regularizer is not None else None  # None: no regularizer attached
-                f = misfit + (reg_val or 0.0)
-                g = (lm if lm_track is None else lm_track).gradient     # GN view: the build's one transpose, read
-                gnorm = float(problem.geom.inner(g, g)) ** 0.5
+                g = _model_gradient(lm if lm_track is None else lm_track)   # GN view: the exact build's g, read
+                gnorm = float(geom.inner(g, g)) ** 0.5
                 lift_sigma_min, lift_eps = _lift_diagnostics(lm)
                 _lap(clock, 'gradient')
-            losses.append(f)
             if newton_ref is None:                                       # iteration 0: resolve the references
                 _mark(clock)
+                scored = _scored(geom, oracle, batch, x, regularizer)    # the start's point-route objective (D9)
                 if ref_selector == 'cone':
                     ref, zero_ref = 'cone', None                         # no zero reference: the cone's (below)
                 else:
-                    ref, zero_ref = _resolve_g0_reference(problem, lm.frame, x0, ref_selector, g0norm_newton is None,
-                                                          'newton_cg', "g0_reference='warm_start' or g0norm_newton")
+                    ref, zero_ref = _resolve_g0_reference(geom, oracle, batch, lm.frame, ref_selector,
+                                                          g0norm_newton is None, 'newton_cg',
+                                                          "g0_reference='warm_start' or g0norm_newton")
                 if g0norm_newton is not None:
                     newton_ref, g0_ref_kind = g0norm_newton, 'override'
                 elif ref == 'zero':
                     newton_ref, g0_ref_kind = zero_ref, 'zero'
                 elif ref == 'cone':
                     newton_ref, extra['cone_movements'], one_offs['reference_passes'] = _cone_reference(
-                        problem, x0, cone_options, use_jit, 'newton_cg', "g0_reference='warm_start' or g0norm_newton",
+                        geom, oracle, batch, x0, cone_options, use_jit, 'newton_cg',
+                        "g0_reference='warm_start' or g0norm_newton",
                         timing)
                     g0_ref_kind = 'cone'
                 else:
@@ -2179,6 +2337,8 @@ def newton_cg(
                 else:
                     cg_ref, cg_ref_kind = newton_ref, g0_ref_kind        # CG inherits the Newton reference
                 _lap(clock, 'reference')
+            misfit, reg_val, f = scored                                  # None regularization: no regularizer attached
+            losses.append(f)
             row_hessian = hessian if switch is None else ('exact' if switched else 'gauss_newton')   # this row's model
             run_fields = dict(g0_reference=g0_ref_kind, cg_reference=cg_ref_kind, step_control=step_control,
                               hessian=row_hessian, lift_sigma_min=lift_sigma_min, lift_eps=lift_eps)
@@ -2217,7 +2377,7 @@ def newton_cg(
             cg_truncated = (not cg_converged) and (not cg_ok) and (not cg_boundary)
             on_boundary = cg_boundary                                    # the step was limited by Δ
             _mark(clock)
-            slope = float(problem.geom.inner(g, p))
+            slope = float(geom.inner(g, p))
             fallback = (not math.isfinite(slope)) or slope >= 0.0
             if fallback:                                                 # ensure a descent direction
                 if trust_region:                                         #   ... inside the region
@@ -2231,7 +2391,7 @@ def newton_cg(
                 pKp = float(pKp)
             else:
                 pHp, pKp = float(lm.quadratic(p)), None                  # pᵀHp = ‖𝒥p‖² (+ reg) (for ρ)
-            p_norm = float(problem.geom.inner(p, p)) ** 0.5
+            p_norm = float(geom.inner(p, p)) ** 0.5
             _lap(clock, 'forms', p)
             stop_now = False
             if not trust_region:                                         # ---- Armijo line search
@@ -2242,7 +2402,8 @@ def newton_cg(
                     _mark(clock)
                     x_trial = lm.retract(cw.corewise_scale(p, alpha))
                     retraction = _lap(clock, 'trial_retraction', x_trial)
-                    f_new = float(problem.objective(x_trial))
+                    trial_scored = _scored(geom, oracle, batch, x_trial, regularizer)            # policy a
+                    f_new = trial_scored[2]
                     _lap(clock, 'trial_objective')
                     if f_new <= f + c_armijo * alpha * slope:
                         ls_steps, ls_failed = bt, False
@@ -2262,7 +2423,8 @@ def newton_cg(
                 _mark(clock)
                 x_trial = lm.retract(p)
                 retraction = _lap(clock, 'trial_retraction', x_trial)
-                f_new = float(problem.objective(x_trial))
+                trial_scored = _scored(geom, oracle, batch, x_trial, regularizer)                # policy a
+                f_new = trial_scored[2]
                 _lap(clock, 'trial_objective')
                 trials = 1
                 delta_f = f_new - f
@@ -2274,9 +2436,7 @@ def newton_cg(
                 elif rho > _TR_EXPAND_ABOVE and on_boundary:
                     radius = min(_TR_EXPAND * radius, radius_max)
                 if not accepted:                                         # the floors: on a rejection ONLY
-                    if data_norm is None:
-                        data_norm = float(problem.kind.sumsq(problem.data, lm.n_w)) ** 0.5
-                    resolution = _objective_resolution(_resolution_eps(lm.residual), data_norm, misfit, f)
+                    resolution = _objective_resolution(lm, reg_val)
                     if abs(predicted) <= _TR_RESOLUTION_FACTOR * resolution:
                         stop_reason, stop_now = 'objective_floor', True  # the model change is below f's resolution
                     elif radius < _TR_RADIUS_FLOOR_REL * radius0:
@@ -2293,10 +2453,7 @@ def newton_cg(
                     _mark(clock)
                     pKp_track = float(lm_track.curvature_quadratic(p))
                     _lap(clock, 'tracking')
-                    if data_norm is None:
-                        data_norm = float(problem.kind.sumsq(problem.data, lm.n_w)) ** 0.5
-                    floor = _SWITCH_ROUNDING * _TR_RESOLUTION_FACTOR * _objective_resolution(
-                        _resolution_eps(lm.residual), data_norm, misfit, f)
+                    floor = _SWITCH_ROUNDING * _TR_RESOLUTION_FACTOR * _objective_resolution(lm, reg_val)
                     e_gn, e_n, _, hit = _switch_sample(delta_f, predicted, 0.5 * alpha * alpha * pKp_track, floor, tau)
                 count = count + 1 if (countable and hit) else 0          # a non-countable row resets, whatever e_N
                 if count >= k:                                           # for good: the next point is built exact
@@ -2331,6 +2488,7 @@ def newton_cg(
             if accepted:
                 newton_accepted += 1
                 x, lm, lm_track = x_trial, None, None                    # the next row linearizes at the new point
+                scored = trial_scored                                    # ... and carries its scored value (D9)
         if switch is not None:
             extra.update(hessian='switch', switch_track=track, switched_at=switched_at)
         if clock is not None:                                            # the last row's callback ends here
@@ -2346,40 +2504,30 @@ def newton_cg(
 if jax_available:
     import jax
 
-    # Register Problem and LocalModel as jax pytrees. The DATA are leaves (sample / data / frame / sweep /
-    # residual / the per-frame geometry companion); the STATICS are aux (geometry, kind, regularizer, and
-    # the sample-stack axis count derived from the sample's shape).
+    # Register LocalModel as a jax pytree. The DATA are leaves (the batch, the frame, the centers, held, f, the
+    # per-frame geometry companion, the curvature state); the STATICS are aux (geometry, oracle, regularizer).
     #
-    # This is what makes the jit cache key value-based, and it is the whole point of slices 1-2: geometry
-    # and kind are frozen dataclasses whose parameters are FIELDS, so a model rebuilt at each Newton
-    # iteration -- which the outer loop does, every iteration, by construction -- hashes and compares
-    # EQUAL to the previous one. Under the old record-of-closures they were fresh objects every time, so
-    # `jit(_cg_core)` would have recompiled per iteration and there would have been no point compiling it
-    # at all. The regularizers are frozen dataclasses of floats, hence hashable by value already.
+    # This is what makes the jit cache key value-based: geometry and oracle are frozen dataclasses whose parameters
+    # are FIELDS, so a model rebuilt at each Newton iteration -- which the outer loop does, every iteration, by
+    # construction -- hashes and compares EQUAL to the previous one, and `jit(_cg_core)` compiles once per fit. The
+    # regularizers are frozen dataclasses of floats, hence hashable by value already. Which slots `held` fills is its
+    # own pytree structure (HeldVariables), so it is static too.
     # The data tuples are partitioned rather than handed over whole: a backend frame is
-    # `(supercores..., shape, masks)` and a frame sweep carries a shape too, so flattening them naively
-    # would TRACE the masks and the shape ints -- which `require_concrete_masks` rejects outright, and
-    # which would break the host-integer shape arithmetic the uniform layer runs on. `partition_static`
-    # keeps them in the aux, exactly as the frontend `UT3Frame` keeps its masks in aux.
-    def _flatten_problem(p):
-        dyn, skel = partition_static((p.sample, p.data))
-        return dyn, (p.geom, p.kind, p.regularizer, skel)
-
-    def _unflatten_problem(aux, children):
-        sample, data = rebuild_static(children, aux[3])
-        return Problem(aux[0], aux[1], sample, data, aux[2])
-
+    # `(supercores..., shape, masks)`, so flattening it naively would TRACE the masks and the shape ints -- which
+    # `require_concrete_masks` rejects outright, and which would break the host-integer shape arithmetic the uniform
+    # layer runs on. `partition_static` keeps them in the aux, exactly as the frontend `UT3Frame` keeps its masks in
+    # aux. A registered record among the leaves (the batch, held) is flattened by jax itself.
+    #
     # The exact-mode companion rides in the same tuple: its arrays are leaves, and its PRESENCE (curvature is
     # None or not; geometry_data None or not) is tree structure, so the mode is static under the treedef --
     # there is no mode aux to carry.
     def _flatten_local_model(m):
-        dyn, skel = partition_static((m.sample, m.frame, m.sweep, m.residual, m.geom_aux, m.curvature))
-        return dyn, (m.geom, m.kind, m.n_w, m.regularizer, skel)
+        dyn, skel = partition_static((m.batch, m.frame, m.centers, m.held, m.f, m.geom_aux, m.curvature))
+        return dyn, (m.geom, m.oracle, m.regularizer, skel)
 
     def _unflatten_local_model(aux, children):
-        sample, frame, sweep, residual, geom_aux, curvature = rebuild_static(children, aux[4])
-        return LocalModel(aux[0], aux[1], sample, frame, sweep, residual, aux[2], aux[3], geom_aux,
-                          curvature=curvature)
+        batch, frame, centers, held, f, geom_aux, curvature = rebuild_static(children, aux[3])
+        return LocalModel(aux[0], aux[1], batch, frame, centers, held, f, aux[2], geom_aux, curvature)
 
     def _flatten_curvature_state(c):
         return partition_static((c.misfit_gradient, c.geometry_data))
@@ -2387,6 +2535,5 @@ if jax_available:
     def _unflatten_curvature_state(skeleton, children):
         return CurvatureState(*rebuild_static(children, skeleton))
 
-    jax.tree_util.register_pytree_node(Problem, _flatten_problem, _unflatten_problem)
     jax.tree_util.register_pytree_node(LocalModel, _flatten_local_model, _unflatten_local_model)
     jax.tree_util.register_pytree_node(CurvatureState, _flatten_curvature_state, _unflatten_curvature_state)

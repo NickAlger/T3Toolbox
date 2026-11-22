@@ -21,3 +21,11 @@ Findings (numpy, 8-core laptop, quiet machine; "fwd" = the tangent forward Jp; r
   the engine 2-3x FASTER than the old kernels, transposes included, with the same values (<= 2e-15).
 - numpy's own `optimize='greedy'` made it worse (5-8x): the order must be chosen explicitly.
 - jax not measured.
+
+# P16: side by side against the pre-P16 library
+
+- `p16_part2_side_by_side.py` (part 2): the backend optimizers, old `Problem` against the oracle and batch.
+- `p16_part4_frontend_side_by_side.py` (part 4, the 4a reviewer's): the frontend optimizers in the 2026.5.0 call form,
+  old library against the translation, and four new-form calls built by hand. Run each twice, in separate processes
+  (`PYTHONPATH=<old_lib> python <script> old old.pkl`, `PYTHONPATH=<repo> python <script> new new.pkl`), then
+  `python <script> compare old.pkl new.pkl`. Both need the pre-P16 library, `git archive 0acf7868 t3toolbox`.

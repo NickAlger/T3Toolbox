@@ -30,9 +30,9 @@ validation set), with a little noise, and complete it. Unlike applies / probes, 
 The method -- corewise L-BFGS-B
 -------------------------------
 We minimize the training misfit ``f(X) = 1/2 ||X.entries(idx) - y||^2`` over the cores. Each scipy
-function evaluation rebuilds the point from the flat vector, samples its entries, builds a corewise
-``fitting.entries_model`` (which gives the objective and the corewise gradient ``J^T r``, *no* gauge
-projection), and hands scipy ``(f, grad_flat)``. scipy owns the L-BFGS update and the (robust, well-
+function evaluation rebuilds the point from the flat vector, builds the corewise ``fitting.local_model`` of the
+entries fit there (which gives the objective and the corewise gradient ``J^T r``, *no* gauge projection), and
+hands scipy ``(f, grad_flat)``. scipy owns the L-BFGS update and the (robust, well-
 tested) Wolfe line search -- exactly the machinery we don't want to reimplement.
 
     *Why a nonzero start (a real corewise/manifold difference).*  The manifold example starts from the
@@ -108,7 +108,7 @@ def hilbert_tensor(shape):
 
 def sample_indices(n, shape, rng):
     """``n`` distinct random multi-indices of ``shape``, as an int array of shape ``(d, n)`` -- the
-    ``index`` format ``TuckerTensorTrain.entries`` / ``fitting.entries_model`` expect (mode ``i``'s
+    ``index`` format ``TuckerTensorTrain.entries`` / ``fitting.LeastSquaresBatch`` expect (mode ``i``'s
     indices in row ``i``)."""
     flat = rng.choice(int(np.prod(shape)), size=n, replace=False)
     return np.array(np.unravel_index(flat, shape))        # (d, n)
@@ -137,14 +137,16 @@ def corewise_lbfgs(X0, index, y, tucker_ranks, tt_ranks,
                    maxiter=LBFGS_MAXITER, gtol=LBFGS_GTOL):
     """Fit X to entries ``y`` at ``index`` by corewise L-BFGS-B (scipy), via the flat-vector bridge.
 
-    Each scipy evaluation: rebuild the point from the flat core vector, sample its entries, build the
-    corewise Gauss-Newton model, and return ``(f, grad_flat)``. The gradient is the *corewise* ``J^T r``
-    (no gauge projection -- ``COREWISE.project`` is the identity); its ``to_vector()`` shares the point's
-    flat layout, which is what makes the round-trip exact."""
+    Each scipy evaluation: rebuild the point from the flat core vector, build the corewise local model of the
+    entries fit there, and return ``(f, grad_flat)``. The gradient is the *corewise* ``J^T r`` (no gauge
+    projection -- ``COREWISE.project`` is the identity); its ``to_vector()`` shares the point's flat layout,
+    which is what makes the round-trip exact."""
+    oracle = fitting.LeastSquaresOracle('entries', order=())     # the objective 1/2 ||X[index] - y||^2
+    batch = fitting.LeastSquaresBatch(index, y)                  # its data
+
     def objective_and_grad(x_flat):
         X = t3.TuckerTensorTrain.from_vector(x_flat, SHAPE, tucker_ranks, tt_ranks)
-        r = np.asarray(X.entries(index)) - y                      # residual, shape (n_obs,)
-        model = fitting.entries_model(t3m.COREWISE, X, index, r)  # corewise GN model at X
+        model = fitting.local_model(t3m.COREWISE, oracle, batch, X)   # corewise model at X
         f = float(model.objective_value)                          # 1/2 ||r||^2
         g_flat = np.asarray(model.gradient.to_vector(), dtype=float)   # corewise J^T r, point's layout
         return f, g_flat

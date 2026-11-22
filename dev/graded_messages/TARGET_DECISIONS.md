@@ -794,8 +794,13 @@ the count of four). Built in P14b.
    batch or frame under jit); the guard is the documented contract plus a P16 test that a mutant carrying `held`
    across minibatch draws (MC-SGD, Adam, minibatched Newton) fails.
 2. **`f_resolution` and the regularizer.** The oracle's `f_resolution` covers the misfit only; P16's optimizer adds
-   `eps |rho|` to reproduce today's floor (`objective_floor`, the switch's rounding gate). The regularizer follows the
-   library's minibatch rule, and P17's `point_value_and_gradient` the same rule.
+   `eps |rho|` to reproduce today's floor (`objective_floor`, the switch's rounding gate). **The regularizer is not
+   scaled** under minibatching (corrected 2026-11-21 by Claude, from the P16 reviewer's orientation; an earlier wording
+   here, "the library's minibatch rule", was wrong). Under O-21 a drawn batch's misfit is scaled by `n/b` so that the
+   minibatch objective is an unbiased estimator of the full one, `(n/b) misfit_b + rho`; the regularizer is a term of
+   the full objective, not a sum over samples, so it stays as it is. Today's rule (data unscaled, `lambda` scaled by
+   `b/n`) gives the same objective times `b/n`: the MC-SGD Cauchy step is unchanged, Adam differs only through its
+   `eps`, and reported objective values change by that factor. P17's `point_value_and_gradient` follows the same rule.
 3. **The aligned padded frame returns `(frame, centers)`,** like `frame(x)`. This reverses Claude's P15 ruling
    (frame only). The padded frame keeps the old point's frame bitwise in its leading slots and the old point has zero
    coordinates in the new slots, so the padded point's centers are the old point's centers zero-padded (checked:
@@ -804,6 +809,22 @@ the count of four). Built in P14b.
    centers. Ragged and uniform. Every frame the optimizer meets then carries its centers; a P16 test asserts the
    consistency residual at a padded start, with and without alignment passes.
 4. **`pack_sample(kind, order, sample, N)` and `pack_data(kind, order, y, N)`** replace the old-kind-name forms in P16.
+
+**`UniformTuckerTensorTrain.from_t3` raises for a width below a rank** (the maintainer, 2026-11-21; found by the P16
+implementer, confirmed on released `main`). Today `from_t3(x, n=...)` and `r=...` below the largest Tucker or TT rank
+silently truncate by slicing (8.8% and 62% relative error in Claude's check), while `N` below a mode size already
+raises. Decided: `from_t3` is a pure change of representation (the uniform equivalence contract) and raises a
+`ValueError` for `n` or `r` below a rank, as for `N`, with a message pointing to `TuckerTensorTrain.resize` (truncation
+by slicing, a deliberate operation the library keeps) or `t3svd`. The maintainer's view: truncation when "padding" is a
+valid ask, but it belongs in `resize`, not in a conversion. At the backend conversion too, so raw-`.data` users get
+it; `from_t3weights` checked for the same gap; P15's uniform frame-centers test (its shared case) fixed to use widths at
+least the ranks; a CHANGELOG line. A small slice after P16, on `graded-messages`.
+
+**P16's D1 and D7** (the maintainer, 2026-11-21). **D1:** a required `Geometry` member `point_data(x_cores)`: the
+point's full `.data` from its bare cores (ragged: the cores unchanged; uniform: `(B_sc, G_sc, shape, masks)`, the
+geometry's own shape and point masks), so the backend optimizers can sample a trial point without importing T3
+classes; used by `point_objective` and P17's `point_value_and_gradient`. **D7:** the top level exports
+`LeastSquaresOracle`, `LeastSquaresBatch` and `local_model` in place of the six model factories.
 
 ## Carried to Part 2 from the implementation of Part 1
 
