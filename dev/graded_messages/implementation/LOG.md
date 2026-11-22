@@ -1380,3 +1380,8 @@ on the maintainer's go: M0 (the `J -> P` and `J_in_i -> F_in,i` rename), with fr
 The maintainer's go. A fresh implementer and reviewer (Opus 5.5, high), briefed on `BRIEF.md` and the plan; the
 reviewer is kept for the sub-arc's slices. Design-first: the implementer's `M0_DESIGN_NOTE.md` (the rename map, the
 script, the bit-for-bit evidence), the reviewer's critique, Claude's rulings, then the build.
+M0 designed (`M0_DESIGN_NOTE.md`, `M0_DESIGN_REVIEW.md`: sound). Ruled by Claude: the test-local ring `J` becomes `ring`;
+a guard against `J` in library subscripts literals; two small doc additions; the script and edit log kept under
+`implementation/m0/`; HEAD's per-test counts from one local `-v` run of a `git archive` copy before the build (the
+reviewer's reference too); the shape rule (a concrete shape spells the sizes `F`, `min(F_in_i, F)`; a family spells
+the group `P`); `F_in,i` spelled `F_in_i` in code. Building.
