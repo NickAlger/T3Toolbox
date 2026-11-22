@@ -1334,3 +1334,6 @@ laptop). Cause (an agent, `P16_CI_FIX.md`): a route mix in the test after D9, th
 point-route misfit while the gate's floor reads the model's frame route; normal float32 variation between routes
 (reproduced under 1e-7 perturbations of the start). Fixed in the test only: the model's misfit through a callback, a
 tolerance derived from float32 rounding (tighter than before); six gate mutants killed.
+The data-metric plan refined: `DATA_METRIC_PLAN_REVIEW_r1.md` (15 findings, 3 blocking), the writer's revision and
+`DATA_METRIC_PLAN_RESPONSE_r1.md`, `DATA_METRIC_PLAN_REVIEW_r2.md`: SIGN OFF (the reading rule checked by script, all
+exact; four minor points for the slice designs). **With the maintainer to read before any build** (eight questions).
