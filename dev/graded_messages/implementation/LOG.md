@@ -1374,3 +1374,9 @@ The plan is COMPLETE (2026-11-22): the last decisions folded in (`blocks_to_weig
 ones in the natural coordinates, so `prepare_derivative_data(weight=None)` returns the factorials; the weighted block
 sums supersede the plain ones under the same names; the `unwt` figure dropped). Section 8 has no open question. Next,
 on the maintainer's go: M0 (the `J -> P` and `J_in_i -> F_in,i` rename), with fresh agents.
+
+### M0 started (2026-11-22): the `J -> P` and `J_in_i -> F_in,i` rename
+
+The maintainer's go. A fresh implementer and reviewer (Opus 5.5, high), briefed on `BRIEF.md` and the plan; the
+reviewer is kept for the sub-arc's slices. Design-first: the implementer's `M0_DESIGN_NOTE.md` (the rename map, the
+script, the bit-for-bit evidence), the reviewer's critique, Claude's rulings, then the build.
