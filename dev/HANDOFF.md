@@ -50,7 +50,12 @@ in a session: everything is in files.
   and Hilbert transposes are mixed; (3) where the sampling functions live (his proposal: by the object they act on,
   point or tangent, and by whether they depend on the objective; corewise as a flat manifold); (4) methods vs functions
   for the corewise operations, and the name "Hessian"; (5) one `y` per stacked model (a narrowing in P16). All recorded
-  in `LOG.md` (entries after "P16 started"). **Next:** an agent does one combined audit of every sampling function
+  in `LOG.md` (entries after "P16 started"). **Progress at the pause (2026-11-22):** the audit is done (`SAMPLING_AUDIT.md`); the maintainer took its decisions
+  1 and 2 (TARGET_DECISIONS, "The data metric"); `DATA_METRIC_PLAN.md` (the sub-arc for them, four slices M1 to M4
+  before P17) passed one writer/reviewer cycle and is in a second for its new section 9 (lightweight typing); CI green
+  at `7035eaab` (P16 plus a float32 test fix, `P16_CI_FIX.md`). **Waiting on the maintainer:** the audit's 3 (corewise
+  representation) and 4 (names), the plan's questions (section 8), and section 9.2's settlement of `jet_to_dual_jet`'s
+  public status. No build before he has read the final plan. (Superseded:) **Next:** an agent does one combined audit of every sampling function
   (location, object, typing, metric, weights; findings and options, not decisions), then the discussion, then possibly
   a slice reorganizing the sampling functions, then the `from_t3` slice (raise for a width below a rank; decided), then
   P17. The P16 decisions are in `TARGET_DECISIONS.md`'s notes of 2026-11-21 and `LOG.md`. **To resume after a lost
