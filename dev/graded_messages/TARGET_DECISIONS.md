@@ -872,6 +872,14 @@ constructor helper builds a full-form weight from a block. Per-element data on a
 rule and removes the special alignment of a `y` without `C`; shared data on a stack has size-1 `C` axes. Q3 (the
 signature of `data_metric`) is reopened by this rule.
 
+**The data-metric plan: Q3** (the maintainer, 2026-11-22). `c = data_metric(r, weight, minibatch_scale)`: `gamma *
+omega^2 * r`, `Y* -> Y`, elementwise; `kind` and `order` drop out (the full-form weight broadcasts positionally; the
+flip is the engine's). Both factors required, no defaults (`None` written out means ones or scale 1). `r` has the data's
+own structure (no `K`; a `K`-stacked `r` raises by rank; products with a stack of directions go through the oracle).
+Plus `LeastSquaresBatch.data_metric(r)`, reading its own weight and scale. It lives with the jets helpers, re-exported
+by `t3toolbox.fitting`. With this, every question of the plan is decided; the writer folds them in and the reviewer
+checks once more before the maintainer's final read.
+
 ## Carried to Part 2 from the implementation of Part 1
 
 **Hard typing inside the engine** (the maintainer, 2026-11-22, from Claude's typing ideas 3 and 4; ideas 1, 2 and 6 are
