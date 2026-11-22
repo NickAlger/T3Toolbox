@@ -1411,3 +1411,6 @@ M1 built (`M1_HANDOVER.md`; gate at `-n 2`: suite 1,918 passed, 91,249 subtests;
 M0's log: 37 nodes, all expected). `M1_REVIEW_r1.md`: NOT YET on two small points (a mixed-precision case missing from
 the bitwise bridge test; a comment block deleted by accident). Ruled by Claude: type comments use Unicode for the
 algebraic types, identifiers stay ASCII. In round 1.
+Round 1 (`M1_RESPONSE_r1.md`): the bridge test over the four float32/float64 pairings (the reviewer's mutant now
+fails 8); the comment block restored verbatim; the Unicode/ASCII ruling in `signature_style.md`. `M1_REVIEW_r2.md`:
+SIGN OFF. **M1 committed.** Next: M2, the switch to the rule (one change, built in parts on a side branch as P16 was).

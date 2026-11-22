@@ -14,9 +14,8 @@ order 0).
    ``m = 2``, with the corner coefficient of the product taken here by explicit loops over multi-indices (and at
    ``m = 1`` by ``numpy.polynomial``), routes the function does not take; the backend inverse at a zero weight (it
    divides, and raises and warns nothing).
-2. **The frontend ``dual_jet_to_jet``** (`TestFrontendDualJetToJet`): raises in safe mode where a weight is zero, at
-   ``m = 1`` and ``m = 2``; divides in ``safety.unsafe()`` and under ``jax.jit``; gives the backend's numbers
-   wherever both run.
+2. **The frontend has no dual-jet converter** (M1, 9.2): the engine's turned form is the backend's. The data metric
+   and its weight are tested in ``test_data_metric.py``.
 3. **Derivative data** (`TestDerivativeData`): the conversions against mixed partial derivatives of a known
    polynomial in two variables (``numpy.polynomial.polyder`` along each axis), against an analytic function, and
    against derivatives of the dense tensor's outputs; the weight conversion and ``prepare_derivative_data``
@@ -27,8 +26,8 @@ order 0).
    forgotten jet shape; no backend module calls one; the validators of ``pp`` are gone.
 5. **The reach from the frontend** (`TestFrontendReach`): the names of ``t3toolbox.fitting`` and of ``t3toolbox``.
 
-Numerical comparisons are to a tolerance, structural ones exact. numpy only, by the house convention, except the
-jit cases of the frontend ``dual_jet_to_jet``; the functions under jit are in ``test_dispatch.py``.
+Numerical comparisons are to a tolerance, structural ones exact. numpy only, by the house convention; the functions
+under jit are in ``test_dispatch.py``.
 """
 import ast
 import inspect
@@ -42,17 +41,9 @@ import numpy as np
 
 import t3toolbox
 import t3toolbox.fitting as fitting
-import t3toolbox.safety as safety
 import t3toolbox.backend.apply as bapply
 import t3toolbox.backend.jets as jets
 import t3toolbox.backend.probing as probing
-
-try:
-    import jax
-    import jax.numpy as jnp
-    HAS_JAX = True
-except ImportError:
-    HAS_JAX = False
 
 TOL = 1e-13
 SHAPE = (4, 5, 6)           # the mode sizes N_i
@@ -262,9 +253,6 @@ class TestDualJet(unittest.TestCase):
             y, taylor_weight, validation = jets.prepare_derivative_data('probe', order, packed, validation=packed)
             self.assertEqual((type(y), len(y), type(validation), taylor_weight.shape), (tuple, d, tuple, (d,) + F))
             self.assertLessEqual(relerr(np.stack(y), wanted['derivatives_to_taylor']), TOL)
-            # the frontend function too
-            for a, b in zip(fitting.dual_jet_to_jet('probe', order, packed, weight), calls['dual_jet_to_jet'](ragged)):
-                self.assertTrue(np.array_equal(a, b))
         # one mode: the probe type is still a tuple, of one array (the type comes from kind, not from the count)
         one = rng.standard_normal((4,) + W + (N,))
         for out in (jets.jet_to_dual_jet('probe', (3,), [one], 0.5 + rng.random((1, 4))), jets.dual_jet_to_jet('probe', (3,), (one,), None),
@@ -295,8 +283,7 @@ class TestDualJet(unittest.TestCase):
         self.assertEqual(type(wrong), np.ndarray)
         self.assertTrue(np.array_equal(wrong, np.stack(same)[::-1]))
         for function, args in ((jets.jet_to_dual_jet, (same[0], weight)), (jets.dual_jet_to_jet, (same[0], weight)),
-                               (jets.derivatives_to_taylor, (same[0],)), (jets.taylor_to_derivatives, (same[0],)),
-                               (fitting.dual_jet_to_jet, (same[0], weight))):
+                               (jets.derivatives_to_taylor, (same[0],)), (jets.taylor_to_derivatives, (same[0],))):
             with self.subTest(function=function.__name__):
                 with self.assertRaisesRegex(ValueError, 'unknown sampling kind'):
                     function('probes', order, *args)
@@ -312,8 +299,7 @@ class TestDualJet(unittest.TestCase):
                  'derivatives_to_taylor': lambda kind, order: jets.derivatives_to_taylor(kind, order, y),
                  'taylor_to_derivatives': lambda kind, order: jets.taylor_to_derivatives(kind, order, y),
                  'prepare_derivative_data': lambda kind, order: jets.prepare_derivative_data(kind, order, y),
-                 'derivative_weight_to_taylor_weight': lambda kind, order: jets.derivative_weight_to_taylor_weight(weight, order),
-                 'frontend dual_jet_to_jet': lambda kind, order: fitting.dual_jet_to_jet(kind, order, y, None)}
+                 'derivative_weight_to_taylor_weight': lambda kind, order: jets.derivative_weight_to_taylor_weight(weight, order)}
         for name, call in calls.items():
             with self.subTest(function=name):
                 for bad in (2, [2]):
@@ -326,12 +312,6 @@ class TestDualJet(unittest.TestCase):
                 if name != 'derivative_weight_to_taylor_weight':            # it has no kind
                     with self.assertRaisesRegex(ValueError, 'the entries kind has no jets'):
                         call('entries', (2,))
-        # the frontend reads the jet shape before its safe-mode check: an integer order with a zero weight is a
-        # TypeError, not the zero divisor
-        with self.assertRaisesRegex(TypeError, 'order is the jet shape'):
-            fitting.dual_jet_to_jet('apply', 2, y, np.array([1.0, 0.0, 1.0]))
-        with self.assertRaisesRegex(ValueError, 'the entries kind has no jets'):
-            fitting.dual_jet_to_jet('entries', (2,), y, np.array([1.0, 0.0, 1.0]))
         # the entries kind with no jets: its data as they are, and a weight of ones
         index_data = rng.standard_normal((5,))
         for function in (jets.derivatives_to_taylor, jets.taylor_to_derivatives):
@@ -374,122 +354,6 @@ class TestDualJet(unittest.TestCase):
                     out = function('apply', (1, 2), jet64.astype(jet_dtype), weight64.astype(weight_dtype))
                     self.assertEqual(out.dtype, expected)
                     self.assertEqual(function('apply', (1, 2), jet64.astype(jet_dtype), None).dtype, jet_dtype)
-
-
-class TestFrontendDualJetToJet(unittest.TestCase):
-
-    def setUp(self):
-        rng = np.random.default_rng(5)
-        self.cases = []
-        for order, zero_slot in (((2,), (1,)), ((1, 2), (1, 0))):
-            for kind in ('probe', 'apply'):
-                dual, weight = random_jet(rng, kind, order, (5,)), random_weight(rng, kind, order)
-                zero_weight = weight.copy()
-                zero_weight[(Ellipsis,) + zero_slot] = 0.0
-                self.cases.append((kind, order, zero_slot, dual, weight, zero_weight))
-
-    def test_it_is_the_frontend_s_own_function(self):
-        self.assertIsNot(fitting.dual_jet_to_jet, jets.dual_jet_to_jet)
-        self.assertEqual(fitting.dual_jet_to_jet.__module__, 't3toolbox.fitting')
-        self.assertEqual(list(inspect.signature(fitting.dual_jet_to_jet).parameters),
-                         list(inspect.signature(jets.dual_jet_to_jet).parameters))
-
-    def test_a_nonzero_weight_gives_the_backend_s_numbers_in_both_modes(self):
-        for kind, order, _, dual, weight, _ in self.cases:
-            for w in (weight, None):
-                reference = jets.dual_jet_to_jet(kind, order, dual, w)
-                safe = fitting.dual_jet_to_jet(kind, order, dual, w)
-                with safety.unsafe():
-                    unsafe = fitting.dual_jet_to_jet(kind, order, dual, w)
-                with self.subTest(kind=kind, order=order, weight=w is not None):
-                    for a, b, c in zip(per_mode(kind, reference), per_mode(kind, safe), per_mode(kind, unsafe)):
-                        self.assertTrue(np.array_equal(a, b))
-                        self.assertTrue(np.array_equal(a, c))
-
-    def test_a_zero_weight_raises_in_safe_mode(self):
-        """At ``m = 1`` and at ``m = 2`` alike."""
-        for kind, order, _, dual, _, zero_weight in self.cases:
-            with self.subTest(kind=kind, order=order):
-                with self.assertRaisesRegex(ValueError, 'squared weight is zero'):
-                    fitting.dual_jet_to_jet(kind, order, dual, zero_weight)
-        with self.assertRaisesRegex(ValueError, 'zero in 1 entry'):
-            fitting.dual_jet_to_jet('apply', (), np.ones(3), np.zeros(()))           # no jets: the weight is one number
-
-    def test_a_small_nonzero_weight_passes_in_safe_mode(self):
-        """The check is exact, with no tolerance: a small weight is a legitimate weight. ``1e-8`` (and ``1e-150``,
-        whose square is still a float64) passes in safe mode and gives the backend's numbers."""
-        for kind, order, zero_slot, dual, weight, _ in self.cases:
-            for small in (1e-8, 1e-150):
-                small_weight = weight.copy()
-                small_weight[(Ellipsis,) + zero_slot] = small
-                reference = jets.dual_jet_to_jet(kind, order, dual, small_weight)
-                safe = fitting.dual_jet_to_jet(kind, order, dual, small_weight)
-                with self.subTest(kind=kind, order=order, small=small):
-                    for a, b in zip(per_mode(kind, reference), per_mode(kind, safe)):
-                        self.assertTrue(np.isfinite(b).all())
-                        self.assertTrue(np.array_equal(a, b))
-
-    def test_a_weight_whose_square_underflows_is_refused_like_a_zero(self):
-        """The check is on the divisor as the backend computes it, ``weight**2`` in the precision of the
-        computation: a float32 weight of ``1e-30``, a float64 weight of ``1e-30`` against a float32 dual jet
-        (the weight is cast down first), and ``1e-200`` in float64. Each divides to ``inf`` in the backend."""
-        dual64 = np.ones((3, 4))
-        cases = (('a float32 weight', dual64.astype(np.float32), np.array([1.0, 1e-30, 2.0], dtype=np.float32)),
-                 ('a float64 weight, a float32 dual jet', dual64.astype(np.float32), np.array([1.0, 1e-30, 2.0])),
-                 ('1e-200 in float64', dual64, np.array([1.0, 1e-200, 2.0])))
-        for label, dual, weight in cases:
-            with self.subTest(case=label):
-                self.assertTrue((weight != 0).all())                                # no entry of the weight is zero
-                self.assertFalse(np.isfinite(jets.dual_jet_to_jet('apply', (2,), dual, weight)[1]).any())
-                with self.assertRaisesRegex(ValueError, 'squared weight is zero in 1 entry'):
-                    fitting.dual_jet_to_jet('apply', (2,), dual, weight)
-                with safety.unsafe():
-                    self.assertFalse(np.isfinite(fitting.dual_jet_to_jet('apply', (2,), dual, weight)[1]).any())
-        # the same weight against a float64 dual jet has a nonzero square, and passes
-        self.assertTrue(np.isfinite(fitting.dual_jet_to_jet('apply', (2,), dual64, np.array([1.0, 1e-30, 2.0]))).all())
-        # probe: one underflowing entry in one mode's row, two jet variables
-        dual = [np.ones((2, 3, 4, N), dtype=np.float32) for N in SHAPE]
-        weight = np.ones((D, 2, 3), dtype=np.float32)
-        weight[2, 1, 0] = 1e-30
-        with self.assertRaisesRegex(ValueError, 'squared weight is zero in 1 entry'):
-            fitting.dual_jet_to_jet('probe', (1, 2), dual, weight)
-
-    def test_a_zero_weight_divides_in_unsafe_mode(self):
-        for kind, order, zero_slot, dual, _, zero_weight in self.cases:
-            reference = jets.dual_jet_to_jet(kind, order, dual, zero_weight)
-            with warnings.catch_warnings():
-                warnings.simplefilter('error')
-                with safety.unsafe():
-                    unsafe = fitting.dual_jet_to_jet(kind, order, dual, zero_weight)
-            with self.subTest(kind=kind, order=order):
-                for a, b in zip(per_mode(kind, reference), per_mode(kind, unsafe)):
-                    self.assertFalse(np.isfinite(b[zero_slot]).any())
-                    self.assertTrue(np.array_equal(a, b, equal_nan=True))
-        self.assertIsNotNone(safety.current_safety())                       # safe mode is back
-
-    @unittest.skipUnless(HAS_JAX, 'jax not available')
-    def test_a_zero_weight_divides_under_jit(self):
-        """Under a trace the check is skipped (a tracer cannot be branched on): with the weight traced, and with
-        the weight a concrete array closed over. The numbers are the backend's on numpy."""
-        for kind, order, _, dual, weight, zero_weight in self.cases:
-            function = lambda dual, weight: fitting.dual_jet_to_jet(kind, order, dual, weight)
-            jdual = [jnp.asarray(x) for x in dual] if kind == 'probe' else jnp.asarray(dual)
-            for w in (weight, zero_weight):
-                reference = jets.dual_jet_to_jet(kind, order, dual, w)
-                traced = jax.jit(function)(jdual, jnp.asarray(w))
-                closed_over = jax.jit(lambda dual: fitting.dual_jet_to_jet(kind, order, dual, w))(jdual)
-                with self.subTest(kind=kind, order=order, zero=w is zero_weight):
-                    for a, b, c in zip(per_mode(kind, reference), per_mode(kind, traced), per_mode(kind, closed_over)):
-                        self.assertEqual(np.isfinite(a).tolist(), np.isfinite(np.asarray(b)).tolist())
-                        self.assertEqual(np.isfinite(a).tolist(), np.isfinite(np.asarray(c)).tolist())
-                        finite = np.isfinite(a)
-                        tol = 1e-5 if np.asarray(b).dtype == np.float32 else TOL
-                        self.assertLessEqual(relerr(np.asarray(b)[finite], a[finite]), tol)
-                        self.assertLessEqual(relerr(np.asarray(c)[finite], a[finite]), tol)
-            # eager jax arrays are concrete: the check runs
-            with self.subTest(kind=kind, order=order, eager=True):
-                with self.assertRaisesRegex(ValueError, 'squared weight is zero'):
-                    function(jdual, jnp.asarray(zero_weight))
 
 
 def interpolated_derivatives(values_of, order, n_points):
@@ -937,27 +801,28 @@ class TestFrontendReach(unittest.TestCase):
 
     def test_the_names_of_t3toolbox_fitting(self):
         """The preparation functions and the jet helpers are reachable from ``t3toolbox.fitting`` under their
-        backend names. Eleven are the backend functions themselves. Two are the frontend's own functions, with the
-        backend's name and parameters, which make a check and call the backend one: ``dual_jet_to_jet`` (the
-        zero divisor, in safe mode) and ``rescale_coordinates`` (the form of the scales, always). The checkers are
-        not re-exported."""
+        backend names. Twelve are the backend functions themselves. One is the frontend's own function, with the
+        backend's name and parameters, which makes a check and calls the backend one: ``rescale_coordinates`` (the
+        form of the scales, always). The checkers are not re-exported, and neither are the dual-jet converters: the
+        engine's turned form is the backend's (M1, 9.2), so no frontend name takes or returns it."""
         import t3toolbox.backend.data_preparation as data_preparation
         from_jets = ('derivatives_to_taylor', 'taylor_to_derivatives', 'derivative_weight_to_taylor_weight',
-                     'prepare_derivative_data', 'jet_to_dual_jet', 'affine_jet', 'index_to_one_hot')
+                     'prepare_derivative_data', 'data_metric', 'blocks_to_weight', 'affine_jet', 'index_to_one_hot')
         from_preparation = ('data_block_norms', 'equalizing_weight', 'rescale_direction', 't3_unscale_coordinates')
         for module, names in ((jets, from_jets), (data_preparation, from_preparation)):
             for name in names:
                 with self.subTest(name=name):
                     self.assertIs(getattr(fitting, name), getattr(module, name))
                     self.assertIn(name, fitting.__all__)
-        for module, name in ((jets, 'dual_jet_to_jet'), (data_preparation, 'rescale_coordinates')):
+        for module, name in ((data_preparation, 'rescale_coordinates'),):
             with self.subTest(own=name):
                 own, backend = getattr(fitting, name), getattr(module, name)
                 self.assertIsNot(own, backend)
                 self.assertEqual(own.__module__, 't3toolbox.fitting')
                 self.assertEqual(list(inspect.signature(own).parameters), list(inspect.signature(backend).parameters))
                 self.assertIn(name, fitting.__all__)
-        for name in ('check_sample', 'check_data', 'check_weight', 'check_coordinate_scales',
+        for name in ('jet_to_dual_jet', 'dual_jet_to_jet',
+                     'check_sample', 'check_data', 'check_weight', 'check_coordinate_scales',
                      'check_perturbation_vectors', 'check_perturbation_index', 'ut3_unscale_coordinates'):
             self.assertNotIn(name, fitting.__all__)
             self.assertFalse(hasattr(fitting, name), name)

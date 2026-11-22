@@ -27,11 +27,15 @@ entries kind takes ``order = ()`` only (its sample, an integer index, cannot car
 raises, and with ``()`` the functions of this module return its data as they are. The checkers take the ragged
 form only (a tuple or a list for the probe kind).
 
-Four groups of functions:
+Five groups of functions:
 
-- **The dual jet.** :py:func:`jet_to_dual_jet` makes the seed of a transpose from a residual: the weights
-  (``weight**2``, slot by slot), then the turn, a flip of every jet axis. :py:func:`dual_jet_to_jet` is its
-  inverse.
+- **The data metric.** :py:func:`data_metric` is ``M: Y* -> Y``, ``gamma * omega**2 * r`` elementwise: what a
+  transpose is applied to for the gradient of a weighted fit. Its weight is of the type of ``z`` (each axis 1 or
+  ``z``'s size); :py:func:`blocks_to_weight` makes one from a value per block.
+- **The dual jet,** the engine's form of an element of ``Y``. :py:func:`jet_to_dual_jet` makes the engine's seed
+  from a residual: the weights (``weight**2``, slot by slot), then the turn, a flip of every jet axis.
+  :py:func:`dual_jet_to_jet` is its inverse. They are for the engine's ``w_tilde`` and its held tilde variables,
+  never for a transpose.
 - **Derivative data.** The library works in Taylor coefficients, everywhere. A user whose data are derivatives
   converts them before fitting: :py:func:`derivatives_to_taylor`, :py:func:`taylor_to_derivatives`,
   :py:func:`derivative_weight_to_taylor_weight`, and :py:func:`prepare_derivative_data`, which does the data, the
@@ -48,8 +52,9 @@ Four groups of functions:
   fails deep inside; call the checker first if you want the error. Shapes are static, so every checker also runs
   under ``jax.jit``.
 
-**The weight** of a fit has exactly the shape of the mode and jet axes of the data: ``(d,) + F`` for ``'probe'``,
-``F`` for ``'apply'`` and ``()`` for ``'entries'``. There is no rule for a bare vector and no broadcast of a mode
+**The weight** of a fit, as the checkers and the converters take it, has exactly the shape of the mode and jet
+axes of the data: ``(d,) + F`` for ``'probe'``, ``F`` for ``'apply'`` and ``()`` for ``'entries'``, one value per block
+(:py:func:`data_metric` takes the full form instead, which :py:func:`blocks_to_weight` makes from this one). There is no rule for a bare vector and no broadcast of a mode
 dimension of 1. The misfit is ``1/2 sum (weight * r)**2`` over modes, slots and samples, on Taylor coefficient
 residuals. **With no weight given (``None``) the weight is ones**: the plain sum of squares of the Taylor
 coefficient residuals. That default may change in a later release, if a more robust choice that just works is
@@ -151,6 +156,9 @@ import t3toolbox.backend.contractions as contractions
 from t3toolbox.backend.common import *
 
 __all__ = [
+    # The data metric
+    'data_metric',
+    'blocks_to_weight',
     # The dual jet
     'jet_to_dual_jet',
     'dual_jet_to_jet',
@@ -303,7 +311,14 @@ def jet_to_dual_jet(
 ) -> typ.Any:                              # the dual jet, same shapes: weight**2 * jet, then every jet axis flipped. probe: a tuple
     """Make a jet into a dual jet: the weights, then the turn, a flip of every jet axis.
 
-    A residual ``r`` is a jet, in forward order. The seed of a transpose is a dual jet, the functional
+    **Its type is** ``Y* -> Y`` **in the engine's turned coordinates**: the turn after the data metric
+    :py:func:`data_metric` at ``gamma = 1``, with the weight given per block. With ``weight=None`` it reads as the turn
+    alone, ``Y -> Y`` turned: an element of ``Y`` in slot coordinates (what :py:func:`data_metric` returns) into the
+    engine's form. **It is for** :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables`' ``w_tilde`` **and
+    its held tilde variables, never for a transpose**: a transpose takes an element of ``Y`` in slot coordinates,
+    unturned, and turns it itself.
+
+    A residual ``r`` is a jet, in forward order. The engine's adjoint sweeps are seeded by a dual jet, the functional
     ``a -> sum_k weight[k]**2 * r[k] * a[k]`` on jets (``k`` a multi-index of the box ``F``). It is stored turned,
 
         ``dual_jet[k] = weight[order - k]**2 * jet[order - k]``,
@@ -428,16 +443,20 @@ def dual_jet_to_jet(
 ) -> typ.Any:                              # the jet: every jet axis flipped back, then divided by weight**2. probe: a tuple
     """Make a dual jet into a jet: the inverse of :py:func:`jet_to_dual_jet`.
 
+    **Its type is** ``Y -> Y*`` **from the engine's turned coordinates**, the inverse of the data metric at
+    ``gamma = 1`` after the turn back; with ``weight=None`` it is the turn back alone, the engine's form of an element
+    of ``Y`` into slot coordinates. Like :py:func:`jet_to_dual_jet` it is for the engine's ``w_tilde`` and its held
+    tilde variables, never for a transpose.
+
     Every jet axis is flipped back and each slot is divided by ``weight**2``:
 
         ``jet[k] = dual_jet[order - k] / weight[k]**2``.
 
     **Where a weight is zero this divides by zero**: the result is ``inf`` or ``nan`` there, and nothing is
-    raised or warned, on numpy and on jax alike. The dual jet of a zero weight keeps nothing of the jet, so there
-    is nothing to give back. The divisor is ``weight**2`` in the precision of the computation (the lower
-    floating precision of the dual jet and the weight), so a weight whose square underflows there divides by
-    zero too. Test the weight first if that matters (the frontend function of the same name,
-    :py:func:`t3toolbox.fitting.dual_jet_to_jet`, raises in safe mode where that divisor is zero).
+    raised or warned, on numpy and on jax alike, and no function of the library checks it. The dual jet of a zero
+    weight keeps nothing of the jet, so there is nothing to give back. The divisor is ``weight**2`` in the
+    precision of the computation (the lower floating precision of the dual jet and the weight), so a weight whose
+    square underflows there divides by zero too. Test the weight first if that matters.
 
     ``kind`` says which type the dual jet is of, as for :py:func:`jet_to_dual_jet`: for ``'probe'`` one array
     per mode, taken along the first axis (a tuple, a list, or an array packed for the uniform layout), and a
@@ -507,6 +526,288 @@ def dual_jet_to_jet(
                 jet_FX = weighted_FX / weight_squared_F
         out.append(xnp.asarray(jet_FX))
     return _of_type_of_z(kind, out)
+
+
+######################################
+########    The data metric    #######
+######################################
+
+def _omega_squared(
+        r_X:      typ.Any,                  # one array of r
+        omega_X:  typ.Any,                  # its weight: the same rank, each axis 1 or r's size
+        xnp,
+) -> NDArray:                               # omega**2, in the lower floating precision of the pair
+    '''``omega * omega``, formed in the lower floating precision of ``r`` and ``omega`` (the absorbing rule): the core
+    of :py:func:`data_metric`, the one place the squared weight of the full form is made.'''
+    omega_X = xnp.asarray(omega_X, dtype=_lowest_precision_dtype(xnp, r_X, omega_X))
+    return omega_X * omega_X
+
+
+def _check_pair(
+        r_X:      typ.Any,
+        omega_X:  typ.Any,
+        where:    str,                      # which array, for the message
+) -> None:
+    '''The structural rule of a pair: equal rank, and each axis of the weight 1 or the array's size, so the product
+    has exactly the array's shape. Static, so it runs under ``jax.jit``.'''
+    r_shape, omega_shape = tuple(np.shape(r_X)), tuple(np.shape(omega_X))
+    if len(omega_shape) != len(r_shape):
+        raise ValueError('data_metric: the weight%s has rank %d, but the array it weighs has rank %d (shape %s); a '
+                         'weight is of the type of z, each axis 1 or its size, and never carries the stack of '
+                         'directions K' % (where, len(omega_shape), len(r_shape), r_shape))
+    for axis, (a, b) in enumerate(zip(omega_shape, r_shape)):
+        if a not in (1, b):
+            raise ValueError('data_metric: axis %d of the weight%s has size %d, but the array it weighs has size %d '
+                             'there (shapes %s and %s); each axis of a weight is 1 or the size of the array'
+                             % (axis, where, a, b, omega_shape, r_shape))
+
+
+def data_metric(
+        r:                typ.Any,                  # Y*, of the type of z, no K: probe len=d (or packed (d,)+...), elm_shape=F+W+C+(Ni,); apply F+W+C; entries W+C
+        weight:           typ.Optional[typ.Any],    # omega, of the type of z: each axis 1 or r's size; None = ones
+        minibatch_scale:  typ.Optional[typ.Any],    # gamma: a number or a 0-d array (traced under jit); None = 1
+) -> typ.Any:                                       # M r: Y, gamma * omega**2 * r elementwise, r's structure (a tuple for a tuple or a list)
+    """The data metric ``M: Y* -> Y``: ``gamma * omega**2 * r``, elementwise.
+
+    The misfit of a least-squares fit is ``f = 1/2 <M r, r>`` with ``r = z - y``, and its gradient is ``J^T (M r)``.
+    ``r`` is a measurement, of the type of ``z`` (an element of ``Y*``); ``M r`` is an element of ``Y``, the space the
+    transposes take, paired with ``z`` slot by slot. So the gradient of a weighted fit is a transpose applied to
+    this function's result, ``t3_apply_corewise_transpose(x, ww, data_metric(r, weight, minibatch_scale), order)``
+    for instance; a transpose applies no weight of its own. On a batch the method
+    :py:meth:`~t3toolbox.backend.fitting.LeastSquaresBatch.data_metric` passes the batch's own weight and scale.
+
+    **The weight is of the type of** ``z``: the same structure and the same rank as ``r``, each axis of size 1 or
+    ``r``'s size (a size of 1 means the same along that axis: a weight per slot, per sample, per entry, ...). It
+    enters squared, and a zero drops an entry. :py:func:`blocks_to_weight` makes a weight of this form from one value
+    per block (per mode and slot for probe, per slot for apply, one number for entries). ``minibatch_scale`` is the
+    scale ``gamma`` of a drawn batch, the number of samples of the full batch over the number drawn, so that a
+    drawn batch's misfit estimates the full one's. Both are required: ``None`` written out means ones, or a scale
+    of 1.
+
+    **How the arrays pair.** ``r`` of the probe kind is ``d`` arrays, a tuple or a list (one per mode); its weight is
+    a tuple or a list of ``d`` arrays, or one array whose first axis is the mode, of length exactly ``d`` (a mode
+    axis of 1 is not broadcast). An array ``r`` (apply, entries, or a probe packed for the uniform layout,
+    ``(d,) + F + W + C + (N,)``) pairs with an array weight, elementwise. A packed ``r`` with a ragged weight raises:
+    pack the weight with the data (:py:func:`~t3toolbox.backend.uniform_fitting.pack_batch`). Against a packed
+    ``r`` a packed weight with a mode axis of 1 is broadcast over the modes: the checkers take the ragged form, and
+    the packing builds the packed weight from it. Values in a packed ``r``'s padding come back multiplied by
+    ``omega**2``: masking them is the engine's business, not this function's.
+
+    **What raises** (structural, so also under ``jax.jit``): a weight of another rank than its array, which includes
+    an ``r`` with a stack of directions ``K`` (products with a stack of directions go through the oracle); an axis
+    of the weight that is neither 1 nor ``r``'s size (a weight never changes ``r``'s shape); a mode count that does
+    not match; a packed ``r`` with a ragged weight; a scale that is not a scalar. With ``weight=None`` there is no
+    rank to compare, and the result is ``gamma * r`` for any ``r``, a stack of directions included.
+
+    **Coordinates.** Data are Taylor coefficients, everywhere in the library: data given as derivatives are
+    converted once, the data and the weight together, by :py:func:`prepare_derivative_data`. A weight computed from
+    the data is computed after the conversion, on the Taylor data, for instance
+    ``blocks_to_weight(kind, order, equalizing_weight(data_block_norms(kind, order, y)), y)``, and then needs no
+    conversion. An element of ``Y`` (this function's result) held in derivative coordinates converts the other way
+    than a measurement: slot ``k`` of a measurement in derivatives is ``k_1! ... k_m!`` times its Taylor coefficient,
+    so the pairing makes slot ``k`` of an element of ``Y`` in Taylor coordinates ``k_1! ... k_m!`` times its value in
+    derivatives, and it converts with :py:func:`taylor_to_derivatives`, the converter of the opposite name.
+
+    The result has the lower floating precision of ``r`` and the weight (the scale is cast to it, and does not
+    raise it), and is on jax if any input is.
+
+    Parameters
+    ----------
+    r: tuple of NDArray or NDArray
+        An element of ``Y*``, of the type of ``z``: probe ``len=d``, ``elm_shape=F+W+C+(Ni,)`` (or packed); apply
+        ``shape=F+W+C``; entries ``shape=W+C``.
+    weight: tuple of NDArray, NDArray or None
+        ``omega``, of the type of ``z``: each array of ``r``'s rank, each axis 1 or ``r``'s size. ``None`` is ones.
+    minibatch_scale: float, 0-dimensional NDArray or None
+        ``gamma``: 1 on a full batch, the number of samples over the number drawn on a drawn batch. ``None`` is 1.
+
+    Returns
+    -------
+    tuple of NDArray or NDArray
+        ``gamma * omega**2 * r``, an element of ``Y`` with ``r``'s shapes: a tuple for a tuple or a list.
+
+    Raises
+    ------
+    ValueError
+        For the structural errors listed above.
+
+    See Also
+    --------
+    blocks_to_weight
+    t3toolbox.backend.fitting.LeastSquaresBatch.data_metric
+
+    Examples
+    --------
+    One number per sample (apply, ``F + W = (3,) + (4,)``), a weight per slot (``F + (1,)``) and a drawn batch's
+    scale:
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.jets as jets
+    >>> r = np.ones((3, 4))
+    >>> weight = np.array([[1.0], [2.0], [3.0]])                         # F + (1,): one value per slot
+    >>> print(jets.data_metric(r, weight, 2.0)[:, 0].tolist())          # 2 * weight**2 * r
+    [2.0, 8.0, 18.0]
+    >>> print(jets.data_metric(r, None, None).tolist() == r.tolist())   # no weight, no scale: r itself
+    True
+
+    The weight from one value per block, and the probe kind, one array per mode:
+
+    >>> rng = np.random.default_rng(0)
+    >>> y = [rng.standard_normal((3, 4, N)) for N in (5, 6)]           # d = 2, F + W + (Ni,)
+    >>> weight = jets.blocks_to_weight('probe', (2,), np.array([[1.0, 1.0, 1.0], [1.0, 2.0, 3.0]]), y)
+    >>> print(weight.shape)                                             # (d,) + F + (1,) for W + (1,) for the edge
+    (2, 3, 1, 1)
+    >>> c = jets.data_metric(y, weight, None)
+    >>> print(type(c).__name__, bool(np.allclose(c[1][2], 9.0 * y[1][2])))
+    tuple True
+
+    A residual with a stack of directions has no weight of its rank:
+
+    >>> jets.data_metric(np.ones((2, 3, 4)), np.ones((3, 1)), None)    # doctest: +IGNORE_EXCEPTION_DETAIL
+    Traceback (most recent call last):
+        ...
+    ValueError: data_metric: the weight has rank 2, but the array it weighs has rank 3 ...
+
+    The gradient of a weighted fit: a transpose applied to the result.
+
+    >>> import t3toolbox.backend.apply as apply
+    >>> from t3toolbox.backend.t3_constructors import t3_corewise_randn
+    >>> np.random.seed(0)
+    >>> x = t3_corewise_randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+    >>> ww = [np.random.randn(7, N) for N in (4, 5, 6)]                # W = (7,), no jets
+    >>> y = np.random.randn(7)
+    >>> weight = np.random.rand(7)                                      # one weight per sample
+    >>> r = apply.t3_apply(x, ww) - y
+    >>> g = apply.t3_apply_corewise_transpose(x, ww, jets.data_metric(r, weight, None))
+    >>> dx = t3_corewise_randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+    >>> f = lambda t: 0.5 * float(np.sum(weight**2 * (apply.t3_apply((tuple(a + t * b for a, b in zip(x[0], dx[0])),
+    ...                                                                  tuple(a + t * b for a, b in zip(x[1], dx[1]))),
+    ...                                                                 ww) - y)**2))
+    >>> slope = sum(float(np.sum(gi * di)) for gs, ds in zip(g, dx) for gi, di in zip(gs, ds))
+    >>> print(bool(np.isclose(slope, (f(1e-6) - f(-1e-6)) / 2e-6, rtol=1e-6)))
+    True
+    """
+    xnp, _, _ = get_backend(False, tree_contains_jax((r, weight, minibatch_scale)))   # once, over all the inputs
+    if minibatch_scale is not None and np.ndim(minibatch_scale) != 0:
+        raise ValueError('data_metric: the minibatch scale is one number (a scalar or a 0-d array), got shape %s; a '
+                         'weight per sample or per stack element belongs in the weight'
+                         % (np.shape(minibatch_scale),))
+    ragged = isinstance(r, (tuple, list))
+    if ragged:
+        arrays = list(r)
+        if weight is None:
+            weights = [None] * len(arrays)
+        elif isinstance(weight, (tuple, list)):
+            if len(weight) != len(arrays):
+                raise ValueError('data_metric: r has %d arrays (modes) but the weight has %d'
+                                 % (len(arrays), len(weight)))
+            weights = list(weight)
+        else:
+            if np.ndim(weight) < 1 or np.shape(weight)[0] != len(arrays):
+                raise ValueError('data_metric: r has %d arrays (modes); a weight given as one array has them along '
+                                 'its first axis, exactly %d of them (a mode axis of 1 is not broadcast), got shape %s'
+                                 % (len(arrays), len(arrays), np.shape(weight)))
+            weights = [weight[i] for i in range(len(arrays))]
+    else:
+        if isinstance(weight, (tuple, list)):
+            raise ValueError('data_metric: an array r (packed for the uniform layout, or of the apply or entries kind) '
+                             'pairs with an array weight; a ragged weight with a packed r is a layout mix: pack the '
+                             'weight with the data (uniform_fitting.pack_batch)')
+        arrays, weights = [r], [weight]
+    out = []
+    for i, (r_X, omega_X) in enumerate(zip(arrays, weights)):
+        dtype = _lowest_precision_dtype(xnp, r_X, omega_X)
+        if dtype is None:
+            dtype = np.dtype(xnp.result_type(float))
+        r_X = xnp.asarray(r_X, dtype=dtype)
+        if omega_X is not None:
+            _check_pair(r_X, omega_X, (' of mode %d' % i) if ragged else '')
+            r_X = _omega_squared(r_X, omega_X, xnp) * r_X
+        if minibatch_scale is not None:
+            r_X = xnp.asarray(minibatch_scale, dtype=r_X.dtype) * r_X
+        out.append(xnp.asarray(r_X))                    # a 0-d product is an array, not a numpy scalar
+    return tuple(out) if ragged else out[0]
+
+
+def blocks_to_weight(
+        kind:    str,                               # 'probe' | 'apply' | 'entries'
+        order:   typ.Tuple[int, ...],               # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...). entries: ()
+        blocks:  typ.Any,                           # one value per block: probe (d,)+F; apply F; entries ()
+        y:       typ.Any,                           # Y*, of the type of z: only its rank is read (C included)
+) -> NDArray:                                       # omega: probe (d,)+F+(1,)*(len W+len C)+(1,); apply F+(1,)*(len W+len C); entries (1,)*(len W+len C)
+    """A weight of the type of ``z`` from one value per block: the blocks on the jet axes, size 1 on every other.
+
+    A block is the data of one mode at one slot of the box ``F`` (probe), of one slot (apply), or all of the data
+    (entries). Per-block quantities such as :py:func:`~t3toolbox.backend.data_preparation.equalizing_weight` of
+    :py:func:`~t3toolbox.backend.data_preparation.data_block_norms`, a noise level per mode, or a weight per slot
+    have that shape: ``(d,) + F``, ``F`` or ``()``. This places them on the leading jet axes of a weight shaped like
+    the data ``y``, with size 1 on the sample axes ``W``, the stack ``C`` and (probe) the mode edge, which is the
+    form :py:func:`data_metric` takes. For the probe kind the result is one array whose first axis is the mode (the
+    modes differ only in their edge, which is 1 here). Only the rank of ``y`` is read: ragged or packed, with or
+    without the stack ``C``. The blocks keep their dtype and their backend.
+
+    Parameters
+    ----------
+    kind: str
+        ``'probe'``, ``'apply'`` or ``'entries'``.
+    order: tuple of int
+        The jet shape. ``()`` for no jets, and the only one the entries kind takes.
+    blocks: NDArray
+        probe ``shape=(d,)+F``; apply ``shape=F``; entries ``shape=()``.
+    y: tuple of NDArray or NDArray
+        Of the type of ``z``: probe ``len=d``, ``elm_shape=F+W+C+(Ni,)`` (or packed ``(d,)+F+W+C+(N,)``); apply
+        ``shape=F+W+C``; entries ``shape=W+C``.
+
+    Returns
+    -------
+    NDArray
+        probe ``shape=(d,)+F+(1,)*(len W+len C)+(1,)``; apply ``shape=F+(1,)*(len W+len C)``; entries
+        ``shape=(1,)*(len W+len C)``.
+
+    Raises
+    ------
+    ValueError
+        If ``kind`` is not one of the three kinds, the entries kind is given a jet shape, the blocks do not have the
+        block shape, or ``y`` has too low a rank (or, ragged, modes of different ranks).
+    TypeError
+        If ``order`` is not a tuple of integers.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.backend.jets as jets
+    >>> y = np.zeros((3, 7, 2))                                         # apply: F + W + C = (3,) + (7,) + (2,)
+    >>> weight = jets.blocks_to_weight('apply', (2,), np.array([1.0, 2.0, 3.0]), y)
+    >>> print(weight.shape, weight[:, 0, 0].tolist())
+    (3, 1, 1) [1.0, 2.0, 3.0]
+    >>> print(jets.blocks_to_weight('entries', (), 0.5, np.zeros(7)).shape)
+    (1,)
+    """
+    order = _kind_and_order(kind, order, 'blocks_to_weight')
+    m = len(order)
+    box = tuple(n + 1 for n in order)
+    if kind == 'probe':
+        if isinstance(y, (tuple, list)):
+            ranks = {int(np.ndim(y_i)) for y_i in y}
+            if len(ranks) != 1:
+                raise ValueError('blocks_to_weight: the modes of y have different ranks %s' % sorted(ranks))
+            d, n_stack = len(y), ranks.pop() - m - 1
+        else:
+            d, n_stack = int(np.shape(y)[0]), int(np.ndim(y)) - 1 - m - 1
+        expected, tail = (d,) + box, (1,) * max(n_stack, 0) + (1,)
+    elif kind == 'apply':
+        n_stack = int(np.ndim(y)) - m
+        expected, tail = box, (1,) * max(n_stack, 0)
+    else:
+        n_stack = int(np.ndim(y))
+        expected, tail = (), (1,) * n_stack
+    if n_stack < 0:
+        raise ValueError('blocks_to_weight: y has too low a rank for the %s kind at the jet shape %s' % (kind, order))
+    if tuple(np.shape(blocks)) != expected:
+        raise ValueError('blocks_to_weight: the blocks of the %s kind at the jet shape %s have shape %s, got %s'
+                         % (kind, order, expected, tuple(np.shape(blocks))))
+    xnp, _, _ = get_backend(False, tree_contains_jax(blocks))
+    return xnp.reshape(xnp.asarray(blocks), expected + tail)
 
 
 #######################################

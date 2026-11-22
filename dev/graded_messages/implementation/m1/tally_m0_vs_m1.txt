@@ -1,0 +1,114 @@
+baseline: 1904 nodes {'PASSED': 1898, 'SKIPPED': 5, 'SUBPASSED': 90945, 'XFAIL': 1}
+new:      1924 nodes {'PASSED': 1918, 'SKIPPED': 5, 'SUBPASSED': 91249, 'XFAIL': 1}
+  tests/test_data_metric.py::TestBatchMethod::test_a_batch_with_a_weight_per_block_raises_by_rank
+      baseline {}
+      new      {'SUBPASSED': 3, 'PASSED': 1}
+  tests/test_data_metric.py::TestBatchMethod::test_it_is_data_metric_with_the_batch_s_weight_and_scale
+      baseline {}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/test_data_metric.py::TestBlocksToWeight::test_the_placement_against_a_loop
+      baseline {}
+      new      {'SUBPASSED': 10, 'PASSED': 1}
+  tests/test_data_metric.py::TestBlocksToWeight::test_through_the_metric_it_is_the_old_block_weighting_bitwise
+      baseline {}
+      new      {'SUBPASSED': 10, 'PASSED': 1}
+  tests/test_data_metric.py::TestBlocksToWeight::test_wrong_blocks_raise
+      baseline {}
+      new      {'SUBPASSED': 7, 'PASSED': 1}
+  tests/test_data_metric.py::TestPrecision::test_the_lower_precision_and_a_scale_that_does_not_raise_it
+      baseline {}
+      new      {'SUBPASSED': 16, 'PASSED': 1}
+  tests/test_data_metric.py::TestStructure::test_a_packed_r_with_a_ragged_weight_raises
+      baseline {}
+      new      {'PASSED': 1}
+  tests/test_data_metric.py::TestStructure::test_a_weight_never_grows_r
+      baseline {}
+      new      {'PASSED': 1}
+  tests/test_data_metric.py::TestStructure::test_a_weight_of_another_rank_raises_and_no_weight_takes_any_r
+      baseline {}
+      new      {'PASSED': 1}
+  tests/test_data_metric.py::TestStructure::test_both_factors_are_required
+      baseline {}
+      new      {'PASSED': 1}
+  tests/test_data_metric.py::TestStructure::test_the_mode_count_of_a_ragged_r_is_exact
+      baseline {}
+      new      {'SUBPASSED': 4, 'PASSED': 1}
+  tests/test_data_metric.py::TestStructure::test_the_result_has_r_s_shapes_and_structure
+      baseline {}
+      new      {'PASSED': 1}
+  tests/test_data_metric.py::TestStructure::test_the_scale_is_a_scalar
+      baseline {}
+      new      {'SUBPASSED': 3, 'PASSED': 1}
+  tests/test_data_metric.py::TestValues::test_apply_and_entries
+      baseline {}
+      new      {'SUBPASSED': 90, 'PASSED': 1}
+  tests/test_data_metric.py::TestValues::test_probe_packed
+      baseline {}
+      new      {'SUBPASSED': 9, 'PASSED': 1}
+  tests/test_data_metric.py::TestValues::test_probe_ragged_with_a_tuple_and_with_an_array_weight
+      baseline {}
+      new      {'SUBPASSED': 36, 'PASSED': 1}
+  tests/test_dispatch.py::TestDispatch::test_jit_data_metric_and_blocks_to_weight
+      baseline {}
+      new      {'SUBPASSED': 98, 'PASSED': 1}
+  tests/test_jets.py::TestCheckers::test_every_public_function_has_a_doctest
+      baseline {'SUBPASSED': 11, 'PASSED': 1}
+      new      {'SUBPASSED': 13, 'PASSED': 1}
+  tests/test_jets.py::TestDualJet::test_an_object_of_the_other_type_than_kind_says_is_not_guarded_against
+      baseline {'SUBPASSED': 5, 'PASSED': 1}
+      new      {'SUBPASSED': 4, 'PASSED': 1}
+  tests/test_jets.py::TestDualJet::test_the_jet_shape_is_a_tuple_and_the_entries_kind_has_none
+      baseline {'SUBPASSED': 7, 'PASSED': 1}
+      new      {'SUBPASSED': 6, 'PASSED': 1}
+  tests/test_jets.py::TestFrontendDualJetToJet::test_a_nonzero_weight_gives_the_backend_s_numbers_in_both_modes
+      baseline {'SUBPASSED': 8, 'PASSED': 1}
+      new      {}
+  tests/test_jets.py::TestFrontendDualJetToJet::test_a_small_nonzero_weight_passes_in_safe_mode
+      baseline {'SUBPASSED': 8, 'PASSED': 1}
+      new      {}
+  tests/test_jets.py::TestFrontendDualJetToJet::test_a_weight_whose_square_underflows_is_refused_like_a_zero
+      baseline {'SUBPASSED': 3, 'PASSED': 1}
+      new      {}
+  tests/test_jets.py::TestFrontendDualJetToJet::test_a_zero_weight_divides_in_unsafe_mode
+      baseline {'SUBPASSED': 4, 'PASSED': 1}
+      new      {}
+  tests/test_jets.py::TestFrontendDualJetToJet::test_a_zero_weight_divides_under_jit
+      baseline {'SUBPASSED': 12, 'PASSED': 1}
+      new      {}
+  tests/test_jets.py::TestFrontendDualJetToJet::test_a_zero_weight_raises_in_safe_mode
+      baseline {'SUBPASSED': 4, 'PASSED': 1}
+      new      {}
+  tests/test_jets.py::TestFrontendDualJetToJet::test_it_is_the_frontend_s_own_function
+      baseline {'PASSED': 1}
+      new      {}
+  tests/test_type_laws.py::TestConverters::test_jet_to_dual_jet_and_back
+      baseline {}
+      new      {'SUBPASSED': 12, 'PASSED': 1}
+  tests/test_type_laws.py::TestDataMetric::test_blocks_to_weight_and_the_batch_method
+      baseline {}
+      new      {'SUBPASSED': 12, 'PASSED': 1}
+  tests/test_type_laws.py::TestDataMetric::test_the_input_law
+      baseline {}
+      new      {'SUBPASSED': 3, 'PASSED': 1}
+  tests/test_type_laws.py::TestDataMetric::test_the_jet_law
+      baseline {}
+      new      {'SUBPASSED': 12, 'PASSED': 1}
+  tests/test_type_laws.py::TestRescalings::test_rescale_coordinates_and_unscale_are_the_input_law
+      baseline {}
+      new      {'SUBPASSED': 6, 'PASSED': 1}
+  tests/test_type_laws.py::TestRescalings::test_rescale_direction_is_the_jet_law
+      baseline {}
+      new      {'SUBPASSED': 6, 'PASSED': 1}
+  tests/test_type_laws.py::TestRescalings::test_the_entries_and_the_transpose_laws_of_the_helper
+      baseline {}
+      new      {'PASSED': 1}
+  tests/test_type_laws.py::TestTheLawsCatch::test_the_helper_refuses_vacuous_settings
+      baseline {}
+      new      {'SUBPASSED': 4, 'PASSED': 1}
+  tests/test_type_laws.py::TestTheLawsCatch::test_the_input_law_catches_c_read_as_a_measurement
+      baseline {}
+      new      {'PASSED': 1}
+  tests/test_type_laws.py::TestTheLawsCatch::test_the_jet_law_catches_a_missing_square_a_missing_flip_a_one_axis_flip_and_a_swap
+      baseline {}
+      new      {'PASSED': 1}
+37 nodes differ

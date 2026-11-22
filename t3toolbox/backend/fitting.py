@@ -778,6 +778,29 @@ class LeastSquaresBatch:
 
     __hash__ = None
 
+    def data_metric(
+            self,
+            r:  typ.Any,        # Y*, of the type of z (no K), on this batch's samples
+    ) -> typ.Any:               # M r: Y, minibatch_scale * weight**2 * r elementwise, r's structure
+        """The data metric of this batch: :py:func:`~t3toolbox.backend.jets.data_metric` with the batch's own weight
+        and minibatch scale, ``data_metric(r, self.weight, self.minibatch_scale)``. The call that cannot forget the
+        scale of a drawn batch.
+
+        The weight must be of the type of ``z`` (each axis 1 or ``z``'s size), the form
+        :py:func:`~t3toolbox.backend.jets.blocks_to_weight` makes. A batch whose weight is one value per block,
+        ``(d,) + F``, ``F`` or ``()``, is not of that type, and raises here by rank, except where the two forms
+        coincide (an apply or entries batch with no sample or stack axes).
+
+        >>> import numpy as np
+        >>> from t3toolbox.backend.fitting import LeastSquaresBatch
+        >>> from t3toolbox.backend.jets import blocks_to_weight
+        >>> y = np.ones((3, 4))                                             # apply: F + W, F = (3,), W = (4,)
+        >>> batch = LeastSquaresBatch(None, y, blocks_to_weight('apply', (2,), np.array([1.0, 2.0, 3.0]), y), 0.5)
+        >>> print(batch.data_metric(y)[:, 0].tolist())                     # 0.5 * weight**2 * r
+        [0.5, 2.0, 4.5]
+        """
+        return jets.data_metric(r, self.weight, self.minibatch_scale)
+
 
 _BATCH_FIELDS = ('sample', 'y', 'weight', 'minibatch_scale', 'drawn_indices')
 

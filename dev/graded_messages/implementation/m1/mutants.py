@@ -1,0 +1,17 @@
+MUTANTS = [
+ ('no square', 't3toolbox/backend/jets.py', "    return omega_X * omega_X\n", "    return omega_X\n"),
+ ('1/omega', 't3toolbox/backend/jets.py', "    return omega_X * omega_X\n", "    return 1.0 / (omega_X * omega_X)\n"),
+ ('scale dropped', 't3toolbox/backend/jets.py', "            r_X = xnp.asarray(minibatch_scale, dtype=r_X.dtype) * r_X\n", "            pass\n"),
+ ('scale not cast', 't3toolbox/backend/jets.py', "xnp.asarray(minibatch_scale, dtype=r_X.dtype) * r_X", "minibatch_scale * r_X"),
+ ('no rank check', 't3toolbox/backend/jets.py', "    if len(omega_shape) != len(r_shape):\n", "    if False:\n"),
+ ('a weight may grow r', 't3toolbox/backend/jets.py', "        if a not in (1, b):\n", "        if False:\n"),
+ ('mode axis of 1 broadcast', 't3toolbox/backend/jets.py', "np.shape(weight)[0] != len(arrays):", "np.shape(weight)[0] not in (1, len(arrays)):"),
+ ('packed r reads a tuple weight', 't3toolbox/backend/jets.py', "        if isinstance(weight, (tuple, list)):\n            raise ValueError('data_metric: an array r", "        if False:\n            raise ValueError('data_metric: an array r"),
+ ('scale of any shape', 't3toolbox/backend/jets.py', "    if minibatch_scale is not None and np.ndim(minibatch_scale) != 0:", "    if False:"),
+ ('blocks on the trailing axes', 't3toolbox/backend/jets.py', "    return xnp.reshape(xnp.asarray(blocks), expected + tail)", "    return xnp.reshape(xnp.asarray(blocks), (expected[:1] if kind == 'probe' else ()) + tail + (expected[1:] if kind == 'probe' else expected))"),
+ ('no block-shape check', 't3toolbox/backend/jets.py', "    if tuple(np.shape(blocks)) != expected:", "    if False:"),
+ ('the method forgets the scale', 't3toolbox/backend/fitting.py', "return jets.data_metric(r, self.weight, self.minibatch_scale)", "return jets.data_metric(r, self.weight, None)"),
+ ('helper: no turn', 'tests/_typing_laws.py', "k = tuple((n - a) if turned else a", "k = tuple(a"),
+ ('helper: P is the identity', 'tests/_typing_laws.py', "        return self._scale(value, 1, lead)\n", "        return value\n"),
+ ('helper: V is V_star', 'tests/_typing_laws.py', "        return self._edge(value, 1)\n\n    def tucker", "        return self._edge(value, -1)\n\n    def tucker"),
+]

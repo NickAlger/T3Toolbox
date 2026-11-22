@@ -87,6 +87,27 @@ def compute_mu(
   (numpy *or* jax). Spell a dtype (`bool`, `int`) only when it actually matters. This keeps the old
   "a bare `np.` is a backend-agnosticism tell" intuition usable: a `HOST` arg is *meant* to be numpy.
 - Prefer the comma form over a period (`# len=d, elm_shape=...`, not `# len=d. elm_shape=...`).
+- **Types, in the sampling signatures:** the **algebraic type first**, then `len`, then the shape:
+  `# P*⊗V_i, len=d, elm_shape=F+W+[K]+C+(Ni,)`. With `len=` the type is the element's; without it, the whole
+  object's (`# P*, shape=F+W+[K]+C`). A function of any kind types the whole object and lists the kinds' shapes
+  after a colon (`# Y*, of the type of z: probe len=d, elm_shape=...; apply ...`). The vocabulary is the glossary's
+  Symbols: `P` (the jets) and `P*` (its dual, slot by slot), `V_i` and `V_i*`, `X` and `X*` (parameters), `Y*` (the
+  measurements) and `Y`, `E` and `E*`, `ℝ`; `*` is the algebraic dual, and `[G]` marks a group present only for
+  some variables or settings. The algebraic types are written in **Unicode** (`⊗`, `⊕`, `ℝ`, `*`), as in the
+  glossary; identifiers stay ASCII (`omega`, `gamma`, not `ω`, `γ`), in code and in the comments that name them. A
+  **role name**, where the comment gives one (a return, mostly), comes first, with a colon:
+  `# M r: Y, gamma * omega**2 * r elementwise`; `# z: P⊗V_i*, len=d, elm_shape=F+W+C+(Ni,)`. A placement or dtype
+  **tag** comes after the shape: `# len=d+1, elm_shape=C+(r,), HOST bool, static`. A signature whose arguments are
+  not data- or parameter-space objects keeps `len` first, with no type. The exemplar is
+  `backend/jets.py`'s `data_metric`:
+
+  ```python
+  def data_metric(
+          r:                typ.Any,                  # Y*, of the type of z, no K: probe len=d (or packed (d,)+...), elm_shape=F+W+C+(Ni,); apply F+W+C; entries W+C
+          weight:           typ.Optional[typ.Any],    # omega, of the type of z: each axis 1 or r's size; None = ones
+          minibatch_scale:  typ.Optional[typ.Any],    # gamma: a number or a 0-d array (traced under jit); None = 1
+  ) -> typ.Any:                                       # M r: Y, gamma * omega**2 * r elementwise, r's structure (a tuple for a tuple or a list)
+  ```
 
 ## Aligning the comment column: one block, or grouped?
 

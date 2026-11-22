@@ -142,8 +142,8 @@ print('JAX_ABSENT_OK')
 
 
 # Jets, the checkers and data preparation (graded messages, P3; in the jet shape since P4d): the two backend
-# modules, their reach from t3toolbox.fitting and t3toolbox (the frontend dual_jet_to_jet with its safe-mode check
-# included) and unscale_coordinates on both tensor classes import and run with no jax, on numpy arrays.
+# modules, their reach from t3toolbox.fitting and t3toolbox, the data metric (M1), and unscale_coordinates on both
+# tensor classes import and run with no jax, on numpy arrays.
 _JETS_SCRIPT = r'''
 import sys, warnings
 sys.modules['jax'] = None            # make `import jax` raise ImportError
@@ -153,7 +153,6 @@ import t3toolbox.backend.common as common
 import t3toolbox.backend.jets as jets
 import t3toolbox.backend.data_preparation as prep
 import t3toolbox.fitting as fitting
-import t3toolbox.safety as safety
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.uniform_tucker_tensor_train as ut3
 assert not common.jax_available
@@ -182,7 +181,8 @@ with warnings.catch_warnings():
         jets.check_weight(kind, order, weight, 3)
         dual = on_numpy(jets.jet_to_dual_jet(kind, order, y, weight))
         on_numpy(jets.dual_jet_to_jet(kind, order, dual, weight))
-        on_numpy(fitting.dual_jet_to_jet(kind, order, dual, weight))
+        full = on_numpy(fitting.blocks_to_weight(kind, order, weight, y))
+        on_numpy(fitting.data_metric(y, full, 2.0))
         on_numpy(jets.taylor_to_derivatives(kind, order, jets.derivatives_to_taylor(kind, order, y)))
         on_numpy(jets.prepare_derivative_data(kind, order, y, validation=y))
         on_numpy(fitting.prepare_derivative_data(kind, order, y, weight))
@@ -192,13 +192,9 @@ with warnings.catch_warnings():
             on_numpy(prep.rescale_coordinates(kind, order, sample, y, scales))
             on_numpy(fitting.rescale_coordinates(kind, order, sample, y, scales))
     zero = np.array([1.0, 0.0, 1.0])
-    try:
-        fitting.dual_jet_to_jet('apply', (2,), np.ones((3, 7)), zero)
-        raise AssertionError('the frontend dual_jet_to_jet must raise in safe mode where a weight is zero')
-    except ValueError:
-        pass
-    with safety.unsafe():
-        assert not np.isfinite(fitting.dual_jet_to_jet('apply', (2,), np.ones((3, 7)), zero)[1]).any()
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')  # the backend divides by zero silently by design
+        assert not np.isfinite(jets.dual_jet_to_jet('apply', (2,), np.ones((3, 7)), zero)[1]).any()
     x = t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1))
     ux = ut3.UniformTuckerTensorTrain.from_t3(x)
     prep.check_coordinate_scales(scales, shape)

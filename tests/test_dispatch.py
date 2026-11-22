@@ -636,13 +636,54 @@ class TestDispatch(unittest.TestCase):
         ]
         return cases
 
+    def _data_metric_cases(self, dtype):
+        """(name, function of arrays only, numpy arguments) for ``data_metric`` and ``blocks_to_weight`` (the data-metric
+        sub-arc, M1): the probe type (a tuple, with a tuple weight and with a mode-leading array weight), a packed
+        probe, apply and entries, with a stack ``C``; the scale a number, a traced 0-d array and ``None``."""
+        import t3toolbox.backend.jets as jets
+        rng = np.random.default_rng(1)
+        shape, W, C = (4, 3, 5), (2,), (2,)
+        f = lambda a: np.asarray(a, dtype=dtype)
+        cases = []
+        for order in ((3,), (1, 2)):
+            F = tuple(n + 1 for n in order)
+            r_probe = [f(rng.standard_normal(F + W + C + (n,))) for n in shape]
+            w_probe = [f(0.5 + rng.random(F + W + (1,) + (n,))) for n in shape]
+            blocks_probe = f(0.5 + rng.random((3,) + F))
+            r_apply, w_apply, blocks_apply = f(rng.standard_normal(F + W + C)), f(0.5 + rng.random(F + (1,) + C)), f(0.5 + rng.random(F))
+            packed, w_packed = f(rng.standard_normal((3,) + F + W + C + (5,))), f(0.5 + rng.random((3,) + F + (1, 1, 5)))
+            tag = ' %s' % (order,)
+            cases += [
+                ('data_metric/probe, a tuple weight' + tag, lambda r, w, g: jets.data_metric(r, w, g), (r_probe, w_probe, f(2.0))),
+                ('data_metric/probe, a mode-leading weight' + tag,
+                 lambda r, b, order=order: jets.data_metric(r, jets.blocks_to_weight('probe', order, b, r), 2.0), (r_probe, blocks_probe)),
+                ('data_metric/probe packed' + tag, lambda r, w: jets.data_metric(r, w, None), (packed, w_packed)),
+                ('data_metric/apply' + tag, lambda r, w, g: jets.data_metric(r, w, g), (r_apply, w_apply, f(0.5))),
+                ('data_metric/apply, no weight' + tag, lambda r: jets.data_metric(r, None, 3.0), (r_apply,)),
+                ('blocks_to_weight/probe' + tag, lambda b, y, order=order: jets.blocks_to_weight('probe', order, b, y), (blocks_probe, r_probe)),
+                ('blocks_to_weight/apply' + tag, lambda b, y, order=order: jets.blocks_to_weight('apply', order, b, y), (blocks_apply, r_apply)),
+            ]
+        r_entries = f(rng.standard_normal(W + C))
+        cases += [
+            ('data_metric/entries ()', lambda r, w, g: jets.data_metric(r, w, g), (r_entries, f(0.5 + rng.random((1, 2))), f(4.0))),
+            ('blocks_to_weight/entries ()', lambda b, y: jets.blocks_to_weight('entries', (), b, y), (f(2.0), r_entries)),
+        ]
+        return cases
+
     def test_jit_jets_and_data_preparation(self):
         """jit every array-returning function of ``backend.jets`` and ``backend.data_preparation`` (a stray np.* on
         a tracer would raise); numpy in gives numpy out, jax in gives jax out, eagerly too; float32 stays float32
         with x64 on (no array is made in a default dtype); the numbers are numpy's (a smoke test)."""
+        self._check_jit_cases(self._jets_and_preparation_cases)
+
+    def test_jit_data_metric_and_blocks_to_weight(self):
+        """The same for ``data_metric`` and ``blocks_to_weight`` (M1), the scale traced where it is an argument."""
+        self._check_jit_cases(self._data_metric_cases)
+
+    def _check_jit_cases(self, cases_of):
         to_jax = lambda tree: jax.tree_util.tree_map(jnp.asarray, tree)
         for dtype, smoke_tol in ((np.float64, 1e-12), (np.float32, 1e-5)):
-            for name, fn, args in self._jets_and_preparation_cases(dtype):
+            for name, fn, args in cases_of(dtype):
                 on_numpy = fn(*args)
                 with self.subTest(function=name, dtype=np.dtype(dtype).name):
                     for leaf in jax.tree_util.tree_leaves(on_numpy):
