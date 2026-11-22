@@ -358,3 +358,13 @@ round):
 - **M2's gate** gains the pre-M2 numbers on every weighted test through `blocks_to_weight`, and the reference's
   full-form reading pinned against brute-force dense sums first.
 - The status line and §6's "calls" are fixed.
+
+**Round 7, the last decisions** ("The data-metric plan: the last names"; "Defaults, and the block sums"), folded in:
+- `blocks_to_weight(kind, order, blocks, y)` and `stack_shape=()` are decided.
+- The principle "unweighted or default = weights of 1.0 in the object's natural coordinates" is stated in §2 and §4.
+  So `prepare_derivative_data(weight=None)` returns the factorials, and `data_metric` keeps both factors required.
+- `r_block_sumsq` and `y_block_sumsq` become `<., M .>` per block with `γ` inside, with no new outputs. O-21's plain
+  sums are superseded, and `f_resolution` is `<y, M y>`. §1's scaled-output list, §3's table (two new rows replace
+  the "new outputs" row), §4's display paragraph and the smaller M3 row are updated.
+- The `(unwt …)` figure is dropped.
+- §8 records all of it and has no open question; the status line says the plan is complete.

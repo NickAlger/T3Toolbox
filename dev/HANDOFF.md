@@ -53,8 +53,8 @@ in a session: everything is in files.
   in `LOG.md` (entries after "P16 started"). **Progress at the pause (2026-11-22):** the audit is done (`SAMPLING_AUDIT.md`); the maintainer took its decisions
   1 and 2 (TARGET_DECISIONS, "The data metric"); `DATA_METRIC_PLAN.md` (the sub-arc for them, four slices M1 to M4
   before P17) passed one writer/reviewer cycle and is in a second for its new section 9 (lightweight typing); CI green
-  at `7035eaab` (P16 plus a float32 test fix, `P16_CI_FIX.md`). **Status (2026-11-22, later):** every question of the data-metric plan decided
-  (TARGET_DECISIONS, notes of 2026-11-22) except `blocks_to_weight`'s name; the plan is final for the maintainer's read.
+  at `7035eaab` (P16 plus a float32 test fix, `P16_CI_FIX.md`). **Status (2026-11-22, later):** the data-metric plan is COMPLETE, every question decided
+  (TARGET_DECISIONS, notes of 2026-11-22); next, on the maintainer's go, its slices M0 (the rename) to M5, then P17.
   **Still open:** the audit's 3 (corewise representation) and 4 (the Hessians' names). No build before he has read the final plan. (Superseded:) **Next:** an agent does one combined audit of every sampling function
   (location, object, typing, metric, weights; findings and options, not decisions), then the discussion, then possibly
   a slice reorganizing the sampling functions, then the `from_t3` slice (raise for a width below a rank; decided), then

@@ -1370,3 +1370,7 @@ All the maintainer's decisions folded into the plan (the writer's round 7); `DAT
 (the rule checked by script for every kind, layout and stack; M2 a single switch, justified); the writer's last edits
 (`blocks_to_weight` as the one open question in section 8; the converters' `K` behaviour stated exactly; writer
 proposals listed for their design notes; two strengthenings of M2's gate). **Final for the maintainer's read.**
+The plan is COMPLETE (2026-11-22): the last decisions folded in (`blocks_to_weight`; `stack_shape=()`; defaults are
+ones in the natural coordinates, so `prepare_derivative_data(weight=None)` returns the factorials; the weighted block
+sums supersede the plain ones under the same names; the `unwt` figure dropped). Section 8 has no open question. Next,
+on the maintainer's go: M0 (the `J -> P` and `J_in_i -> F_in,i` rename), with fresh agents.

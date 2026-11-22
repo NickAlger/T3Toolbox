@@ -3,8 +3,8 @@
 Status: Claude's first draft (2026-11-21), revised by the writer through seven review rounds (the answers:
 `DATA_METRIC_PLAN_RESPONSE_r1.md`). The maintainer has decided every question (`TARGET_DECISIONS.md`, the notes of
 2026-11-22 from "The data-metric plan's questions: the maintainer's first answers" to "The data-metric plan: Q3"); §8
-records the decisions. The reviewer signed off this version (`DATA_METRIC_PLAN_REVIEW_r7.md`). It is ready for the
-maintainer's final read, with one open question (§8: the constructor `blocks_to_weight`).
+records the decisions, with the last two notes ("The data-metric plan: the last names"; "Defaults, and the block
+sums"). The reviewer signed off (`DATA_METRIC_PLAN_REVIEW_r7.md`). **The plan is complete: no question is open.**
 Implements: `TARGET_DECISIONS.md`, "The data metric: decisions 1 and 2 of the sampling audit", with O-21, and the
 notation decision ("Notation for the jets and the data metric").
 Evidence: `SAMPLING_AUDIT.md`; for derivative coordinates, `T3POLYNOMIAL_JET_USE.md`. `file:line` refers to
@@ -19,8 +19,10 @@ non-diagonal `M` (a covariance); nonlinear losses.
 - One public function, `c = data_metric(r, weight, minibatch_scale)`, applies `M: Y* -> Y` elementwise. A batch has
   it as a method, `batch.data_metric(r)`. Every place that applies `ω²` goes through it.
 - **Every data-space object (`y`, `ω`, residuals) has the type of `z`**: each axis 1 or `z`'s size, never `K`.
-  There is no block form; a constructor (proposed `blocks_to_weight`, §8's one open question) builds a weight from
-  per-block values. Per-element data on a stack follow from the rule.
+  There is no block form; `blocks_to_weight` builds a weight from per-block values. Per-element data on a stack
+  follow from the rule. "Unweighted" or "default" means weights of 1.0 in the object's natural coordinates.
+- The block sums `r_block_sumsq` and `y_block_sumsq` become weighted, `<., M .>` per block; the display's ratio
+  follows, and its `(unwt …)` figure is dropped.
 - Data are in Taylor coordinates everywhere, with one conversion at the boundary.
 - Lightweight typing (§9): algebraic types in the signature comments, with `*` for duals; the dual-jet converters
   private in the frontend; transformation-law tests.
@@ -53,9 +55,10 @@ coefficient of a jet product), not a metric (audit 3.0, verified to 1e-16).
 
 **The minibatch scale is part of `M`** (O-21). `γ = 1` on a full batch, and `γ = |W|/b` on a draw of `b` of its `|W|`
 samples.
-- Every `M`-bearing output carries `γ`; the `Y*` outputs (`r`, `Jp`) do not. Hence `J^T(M r)` equals the oracle's `g`
-  on every batch, drawn ones included.
-- `f_resolution = eps · (√<M y, y> √(2f) + |f|)`, with `γ` in both `M` and `f`. This is today's value
+- Every `M`-bearing output carries `γ`: `f`, `g`, `JtJp`, `Jp_norm_sq`, `Kp`, `f_resolution`, and now the block sums
+  `r_block_sumsq` and `y_block_sumsq` (§4). The `Y*` outputs (`r`, `Jp`) do not. Hence `J^T(M r)` equals the oracle's
+  `g` on every batch, drawn ones included.
+- `f_resolution = eps · (√<y, M y> √(2f) + |f|)`, with `γ` in both `M` and `f`. This is today's value
   (`fitting.py:933-944`).
 - The engine never sees `γ`; the oracle multiplies its outputs by it.
 
@@ -98,7 +101,8 @@ other array of `z`'s type that a user passes.
   - A per-sample weight has size-1 jet axes.
   - A weight constant over the edge has an edge of size 1.
   - With `C = ()` (an unstacked model), `y` keeps today's shape.
-- **`ω`** enters squared and may be zero, which drops entries. `None` means ones.
+- **`ω`** enters squared and may be zero, which drops entries. `None` means ones. The maintainer's general principle:
+  "unweighted" or "default" means weights of 1.0 in the natural coordinates of the object.
 - **No block form.** Today's `(d,)+F`, `F` and `()` weights are not accepted. `blocks_to_weight` builds a full-form
   weight from them (§4).
 - **Per-element data on a stack follow from the rule** (Q8). `y` and `ω` may carry `C` at full size: one dataset
@@ -177,8 +181,9 @@ the one place where `ω²` is formed, in the lower precision of the two. The eng
 | `Jp_norm_sq_step` (`:969-970`) | own reshape | `Σ Jp · data_metric(Jp, ω_K, None)`, keeping `K + C` |
 | `_modes` (`:913-922`) | `asarray(weight)[i]` | per array, by §2 (a ragged tuple cannot be `asarray`-ed) |
 | `r_step` | inserts `C` into `y` | `z - y` (`y` has `C` by §2) |
-| `f_resolution` (`fitting.py:935`) | `ω² × y_block_sumsq` | `Σ y · data_metric(y, ω, None)`, per element of `C`, then `× γ` (§4) |
-| the display's weighted block sums (new, §4) | | through `data_metric` |
+| `f_resolution` (`fitting.py:935`) | `ω² × y_block_sumsq` | `<y, M y>`: `Σ y · data_metric(y, ω, None)`, per element of `C`, then `× γ` (§4) |
+| `r_block_sumsq_step` (`sampling_steps.py:1061`) | plain `Σ r²` per block | `Σ r · data_metric(r, ω, None)` per block; the oracle multiplies by `γ` (M3) |
+| `y_block_sumsq` (oracle-local, `fitting.py:930`) | `data_block_norms(y)²` | `Σ y · data_metric(y, ω, None)` per block, `× γ` (M3) |
 | `jet_to_dual_jet` (`jets.py:298`) | `weight² · jet`, flipped | `flip ∘ data_metric(jet, ω, None)` |
 | `dual_jet_to_jet` (`jets.py:498-507`) | divide by `_squared_weights` | flip, then divide by `_omega_squared` (`M^{-1}` at `γ = 1`) |
 | frontend zero check (`fitting.py:275`) | `_squared_weights` | deleted with the frontend `dual_jet_to_jet` (Q9, §9.2) |
@@ -202,7 +207,7 @@ the one place where `ω²` is formed, in the lower precision of the two. The eng
   - per-mode noise levels and per-slot weights;
   - the translation's and the bridge's old weights;
   - the pages' examples.
-- **The name and signature** are the one open question (§8).
+- **Decided** by the maintainer, name and signature ("The data-metric plan: the last names").
 - `data_block_norms` and `equalizing_weight` stay block-shaped: they are per-block quantities, not weights.
 
 **Derivative coordinates (Q7).** Taylor coordinates everywhere, one conversion at the boundary.
@@ -212,8 +217,9 @@ the one place where `ω²` is formed, in the lower precision of the two. The eng
 - **The recipe for a data-relative weight:** convert the data, then compute the weight, for instance
   `blocks_to_weight(kind, order, equalizing_weight(data_block_norms(kind, order, y_taylor)), y_taylor)`. The weight
   then needs no conversion.
-- **`prepare_derivative_data(weight=None)`** still returns `k!` (ones on the derivatives, in Taylor coordinates), now
-  in full form. Its docstring says that this is rarely what data with decaying jets want, and points to the recipe.
+- **`prepare_derivative_data(weight=None)`** still returns `k!`, now in full form. Decided by the principle: the
+  default is weights of 1.0 in the object's natural coordinates, here the derivatives. Its docstring says that this is
+  rarely what data with decaying jets want, and points to the recipe.
 - **`equalizing_weight`'s relative floor depends on the coordinates.** Taylor coordinates widen the spread across
   slots by up to `n!`; one map in the study already spans 1.3e6 in derivative coordinates. The existing advice,
   "rescale the direction first, then equalize", covers it, and is stated beside the recipe.
@@ -244,17 +250,19 @@ ragged probe mode), or at `1 + m` (a `d`-leading probe array).
 
 `None` passes through. `b` is static, so this stays shape-static under jit.
 
-**`f_resolution`** is `Σ y · data_metric(y, ω, None)` over every axis but `C`, so it is per element, like `f`. It is
-computed from the unscaled batch, then `× γ`. A packed probe `y` is unpacked (`fitting.py:928-929`), and so is a packed
-`ω` with an `N` edge.
+**`f_resolution`** uses `<y, M y>`: `Σ y · data_metric(y, ω, None)` over every axis but `C`, so it is per element,
+like `f`. It is computed from the unscaled batch, then `× γ`. A packed probe `y` is unpacked (`fitting.py:928-929`),
+and so is a packed `ω` with an `N` edge.
 
-**The display (Q4)** reports `‖ω⊙r_b‖/‖ω⊙y_b‖` per block `b` of the block shape `(d,)+F | F | ()`. That is the
-table's shape, not a weight form.
-- The numbers come from two new optional outputs, the weighted, unscaled block sums of squares: an engine variable for
-  `r`, with its reference definition, and an oracle-local one for `y`.
-- `r_block_sumsq`, `y_block_sumsq` and the `unwt` header figure stay plain (O-21).
-- A weight constant within each block, such as any old block weight through `blocks_to_weight`, gives today's
-  numbers. A block whose weight is zero throughout shows `—`.
+**The block sums, and the display (Q4).** The weighted block sums supersede the plain ones.
+- `r_block_sumsq` and `y_block_sumsq` keep their names and become `<r, M r>` and `<y, M y>` per block `b` of the
+  block shape `(d,)+F | F | ()`, with the scale `γ` inside `M`. That shape is the table's, not a weight form.
+- Unweighted is `ω = 1`. A plain sum of squares of a data-space element does not type without a metric.
+- There are no new engine variables or oracle outputs. O-21's "plain sums of squares" is superseded.
+- The display reports `‖ω⊙r_b‖/‖ω⊙y_b‖`, the ratio of the two; `γ` cancels.
+- A weight constant within each block, such as any old block weight through `blocks_to_weight`, gives today's ratios.
+  A block whose weight is zero throughout shows `—`.
+- **The header's `(unwt …)` figure is dropped** (`optimizer_display.py:256-266`, and its `obj_unweighted` plumbing).
 - The text "a block is an entry of the weight, so the errors have the weight's shape" becomes "the block shape"
   (`optimizer_display.py:29-30, 165, 186, 423, 584`; `data_preparation.py:137`; `sampling_steps.py:1068`).
 
@@ -328,7 +336,7 @@ tests are §9.3's; the types in comments are §9.1's.
 | **M0. The notation** (mechanical) | `J -> P` and `J_in_i -> F_in,i` (below); the glossary and `naming_conventions.md` entries | **gate: the full suite green with every number unchanged**; a string or `GroupLengths` still written with `J` raises, beside the retired `T` in `TestGroupLengths` (`test_jet_contract.py:827`) | everything, bit for bit |
 | **M1. The new functions** (`jets`; additive) | `data_metric` and its private core; the engine's `_with_K`; `blocks_to_weight`; `LeastSquaresBatch.data_metric`; 9.2 (the frontend converters and O-20's check removed; the backend converters retyped); the law helper `tests/_typing.py` with §9.3's tables; `signature_style.md`'s grammar (9.1), in which its own new signatures are written | arrays written by hand per case, with `F`, `W`, `C` sizes **distinct and equal**; a `K`-stacked `r` raises when a weight is given (and gives `γ r` with `weight=None`); the laws (`M` maps the `P` law to the `P*` law with `ω` moved by its own) | everything; no caller switched yet |
 | **M2. The switch to the rule** (one change; it may be built in parts on a branch, as P16 was) | the checkers with `stack_shape`; the engine (`r_step`, `f_step`, `Jp_norm_sq_step`, `w_tilde_step`, `_modes`, the masks for `y` and `ω`); the reference module, extended **independently** (its `_weight_squared`, `:655-697`; the independence test forbids importing `jets`); `jet_to_dual_jet` / `dual_jet_to_jet` through `data_metric`; the factorials and `prepare_derivative_data`, with Q7's docs; `check_batch`, `take`, `pack_batch`, `f_resolution`; stacked `y`; the translation, the bridge and the pages through `blocks_to_weight`; `tests/oracle_sweeps/oracle.py` extended with full-form weights by its own alignment; every test that passes a weight or a stacked `y` | the reference over the jet matrix (`f`, `g`, `JtJp`, `Jp_norm_sq`, `Kp`) with full-form `ω`, `y` with `C`, and `K`; the dense oracle on per-sample-weighted fits and an entries per-sample fit; **a sample with `ω = 0` gives the `f` and `g` of the batch without it**; **per-element stacked data give the separate fits**; unbiasedness by exact subset enumeration with a partly broadcast weight; garbage-padded `y` and `ω`; uniform against ragged; the factorials by hand with equal and distinct sizes; the ruled rejection table; the compile test; the laws on the engine; **every existing weighted test, its block weight through `blocks_to_weight`, reproduces its pre-M2 numbers to rounding**; **the reference module's full-form reading is built first and pinned against brute-force dense sums before the engine switches** (the two change in one slice, so their errors could correlate) | everything; the translation's 19 pins unchanged |
-| **M3. The display** | the weighted ratio; the weighted block sums (engine, reference, oracle); the block-shape text | block-constant weights reproduce today's pinned display numbers; a zero-weighted outlier does not dominate; the reference | the optimizers and the display records |
+| **M3. The block sums and the display** | `r_block_sumsq` weighted (engine step and reference) and `y_block_sumsq` (oracle), both `× γ`; the display's ratio from them; the `(unwt …)` figure dropped; the block-shape text | the reference over the jet matrix; `ω = 1` reproduces today's plain sums; block-constant weights reproduce today's pinned display ratios; a zero-weighted outlier does not dominate | the optimizers and the display records |
 | **M4. The typed transposes** | the rename and the docstrings of §5 (mechanical; 42 functions, 140 call sites); the example comments | the adjoint doctests renamed; on a **drawn batch**, `<J^T(batch.data_metric(r)), ẋ>` against a central difference of the dense misfit `½ γ Σ ω² r²` (`oracle.py`) along a random core direction; the laws on all 42 | everything |
 | **M5. The types** (comments only) | §9.1's types in the ~100 public sampling signatures, backend and frontend; the type column of `sampling_variables.py`'s variable table | the laws on the functions no earlier slice tested (forwards, tangents, dense functions, `jets` helpers) | everything; no line of code changes |
 
@@ -379,6 +387,7 @@ The cost: M5 edits the comments on the 42 signature lines M4 renamed.
 | 2 | the transposes' argument is `c` | §5 |
 | 3 | `c = data_metric(r, weight, minibatch_scale)`: elementwise, no `kind` or `order`, both factors required (`None` written out allowed), `r` without `K` (raises by rank); plus `LeastSquaresBatch.data_metric(r)`; with the jets helpers, re-exported by `t3toolbox.fitting` | §3 |
 | 4 | the display shows the weighted ratio `‖ω⊙r_b‖/‖ω⊙y_b‖` | §4, M3 |
+| — | the block sums `r_block_sumsq`, `y_block_sumsq` become `<., M .>` per block (scale inside `M`); no new outputs; O-21's plain sums superseded; `f_resolution` is `<y, M y>`; the `(unwt …)` figure dropped | §4, M3 |
 | 5, 8 | one rule: every data-space object has the type of `z`, each axis 1 or `z`'s size, never `K`; the full form only, with a constructor from blocks; per-element data on a stack follow | §2, §4 |
 | 6 | the input is `ω` (squared inside) | §2 |
 | 7 | Taylor coordinates everywhere, one conversion at the boundary, the recipe for a data-relative weight; documented in `prepare_derivative_data`, `data_metric` and the pages | §1, §4 |
@@ -386,20 +395,10 @@ The cost: M5 edits the comments on the 42 signature lines M4 renamed.
 | 10 | the dual symbol is `*` ("these are algebraic duals") | §1, §9 |
 | 11 | types in backend and frontend signatures ("arguably more important in the backend") | §9.1 |
 | 12 | `J_in_i` becomes `F_in,i`; `J` means only the Jacobian | M0 |
+| — | the constructor is `blocks_to_weight(kind, order, blocks, y)`; the checkers' keyword `stack_shape=()` | §2, §4 |
+| — | "unweighted" or "default" means weights of 1.0 in the object's natural coordinates; so `prepare_derivative_data(weight=None)` returns the factorials, and `data_metric` keeps both factors required | §2, §4 |
 
-**The one open question for the maintainer's final read: the constructor (§4).** It is a new public name.
-- **(a) `blocks_to_weight(kind, order, blocks, y)`** (recommended). It follows the converter grammar `X_to_Y`, as in
-  `derivatives_to_taylor`. It returns a full-form weight shaped like `y`: the blocks on the jet axes (and the modes),
-  size 1 elsewhere, as a `d`-leading array for probe and one array otherwise. Taking `y` gives it the rank, with `C`,
-  and no stack argument is needed.
-- (b) `weight_from_blocks(kind, order, blocks, y)`: the same function, with the name read as a constructor.
-- (c) `block_weight(...)`: shorter, but it reads as "the weight of a block", the old form it replaces.
-
-**Proposed by the writer, to be put to the maintainer in the design note that builds each:**
-- the checkers' keyword `stack_shape=()`, the library's existing name for `C` (M2);
-- `prepare_derivative_data(weight=None)` still returning `k!`, now in full form (M2);
-- the names of M3's new engine variable and oracle output, the weighted block sums (M3). Engine variable names are
-  the maintainer's.
+**No question is open.** The plan is complete.
 
 ## 9. Lightweight typing (folded in by the maintainer, 2026-11-22)
 
