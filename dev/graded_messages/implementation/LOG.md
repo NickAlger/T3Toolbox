@@ -1361,3 +1361,8 @@ twelve questions** (section 8), plus the audit's decisions 3 and 4.
 The maintainer answered the plan's questions 2, 4, 6, 9, 10 (`*` for the algebraic dual), 11; Q1 (`data_riesz_map`)
 to confirm; Q3, Q5, Q8 (weights) and Q7 (derivative coordinates, guided by T3Polynomial's use) to discuss; Q12 open.
 An agent studies T3Polynomial's use of jetted probe fitting (read only).
+Q7 decided by the maintainer: option (i), Taylor coordinates everywhere, one conversion at the boundary (data and
+weight together; a data-relative weight computed after converting the data), documented in `prepare_derivative_data`,
+`data_metric` and the pages. Claude recommended for Q5 and Q8 together: data-space objects (`y`, `omega`, residuals)
+have the type of `z`, each axis 1 or `z`'s size (the full form only, with a constructor helper for block weights;
+per-element data on a stack then removes a special case). The maintainer asked for a T3Polynomial-style example.
