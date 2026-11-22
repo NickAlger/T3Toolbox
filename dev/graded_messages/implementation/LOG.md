@@ -1354,3 +1354,7 @@ reading:** eleven questions (section 8), plus the audit's decisions 3 and 4.
 Notation decided by the maintainer (2026-11-22; TARGET_DECISIONS, "Notation for the jets and the data metric"): `P`/`Q`
 for the jet/dual-jet groups, `F` the box sizes, `M` the data metric (accepting the collision with the manifold), `[G]`
 structural presence (every group may be empty). The writer applies it across the plan; the reviewer checks.
+The plan's notation pass: `DATA_METRIC_PLAN_REVIEW_r5.md` (NOT YET: the rename's scope, M0, letter collisions, Q1),
+the writer's round 6, `DATA_METRIC_PLAN_REVIEW_r6.md` (SIGN OFF), then three small edits (`ℓ_j` for the jet rescaling;
+Q1's cost of `data_metric`; Q12 on `J_in_i`). Six slices M0 (the `J -> P` rename) to M5. **Final for the maintainer:
+twelve questions** (section 8), plus the audit's decisions 3 and 4.

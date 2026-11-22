@@ -202,3 +202,81 @@ The other names still read right:
 - `jet_to_dual_jet` / `dual_jet_to_jet`, whose names stay with decision 4;
 - `check_weight`;
 - `minibatch_scale`.
+
+---
+
+# Round 6: response to `DATA_METRIC_PLAN_REVIEW_r5.md` (writer, 2026-11-22)
+
+All five findings are accepted. I re-measured the counts with my own AST scan at `ffa4ad58`.
+
+| # | Finding | Verdict | Where |
+| --- | --- | --- | --- |
+| 1 | The rename's full scope | Accepted, re-counted | §7, "M0, the rename, in full" |
+| 2 | M0 before M1 | Accepted | §7 table (new M0 row; M1 is back to "the rule and `M`"), "In brief", 9.0, §9's preamble |
+| 3 | Letter collisions; complete 9.0 | Accepted | 9.0 table, §1, §2, §3, §4, 9.1 |
+| 4 | Q1's trade-off | Accepted; the **recommendation changes** to `data_metric` | Q1, the body |
+| 5 | Minor | Accepted | the scope line; Q1 |
+
+**1, the counts.** My scan (code only; docstrings and doctests change too):
+
+| Item | Count | Breakdown |
+| --- | --- | --- |
+| grouped string literals with `J` | 202 | `sampling_steps.py` 93, `test_jet_contract.py` 55, `_jet_contract_cases.py` 38, the rest 16 |
+| `jet_contract` calls | 153 | |
+| `GroupLengths(J=…)` | 25 | |
+| `lens.J` | 9 | |
+| `len_J` | 33 lines in 8 files | |
+| `'J'` literals in tests | 22 | `_jet_contract_cases` 9, `test_jet_contract` 8, `test_contractions_interpreter` 4, `test_contractions_sharding` 1 |
+| body-local names with a `J` group suffix | 377 uses of 21 names | `sampling_steps.py` 358 |
+
+- The local-name count differs from the reviewer's 253. My pattern counts every `*_<groups with J><axes>` name, including the `_tilde` and `_dot` forms; the reviewer's 253 is the sum of the names they listed. The plan gives 377, with the main names named.
+- `len_J` is a keyword of two public backend functions, `ut3_operations.pack_vectors` and `pack_if_ragged`. It is absent from `v2026.5.0`, so `len_P` is a free rename.
+- An unknown group letter already raises in `jet_contract`, so M0's "old `J` raises" test sits beside the retired `T` in `TestGroupLengths` (`test_jet_contract.py:827`).
+- No doc page, example or CLAUDE.md names a `J` group (grep).
+
+**3, the letters.**
+- **The minibatch scale is `γ`.** `γ` is free in the glossary's Symbols table and in the code, apart from a local in one `.tex` example; `β` is CG's, and `Φ` is used about a hundred times.
+  - It replaces `s` in §1, §3's signature and text, §4, the M4 row, 9.0 and 9.1.
+  - On a draw, `γ = |W|/b` (the glossary's `|W|`), which also retires the plan's second `n`.
+- **`ℝ`** replaces the reals `R` in 9.0, 9.1 and §1's concrete line. `R` is the right store only.
+- **The factorial diagonal `D` is gone.** §1 writes slot by slot, `r_d[k] = k! r_t[k]` and `c_t[k] = k! c_d[k]`, with `k! = k_1!…k_m!` listed in 9.0 as a factor with no letter.
+- **Two more `D`s, found in passing:**
+  - The rejection table's `D = 3` (the test file's constant) is now `d = 3`.
+  - §1's derivative `Dz(x)` and `D(J^T c)` now use the glossary's upright `d`, which since 2026.5.0 is the derivative symbol and no longer `D`.
+- **9.0 gains** `ω`, `γ`, `m`, `n_j`, `k`, `k!`, `ℝ`, `N_i`, `e`, `λ_j` and `Δ_i`, and a line saying the glossary's `P` row is extended, not duplicated.
+- **M0's record:**
+  - The glossary's `F` mentions note both meanings (the box sizes and the frame `P_F`, `T(F)`).
+  - The preamble's reserved letters gain `P` and `Q`.
+  - Whether `J_in_i` becomes `F_in,i` is left to M0's design note.
+
+**4, Q1.** Q1 now states the trade-off as a table.
+- "Data metric" is the maintainer's chosen name. It is not more exact than "Riesz map": read strictly, "metric" presumes positive-definiteness too.
+- `apply_data_metric` parses, under the library's leading-kind-word grammar, as "the apply kind's data metric".
+- The recommendation moves to **(c) `data_metric`**:
+  - it uses the maintainer's name with no kind word in front;
+  - it reads as the operator applied, `M(r)`;
+  - its cold-reading risk ("build `M`") is answered by the required `r` and the docstring's first line;
+  - a later typed metric object would be a class, `DataMetric`, told apart by case.
+- (a) `apply_data_metric`, (b) `data_riesz_map` and (d) `weigh` stay as options, each with its cost. The body uses `data_metric`.
+
+**5.** The `W` quotation is gone with the Q1 rewrite: (b) now reads "your earlier 'Riesz map'". "an non-diagonal" now reads "a non-diagonal".
+
+**Not changed:** the slice names M0 to M5 beside the symbol `M` (the reviewer's optional point). The one phrase that read oddly, "M1 for `M`", now says "M1 for the data metric".
+
+**Round 6 addendum** (the coordinator's three points from `DATA_METRIC_PLAN_REVIEW_r6.md`; no further review round):
+- **The jet-rescaling letter is now `ℓ_j`**, replacing `λ_j`, which collides with the regularizer's `λ`.
+  - `ℓ` is free in the code, the glossary and the pages, apart from a local subscript in one `.tex` note. It matches
+    `rescale_direction`'s `length`.
+  - 9.3's input-law cell now says "a multiple of the identity" in place of `λ_i I`.
+  - 9.0's claim that "every letter was checked" is gone. It now says that the two new letters, `γ` and `ℓ`, were
+    checked, and names `M` as the one accepted collision.
+- **Q1 (c)'s "Against" cell** now says that the library's noun functions return what they name (`data_block_norms`,
+  `equalizing_weight`), so a `data_metric` that returns `M r` is an exception. The "like `project`" comparison is
+  dropped, since `project` is a verb. The recommendation is kept, with the reason stated: every option breaks one
+  pattern, and this break is the mildest.
+- **Q12 is added: `J_in_i`.**
+  - (a) Rename it to `F_in,i` (recommended): 180 lines, all unreleased, mostly comments, plus 15 uses of a local
+    `J_in`.
+  - (b) Keep it.
+  - (c) Another name.
+- M0's bit-for-bit evidence is left to M0's design note, as instructed.
