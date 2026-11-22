@@ -1396,3 +1396,9 @@ battery (23,577 outputs bitwise equal, 154,550 einsum calls identical) and the r
 byte-identical incl. jitted float32 jax, 743 outputs bitwise equal); per-test counts against a local baseline, exactly
 the two expected nodes differ; 8 reviewer mutants killed. Gate at `-n 2`: suite 1,898 passed (90,945 subtests), 321
 module doctests, 47 pages, 14 examples, Sphinx 0 warnings. The baseline log is kept gzipped. Next: M1.
+
+### M1 designed (2026-11-22), in critique
+
+`M1_DESIGN_NOTE.md`: `data_metric` and `blocks_to_weight` in `jets`, the batch method, the frontend converters made
+private (O-20's frontend check deleted), the law helper `tests/_typing.py` with negative controls, the type-first
+comment grammar. Five decisions to rule after the reviewer's critique.
