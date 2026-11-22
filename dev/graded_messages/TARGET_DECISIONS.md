@@ -863,6 +863,15 @@ good"). Q12: `J_in_i` becomes `F_in,i` (`J` then means only the Jacobian). Q7: C
 T3Polynomial study (`T3POLYNOMIAL_JET_USE.md`); to be confirmed. Q5 (the maintainer leans to the full form only) and Q8
 (does per-element data simplify or complicate the design?) under discussion.
 
+**The data-metric plan: Q5, Q7, Q8** (the maintainer, 2026-11-22). Q7: Taylor coordinates everywhere, one conversion
+at the boundary (data and weight together; a weight computed from the data is computed after converting the data),
+documented in `prepare_derivative_data`, `data_metric` and the pages (`T3POLYNOMIAL_JET_USE.md`). Q5 and Q8, one rule:
+**every data-space object (`y`, the weight `omega`, residuals) has the type of `z`, axis by axis either 1 or `z`'s
+size** (the jet slots, the samples `W`, the stack `C`, the edge; never `K`). The full form only, no block form; a
+constructor helper builds a full-form weight from a block. Per-element data on a stack (`y` with `C`) follows from the
+rule and removes the special alignment of a `y` without `C`; shared data on a stack has size-1 `C` axes. Q3 (the
+signature of `data_metric`) is reopened by this rule.
+
 ## Carried to Part 2 from the implementation of Part 1
 
 **Hard typing inside the engine** (the maintainer, 2026-11-22, from Claude's typing ideas 3 and 4; ideas 1, 2 and 6 are
