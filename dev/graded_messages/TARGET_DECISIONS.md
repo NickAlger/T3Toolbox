@@ -838,6 +838,13 @@ are still with the maintainer. A sub-arc plans and builds 1 and 2 before P17; th
 
 ## Carried to Part 2 from the implementation of Part 1
 
+**Hard typing inside the engine** (the maintainer, 2026-11-22, from Claude's typing ideas 3 and 4; ideas 1, 2 and 6 are
+folded into the data-metric plan, its section 9). (3) Types in `jet_contract`'s grammar: a group letter for dual jets in
+Frobenius form (e.g. `Q`) beside `J`; products of `J` give `J`, a `Q` operand makes the product `Q`, a readout needs
+exactly one `Q`, two `Q`s are an error; checked once per cached string. (4) Types on the declared graph: each variable
+and each step's signature typed (`P⊗...`, `Q⊗...`, `X'`), the graph checked at import. Part 2 reworks `jet_contract`
+anyway.
+
 **The measured slowdown of Part 1, and its cause** (2026-11-21, at the third planned pause; the maintainer asked
 whether it is architectural). It is not. Against the old derivative kernels (numpy): at the example's size the engine
 is about 2x slower from per-call Python overhead; at scale its forwards are 2-6x slower, growing with the jet size and

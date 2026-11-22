@@ -1337,3 +1337,9 @@ tolerance derived from float32 rounding (tighter than before); six gate mutants 
 The data-metric plan refined: `DATA_METRIC_PLAN_REVIEW_r1.md` (15 findings, 3 blocking), the writer's revision and
 `DATA_METRIC_PLAN_RESPONSE_r1.md`, `DATA_METRIC_PLAN_REVIEW_r2.md`: SIGN OFF (the reading rule checked by script, all
 exact; four minor points for the slice designs). **With the maintainer to read before any build** (eight questions).
+Lightweight typing (2026-11-22): the maintainer folds Claude's ideas 1 (the algebraic type in signature comments), 2
+(one public representation of P*, the flip engine-private) and 6 (transformation-law tests) into the data-metric plan
+(its new section 9, Claude's draft); 3 and 4 (types in `jet_contract`'s strings; types on the declared graph) carried
+to Part 2 (TARGET_DECISIONS). Claude corrected one claim in the draft: the jet-rescaling law does not catch a
+Taylor/derivative mix-up. Another writer/reviewer cycle on the plan. **The maintainer decides tomorrow:** the audit's 3
+(corewise representation) and 4 (names), and the plan's questions.

@@ -274,3 +274,40 @@ independent of the code under test, and it ends with the full suite, the module 
    fix). Or add a converter for `Y` elements (a second name for the same arithmetic; its name belongs with decision 4).
 8. **A weight or `y` carrying `C`** (a stacked model with data per element, narrowed in P16, LOG:1240). Out of scope
    here, recommended: a CHANGELOG line, and a later arc if wanted. §2's rule extends to it by one more stack position.
+
+## 9. Lightweight typing (DRAFT, Claude, 2026-11-22; folded in by the maintainer)
+
+The jet/dual-jet and vector/covector distinctions are traps (`SAMPLING_AUDIT.md`; finding A of P13). The maintainer
+folded three of Claude's typing ideas into this arc; two more (types in `jet_contract`'s strings; types on the declared
+graph, checked at import) are carried to Part 2. Notation: `P` the jets on the box `F` (Taylor coefficients); `P*` the
+dual jets **in slot coordinates** (the only public form, 9.2); `V_i = R^{N_i}` the input space of mode `i`, `V_i*` its
+dual; `X`, `X'` the parameter space and its dual. Per sample; the sample stack is a direct sum.
+
+**9.1 The algebraic type in the signature comment.** The comment grammar (`docs/contributor/signature_style.md`) gains
+the algebraic type before the shape: `# P*⊗V_i, len=d, elm_shape=F+W+[K]+C+(Ni,)`. Scope: every public sampling
+function, backend and frontend (forwards, tangents, transposes, second-order transposes, `W`, the dense functions, the
+jets helpers, the oracle's outputs); `SAMPLE_VARIABLES.md` gains a type column for the engine's variables. The typing
+table (Claude's, 2026-11-22): apply at a point `(P⊗V_j)^d -> P`; probe `(P⊗V_j)^d -> ⊕_i P⊗V_i*`; tangent forwards `X ×
+(P⊗V_j)^d -> P` resp. `⊕_i P⊗V_i*`; transposes `P* -> X'` resp. `⊕_i P*⊗V_i -> X'` (given the inputs); probe is apply
+with one slot open, `Hom_P(P⊗V_i, P) = P⊗V_i*`.
+
+**9.2 One public representation of `P*`.** Slot coordinates only. The Frobenius (flipped) form becomes engine-private:
+`jet_to_dual_jet` and `dual_jet_to_jet` lose their public status (underscored; removed from `t3toolbox.fitting`'s
+exports), and the public `W` returns slot coordinates. **This settles the part of decision 4 about their public status;
+to be confirmed by the maintainer.** Count their public uses (tests, doctests, examples, pages).
+
+**9.3 Transformation-law tests.** A test helper (`tests/_typing.py`) checks a function against the transformation laws
+of its declared types, on raw arrays, at no run-time cost:
+- **Jet rescaling `s -> lambda s`:** a `P` coefficient of multi-index `k` scales by `lambda^|k|` (per jet variable,
+  one `lambda_j` each), a `P*` slot coordinate by `lambda^-|k|`; the point and `X`, `X'` do not depend on `s`. This
+  catches a missing, double or misplaced flip (a flipped dual jet scales as `lambda^(n-k)`) and a jet/dual-jet swap.
+  **Correction to Claude's earlier claim:** it does NOT catch a Taylor/derivative mix-up (`d_t = t! a_t` scales as
+  `a_t` does); that stays the dense oracles' job.
+- **Input rescaling `V_i -> D_i V_i`** (diagonal `D_i`), with the point's Tucker cores (and core directions) transformed
+  contragrediently so that the represented forms are unchanged: `V_i` entries scale by `D_i`, `V_i*` entries by
+  `D_i^-1`. This catches a `V`/`V*` swap (the probe residual/sample trap). The exact law on the parameter side (`X`,
+  `X'` under the core transformation) to be derived in M1's design.
+Applied per slice to that slice's functions; in M4 to every public sampling function.
+
+**9.4 Where it goes in the slices.** 9.2 and the 9.3 helper in M1 (with the public `W`); 9.1 for the functions each
+slice touches, completed in M4 (the rename touches every transpose signature anyway); 9.3 applied in M2 to M4.
