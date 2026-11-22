@@ -1314,3 +1314,15 @@ passed, 5 skipped, 1 xfailed, 90,942 subtests, exit 0; the implementer's module 
 library's own numbers. Notes: the weight compile test may also assert the eager products differ (optional); stale
 `uniform_least_squares_problem` docstrings in two test files (P19); the test-vocabulary helpers and the stacked `y`
 for P17 and the CHANGELOG. **P16 complete; squashed into one commit on `graded-messages`.**
+
+### The pause after P16: the sampling audit (2026-11-21)
+
+`dev/graded_messages/SAMPLING_AUDIT.md` (an agent). Main findings: the jet flip is representation, not a metric
+(verified numerically); the transposes and Hessians are correct as maps from `Y` but are named and documented as
+taking a residual (`J^T r`), which reads as `J^T W r` with `W = I` silently; derivative coordinates convert the opposite
+way for `Y` and `Y'` (a trap); `jet_to_dual_jet` is public but no frontend function takes its turned form; the weight
+is block-scalar only (no per-sample weight; entries one global scalar); no input-space weighting; the oracle applies
+the scheme in full; on the parameter side `T3Tangent` holds both `X` and `X'`; corewise sampling exists twice (raw
+core pairs on the TT methods; `T3Tangent` at `(B,G,G,G)` in the frontend local model). Four decisions for the
+maintainer: the type of the transposes' data argument; how much `W` expresses; corewise as point methods or as
+tangent operations of `COREWISE`; then the names.
