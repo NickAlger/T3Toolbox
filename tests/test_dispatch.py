@@ -3658,10 +3658,16 @@ class TestSwitchNewton(unittest.TestCase):
     def test_rounding_gate_at_float32(self):
         """T5: a noise-free fit at the true rank, run to its floor with use_jit=True and x64 off (float32). Every tracked
         row's rounding floor is 1000·ε·(‖ω⊙y‖·‖ω⊙r‖ + |f|) with float32's ε (recorded at the call), and the gate's
-        verdict (recorded) is uninformative exactly on the rows whose two errors are below it (a 1 % margin each side
-        absorbs the float64 ‖y‖ here against the run's float32); every countable row whose two errors are at or below
-        it has switch_count 0 (such rows exist: the run reaches its floor); if the switch fires, its last switch_k rows
-        are informative."""
+        verdict (recorded) is uninformative exactly on the rows whose two errors are below it (a margin of ``tol`` each
+        side, derived below); every countable row whose two errors are at or below it has switch_count 0 (such rows
+        exist: the run reaches its floor); if the switch fires, its last switch_k rows are informative.
+
+        ``r`` and ``f`` are the model's (the frame route's, ``lm.misfit``, read through the callback), which is what the
+        floor reads (``_objective_resolution`` queries ``f_resolution`` at the model's frame). The row's ``misfit`` /
+        ``objective`` are the point route's (D9): at the floor its float32 residual is a different rounding noise of
+        the same size, so a hand floor built from it is off by O(1) on the last rows (measured: 6.6e-5 relative on this
+        laptop, 5.9e-4 to 0.47 under a 1e-7 relative perturbation of the start, 4.8e-4 and 7.3e-4 on CI). See
+        ``dev/graded_messages/implementation/P16_CI_FIX.md``."""
         SH = STRUCT[0]
         rng = np.random.default_rng(7)
         np.random.seed(7)
@@ -3670,7 +3676,7 @@ class TestSwitchNewton(unittest.TestCase):
         problem = F.derivative_fit(bgeo.ManifoldGeometryOps(), 'probe', 1, ww, pp, dd.forward(target, 'probe', ww, pp, 1))
         data = problem.batch.y                                                  # order 1: Taylor = derivatives
         start = t3.TuckerTensorTrain.randn(SH, (2, 2, 2), (1, 2, 2, 1)).data
-        floors, verdicts = [], []
+        floors, verdicts, models = [], [], []
         real = bopt._switch_sample
 
         def recording(delta_f, predicted, curvature, floor, tau):
@@ -3682,23 +3688,36 @@ class TestSwitchNewton(unittest.TestCase):
         jax.config.update('jax_enable_x64', False)
         try:
             with unittest.mock.patch.object(bopt, '_switch_sample', recording):
-                x, stats = problem.newton_cg(start, max_newton=30, gtol_rel=1e-12, hessian='switch',
-                                          use_jit=True)
+                x, stats = problem.newton_cg(start, max_newton=30, gtol_rel=1e-12, hessian='switch', use_jit=True,
+                                             callback=lambda info: models.append(float(info.lm.misfit)))
         finally:
             jax.config.update('jax_enable_x64', x64)
         self.assertEqual(np.asarray(x[0][0]).dtype, np.float32)
         y = float(np.sqrt(sum(np.sum(np.asarray(z, dtype=float) ** 2) for z in data)))
         eps = float(np.finfo(np.float32).eps)
-        tracked = [row for row in stats['history'] if row['switch_e_n'] is not None]
+        # The hand floor is the run's formula on the run's own |r| and f (the model's, the frame route: see the
+        # docstring), so it differs from the recorded floor only by rounding, which bounds tol relative:
+        # * ‖y‖: float64 here, float32 in the run. Rounding the N data to float32 moves ‖y‖ by <= u (u = ε/2); the
+        #   float32 sum of N squares is off by <= (N-1)u + u relative (worst case, recursive summation), its square
+        #   root by half that: <= (N/2 + 2)u in all.
+        # * the float32 evaluation of eps·(‖y‖·sqrt(2f) + |f|) from those values: a few roundings, <= 8u.
+        # tol = (N/2 + 16)·ε covers both with room (N = 600 here: tol ~ 3.8e-5; measured: <= 1.2e-7). A wrong formula
+        # misses by far more: a dropped term, or a factor off by 1 %, fails here (the mutants in P16_CI_FIX.md).
+        n_data = sum(np.size(z) for z in data)
+        tol = (n_data / 2 + 16) * eps
+        tracked = [(row, f) for row, f in zip(stats['history'], models) if row['switch_e_n'] is not None]
         self.assertEqual(len(tracked), len(floors))
+
+        def hand_floor(f):                                                   # f: the model's misfit (unregularized)
+            return 1000.0 * eps * (y * np.sqrt(2.0 * f) + abs(f))
         at_floor = 0
-        for row, floor, informative in zip(tracked, floors, verdicts):
-            expected = 1000.0 * eps * (y * np.sqrt(2.0 * row['misfit']) + abs(row['objective']))
-            self.assertAlmostEqual(floor, expected, delta=1e-4 * expected)
+        for (row, f), floor, informative in zip(tracked, floors, verdicts):
+            expected = hand_floor(f)
+            self.assertAlmostEqual(floor, expected, delta=tol * expected)
             error = max(row['switch_e_gn'], row['switch_e_n'])
-            if error <= 0.99 * expected:
+            if error <= (1.0 - tol) * expected:
                 self.assertFalse(informative)
-            elif error > 1.01 * expected:
+            elif error > (1.0 + tol) * expected:
                 self.assertTrue(informative)
             if error <= expected:
                 at_floor += 1
@@ -3706,9 +3725,8 @@ class TestSwitchNewton(unittest.TestCase):
         self.assertGreater(at_floor, 0)
         self.assertIn(False, verdicts)
         if stats['switched_at'] is not None:
-            for row in stats['history'][stats['switched_at'] - 2:stats['switched_at']]:
-                self.assertGreater(max(row['switch_e_gn'], row['switch_e_n']),
-                                   1000.0 * eps * (y * np.sqrt(2.0 * row['misfit']) + abs(row['objective'])))
+            for row, f in list(zip(stats['history'], models))[stats['switched_at'] - 2:stats['switched_at']]:
+                self.assertGreater(max(row['switch_e_gn'], row['switch_e_n']), hand_floor(f))
 
     def check_use_jit(self, layer, geometry):
         """T9 at one structure: jax in, jax out; after a pure Gauss-Newton trust-region run there, a switch_tau=0 run

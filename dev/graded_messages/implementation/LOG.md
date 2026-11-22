@@ -1329,3 +1329,8 @@ tangent operations of `COREWISE`; then the names.
 Decisions 1 and 2 of the audit taken by the maintainer (TARGET_DECISIONS, "The data metric"); 3 and 4 still with him.
 A sub-arc between P16 and P17 is planned for 1 and 2: Claude's first draft `dev/graded_messages/DATA_METRIC_PLAN.md`,
 refined by a writer/reviewer pair; the maintainer reads it before any build.
+P16's CI failed on `test_dispatch.py::TestSwitchNewton::test_rounding_gate_at_float32` (both legs; passed on the
+laptop). Cause (an agent, `P16_CI_FIX.md`): a route mix in the test after D9, the hand floor read from the reported
+point-route misfit while the gate's floor reads the model's frame route; normal float32 variation between routes
+(reproduced under 1e-7 perturbations of the start). Fixed in the test only: the model's misfit through a callback, a
+tolerance derived from float32 rounding (tighter than before); six gate mutants killed.
