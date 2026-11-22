@@ -1343,3 +1343,8 @@ Lightweight typing (2026-11-22): the maintainer folds Claude's ideas 1 (the alge
 to Part 2 (TARGET_DECISIONS). Claude corrected one claim in the draft: the jet-rescaling law does not catch a
 Taylor/derivative mix-up. Another writer/reviewer cycle on the plan. **The maintainer decides tomorrow:** the audit's 3
 (corewise representation) and 4 (names), and the plan's questions.
+`DATA_METRIC_PLAN_REVIEW_r3.md` on section 9: NOT YET, 7 findings, two of them false claims in Claude's draft: (1) "one
+public representation of P*" is false in the backend (`w_tilde` and the tilde variables are public engine variables
+in the turned form; the converters stay backend-public, frontend-private); (2) no scaling law catches the probe
+residual/sample swap (both arguments carry the input type; the laws are homogeneity tests, necessary not
+sufficient). The reviewer derived and verified the parameter-side law. The writer revises.
