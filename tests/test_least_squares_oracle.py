@@ -11,14 +11,15 @@
 - **``query``:**
   - each output against the engine, on a manifold frame and a corewise point, ragged and uniform (``pack_batch``),
     at ``()``, ``(2,)`` and ``(1, 1)`` (entries ``()``);
-  - ``y_block_sumsq`` and ``f_resolution`` by their formulas;
+  - ``y_block_sumsq`` (``<y, M y>`` per block, M3) and ``f_resolution`` by their formulas;
   - ``held`` exactly the hold-list names the call computed.
 - **The direction on a corewise point:** ``core_directions``, ``variations`` renamed, both the same (and a rebuilt
   tuple of the same arrays), and both different (raises).
 - **The minibatch scale (O-21):**
   - the mean over every subset of the batch size of the drawn ``f`` and ``g`` is the full one, exactly;
-  - on a drawn batch ``r``, ``Jp`` and the block sums are plain, and ``f = 1/2 <r, r>``, ``<Jp, r> = <p, g>`` and
-    ``Jp_norm_sq = <Jp, Jp>`` hold in the batch's inner product;
+  - on a drawn batch ``r`` and ``Jp`` are plain and the block sums scaled (M3), and ``f = 1/2 <r, r>``,
+    ``<Jp, r> = <p, g>``, ``Jp_norm_sq = <Jp, Jp>`` and ``r_block_sumsq = <r, r>`` per block hold in the batch's inner
+    product;
   - ``f_resolution`` is from the unscaled values, scaled once.
 - **The batch:** ``take`` (scale, indices, jets skipped, packed), ``check_batch`` on each wrong part, the pytree round
   trip.
@@ -105,6 +106,12 @@ def y_metric_y(kind, y, weight, z):
         O = np.ones(np.shape(z_i)) if w_i is None else dense_oracle.expand(w_i, np.shape(z_i))
         total += float(np.sum(O * O * Y * Y))
     return total
+
+
+def y_block_metric_y(kind, order, y, weight, z):
+    """<y, M y> at gamma = 1 per block, written out: y and the weight expanded to z's shape by np.repeat (the dense
+    oracle's weighted_full), then a loop over the blocks (block_sumsq_full)."""
+    return dense_oracle.block_sumsq_full(kind, dense_oracle.weighted_full(kind, z, y, weight), len(order))
 
 
 class Fixture(unittest.TestCase):
@@ -280,8 +287,8 @@ class TestQuery(Fixture):
                                                  **d)
                         self.assertEqual(set(held.keys()), free & set(HOLD))
                         (ybs, fres, f), _ = oracle.query(frame, b, ('y_block_sumsq', 'f_resolution', 'f'))
-                        ybs_ref = np.square(bfit.data_preparation.data_block_norms(kind, order, b.y))
-                        self.assertLess(relerr(ybs, ybs_ref), 1e-14)
+                        ybs_ref = y_block_metric_y(kind, order, b.y, b.weight, dict(zip(WANT, got))['r'])
+                        self.assertLess(relerr(ybs, ybs_ref), 1e-13)
                         wy = math.sqrt(y_metric_y(kind, b.y, b.weight, b.y))         # the fixture's y has z's shape
                         eps = np.finfo(float).eps
                         self.assertLess(abs(float(fres) - eps * (wy * math.sqrt(2 * float(f)) + float(f))),
@@ -330,6 +337,7 @@ class TestTheResolutionDtype(Fixture):
         b32 = LeastSquaresBatch(f32(b.sample), f32(b.y), f32(b.weight))
         (f, fres, ybs), _ = LeastSquaresOracle('apply', (2,)).query(frame, b32, ('f', 'f_resolution', 'y_block_sumsq'))
         self.assertEqual(np.asarray(f).dtype, np.float32)
+        self.assertEqual(np.asarray(ybs).dtype, np.float32)                  # the block sums in the result dtype too
         wy = math.sqrt(y_metric_y('apply', np.asarray(b32.y, float), np.asarray(b32.weight, float), b32.y))
         expected = float(np.finfo(np.float32).eps) * (wy * math.sqrt(2 * float(f)) + float(f))
         self.assertLess(abs(float(fres) - expected), 1e-5 * expected)
@@ -393,9 +401,10 @@ class TestTheMinibatchScale(Fixture):
                 values, unscaled = dict(zip(want, got)), dict(zip(want, plain))
                 with self.subTest(kind=kind, order=order):
                     self.assertEqual(s, 3.0)
-                    for name in ('r', 'Jp', 'r_block_sumsq', 'y_block_sumsq'):          # plain
+                    for name in ('r', 'Jp'):                                             # plain
                         self.assertEqual(relerr(values[name], unscaled[name]), 0.0, name)
-                    for name in ('f', 'g', 'Jp_norm_sq', 'JtJp', 'Kp', 'f_resolution'):  # times the scale, once
+                    for name in ('f', 'g', 'Jp_norm_sq', 'JtJp', 'Kp', 'f_resolution', 'r_block_sumsq',
+                                 'y_block_sumsq'):                                      # times the scale, once (M3)
                         self.assertLess(relerr(values[name], [s * a for a in leaves(unscaled[name])]), 1e-15, name)
                     w = sub.weight
                     def inner(a, c):                                              # scale * <a, w^2 c>
@@ -409,6 +418,9 @@ class TestTheMinibatchScale(Fixture):
                     self.assertLess(abs(inner(Jp, r) - pg), 1e-12 * max(abs(pg), 1.0))
                     Jn = float(values['Jp_norm_sq'])
                     self.assertLess(abs(Jn - inner(Jp, Jp)), 1e-12 * Jn)
+                    blocks = s * dense_oracle.block_sumsq_full(kind, dense_oracle.weighted_full(kind, r, r, w),
+                                                               len(order))      # scale * <r, w^2 r> per block
+                    self.assertLess(relerr(values['r_block_sumsq'], blocks), 1e-13)
                     # f_resolution from the UNSCALED values, then the scale once (not s**1.5)
                     fb = f / s
                     wy = math.sqrt(y_metric_y(kind, sub.y, w, values['r']))

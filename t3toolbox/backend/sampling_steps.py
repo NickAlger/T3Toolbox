@@ -1081,18 +1081,21 @@ def f_step(
 
 
 def r_block_sumsq_step(
-        r:      typ.Any,                    # of the type of z: probe len=d, elm_shape=F+W+C+(Ni,); apply F+W+C
+        r:       typ.Any,                   # Y*, of the type of z: probe len=d, elm_shape=F+W+C+(Ni,); apply F+W+C
+        weight:  typ.Any,                   # omega, of the type of z; None = ones
         *,
-        lens:   contractions.GroupLengths,
-        order:  typ.Tuple[int, ...],
-        form:   str,
-        kind:   str,
-) -> NDArray:                               # the unweighted sums of squares per block: the block shape (d,)+F | F | ()
-    '''The sums of squares of the residual, unweighted, per block: per mode and slot for the probe kind (the shape
-    ``(d,) + F``), per slot for the apply kind (``F``). Summed over the samples, the stack ``C`` and the mode edge.'''
-    xnp, _, _ = get_backend(False, tree_contains_jax(r))
+        lens:    contractions.GroupLengths,
+        order:   typ.Tuple[int, ...],
+        form:    str,
+        kind:    str,
+) -> NDArray:                               # <r, M r> at gamma = 1 per block: the block shape (d,)+F | F | ()
+    '''``<r, M r>`` per block, with ``M`` the data metric at ``gamma = 1`` (``data_metric``): per mode and slot for
+    the probe kind (the block shape ``(d,) + F``), per slot for the apply kind (``F``), one number for entries.
+    Summed over the samples, the stack ``C`` and the mode edge. With no weight it is the sum of squares of ``r``.'''
+    xnp, _, _ = get_backend(False, tree_contains_jax((r, weight)))
     m = lens.P
-    sums = [xnp.sum(r_FWCo * r_FWCo, axis=tuple(range(m, r_FWCo.ndim))) for r_FWCo, _, _ in _modes(kind, r, None, xnp)]
+    sums = [xnp.sum(r_FWCo * jets.data_metric(r_FWCo, omega, None), axis=tuple(range(m, r_FWCo.ndim)))
+            for r_FWCo, omega, _ in _modes(kind, r, weight, xnp)]
     return xnp.stack(sums) if kind == 'probe' else sums[0]
 
 

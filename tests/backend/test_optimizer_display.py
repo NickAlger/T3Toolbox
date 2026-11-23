@@ -1,11 +1,12 @@
 """Tests for the backend Newton-CG diagnostic display (backend/optimizer_display.py, D3; P16 part 3: the oracle's
-block sums, errors in the weight's shape, the multi-index table, error_table).
+block sums, errors in the block shape, the multi-index table, error_table).
 
 The formatter is pure (returns a string), so alignment/layout are asserted on the string directly -- no
 stdout capture. Plus end-to-end `make_newton_display` + `newton_cg` runs recording the error arrays, checked against
 dense residuals.
 The whole capability is backend-owned (a raw-.data user gets the identical display; the anti-drift rule)."""
 import dataclasses as dc
+import math
 import unittest
 
 import numpy as np
@@ -17,6 +18,7 @@ import t3toolbox.backend.geometry as bgeo
 import t3toolbox.backend.uniform_fitting as uf
 import t3toolbox.backend.optimizer_display as bdisp
 from t3toolbox.backend.fitting import LeastSquaresOracle, LeastSquaresBatch
+from t3toolbox.backend.regularization import IdentityRegularizer
 from t3toolbox.backend.jets import affine_jet, blocks_to_weight
 import _derivative_data as dd
 import _fits as F                    # a backend fit (geometry, oracle, batch, regularizer) from plain specs (P16)
@@ -99,61 +101,59 @@ class TestFormatter(unittest.TestCase):
 
     def test_header_converged_vs_stepped(self):
         """The header is a full step line normally, a short `converged` line on the final iteration."""
-        full = bdisp._format_header(_info(), obj_unweighted=None)
+        full = bdisp._format_header(_info())
         self.assertIn("CG 14/200", full); self.assertIn("ρ 0.98", full); self.assertIn("✓", full)
-        conv = bdisp._format_header(_info(converged=True, cg_iters=None, cg_converged=None), None)
+        conv = bdisp._format_header(_info(converged=True, cg_iters=None, cg_converged=None))
         self.assertIn("converged", conv); self.assertNotIn("CG ", conv)
 
     def test_converged_line_names_its_reference(self):
         """T29 / C.14: the converged line names the Newton-stop reference (`NewtonInfo.g0_reference`); a
         hand-built row with no reference kind prints exactly as in 2026.2.0 (a display change only)."""
         conv = dict(converged=True, cg_iters=None, cg_converged=None)
-        self.assertTrue(bdisp._format_header(_info(**conv), None).endswith("| converged (‖g‖ ≤ gtol·‖g₀‖)"))
+        self.assertTrue(bdisp._format_header(_info(**conv)).endswith("| converged (‖g‖ ≤ gtol·‖g₀‖)"))
         for kind, name in (('zero', 'zero tensor'), ('warm_start', 'warm start'), ('cone', 'cone (aligned zero tensor)'),
                            ('override', 'override')):
             with self.subTest(g0_reference=kind):
-                line = bdisp._format_header(_info(g0_reference=kind, **conv), None)
+                line = bdisp._format_header(_info(g0_reference=kind, **conv))
                 self.assertTrue(line.endswith("| converged (‖g‖ ≤ gtol·‖g₀‖, g₀ = %s)" % name), line)
-        stepped = bdisp._format_header(_info(g0_reference='zero'), None)     # a stepped row: no reference text
+        stepped = bdisp._format_header(_info(g0_reference='zero'))     # a stepped row: no reference text
         self.assertNotIn("g₀ =", stepped)
 
-    def test_header_unweighted_shown_only_when_differs(self):
-        """`(unwt …)` appears next to the objective only when the unweighted value differs (ω ≠ 1)."""
-        self.assertNotIn("unwt", bdisp._format_header(_info(objective=1.0), obj_unweighted=1.0))
-        self.assertIn("unwt", bdisp._format_header(_info(objective=1.0), obj_unweighted=2.5))
+    def test_no_unweighted_figure(self):
+        """M3: the header has no `(unwt …)` figure (the block sums are weighted, so it would be the misfit itself), and
+        format_newton_iter has no obj_unweighted parameter."""
+        self.assertNotIn("unwt", bdisp._format_header(_info(objective=1.0)))
+        self.assertNotIn("unwt", bdisp._format_header(_info(objective=1.29, misfit=1.0, regularization=0.29)))
+        with self.assertRaises(TypeError):
+            bdisp.format_newton_iter(_info(), None, obj_unweighted=1.0)
 
     def test_header_misfit_reg_breakdown(self):
         """With a regularizer attached the objective splits as `obj = misfit + reg`; unregularized (the
-        default, `regularization=None`) shows no split. The `(unwt …)` gap sits on the misfit and reflects
-        ω alone -- it must NOT fire merely because a regularizer shifts the total (the old comparison bug)."""
-        plain = bdisp._format_header(_info(objective=1.0), obj_unweighted=None)
+        default, `regularization=None`) shows no split."""
+        plain = bdisp._format_header(_info(objective=1.0))
         self.assertNotIn("misfit", plain); self.assertNotIn("+ reg", plain)      # regularization None -> no split
-        reg = bdisp._format_header(_info(objective=1.29, misfit=1.0, regularization=0.29), obj_unweighted=None)
+        reg = bdisp._format_header(_info(objective=1.29, misfit=1.0, regularization=0.29))
         self.assertIn("= misfit 1.000e+00 + reg 2.900e-01", reg)
-        self.assertNotIn("unwt", reg)                                            # no ω -> misfit == unweighted
-        reg_w = bdisp._format_header(_info(objective=1.29, misfit=1.0, regularization=0.29), obj_unweighted=0.8)
-        self.assertIn("misfit 1.000e+00 (unwt 8.00e-01)", reg_w)                 # ω gap annotates the misfit term
-        reg_nobug = bdisp._format_header(_info(objective=1.29, misfit=1.0, regularization=0.29), obj_unweighted=1.0)
-        self.assertNotIn("unwt", reg_nobug)   # unwt == misfit (only reg shifts the total) -> no spurious (unwt …)
 
     def test_truncated_symbol(self):
-        h = bdisp._format_header(_info(cg_converged=False, cg_truncated=True), None)
+        h = bdisp._format_header(_info(cg_converged=False, cg_truncated=True))
         self.assertIn("⌇", h)
 
     # The 2026.2.0 header text, captured from the pre-trust-region formatter (fffdfde) for these rows: the
-    # line-search `step` segment -- and every non-final Gauss-Newton row -- must stay byte-identical.
+    # line-search `step` segment -- and every non-final Gauss-Newton row -- must stay byte-identical (less the
+    # `(unwt …)` figure, dropped in M3).
     _LS_ROWS_2026_2 = [
         (dict(),
-         'iter  3 | obj 5.230e-04 (unwt 1.70e-04)  ‖g‖ 1.44e-03 (2.1e-02·g₀) | CG 14/200 tol 3.0e-04 resid 8.7e-05 ✓ '
+         'iter  3 | obj 5.230e-04  ‖g‖ 1.44e-03 (2.1e-02·g₀) | CG 14/200 tol 3.0e-04 resid 8.7e-05 ✓ '
          '| ls 2 α 2.50e-01 ‖Δx‖/‖x‖ 3.0e-02 | Δf -1.20e-04 ρ 0.98 | 0.31s'),
         (dict(ls_failed=True, ls_steps=40, alpha=2.0 ** -39, cg_converged=False, cg_truncated=True),
-         'iter  3 | obj 5.230e-04 (unwt 1.70e-04)  ‖g‖ 1.44e-03 (2.1e-02·g₀) | CG 14/200 tol 3.0e-04 resid 8.7e-05 ⌇ '
+         'iter  3 | obj 5.230e-04  ‖g‖ 1.44e-03 (2.1e-02·g₀) | CG 14/200 tol 3.0e-04 resid 8.7e-05 ⌇ '
          '| ls 40! α 1.82e-12 ‖Δx‖/‖x‖ 3.0e-02 | Δf -1.20e-04 ρ 0.98 | 0.31s'),
         (dict(cg_converged=False, step_rel=float('nan'), rho=float('nan'), misfit=1e-4, regularization=4.23e-4),
-         'iter  3 | obj 5.230e-04 = misfit 1.000e-04 (unwt 1.70e-04) + reg 4.230e-04  ‖g‖ 1.44e-03 (2.1e-02·g₀) '
+         'iter  3 | obj 5.230e-04 = misfit 1.000e-04 + reg 4.230e-04  ‖g‖ 1.44e-03 (2.1e-02·g₀) '
          '| CG 14/200 tol 3.0e-04 resid 8.7e-05 ⋯ | ls 2 α 2.50e-01 ‖Δx‖/‖x‖ nan | Δf -1.20e-04 ρ nan | 0.31s'),
         (dict(cg_converged=False, g0_reference='zero'),
-         'iter  3 | obj 5.230e-04 (unwt 1.70e-04)  ‖g‖ 1.44e-03 (2.1e-02·g₀) | CG 14/200 tol 3.0e-04 resid 8.7e-05 ⋯ '
+         'iter  3 | obj 5.230e-04  ‖g‖ 1.44e-03 (2.1e-02·g₀) | CG 14/200 tol 3.0e-04 resid 8.7e-05 ⋯ '
          '| ls 2 α 2.50e-01 ‖Δx‖/‖x‖ 3.0e-02 | Δf -1.20e-04 ρ 0.98 | 0.31s'),
     ]
 
@@ -163,7 +163,7 @@ class TestFormatter(unittest.TestCase):
         for kw, expected in self._LS_ROWS_2026_2:
             for extra in (dict(), dict(step_control='line_search', hessian='gauss_newton', cg_boundary=False)):
                 with self.subTest(row=kw, extra=extra):
-                    self.assertEqual(bdisp._format_header(_info(**kw, **extra), obj_unweighted=1.7e-4), expected)
+                    self.assertEqual(bdisp._format_header(_info(**kw, **extra)), expected)
 
     def test_exact_mode_header(self):
         """T19: the trust-region `step` segment (`TR Δ … ✓/✗`), the boundary symbol `∂`, the exact cells
@@ -172,31 +172,31 @@ class TestFormatter(unittest.TestCase):
         tr = dict(step_control='trust_region', hessian='exact', ls_steps=None, ls_failed=None, alpha=1.0,
                   tr_radius=3.1e-2, tr_accepted=True, pHp=8.0e-4, pKp=-2.0e-4, lift_sigma_min=4.2e-1,
                   lift_eps=1.3e-5)
-        accepted = bdisp._format_header(_info(**tr), None)
+        accepted = bdisp._format_header(_info(**tr))
         self.assertIn("| TR Δ 3.10e-02 ✓ ‖Δx‖/‖x‖ 3.0e-02 |", accepted)
         self.assertNotIn("ls ", accepted)
         self.assertTrue(accepted.endswith("| 0.31s | κ -2.0e-01 σ 4.2e-01 ε 1.3e-05"), accepted)   # κ = pKp/(pHp − pKp)
-        self.assertIn("TR Δ 3.10e-02 ✗", bdisp._format_header(_info(**dict(tr, tr_accepted=False)), None))
-        boundary = bdisp._format_header(_info(**dict(tr, cg_converged=False, cg_boundary=True)), None)
+        self.assertIn("TR Δ 3.10e-02 ✗", bdisp._format_header(_info(**dict(tr, tr_accepted=False))))
+        boundary = bdisp._format_header(_info(**dict(tr, cg_converged=False, cg_boundary=True)))
         self.assertIn("resid 8.7e-05 ∂ |", boundary)
-        self.assertIn(" κ — ", bdisp._format_header(_info(**dict(tr, pKp=8.0e-4)), None))         # pHp − pKp = 0
-        self.assertIn(" κ — ", bdisp._format_header(_info(**dict(tr, pKp=float('nan'))), None))
-        absent = bdisp._format_header(_info(**dict(tr, lift_sigma_min=None, lift_eps=None)), None)
+        self.assertIn(" κ — ", bdisp._format_header(_info(**dict(tr, pKp=8.0e-4))))         # pHp − pKp = 0
+        self.assertIn(" κ — ", bdisp._format_header(_info(**dict(tr, pKp=float('nan')))))
+        absent = bdisp._format_header(_info(**dict(tr, lift_sigma_min=None, lift_eps=None)))
         self.assertTrue(absent.endswith("κ -2.0e-01 σ — ε —"), absent)                               # corewise / d = 1
-        nan_radius = bdisp._format_header(_info(**dict(tr, tr_radius=float('nan'), step_rel=float('inf'))), None)
+        nan_radius = bdisp._format_header(_info(**dict(tr, tr_radius=float('nan'), step_rel=float('inf'))))
         self.assertIn("TR Δ — ✓ ‖Δx‖/‖x‖ — |", nan_radius)
-        self.assertNotIn("κ", bdisp._format_header(_info(**dict(tr, hessian='gauss_newton', pKp=None)), None))
+        self.assertNotIn("κ", bdisp._format_header(_info(**dict(tr, hessian='gauss_newton', pKp=None))))
         for reason in ('objective_floor', 'trust_region_floor', 'max_newton', 'line_search'):
             with self.subTest(stop_reason=reason):
-                self.assertTrue(bdisp._format_header(_info(**dict(tr, stop_reason=reason)), None)
+                self.assertTrue(bdisp._format_header(_info(**dict(tr, stop_reason=reason)))
                                 .endswith("| stop: %s" % reason))
         conv = bdisp._format_header(_info(converged=True, cg_iters=None, stop_reason='gradient', g0_reference='zero',
-                                          hessian='exact', step_control='trust_region'), None)
+                                          hessian='exact', step_control='trust_region'))
         self.assertTrue(conv.endswith("| converged (‖g‖ ≤ gtol·‖g₀‖, g₀ = zero tensor)"), conv)
 
 
 class TestTables(unittest.TestCase):
-    """P16 part 3: the table of errors in the weight's shape, laid out by the jet shape ``order`` (D4, O-42)."""
+    """P16 part 3: the table of errors in the block shape, laid out by the jet shape ``order`` (D4, O-42)."""
 
     def test_at_most_one_jet_variable_is_the_2026_5_table(self):
         """m <= 1: weight-shaped errors print as the 2026.5.0 table of their (n_mode, n_order) matrix: probe at ()
@@ -341,7 +341,7 @@ class _NoDataBlockSums(LeastSquaresOracle):
 
 class TestMakeNewtonDisplay(unittest.TestCase):
     """P16 part 3: ``make_newton_display(oracle, batch, val_batch, ...)`` -- the errors through the oracle's block sums,
-    the records in the weight's shape, the validation query without the training ``held``, ``error_table``."""
+    the records in the block shape, the validation query without the training ``held``, ``error_table``."""
 
     def setUp(self):
         np.random.seed(0)
@@ -361,7 +361,7 @@ class TestMakeNewtonDisplay(unittest.TestCase):
         return stats, records, printed, infos
 
     def test_records_in_the_weights_shape(self):
-        """train_err and val_err keep the weight's shape, nothing reduced: () per kind, (2,) and (1, 1) for probe and
+        """train_err and val_err keep the block shape, nothing reduced: () per kind, (2,) and (1, 1) for probe and
         apply; with and without validation (no val_err key without). The (1, 1) table has one column per multi-index."""
         cases = [('probe', ()), ('apply', ()), ('entries', ()), ('probe', (1,)), ('apply', (1,)), ('probe', (1, 1)),
                  ('apply', (1, 1))]
@@ -384,8 +384,8 @@ class TestMakeNewtonDisplay(unittest.TestCase):
 
     def test_the_errors_against_dense_residuals(self):
         """Each row's train and validation errors are the dense per-block relative errors at the row's point (probe
-        per mode, apply and entries a scalar), UNWEIGHTED although the fit is weighted; and the header's (unwt …) is
-        1/2 the dense unweighted residual's squared norm, shown because the weight is nontrivial."""
+        per mode, apply and entries a scalar). The weight is constant within each block (one value per block through
+        blocks_to_weight), so the weighted ratio ‖ω⊙r_b‖/‖ω⊙y_b‖ is the plain one, the 2026.5.0 numbers."""
         dense = {'probe': lambda T, b: _dense_probe(T, b.sample),
                  'apply': lambda T, b: _dense_apply(T, b.sample),
                  'entries': lambda T, b: T[tuple(b.sample)]}
@@ -406,27 +406,80 @@ class TestMakeNewtonDisplay(unittest.TestCase):
                         else:
                             ref = np.linalg.norm(z - y) / np.linalg.norm(y)
                         np.testing.assert_allclose(err, ref, rtol=1e-8)
-                    r = dense[kind](T, batch)
-                    unweighted = 0.5 * (sum(float(np.sum((ri - yi) ** 2)) for ri, yi in zip(r, batch.y))
-                                        if kind == 'probe' else float(np.sum((r - batch.y) ** 2)))
-                    self.assertIn('(unwt %.2e)' % unweighted, text.split('\n')[0])
+                    self.assertNotIn('unwt', text)
 
-    def test_no_unwt_on_an_unweighted_fit(self):
-        """Unweighted, the (unwt …) figure is the misfit itself and is never shown -- not even near the floor, where
-        the misfit the history reports (the point route, D9) and the block sums (the model's frame route) round
-        differently: the display compares like with like."""
-        batch = _batch('probe', (), 40, self.rng, self.target)
-        stats, _, printed, infos = self.run_display(LeastSquaresOracle('probe', ()), batch, max_newton=40,
-                                                    newton=dict(gtol_rel=0.0))
-        self.assertEqual(stats['stop_reason'], 'line_search')               # the Armijo search exhausted: the floor
-        routes = []
-        for info in infos:                                             # the two routes' 1/2 |r|^2 at each row
-            lm = info.lm
-            (r_bs,), _ = lm.oracle.query(lm.frame, lm.batch, ('r_block_sumsq',), Vc=lm.centers[0], held=lm.held)
-            routes.append(abs(0.5 * float(np.sum(r_bs)) - info.misfit) / info.misfit)
-        self.assertGreater(max(routes), 1e-9)                          # somewhere they differ beyond the old test
-        for text in printed:
-            self.assertNotIn('unwt', text)
+    def test_a_zero_weighted_outlier_counts_in_neither_sum(self):
+        """M3: the errors are ``‖ω⊙r_b‖ / ‖ω⊙y_b‖``, so a sample weighted zero is in neither sum. Exact data with one
+        sample corrupted by ``1e3 ‖y‖`` and weighted zero: each row's errors are the plain dense ratio on the batch
+        with that sample DELETED (``np.delete``, no weight anywhere), and the probe fit, exact on the rest, ends near 0
+        while the plain ratio, outlier included, stays near 1 (it would dominate an unweighted table)."""
+        bad = 7
+        for kind, order in (('apply', ()), ('probe', (1,))):
+            with self.subTest(kind=kind, order=order):
+                m = len(order)
+                batch = _batch(kind, order, 40, self.rng, self.target)
+                ys = [np.array(a) for a in (batch.y if kind == 'probe' else [batch.y])]
+                for a in ys:
+                    a[(slice(None),) * m + (bad,)] += 1e3 * np.linalg.norm(a)
+                omega = [np.ones((1,) * m + (40, 1)) for _ in SH] if kind == 'probe' else np.ones((40,))
+                for a in (omega if kind == 'probe' else [omega]):
+                    a[(0,) * m + (bad,)] = 0.0
+                batch = LeastSquaresBatch(batch.sample, ys if kind == 'probe' else ys[0], omega)
+                _, records, _, infos = self.run_display(LeastSquaresOracle(kind, order), batch, max_newton=12)
+                for rec, info in zip(records, infos):
+                    z = getattr(t3.TuckerTensorTrain(*info.x_cores), kind)(batch.sample, order)
+                    zs = list(z) if kind == 'probe' else [z]
+                    kept = [(np.delete(zi - yi, bad, axis=m), np.delete(yi, bad, axis=m)) for zi, yi in zip(zs, ys)]
+                    ref = np.array([[np.linalg.norm(r[slot]) / np.linalg.norm(y[slot])
+                                     for slot in np.ndindex(*r.shape[:m])]
+                                    for r, y in kept]).reshape(np.shape(rec['train_err']))
+                    np.testing.assert_allclose(rec['train_err'], ref, rtol=1e-8, atol=1e-12)   # atol: the rounding
+                plain = max(np.linalg.norm(zi - yi) / np.linalg.norm(yi) for zi, yi in zip(zs, ys))
+                self.assertGreater(plain, 0.5)                               # the outlier, were it counted
+                if kind == 'probe':
+                    self.assertLess(float(np.max(records[-1]['train_err'])), 1e-6)
+
+    def test_each_table_is_under_its_own_batch_weight(self):
+        """M3 (the design review's finding 1, ruled (a)): the training cells are under the run's weight, the validation
+        cells under ``val_batch``'s own weight (here none), each against the dense ratio. The two weights give
+        different numbers here, so a display that lent the training weight to the validation batch would fail."""
+        for kind in ('apply', 'probe'):
+            with self.subTest(kind=kind):
+                omega = 0.2 + 2.0 * self.rng.random(40)                    # one weight per sample
+                batch = _batch(kind, (), 40, self.rng, self.target)
+                batch = dc.replace(batch, y=_perturb(batch.y, 0.2, self.rng),
+                                   weight=[omega[:, None] for _ in SH] if kind == 'probe' else omega)
+                val_batch = _batch(kind, (), 40, self.rng, self.target)
+                val_batch = dc.replace(val_batch, y=_perturb(val_batch.y, 0.2, self.rng))
+                _, records, _, infos = self.run_display(LeastSquaresOracle(kind, ()), batch, val_batch, max_newton=2)
+                dense = (lambda T, b: _dense_probe(T, b.sample)) if kind == 'probe' else \
+                    (lambda T, b: [_dense_apply(T, b.sample)])
+                as_list = (lambda y: list(y)) if kind == 'probe' else (lambda y: [y])
+                for rec, info in zip(records, infos):
+                    T = t3.TuckerTensorTrain(*info.x_cores).to_dense()
+                    w2 = (omega ** 2)[:, None] if kind == 'probe' else omega ** 2
+                    train = [math.sqrt(np.sum(w2 * (z - y) ** 2) / np.sum(w2 * y ** 2))
+                             for z, y in zip(dense(T, batch), as_list(batch.y))]
+                    val = [np.linalg.norm(z - y) / np.linalg.norm(y) for z, y in zip(dense(T, val_batch),
+                                                                                       as_list(val_batch.y))]
+                    lent = [math.sqrt(np.sum(w2 * (z - y) ** 2) / np.sum(w2 * y ** 2))
+                            for z, y in zip(dense(T, val_batch), as_list(val_batch.y))]
+                    np.testing.assert_allclose(rec['train_err'], np.reshape(train, np.shape(rec['train_err'])),
+                                               rtol=1e-8)
+                    np.testing.assert_allclose(rec['val_err'], np.reshape(val, np.shape(rec['val_err'])), rtol=1e-8)
+                    self.assertGreater(float(np.max(np.abs(np.array(lent) - np.array(val)) / np.array(val))), 1e-3)
+
+    def test_no_unwt_figure_on_any_run(self):
+        """M3: no row prints an ``(unwt …)`` figure: weighted, regularized, or on a drawn batch."""
+        oracle = LeastSquaresOracle('apply', ())
+        weighted = dc.replace(_batch('apply', (), 40, self.rng, self.target), weight=0.5 + self.rng.random(40))
+        runs = [dict(batch=weighted), dict(batch=weighted, newton=dict(regularizer=IdentityRegularizer(1e-2))),
+                dict(batch=oracle.take(weighted, np.arange(0, 40, 2)))]
+        for i, run in enumerate(runs):
+            with self.subTest(run=i):
+                _, _, printed, _ = self.run_display(oracle, run['batch'], max_newton=2, newton=run.get('newton'))
+                for text in printed:
+                    self.assertNotIn('unwt', text)
 
     def test_the_queries(self):
         """What the display asks of the oracle: y_block_sumsq once per batch for the callback's life (two runs); each
@@ -465,8 +518,7 @@ class TestMakeNewtonDisplay(unittest.TestCase):
         """Review round 1: numerator and denominator both on the display's ``batch``. A display on the full batch, runs on
         two different draws with the one callback: every row's train_err is the dense relative error on the FULL batch at
         the row's point (the measured case: 2.469 on the drawn third against 0.550 recorded before); those queries get
-        no held (the run's held belongs to the drawn batch); and no (unwt …) annotates the run's misfit with the full
-        batch's."""
+        no held (the run's held belongs to the drawn batch); and no (unwt …) figure is printed (dropped in M3)."""
         import unittest.mock
         oracle = LeastSquaresOracle('apply', ())
         full = _batch('apply', (), 60, self.rng, self.target)
@@ -617,8 +669,8 @@ class TestMakeNewtonDisplay(unittest.TestCase):
                 np.testing.assert_allclose(b[key], a[key], rtol=1e-8)
 
     def test_a_drawn_batch(self):
-        """On a drawn batch the errors and the (unwt …) figure come from the UNSCALED block sums: the errors equal the
-        plain subset's (the scale dropped), and unwt is 1/2 the subset's squared residual while the misfit is scaled."""
+        """On a drawn batch the scale is in both block sums and cancels: the errors equal the plain subset's (the same
+        draw with the scale dropped), and no (unwt …) figure is printed."""
         oracle = LeastSquaresOracle('apply', ())
         full = _batch('apply', (), 60, self.rng, self.target)
         drawn = oracle.take(full, np.arange(0, 60, 3))
@@ -630,9 +682,9 @@ class TestMakeNewtonDisplay(unittest.TestCase):
         display(dc.replace(infos[0], lm=lm))
         np.testing.assert_allclose(on_drawn[0]['train_err'], on_plain[0]['train_err'], rtol=1e-12)
         T = t3.TuckerTensorTrain(*infos[0].x_cores).to_dense()
-        unweighted = 0.5 * float(np.sum((_dense_apply(T, drawn.sample) - drawn.y) ** 2))
-        self.assertIn('(unwt %.2e)' % unweighted, printed[0].split('\n')[0])
-        self.assertAlmostEqual(infos[0].objective / unweighted, 3.0, delta=1e-6)   # the scale, 60 / 20
+        plain = 0.5 * float(np.sum((_dense_apply(T, drawn.sample) - drawn.y) ** 2))
+        self.assertAlmostEqual(infos[0].objective / plain, 3.0, delta=1e-6)        # the run's misfit: the scale, 60/20
+        self.assertNotIn('unwt', printed[0])
 
 
 def _perturb(y, noise, rng):
@@ -864,7 +916,7 @@ class TestSwitchDisplay(unittest.TestCase):
                     switch_fired=False)                          # a tracked hit, the first of two
 
     def header(self, **kw):
-        return bdisp._format_header(_info(**kw), None)
+        return bdisp._format_header(_info(**kw))
 
     def test_the_segment(self):
         """The ratio in ``%.1e``, the count after the row, the mark only where ``switch_fired``; ``—`` where there is
@@ -913,7 +965,7 @@ class TestSwitchDisplay(unittest.TestCase):
         self.assertEqual(self.header(), self.HEADER)
         for kw, expected in TestFormatter._LS_ROWS_2026_2:
             with self.subTest(row=kw):
-                self.assertEqual(bdisp._format_header(_info(**kw), obj_unweighted=1.7e-4), expected)
+                self.assertEqual(bdisp._format_header(_info(**kw)), expected)
                 self.assertNotIn(' sw ', expected)
 
     def _problem(self):

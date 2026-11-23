@@ -24,10 +24,11 @@ run, each Gauss-Newton-phase step row's header carries an ``sw`` segment, before
 tracking ratio ``e_N / e_GN`` and the hit count, the switching row marked ``⇒ exact``); its exact-phase rows, its
 converged line and every row of the other modes print as before.
 
-The relative-error table is ``‖r_b‖ / ‖y_b‖`` per block ``b`` from the oracle's UNWEIGHTED, unscaled block sums of
-squares (``r_block_sumsq`` at the model's frame with its ``held``, ``y_block_sumsq``): the honest per-block recovery
-error, independent of any residual weight and of a draw's scale. A block is an entry of the weight, so the errors have
-the weight's shape: ``(d,) + F`` for probe (modes, then the jet axes ``F``), ``F`` for apply, ``()`` for entries; the
+The relative-error table is ``‖ω⊙r_b‖ / ‖ω⊙y_b‖`` per block ``b``, from the oracle's block sums ``<r, M r>`` and
+``<y, M y>`` (``r_block_sumsq`` at the model's frame with its ``held``, ``y_block_sumsq``), ``M`` the data metric: the
+per-block recovery error under the fit's own weight. A draw's scale is in both sums and cancels; a weight constant
+within each block cancels too (the plain ``‖r_b‖ / ‖y_b‖``); a sample weighted zero counts in neither. The errors have
+the block shape: ``(d,) + F`` for probe (modes, then the jet axes ``F``), ``F`` for apply, ``()`` for entries; the
 records keep them in that shape. The printed layout follows the jet shape ``order`` (D4: given, never read off the
 model): with at most one jet variable it is the 2026.5.0 table -- modes in rows and the orders in columns
 (``train|val`` cells) for probe along a line, a single axis in columns with ``train``/``val`` rows otherwise, a one-line
@@ -54,11 +55,12 @@ __all__ = ['format_newton_iter', 'make_newton_display', 'relative_errors']
 # Relative-error matrix
 # --------------------------------------------------------------------------------------------------
 def relative_errors(
-        residual_block_sumsq: NDArray,   # the oracle's r_block_sumsq: the weight's shape, (d,)+F | F | ()
-        data_block_sumsq:     NDArray,   # the oracle's y_block_sumsq, the same shape
+        residual_block_sumsq: NDArray,   # the oracle's r_block_sumsq, <r, M r> per block, the block shape (d,)+F|F|()
+        data_block_sumsq:     NDArray,   # the oracle's y_block_sumsq, <y, M y> per block, the same shape
 ) -> NDArray:                            # sqrt(num/den) per block, the same shape; NaN where the data block norm is 0
-    """Per-block relative error ``‖r_b‖ / ‖y_b‖ = sqrt(r_block_sumsq / y_block_sumsq)``, elementwise.
-    A zero-norm data block (no signal in that block) is undefined -> ``NaN`` (rendered ``—``)."""
+    """Per-block relative error ``‖ω⊙r_b‖ / ‖ω⊙y_b‖ = sqrt(r_block_sumsq / y_block_sumsq)``, elementwise (a draw's
+    scale, in both sums, cancels). A zero data block (no signal in that block, or a weight of zero throughout it) is
+    undefined -> ``NaN`` (rendered ``—``)."""
     num = np.asarray(residual_block_sumsq, dtype=float)
     den = np.asarray(data_block_sumsq, dtype=float)
     with np.errstate(divide='ignore', invalid='ignore'):
@@ -157,12 +159,12 @@ def _format_columns(
 
 
 def _format_table(
-        train_err:  NDArray,                          # relative errors in the weight's shape
+        train_err:  NDArray,                          # relative errors in the block shape
         val_err:    typ.Optional[NDArray],            # the same shape, or None
         fmt:        str,
         order:      typ.Optional[typ.Tuple[int, ...]] = None,   # the jet shape (D4); None: labelled by position
 ) -> str:
-    """The relative-error table of arrays in the shape of the weight (``(d,) + F`` probe, ``F`` apply, ``()``
+    """The relative-error table of arrays in the block shape (``(d,) + F`` probe, ``F`` apply, ``()``
     entries). With the jet shape ``order`` (``m = len(order)``), the leading ``ndim - m`` axes (none or one) are the
     modes: at ``m <= 1`` the 2026.5.0 table (:py:func:`_format_matrix` of the ``(n_mode, n_order)`` matrix); at
     ``m >= 2`` one column per multi-index of the jet axes, row-major (O-42), mode rows with ``train|val`` cells for
@@ -172,8 +174,8 @@ def _format_table(
     train_err = np.asarray(train_err, dtype=float)
     val_err = None if val_err is None else np.asarray(val_err, dtype=float)
     if val_err is not None and val_err.shape != train_err.shape:
-        raise ValueError("the validation errors have shape %s, the training errors %s: they must agree (the shape of "
-                         "the weight)" % (val_err.shape, train_err.shape))
+        raise ValueError("the validation errors have shape %s, the training errors %s: they must agree (the block "
+                         "shape)" % (val_err.shape, train_err.shape))
     if order is None:
         if train_err.ndim == 0:
             return _format_matrix(train_err.reshape(1, 1), None if val_err is None else val_err.reshape(1, 1), fmt)
@@ -183,7 +185,7 @@ def _format_table(
     m = len(order)
     lead = train_err.ndim - m
     if lead not in (0, 1) or tuple(train_err.shape[lead:]) != tuple(n + 1 for n in order):
-        raise ValueError("relative errors of shape %s do not fit the jet shape order=%r: expected the weight's "
+        raise ValueError("relative errors of shape %s do not fit the jet shape order=%r: expected the block "
                          "shape, (d,) + F or F with F = %r" % (train_err.shape, tuple(order),
                                                                tuple(n + 1 for n in order)))
     if m <= 1:
@@ -253,17 +255,12 @@ def _switch_segment(info: "bopt.NewtonInfo") -> typ.Optional[str]:
     return "sw %s ×%d%s" % (_num(ratio, "%.1e"), count, " ⇒ exact" if getattr(info, 'switch_fired', None) else "")
 
 
-def _format_header(info: "bopt.NewtonInfo", obj_unweighted: typ.Optional[float]) -> str:
+def _format_header(info: "bopt.NewtonInfo") -> str:
     """The one-line per-iteration scalar header (a shorter form on the converged final line). A run's last
     row names its ``stop_reason`` when that is not the gradient test (the converged line says so already)."""
     obj = "obj %.3e" % info.objective
     if info.regularization is not None and info.misfit is not None:   # regularizer attached -> obj = misfit + reg
-        misfit_str = "%.3e" % info.misfit
-        if obj_unweighted is not None and not math.isclose(obj_unweighted, info.misfit, rel_tol=1e-9):
-            misfit_str += " (unwt %.2e)" % obj_unweighted             # ω-weighting gap sits on the misfit term
-        obj += " = misfit %s + reg %.3e" % (misfit_str, info.regularization)
-    elif obj_unweighted is not None and not math.isclose(obj_unweighted, info.objective, rel_tol=1e-9):
-        obj += " (unwt %.2e)" % obj_unweighted                        # unregularized + nontrivial ω: unweighted vs total
+        obj += " = misfit %.3e + reg %.3e" % (info.misfit, info.regularization)
     rel_g = info.gnorm / info.g0norm if info.g0norm else float('nan')
     obj += "  ‖g‖ %.2e (%.1e·g₀)" % (info.gnorm, rel_g)
     parts = ["iter %2d" % info.iteration, obj]
@@ -412,22 +409,19 @@ def _format_timing_table(
 
 def format_newton_iter(
         info:           "bopt.NewtonInfo",       # the per-iteration diagnostics from newton_cg
-        train_err:      typ.Optional[NDArray],    # training relative errors in the weight's shape; None: no table
+        train_err:      typ.Optional[NDArray],    # training relative errors in the block shape; None: no table
         val_err:        typ.Optional[NDArray] = None,   # validation relative errors, the same shape, or None
-        obj_unweighted: typ.Optional[float]   = None,   # ½‖r‖²; shown next to the misfit iff a nontrivial ω makes it differ
         fmt:            str = '%.1e',
         order:          typ.Optional[typ.Tuple[int, ...]] = None,   # the jet shape (D4); None: axes labelled by position
         error_table:    bool = True,              # False: the header lines only
 ) -> str:                                         # the formatted header line(s) + relative-error table
     """Format one Newton iteration as a header line (a ``time`` line under it on a timed row) and the relative-error
-    table (pure -- returns a string). The errors have the weight's shape (``(d,) + F`` probe, ``F`` apply, ``()``
+    table (pure -- returns a string). The errors have the block shape (``(d,) + F`` probe, ``F`` apply, ``()``
     entries); ``order``, the jet shape, says which axes are the jets (D4: given explicitly, never read off the
     model) and so the layout: the 2026.5.0 table for at most one jet variable, one column per multi-index in row-major
     order for two or more (O-42); without it the axes are labelled by position. ``error_table=False`` (or
     ``train_err=None``) gives the header lines alone. When a regularizer is attached the header splits the objective
-    as ``obj = misfit + reg`` (``info.misfit`` / ``info.regularization``); ``obj_unweighted`` (the unweighted
-    ½‖r‖²) is shown next to the **misfit** term only when a nontrivial residual weight ``ω`` makes it differ
-    (unregularized, it annotates the objective, as before).
+    as ``obj = misfit + reg`` (``info.misfit`` / ``info.regularization``).
 
     Examples
     --------
@@ -446,7 +440,7 @@ def format_newton_iter(
         m0  1.9e-02  1.3e-02
         m1  1.0e+00  5.2e-04
 
-    Two jet variables (``order=(1, 1)``: the weight's jet axes ``F = (2, 2)``) give one column per multi-index, in
+    Two jet variables (``order=(1, 1)``: the jet axes ``F = (2, 2)``) give one column per multi-index, in
     row-major order (O-42); here an apply fit with validation, so ``train`` / ``val`` rows:
 
     >>> train = np.array([[2.1e-3, 4.0e-2], [3.3e-2, 1.0e+00]])
@@ -536,7 +530,7 @@ def format_newton_iter(
       time  model 3.5e-03 [frame 4.6e-04 oracle 1.9e-03 comp 3.4e-06 curv 1.1e-03] | grad 2.7e-03 | cg 7.3e-02 (1.5e-02/it) | forms 1.2e-02 | trials 1.8e-03 ×1 [retr 7.8e-04 obj 1.0e-03] | cb 2.4e-04 | rest 1.6e-04
       rel err   1.2e-02
     """
-    header = _format_header(info, obj_unweighted)
+    header = _format_header(info)
     if getattr(info, 'timing', None) is not None:
         header += "\n" + _format_timing(info)
     if not error_table or train_err is None:
@@ -575,13 +569,15 @@ def make_newton_display(
       more per row. Hand the display the very batch object the run uses to take the first path.
 
     The validation numerator is likewise a forward at the same frame on ``val_batch``, never with the model's ``held``.
-    The block sums are unweighted and unscaled, so the errors are the per-block recovery errors whatever the weight
-    and the draw. The header's ``(unwt …)`` figure is ``½ Σ r_block_sumsq``, shown, on the run's own batch only, when
-    it differs from the model's misfit (a nontrivial weight, or a draw's scale). An oracle that lacks either block sum
+    The block sums are ``<r, M r>`` and ``<y, M y>`` per block, so each error is ``‖ω⊙r_b‖ / ‖ω⊙y_b‖``: the per-block
+    recovery error under the weight, a draw's scale cancelling (a weight constant within each block cancels too: the
+    plain ``‖r_b‖ / ‖y_b‖``). **Each table is under its own batch's weight**: the validation cells use ``val_batch``'s
+    weight, so give ``val_batch`` a weight of the same form as ``batch``'s, or the two halves of a ``train|val`` cell
+    are different quantities (a weighted ratio beside an unweighted one, say). An oracle that lacks either block sum
     (not in its ``optional_outputs``) gets the header lines and no table, and its records no error arrays.
 
     **The records.** Each row appends a self-contained record: the history's scalar fields, ``train_err`` and (with a
-    ``val_batch``) ``val_err`` in the weight's shape (``(d,) + F`` probe, ``F`` apply, ``()`` entries), nothing
+    ``val_batch``) ``val_err`` in the block shape (``(d,) + F`` probe, ``F`` apply, ``()`` entries), nothing
     reduced. ``error_table=False`` changes the printed text only. The layout of the printed table follows the oracle's
     ``order`` (:py:func:`format_newton_iter`; an oracle without one: axes labelled by position).
 
@@ -649,22 +645,19 @@ def make_newton_display(
         if val_batch is not None:
             (r_val,), _ = lm.oracle.query(lm.frame, val_batch, ('r_block_sumsq',), Vc=Vc)   # never the model's held
             val_err = relative_errors(_host(r_val), denominators['val'])
-        unweighted = 0.5 * float(r_bs.sum())
-        if not own or math.isclose(unweighted, float(lm.misfit), rel_tol=1e-9):   # the same route: no weight, no scale
-            unweighted = None             # (on another batch it would annotate the run's misfit with another batch's)
-        return train_err, val_err, unweighted
+        return train_err, val_err
 
     def callback(info):
         if previous['lm'] is not None and info.lm is previous['lm']:   # a rejected trial keeps x and its model:
-            train_err, val_err, obj_unweighted = previous['tables']     #   the errors are unchanged
+            train_err, val_err = previous['tables']                     #   the errors are unchanged
         elif tables:
-            train_err, val_err, obj_unweighted = errors(info.lm)
+            train_err, val_err = errors(info.lm)
         else:
-            train_err = val_err = obj_unweighted = None
+            train_err = val_err = None
         previous['lm'] = info.lm if getattr(info, 'tr_accepted', None) is False else None   # the SAME model next row
-        previous['tables'] = (train_err, val_err, obj_unweighted)                          # (not a reused callback's next run)
+        previous['tables'] = (train_err, val_err)                                 # (not a reused callback's next run)
         if print_fn is not None:
-            print_fn(format_newton_iter(info, train_err, val_err, obj_unweighted, fmt, order=order,
+            print_fn(format_newton_iter(info, train_err, val_err, fmt, order=order,
                                         error_table=error_table))
         if record:
             rec = dict(bopt._newton_scalar_record(info))

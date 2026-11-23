@@ -1469,3 +1469,7 @@ investigates (`M2_CI_FIX.md`), under the rule "change the run, not the tolerance
 M3 built (`M3_HANDOVER.md`): suite green (1,960 passed); `f_resolution` and every non-block-sum battery output bitwise
 equal to `68c10621`; display records against `68c10621` within 2.3e-16; the tally only the expected 10 nodes; 5
 mutants killed. The remaining gate steps (doctests, pages, examples, Sphinx) are being run, then the review.
+M3: gate green (suite 1,960 passed; module doctests 325; quickstart; 47 pages; 14 examples; Sphinx 0 warnings);
+`M3_REVIEW_r1.md` SIGN OFF (888 independent block-sum checks; `f_resolution` and 24,871 other battery arrays bitwise
+equal to `68c10621`; the validation rule checked; 5 mutants killed). **M3 committed.** Next: M4 (the transposes typed,
+`residual` -> `c`).

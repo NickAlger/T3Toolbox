@@ -172,7 +172,7 @@ class TestFrontendOptimizers(unittest.TestCase):
         self.assertIn('rel err', out); self.assertIn('cols=mode', out)      # the plain-probe table printed
         self.assertIn('diagnostics', stats)
         self.assertEqual(len(stats['diagnostics']), len(stats['history']))
-        self.assertEqual(np.asarray(stats['diagnostics'][0]['train_err']).shape, (len(SHAPE),))   # the weight's shape
+        self.assertEqual(np.asarray(stats['diagnostics'][0]['train_err']).shape, (len(SHAPE),))   # the block shape
         self.assertIn('val_err', stats['diagnostics'][0])
 
         # a custom callback overrides verbose and receives NewtonInfo
@@ -183,7 +183,7 @@ class TestFrontendOptimizers(unittest.TestCase):
 
     def test_verbose_error_table_and_the_runs_batch(self):
         """P16: ``verbose=True, error_table=False`` prints each row's header line alone, and ``stats['diagnostics']``
-        equals the run with the table (arrays bitwise); the records at ``order=(1, 1)`` keep the weight's shape and the
+        equals the run with the table (arrays bitwise); the records at ``order=(1, 1)`` keep the block shape and the
         table has one column per multi-index, row-major; the display is handed the very batch the run uses, so each
         row's numerator reads the model's held residual (its query on the run's batch carries the model's held), ragged
         and under ``use_jit`` (the batch converted once, before the display)."""

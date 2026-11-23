@@ -920,6 +920,14 @@ class TestDispatch(unittest.TestCase):
                 for p, q in zip(jax.tree_util.tree_leaves(g), jax.tree_util.tree_leaves(g_eager)):
                     self.assertLess(norm(np.asarray(p) - np.asarray(q)), 1e-10 * max(norm(np.asarray(q)), 1.0))
                 self.assertEqual(held.keys(), oracle.query(frame, b, ('f',))[1].keys())
+                # the two block sums (M3; y_block_sumsq is the oracle's own, its C read off the frame's shapes)
+                sums = jax.jit(lambda c, bb: oracle.query(tuple(c) + statics, bb,
+                                                          ('r_block_sumsq', 'y_block_sumsq'))[0])
+                traced = sums(cores, b)
+                self._leaves_all_jax(traced)
+                eager, _ = oracle.query(frame, b, ('r_block_sumsq', 'y_block_sumsq'))
+                for p, q in zip(traced, eager):
+                    self.assertLess(norm(np.asarray(p) - np.asarray(q)), 1e-10 * norm(np.asarray(q)))
 
     def test_jit_the_sampling_functions(self):
         """P12b: every backend sampling function by its signature, ragged and uniform (the six new corewise tangents
@@ -974,7 +982,8 @@ class TestDispatch(unittest.TestCase):
                     self.assert_jit_jax(fn, *args)
 
     def test_jit_sampling_variables(self):
-        """The engine under ``jax.jit`` for ``('f', 'g')`` (a stray ``np.`` on a tracer would raise): jax in, jax out;
+        """The engine under ``jax.jit`` for ``('f', 'g', 'r_block_sumsq')`` (a stray ``np.`` on a tracer would raise;
+        M3's weighted block sums included): jax in, jax out;
         numpy in under the trace (the frame closed over) gives jax too; the numbers are numpy's; the jet shape
         ``(2,)`` along a line and none."""
         import t3toolbox.backend.jets as jets
@@ -991,18 +1000,21 @@ class TestDispatch(unittest.TestCase):
             F = tuple(n + 1 for n in order)
             y = [rng.standard_normal(F + (2, n)) for n in N]
             weight = jets.blocks_to_weight('probe', order, 0.5 + rng.random((3,) + F), y)
-            fn = lambda frame, sample, y, weight: sv.sampling_variables('probe', frame, sample, ('f', 'g'),
-                                                                        order=order, y=y, weight=weight)
-            on_numpy, g_numpy = fn(frame, sample, y, weight)
+            fn = lambda frame, sample, y, weight: sv.sampling_variables('probe', frame, sample,
+                                                                        ('f', 'g', 'r_block_sumsq'), order=order,
+                                                                        y=y, weight=weight)
+            on_numpy, g_numpy, blocks_numpy = fn(frame, sample, y, weight)
             to_jax = lambda tree: jax.tree_util.tree_map(jnp.asarray, tree)
             with self.subTest(order=order):
                 self.assert_jit_jax(fn, *to_jax((frame, sample, y, weight)))
-                jitted, g_jitted = jax.jit(fn)(*to_jax((frame, sample, y, weight)))
+                jitted, g_jitted, blocks_jitted = jax.jit(fn)(*to_jax((frame, sample, y, weight)))
                 self.assertLess(abs(float(jitted) - float(on_numpy)), 1e-12 * abs(float(on_numpy)))
+                self.assertLess(norm(np.asarray(blocks_jitted) - blocks_numpy), 1e-12 * norm(blocks_numpy))
                 for a, b in zip(jax.tree_util.tree_leaves(g_jitted), jax.tree_util.tree_leaves(g_numpy)):
                     self.assertLess(norm(np.asarray(a) - b), 1e-12 * norm(b))
-                closed, g_closed = jax.jit(lambda sample, y: fn(frame, sample, y, weight))(*to_jax((sample, y)))
-                self._leaves_all_jax((closed, g_closed))
+                closed, g_closed, blocks_closed = jax.jit(lambda sample, y: fn(frame, sample, y, weight))(
+                    *to_jax((sample, y)))
+                self._leaves_all_jax((closed, g_closed, blocks_closed))
                 self.assertLess(abs(float(closed) - float(on_numpy)), 1e-12 * abs(float(on_numpy)))
 
     def test_jit_sampling_variables_with_a_stack_of_directions(self):

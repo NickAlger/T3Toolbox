@@ -526,13 +526,14 @@ def newton_cg(
     (below) are the backend's too, checked at the call before the problem is built and forwarded only when set.
 
     ``verbose=True`` prints a per-iteration diagnostic block (objective / gradient, CG stats, line search,
-    and the per-block relative-error table, in the shape of the weight); pass ``val_batch`` (a batch for the same
-    oracle) to add a validation column, and ``error_table=False`` to print the header lines only (the records are
-    unchanged). With a ``regularizer`` attached the objective is shown split as ``obj = misfit +
-    reg`` (the ``½‖ω⊙r‖²`` data misfit vs ``ρ(x)``); both parts are on every record as ``misfit`` /
-    ``regularization`` (the latter ``None`` when unregularized), in ``stats['history']`` (always) and
-    ``stats['diagnostics']`` (when verbose). This is a
-    thin convenience over the **backend** display -- a raw-``.data`` user builds the same callback with
+    and the per-block relative-error table ``‖ω⊙r_b‖ / ‖ω⊙y_b‖``, in the block shape); pass ``val_batch`` (a batch
+    for the same oracle) to add a validation column, and ``error_table=False`` to print the header lines only (the
+    records are unchanged). Each table is under its own batch's weight: give ``val_batch`` a weight of the same form as
+    ``batch``'s, or the training and validation cells are different quantities. With a ``regularizer`` attached the
+    objective is shown split as ``obj = misfit + reg`` (the ``½‖ω⊙r‖²`` data misfit vs ``ρ(x)``); both parts are on
+    every record as ``misfit`` / ``regularization`` (the latter ``None`` when unregularized), in ``stats['history']``
+    (always) and ``stats['diagnostics']`` (when verbose). This is a thin convenience over the **backend** display --
+    a raw-``.data`` user builds the same callback with
     :py:func:`t3toolbox.backend.optimizer_display.make_newton_display` and passes it as ``callback=`` to
     :py:func:`t3toolbox.backend.optimizers.newton_cg`; this one hands the display the very batch the run uses (under
     ``use_jit`` the converted one), so each row reads the residual the model's build computed. A custom ``callback``

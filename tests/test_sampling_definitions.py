@@ -475,7 +475,8 @@ class TestOutputsAgainstDense(unittest.TestCase):
 
                 sums = sdef.r_block_sumsq(kind, P.frame, sample, **args)
                 self.assertEqual(np.shape(sums), ((P.d,) if kind == 'probe' else ()) + case.box)  # the block shape
-                expected = np.array([np.sum(r_i ** 2, axis=tuple(range(case.m, r_i.ndim))) for r_i in r])
+                expected = np.array([np.sum(wr * r_i, axis=tuple(range(case.m, r_i.ndim)))   # <r, weight**2 r>
+                                     for wr, r_i in zip(ring.weighted(r, weight, kind), r)])      #   per block (M3)
                 self.check(np.reshape(sums, expected.shape), expected)
 
                 Jp = ring.lift(modes_of(kind, sdef.Jp(kind, P.frame, sample, **args)))

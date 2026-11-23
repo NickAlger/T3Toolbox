@@ -3206,9 +3206,9 @@ def r_block_sumsq(
         weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> NDArray:                                                # the block shape: probe (d,)+F; apply F; entries ()
-    """``r_block_sumsq``: the sum of squares of the residual in each block, unweighted. A block is one mode at one
-    slot of the box ``F`` (probe) or one slot (apply; entries has the one block), so the result has the block shape;
-    the sum is over the samples and the mode edge. Needs ``y``.
+    """``r_block_sumsq``: ``<r, weight**2 r>`` in each block, the weighted sum of squares of the residual (the sum of
+    squares with no weight). A block is one mode at one slot of the box ``F`` (probe) or one slot (apply; entries has
+    the one block), so the result has the block shape; the sum is over the samples and the mode edge. Needs ``y``.
 
     Returns
     -------
@@ -3236,6 +3236,15 @@ def r_block_sumsq(
     >>> r = sdef.r('probe', frame, line, order=(2,), y=y)
     >>> print(bool(np.allclose(sums[1, 2], np.sum(r[1][2] ** 2))))
     True
+
+    Weighted, one weight per sample (``F + W + (1,)``): a zero drops the sample from every block.
+
+    >>> weight = [np.ones((1, 7, 1)) for n in N]
+    >>> for omega in weight:
+    ...     omega[0, 3, 0] = 0.0
+    >>> sums = sdef.r_block_sumsq('probe', frame, line, order=(2,), y=y, weight=weight)
+    >>> print(bool(np.allclose(sums[1, 2], np.sum(np.delete(r[1][2], 3, axis=0) ** 2))))
+    True
     """
     _no_index(i, 'r_block_sumsq')
     S = _setting(kind, frame, sample, order)
@@ -3244,7 +3253,7 @@ def r_block_sumsq(
     m = len(S.order)
 
     def sumsq(i, r_FX):
-        return xnp.sum(r_FX ** 2, axis=tuple(range(m, r_FX.ndim)))
+        return xnp.sum(_weight_squared(S, weight, i, r_FX.shape) * r_FX ** 2, axis=tuple(range(m, r_FX.ndim)))
     sums = _map_type_of_z(S, sumsq, r_)
     return xnp.stack(sums) if kind == 'probe' else sums
 

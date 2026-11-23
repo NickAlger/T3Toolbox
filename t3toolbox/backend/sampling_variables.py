@@ -52,7 +52,7 @@ The graph of the probe kind on a manifold frame (the graph of a corewise point i
 | `z` | site | `z_step` | `eta_D`, `D` |  | no |  |
 | `r` | whole | `r_step` | `z`, `y` | `y` | no |  |
 | `f` | whole | `f_step` | `r`, `weight` |  | no |  |
-| `r_block_sumsq` | whole | `r_block_sumsq_step` | `r` |  | no |  |
+| `r_block_sumsq` | whole | `r_block_sumsq_step` | `r`, `weight` |  | no |  |
 | `w_tilde` | whole | `w_tilde_step` | `r`, `weight` |  | no |  |
 | `xi_tilde` | site | `xi_tilde_step` | `D`, `w_tilde` |  | no |  |
 | `mu_tilde` | left | `mu_tilde_step` | `L`, `mu`, `xi`, `xi_tilde` |  | no | zeros |
@@ -265,11 +265,11 @@ stored with every jet axis turned. For the apply kind ``z``, ``r``, ``w_tilde`` 
 | `_eta_tilde_dot_top` | site | min(F_in_i, F) | nD_i |
 
 A variable made by a row with ``K = yes`` has ``K`` after ``W`` (``P + W + K + C + (size,)``; a block ``K + C`` and the
-core's shape); a private node's shape is its base's. ``f`` has the shape ``C``; ``r_block_sumsq`` the block shape
-``(d,) + F`` (``F`` for apply); ``Jp_norm_sq`` the shape ``K + C``; ``g`` is the pair ``(V_tilde, H_tilde)``, ``JtJp`` the
-pair of their twins and ``Kp`` the pair ``(V_tilde_dot, H_tilde_dot)``. On a corewise point the sizes of ``R`` and ``U``
-are those of ``L`` and ``D``. A bond index runs over ``0 .. d`` (``d + 1`` arrays), a site or a mode index over
-``0 .. d-1``.
+core's shape); a private node's shape is its base's. ``f`` has the shape ``C``; ``r_block_sumsq``, ``<r, M r>`` per
+block (weighted as ``f`` is), the block shape ``(d,) + F`` (``F`` for apply); ``Jp_norm_sq`` the shape ``K + C``;
+``g`` is the pair ``(V_tilde, H_tilde)``, ``JtJp`` the pair of their twins and ``Kp`` the pair ``(V_tilde_dot,
+H_tilde_dot)``. On a corewise point the sizes of ``R`` and ``U`` are those of ``L`` and ``D``. A bond index runs over
+``0 .. d`` (``d + 1`` arrays), a site or a mode index over ``0 .. d-1``.
 
 **What a call does, in order**: it checks what it needs to run, and nothing more; reads the
 layout and the call type from the structure of the frame; takes the closure of what is wanted over the graph, the
@@ -372,7 +372,7 @@ _PLAIN_ROWS = (
 _RESIDUAL_ROWS = (
     Rule('r',              ('whole', 'r_step'),             ('z', 'y'),                    frozenset({'y'}),  False),
     Rule('f',              ('whole', 'f_step'),             ('r', 'weight'),               _NONE,             False),
-    Rule('r_block_sumsq',  ('whole', 'r_block_sumsq_step'), ('r',),                        _NONE,             False),
+    Rule('r_block_sumsq',  ('whole', 'r_block_sumsq_step'), ('r', 'weight'),               _NONE,             False),
     Rule('w_tilde',        ('whole', 'w_tilde_step'),       ('r', 'weight'),               _NONE,             False),
 )
 

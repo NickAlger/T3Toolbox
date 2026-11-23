@@ -44,9 +44,10 @@ changed on the branch since 2026-11-16 (slices P0 to P4 of Part 1); `main` has n
 (`dev/graded_messages/DATA_METRIC_PLAN.md`, complete; decisions in `TARGET_DECISIONS.md`, notes of 2026-11-21/22) is
 being built slice by slice on `graded-messages`. **Done:** M0 (`64465d8b`, the `J -> P` rename), M1 (`c16aa640`,
 `data_metric`, `blocks_to_weight`, the law helper), M2 (`68c10621`, the data-space rule; squashed from the local branch
-`m2-wip`, kept as a record). **In progress:** M3 (the weighted block sums `r_block_sumsq`/`y_block_sumsq` as
-`<., M .>` over `z`'s shape; the display ratio from them; the `(unwt ...)` figure dropped), a fresh implementer
-writing `implementation/M3_DESIGN_NOTE.md`. **Then:** M4 (the transposes typed: `residual` -> `c` in 42 functions), M5
+`m2-wip`, kept as a record). M3 (the weighted block sums, the display ratio, `unwt` dropped) is COMMITTED. **P19 must carry, from the M arc:**
+the upgrade note "remove the fourth argument" of `format_newton_iter` (D1, M-arc 20); the page sentence
+`docs/fitting_and_optimization.md:114` (the weighted ratio, equal to the plain one for a weight constant per block);
+the prose naming removed factories and `uniform_least_squares_problem`; `frame_stack_shape` if the maintainer approves. **Then:** M4 (the transposes typed: `residual` -> `c` in 42 functions), M5
 (the type comments, comments only), then STOP and discuss `implementation/M_ARC_DECISIONS.md` with the maintainer
 (he authorized M2 to M5 without stopping unless a major issue arises, and asked that Claude's decisions be tracked
 there), then the `from_t3` slice, then P17. **Process per slice:** design note -> the reviewer's critique -> Claude's

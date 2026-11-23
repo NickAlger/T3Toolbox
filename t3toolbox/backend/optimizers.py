@@ -189,7 +189,10 @@ class Oracle(typ.Protocol):
     (O-8), passed back unread by the optimizers; in a compiled program it must be something jax can carry (arrays,
     tuples, ``None`` or a registered record, O-30). The required outputs are ``f``, ``g``, ``JtJp`` and
     ``Jp_norm_sq``; ``optional_outputs`` names which of ``Kp``, ``Jp``, ``r``, ``r_block_sumsq``, ``y_block_sumsq``
-    and ``f_resolution`` it supplies (O-7). The blocks are returned before the geometry's projection.
+    and ``f_resolution`` it supplies (O-7). The blocks are returned before the geometry's projection. The two block
+    sums are what the display divides, per block (:py:func:`~t3toolbox.backend.optimizer_display.relative_errors`):
+    the least-squares oracle's are ``<r, M r>`` and ``<y, M y>``, weighted and scaled like ``f``, so a user oracle
+    that returns plain sums of squares gets plain ratios.
 
     **What the optimizers rely on.** ``held`` is valid for one frame and one batch: the optimizers hand a model's
     ``held`` back only to queries at that model's frame on that model's batch, and never across a draw, a trial point,

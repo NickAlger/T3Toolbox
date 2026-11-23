@@ -131,12 +131,12 @@ def data_block_norms(
         kind:   str,                       # 'probe' | 'apply' | 'entries'
         order:  typ.Tuple[int, ...],       # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...). entries: ()
         y:      typ.Any,                   # the data: probe len=d, elm_shape=F+W+(Ni,); apply F+W; entries W
-) -> NDArray:                              # the shape of the weight: probe (d,)+F; apply F; entries ()
-    """The norm of each block of the data, in the shape of the weight.
+) -> NDArray:                              # the block shape: probe (d,)+F; apply F; entries ()
+    """The norm of each block of the data, in the block shape.
 
-    A block is what one entry of the weight multiplies: for ``'probe'`` the data of one mode at one slot of the box
-    ``F`` (so the result has shape ``(d,) + F``), for ``'apply'`` the data at one slot (shape ``F``), and for
-    ``'entries'``, which has no jets, all the data (shape ``()``). The norm is the root of the sum of squares over
+    A block is, for ``'probe'``, the data of one mode at one slot of the box ``F`` (so the result has shape
+    ``(d,) + F``), for ``'apply'`` the data at one slot (shape ``F``), and for ``'entries'``, which has no jets, all
+    the data (shape ``()``). The norm is the root of the sum of squares over
     the samples (and, for probe, over the mode's coordinates). With no jets the result has shape ``(d,)`` for probe
     and is a 0-dimensional array for the others. The data are of the ragged type (for ``'probe'`` a tuple or a
     list, one array per mode), not an array packed for the uniform layout.

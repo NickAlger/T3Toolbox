@@ -202,3 +202,31 @@ def misfit_full(kind, X, sample, y, weight=None, order=()):
     """``1/2 sum (omega * (S(x) - y))**2`` over every entry of z (modes, slots, samples, the edge), Taylor
     coordinates, the full form. One dense tensor ``X`` (no stack: loop over the elements of a stack)."""
     return 0.5 * sumsq(weighted_residual_full(kind, S_taylor(kind, X, sample, order), y, weight))
+
+
+def weighted_full(kind, like, value, weight):
+    """``omega * value`` entry by entry at ``like``'s shapes (``like`` of the type of z, e.g. ``S_taylor``'s output):
+    ``value`` and ``omega`` of the type of z, both written out by ``expand`` (no broadcasting). ``weight=None`` is
+    ones. Probe: a list. The data's half of the block sums (M3), as ``weighted_residual_full`` is the residual's."""
+    zs = _modes(kind, like, len(like) if kind == 'probe' else None)
+    vs = _modes(kind, value, len(zs))
+    ws = [None] * len(zs) if weight is None else _modes(kind, weight, len(zs))
+    out = []
+    for z, v, w in zip(zs, vs, ws):
+        shape = np.shape(z)
+        v = expand(v, shape)
+        out.append(v if w is None else expand(w, shape) * v)
+    return out if kind == 'probe' else out[0]
+
+
+def block_sumsq_full(kind, values, m):
+    """The sum of squares of each block of ``values`` (of the type of z, e.g. ``weighted_full`` or
+    ``weighted_residual_full``), by loops over the blocks: the block shape ``(d,) + F`` (probe), ``F`` (apply), ``()``
+    (entries), with ``m`` jet axes leading each array; everything after them (the samples, the edge) is summed."""
+    arrays = [np.asarray(v, dtype=float) for v in (values if kind == 'probe' else [values])]
+    F = arrays[0].shape[:m]
+    out = np.zeros((len(arrays),) + F)
+    for i, a in enumerate(arrays):
+        for slot in np.ndindex(*F):
+            out[(i,) + slot] = float(np.sum(a[slot] ** 2))
+    return out if kind == 'probe' else out[0]

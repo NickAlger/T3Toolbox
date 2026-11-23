@@ -35,7 +35,6 @@ import t3toolbox.backend.sampling_derivatives as pd
 from t3toolbox.backend import apply as bapply
 from t3toolbox.backend import entries as bentries
 import t3toolbox.backend.sampling_variables as sampling_variables
-import t3toolbox.backend.data_preparation as data_preparation
 import t3toolbox.backend.jets as jets
 import t3toolbox.backend.ut3_operations as ut3_operations
 from t3toolbox.backend.common import *
@@ -751,7 +750,8 @@ probe_derivatives_kind = ProbeDerivativesKind
 
 _KINDS = ('probe', 'apply', 'entries')
 _HOLD_LIST = ('xi', 'mu', 'nu', 'eta', 'r')            # Part 1's fixed hold list (7.2, "as today")
-_SCALED = ('f', 'g', 'JtJp', 'Jp_norm_sq', 'Kp')        # the minibatch scale's reach (O-21), with f_resolution
+_SCALED = ('f', 'g', 'JtJp', 'Jp_norm_sq', 'Kp', 'r_block_sumsq')   # the minibatch scale's reach (O-21), with the
+                                                                      #   oracle's own y_block_sumsq and f_resolution
 
 
 @dataclass(frozen=True, eq=False)
@@ -855,11 +855,48 @@ def _arrays_of(
     return list(ut3_operations.unpack_vectors(value, shape))
 
 
-def _y_metric_y(
+def _stack_of_frame(
+        frame:  typ.Tuple,                  # any of the four forms (sampling_variables.frame_form)
+) -> typ.Tuple[int, ...]:                   # C, the stack of base points
+    '''The stack of base points ``C`` of a frame or a corewise point: the leading axes of the first Tucker core
+    (``D[0]`` or ``B[0]``) on the ragged layout, the axes after ``d`` of the Tucker supercore on the uniform one.
+    The data and the weight cannot give it: shared by the stack, they have size-1 ``C`` axes.'''
+    layout, _ = sampling_variables.frame_form(frame)
+    if layout == 'uniform':
+        return tuple(int(n) for n in np.shape(frame[0])[1:-2])
+    return tuple(int(n) for n in np.shape(frame[0][0])[:-2])
+
+
+def _y_times_metric_y(
         kind:    str,                       # 'probe' | 'apply' | 'entries'
         order:   typ.Tuple[int, ...],       # the jet shape
         y:       typ.Any,                   # Y*, the data, of the type of z: probe len=d (or (d,)+..., packed or not),
                                             #   elm_shape=F+W+C+(Ni,); apply F+W+C; entries W+C; each axis 1 or z's size
+        weight:  typ.Any,                   # omega, of the type of z likewise; None = ones
+        W:       typ.Tuple[int, ...],       # the sample stack, read off the sample
+        C:       typ.Tuple[int, ...],       # the stack of base points
+        shape:   typ.Tuple[int, ...],       # the mode sizes N_i
+) -> typ.List[NDArray]:                     # y * M y at gamma = 1, entrywise at z's shape: per mode (probe), or one
+    '''``y * data_metric(y, omega, None)`` at ``z``'s shape, one array per mode for probe (one otherwise): ``y`` is
+    broadcast to ``z``'s shape first, so an axis where ``y`` has size 1 and ``z`` does not counts every entry of ``z``
+    along it, as ``f`` and ``r_block_sumsq`` do. The two data sums below reduce it.'''
+    F = tuple(n + 1 for n in order)
+    xnp, _, _ = get_backend(False, tree_contains_jax((y, weight)))
+    if kind == 'probe':
+        targets = [F + W + C + (N,) for N in shape]
+    else:
+        targets = [(F + W + C) if kind == 'apply' else (W + C)]
+    products = []
+    for y_i, omega_i, z_shape in zip(_arrays_of(kind, y, shape), _arrays_of(kind, weight, shape), targets):
+        y_full = xnp.broadcast_to(xnp.asarray(y_i), z_shape)
+        products.append(y_full * jets.data_metric(y_full, omega_i, None))
+    return products
+
+
+def _y_metric_y(
+        kind:    str,                       # 'probe' | 'apply' | 'entries'
+        order:   typ.Tuple[int, ...],       # the jet shape
+        y:       typ.Any,                   # Y*, the data, of the type of z (_y_times_metric_y)
         weight:  typ.Any,                   # omega, of the type of z likewise; None = ones
         W:       typ.Tuple[int, ...],       # the sample stack, read off the sample
         C:       typ.Tuple[int, ...],       # the stack of base points (the shape of f)
@@ -871,19 +908,32 @@ def _y_metric_y(
     along it, as ``f`` does (the floor bounds the rounding of ``f``, which sums every sample). The metric is
     :py:func:`~t3toolbox.backend.jets.data_metric`, the library's one ``omega**2``.'''
     m = len(order)
-    F = tuple(n + 1 for n in order)
     xnp, _, _ = get_backend(False, tree_contains_jax((y, weight)))
-    if kind == 'probe':
-        targets = [F + W + C + (N,) for N in shape]
-    else:
-        targets = [(F + W + C) if kind == 'apply' else (W + C)]
     total = None
-    for y_i, omega_i, z_shape in zip(_arrays_of(kind, y, shape), _arrays_of(kind, weight, shape), targets):
-        y_full = xnp.broadcast_to(xnp.asarray(y_i), z_shape)
-        summed_axes = tuple(range(m + len(W))) + ((len(z_shape) - 1,) if kind == 'probe' else ())
-        summed = xnp.sum(y_full * jets.data_metric(y_full, omega_i, None), axis=summed_axes)
+    for product in _y_times_metric_y(kind, order, y, weight, W, C, shape):
+        summed_axes = tuple(range(m + len(W))) + ((product.ndim - 1,) if kind == 'probe' else ())
+        summed = xnp.sum(product, axis=summed_axes)
         total = summed if total is None else total + summed
     return total
+
+
+def _y_block_metric_y(
+        kind:    str,                       # 'probe' | 'apply' | 'entries'
+        order:   typ.Tuple[int, ...],       # the jet shape
+        y:       typ.Any,                   # Y*, the data, of the type of z (_y_times_metric_y)
+        weight:  typ.Any,                   # omega, of the type of z likewise; None = ones
+        W:       typ.Tuple[int, ...],       # the sample stack, read off the sample
+        C:       typ.Tuple[int, ...],       # the stack of base points
+        shape:   typ.Tuple[int, ...],       # the mode sizes N_i
+) -> NDArray:                               # <y, M y> at gamma = 1 per block: the block shape (d,)+F | F | ()
+    '''``<y, M y>`` per block, with ``M`` the data metric at ``gamma = 1``, over ``z``'s shape: per mode and slot for
+    probe, per slot for apply, one number for entries; summed over the samples, the stack ``C`` and the mode edge. The
+    data's half of ``r_block_sumsq``: the same blocks, the same metric, the same entries counted.'''
+    m = len(order)
+    xnp, _, _ = get_backend(False, tree_contains_jax((y, weight)))
+    sums = [xnp.sum(product, axis=tuple(range(m, product.ndim)))
+            for product in _y_times_metric_y(kind, order, y, weight, W, C, shape)]
+    return xnp.stack(sums) if kind == 'probe' else sums[0]
 
 
 def _take_W(
@@ -941,13 +991,21 @@ class LeastSquaresOracle(ValueHashedFields):
     structure by :py:func:`~t3toolbox.backend.sampling_variables.frame_form`). On a corewise point a direction has one
     form, the raw one: the oracle passes ``core_directions`` when it is given, else the ``variations`` it is given, as
     ``core_directions``; given both, they must be the same direction (the same object, or the same arrays), else a
-    ``ValueError``. The **minibatch scale** of the batch (O-21) multiplies ``f``, ``g``, ``JtJp``, ``Jp_norm_sq``,
-    ``Kp`` and ``f_resolution``, and nothing else: ``r`` and ``Jp`` are the plain vectors at the drawn samples,
-    ``r_block_sumsq`` and ``y_block_sumsq`` plain sums of squares. ``f_resolution`` is
-    ``eps * (sqrt(<y, M y>) * sqrt(2 f) + |f|)``, ``eps`` of ``f``'s dtype: a bound on the rounding of ``f``, per
-    element of ``C`` like ``f``, with ``<y, M y>`` summed over every entry of ``z`` (``y`` broadcast to ``z``'s shape,
-    so a ``y`` shared by the samples counts once per sample, as ``f`` does). It needs the batch's ``y``
-    even when ``f`` comes from a held ``r`` (a ``ValueError`` otherwise).
+    ``ValueError``. The **minibatch scale** of the batch (O-21) is part of ``M``: it multiplies ``f``, ``g``,
+    ``JtJp``, ``Jp_norm_sq``, ``Kp``, ``f_resolution`` and the two block sums, and nothing else: ``r`` and ``Jp`` are
+    the plain vectors at the drawn samples. ``f_resolution`` is ``eps * (sqrt(<y, M y>) * sqrt(2 f) + |f|)``, ``eps``
+    of ``f``'s dtype: a bound on the rounding of ``f``, per element of ``C`` like ``f``, with ``<y, M y>`` summed over
+    every entry of ``z`` (``y`` broadcast to ``z``'s shape, so a ``y`` shared by the samples counts once per sample, as
+    ``f`` does). It needs the batch's ``y`` even when ``f`` comes from a held ``r`` (a ``ValueError`` otherwise).
+
+    **The block sums** ``r_block_sumsq`` and ``y_block_sumsq`` are ``<r, M r>`` and ``<y, M y>`` per block, the block
+    shape ``(d,) + F`` (probe: a mode at a slot), ``F`` (apply: a slot) or ``()`` (entries), each summed over the
+    samples, the stack ``C`` and the mode edge, over ``z``'s shape (``y`` broadcast to it, as for ``f_resolution``).
+    Both carry the scale, so their ratio, ``‖omega⊙r_b‖² / ‖omega⊙y_b‖²``, does not depend on it; with no weight they
+    are sums of squares. On a drawn batch they estimate the full batch's without bias, as ``f`` does; a ``y`` and a
+    weight that are the same for every sample (``W`` axes of 1, kept as one axis of 1 by :py:meth:`take`) give the full
+    batch's ``y_block_sumsq`` exactly. Each batch's sums use that batch's own weight: a validation batch with another
+    weight (or none) gives the ratio under that weight.
 
     **What it holds.** ``query`` returns, with its values, a
     :py:class:`~t3toolbox.backend.sampling_variables.HeldVariables`: the ``held`` it was given plus each of ``xi``,
@@ -1044,11 +1102,12 @@ class LeastSquaresOracle(ValueHashedFields):
             values = dict(zip(engine_want + extras, outs))
             kept = {name: values[name] for name in _HOLD_LIST if name in free}
             held_out = held_out.with_values(**kept) if kept else held_out
-        if 'y_block_sumsq' in want:
-            y = batch.y
-            if self.kind == 'probe' and not isinstance(y, (tuple, list)):       # packed: its mode padding is not data
-                y = ut3_operations.unpack_vectors(y, sampling_variables.frame_shape(frame))
-            values['y_block_sumsq'] = data_preparation.data_block_norms(self.kind, self.order, y) ** 2
+        if 'y_block_sumsq' in want:                   # the data's half of the block sums: <y, M y> per block
+            if batch.y is None:
+                raise ValueError('LeastSquaresOracle.query: y_block_sumsq is <y, M y> per block and needs the '
+                                 'batch\'s data y, which is None')
+            values['y_block_sumsq'] = _y_block_metric_y(self.kind, self.order, batch.y, batch.weight, self._W(batch),
+                                                        _stack_of_frame(frame), sampling_variables.frame_shape(frame))
         if 'f_resolution' in want:                    # from the unscaled batch values; the scale once, below
             if batch.y is None:                         # f can come from a held r; <y, M y> cannot
                 raise ValueError('LeastSquaresOracle.query: f_resolution is eps (sqrt(<y, M y>) sqrt(2 f) + |f|) and '
@@ -1056,13 +1115,13 @@ class LeastSquaresOracle(ValueHashedFields):
                                  'resolution cannot)')
             f = values['f']
             xnp, _, _ = get_backend(False, tree_contains_jax((f, batch.y, batch.weight)))
-            y_norm_sq = _y_metric_y(self.kind, self.order, batch.y, batch.weight, self._W(batch), tuple(np.shape(f)),
-                                    sampling_variables.frame_shape(frame))
+            y_norm_sq = _y_metric_y(self.kind, self.order, batch.y, batch.weight, self._W(batch),
+                                    _stack_of_frame(frame), sampling_variables.frame_shape(frame))
             eps = float(np.finfo(np.dtype(f.dtype)).eps)
             values['f_resolution'] = eps * (xnp.sqrt(y_norm_sq) * xnp.sqrt(2.0 * f) + xnp.abs(f))
         scale = batch.minibatch_scale
         if scale is not None:
-            for name in _SCALED + ('f_resolution',):
+            for name in _SCALED + ('y_block_sumsq', 'f_resolution'):
                 if name in values and name in want:
                     values[name] = _scale_tree(values[name], scale)
         return tuple(values[name] for name in want), held_out
