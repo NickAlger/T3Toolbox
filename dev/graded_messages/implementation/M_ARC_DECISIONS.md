@@ -70,3 +70,6 @@ decision, the reason, where it is recorded. Larger rulings are also in `LOG.md`.
     maintainer's, so it is kept private for now and raised here.
 23. M3: `examples/fit_probe_display.py`'s `unwt` text fixed in M3; the page `docs/fitting_and_optimization.md:114`
     (the ratio sentence) goes to P19's list.
+24. M4 designed without a separate design review (a scripted rename plus prose; the build is reviewed). The `c` line
+    gets its type in M4 (`P*⊗V_i` probe, `P*` apply, `ℝ` entries), since "of the type of z" is wrong for `c`; the other
+    signature lines wait for M5. P19's upgrade note: "`residual=` -> `c=`; positional calls unaffected; no shim".
