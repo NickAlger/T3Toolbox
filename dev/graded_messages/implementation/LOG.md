@@ -1474,3 +1474,8 @@ M3: gate green (suite 1,960 passed; module doctests 325; quickstart; 47 pages; 1
 equal to `68c10621`; the validation rule checked; 5 mutants killed). **M3 committed.** Next: M4 (the transposes typed,
 `residual` -> `c`).
 M4 (the transposes typed) started: the M3 implementer writes `M4_DESIGN_NOTE.md`.
+The floor-leg CI failures after M2 (`M2_CI_FIX.md`): none is M2's and none a library bug; all are runs decided at
+rounding level (a zero-padded restart's LAPACK completion following the BLAS kernel; an Armijo comparison below the
+objective's resolution; a stop at the resolution). Fixed in the tests by changing the runs (seeds; the rate window of
+the class's own n15 rule; `gtol_rel` two decades above the floor), one bound moved for its purpose (the tied lift
+against the per-mode lift), mutants killed. Committed with M3's push.

@@ -2657,7 +2657,10 @@ class TestExactNewtonRate(unittest.TestCase):
     * power 0.5: e_{k+1}/e_k^1.5 = 0.605, 0.754, 0.706 (seed 1); 0.320, 0.407, 0.692 (seed 2) -- C = 2,
       while e_{k+1}/e_k² reaches 18.2 / 5.95 (superlinear, not q-quadratic);
     * |1 - ρ| <= 1.6e-3 on every such step; both stop 'objective_floor' within 7 rows;
-    * Gauss-Newton + line search: ratios e_{k+1}/e_k in [0.45, 0.68] (linear) in e in [1e-10, 1e-1]."""
+    * Gauss-Newton + line search: ratios e_{k+1}/e_k in [0.45, 0.68] (linear) on the same window. The window, not
+      ``e > 1e-10``, is what keeps the control off the resolution: this objective is ~1e6, so the steps below
+      |pred| = 1e3·res start near e = 1e-5, and there the Armijo test compares rounding (on the numpy-1.x floor
+      leg a step at e = 1.1e-7, |pred| = 0.09·res, backtracked to α = 0.5 and gave the ratio 0.25: M2_CI_FIX)."""
 
     def _run(self, seed, power):
         problem, x = _t16_problem(seed)
@@ -2695,8 +2698,11 @@ class TestExactNewtonRate(unittest.TestCase):
             with self.subTest(seed=seed):
                 problem, x = _t16_problem(seed)
                 _, stats = problem.newton_cg(x, max_newton=25, gtol_rel=1e-12, g0_reference='warm_start')
-                e = [row['gnorm'] / row['g0norm'] for row in stats['history']]
-                ratios = [b / a for a, b in zip(e, e[1:]) if 1e-10 < a < 1e-1]
+                y, h = _data_norm(problem), stats['history']
+                e = [row['gnorm'] / row['g0norm'] for row in h]
+                res = [_EPS64 * (y * (2.0 * row['misfit']) ** 0.5 + abs(row['objective'])) for row in h]
+                ratios = [b / a for a, b, row, r in zip(e, e[1:], h, res)       # the n15 window, as for Newton
+                          if a < 1e-1 and abs(row['slope'] + 0.5 * row['pHp']) > 1e3 * r]
                 self.assertGreaterEqual(len(ratios), 10)
                 for r in ratios:
                     self.assertTrue(0.3 < r < 0.9, ratios)
@@ -3209,20 +3215,24 @@ class TestSharedExactNewtonRestart(unittest.TestCase):
     continuation restart converges on the gradient test with at most two rejections -- the tied lift's zero ``s_g``
     level is clipped, the TT variations carry the escape. c24's template, tied: probe derivatives of order 2,
     ω = [1, .5, .25], 5 % noise, a tied target of rank 4, level 1 at shared rank 2 (30 Gauss-Newton steps), the
-    restart at rank 3; |W| = 60. Observed (defaults: zero reference, trust region, power 0.5): 10 outer steps,
-    0 rejected, 41 CG iterations (F19's unshared problem: 8-10 outer, 23-28 CG), against Gauss-Newton + Armijo,
-    which has not converged after 25 steps (40: still 7e-6)."""
+    restart at rank 3; |W| = 60. Both runs stop at ``gtol_rel = 1e-6``, not the default 1e-8: the objective here
+    reaches its resolution near e = 1e-8, so at 1e-8 the stop was a coin flip between ``'gradient'`` and the
+    (successful) ``'objective_floor'``, decided by where the last quadratic step landed (1 of 48 rounding-level
+    restarts, M2_CI_FIX); at 1e-6 the last step crosses the test with two decades to spare (108 of 108). Observed
+    (defaults otherwise: zero reference, trust region, power 0.5): 10 outer steps, 1 rejected, 30 CG iterations
+    (F19's unshared problem: 8-10 outer, 23-28 CG), against Gauss-Newton + Armijo, still at e = 4e-4 after 25
+    steps."""
 
     def test_zero_padded_shared_restart_converges(self):
         problem, restart = _shared_restart_problem(60)
-        _, stats = problem.newton_cg(restart.data, max_newton=40, hessian='exact')
+        _, stats = problem.newton_cg(restart.data, max_newton=40, hessian='exact', gtol_rel=1e-6)   # above the floor
         h = stats['history']
         self.assertEqual(stats['stop_reason'], 'gradient')
         self.assertLessEqual(sum(row['tr_accepted'] is False for row in h), 2)
         self.assertEqual(h[0]['lift_sigma_min'], 0.0)                 # the zero s_g level: a singular tied lift
         self.assertTrue(all(np.isfinite(row['pKp']) for row in h if not row['converged']))
         self.assertLessEqual(stats['newton_steps'], 14)
-        _, gn = problem.newton_cg(restart.data, max_newton=25)
+        _, gn = problem.newton_cg(restart.data, max_newton=25, gtol_rel=1e-6)
         self.assertEqual(gn['stop_reason'], 'max_newton')
 
 

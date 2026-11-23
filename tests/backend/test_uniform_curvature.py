@@ -2226,14 +2226,20 @@ class TestUniformSharedExactNewton(unittest.TestCase):
     uniform run must meet T22 itself -- converge on the gradient test with at most two rejections, its first row
     reporting the zero ``s_g`` level -- reach the ragged run's minimizer, and stay tied; the frontend run IS the
     backend run. From a numerically FULL-RANK shared start the uniform run IS the ragged run (the same outer /
-    accepted / CG counts, the objective row by row). Observed (S9): T22 ragged 10 / 0 / 41 outer / rejected / CG,
-    uniform 13 / 0 / 40, the same final objective to the last bit. The group-ceiling restart (``(7,7,4)``, shared
-    rank ``(3,3,2) -> (4,4,2)``, target ``(5,5,3)/(1,3,3,1)``; mode 0's ``S_0^T`` wide) discriminates the lift end to
-    end: uniform tied 7 / 0 / 24 (ragged 7 / 0 / 28), the per-mode lift 12 / 0 / 59; from a full-rank start at those
-    ranks the uniform run is the ragged run, 9 / 0 / 28 (per-mode 14 / 0 / 63)."""
+    accepted / CG counts, the objective row by row). The zero-padded run is the template at ``seed=9``: the
+    completion is LAPACK's choice, so the outer count is a draw over the rounding (the M2 CI fix,
+    ``dev/graded_messages/implementation/M2_CI_FIX.md``) -- uniform 6 to 12 over 160 rounding-level restarts and
+    BLAS kernels (ragged 8 every time), against 7 to 17 at the old seed 7; Gauss-Newton needs 28, half the
+    curvature term 18. Observed: ragged 8 / 0 / 22 outer / rejected / CG, uniform 8 / 0 / 30, the same final
+    objective to the last bit. The group-ceiling restart (``(7,7,4)``, shared rank ``(3,3,2) -> (4,4,2)``, target
+    ``(5,5,3)/(1,3,3,1)``; mode 0's ``S_0^T`` wide) discriminates the lift end to end, at ``seed=5``, where the two
+    count distributions are apart (at seed 7 they overlapped: tied 6 to 13, per-mode 11 to 17): uniform tied
+    7 / 0 / 25 (ragged 10 / 0 / 32), 6 to 13 over 72 rounding-level restarts and BLAS kernels; the per-mode lift
+    27 / 0 / 138, 22 to 32. From a full-rank start at those ranks (seed 7) the uniform run is the ragged run,
+    9 / 0 / 28 (per-mode 14 / 0 / 63)."""
 
     def test_zero_padded_shared_restart(self):
-        problem, sample, data, weight, restart = _shared_restart_template(*_T22)
+        problem, sample, data, weight, restart = _shared_restart_template(*_T22, seed=9)   # a count robust to rounding
         _, ragged = problem.newton_cg(restart.data, max_newton=40, hessian='exact')
         self.assertEqual(ragged['stop_reason'], 'gradient')
         uprob, ux = _uniform_shared_problem(problem, sample, data, weight, restart)
@@ -2251,13 +2257,13 @@ class TestUniformSharedExactNewton(unittest.TestCase):
         import t3toolbox.optimizers as topt
         import t3toolbox.shared_geometry as sg
         import t3toolbox.uniform_manifold as ut3m
-        problem, sample, data, weight, restart = _shared_restart_template(*_CEILING_RESTART)
+        problem, sample, data, weight, restart = _shared_restart_template(*_CEILING_RESTART, seed=5)
         _, ragged = problem.newton_cg(restart.data, max_newton=40, hessian='exact')
         uprob, ux = _uniform_shared_problem(problem, sample, data, weight, restart)
         xb, ub = uprob.newton_cg((ux.data[0], ux.data[1]), max_newton=40, hessian='exact')
         self.assertEqual(ub['stop_reason'], 'gradient')
         self.assertLessEqual(sum(row['tr_accepted'] is False for row in ub['history']), 2)
-        self.assertLessEqual(ub['newton_steps'], 9)                          # the per-mode lift needs 12 here
+        self.assertLessEqual(ub['newton_steps'], 17)        # tied 6 to 13 over the rounding; the per-mode lift 22 to 32
         self.assertLess(abs(ub['losses'][-1] - ragged['losses'][-1]) / ragged['losses'][-1], 1e-9)
         self.assertTrue(bool(np.all(sharing.ut3_tucker_factors_shared((xb[0], xb[1]) + ux.data[2:], (0, 0, 1)))))
         # (the frontend-IS-the-backend check moves to the frontend's own tests with the new frontend, P16 part 4)
