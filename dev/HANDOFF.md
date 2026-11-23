@@ -55,8 +55,9 @@ in a session: everything is in files.
   before P17) passed one writer/reviewer cycle and is in a second for its new section 9 (lightweight typing); CI green
   at `7035eaab` (P16 plus a float32 test fix, `P16_CI_FIX.md`). **Status (2026-11-22, later):** the data-metric plan is COMPLETE (TARGET_DECISIONS, notes of
   2026-11-22); its slices M0 (the `J -> P` rename, `64465d8b`) and M1 (`data_metric`, `blocks_to_weight`, the law
-  helper, `c16aa640`) are COMMITTED; next M2 (the switch to the rule, in parts on a side branch), then M3 to M5, then
-  P17. The sub-arc's reviewer is kept; implementers are fresh per large slice.
+  helper, `c16aa640`) and M2 (the data-space rule, `68c10621`, squashed from `m2-wip`) are COMMITTED; next M3 (the display
+  and the weighted block sums), M4, M5, then the discussion of `implementation/M_ARC_DECISIONS.md` with the maintainer,
+  then P17. The sub-arc's reviewer is kept; implementers are fresh per large slice.
   **Still open:** the audit's 3 (corewise representation) and 4 (the Hessians' names). No build before he has read the final plan. (Superseded:) **Next:** an agent does one combined audit of every sampling function
   (location, object, typing, metric, weights; findings and options, not decisions), then the discussion, then possibly
   a slice reorganizing the sampling functions, then the `from_t3` slice (raise for a width below a rank; decided), then
