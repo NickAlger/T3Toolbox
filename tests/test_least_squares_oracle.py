@@ -51,6 +51,9 @@ import t3toolbox.backend.ut3_operations as ut3o
 from t3toolbox.backend.fitting import LeastSquaresOracle, LeastSquaresBatch
 from t3toolbox.backend.uniform_fitting import pack_batch
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'oracle_sweeps'))
+import oracle as dense_oracle                    # noqa: E402  the dense oracle (expand: np.repeat, no broadcasting)
+
 SHAPE, RANKS = (4, 5, 3), ((2, 3, 2), (1, 2, 2, 1))
 HOLD = ('xi', 'mu', 'nu', 'eta', 'r')
 ORDERS = {'probe': [(), (2,), (1, 1)], 'apply': [(), (2,), (1, 1)], 'entries': [()]}
@@ -77,7 +80,7 @@ def jet_sample(kind, rng, order, n=6):
     return [rng.standard_normal(F_in + (n, N)) for F_in, N in zip(sizes, SHAPE)]
 
 
-def weight_of(kind, rng, order):
+def weight_of(kind, rng, order):                    # one value per block (placed by blocks_to_weight in Fixture.batch)
     F = tuple(k + 1 for k in order)
     if kind == 'entries':
         return np.asarray(0.5 + rng.random())
@@ -88,6 +91,20 @@ def data_of(kind, target, sample, order):
     if kind == 'entries':
         return target.entries(sample)
     return getattr(target, kind)(sample, order)
+
+
+def y_metric_y(kind, y, weight, z):
+    """<y, M y> at gamma = 1, written out: y and the weight expanded to z's shape by np.repeat (no broadcasting),
+    summed over every entry of z."""
+    zs = list(z) if kind == 'probe' else [z]
+    ys = list(y) if kind == 'probe' else [y]
+    ws = [None] * len(zs) if weight is None else ([weight[i] for i in range(len(zs))] if kind == 'probe' else [weight])
+    total = 0.0
+    for z_i, y_i, w_i in zip(zs, ys, ws):
+        Y = dense_oracle.expand(y_i, np.shape(z_i))
+        O = np.ones(np.shape(z_i)) if w_i is None else dense_oracle.expand(w_i, np.shape(z_i))
+        total += float(np.sum(O * O * Y * Y))
+    return total
 
 
 class Fixture(unittest.TestCase):
@@ -102,7 +119,8 @@ class Fixture(unittest.TestCase):
 
     def batch(self, kind, order, scale=None):
         s = jet_sample(kind, self.rng, order)
-        return LeastSquaresBatch(s, data_of(kind, self.target, s, order), weight_of(kind, self.rng, order), scale)
+        y = data_of(kind, self.target, s, order)
+        return LeastSquaresBatch(s, y, jets.blocks_to_weight(kind, order, weight_of(kind, self.rng, order), y), scale)
 
 
 class TestTheEngineAdditions(Fixture):
@@ -264,7 +282,7 @@ class TestQuery(Fixture):
                         (ybs, fres, f), _ = oracle.query(frame, b, ('y_block_sumsq', 'f_resolution', 'f'))
                         ybs_ref = np.square(bfit.data_preparation.data_block_norms(kind, order, b.y))
                         self.assertLess(relerr(ybs, ybs_ref), 1e-14)
-                        wy = math.sqrt(float(np.sum(np.asarray(b.weight) ** 2 * ybs_ref)))
+                        wy = math.sqrt(y_metric_y(kind, b.y, b.weight, b.y))         # the fixture's y has z's shape
                         eps = np.finfo(float).eps
                         self.assertLess(abs(float(fres) - eps * (wy * math.sqrt(2 * float(f)) + float(f))),
                                         1e-12 * float(fres))
@@ -312,7 +330,7 @@ class TestTheResolutionDtype(Fixture):
         b32 = LeastSquaresBatch(f32(b.sample), f32(b.y), f32(b.weight))
         (f, fres, ybs), _ = LeastSquaresOracle('apply', (2,)).query(frame, b32, ('f', 'f_resolution', 'y_block_sumsq'))
         self.assertEqual(np.asarray(f).dtype, np.float32)
-        wy = math.sqrt(float(np.sum(np.asarray(b32.weight, float) ** 2 * np.asarray(ybs, float))))
+        wy = math.sqrt(y_metric_y('apply', np.asarray(b32.y, float), np.asarray(b32.weight, float), b32.y))
         expected = float(np.finfo(np.float32).eps) * (wy * math.sqrt(2 * float(f)) + float(f))
         self.assertLess(abs(float(fres) - expected), 1e-5 * expected)
 
@@ -379,12 +397,12 @@ class TestTheMinibatchScale(Fixture):
                         self.assertEqual(relerr(values[name], unscaled[name]), 0.0, name)
                     for name in ('f', 'g', 'Jp_norm_sq', 'JtJp', 'Kp', 'f_resolution'):  # times the scale, once
                         self.assertLess(relerr(values[name], [s * a for a in leaves(unscaled[name])]), 1e-15, name)
-                    w = np.asarray(sub.weight)
+                    w = sub.weight
                     def inner(a, c):                                              # scale * <a, w^2 c>
                         if kind == 'probe':
-                            return s * sum(float(np.sum(w[i].reshape(w[i].shape + (1,) * (a[i].ndim - w[i].ndim)) ** 2
-                                                        * a[i] * c[i])) for i in range(3))
-                        return s * float(np.sum(w.reshape(w.shape + (1,) * (np.ndim(a) - w.ndim)) ** 2 * a * c))
+                            return s * sum(float(np.sum(dense_oracle.expand(w[i], a[i].shape) ** 2 * a[i] * c[i]))
+                                           for i in range(3))
+                        return s * float(np.sum(dense_oracle.expand(w, np.shape(a)) ** 2 * a * c))
                     f, r, Jp = float(values['f']), values['r'], values['Jp']
                     pg = sum(float(np.sum(p * q)) for P, Q in zip(self.v, values['g']) for p, q in zip(P, Q))
                     self.assertLess(abs(f - 0.5 * inner(r, r)), 1e-13 * f)
@@ -393,7 +411,7 @@ class TestTheMinibatchScale(Fixture):
                     self.assertLess(abs(Jn - inner(Jp, Jp)), 1e-12 * Jn)
                     # f_resolution from the UNSCALED values, then the scale once (not s**1.5)
                     fb = f / s
-                    wy = math.sqrt(float(np.sum(w ** 2 * values['y_block_sumsq'])))
+                    wy = math.sqrt(y_metric_y(kind, sub.y, w, values['r']))
                     expected = s * np.finfo(float).eps * (wy * math.sqrt(2 * fb) + fb)
                     self.assertLess(abs(float(values['f_resolution']) - expected), 1e-12 * expected)
 
@@ -532,7 +550,8 @@ class TestTheBridgeToTheOldKinds(Fixture):
                 r_old = [a - b for a, b in zip(r_old, y_old)] if new_kind == 'probe' else r_old - y_old
                 sweep = kind.precompute(frame, old_sample)
                 oracle = LeastSquaresOracle(new_kind, (n,))
-                batch = LeastSquaresBatch(jet, y_taylor, jets.derivative_weight_to_taylor_weight(w_old, (n,)))
+                w_full = jets.blocks_to_weight(new_kind, (n,), w_old, y_taylor)
+                batch = LeastSquaresBatch(jet, y_taylor, jets.derivative_weight_to_taylor_weight(new_kind, (n,), w_full))
                 (f, g, JtJp, Kp), _ = oracle.query(frame, batch, ('f', 'g', 'JtJp', 'Kp'), variations=self.v,
                                                     core_directions=self.dirs)
                 w2 = kind._apply_weight(r_old, 1)

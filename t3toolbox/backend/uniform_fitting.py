@@ -397,15 +397,32 @@ def pack_sample(
 def pack_data(
         kind:   str,                        # 'probe' | 'apply' | 'entries'
         order:  typ.Tuple[int, ...],        # the jet shape (the probe data's leading F axes ride along)
-        y:      typ.Any,                    # of the type of z: probe len=d, elm_shape=F+W+(Ni,); apply F+W; entries W
+        y:      typ.Any,                    # of the type of z (the data, a weight, a residual): probe len=d,
+                                            #   elm_shape=F+W+C+(Ni,); apply F+W+C; entries W+C; each axis 1 or z's size
         N:      int,                        # the packed mode width
-) -> typ.Any:                               # probe: (d,)+F+W+(N,); apply, entries: y unchanged
-    """Pack the observed data (or a residual of the same type) once: the probe kind's per-mode data to one
-    ``(d,)+F+W+(N,)`` array (the modes padded to ``N`` with zeros); the scalar data of apply and entries unchanged. A
-    packed ``y`` is kept as it is. ``order`` is the jet shape of the data (its ``F`` axes lead every mode's array and
-    are of one size across the modes, so they need no bringing to a common size)."""
+) -> typ.Any:                               # probe: (d,)+F+W+C+(e,), e = 1 or N; apply, entries: y unchanged
+    """Pack a data-space object once for the uniform layout: the data ``y``, a weight or a residual, each of the type
+    of ``z`` (every axis 1 or ``z``'s size). The probe kind's ``d`` arrays become one ``(d,) + F + W + C + (e,)``
+    array: each axis of ``F + W + C`` is the join across the modes (full if any mode has it full; the others are
+    broadcast); the edge ``e`` stays 1 if every mode's is 1, else it is ``N``, a full edge padded with zeros and an
+    edge of 1 broadcast to ``N`` (never padded, which would put its value on entry 0 only). The engine masks the
+    packed object on entry, so its padding is never data. The arrays of apply and entries have no mode edge and are
+    returned unchanged, and a packed object is kept as it is.
+
+    >>> import numpy as np
+    >>> from t3toolbox.backend.uniform_fitting import pack_data
+    >>> y = [np.ones((3, 2, 4)), np.ones((3, 2, 5))]                  # F + W + (Ni,), F = (3,), W = (2,)
+    >>> print(pack_data('probe', (2,), y, 6).shape)
+    (2, 3, 2, 6)
+    >>> per_slot = [np.ones((3, 1, 1)), np.ones((3, 1, 1))]           # a weight per slot: W and the edge of 1
+    >>> print(pack_data('probe', (2,), per_slot, 6).shape)            # the edge stays 1
+    (2, 3, 1, 1)
+    >>> mixed = [np.ones((3, 1, 4)), 2.0 * np.ones((1, 2, 1))]        # an edge of 1 is broadcast, never padded
+    >>> print(pack_data('probe', (2,), mixed, 6)[1, 0, 0].tolist())
+    [2.0, 2.0, 2.0, 2.0, 2.0, 2.0]
+    """
     if kind == 'probe':
-        return ut3_operations.pack_if_ragged(y, N)
+        return ut3_operations._pack_data_space(y, N)
     return y
 
 
@@ -418,8 +435,9 @@ def pack_batch(
     """Pack a :py:class:`~t3toolbox.backend.fitting.LeastSquaresBatch` once for the uniform layout: the input jets
     with ``pack_if_ragged(sample, N, len_P=len(order))``, which brings each jet axis to its largest size across the
     modes by writing zero coefficients (data, not padding: an input jet is zero beyond its slots, O-45), and the
-    probe data ``y`` to ``(d,)+F+W+(N,)``. The entries ``index`` and the scalar data of apply and entries are not
-    packed; the weight, the scale and the drawn indices pass through. A packed sample or ``y`` is kept as it is.
+    probe data ``y`` and weight with :py:func:`pack_data`, the one rule for a data-space object (each to
+    ``(d,)+F+W+C+(e,)``, an edge of 1 kept). The entries ``index`` and the data and weight of apply and entries are
+    not packed; the scale and the drawn indices pass through. A packed sample, ``y`` or weight is kept as it is.
 
     >>> import numpy as np
     >>> from t3toolbox.backend.fitting import LeastSquaresBatch
@@ -431,7 +449,8 @@ def pack_batch(
     (2, 2, 3, 6) (2, 3, 3, 6)
     """
     y = batch.y if batch.y is None else pack_data(kind, order, batch.y, N)
-    return dc.replace(batch, sample=pack_sample(kind, order, batch.sample, N), y=y)
+    weight = batch.weight if batch.weight is None else pack_data(kind, order, batch.weight, N)
+    return dc.replace(batch, sample=pack_sample(kind, order, batch.sample, N), y=y, weight=weight)
 
 # Packed-aware minibatch `take` (the SamplingKind default-draw hook), so mc_sgd/adam keep minibatches
 # PACKED (a single `(d,)+W'+…` gather via bfit._flat_gather) instead of the ragged `take` iterating the

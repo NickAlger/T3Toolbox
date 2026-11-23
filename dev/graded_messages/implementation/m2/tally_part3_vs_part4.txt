@@ -1,0 +1,333 @@
+baseline: 1949 nodes {'FAILED': 102, 'PASSED': 1892, 'SKIPPED': 5, 'SUBFAILED': 781, 'SUBPASSED': 91213, 'XFAIL': 1}
+new:      1959 nodes {'FAILED': 26, 'PASSED': 1940, 'SKIPPED': 5, 'SUBFAILED': 124, 'SUBPASSED': 92036, 'XFAIL': 1}
+  tests/backend/test_curvature.py::TestCorewiseExact::test_shared_corewise
+      baseline {'SUBFAILED': 2, 'SUBPASSED': 1, 'PASSED': 1}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestDerivativeKindsExactLocalModel::test_corewise_is_the_plain_hessian
+      baseline {'SUBFAILED': 16, 'PASSED': 1}
+      new      {'SUBPASSED': 8, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestDerivativeKindsExactLocalModel::test_normal_curvature_annihilates_a_lifted_vertical_direction
+      baseline {'SUBFAILED': 12, 'PASSED': 1}
+      new      {'SUBPASSED': 6, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestDerivativeKindsExactLocalModel::test_quadratic_form_is_the_second_derivative_along_the_retraction
+      baseline {'SUBFAILED': 16, 'SUBPASSED': 12, 'PASSED': 1}
+      new      {'SUBPASSED': 20, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestDerivativeKindsExactLocalModel::test_shared_subcase
+      baseline {'SUBFAILED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestDerivativeKindsExactLocalModel::test_symmetry_and_stacks
+      baseline {'SUBFAILED': 12, 'PASSED': 1}
+      new      {'SUBPASSED': 6, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestDerivativeKindsExactLocalModel::test_the_curvature_block_is_the_oracles_Kp_at_the_weighted_residual
+      baseline {'SUBFAILED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestExactLocalModel::test_against_the_dense_lagrangian_hessian
+      baseline {'SUBFAILED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestExactLocalModel::test_gauge_laws
+      baseline {'SUBFAILED': 10, 'PASSED': 1}
+      new      {'SUBPASSED': 5, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestExactLocalModel::test_mode_is_derived_and_the_gradient_is_the_gauss_newton_one
+      baseline {'FAILED': 2}
+      new      {'SUBPASSED': 5, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestExactLocalModel::test_quadratic_form_is_the_second_derivative_along_the_retraction
+      baseline {'SUBFAILED': 16, 'SUBPASSED': 10, 'PASSED': 1}
+      new      {'SUBPASSED': 18, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestExactLocalModel::test_sigma_min_is_the_smallest_lift_singular_value
+      baseline {'SUBFAILED': 6, 'SUBPASSED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 7, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestExactLocalModel::test_stacked_equals_per_element
+      baseline {'SUBPASSED': 1, 'SUBFAILED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 3, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestExactLocalModel::test_the_curvature_block_is_the_oracles_Kp_at_the_weighted_residual
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/backend/test_curvature.py::TestExactNewtonRestart::test_zero_padded_restart_converges
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/backend/test_curvature.py::TestFlatSlotsModel::test_manifold_d1_is_gauss_newton
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/backend/test_curvature.py::TestPlainKindsExactLocalModel::test_corewise_is_the_plain_hessian
+      baseline {'SUBFAILED': 8, 'SUBPASSED': 8, 'PASSED': 1}
+      new      {'SUBPASSED': 12, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestPlainKindsExactLocalModel::test_normal_curvature_annihilates_a_lifted_vertical_direction
+      baseline {'SUBFAILED': 6, 'SUBPASSED': 6, 'PASSED': 1}
+      new      {'SUBPASSED': 9, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestPlainKindsExactLocalModel::test_quadratic_form_is_the_second_derivative_along_the_retraction
+      baseline {'SUBPASSED': 30, 'SUBFAILED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 32, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestPlainKindsExactLocalModel::test_symmetry_and_stacks
+      baseline {'SUBPASSED': 6, 'SUBFAILED': 6, 'PASSED': 1}
+      new      {'SUBPASSED': 9, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestPlainKindsExactLocalModel::test_the_curvature_block_is_the_oracles_Kp_at_the_weighted_residual
+      baseline {'SUBFAILED': 2, 'SUBPASSED': 2, 'PASSED': 1}
+      new      {'SUBPASSED': 3, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestSharedExactLocalModel::test_against_the_dense_lagrangian_hessian
+      baseline {'SUBFAILED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestSharedExactLocalModel::test_gauge_laws_symmetry_and_stacks
+      baseline {'SUBPASSED': 5, 'FAILED': 2}
+      new      {'SUBPASSED': 3, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestSharedExactLocalModel::test_hvp_is_the_derivative_of_the_projected_shared_gradient
+      baseline {'SUBFAILED': 8, 'PASSED': 1}
+      new      {'SUBPASSED': 4, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestSharedExactLocalModel::test_quadratic_form_is_the_second_derivative_along_the_shared_retraction
+      baseline {'SUBFAILED': 12, 'SUBPASSED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 10, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestSharedExactNewtonRestart::test_zero_padded_shared_restart_converges
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/backend/test_optimizer_display.py::TestMakeNewtonDisplay::test_the_errors_against_dense_residuals
+      baseline {'SUBFAILED': 6, 'PASSED': 1}
+      new      {'SUBPASSED': 3, 'PASSED': 1}
+  tests/backend/test_optimizers.py::TestBackendOptimizers::test_derivative_data
+      baseline {'SUBFAILED': 8, 'FAILED': 2}
+      new      {'SUBPASSED': 3, 'PASSED': 1}
+  tests/backend/test_optimizers.py::TestBackendOptimizers::test_jit_paths_recover
+      baseline {'SUBPASSED': 4, 'SUBFAILED': 2, 'PASSED': 1}
+      new      {'SUBPASSED': 5, 'PASSED': 1}
+  tests/backend/test_optimizers.py::TestStackedPointIsRejected::test_a_stacked_local_model_still_works
+      baseline {'FAILED': 2}
+      new      {'SUBPASSED': 3, 'PASSED': 1}
+  tests/backend/test_optimizers.py::TestWeightCombinations::test_weighted_and_regularized_objective_splits_exactly
+      baseline {'SUBFAILED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/backend/test_optimizers.py::TestWeightCombinations::test_weighted_stacked_model_matches_the_per_element_models
+      baseline {'FAILED': 2}
+      new      {'SUBPASSED': 3, 'PASSED': 1}
+  tests/backend/test_uniform_curvature.py::TestUniformDerivativeKindsExactLocalModel::test_every_exact_action_per_element
+      baseline {'SUBFAILED': 56, 'PASSED': 1}
+      new      {'SUBPASSED': 28, 'PASSED': 1}
+  tests/backend/test_uniform_curvature.py::TestUniformDerivativeKindsExactLocalModel::test_garbage_in_the_frame_padding
+      baseline {'SUBFAILED': 8, 'PASSED': 1}
+      new      {'SUBPASSED': 4, 'PASSED': 1}
+  tests/backend/test_uniform_curvature.py::TestUniformDerivativeKindsExactLocalModel::test_shared_uniform_subcase
+      baseline {'SUBFAILED': 8, 'PASSED': 1}
+      new      {'SUBPASSED': 4, 'PASSED': 1}
+  tests/backend/test_uniform_curvature.py::TestUniformExactLocalModel::test_every_exact_action_per_element
+      baseline {'SUBFAILED': 24, 'PASSED': 1}
+      new      {'SUBPASSED': 12, 'PASSED': 1}
+  tests/backend/test_uniform_curvature.py::TestUniformExactLocalModel::test_garbage_in_the_frame_padding
+      baseline {'SUBFAILED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/backend/test_uniform_curvature.py::TestUniformExactLocalModel::test_m27_the_exact_gradient_is_the_gauss_newton_gradient
+      baseline {'SUBFAILED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/backend/test_uniform_curvature.py::TestUniformExactLocalModel::test_problem_path_matches_the_ragged_problem_densely
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/backend/test_uniform_curvature.py::TestUniformExactNewton::test_restart_backend_and_frontend
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/backend/test_uniform_curvature.py::TestUniformGeometryExactMembers::test_the_frame_masks_at_tt_slack_through_the_model
+      baseline {'FAILED': 2}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/backend/test_uniform_curvature.py::TestUniformKStackedGaussNewton::test_forward_and_gn_hvp_on_a_tangent_stack
+      baseline {'SUBFAILED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/backend/test_uniform_curvature.py::TestUniformPlainKindsExactLocalModel::test_every_exact_action_per_element
+      baseline {'SUBFAILED': 68, 'SUBPASSED': 8, 'PASSED': 1}
+      new      {'SUBPASSED': 42, 'PASSED': 1}
+  tests/backend/test_uniform_curvature.py::TestUniformPlainKindsExactLocalModel::test_garbage_in_the_frame_padding
+      baseline {'SUBFAILED': 12, 'PASSED': 1}
+      new      {'SUBPASSED': 6, 'PASSED': 1}
+  tests/backend/test_uniform_curvature.py::TestUniformPlainKindsExactLocalModel::test_shared_uniform_subcase
+      baseline {'SUBFAILED': 12, 'PASSED': 1}
+      new      {'SUBPASSED': 6, 'PASSED': 1}
+  tests/backend/test_uniform_curvature.py::TestUniformSharedExactModel::test_against_the_dense_lagrangian_hessian
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/backend/test_uniform_curvature.py::TestUniformSharedExactModel::test_every_exact_action_per_element
+      baseline {'SUBFAILED': 32, 'PASSED': 1}
+      new      {'SUBPASSED': 16, 'PASSED': 1}
+  tests/backend/test_uniform_curvature.py::TestUniformSharedExactModel::test_garbage_in_the_frame_padding
+      baseline {'SUBFAILED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/backend/test_uniform_curvature.py::TestUniformSharedExactModel::test_m27_the_exact_gradient_is_the_gauss_newton_gradient
+      baseline {'SUBFAILED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/backend/test_uniform_curvature.py::TestUniformSharedExactModel::test_quadratic_form_is_the_second_derivative_along_the_shared_retraction
+      baseline {'SUBFAILED': 8, 'SUBPASSED': 2, 'PASSED': 1}
+      new      {'SUBPASSED': 6, 'PASSED': 1}
+  tests/backend/test_uniform_curvature.py::TestUniformSharedExactModel::test_the_frame_masks_at_tt_slack_through_the_model
+      baseline {'FAILED': 2}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/backend/test_uniform_curvature.py::TestUniformSharedExactNewton::test_group_ceiling_full_rank_start_is_the_ragged_run
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/backend/test_uniform_curvature.py::TestUniformSharedExactNewton::test_group_ceiling_restart_backend_and_frontend
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/backend/test_uniform_curvature.py::TestUniformSharedExactNewton::test_zero_padded_shared_restart
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/backend/test_uniform_fitting.py::TestUniformProblem::test_derivative_kinds_match_ragged
+      baseline {'SUBFAILED': 12, 'PASSED': 1}
+      new      {'SUBPASSED': 6, 'PASSED': 1}
+  tests/backend/test_zero_reference.py::TestLayerIndependence::test_reference_is_layer_independent
+      baseline {'SUBPASSED': 4, 'SUBFAILED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 6, 'PASSED': 1}
+  tests/backend/test_zero_reference.py::TestLayerIndependence::test_seeded_pairs_track
+      baseline {'SUBPASSED': 3, 'SUBFAILED': 2, 'PASSED': 1}
+      new      {'SUBPASSED': 4, 'PASSED': 1}
+  tests/test_dispatch.py::TestDispatch::test_exact_local_model_rebuilt_each_step_is_one_jit_cache_key
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/test_dispatch.py::TestDispatch::test_jit_derivative_kind_two_holes
+      baseline {'SUBFAILED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/test_dispatch.py::TestDispatch::test_jit_exact_local_model
+      baseline {'SUBFAILED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/test_dispatch.py::TestDispatch::test_jit_fitting
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/test_dispatch.py::TestDispatch::test_jit_plain_kind_two_holes
+      baseline {'SUBFAILED': 2, 'SUBPASSED': 2, 'PASSED': 1}
+      new      {'SUBPASSED': 3, 'PASSED': 1}
+  tests/test_dispatch.py::TestDispatch::test_jit_ragged_local_model_parameterized_kind
+      baseline {'SUBPASSED': 1, 'SUBFAILED': 3, 'FAILED': 2}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/test_dispatch.py::TestDispatch::test_jit_the_least_squares_oracle
+      baseline {'SUBFAILED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/test_dispatch.py::TestDispatch::test_jit_uniform_exact_local_model_is_one_cache_key
+      baseline {'SUBFAILED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/test_dispatch.py::TestDispatch::test_jit_uniform_exact_ops
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/test_dispatch.py::TestDispatch::test_jit_uniform_weighted_gn_model
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/test_dispatch.py::TestSwitchNewton::test_rounding_gate_at_float32
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/test_fitting.py::TestExactLocalModel::test_derivative_kinds_match_the_backend_exact_local_model
+      baseline {'SUBFAILED': 20, 'PASSED': 1}
+      new      {'SUBPASSED': 10, 'PASSED': 1}
+  tests/test_fitting.py::TestExactLocalModel::test_gradient_is_the_gauss_newton_gradient_bitwise
+      baseline {'SUBFAILED': 8, 'PASSED': 1}
+      new      {'SUBPASSED': 4, 'PASSED': 1}
+  tests/test_fitting.py::TestExactLocalModel::test_matches_the_backend_exact_local_model
+      baseline {'SUBPASSED': 3, 'SUBFAILED': 6, 'PASSED': 1}
+      new      {'SUBPASSED': 6, 'PASSED': 1}
+  tests/test_fitting.py::TestExactLocalModel::test_plain_kinds_match_the_backend_exact_local_model
+      baseline {'SUBPASSED': 10, 'SUBFAILED': 10, 'PASSED': 1}
+      new      {'SUBPASSED': 15, 'PASSED': 1}
+  tests/test_fitting.py::TestExactLocalModel::test_shared_manifold_matches_the_backend
+      baseline {'SUBPASSED': 2, 'SUBFAILED': 2, 'PASSED': 1}
+      new      {'SUBPASSED': 3, 'PASSED': 1}
+  tests/test_fitting.py::TestExactLocalModel::test_shared_uniform_matches_the_backend_exact_local_model
+      baseline {'SUBFAILED': 4, 'SUBPASSED': 2, 'PASSED': 1}
+      new      {'SUBPASSED': 4, 'PASSED': 1}
+  tests/test_fitting.py::TestExactLocalModel::test_uniform_matches_the_backend_exact_local_model
+      baseline {'SUBFAILED': 8, 'PASSED': 1}
+      new      {'SUBPASSED': 4, 'PASSED': 1}
+  tests/test_fitting.py::TestLocalModel::test_derivative_models
+      baseline {'SUBFAILED': 12, 'PASSED': 1}
+      new      {'SUBPASSED': 6, 'PASSED': 1}
+  tests/test_fitting.py::TestResidualWeighting::test_apply_entries_order_only
+      baseline {'SUBFAILED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/test_fitting.py::TestResidualWeighting::test_probe_derivatives_full_matrix
+      baseline {'SUBFAILED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/test_fitting.py::TestUniformLayerLocalModel::test_gauged_gradient_and_self_consistency
+      baseline {'SUBPASSED': 6, 'SUBFAILED': 20, 'PASSED': 1}
+      new      {'SUBPASSED': 16, 'PASSED': 1}
+  tests/test_fitting.py::TestUniformLayerLocalModel::test_matches_backend_local_model
+      baseline {'SUBPASSED': 6, 'SUBFAILED': 20, 'PASSED': 1}
+      new      {'SUBPASSED': 16, 'PASSED': 1}
+  tests/test_least_squares_oracle.py::TestQuery::test_each_output_against_the_engine
+      baseline {'SUBFAILED': 28, 'PASSED': 1}
+      new      {'SUBPASSED': 14, 'PASSED': 1}
+  tests/test_least_squares_oracle.py::TestQuery::test_the_uniform_layout_after_pack_batch
+      baseline {'SUBFAILED': 14, 'PASSED': 1}
+      new      {'SUBPASSED': 7, 'PASSED': 1}
+  tests/test_least_squares_oracle.py::TestTheBatch::test_check_batch
+      baseline {'FAILED': 2}
+      new      {'SUBPASSED': 13, 'PASSED': 1}
+  tests/test_least_squares_oracle.py::TestTheBridgeToTheOldKinds::test_against_the_old_kinds
+      baseline {'SUBFAILED': 6, 'PASSED': 1}
+      new      {'SUBPASSED': 3, 'PASSED': 1}
+  tests/test_least_squares_oracle.py::TestTheCorewiseDirection::test_the_three_cases
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/test_least_squares_oracle.py::TestTheEngineAdditions::test_computed_names_is_what_the_engine_runs
+      baseline {'FAILED': 2}
+      new      {'SUBPASSED': 205, 'PASSED': 1}
+  tests/test_least_squares_oracle.py::TestTheEngineAdditions::test_the_oracle_holds_what_is_free
+      baseline {'SUBFAILED': 24, 'PASSED': 1}
+      new      {'SUBPASSED': 12, 'PASSED': 1}
+  tests/test_least_squares_oracle.py::TestTheMinibatchScale::test_a_drawn_batch
+      baseline {'FAILED': 2}
+      new      {'SUBPASSED': 7, 'PASSED': 1}
+  tests/test_least_squares_oracle.py::TestTheMinibatchScale::test_unbiased_over_every_subset
+      baseline {'FAILED': 2}
+      new      {'SUBPASSED': 3, 'PASSED': 1}
+  tests/test_least_squares_oracle.py::TestTheResolutionDtype::test_float32_inputs_give_float32_eps
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/test_optimizers_frontend.py::TestFrontendExactNewton::test_frontend_is_the_backend_run_bitwise
+      baseline {'FAILED': 2}
+      new      {'SUBPASSED': 5, 'PASSED': 1}
+  tests/test_optimizers_frontend.py::TestFrontendExactNewton::test_options_with_no_effect_and_unbuilt_geometries_raise
+      baseline {'FAILED': 2}
+      new      {'SUBPASSED': 4, 'PASSED': 1}
+  tests/test_optimizers_frontend.py::TestFrontendExactNewton::test_zero_padded_restart_through_the_frontend
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/test_optimizers_frontend.py::TestFrontendExactNewton::test_zero_padded_shared_restart_through_the_frontend
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/test_optimizers_frontend.py::TestFrontendExactNewton::test_zero_padded_shared_restart_through_the_uniform_frontend
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/test_optimizers_frontend.py::TestFrontendExactNewtonDerivativeKinds::test_apply_derivatives
+      baseline {'FAILED': 2}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/test_optimizers_frontend.py::TestFrontendExactNewtonDerivativeKinds::test_entries_derivatives
+      baseline {'FAILED': 2}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/test_optimizers_frontend.py::TestFrontendExactNewtonPlainKinds::test_probe
+      baseline {'SUBFAILED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/test_oracle_data_space.py::TestAZeroWeightDeletesASample::test_f_g_and_JtJp_are_those_of_the_batch_without_it
+      baseline {}
+      new      {'SUBPASSED': 10, 'PASSED': 1}
+  tests/test_oracle_data_space.py::TestCheckBatch::test_the_stack_reaches_both_checkers
+      baseline {}
+      new      {'SUBPASSED': 21, 'PASSED': 1}
+  tests/test_oracle_data_space.py::TestFResolution::test_against_a_dense_sum_over_zs_shape
+      baseline {}
+      new      {'SUBPASSED': 120, 'PASSED': 1}
+  tests/test_oracle_data_space.py::TestPacking::test_garbage_in_the_packed_padding_changes_nothing
+      baseline {}
+      new      {'SUBPASSED': 3, 'PASSED': 1}
+  tests/test_oracle_data_space.py::TestPacking::test_pack_batch_packs_the_weight_by_the_rule_of_y
+      baseline {}
+      new      {'SUBPASSED': 5, 'PASSED': 1}
+  tests/test_oracle_data_space.py::TestStackedDataAreSeparateFits::test_each_element_is_its_own_fit
+      baseline {}
+      new      {'SUBPASSED': 15, 'PASSED': 1}
+  tests/test_oracle_data_space.py::TestTake::test_a_mode_leading_weight_is_drawn_after_its_mode_axis
+      baseline {}
+      new      {'PASSED': 1}
+  tests/test_oracle_data_space.py::TestTake::test_an_object_without_the_W_axes_raises
+      baseline {}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/test_oracle_data_space.py::TestTake::test_y_and_the_weight_against_index_loops
+      baseline {}
+      new      {'SUBPASSED': 56, 'PASSED': 1}
+  tests/test_oracle_data_space.py::TestUnbiasedOverEverySubset::test_with_a_partly_broadcast_weight
+      baseline {}
+      new      {'SUBPASSED': 10, 'PASSED': 1}
+  tests/test_oracle_sweep.py::TestExactHessianOracleSweep::test_full_sweep
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/test_oracle_sweep.py::TestO2ModelOracleSweep::test_full_sweep
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+110 nodes differ

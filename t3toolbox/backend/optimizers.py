@@ -200,8 +200,10 @@ class Oracle(typ.Protocol):
     :py:meth:`LocalModel.jacobian` and ``r`` by :py:attr:`LocalModel.residual` (each checked structurally where it
     is needed). Without ``f_resolution`` the trust region's floor is ``eps |f|``, ``eps`` read off ``f``'s dtype.
 
-    **Optional members** ``check_batch(batch, shape) -> None`` (O-29): the structural checker of a batch, which the
-    frontend calls where a batch enters when the oracle has one, and nothing about the batch otherwise; and
+    **Optional members** ``check_batch(batch, shape, stack_shape=()) -> None`` (O-29): the structural checker of a
+    batch against the mode sizes ``shape`` and the model's stack of base points ``stack_shape`` (``C``; ``()`` for an
+    unstacked model), which the frontend calls, always with the model's ``stack_shape``, where a batch enters when the
+    oracle has one, and nothing about the batch otherwise; and
     ``n_measurements(batch)`` with ``take(batch, indices)``, the default draw of ``mc_sgd`` and ``adam``
     (:py:func:`flat_draw`), which without them need a ``draw``.
     """

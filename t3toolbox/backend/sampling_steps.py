@@ -907,19 +907,59 @@ def _numpy_set(out, where, values):
 ###############################################
 
 # A whole step takes the kind as a static too, a string: the probe kind's type of z is one array per mode with a mode
-# edge, the apply kind's one array with neither. _modes gives the arrays of a value of the type of z, each with the
-# weight's row it is read with and the number of mode-edge axes after its stacks.
+# edge, the apply kind's one array with neither. A data-space object (y, the weight, r, Jp) is of the type of z: each
+# array of z's rank, each axis 1 or z's size (the full form; the engine checks y and the weight on entry). _modes gives
+# the arrays of a value of the type of z, each with its weight's array and the number of mode-edge axes after its
+# stacks; _with_K places the stack of directions K in a weight, which never carries it.
 
 def _modes(
-        kind:    str,                       # 'probe' | 'apply'
-        value:   typ.Any,                   # of the type of z: probe len=d, elm_shape=F+W+[K]+C+(Ni,); apply F+W+[K]+C
-        weight:  typ.Optional[NDArray],     # probe (d,)+F; apply F; None = ones
+        kind:    str,                       # 'probe' | 'apply' | 'entries'
+        value:   typ.Any,                   # of the type of z: probe len=d (or packed (d,)+...), elm_shape=F+W+[K]+C+(Ni,); apply F+W+[K]+C; entries W+[K]+C
+        weight:  typ.Any,                   # omega, of the type of z with [K] placed (_with_K): probe len=d or (d,)+...; else one array; None = ones
         xnp,
-) -> typ.List[typ.Tuple[NDArray, typ.Optional[NDArray], int]]:     # (array, its weight F or None, mode-edge axes)
+) -> typ.List[typ.Tuple[NDArray, typ.Any, int]]:     # (array, its weight's array or None, mode-edge axes)
     if kind == 'probe':
-        return [(xnp.asarray(array), None if weight is None else xnp.asarray(weight)[i], 1)
-                for i, array in enumerate(value)]
-    return [(xnp.asarray(value), None if weight is None else xnp.asarray(weight), 0)]
+        return [(xnp.asarray(value[i]), None if weight is None else weight[i], 1) for i in range(len(value))]
+    return [(xnp.asarray(value), weight, 0)]
+
+
+def _with_K(
+        weight:  typ.Any,                   # omega, of the type of z with no K: probe len=d or (d,)+F+W+C+(e,); else F+W+C or W+C
+        kind:    str,
+        lens:    contractions.GroupLengths,
+) -> typ.Any:                               # omega with lens.K size-1 axes after F + W: F+W+(1,)*K+C(+(e,))
+    '''The weight placed against a variable that carries the stack of directions ``K`` (``Jp`` and the adjoint it
+    seeds): ``lens.K`` axes of size 1 inserted at index ``lead + m + len(W)``, ``lead`` 1 for a mode-leading array
+    (a probe weight packed, or given as one array) and 0 for each array of a tuple or a list and for apply and
+    entries. A weight is constant over the directions; ``K`` is the engine's to place, never the caller's.'''
+    if weight is None or lens.K == 0:
+        return weight
+
+    def placed(omega, lead):
+        shape = tuple(np.shape(omega))
+        at = lead + lens.P + lens.W
+        xnp, _, _ = get_backend(False, tree_contains_jax(omega))
+        return xnp.reshape(omega, shape[:at] + (1,) * lens.K + shape[at:])
+    if kind == 'probe' and isinstance(weight, (tuple, list)):
+        return tuple(placed(omega, 0) for omega in weight)
+    return placed(weight, 1 if kind == 'probe' else 0)
+
+
+def _weighted_sum(
+        kind:    str,
+        value:   typ.Any,                   # of the type of z (r, or Jp with K)
+        weight:  typ.Any,                   # placed against value (with K where value has it); None = ones
+        n_sum:   int,                       # the leading axes summed: the jet axes and W
+        xnp,
+) -> NDArray:                               # sum of value * data_metric(value, weight, None) over F, W and the edge
+    '''``<value, M value>`` at ``gamma = 1``, summed over the modes, the slots, the samples and the mode edge, keeping
+    the stacks after ``W`` (``[K] + C``). The metric is ``data_metric``, the library's one ``omega**2``.'''
+    total = None
+    for array, omega, edge in _modes(kind, value, weight, xnp):
+        weighted = jets.data_metric(array, omega, None)
+        summed = xnp.sum(array * weighted, axis=tuple(range(n_sum)) + tuple(range(array.ndim - edge, array.ndim)))
+        total = summed if total is None else total + summed
+    return total
 
 
 def identity_step(
@@ -952,44 +992,41 @@ def close_step(
 
 def Jp_norm_sq_step(
         Jp:      typ.Any,                   # of the type of z: probe len=d, elm_shape=F+W+K+C+(Ni,); apply F+W+K+C
-        weight:  typ.Optional[NDArray],     # probe (d,)+F; apply F; None = ones
+        weight:  typ.Any,                   # omega, of the type of z (no K: placed here); None = ones
         *,
         lens:    contractions.GroupLengths,
         order:   typ.Tuple[int, ...],
         form:    str,
         kind:    str,
-) -> NDArray:                               # <Jp, weight**2 Jp>, keeping K + C. shape=K+C
-    '''The weighted sum of squares of the direction's output: ``<Jp, weight**2 Jp>``, summed over the modes, the
-    slots, the samples and the mode edge, keeping ``K + C`` (no half).'''
+) -> NDArray:                               # <Jp, M Jp> at gamma = 1, keeping K + C. shape=K+C
+    '''The weighted sum of squares of the direction's output, ``<Jp, M Jp>`` with ``M`` the data metric at
+    ``gamma = 1`` (``data_metric``), summed over the modes, the slots, the samples and the mode edge, keeping
+    ``K + C`` (no half).'''
     xnp, _, _ = get_backend(False, tree_contains_jax((Jp, weight)))
-    m, n_W = lens.P, lens.W
-    total = None
-    for Jp_FWKCo, weight_F, edge in _modes(kind, Jp, weight, xnp):
-        squares = Jp_FWKCo * Jp_FWKCo
-        if weight_F is not None:
-            squares = (weight_F * weight_F).reshape(weight_F.shape + (1,) * (Jp_FWKCo.ndim - m)) * squares
-        summed = xnp.sum(squares, axis=tuple(range(m + n_W)) + tuple(range(Jp_FWKCo.ndim - edge, Jp_FWKCo.ndim)))
-        total = summed if total is None else total + summed
-    return xnp.asarray(total)
+    return xnp.asarray(_weighted_sum(kind, Jp, _with_K(weight, kind, lens), lens.P + lens.W, xnp))
 
 
 def w_tilde_step(
-        r:       typ.Any,                   # of the type of z: probe len=d, elm_shape=F+W+C+(Ni,); apply F+W+C
-        weight:  typ.Optional[NDArray],     # probe (d,)+F; apply F; None = ones
+        r:       typ.Any,                   # of the type of z: probe len=d (or packed), elm_shape=F+W+[K]+C+(Ni,); apply F+W+[K]+C
+        weight:  typ.Any,                   # omega, of the type of z (no K: placed here); None = ones
         *,
         lens:    contractions.GroupLengths,
         order:   typ.Tuple[int, ...],
         form:    str,
         kind:    str,
-) -> typ.Any:                               # the seed, of the type of z, stored turned
-    '''The seed of the adjoint: the residual made a dual jet, ``jet_to_dual_jet``: the weight squared, then every jet
-    axis flipped. The probe kind's is one array per mode; the apply kind's one number per sample and slot, which sits
-    on the ones that close bond ``d``.'''
-    seed = jets.jet_to_dual_jet(kind, order, r, weight)
-    if kind == 'probe' and is_ndarray(r):               # the uniform layout: packed in, packed out
-        xnp, _, _ = get_backend(False, tree_contains_jax(seed))
+) -> typ.Any:                               # the seed: Y in the engine's turned coordinates, the type of z
+    '''The seed of the adjoint: the data metric at ``gamma = 1``, ``data_metric(r, weight, None)``, then the turn,
+    a flip of every jet axis. The probe kind's is one array per mode (packed in, packed out on the uniform layout);
+    the apply kind's one number per sample and slot, which sits on the ones that close bond ``d``. Seeded by ``Jp``
+    (``_Jp.w_tilde``), ``r`` carries ``K`` and the weight is placed against it (``_with_K``).'''
+    xnp, _, _ = get_backend(False, tree_contains_jax((r, weight)))
+    seed = [jets._flipped(jets.data_metric(array, omega, None), lens.P)
+            for array, omega, _ in _modes(kind, r, _with_K(weight, kind, lens), xnp)]
+    if kind != 'probe':
+        return seed[0]
+    if is_ndarray(r):                                   # the uniform layout: packed in, packed out
         return xnp.stack(seed)
-    return seed
+    return tuple(seed)
 
 
 def g_step(
@@ -1009,51 +1046,36 @@ def g_step(
 
 
 def r_step(
-        z:      typ.Any,                    # of the type of z: probe len=d, elm_shape=F+W+C+(Ni,); apply F+W+C
-        y:      typ.Any,                    # the data, broadcast over C: probe len=d, elm_shape=F+W+(Ni,); apply F+W
+        z:      typ.Any,                    # of the type of z: probe len=d (or packed), elm_shape=F+W+C+(Ni,); apply F+W+C
+        y:      typ.Any,                    # the data, of the type of z: each axis 1 or z's size (checked on entry)
         *,
         lens:   contractions.GroupLengths,
         order:  typ.Tuple[int, ...],
         form:   str,
         kind:   str,
 ) -> typ.Any:                               # r = z - y, of the type of z
-    '''The residual, the library's sign: ``r = z - y``, mode by mode for the probe kind.'''
+    '''The residual, the library's sign: ``r = z - y``, mode by mode for the probe kind (one array on the uniform
+    layout). ``y`` has ``z``'s rank, each axis 1 or ``z``'s size, so ``z - y`` places it by position: a size of 1 is
+    the same datum along that axis (shared data on a stack has size-1 ``C`` axes).'''
     xnp, _, _ = get_backend(False, tree_contains_jax((z, y)))
-    if kind != 'probe':
-        y_FW = xnp.asarray(y)
-        return xnp.asarray(z) - y_FW.reshape(y_FW.shape + (1,) * lens.C)
-    if is_ndarray(z):                                   # the uniform layout: (d,)+F+W+C+(N,) and (d,)+F+W+(N,)
-        y_dFWo = xnp.asarray(y)
-        return z - y_dFWo.reshape(y_dFWo.shape[:-1] + (1,) * lens.C + y_dFWo.shape[-1:])
-    out = []
-    for z_FWCo, y_FWo in zip(z, y):
-        y_FWo = xnp.asarray(y_FWo)
-        y_FW1o = y_FWo.reshape(y_FWo.shape[:-1] + (1,) * lens.C + y_FWo.shape[-1:])
-        out.append(z_FWCo - y_FW1o)
-    return tuple(out)
+    if kind != 'probe' or is_ndarray(z):
+        return xnp.asarray(z) - xnp.asarray(y)
+    return tuple(z_FWCo - xnp.asarray(y_FWCo) for z_FWCo, y_FWCo in zip(z, (y[i] for i in range(len(z)))))
 
 
 def f_step(
         r:       typ.Any,                   # of the type of z: probe len=d, elm_shape=F+W+C+(Ni,); apply F+W+C
-        weight:  typ.Optional[NDArray],     # probe (d,)+F; apply F; None = ones
+        weight:  typ.Any,                   # omega, of the type of z; None = ones
         *,
         lens:    contractions.GroupLengths,
         order:   typ.Tuple[int, ...],
         form:    str,
         kind:    str,
-) -> NDArray:                               # f = 1/2 <r, weight**2 r>, keeping C. shape=C
-    '''The misfit: half the sum, over the modes, the slots, the samples and the mode edge, of the squared weighted
-    residual. The stack ``C`` is kept.'''
+) -> NDArray:                               # f = 1/2 <r, M r> at gamma = 1, keeping C. shape=C
+    '''The misfit: ``1/2 <r, M r>`` with ``M`` the data metric at ``gamma = 1`` (``data_metric``), summed over the
+    modes, the slots, the samples and the mode edge. The stack ``C`` is kept.'''
     xnp, _, _ = get_backend(False, tree_contains_jax((r, weight)))
-    m, n_W = lens.P, lens.W
-    total = None
-    for r_FWCo, weight_F, edge in _modes(kind, r, weight, xnp):
-        squares = r_FWCo * r_FWCo
-        if weight_F is not None:
-            squares = (weight_F * weight_F).reshape(weight_F.shape + (1,) * (r_FWCo.ndim - m)) * squares
-        axes = tuple(range(m + n_W)) + tuple(range(r_FWCo.ndim - edge, r_FWCo.ndim))
-        summed = xnp.sum(squares, axis=axes)
-        total = summed if total is None else total + summed
+    total = _weighted_sum(kind, r, weight, lens.P + lens.W, xnp)
     half = xnp.asarray(0.5, dtype=xnp.asarray(total).dtype)    # numpy 1.x: a Python float lifts a float32 sum
     return xnp.asarray(half * total)                            # an array, not a numpy scalar
 
@@ -1065,7 +1087,7 @@ def r_block_sumsq_step(
         order:  typ.Tuple[int, ...],
         form:   str,
         kind:   str,
-) -> NDArray:                               # the unweighted sums of squares per block: the weight's shape
+) -> NDArray:                               # the unweighted sums of squares per block: the block shape (d,)+F | F | ()
     '''The sums of squares of the residual, unweighted, per block: per mode and slot for the probe kind (the shape
     ``(d,) + F``), per slot for the apply kind (``F``). Summed over the samples, the stack ``C`` and the mode edge.'''
     xnp, _, _ = get_backend(False, tree_contains_jax(r))

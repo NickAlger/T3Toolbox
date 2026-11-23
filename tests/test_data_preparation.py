@@ -8,7 +8,8 @@ The jet shape ``order = (n_1, ..., n_m)`` is a tuple, the box ``F = (n_1 + 1, ..
 apply kinds is its input jets ``ww`` (``F_in_i + W + (Ni,)``); the entries kind has no jets.
 
 1. **The block norms and the equalizing weight** (`TestEqualizing`): the norms against ``numpy.linalg.norm``
-   block by block, in the shape of the weight for every jet shape (``check_weight`` accepts them); the weight
+   block by block, in the block shape for every jet shape (placed by ``blocks_to_weight``, ``check_weight`` accepts
+   them); the weight
    against ``1 / max(x, floor * max(x))``, the floor weight on a zero block, and that the floor is relative.
 2. **Rescaling the direction** (`TestRescaleDirection`): the rescaled data are the data of the SAME dense
    tensor at the rescaled input jets (the dense functions), so the unknowns do not change; at ``m = 1`` and
@@ -88,17 +89,21 @@ def slot_factor(lengths, k):
 
 class TestEqualizing(unittest.TestCase):
 
-    def test_the_block_norms_have_the_shape_of_the_weight(self):
+    def test_the_block_norms_have_the_block_shape(self):
+        """The block shape ``(d,) + F``, ``F`` or ``()`` (per-block quantities, not weights: the data-metric arc); placed
+        by ``blocks_to_weight`` they are a weight the checker accepts."""
         rng = np.random.default_rng(0)
         for kind in ('probe', 'apply', 'entries'):
             for order in (JET_SHAPES if kind != 'entries' else ((),)):
                 for W in ((7,), (), (2, 3)):
                     y = random_data(rng, kind, order, W)
+                    sample = (np.stack([rng.integers(0, N, size=W) for N in SHAPE]) if kind == 'entries'
+                              else [rng.standard_normal(F_of(order) + W + (N,)) for N in SHAPE])
                     norms = prep.data_block_norms(kind, order, y)
                     with self.subTest(kind=kind, order=order, W=W):
                         self.assertEqual(norms.shape, ((D,) if kind == 'probe' else ()) + F_of(order))
-                        jets.check_weight(kind, order, norms, D)             # the checker of a weight accepts it
-                        jets.check_weight(kind, order, prep.equalizing_weight(norms), D)
+                        for blocks in (norms, prep.equalizing_weight(norms)):
+                            jets.check_weight(kind, order, sample, jets.blocks_to_weight(kind, order, blocks, y))
 
     def test_the_block_norms_are_the_norms_of_the_blocks(self):
         rng = np.random.default_rng(1)

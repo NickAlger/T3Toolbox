@@ -30,6 +30,7 @@ import t3toolbox.backend.uniform_fitting as ufit
 import t3toolbox.fitting as fitting
 import t3toolbox.corewise as cw
 from t3toolbox.fitting import LeastSquaresOracle, LeastSquaresBatch
+from t3toolbox.backend.jets import blocks_to_weight
 import os as _os, sys as _sys
 _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
 _sys.path.insert(0, _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'oracle_sweeps'))
@@ -122,8 +123,9 @@ _TRANSPOSE = {'apply': t3m.T3Tangent.apply_transpose, 'entries': t3m.T3Tangent.e
 
 def _setup(kind, geom_name, C):
     '''Build a model of one (kind, geometry, frame-stack C), plus the dense forward oracle and the kind-aware
-    sample-space reducers (samp_add / samp_dot / rand_like). The data ``y`` have no ``C`` (one ``y`` per stacked model,
-    the oracle's batch); each element's residual is ``r_c = z(x_c) - y``, from the dense forward. One dict per call.'''
+    sample-space reducers (samp_add / samp_dot / rand_like). The data ``y`` are one dataset shared by the stack
+    (size-1 ``C`` axes, of the type of ``z``); each element's residual is ``r_c = z(x_c) - y``, from the dense
+    forward. One dict per call.'''
     np.random.seed(0)
     x = t3.TuckerTensorTrain.randn(SHAPE, TUCKER_RANKS, TT_RANKS, stack_shape=C)
     geometry = GEOMS[geom_name]
@@ -139,15 +141,15 @@ def _setup(kind, geom_name, C):
         dense_fwd = lambda T: dense_probe(T, sample, n_c)
     z = dense_fwd(x.to_dense())
     if kind == 'probe':
-        y = [np.random.randn(m, N) for N in SHAPE]
-        r = [zi - yi.reshape((m,) + (1,) * n_c + (N,)) for zi, yi, N in zip(z, y, SHAPE)]
+        y = [np.random.randn(m, N).reshape((m,) + (1,) * n_c + (N,)) for N in SHAPE]   # shared by C: size-1 axes
+        r = [zi - yi for zi, yi in zip(z, y)]
         samp_dot = lambda a, b: sum(np.sum(ai * bi, axis=tuple(range(n_w)) + (ai.ndim - 1,))
                                     for ai, bi in zip(a, b))
         samp_add = lambda a, b: [ai + bi for ai, bi in zip(a, b)]
         rand_like = lambda v: [np.random.randn(*vi.shape) for vi in v]
     else:
-        y = np.random.randn(m)
-        r = z - y.reshape((m,) + (1,) * n_c)
+        y = np.random.randn(m).reshape((m,) + (1,) * n_c)                          # shared by C: size-1 axes
+        r = z - y
         samp_dot = lambda a, b: np.sum(a * b, axis=tuple(range(n_w)))
         samp_add = lambda a, b: a + b
         rand_like = lambda v: np.random.randn(*v.shape)
@@ -492,7 +494,8 @@ class TestResidualWeighting(unittest.TestCase):
         oracle = LeastSquaresOracle('probe', ())
         for geom in (t3m.MANIFOLD, t3m.COREWISE):
             with self.subTest(geom=type(geom).__name__):   # name, not the object -- xdist reports must serialize (execnet)
-                w = fitting.local_model(geom, oracle, LeastSquaresBatch(ww, y, omega), x)
+                w = fitting.local_model(geom, oracle, LeastSquaresBatch(ww, y, blocks_to_weight('probe', (), omega, y)),
+                                        x)
                 obj_oracle = 0.5 * sum((omega[i] ** 2) * np.sum(r[i] ** 2) for i in range(d))
                 self.assertTrue(np.allclose(float(w.objective_value), obj_oracle))
                 u = fitting.local_model(geom, oracle, LeastSquaresBatch(ww, y2), x)
@@ -517,7 +520,8 @@ class TestPerModeWeightRowCount(unittest.TestCase):
         oracle = LeastSquaresOracle('probe', ())
         with self.assertRaisesRegex(ValueError, 'weight'):
             fitting.local_model(t3m.MANIFOLD, oracle, LeastSquaresBatch(self.ww, self.y, self.w5), self.x)
-        fitting.local_model(t3m.MANIFOLD, oracle, LeastSquaresBatch(self.ww, self.y, self.w5[:3]), self.x)
+        fitting.local_model(t3m.MANIFOLD, oracle,
+                            LeastSquaresBatch(self.ww, self.y, blocks_to_weight('probe', (), self.w5[:3], self.y)), self.x)
 
     def test_short_is_rejected(self):
         with self.assertRaisesRegex(ValueError, 'weight'):
@@ -731,7 +735,7 @@ class TestUniformBackendGeometryFromFrame(unittest.TestCase):
                 x = ut3.UniformTuckerTensorTrain.from_t3(rx)
                 geom = ut3m.UNIFORM_MANIFOLD if sharing is None else sg.shared(ut3m.UNIFORM_MANIFOLD, sharing)
                 ww = [rng.standard_normal((6, N)) for N in struct[0]]
-                y = [rng.standard_normal((6, N)) for N in struct[0]]
+                y = [rng.standard_normal((6,) + (1,) * len(C) + (N,)) for N in struct[0]]   # shared by C: size 1
                 oracle, batch = LeastSquaresOracle('probe', ()), LeastSquaresBatch(ww, y)
                 with mock.patch.object(ufc, 'ut3_orthogonal_representations',
                                        wraps=ufc.ut3_orthogonal_representations) as spy:

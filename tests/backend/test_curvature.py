@@ -1644,14 +1644,15 @@ def _probe_weight(weight, d, order):
 def _pd_fit(struct, order, W, rng, C=(), weight=None, geom=_MANIFOLD, regularizer=None):
     """A fit of probe-derivative data along lines (the probe oracle at the jet shape ``(order,)``) whose data come from
     ANOTHER unit point (plus noise), so the residual -- hence the curvature term -- is O(1), and the point ``x`` to
-    linearize at (stacked ``C``: the data are of one point and broadcast over ``C``, as the oracle's ``y`` does)."""
+    linearize at (stacked ``C``: the data are of one point and shared by the stack, size-1 ``C`` axes; an element's fit
+    is ``F.at_element(fit, cc)``)."""
     x, other = _unit_point(struct, C), _unit_point(struct)
     ww = [rng.standard_normal(W + (N,)) for N in struct[0]]
     pp = [rng.standard_normal(W + (N,)) for N in struct[0]]
     data = [z + 0.1 * rng.standard_normal(z.shape)
             for z in dd.forward(t3.TuckerTensorTrain(*other), 'probe', ww, pp, order)]
-    return F.derivative_fit(geom, 'probe', order, ww, pp, data, regularizer=regularizer,
-                            weight=_probe_weight(weight, len(struct[0]), order)), x
+    return F.shared_over(F.derivative_fit(geom, 'probe', order, ww, pp, data, regularizer=regularizer,
+                                          weight=_probe_weight(weight, len(struct[0]), order)), C), x
 
 
 def _K_r(lm, theta_hat):
@@ -1661,14 +1662,14 @@ def _K_r(lm, theta_hat):
 
 
 def _w2r(lm):
-    """``omega^2 r``, of the type of z (the batch's weight on its axes), from the model's residual."""
+    """``omega^2 r``, of the type of z, from the model's residual: the batch's weight is of the type of z (each axis 1
+    or r's size), so it multiplies by position."""
     r, w = lm.residual, lm.batch.weight
     if w is None:
         return r
-    if isinstance(r, (tuple, list)):                                   # probe: w is (d,) + F
-        return [np.asarray(w[i]).reshape(np.shape(w[i]) + (1,) * (np.ndim(a) - np.ndim(w[i]))) ** 2 * a
-                for i, a in enumerate(r)]
-    return np.asarray(w).reshape(np.shape(w) + (1,) * (np.ndim(r) - np.ndim(w))) ** 2 * r
+    if isinstance(r, (tuple, list)):                                   # probe: w is (d,)-leading (blocks_to_weight)
+        return [np.asarray(w[i]) ** 2 * a for i, a in enumerate(r)]
+    return np.asarray(w) ** 2 * r
 
 
 def _unit_tangent(geom, frame, K=(), C=()):
@@ -1915,8 +1916,8 @@ class TestExactLocalModel(unittest.TestCase):
                 Hp, q, qc = lm.hvp(p), np.asarray(lm.quadratic(p)), np.asarray(lm.curvature_quadratic(p))
                 self.assertEqual(q.shape, K + C)
                 self.assertEqual(qc.shape, K + C)
-                for cc in np.ndindex(*C):                                      # the data broadcast over C
-                    lm_c = prob.local_model(_elem(x, cc), hessian='exact')
+                for cc in np.ndindex(*C):                                      # the data shared by C (size-1 C axes)
+                    lm_c = F.at_element(prob, cc).local_model(_elem(x, cc), hessian='exact')
                     for kk in np.ndindex(*K):
                         p_kc = _elem(p, kk + cc)
                         self.assertLess(_relerr_tree(_elem(Hp, kk + cc), lm_c.hvp(p_kc)), 1e-12)
@@ -2073,7 +2074,7 @@ class TestExactLocalModel(unittest.TestCase):
 def _plain_fit(kind, struct, W, rng, C=(), weight=None, geom=_MANIFOLD, noise=0.1):
     """A plain-kind least-squares problem (probe / apply / entries) whose data come from ANOTHER unit point plus
     noise -- so the residual, hence the curvature term, is O(1) -- and the point ``x`` to linearize at."""
-    x, other = _unit_point(struct, C), _unit_point(struct)                 # the data broadcast over C
+    x, other = _unit_point(struct, C), _unit_point(struct)                 # the data shared by C (size-1 C axes)
     shape = struct[0]
     if kind == 'entries':
         sample = np.stack([rng.integers(0, N, size=W) for N in shape])
@@ -2082,7 +2083,8 @@ def _plain_fit(kind, struct, W, rng, C=(), weight=None, geom=_MANIFOLD, noise=0.
     clean = {'probe': probing.t3_probe, 'apply': bapply.t3_apply, 'entries': bentries.t3_entries}[kind](other, sample)
     data = ([z + noise * rng.standard_normal(z.shape) for z in clean] if kind == 'probe'
             else clean + noise * rng.standard_normal(clean.shape))
-    return F.fit(geom, kind, sample, data, weight=None if weight is None else np.asarray(weight, dtype=float)), x
+    return F.shared_over(F.fit(geom, kind, sample, data,
+                               weight=None if weight is None else np.asarray(weight, dtype=float)), C), x
 
 
 def _plain_fit_away_from_singular(test, kind, struct, W, seed, weight=None, cd=None):
@@ -2203,8 +2205,8 @@ class TestPlainKindsExactLocalModel(unittest.TestCase):
                 p = _unit_tangent(prob.geom, lm.frame, K=K, C=C)
                 Hp, q = lm.hvp(p), np.asarray(lm.quadratic(p))
                 self.assertEqual(q.shape, K + C)
-                for cc in np.ndindex(*C):                                      # the data broadcast over C
-                    lm_c = prob.local_model(_elem(x, cc), hessian='exact')
+                for cc in np.ndindex(*C):                                      # the data shared by C (size-1 C axes)
+                    lm_c = F.at_element(prob, cc).local_model(_elem(x, cc), hessian='exact')
                     for kk in np.ndindex(*K):
                         p_kc = _elem(p, kk + cc)
                         self.assertLess(_relerr_tree(_elem(Hp, kk + cc), lm_c.hvp(p_kc)), 1e-12)
@@ -2241,13 +2243,13 @@ def _deriv_fit(kind, struct, order, W, rng, C=(), weight=None, geom=_MANIFOLD, n
     plus noise -- so the residual, hence the curvature term, is O(1) -- and the point ``x`` to linearize at; with
     ``labels``, both points tied (for a shared geometry)."""
     point = _unit_point if labels is None else (lambda s, cc: _shared_unit_point(s, labels, cc))
-    x, other = point(struct, C), point(struct, ())                            # the data broadcast over C
+    x, other = point(struct, C), point(struct, ())                            # the data shared by C (size-1 C axes)
     sample, pp = _deriv_sample(kind, struct[0], W, rng)
     base = kind[:-len('_derivatives')]                                        # 'apply' | 'entries'
     clean = np.asarray(dd.forward(t3.TuckerTensorTrain(*other), base, sample, pp, order))
     data = clean + noise * rng.standard_normal(clean.shape)
-    return F.derivative_fit(geom, base, order, sample, pp, data, weight=None if weight is None else np.asarray(
-        weight, dtype=float), shape=struct[0]), x
+    return F.shared_over(F.derivative_fit(geom, base, order, sample, pp, data, weight=None if weight is None else
+                                          np.asarray(weight, dtype=float), shape=struct[0]), C), x
 
 
 def _deriv_fit_away_from_singular(test, kind, struct, order, W, seed, weight=None, cd=None):
@@ -2357,8 +2359,8 @@ class TestDerivativeKindsExactLocalModel(unittest.TestCase):
                 p = _unit_tangent(prob.geom, lm.frame, K=K, C=C)
                 Hp, q = lm.hvp(p), np.asarray(lm.quadratic(p))
                 self.assertEqual(q.shape, K + C)
-                for cc in np.ndindex(*C):                                      # the data broadcast over C
-                    lm_c = prob.local_model(_elem(x, cc), hessian='exact')
+                for cc in np.ndindex(*C):                                      # the data shared by C (size-1 C axes)
+                    lm_c = F.at_element(prob, cc).local_model(_elem(x, cc), hessian='exact')
                     for kk in np.ndindex(*K):
                         p_kc = _elem(p, kk + cc)
                         self.assertLess(_relerr_tree(_elem(Hp, kk + cc), lm_c.hvp(p_kc)), 1e-12)
@@ -2816,13 +2818,13 @@ def _shared_unit_point(struct, labels, C=()):
 def _shared_fit(struct, labels, order, W, rng, C=(), weight=None, regularizer=None):
     """:py:func:`_pd_fit` on the shared manifold: data from another tied unit point (plus noise), a tied ``x``."""
     geom = _MANIFOLD.with_sharing(labels, struct[0])
-    x, other = _shared_unit_point(struct, labels, C), _shared_unit_point(struct, labels)   # data broadcast over C
+    x, other = _shared_unit_point(struct, labels, C), _shared_unit_point(struct, labels)   # data shared by C (size-1 C axes)
     ww = [rng.standard_normal(W + (N,)) for N in struct[0]]
     pp = [rng.standard_normal(W + (N,)) for N in struct[0]]
     data = [z + 0.1 * rng.standard_normal(z.shape)
             for z in dd.forward(t3.TuckerTensorTrain(*other), 'probe', ww, pp, order)]
-    return F.derivative_fit(geom, 'probe', order, ww, pp, data, regularizer=regularizer,
-                            weight=_probe_weight(weight, len(struct[0]), order)), x
+    return F.shared_over(F.derivative_fit(geom, 'probe', order, ww, pp, data, regularizer=regularizer,
+                                          weight=_probe_weight(weight, len(struct[0]), order)), C), x
 
 
 def _per_mode_twin(lm):
@@ -3089,8 +3091,8 @@ class TestSharedExactLocalModel(unittest.TestCase):
         p = _unit_tangent(prob.geom, lm.frame, K=K, C=C)
         Hp, q = lm.hvp(p), np.asarray(lm.quadratic(p))
         self.assertEqual(q.shape, K + C)
-        for cc in np.ndindex(*C):                                              # the data broadcast over C
-            lm_c = prob.local_model(_elem(x, cc), hessian='exact')
+        for cc in np.ndindex(*C):                                              # the data shared by C (size-1 C axes)
+            lm_c = F.at_element(prob, cc).local_model(_elem(x, cc), hessian='exact')
             for kk in np.ndindex(*K):
                 p_kc = _elem(p, kk + cc)
                 self.assertLess(_relerr_tree(_elem(Hp, kk + cc), lm_c.hvp(p_kc)), 1e-12)

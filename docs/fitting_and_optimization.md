@@ -423,14 +423,17 @@ on both layers.
 >>> ww3, pp3 = [w[:20] for w in ww], [p[:20] for p in pp]                      # 20 probes is plenty here
 >>> y3 = derivative_data('probe', A, ww3, pp3, 3)                              # derivatives, len=d, (order+1)+W+(Ni,)
 >>> mode_w, order_w = [1.0, 0.6, 0.3], [1.0, 0.5, 0.3, 0.2]                    # (d=3,) and (order+1=4,)
->>> y, w, _ = fitting.prepare_derivative_data('probe', (3,), y3, np.outer(mode_w, order_w))   # ω[mode,order], (3, 4)
+>>> blocks = np.outer(mode_w, order_w)                                          # ω[mode,order], (3, 4)
+>>> omega = fitting.blocks_to_weight('probe', (3,), blocks, y3)                 # a weight of the type of z
+>>> y, w, _ = fitting.prepare_derivative_data('probe', (3,), y3, omega)
 >>> model = fitting.local_model(t3m.MANIFOLD, fitting.LeastSquaresOracle('probe', order=(3,)),
 ...                             fitting.LeastSquaresBatch(affine_jet(ww3, pp3), y, w), x)
->>> np.shape(w)
-(3, 4)
->>> # plain probe: a per-mode vector is 1-D (d,):
+>>> np.shape(w)                                                                 # (d,) + F + W + (edge,), W and edge 1
+(3, 4, 1, 1)
+>>> # plain probe: one value per mode, placed the same way:
+>>> per_mode = fitting.blocks_to_weight('probe', (), np.array([0.5, 1.0, 2.0]), pdata)
 >>> model = fitting.local_model(t3m.MANIFOLD, fitting.LeastSquaresOracle('probe', order=()),
-...                             fitting.LeastSquaresBatch(ww, pdata, np.array([0.5, 1.0, 2.0])), x)
+...                             fitting.LeastSquaresBatch(ww, pdata, per_mode), x)
 >>> print(model.gradient.is_gauged())
 True
 

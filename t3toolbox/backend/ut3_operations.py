@@ -208,6 +208,38 @@ def pack_if_ragged(
     return vectors if is_packed(vectors) else pack_vectors(vectors, N, len_P=len_P)
 
 
+def _pack_data_space(
+        value,          # a probe data-space object: packed (returned as is), or len=d arrays, elm_shape=F+W+C+(e_i,)
+        N:  int,        # the packed mode width
+) -> NDArray:           # (d,)+F+W+C+(e,): each axis of F+W+C the join across the modes; e = 1 if every e_i is 1, else N
+    """Pack a data-space object of the probe kind (the data ``y``, a weight ``omega``, a residual), whose arrays are of
+    the type of ``z``: each axis 1 or ``z``'s size, the edge ``e_i`` 1 or ``N_i``. Each axis of ``F + W + C`` becomes
+    the join across the modes (full if any mode has it full: the others are broadcast). The edge stays 1 if every
+    mode's is 1; otherwise a full edge is padded with zeros to ``N`` and an edge of 1 is broadcast to ``N`` (never
+    padded: that would put its value on entry 0 only). A broadcast edge puts the value on the padding too; the engine
+    masks the packed object on entry, and padding is not data. A packed object is returned as it is."""
+    if is_packed(value):
+        return value
+    use_jax = tree_contains_jax(value)
+    xnp, _, _ = get_backend(False, use_jax)
+    arrays = [xnp.asarray(a) for a in value]
+    ranks = {a.ndim for a in arrays}
+    if len(ranks) != 1:
+        raise ValueError('_pack_data_space: the arrays of a data-space object have one rank, that of z; got the '
+                         'shapes %s' % ([tuple(a.shape) for a in arrays],))
+    body = tuple(max(a.shape[k] for a in arrays) for k in range(ranks.pop() - 1))
+    if all(a.shape[-1] == 1 for a in arrays):
+        return xnp.stack([xnp.broadcast_to(a, body + (1,)) for a in arrays])
+    out = []
+    for a in arrays:
+        if a.shape[-1] == 1:
+            out.append(xnp.broadcast_to(a, body + (N,)))
+        else:
+            a = xnp.broadcast_to(a, body + a.shape[-1:])
+            out.append(xnp.pad(a, ((0, 0),) * len(body) + ((0, N - a.shape[-1]),)))
+    return xnp.stack(out)
+
+
 def ut3_unstack(
         x: typ.Tuple[
             NDArray,                          # tucker_supercore

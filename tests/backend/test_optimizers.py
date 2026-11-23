@@ -1665,13 +1665,15 @@ class TestStackedPointIsRejected(unittest.TestCase):
     def test_a_stacked_local_model_still_works(self):
         """The supported stacked path: build the model, drive your own loop. Its objective keeps C, and each
         element's is the element's own model's (a size-1 axis or a sum over C would not give that)."""
-        problem = F.fit(bgeo.ManifoldGeometryOps(), 'apply', self.ww, self.data)
+        element_problem = F.fit(bgeo.ManifoldGeometryOps(), 'apply', self.ww, self.data)
+        problem = F.shared_over(element_problem, (3,))                   # the stacked model's y: a size-1 C axis
         lm = problem.local_model(self.A.data)
         self.assertEqual(np.shape(lm.objective), (3,))
         self.assertEqual(np.shape(problem.objective(self.A.data)), (3,))
         for k, element in enumerate(self.A.unstack()):
             with self.subTest(element=k):
-                self.assertAlmostEqual(float(lm.objective[k]), float(problem.local_model(element.data).objective),
+                self.assertAlmostEqual(float(lm.objective[k]),
+                                       float(element_problem.local_model(element.data).objective),
                                        delta=1e-12 * float(lm.objective[k]))
         g = lm.gradient
         self.assertEqual(np.shape(problem.geom.inner(g, g)), (3,))
@@ -1709,8 +1711,8 @@ class TestWeightCombinations(unittest.TestCase):
 
     def test_weighted_stacked_model_matches_the_per_element_models(self):
         """A weighted model on a stacked point must equal the per-element weighted models, elementwise: the weight
-        has exactly the shape (d,) + F, and a frame stack C must not shift where it applies. The data come from one
-        other tensor (y broadcasts over C), so each element's objective is far from zero."""
+        is one value per mode, placed on the data, and a frame stack C must not shift where it applies. The data come
+        from one other tensor (shared by the stack: size-1 C axes), so each element's objective is far from zero."""
         import t3toolbox.backend.stacking as stacking
         K = 3
         ww = unit_vecs(20, SHAPE, self.rng)
@@ -1720,7 +1722,8 @@ class TestWeightCombinations(unittest.TestCase):
         data = dense_probe(t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).to_dense(), ww)
 
         geom = bgeo.ManifoldGeometryOps()
-        stacked_obj = np.asarray(F.fit(geom, 'probe', ww, data, weight=omega).local_model(stacked.data).objective)
+        stacked_obj = np.asarray(F.shared_over(F.fit(geom, 'probe', ww, data, weight=omega), (K,))
+                                 .local_model(stacked.data).objective)
         self.assertEqual(stacked_obj.shape, (K,))
         self.assertGreater(float(np.min(stacked_obj)), 1.0, 'objective must be far from zero to compare')
         for i, element in enumerate(elements):

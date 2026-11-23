@@ -17,7 +17,7 @@ import t3toolbox.backend.geometry as bgeo
 import t3toolbox.backend.uniform_fitting as uf
 import t3toolbox.backend.optimizer_display as bdisp
 from t3toolbox.backend.fitting import LeastSquaresOracle, LeastSquaresBatch
-from t3toolbox.backend.jets import affine_jet
+from t3toolbox.backend.jets import affine_jet, blocks_to_weight
 import _derivative_data as dd
 import _fits as F                    # a backend fit (geometry, oracle, batch, regularizer) from plain specs (P16)
 
@@ -310,13 +310,15 @@ def _jets(order, W, rng):
 
 
 def _batch(kind, order, W, rng, target, weight=None):
-    """A batch of ``target``'s exact data at a random sample."""
+    """A batch of ``target``'s exact data at a random sample; ``weight`` one value per block (``_weight_shape``),
+    placed on the data by ``blocks_to_weight``."""
     if kind == 'entries':
         index = np.stack([rng.integers(0, N, W) for N in SH])
-        return LeastSquaresBatch(index, target.entries(index), weight)
+        y = target.entries(index)
+        return LeastSquaresBatch(index, y, None if weight is None else blocks_to_weight(kind, order, weight, y))
     sample = _jets(order, W, rng)
     y = target.probe(sample, order) if kind == 'probe' else target.apply(sample, order)
-    return LeastSquaresBatch(sample, y, weight)
+    return LeastSquaresBatch(sample, y, None if weight is None else blocks_to_weight(kind, order, weight, y))
 
 
 def _weight_shape(kind, order):

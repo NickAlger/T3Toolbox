@@ -36,6 +36,7 @@ import unittest
 
 import numpy as np
 
+import t3toolbox.backend.jets as jets
 import t3toolbox.backend.sampling_definitions as sdef
 import t3toolbox.backend.sampling_variables as sv
 
@@ -76,18 +77,19 @@ class Case:
                            tuple(rng.standard_normal(K + C + (rL[i], nD[i], rR[i + 1])) for i in range(d)))
         self.core_directions = (tuple(rng.standard_normal(K + C + (nD[i], N[i])) for i in range(d)),
                                 tuple(rng.standard_normal(K + C + (rL[i], nD[i], rL[i + 1])) for i in range(d)))
+        # y and the weight of the type of z (the data-metric rule): one per entry and per element of the stack C
         if kind == 'entries':
             self.sample = np.stack([rng.integers(0, 2, size=W) for _ in range(d)])      # repeated indices
-            self.y = rng.standard_normal(W)
-            self.weight = np.asarray(0.5 + rng.random())
+            self.y = rng.standard_normal(W + C)
+            self.weight = 0.5 + rng.random(W + C)
         else:
             self.sample = [rng.standard_normal(F_IN[order] + W + (N[i],)) for i in range(d)]
             if kind == 'probe':
-                self.y = [rng.standard_normal(self.box + W + (N[i],)) for i in range(d)]
-                self.weight = 0.5 + rng.random((d,) + self.box)
+                self.y = [rng.standard_normal(self.box + W + C + (N[i],)) for i in range(d)]
+                self.weight = [0.5 + rng.random(self.box + W + C + (N[i],)) for i in range(d)]
             else:
-                self.y = rng.standard_normal(self.box + W)
-                self.weight = 0.5 + rng.random(self.box)
+                self.y = rng.standard_normal(self.box + W + C)
+                self.weight = 0.5 + rng.random(self.box + W + C)
 
     @property
     def at(self):
@@ -96,11 +98,17 @@ class Case:
     def arguments(self, k=None, c=None, flat=False):
         """The call's keyword arguments, at direction ``k`` and frame element ``c`` when given, ``W`` flattened."""
         pick = lambda pair: tuple(tuple(core[k + c] for core in cores) for cores in pair) if k is not None else pair
-        arguments = dict(order=self.order, y=self.flat(self.y, 'y') if flat else self.y, weight=self.weight,
-                         core_directions=pick(self.core_directions))
+        y, weight = (self.y, self.weight) if c is None else (self.at_element(self.y, c), self.at_element(self.weight, c))
+        arguments = dict(order=self.order, y=self.flat(y, 'y') if flat else y,
+                         weight=self.flat(weight, 'y') if flat else weight, core_directions=pick(self.core_directions))
         if self.call == '_manifold':
             arguments['variations'] = pick(self.variations)
         return arguments
+
+    def at_element(self, value, c):
+        """Element ``c`` of a data-space object of the type of ``z``: its ``C`` axes (after ``F + W``) taken."""
+        where = (slice(None),) * (self.m + len(self.W)) + tuple(c)
+        return [v[where] for v in value] if self.kind == 'probe' else value[where]
 
     def element_at(self, c):
         stores = self.at
@@ -266,11 +274,12 @@ class TestUnsummed(unittest.TestCase):
                 one.__dict__.update(case.__dict__)
                 if case.kind == 'entries':
                     one.sample = case.sample[(slice(None),) + w]
-                    one.y = case.y[w]
+                    one.y, one.weight = case.y[w], case.weight[w]
                 else:
                     one.sample = [s[(slice(None),) * case.m + w] for s in case.sample]
-                    one.y = ([y[(slice(None),) * case.m + w] for y in case.y] if case.kind == 'probe'
-                             else case.y[(slice(None),) * case.m + w])
+                    at_w = lambda v: ([a[(slice(None),) * case.m + w] for a in v] if case.kind == 'probe'
+                                      else v[(slice(None),) * case.m + w])
+                    one.y, one.weight = at_w(case.y), at_w(case.weight)
                 one.W = ()
                 alone = dict(zip(names, one.run(names)))
                 for name in names:
@@ -295,11 +304,12 @@ class TestTheReferenceAnchor(unittest.TestCase):
                 for c in (tuple(np.ndindex(*case.C)) or ((),)):
                     arguments = case.arguments(k, c)
                     frame = case.element_at(c)
+                    y_c, weight_c = case.at_element(case.y, c), case.at_element(case.weight, c)   # element c's data
                     for name in names:
                         if name == 'r_block_sumsq':
                             continue                    # a sum over C: the matrix checks it against the engine
                         expected = getattr(sdef, name)('probe', frame, case.sample, None, case.order,
-                                                       y=case.y, weight=case.weight,
+                                                       y=y_c, weight=weight_c,
                                                        variations=arguments['variations'],
                                                        core_directions=arguments['core_directions'])
                         k_ = k if name in case.with_K() else ()

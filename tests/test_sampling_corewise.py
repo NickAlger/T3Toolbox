@@ -54,7 +54,8 @@ def corewise(problem, case, names, core_directions=None, **extra):
 
 def reference(problem, case, name, core_directions):
     """The reference on the frame ``(B, G, G, G)``: the frame's form of a direction there is its raw form."""
-    y, weight = problem.data('probe', case)
+    y, _ = problem.data('probe', case)
+    weight = problem.full_weight('probe', case)             # the reference's weight is of the type of z
     B, G = problem.D, problem.L
     return getattr(sdef, SECTION_9.get(name, name))('probe', (B, G, G, G), problem.input_jets(case), None, case.order,
                                                      y=y, weight=weight, variations=core_directions,

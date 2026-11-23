@@ -586,9 +586,11 @@ class TestDispatch(unittest.TestCase):
             F = tuple(n + 1 for n in order)
             y_probe = [f(rng.standard_normal(F + W + (n,))) for n in shape]
             y_apply = f(rng.standard_normal(F + W))
-            w_probe, w_apply = f(0.5 + rng.random((3,) + F)), f(0.5 + rng.random(F))
+            b_probe, b_apply = f(0.5 + rng.random((3,) + F)), f(0.5 + rng.random(F))       # per block
+            w_probe = jets.blocks_to_weight('probe', order, b_probe, y_probe)               # of the type of z
+            w_apply = jets.blocks_to_weight('apply', order, b_apply, y_apply)
             lengths = f(3.0) if len(order) == 1 else f([3.0, 0.5])             # one length, and one per variable
-            for label, y, weight in (('probe', y_probe, w_probe), ('apply', y_apply, w_apply)):
+            for label, y, weight, blocks in (('probe', y_probe, w_probe, b_probe), ('apply', y_apply, w_apply, b_apply)):
                 tag = '/%s %s' % (label, order)
                 cases += [
                     ('jet_to_dual_jet' + tag, lambda y, weight, kind=label, order=order: jets.jet_to_dual_jet(kind, order, y, weight), (y, weight)),
@@ -597,13 +599,14 @@ class TestDispatch(unittest.TestCase):
                     ('derivatives_to_taylor' + tag, lambda y, kind=label, order=order: jets.derivatives_to_taylor(kind, order, y), (y,)),
                     ('taylor_to_derivatives' + tag, lambda y, kind=label, order=order: jets.taylor_to_derivatives(kind, order, y), (y,)),
                     ('derivative_weight_to_taylor_weight' + tag,
-                     lambda weight, order=order: jets.derivative_weight_to_taylor_weight(weight, order), (weight,)),
+                     lambda weight, kind=label, order=order: jets.derivative_weight_to_taylor_weight(kind, order, weight),
+                     (weight,)),
                     ('prepare_derivative_data' + tag,
                      lambda y, weight, kind=label, order=order: jets.prepare_derivative_data(kind, order, y, weight, y), (y, weight)),
                     ('prepare_derivative_data, no weight' + tag,
                      lambda y, kind=label, order=order: jets.prepare_derivative_data(kind, order, y)[:2], (y,)),
                     ('data_block_norms' + tag, lambda y, kind=label, order=order: prep.data_block_norms(kind, order, y), (y,)),
-                    ('equalizing_weight' + tag, lambda weight: prep.equalizing_weight(weight), (weight,)),
+                    ('equalizing_weight' + tag, lambda blocks: prep.equalizing_weight(blocks), (blocks,)),
                     ('rescale_direction' + tag,
                      lambda sample, y, kind=label, order=order: prep.rescale_direction(kind, order, sample, y, 3.0), (sample, y)),
                     ('rescale_direction, the length an array' + tag,      # traced under jit; closed over in the mixed case
@@ -625,7 +628,8 @@ class TestDispatch(unittest.TestCase):
             ]
         y_entries = f(rng.standard_normal(W))
         cases += [
-            ('jet_to_dual_jet/entries ()', lambda y, weight: jets.jet_to_dual_jet('entries', (), y, weight), (y_entries, f(2.0))),
+            ('jet_to_dual_jet/entries ()', lambda y, weight: jets.jet_to_dual_jet('entries', (), y, weight),
+             (y_entries, f([[2.0]]))),
             ('prepare_derivative_data/entries ()', lambda y: jets.prepare_derivative_data('entries', (), y, None, y), (y_entries,)),
             ('data_block_norms/entries ()', lambda y: prep.data_block_norms('entries', (), y), (y_entries,)),
             ('rescale_coordinates, no jets/probe',
@@ -749,7 +753,7 @@ class TestDispatch(unittest.TestCase):
         scales = [0.5 + rng.random(n) for n in shape]
         y = [rng.standard_normal((3,) + W + (n,)) for n in shape]
         y_plane = rng.standard_normal((2, 3) + W)                   # apply at (1, 2)
-        weight = 0.5 + rng.random((3, 3))
+        weight = (0.5 + rng.random((3, 3))).reshape(3, 3, 1, 1)      # per mode and slot, of the type of z
         mixed = [y[0], jnp.asarray(y[1]), y[2]]                     # one mode of the probe tuple on jax
         jscales = [scales[0], jnp.asarray(scales[1]), scales[2]]
         x = self.x_np.data
@@ -792,16 +796,17 @@ class TestDispatch(unittest.TestCase):
             jet = np.arange(12.0).reshape(3, 4)
             with warnings.catch_warnings():
                 warnings.simplefilter('error')
-                outs = (jets.jet_to_dual_jet('apply', (2,), jet, jnp.asarray([1, 2, 3])),
-                        jets.dual_jet_to_jet('apply', (2,), jet, jnp.asarray([1, 2, 3])),
-                        jets.jet_to_dual_jet('apply', (2,), jet, jnp.asarray([1.0, 2.0, 3.0])),
+                outs = (jets.jet_to_dual_jet('apply', (2,), jet, jnp.asarray([[1], [2], [3]])),
+                        jets.dual_jet_to_jet('apply', (2,), jet, jnp.asarray([[1], [2], [3]])),
+                        jets.jet_to_dual_jet('apply', (2,), jet, jnp.asarray([[1.0], [2.0], [3.0]])),
                         jets.jet_to_dual_jet('probe', (2,), [jet, jnp.asarray(jet)], None)[0],
                         prep.rescale_direction('apply', (2,), [np.stack([jet, jet])], jet, jnp.asarray(2.0))[1],
                         prep.rescale_coordinates('apply', (), [jet], jet, [jnp.ones(4)])[0][0])
             for out in outs:
                 self.assertTrue(common.is_jax_ndarray(out))
                 self.assertEqual(out.dtype, np.float32)
-            self.assertLess(norm(np.asarray(outs[0]) - jets.jet_to_dual_jet('apply', (2,), jet, np.array([1, 2, 3]))), 1e-5 * 1e3)
+            self.assertLess(norm(np.asarray(outs[0]) - jets.jet_to_dual_jet('apply', (2,), jet, np.array([[1], [2], [3]]))),
+                            1e-5 * 1e3)
         finally:
             jax.config.update('jax_enable_x64', x64)
 
@@ -856,12 +861,13 @@ class TestDispatch(unittest.TestCase):
         line = [jnp.asarray(w) for w in jets.affine_jet(ww, pp)]            # F_in = (2,)
         index = jnp.asarray(np.stack([rng.integers(0, n, size=W) for n in shape]))
         y_probe = [jnp.zeros((3,) + W + (n,)) for n in shape]
-        y_apply, w_probe, w_apply = jnp.zeros((3,) + W), jnp.ones((3, 3)), jnp.ones(3)
+        y_apply, w_probe, w_apply = jnp.zeros((3,) + W), jnp.ones((3, 3, 1, 1)), jnp.ones((3, 1))   # of the type of z
+        bad_y = {'probe': [jnp.zeros((3, 5, n)) for n in shape], 'apply': jnp.zeros((3, 5)), 'entries': jnp.zeros(5)}
 
         def check(kind, order, sample, y, weight):
             jets.check_sample(kind, order, sample, shape)
             jets.check_data(kind, order, sample, y)
-            jets.check_weight(kind, order, weight, len(shape))
+            jets.check_weight(kind, order, sample, weight)
             return jnp.zeros(())
 
         import t3toolbox.backend.data_preparation as prep
@@ -871,15 +877,15 @@ class TestDispatch(unittest.TestCase):
             jax.jit(lambda scales: (prep.check_coordinate_scales(scales[::-1], shape), jnp.zeros(()))[1])(jscales)
 
         for kind, order, sample, y, weight in (('probe', (2,), line, y_probe, w_probe), ('apply', (2,), line, y_apply, w_apply),
-                                               ('entries', (), index, jnp.zeros(W), jnp.ones(()))):
+                                               ('entries', (), index, jnp.zeros(W), jnp.ones((1,)))):
             with self.subTest(kind=kind):
                 jax.jit(lambda sample, y, weight: check(kind, order, sample, y, weight))(sample, y, weight)
                 with self.assertRaisesRegex(ValueError, 'one array per mode|index must have shape'):
                     jax.jit(lambda sample, y, weight: check(kind, order, sample[:2], y, weight))(sample, y, weight)
                 with self.assertRaisesRegex(ValueError, 'the data y'):
-                    jax.jit(lambda sample, y, weight: check(kind, order, sample, weight, weight))(sample, y, weight)
+                    jax.jit(lambda sample, y, weight: check(kind, order, sample, bad_y[kind], weight))(sample, y, weight)
                 with self.assertRaisesRegex(ValueError, 'the weight of the %s kind' % kind):
-                    jax.jit(lambda sample, y, weight: check(kind, order, sample, y, jnp.ones((1,))))(sample, y, weight)
+                    jax.jit(lambda sample, y, weight: check(kind, order, sample, y, jnp.ones((3,))))(sample, y, weight)
 
     # ---------------------------------------------------- jit bucket: the sampling engine
     def test_jit_the_least_squares_oracle(self):
@@ -894,7 +900,7 @@ class TestDispatch(unittest.TestCase):
         oracle = LeastSquaresOracle('probe', (1,))
         jet = [jnp.asarray(w) for w in jets.affine_jet(list(self.ww), list(self.zz))]
         y = [jnp.asarray(a) for a in self.x_other.probe(jet, (1,))]
-        batch = LeastSquaresBatch(jet, y, jnp.ones((3, 2)))
+        batch = LeastSquaresBatch(jet, y, jets.blocks_to_weight('probe', (1,), jnp.ones((3, 2)), y))
         uframe = ubv.UT3Frame.from_t3frame(self.frame)
         layouts = {'ragged': (self.frame.data, batch, self.var.data),
                    'uniform': (uframe.data, pack_batch('probe', (1,), batch, uframe.data[0].shape[-1]),
@@ -984,7 +990,7 @@ class TestDispatch(unittest.TestCase):
         for order, sample in (((), ww), ((2,), list(jets.affine_jet(ww, pp)))):
             F = tuple(n + 1 for n in order)
             y = [rng.standard_normal(F + (2, n)) for n in N]
-            weight = 0.5 + rng.random((3,) + F)
+            weight = jets.blocks_to_weight('probe', order, 0.5 + rng.random((3,) + F), y)
             fn = lambda frame, sample, y, weight: sv.sampling_variables('probe', frame, sample, ('f', 'g'),
                                                                         order=order, y=y, weight=weight)
             on_numpy, g_numpy = fn(frame, sample, y, weight)
@@ -1015,7 +1021,7 @@ class TestDispatch(unittest.TestCase):
         ww = [rng.standard_normal((2, n)) for n in N]
         pp = [rng.standard_normal((2, n)) for n in N]
         sample = list(jets.affine_jet(ww, pp))
-        weight = 0.5 + rng.random((3, 3))
+        weight = jets.blocks_to_weight('probe', (2,), 0.5 + rng.random((3, 3)), [np.zeros((3, 2, n)) for n in N])
         fn = lambda frame, sample, weight, variations: sv.sampling_variables(
             'probe', frame, sample, ('Jp', 'JtJp', 'Jp_norm_sq'), order=(2,), weight=weight, variations=variations)
         on_numpy = fn(frame, sample, weight, variations)
@@ -1043,7 +1049,7 @@ class TestDispatch(unittest.TestCase):
         pp = [rng.standard_normal((2, n)) for n in N]
         sample = list(jets.affine_jet(ww, pp))
         y = [rng.standard_normal((3, 2, n)) for n in N]
-        weight = 0.5 + rng.random((3, 3))
+        weight = jets.blocks_to_weight('probe', (2,), 0.5 + rng.random((3, 3)), y)
         to_jax = lambda tree: jax.tree_util.tree_map(jnp.asarray, tree)
         for label, at, want in (('manifold', frame, ('Kp',)), ('corewise', (frame[0], frame[2]), ('Kp', 'g', 'JtJp'))):
             fn = lambda at, sample, y, weight, core_directions: sv.sampling_variables(
@@ -1076,7 +1082,7 @@ class TestDispatch(unittest.TestCase):
         pp = [rng.standard_normal((2, n)) for n in N]
         sample = list(jets.affine_jet(ww, pp))
         y = rng.standard_normal((3, 2))
-        weight = 0.5 + rng.random(3)
+        weight = jets.blocks_to_weight('apply', (2,), 0.5 + rng.random(3), y)
         to_jax = lambda tree: jax.tree_util.tree_map(jnp.asarray, tree)
         for label, at, want, var in (('manifold', frame, ('z', 'f', 'g', 'Kp', 'JtJp', 'Jp_norm_sq'), variations),
                                      ('corewise', (frame[0], frame[2]), ('g', 'Kp'), None)):
@@ -1096,6 +1102,7 @@ class TestDispatch(unittest.TestCase):
         index in a mode (the gather and the scatter-add): ``z``, ``g``, ``Kp`` and ``JtJp`` on a manifold frame, ``g``
         and ``Kp`` on a corewise point; jax in, jax out, the numbers numpy's."""
         import t3toolbox.backend.sampling_variables as sv
+        from t3toolbox.backend.jets import blocks_to_weight
         rng = np.random.default_rng(4)
         N, nD, nU, rL, rR = (4, 5, 3), (2, 3, 2), (3, 2, 3), (1, 2, 3, 2), (1, 3, 2, 3)
         frame = (tuple(rng.standard_normal((nD[i], N[i])) for i in range(3)),
@@ -1108,7 +1115,7 @@ class TestDispatch(unittest.TestCase):
                            tuple(rng.standard_normal((2, rL[i], nD[i], rL[i + 1])) for i in range(3)))
         index = np.array([[0, 3, 3, 1], [4, 4, 0, 2], [2, 0, 2, 2]])
         y = rng.standard_normal(4)
-        weight = np.asarray(0.7)
+        weight = blocks_to_weight('entries', (), np.asarray(0.7), y)
         to_jax = lambda tree: jax.tree_util.tree_map(jnp.asarray, tree)
         for label, at, want, var in (('manifold', frame, ('z', 'g', 'Kp', 'JtJp'), variations),
                                      ('corewise', (frame[0], frame[2]), ('g', 'Kp'), None)):
@@ -2433,6 +2440,34 @@ class TestDispatch(unittest.TestCase):
         for jitted, eager in outs:                                     # each compile-shared call is its own model's
             for a, b in zip(jax.tree_util.tree_leaves(jitted.variations), jax.tree_util.tree_leaves(eager.variations)):
                 self.assertLess(norm(np.asarray(a) - np.asarray(b)), 1e-10 * max(norm(np.asarray(b)), 1.0))
+
+        # ... and the weight's SHAPE is structure (M2, the data-metric plan section 4): the same weight written out
+        # full on W, where it had size 1, is a new program (with the same numbers); another value of that shape is not.
+        def build_on_W(seed, scale):
+            np.random.seed(seed)
+            x = t3.TuckerTensorTrain.randn(SH, TK, TT)
+            x = t3.TuckerTensorTrain(tuple(jnp.asarray(c) for c in x.data[0]),
+                                     tuple(jnp.asarray(c) for c in x.data[1]))
+            y = [jnp.asarray(np.random.randn(*np.shape(z))) for z in dd.forward(x, 'probe', ww, pp, ORDER)]
+            oracle, batch = F.old_vocabulary('probe_derivatives', (ww, pp), y, tuple(x.shape), ORDER, weight)
+            w = jnp.asarray(batch.weight)                                 # (d,) + F + (1,) + (1,): size 1 on W
+            full = scale * jnp.broadcast_to(w, w.shape[:2] + (W,) + w.shape[3:])
+            return fitting.local_model(t3m.MANIFOLD, oracle, dc.replace(batch, weight=full), x)
+
+        traces = [0]
+        @jax.jit
+        def Hmatvec3(m, p):
+            traces[0] += 1
+            return m.gn_hessian(p)
+        block = build(1, weight)
+        p = t3m.MANIFOLD.randn(block.frame)
+        on_block = Hmatvec3(block, p)
+        on_W = Hmatvec3(build_on_W(1, 1.0), p)
+        self.assertEqual(traces[0], 2, 'a weight full on W where it had size 1 is a new shape: one new program')
+        jax.block_until_ready(Hmatvec3(build_on_W(1, 2.0), p).variations.tucker_variations[0])
+        self.assertEqual(traces[0], 2, 'a new value of the same weight shape recompiled')
+        for a, b in zip(jax.tree_util.tree_leaves(on_W.variations), jax.tree_util.tree_leaves(on_block.variations)):
+            self.assertLess(norm(np.asarray(a) - np.asarray(b)), 1e-10 * max(norm(np.asarray(b)), 1.0))
 
     def test_jit_shared_uniform_local_model(self):
         # The SHARED uniform model (slice 11): SharedGeometry(UNIFORM_MANIFOLD, sharing) is value-hashed

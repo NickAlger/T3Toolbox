@@ -239,11 +239,29 @@ class TestBlocksToWeight(unittest.TestCase):
                     self.assertTrue(np.array_equal(np.broadcast_to(w_i, np.shape(y_i)), expected))
                     self.assertTrue(all(a == 1 for a in w_i.shape[m:]))  # size 1 off the jet axes
 
+    @staticmethod
+    def _old_block_weighting(kind, r, blocks):
+        """The pre-M2 seed before its turn, written out here (M2 part 3 routed ``jet_to_dual_jet`` through
+        ``data_metric``, so the library's own converter can no longer be the reference): for each array of ``r`` (the
+        modes along the first axis for probe), its block row (probe) or the blocks, cast to the lower floating
+        precision of the array and the whole block array, squared, placed on the leading jet axes, times the array
+        cast the same way."""
+        arrays = [r[i] for i in range(len(r))] if kind == 'probe' else [r]
+        out = []
+        for i, r_FX in enumerate(arrays):
+            r_FX = np.asarray(r_FX)
+            dtype = min((np.dtype(r_FX.dtype), np.dtype(blocks.dtype)), key=lambda t: t.itemsize)
+            omega_F = np.asarray(blocks[i] if kind == 'probe' else blocks, dtype=dtype)
+            squared_F = (omega_F * omega_F).reshape(omega_F.shape + (1,) * (r_FX.ndim - omega_F.ndim))
+            out.append(squared_F * np.asarray(r_FX, dtype=dtype))
+        return out
+
     def test_through_the_metric_it_is_the_old_block_weighting_bitwise(self):
-        """With no scale, ``data_metric(r, blocks_to_weight(...), None)`` is the old block weighting exactly, the seed
-        ``jet_to_dual_jet`` makes before its turn: the same cast to the lower precision, the same square, one
-        multiply. In every pairing of float32 and float64 (a square formed in the higher precision and cast after
-        differs in the last bit). (With a scale the two agree only to rounding.)"""
+        """With no scale, ``data_metric(r, blocks_to_weight(...), None)`` is the old block weighting exactly (written
+        out in `_old_block_weighting`): the same cast to the lower precision, the same square, one multiply; and
+        ``jet_to_dual_jet`` with the same weight is it turned. In every pairing of float32 and float64 (a square
+        formed in the higher precision and cast after differs in the last bit). (With a scale the two agree only to
+        rounding.)"""
         rng = np.random.default_rng(9)
         dtypes = ((np.float64, np.float64), (np.float32, np.float64), (np.float64, np.float32), (np.float32, np.float32))
         for (order, W, C), kind, packed, (r_dtype, w_dtype) in itertools.product(
@@ -254,13 +272,18 @@ class TestBlocksToWeight(unittest.TestCase):
             r = tuple(r_i.astype(r_dtype) for r_i in r) if isinstance(r, tuple) else r.astype(r_dtype)
             with self.subTest(kind=kind, order=order, W=W, C=C, packed=packed, r=r_dtype.__name__,
                               weight=w_dtype.__name__):
-                new = jets.data_metric(r, jets.blocks_to_weight(kind, order, blocks, r), None)
-                old = jets.jet_to_dual_jet(kind, order, r, blocks)                   # the weights, then the turn
+                weight = jets.blocks_to_weight(kind, order, blocks, r)
+                new = jets.data_metric(r, weight, None)
+                seed = jets.jet_to_dual_jet(kind, order, r, weight)                  # the metric, then the turn
+                old = self._old_block_weighting(kind, r, blocks)
                 new = list(new) if kind == 'probe' else [new]
-                old = [jets._flipped(o, len(order)) for o in (old if kind == 'probe' else [old])]   # the turn undone
-                for a, b in zip(new, old):
-                    self.assertEqual(a.dtype, b.dtype)
+                seed = [np.asarray(a)[(slice(None, None, -1),) * len(order)] for a in   # the turn undone, by hand
+                        (seed if kind == 'probe' else [seed])]
+                self.assertEqual(len(new), len(old))
+                for a, b, c in zip(new, old, seed):
+                    self.assertEqual((a.dtype, c.dtype), (b.dtype, b.dtype))
                     self.assertTrue(np.array_equal(a, b))
+                    self.assertTrue(np.array_equal(c, b))
 
     def test_wrong_blocks_raise(self):
         rng = np.random.default_rng(10)

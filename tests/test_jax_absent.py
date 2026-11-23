@@ -175,14 +175,14 @@ with warnings.catch_warnings():
         F = tuple(n + 1 for n in order)
         sample = index if kind == 'entries' else (jets.affine_jet(ww, pp) if len(order) == 1 else jets.affine_jet(ww, pp, qq))
         y = [rng.standard_normal(F + W + (n,)) for n in shape] if kind == 'probe' else rng.standard_normal(F + W)
-        weight = 0.5 + rng.random(((3,) if kind == 'probe' else ()) + F)
+        blocks = 0.5 + rng.random(((3,) if kind == 'probe' else ()) + F)
+        weight = on_numpy(fitting.blocks_to_weight(kind, order, blocks, y))     # of the type of z
         jets.check_sample(kind, order, sample, shape)
         jets.check_data(kind, order, sample, y)
-        jets.check_weight(kind, order, weight, 3)
+        jets.check_weight(kind, order, sample, weight)
         dual = on_numpy(jets.jet_to_dual_jet(kind, order, y, weight))
         on_numpy(jets.dual_jet_to_jet(kind, order, dual, weight))
-        full = on_numpy(fitting.blocks_to_weight(kind, order, weight, y))
-        on_numpy(fitting.data_metric(y, full, 2.0))
+        on_numpy(fitting.data_metric(y, weight, 2.0))
         on_numpy(jets.taylor_to_derivatives(kind, order, jets.derivatives_to_taylor(kind, order, y)))
         on_numpy(jets.prepare_derivative_data(kind, order, y, validation=y))
         on_numpy(fitting.prepare_derivative_data(kind, order, y, weight))
@@ -191,7 +191,7 @@ with warnings.catch_warnings():
             on_numpy(prep.rescale_direction(kind, order, sample, y, 2.0))
             on_numpy(prep.rescale_coordinates(kind, order, sample, y, scales))
             on_numpy(fitting.rescale_coordinates(kind, order, sample, y, scales))
-    zero = np.array([1.0, 0.0, 1.0])
+    zero = np.array([[1.0], [0.0], [1.0]])                  # per slot, of the type of z
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')  # the backend divides by zero silently by design
         assert not np.isfinite(jets.dual_jet_to_jet('apply', (2,), np.ones((3, 7)), zero)[1]).any()

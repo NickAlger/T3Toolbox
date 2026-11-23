@@ -67,6 +67,7 @@ class TestByDefinition(unittest.TestCase):
             for problem_name, make in tsv.PROBLEMS:
                 problem = make()
                 y, weight = problem.data('entries', CASE)
+                full = problem.full_weight('entries', CASE)         # the reference's weight: of the type of z
                 for stacked in (False, True):
                     arguments = directions_of(problem, call, stacked)
                     got = sv.sampling_variables('entries', at_of(problem, call), problem.index, names(call), y=y,
@@ -79,11 +80,11 @@ class TestByDefinition(unittest.TestCase):
                         for name, value in zip(names(call), got):
                             if call == '_manifold':
                                 expected = getattr(sdef, name)('entries', problem.frame, problem.index, None, (), y=y,
-                                                               weight=weight, variations=v, core_directions=c)
+                                                               weight=full, variations=v, core_directions=c)
                             else:
                                 B, G = problem.D, problem.L
                                 expected = getattr(sdef, tsc.SECTION_9.get(name, name))(
-                                    'entries', (B, G, G, G), problem.index, None, (), y=y, weight=weight,
+                                    'entries', (B, G, G, G), problem.index, None, (), y=y, weight=full,
                                     variations=c, core_directions=c)
                             value = tsa.element(name, value, k, lead) if stacked else value
                             with self.subTest(call=call, problem=problem_name, stacked=stacked, k=k, name=name):

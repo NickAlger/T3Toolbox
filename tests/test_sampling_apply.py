@@ -82,6 +82,7 @@ class TestByDefinition(unittest.TestCase):
                 variations, core_directions = directions(problem, stacked)
                 for case in defs.JET_CASES:
                     y, weight = problem.data('apply', case)
+                    full = problem.full_weight('apply', case)       # the reference's weight: of the type of z
                     if call == '_manifold':
                         got = apply_call(problem, case, names(call), variations=variations,
                                          core_directions=core_directions)
@@ -95,13 +96,13 @@ class TestByDefinition(unittest.TestCase):
                         for name, value in zip(names(call), got):
                             if call == '_manifold':
                                 expected = getattr(sdef, name)('apply', problem.frame, problem.input_jets(case), None,
-                                                               case.order, y=y, weight=weight, variations=v,
+                                                               case.order, y=y, weight=full, variations=v,
                                                                core_directions=c)
                             else:
                                 B, G = problem.D, problem.L
                                 expected = getattr(sdef, tsc.SECTION_9.get(name, name))(
                                     'apply', (B, G, G, G), problem.input_jets(case), None, case.order, y=y,
-                                    weight=weight, variations=c, core_directions=c)
+                                    weight=full, variations=c, core_directions=c)
                             value = element(name, value, k, lead) if stacked else value
                             with self.subTest(problem=problem_name, stacked=stacked, jets=case.label, k=k, name=name):
                                 self.assertEqual(len(tsv.arrays_of(value)), len(tsv.arrays_of(expected)))
@@ -200,7 +201,7 @@ class TestIdentities(unittest.TestCase):
                     Jp, JtJp, norm_sq, r, g = apply_call(problem, case, ('Jp', 'JtJp', 'Jp_norm_sq', 'r', 'g'), at=at,
                                                          **arguments)
                     lead = case.m + len(problem.W)
-                    weight_2 = np.asarray(weight).reshape(case.box + (1,) * (r.ndim - case.m)) ** 2
+                    weight_2 = np.asarray(weight) ** 2                  # of the type of z: z's rank
                     pair = lambda blocks, p: sum(float(np.sum(a * b)) for a, b in zip(blocks[0] + blocks[1],
                                                                                        tuple(p[0]) + tuple(p[1])))
                     for k in range(2):

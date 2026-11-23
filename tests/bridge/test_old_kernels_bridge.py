@@ -100,6 +100,14 @@ def old_point_value(kind, frame, sample, base):
         return sampling_derivatives.t3_entries_derivatives(sample, pp, base, 0)[0]
 
 
+def placed(kind, order, blocks, W, d=None):
+    """One weight per block (the old kernels' form) as the engine's weight of the type of ``z``: ``blocks_to_weight``,
+    which reads only the rank of the data (here a template of zeros: ``F + W`` and the edge)."""
+    F = tuple(n + 1 for n in order)
+    template = [np.zeros(F + W + (1,))] * d if kind == 'probe' else np.zeros(F + W)
+    return jets.blocks_to_weight(kind, order, blocks, template)
+
+
 def relative_error(a, b):
     a, b = np.asarray(a), np.asarray(b)
     assert a.shape == b.shape, (a.shape, b.shape)
@@ -118,8 +126,10 @@ class TestOldKernels(unittest.TestCase):
                 y = [rng.standard_normal(box + problem.W + (N,)) for N in problem.shape]
                 weight = 0.5 + rng.random((problem.d,) + box)
                 sample = list(jets.affine_jet(problem.ww, problem.pp)) if n else problem.ww
-                got = dict(zip(NAMES, sv.sampling_variables('probe', problem.frame, sample, NAMES,
-                                                             order=(n,) if n else (), y=y, weight=weight)))
+                order = (n,) if n else ()
+                got = dict(zip(NAMES, sv.sampling_variables('probe', problem.frame, sample, NAMES, order=order, y=y,
+                                                             weight=placed('probe', order, weight, problem.W,
+                                                                           problem.d))))
                 self.cases.append((name, problem, n, weight, got))
 
     @staticmethod
@@ -229,7 +239,9 @@ class TestTheDirection(unittest.TestCase):
                                           ('K=(2,)', tsv.stacked_directions(problem, seed=n))):
                     sample = list(jets.affine_jet(problem.ww, problem.pp))
                     Jp, JtJp = sv.sampling_variables('probe', problem.frame, sample,
-                                                     ('Jp', 'JtJp'), order=(n,), weight=weight, variations=variations)
+                                                     ('Jp', 'JtJp'), order=(n,),
+                                                     weight=placed('probe', (n,), weight, problem.W, problem.d),
+                                                     variations=variations)
                     kind = old_fitting.ProbeDerivativesKind(order=n, weight=None, chunk_size=None)
                     sample = (problem.ww, problem.pp)
                     sweep = kind.precompute(problem.frame, sample)
@@ -258,7 +270,8 @@ class TestTheCurvature(unittest.TestCase):
                 for label, core_directions in (('K=()', (problem.D_dot, problem.L_dot)),
                                                ('K=(2,)', tsv.stacked_core_directions(problem, seed=n))):
                     Kp, r = sv.sampling_variables('probe', problem.frame, list(jets.affine_jet(problem.ww, problem.pp)),
-                                                  ('Kp', 'r'), order=(n,), y=y, weight=weight,
+                                                  ('Kp', 'r'), order=(n,), y=y,
+                                                  weight=placed('probe', (n,), weight, problem.W, problem.d),
                                                   core_directions=core_directions)
                     kind = old_fitting.ProbeDerivativesKind(order=n, weight=None, chunk_size=None)
                     sample = (problem.ww, problem.pp)
@@ -302,7 +315,8 @@ class TestTheApplyKind(unittest.TestCase):
                          tsv.stacked_core_directions(problem, seed=n))):
                     z, r, g, Jp, JtJp, Kp = sv.sampling_variables(
                         'apply', problem.frame, sample, ('z', 'r', 'g', 'Jp', 'JtJp', 'Kp'), order=box and (n,), y=y,
-                        weight=weight, variations=variations, core_directions=core_directions)
+                        weight=placed('apply', box and (n,), weight, problem.W), variations=variations,
+                        core_directions=core_directions)
                     with self.subTest(problem=name, order=n, stack=label):
                         if n == 0:
                             weight_2 = weight ** 2
@@ -361,8 +375,9 @@ class TestTheEntriesKind(unittest.TestCase):
                     ('K=()', (problem.V, problem.H), (problem.D_dot, problem.L_dot)),
                     ('K=(2,)', tsv.stacked_directions(problem), tsv.stacked_core_directions(problem))):
                 z, r, g, Jp, JtJp, Kp = sv.sampling_variables(
-                    'entries', problem.frame, problem.index, ('z', 'r', 'g', 'Jp', 'JtJp', 'Kp'), y=y, weight=weight,
-                    variations=variations, core_directions=core_directions)
+                    'entries', problem.frame, problem.index, ('z', 'r', 'g', 'Jp', 'JtJp', 'Kp'), y=y,
+                    weight=placed('entries', (), weight, problem.W), variations=variations,
+                    core_directions=core_directions)
                 kind = old_fitting.EntriesKind()
                 with old_side():
                     sweep = kind.precompute(problem.frame, problem.index)
@@ -391,7 +406,8 @@ class TestTheEntriesKind(unittest.TestCase):
                 weight = 0.5 + rng.random(n + 1)
                 factorials = np.array([math.factorial(t) for t in range(n + 1)], dtype=float)
                 z, r, g, Jp = sv.sampling_variables('apply', problem.frame, sample, ('z', 'r', 'g', 'Jp'), order=(n,),
-                                                    y=y, weight=weight, variations=(problem.V, problem.H))
+                                                    y=y, weight=placed('apply', (n,), weight, problem.W),
+                                                    variations=(problem.V, problem.H))
                 kind = old_fitting.EntriesDerivativesKind(order=n, weight=None)
                 old_sample = (problem.index, problem.pp)
                 sweep = kind.precompute(problem.frame, old_sample)

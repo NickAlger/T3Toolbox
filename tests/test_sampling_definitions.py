@@ -197,13 +197,21 @@ class Jets:
         return out
 
     def weight_of(self, weight, kind, i):
-        """The weight of mode ``i`` (probe) as an array of the box."""
-        return np.asarray(weight)[i] if kind == 'probe' else np.asarray(weight)
+        """The weight of mode ``i`` (probe): of the type of ``z``, the array of that mode (an item, or a slice along the
+        first axis)."""
+        return np.asarray(weight[i]) if kind == 'probe' else np.asarray(weight)
 
     def weighted(self, jets_, weight, kind):
-        """``weight**2 * jet``, slot by slot, on lifted jets (a list over the modes)."""
-        return [(self.weight_of(weight, kind, i) ** 2).reshape(self.box + (1,) * (jet.ndim - self.m)) * jet
-                for i, jet in enumerate(jets_)]
+        """``weight**2 * jet`` entry by entry, on lifted jets (a list over the modes). The weight is of the type of
+        ``z``: each array of the jet's rank, each axis 1 or the jet's size, broadcast by position (here, where the
+        reference's own reading is what is checked, numpy's equal-rank broadcasting is that rule exactly; the explicit
+        loops of `TestTheWeightIsOfTheTypeOfZ` check it without broadcasting)."""
+        out = []
+        for i, jet in enumerate(jets_):
+            omega = self.weight_of(weight, kind, i)
+            assert omega.ndim == jet.ndim, (omega.shape, jet.shape)
+            out.append(omega ** 2 * jet)
+        return out
 
 
 def flat(x_WX):                 # the sample stack as one axis
@@ -273,18 +281,30 @@ class Problem:
     def sample(self, kind, case):
         return self.index if kind == 'entries' else self.input_jets(case)
 
-    def data(self, kind, case):
-        """``(y, weight)``: of the type of ``z``, and of the shape the weight has for the kind and the jet shape."""
+    def blocks(self, kind, case):
+        """``(y, blocks)``: the data, of the type of ``z``, and one weight per block (``(d,) + F`` probe, ``F``
+        otherwise), from which `data` places the weight."""
         rng = np.random.default_rng(2000 + JET_CASES.index(case))
         F = case.box
         if kind == 'probe':
             return [rng.standard_normal(F + self.W + (n,)) for n in self.shape], 0.5 + rng.random((self.d,) + F)
         return rng.standard_normal(F + self.W), 0.5 + rng.random(F)
 
+    def data(self, kind, case):
+        """``(y, weight)``: the data and the weight, both of the type of ``z``; the weight is the blocks of `blocks`
+        placed on the jet axes, size 1 on the sample axes and the mode edge (``blocks_to_weight``)."""
+        y, blocks = self.blocks(kind, case)
+        return y, jets.blocks_to_weight(kind, case.order, blocks, y)
+
+    def full_weight(self, kind, case):
+        """The weight of `data`, of the type of ``z``."""
+        return self.data(kind, case)[1]
+
     def arguments(self, kind, case):
-        y, weight = self.data(kind, case)
+        """The reference's arguments: the weight of the type of ``z``."""
+        y, _ = self.data(kind, case)
         return dict(order=case.order, variations=(self.V, self.H), core_directions=(self.D_dot, self.L_dot),
-                    y=y, weight=weight)
+                    y=y, weight=self.full_weight(kind, case))
 
 
 def small():        # no tails; one sample axis; every size different from its neighbours
@@ -454,7 +474,7 @@ class TestOutputsAgainstDense(unittest.TestCase):
                 self.check(f, 0.5 * sum(np.sum(wr * r_i) for wr, r_i in zip(ring.weighted(r, weight, kind), r)))
 
                 sums = sdef.r_block_sumsq(kind, P.frame, sample, **args)
-                self.assertEqual(np.shape(sums), np.shape(weight))          # structural: exact
+                self.assertEqual(np.shape(sums), ((P.d,) if kind == 'probe' else ()) + case.box)  # the block shape
                 expected = np.array([np.sum(r_i ** 2, axis=tuple(range(case.m, r_i.ndim))) for r_i in r])
                 self.check(np.reshape(sums, expected.shape), expected)
 
@@ -538,6 +558,162 @@ class TestOutputsAgainstDense(unittest.TestCase):
                 expected = self.transposed(self.jacobian_columns(P, kind, case), ring.lift(c))
                 for a, b in zip(list(got[0]) + list(got[1]), expected):
                     self.check(a, b)
+
+
+def at(a, index):
+    """``a`` at ``index``, read at 0 on every size-1 axis of ``a``: the rule of a data-space object, by hand."""
+    return a[tuple(0 if n == 1 else k for n, k in zip(a.shape, index))]
+
+
+class TestTheWeightIsOfTheTypeOfZ(unittest.TestCase):
+    """The reference's reading of the data-space objects (the data-metric arc, M2 part 1): ``y`` and the weight are
+    of the type of ``z``, each array of the rank of ``z``'s, each axis 1 or ``z``'s size, a size of 1 the same value
+    along that axis. Pinned here against brute force, before the engine is switched to the same rule.
+
+    The brute force shares nothing with the reference but the library's dense tensors: ``z`` and ``Jp`` are the dense
+    tensor and the dense tangent tensor sampled by the tests' own route (`sample_dense_jet`), and the residual, the
+    seed, ``f``, ``Jp_norm_sq`` and the pairings ``<g, p> = sum omega**2 r Jp(p)`` and ``<JtJp(p), q> = sum omega**2
+    Jp(p) Jp(q)`` are explicit loops over every entry (``np.ndindex``), the weight and the data read at index 0 on
+    their size-1 axes (`at`): no broadcasting. The weights: per entry, per sample, per slot, one per mode (one number
+    for apply and entries), and on the edge and the first jet axis; the data full or constant in ``W``; the sizes of
+    ``F``, ``W`` and ``N`` distinct (a line at ``(3,)``) and equal (a curve at ``(2,)`` on ``small``: ``F = W = N_1 =
+    (3,)``)."""
+
+    PATTERNS = ('per entry', 'per sample', 'per slot', 'one per mode', 'edge and first jet axis')
+
+    def full_axes(self, pattern, kind, m, n_W, ndim):
+        if pattern == 'per entry':
+            return set(range(ndim))
+        if pattern == 'per sample':
+            return set(range(m, m + n_W))
+        if pattern == 'per slot':
+            return set(range(m))
+        if pattern == 'one per mode':
+            return set()
+        edge = {ndim - 1} if kind == 'probe' else set()
+        return edge | ({0} if m else set())
+
+    def data_space(self, rng, shapes, axes, low=0.5):
+        return [low + rng.random(tuple(n if a in axes else 1 for a, n in enumerate(sh))) for sh in shapes]
+
+    def check(self, got, expected, tol=TOL):
+        self.assertLessEqual(abs(float(got) - float(expected)), tol * max(abs(float(expected)), 1.0))
+
+    def test_against_brute_force(self):
+        problems = (PROBLEMS[0], PROBLEMS[1], PROBLEMS[3])           # small, tails (W = (2, 2)), W = ()
+        count = 0
+        for labels, P, kind, case in cases(problems=problems, jet_cases=(NO_JETS, LINE_3, PLANE, CURVE)):
+            rng = np.random.default_rng(10 + count)
+            sample = P.sample(kind, case)
+            m, n_W = case.m, len(P.W)
+            z = modes_of(kind, sample_dense_jet(P, kind, t3_conversions.t3_to_dense((P.D, P.L)), case))
+            p = ([rng.standard_normal(V.shape) for V in P.V], [rng.standard_normal(H.shape) for H in P.H])
+            q = ([rng.standard_normal(V.shape) for V in P.V], [rng.standard_normal(H.shape) for H in P.H])
+            Jp = modes_of(kind, sample_dense_jet(P, kind, tv_operations.tv_to_dense(P.frame, p), case))
+            Jq = modes_of(kind, sample_dense_jet(P, kind, tv_operations.tv_to_dense(P.frame, q), case))
+            shapes = [a.shape for a in z]
+            for j, pattern in enumerate(self.PATTERNS):
+                count += 1
+                y_constant = j % 2 == 1                     # alternately: the data constant in W
+                with self.subTest(pattern=pattern, y_constant_in_W=y_constant, **labels):
+                    weight = self.data_space(rng, shapes, self.full_axes(pattern, kind, m, n_W, len(shapes[0])))
+                    y_axes = set(range(len(shapes[0]))) - (set(range(m, m + n_W)) if y_constant else set())
+                    y = self.data_space(rng, shapes, y_axes, low=-0.5)
+                    as_array = kind == 'probe' and len({w.shape for w in weight}) == 1 and j % 2 == 0
+                    w_arg = np.stack(weight) if as_array else (weight if kind == 'probe' else weight[0])
+                    y_arg = y if kind == 'probe' else y[0]
+                    args = dict(order=case.order, y=y_arg, weight=w_arg)
+
+                    f = pair_g = pair_JtJp = norm_Jp = 0.0
+                    seeds = []
+                    for z_i, y_i, w_i, Jp_i, Jq_i in zip(z, y, weight, Jp, Jq):
+                        r_i = np.zeros(z_i.shape)
+                        for index in np.ndindex(*z_i.shape):
+                            r_i[index] = z_i[index] - at(y_i, index)
+                        seed_i = np.zeros(z_i.shape)
+                        for index in np.ndindex(*z_i.shape):
+                            omega2 = at(w_i, index) ** 2
+                            f += 0.5 * omega2 * r_i[index] ** 2
+                            pair_g += omega2 * r_i[index] * Jp_i[index]
+                            pair_JtJp += omega2 * Jp_i[index] * Jq_i[index]
+                            norm_Jp += omega2 * Jp_i[index] ** 2
+                            turned = tuple(n - k for n, k in zip(case.order, index[:m])) + index[m:]
+                            seed_i[index] = at(w_i, turned) ** 2 * r_i[turned]
+                        seeds.append(seed_i)
+
+                    for a, b in zip(modes_of(kind, sdef.w_tilde(kind, P.frame, sample, **args)), seeds):
+                        self.assertLessEqual(relative_error(a, b), TOL)
+                    self.check(sdef.f(kind, P.frame, sample, **args), f)
+                    self.check(sdef.Jp_norm_sq(kind, P.frame, sample, variations=p, **args), norm_Jp)
+                    g = sdef.g(kind, P.frame, sample, **args)
+                    self.check(sum(np.sum(a * b) for a, b in zip(g[0] + g[1], p[0] + p[1])), pair_g)
+                    JtJp = sdef.JtJp(kind, P.frame, sample, variations=p, **args)
+                    self.check(sum(np.sum(a * b) for a, b in zip(JtJp[0] + JtJp[1], q[0] + q[1])), pair_JtJp)
+
+    def test_a_weight_of_another_form_raises(self):
+        P = small()
+        for kind, case in (('probe', LINE_3), ('apply', LINE_3), ('entries', NO_JETS)):
+            sample = P.sample(kind, case)
+            y, blocks = P.blocks(kind, case)
+            full = P.full_weight(kind, case)
+            d, F = P.d, case.box
+            bad = {'one per block (the old form)': blocks,
+                   'another rank': np.ones((d,) + F + P.W) if kind == 'probe' else np.ones(F + P.W + (1,)),
+                   'an axis neither 1 nor its size': (np.ones((d,) + F + (2,) + (1,)) if kind == 'probe'
+                                                      else np.ones(F + (2,)))}
+            if kind == 'probe':
+                bad['a mode axis of 1'] = full[:1]
+                bad['d - 1 arrays'] = list(full[:d - 1])
+            else:
+                bad['a tuple'] = (full,)
+            for label, weight in bad.items():
+                with self.subTest(kind=kind, weight=label):
+                    with self.assertRaises(ValueError):
+                        sdef.f(kind, P.frame, sample, order=case.order, y=y, weight=weight)
+            with self.subTest(kind=kind, weight='the full form'):
+                sdef.f(kind, P.frame, sample, order=case.order, y=y, weight=full)
+                if kind == 'probe':                             # a tuple and a mode-leading array are one object
+                    self.assertEqual(sdef.f(kind, P.frame, sample, order=case.order, y=y, weight=list(full)),
+                                     sdef.f(kind, P.frame, sample, order=case.order, y=y, weight=full))
+
+    def test_an_object_larger_than_z_where_z_has_a_size_of_one_raises(self):
+        # "each axis 1 or z's size" where z's own axis is 1: a one-sample batch (W = (1,)) and the jet axis of the
+        # order (0,). An object larger than z there would be broadcast up and change z's shape: f on a one-sample
+        # batch with a weight of 3 samples counts the sample 3 times (the review of part 1, its mutant R1).
+        one_sample = Problem(6, (4, 3, 5), (2, 3, 2), (3, 2, 3), (1, 2, 3, 1), (1, 3, 2, 1), (1,))
+        order_0 = JetCase('a line at (0,)', (0,), 'line')
+        for label, P, case, axis in (('W = (1,)', one_sample, NO_JETS, 0), ('order (0,)', small(), order_0, 0)):
+            for kind in ('probe', 'apply'):
+                sample = P.sample(kind, case)
+                z = modes_of(kind, sdef.z(kind, P.frame, sample, order=case.order))
+                self.assertEqual({a.shape[axis] for a in z}, {1})             # z's axis is 1 there
+                y = [a + 1.0 for a in z] if kind == 'probe' else z[0] + 1.0   # data of z's own shape
+                larger = lambda a: np.repeat(np.asarray(a), 3, axis=axis)       # the same object, 3 there
+                weight = [np.ones(a.shape) for a in z]
+                with self.subTest(what='the weight', where=label, kind=kind):
+                    good = weight if kind == 'probe' else weight[0]
+                    sdef.f(kind, P.frame, sample, order=case.order, y=y, weight=good)    # z's own shape: fine
+                    bad = [larger(w) for w in weight] if kind == 'probe' else larger(weight[0])
+                    with self.assertRaises(ValueError):
+                        sdef.f(kind, P.frame, sample, order=case.order, y=y, weight=bad)
+                with self.subTest(what='the data y', where=label, kind=kind):
+                    bad_y = [larger(y_i) for y_i in y] if kind == 'probe' else larger(y)
+                    with self.assertRaises(ValueError):
+                        sdef.r(kind, P.frame, sample, order=case.order, y=bad_y)
+
+    def test_data_of_another_form_raises(self):
+        P = small()
+        for kind, case in (('probe', LINE_3), ('apply', LINE_3), ('entries', NO_JETS)):
+            sample = P.sample(kind, case)
+            y, _ = P.data(kind, case)
+            fewer = [y_i[..., 0, :] for y_i in y] if kind == 'probe' else np.asarray(y)[..., 0]   # W dropped
+            with self.subTest(kind=kind):
+                with self.assertRaises(ValueError):
+                    sdef.r(kind, P.frame, sample, order=case.order, y=fewer)
+            if kind == 'probe':
+                with self.subTest(kind=kind, y='a mode axis of 1'):
+                    with self.assertRaises(ValueError):
+                        sdef.r(kind, P.frame, sample, order=case.order, y=np.asarray(y[0])[None])
 
 
 class Variables:
@@ -992,7 +1168,7 @@ class TestJetsTwoWays(unittest.TestCase):
             flat_args = P.arguments(kind, LINE_3)
             with_second = [x[:, None] for x in line]
             y = [y_i[:, None] for y_i in flat_args['y']] if kind == 'probe' else flat_args['y'][:, None]
-            weight = flat_args['weight'][..., None]
+            weight = flat_args['weight'][:, :, None] if kind == 'probe' else flat_args['weight'][:, None]
             args = dict(flat_args, order=(3, 0), y=y, weight=weight)
             for name in ALL_NAMES:
                 with self.subTest(kind=kind, name=name):
@@ -1183,8 +1359,9 @@ class TestAgainstTheOldKernels(unittest.TestCase):
 
                     rng = np.random.default_rng(n)
                     y = [rng.standard_normal((n + 1,) + P.W + (N,)) for N in P.shape]
-                    weight = 0.5 + rng.random((P.d, n + 1))
-                    g = sdef.g('probe', P.frame, line, order=(n,), y=y, weight=weight)
+                    weight = 0.5 + rng.random((P.d, n + 1))                         # one per mode and slot
+                    full = weight.reshape((P.d, n + 1) + (1,) * len(P.W) + (1,))   # of the type of z
+                    g = sdef.g('probe', P.frame, line, order=(n,), y=y, weight=full)
                     r = sdef.r('probe', P.frame, line, order=(n,), y=y)
                     forward = [per_slot(r[i], weight[i] ** 2 / factorials) for i in range(P.d)]
                     old = sampling_derivatives.tv_probe_derivatives_transpose(forward, P.ww, P.pp, P.frame, n,
@@ -1395,7 +1572,7 @@ class TestStructure(unittest.TestCase):
         # PART1_PLAN.md section 2.3, the table of declared jet sizes, and SAMPLE_VARIABLES.md section 7: the input
         # w[i] has its own jet sizes, as given; the leaves (xi, xi_dot, xi_U_dot) the input's clipped to the box F;
         # every other variable F. Then W + (size,); one array per bond (d + 1) or per site (d); the blocks have the
-        # shapes of the cores they stand for; the block sums the shape of the weight.
+        # shapes of the cores they stand for; the block sums the block shape.
         for labels, P, kind, case in cases(problems=PROBLEMS[:2]):
             sample, args = P.sample(kind, case), P.arguments(kind, case)
             F = case.box
@@ -1424,7 +1601,8 @@ class TestStructure(unittest.TestCase):
                         self.assertEqual([v.shape for v in value], [F + P.W + (n,) for n in P.shape])
                     else:
                         self.assertEqual(value.shape, F + P.W)
-                self.assertEqual(np.shape(sdef.r_block_sumsq(kind, P.frame, sample, **args)), np.shape(args['weight']))
+                self.assertEqual(np.shape(sdef.r_block_sumsq(kind, P.frame, sample, **args)),
+                                 ((P.d,) if kind == 'probe' else ()) + F)                   # the block shape
                 V_shapes = [V.shape for V in P.V]
                 H_shapes = [H.shape for H in P.H]
                 for name in ('g', 'JtJp'):

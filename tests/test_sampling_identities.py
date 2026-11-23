@@ -152,7 +152,7 @@ class TestGradient(unittest.TestCase):
             g, z = sv.sampling_variables('probe', problem.frame, sample, ('g', 'z'), order=case.order, y=y,
                                          weight=weight)
             Jp = sdef.Jp('probe', problem.frame, sample, None, case.order, variations=(problem.V, problem.H))
-            weights = [np.asarray(weight[i]).reshape(case.box + (1,) * (z[i].ndim - case.m)) for i in range(problem.d)]
+            weights = [np.asarray(weight[i]) for i in range(problem.d)]     # of the type of z: z's rank
             f = lambda t: 0.5 * sum(float(np.sum((w_i * (z_i + t * p_i - y_i)) ** 2))
                                     for w_i, z_i, p_i, y_i in zip(weights, z, Jp, y))
             h = 1e-3
@@ -178,8 +178,7 @@ class TestTheDirection(unittest.TestCase):
                     'probe', problem.frame, sample, ('Jp', 'JtJp', 'Jp_norm_sq', 'r', 'g'), order=case.order, y=y,
                     weight=weight, variations=variations)
                 lead = case.m + len(problem.W)
-                weights = [np.asarray(weight[i]).reshape(case.box + (1,) * (r[i].ndim - case.m))
-                           for i in range(problem.d)]
+                weights = [np.asarray(weight[i]) for i in range(problem.d)]     # of the type of z: z's rank
                 pair = lambda blocks, p: sum(float(np.sum(a * b)) for a, b in zip(blocks[0] + blocks[1],
                                                                                    tuple(p[0]) + tuple(p[1])))
                 for k in range(2):

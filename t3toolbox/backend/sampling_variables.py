@@ -119,7 +119,7 @@ from a raw ``Jp`` would give a mixed product with no use.
 ``K``, the seed reading ``Jp`` for ``r``. ``JtJp`` is the twin of ``g``. The full ``eta_tilde`` has no twin.
 ``JtJp`` has a second route, from a held ``Jp`` with no direction (``held:Jp``, P12): the twin path is linear in
 ``Jp``, so **holding any vector of** ``Jp``'s **type as** ``Jp`` **gives** ``J^T`` **of that vector** (unweighted
-by the call: the seed is ``weight^2`` times the held vector, turned). The transposes take this route for a residual
+by the call: the seed is the data metric of the held vector at ``gamma = 1``, ``weight**2`` times it, turned). The transposes take this route for a residual
 with a stack ``K``, read off the held ``Jp``; a direction, when given, wins, and its ``K`` must agree.
 
 **The corewise point** ``(B, G)``: one basis on each edge. It binds the stores ``D = B`` and ``L = G``, and its graph
@@ -221,7 +221,7 @@ stack of base points; a block (no jet sizes) is ``C`` and the shape of the core 
 samples (with ``sum_over_samples=False``, ``W`` first: ``W + [K] + C`` and the core's shape).
 ``F = tuple(n + 1 for n in order)`` and ``F_in_i`` are the jet sizes of ``w[i]``. The tilde variables are dual jets,
 stored with every jet axis turned. For the apply kind ``z``, ``r``, ``w_tilde`` and ``Jp`` are one array each,
-``F + W + [K] + C``, with no index and no mode edge, and ``r_block_sumsq`` has the shape of its weight, ``F``.
+``F + W + [K] + C``, with no index and no mode edge, and ``r_block_sumsq`` has the block shape ``F``.
 
 | Variable | Index | Jet sizes | Size |
 | --- | --- | --- | --- |
@@ -265,8 +265,8 @@ stored with every jet axis turned. For the apply kind ``z``, ``r``, ``w_tilde`` 
 | `_eta_tilde_dot_top` | site | min(F_in_i, F) | nD_i |
 
 A variable made by a row with ``K = yes`` has ``K`` after ``W`` (``P + W + K + C + (size,)``; a block ``K + C`` and the
-core's shape); a private node's shape is its base's. ``f`` has the shape ``C``; ``r_block_sumsq`` the shape of the
-weight, ``(d,) + F`` (``F`` for apply); ``Jp_norm_sq`` the shape ``K + C``; ``g`` is the pair ``(V_tilde, H_tilde)``, ``JtJp`` the
+core's shape); a private node's shape is its base's. ``f`` has the shape ``C``; ``r_block_sumsq`` the block shape
+``(d,) + F`` (``F`` for apply); ``Jp_norm_sq`` the shape ``K + C``; ``g`` is the pair ``(V_tilde, H_tilde)``, ``JtJp`` the
 pair of their twins and ``Kp`` the pair ``(V_tilde_dot, H_tilde_dot)``. On a corewise point the sizes of ``R`` and ``U``
 are those of ``L`` and ``D``. A bond index runs over ``0 .. d`` (``d + 1`` arrays), a site or a mode index over
 ``0 .. d-1``.
@@ -295,7 +295,9 @@ over them). The engine
 masks once on entry, every input with the masks of the object it is defined at (``_UNIFORM_MASKS``): the stores with
 their own; ``V``, ``H`` and ``Vc`` with the frame's variation masks; ``D_dot`` and ``L_dot`` with the frame's ``D`` and
 ``L`` masks, never the point's (a superset at TT slack); every Tucker-shaped input, the sample and probe's ``y``
-with the shape mask on the mode axis ``N`` (the sample's jet axes untouched: their slots are coefficients); a held
+with the shape mask on the mode axis ``N`` (the sample's jet axes untouched: their slots are coefficients; a ``y``
+with an edge of 1 is broadcast to ``N`` by its mask, so that its value cannot reach the padding of ``r``), and probe's
+weight when its edge is ``N`` (an edge of 1 has no padding, and multiplies padding that is zero); a held
 variable with its table's masks (padding is not a value). The start values carry ones on the real slots of their end
 bond only. The sample is packed (``pack_if_ragged`` with ``len_P=len(order)``: the modes' jet axes brought to their
 largest size by zero coefficients, which are data). The entries kind's numpy index outside ``[-N_i, N_i)`` raises an
@@ -869,7 +871,7 @@ class HeldVariables:
     It checks no shape: the engine checks every held variable it is handed, at every call, against the shapes of
     its table, and trusts the values. **One contract on a value:** a held ``Jp`` need not be the output of a
     direction. ``JtJp`` is linear in ``Jp``, so holding any vector ``c`` of ``Jp``'s shape as ``Jp`` (with no
-    direction) gives ``J^T`` of ``weight^2 c``: this is how the transposes are computed, ``K`` read off ``c``. Where jax is importable it is a registered pytree: the filled slots are the
+    direction) gives ``J^T`` of ``weight**2 c``: this is how the transposes are computed, ``K`` read off ``c``. Where jax is importable it is a registered pytree: the filled slots are the
     leaves, the set of filled slots is the static structure. It refuses ``==`` and is unhashable, as every
     array-carrying class of the library is: compare the slots you mean.
 
@@ -1094,8 +1096,8 @@ def _check_stacks(
     and of ``Vc`` exactly the sizes the stores give (P12a, round 1): ``V[i]`` and ``Vc[i]`` ``(nU_i, N_i)``, ``H[i]``
     ``(rL_i, nD_i, rR_(i+1))``, ``D_dot[i]`` ``(nD_i, N_i)`` and ``L_dot[i]`` ``(rL_i, nD_i, rL_(i+1))`` (on a corewise
     point, its own; on the uniform layout, the supercores' padded sizes). Structural: a ``ValueError`` naming the
-    operand. ``y``, the weight and the jet sizes are the
-    checkers' of :py:mod:`t3toolbox.backend.jets`. Its cost is about ``5d`` comparisons of short integer tuples per
+    operand. ``y`` and the weight are checked by ``_check_data_space`` (each axis 1 or ``z``'s size: there a size
+    of 1 is meant), the jet sizes by the checkers of :py:mod:`t3toolbox.backend.jets`. Its cost is about ``5d`` comparisons of short integer tuples per
     call, at trace time only under ``jit``. (A removable check, pending O-18: delete this function, its one call and
     its test class.)'''
     C, W, m = setting.C, setting.W, len(setting.order)
@@ -1153,6 +1155,43 @@ def _check_stacks(
             if np.shape(sample)[0] != d or np.shape(sample)[-1] != N:
                 raise ValueError("sampling_variables: the packed sample must have the frame's d and N: it has shape "
                                  '%s, where d = %d and N = %d' % (np.shape(sample), d, N))
+
+
+def _check_data_space(
+        setting:  _Setting,
+        name:     str,                      # 'y' or 'weight', for the message
+        value:    typ.Any,                  # of the type of z: probe len=d (or a mode-leading array); else one array
+        edges:    typ.Tuple[int, ...],      # probe: the mode edge of each array, N_i (ragged) or the padded N (packed)
+) -> None:
+    '''``y`` and the weight are of the type of ``z``: for probe exactly ``d`` arrays (a tuple, a list, or one array
+    whose first axis is the mode), each of the rank of ``z``'s array, ``F + W + C`` and the mode edge, each axis 1 or
+    ``z``'s size (the edge ``N_i``; ``N`` for a packed one). Structural: a ``ValueError`` naming the object, the mode
+    and the shapes. Static, so it runs under ``jit``. Without it, ``z - y`` would right-align a ``y`` of another rank:
+    a ``y`` with no ``C`` on a stacked model, with ``W`` of the size of ``C``, would be read along ``C`` with no error.
+    The stack of directions ``K`` is never in it (the engine places it, ``_with_K``).'''
+    body = setting.box + setting.W + setting.C
+    kind = setting.kind
+    if kind != 'probe':
+        if isinstance(value, (tuple, list)):
+            raise ValueError('sampling_variables: %s of the %s kind is one array, of the type of z; got a %s'
+                             % (name, kind, type(value).__name__))
+        expected = [(None, body if kind == 'apply' else setting.W + setting.C)]
+        arrays = [value]
+    else:
+        count = len(value) if isinstance(value, (tuple, list)) else (np.shape(value)[0] if np.ndim(value) else 0)
+        if count != setting.d:
+            raise ValueError('sampling_variables: %s of the probe kind has exactly d = %d arrays, one per mode (a '
+                             'tuple, a list, or one array whose first axis is the mode, of length d); got %d'
+                             % (name, setting.d, count))
+        expected = [(i, body + (int(edges[i]),)) for i in range(setting.d)]
+        arrays = [value[i] for i in range(setting.d)]
+    for (i, shape), array in zip(expected, arrays):
+        got = tuple(np.shape(array))
+        if len(got) != len(shape) or any(a not in (1, b) for a, b in zip(got, shape)):
+            raise ValueError('sampling_variables: %s%s has shape %s; it is of the type of z, whose array there has '
+                             'shape %s (F + W + C%s): the same rank, each axis 1 or that size, and never the stack '
+                             'of directions K' % (name, '' if i is None else ' (mode %d)' % i, got, shape,
+                                                  ' and the mode edge' if kind == 'probe' else ''))
 
 
 def _entry(name: str, kind: str) -> typ.Tuple[str, str, typ.Optional[str]]:
@@ -1363,7 +1402,7 @@ _UNIFORM_MASKS = {
     'R': (('right', 'lo'), ('down', None), ('right', 'hi')),
     'V': (('up', None), ('N', None)), 'Vc': (('up', None), ('N', None)),
     'H': (('left', 'lo'), ('down', None), ('right', 'hi')),
-    'w': (('N', None),), 'y': (('N', None),),
+    'w': (('N', None),), 'y': (('N', None),), 'weight': (('N', None),),
 }
 # A variable's mask, by the size of its table entry: a bond, site or mode variable over its edge; a block over the
 # axes of the core it stands for ('V' and 'VD' with the shape mask on N).
@@ -1632,9 +1671,9 @@ def sampling_variables(
         want:              typ.Sequence[str],                # variable names; the return is aligned with them
 
         order:             typ.Tuple[int, ...] = (),         # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
-        y:                 typ.Optional[typ.Any] = None,     # the data, of the type of z: probe len=d,
-                                                             #   elm_shape=F+W+(Ni,); apply F+W; entries W
-        weight:            typ.Optional[NDArray] = None,     # probe (d,)+F; apply F; entries (); None = ones
+        y:                 typ.Optional[typ.Any] = None,     # the data, of the type of z, each axis 1 or z's size:
+                                                             #   probe len=d, elm_shape=F+W+C+(Ni,); apply F+W+C; entries W+C
+        weight:            typ.Optional[typ.Any] = None,     # omega, of the type of z likewise (no K); None = ones
         variations:        typ.Optional[typ.Tuple] = None,   # (V, H), elm_shapes K+C+(nUi,Ni), K+C+(rLi,nDi,rR(i+1))
         core_directions:   typ.Optional[typ.Tuple] = None,   # (D_dot, L_dot), the shapes of D, L with K+C
         Vc:                typ.Optional[typ.Sequence[NDArray]] = None,   # len=d, elm_shape=C+(nUi,Ni)
@@ -1651,9 +1690,10 @@ def sampling_variables(
     that is not a tuple of nonnegative integers raises; an entries call with jets raises; a wanted variable whose
     argument is missing raises (``r`` without ``y`` or a held ``r``), and so does a held variable of the wrong
     shape. The stacks are checked: every core, ``Vc`` and every input has exactly the ``C`` of ``D[0]`` and the ``W`` of
-    ``w[0]``, and every direction the ``K + C`` of the first (a size-1 axis would broadcast silently). It does not check
-    the mode sizes of the sample against the frame's, the jet sizes, ``y`` or the weight (those are the checkers of
-    :py:mod:`t3toolbox.backend.jets`), and nothing numerical: four inconsistent stores give a wrong answer, with no
+    ``w[0]``, and every direction the ``K + C`` of the first (a size-1 axis would broadcast silently); ``y`` and the
+    weight are of the type of ``z``, each array of ``z``'s rank and each axis 1 or ``z``'s size (for probe exactly
+    ``d`` arrays), or a ``ValueError``. It does not check the mode sizes of the sample against the frame's or the jet
+    sizes (the checkers of :py:mod:`t3toolbox.backend.jets`), and nothing numerical: four inconsistent stores give a wrong answer, with no
     error.
 
     Numpy or jax is read off every array input. Every output is in one dtype: the lowest floating precision among the
@@ -1686,10 +1726,15 @@ def sampling_variables(
     order: tuple of int
         The jet shape. ``()`` for no jets.
     y: sequence of NDArray or NDArray, optional
-        The data, of the type of ``z``: probe ``len=d``, ``elm_shape=F+W+(Ni,)``; apply ``shape=F+W``; entries
-        ``shape=W``. Needed for ``r`` and what reads it.
-    weight: NDArray, optional
-        probe ``(d,)+F``; apply ``F``; entries ``()``. ``None`` is ones.
+        The data, of the type of ``z``: probe ``len=d`` (a tuple, a list, or one array whose first axis is the mode),
+        ``elm_shape=F+W+C+(Ni,)``; apply ``shape=F+W+C``; entries ``shape=W+C``; each axis 1 or that size (a size of 1
+        is the same datum along the axis: data shared by a stack have size-1 ``C`` axes). Needed for ``r`` and what
+        reads it. On the uniform layout probe data may come ragged (packed here) or packed, ``(d,)+F+W+C+(e,)`` with
+        the edge ``e`` 1 or ``N``.
+    weight: sequence of NDArray or NDArray, optional
+        ``omega``, of the type of ``z`` as ``y`` is, never with the stack of directions ``K`` (the engine places it
+        against ``Jp``); it enters squared, through :py:func:`~t3toolbox.backend.jets.data_metric` at ``gamma = 1``.
+        ``None`` is ones. :py:func:`~t3toolbox.backend.jets.blocks_to_weight` makes one from a value per block.
     variations: tuple, optional
         The direction in the frame's form, ``(V, H)``: ``V[i]`` of shape ``K+C+(nUi, Ni)``, ``H[i]``
         ``K+C+(rLi, nDi, rR(i+1))``, the stack of directions ``K`` the same for all. Needed for the dot variables,
@@ -1798,6 +1843,7 @@ def sampling_variables(
         if np.ndim(sample) < 1 or np.shape(sample)[0] != d:
             raise ValueError('sampling_variables: the entries kind\'s index has one row per mode, shape (d,) + W with '
                              'd = %d; got shape %s' % (d, np.shape(sample)))
+    y_given, weight_given = y, weight                   # as given, for their check (before any packing)
     masks = None
     if uniform:                                         # the families; the sample packed (zero jet coefficients and
         masks = _families(frame)                        # zero mode padding), its index checked as on ragged
@@ -1807,13 +1853,23 @@ def sampling_variables(
             sample = _uniform_index(sample, shape)
         else:
             sample = ut3_operations.pack_if_ragged(sample, N, len_P=len(order))
-        if kind == 'probe' and y is not None:
-            y = ut3_operations.pack_if_ragged(y, N)
+        if kind == 'probe':                             # y and the weight: the data-space packing (edge 1 kept)
+            y = None if y is None else ut3_operations._pack_data_space(y, N)
+            weight = None if weight is None else ut3_operations._pack_data_space(weight, N)
     graph = _GRAPHS[kind, call]
     held_Jp = held['Jp'] if held is not None and 'Jp' in held else None
     setting = _read_setting(kind, stores, sample, order, variations, graph, core_directions,
                             keep_W=not sum_over_samples, masks=masks, held_Jp=held_Jp)
     _check_stacks(setting, stores, sample, Vc, variations, core_directions)
+    for name, given in (('y', y_given), ('the weight', weight_given)):
+        if given is not None:                           # as given: ragged against N_i, packed against N
+            if not uniform:
+                edges = setting.sizes['N']
+            elif isinstance(given, (tuple, list)):
+                edges = tuple(frame[-2])                # the real mode sizes
+            else:
+                edges = (np.shape(frame[0])[-1],) * setting.d
+            _check_data_space(setting, name, given, edges)
     if held is not None:
         _check_held(held, setting)
 
@@ -1838,7 +1894,12 @@ def sampling_variables(
     values.update({name: _cast(held_values[name], dtype, xnp) for name in held_counted})
     if uniform:                                         # mask once: every input by the object it is defined at,
         for name in floating:                           # a held variable by its table (padding is not a value)
-            if name in _UNIFORM_MASKS and not (name == 'y' and kind != 'probe'):   # apply's y has no N
+            if name in ('y', 'weight') and kind != 'probe':          # apply's and entries' have no N edge
+                continue
+            if name == 'weight' and (values[name] is None or np.shape(values[name])[-1] == 1):
+                continue                                # None is ones; an edge of 1 has no padding to mask (the probe
+                                                        # y always: its value must not reach r's padding)
+            if name in _UNIFORM_MASKS:
                 values[name] = _masked(values[name], _UNIFORM_MASKS[name], masks)
         for name in held_counted:
             values[name] = _mask_variable(name, values[name], setting)

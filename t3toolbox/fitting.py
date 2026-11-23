@@ -592,8 +592,9 @@ def prepare_batch(
         check:  bool = True,         # False: pack only (a draw's batch, made by the caller's draw every step)
 ):                                   # the batch the backend takes (packed on the uniform layer)
     '''The frontend's batch handling, the one place for it (private to the frontend; the optimizers and
-    :py:func:`local_model` share it): ``oracle.check_batch(batch, x.shape)`` when the oracle has it (structural,
-    before any work; O-18), then, for a uniform ``x``, a ``LeastSquaresBatch`` packed with
+    :py:func:`local_model` share it): ``oracle.check_batch(batch, x.shape, stack_shape=x.stack_shape)`` when the oracle
+    has it (structural, before any work; O-18: the data and the weight of a stacked ``x`` carry its stack ``C``, of size 1
+    where they are shared), then, for a uniform ``x``, a ``LeastSquaresBatch`` packed with
     :py:func:`~t3toolbox.backend.uniform_fitting.pack_batch`. A batch already packed for a uniform ``x`` is neither
     checked (the checker reads the ragged form) nor packed again; another oracle's batch passes unchanged.'''
     if batch is None:
@@ -601,7 +602,7 @@ def prepare_batch(
     uniform = isinstance(x, ut3.UniformTuckerTensorTrain)
     packed = uniform and _is_packed(oracle, batch)
     if check and hasattr(oracle, 'check_batch') and not packed:
-        oracle.check_batch(batch, tuple(x.shape))
+        oracle.check_batch(batch, tuple(x.shape), stack_shape=tuple(x.stack_shape))
     if uniform and isinstance(batch, LeastSquaresBatch) and not packed:
         return ufit.pack_batch(oracle.kind, oracle.order, batch, x.N)
     return batch

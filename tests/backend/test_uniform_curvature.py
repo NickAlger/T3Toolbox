@@ -1146,8 +1146,9 @@ def _kind_setup(kind, shape, W, n, rng, masks, N, order=1, weight=(1.0, 0.5)):
     garbage beyond each N_i (``_uniform_batch``). Derivative kinds are along lines: the oracle at the jet shape
     ``(order,)`` (entries: apply at the one-hot jet), the data and the per-order ``weight`` through
     ``prepare_derivative_data``; plain probe takes a per-mode weight (``linspace(0.5, 2.0, d)``); apply / entries are
-    unweighted. One ``y`` for every stack element (``y`` broadcasts over ``C``): the residuals differ per element
-    through the points. (``n`` and ``masks`` are accepted for the callers' signature and unread.)"""
+    unweighted. One ``y`` for every stack element (the packed batch's ``y`` and weight shared by the stack ``C = (n,)``,
+    size-1 ``C`` axes; the returned ragged fit is an element's): the residuals differ per element through the points.
+    (``masks`` is accepted for the callers' signature and unread.)"""
     d = len(shape)
     if kind == 'probe_derivatives' or kind in _DERIV_KINDS:
         base = kind[:-len('_derivatives')]
@@ -1163,7 +1164,7 @@ def _kind_setup(kind, shape, W, n, rng, masks, N, order=1, weight=(1.0, 0.5)):
                   else [rng.standard_normal((W, N_)) for N_ in shape])
         y = [rng.standard_normal((W, N_)) for N_ in shape] if kind == 'probe' else rng.standard_normal(W)
         fit = F.fit(_MANIFOLD, kind, sample, y, weight=np.linspace(0.5, 2.0, d) if kind == 'probe' else None)
-    return fit, _uniform_batch(fit, shape, N)
+    return fit, _uniform_batch(F.shared_over(fit, (n,) if n > 1 else ()), shape, N)
 
 
 def _exact_models(name, seed, rng, geometry='manifold', order=1, W=7, weight=(1.0, 0.5), kind='probe_derivatives'):

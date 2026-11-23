@@ -114,11 +114,13 @@ class UniformCase:
             return prefix_mask(ranks, pad)
         self.masks = (family(lambda r: r[0], d, pads['D'][0]), family(lambda r: r[1], d, pads['U'][1]),
                       family(lambda r: r[2], d + 1, pads['L'][0]), family(lambda r: r[3], d + 1, pads['R'][0]))
-        # the sample, the data and the weight
+        # the sample, the data and the weight; y and the weight of the type of z, one per entry and per element of
+        # the stack C (the data-metric rule): each element's ragged twin gets its own slice
         if kind == 'entries':
             self.index = np.stack([rng.integers(-N[i], N[i], size=W) for i in range(d)])
             self.ragged_sample, self.sample = self.index, self.index
-            self.y, self.weight = rng.standard_normal(W), np.asarray(0.7)
+            self.y, self.weight = rng.standard_normal(W + C), 0.5 + rng.random(W + C)
+            self.ragged_weight = self.weight
         else:
             sizes = [(F_in if F_in is None or isinstance(F_in[0], int) else F_in[i]) or () for i in range(d)]
             self.ragged_sample = [rng.standard_normal(tuple(sizes[i]) + W + (N[i],)) for i in range(d)]
@@ -128,18 +130,30 @@ class UniformCase:
             for i in range(d):
                 packed[i, ..., N[i]:] = garbage[i, ..., N[i]:]                    # the mode padding only
             self.sample = packed
-            if kind == 'probe':
-                self.ragged_y = [rng.standard_normal(self.box + W + (N[i],)) for i in range(d)]
-                y = np.asarray(ut3_operations.pack_if_ragged(self.ragged_y, self.Np))
-                for i in range(d):
-                    y[i, ..., N[i]:] = GARBAGE * rng.standard_normal(y[i, ..., N[i]:].shape)
-                self.y = y
-                self.weight = 0.5 + rng.random((d,) + self.box)
+            if kind == 'probe':                         # packed, finite garbage in the mode padding of both
+                self.ragged_y = [rng.standard_normal(self.box + W + C + (N[i],)) for i in range(d)]
+                self.ragged_weight = [0.5 + rng.random(self.box + W + C + (N[i],)) for i in range(d)]
+                self.y, self.weight = (self.garbage_padded(ragged, rng) for ragged in (self.ragged_y,
+                                                                                       self.ragged_weight))
             else:
-                self.ragged_y = self.y = rng.standard_normal(self.box + W)
-                self.weight = 0.5 + rng.random(self.box)
+                self.ragged_y = self.y = rng.standard_normal(self.box + W + C)
+                self.ragged_weight = self.weight = 0.5 + rng.random(self.box + W + C)
         if kind == 'entries':
             self.ragged_y = self.y
+
+    def garbage_padded(self, ragged, rng):
+        """A probe data-space object packed to ``Np``, finite garbage in the mode padding (masked by the engine)."""
+        packed = np.asarray(ut3_operations.pack_if_ragged(ragged, self.Np))
+        for i in range(D_SITES):
+            packed[i, ..., N[i]:] = GARBAGE * rng.standard_normal(packed[i, ..., N[i]:].shape)
+        return packed
+
+    def at_element(self, value, c):
+        """Element ``c`` of a data-space object of the type of ``z``: its ``C`` axes (after ``F + W``) taken."""
+        where = (slice(None),) * (self.m + len(self.W)) + tuple(c)
+        if self.kind == 'probe':
+            return [v[where] for v in value]
+        return value[(slice(None),) * len(self.W) + tuple(c)] if self.kind == 'entries' else value[where]
 
     def packed(self, ragged_of, pad, K, rng):
         """A supercore ``(d,) + K + C + pad`` of the ragged cores, garbage in every slot they do not fill."""
@@ -170,8 +184,8 @@ class UniformCase:
 
     def ragged_arguments(self, k, c):
         r = self.ragged[k, c]
-        arguments = dict(order=self.order, y=self.ragged_y, weight=self.weight,
-                         core_directions=(r['D_dot'], r['L_dot']))
+        arguments = dict(order=self.order, y=self.at_element(self.ragged_y, c),
+                         weight=self.at_element(self.ragged_weight, c), core_directions=(r['D_dot'], r['L_dot']))
         if self.call == '_manifold':
             arguments.update(variations=(r['V'], r['H']), Vc=self.ragged[c]['Vc'])
         return arguments

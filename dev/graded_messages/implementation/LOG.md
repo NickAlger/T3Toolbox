@@ -1421,3 +1421,43 @@ SIGN OFF. **M1 committed.** Next: M2, the switch to the rule (one change, built 
 you make and we will discuss them after the M slice arc is complete." Claude's decisions are tracked in
 `implementation/M_ARC_DECISIONS.md` (M0 and M1 entered). M2 starts on a local side branch `m2-wip` with a fresh
 implementer; the sub-arc's reviewer is kept.
+
+### M2 designed (2026-11-22, on `m2-wip`), in critique
+
+`M2_DESIGN_NOTE.md` (a fresh implementer): five parts (independent oracles and the pre-M2 battery first; the engine;
+`jets`; the backend fitting layer; the frontend and old forms); the gate with the reviewer's two strengthenings; six
+corrections to the plan found in design (three of them silent wrong answers the plan would have allowed: a `y` without
+`C` right-aligned on a stacked model; an edge-1 `y` unmasked on the uniform layout; `f_resolution` and `y_block_sumsq`
+not over `z`'s shape).
+M2 part 1 (the independent oracles and the pre-M2 battery): `M2_part1_HANDOVER.md`; review r1 NOT YET (a size-1 axis
+of `z` untested: a larger weight was accepted on a one-sample batch, `f` five times too large); round 1 added the
+refusals; `M2_part1_REVIEW_r2.md` SIGN OFF (the battery re-recorded independently, bytewise equal). **Committed to
+`m2-wip`.** Next: part 2, the engine.
+M2 part 2 (the engine) in progress: the library changes are in (`r_step` by position, `_weighted_sum`, the seed as
+`flip(data_metric(...))`, `_with_K`, `_check_data_space`, the uniform packing and masking); the implementer's context
+filled, so an UNREVIEWED checkpoint is committed on `m2-wip` and a fresh implementer finishes part 2 from
+`M2_part2_HANDOVER.md`.
+M2 part 2 finished by the second implementer (`M2_part2_HANDOVER.md`): a `None`-guard bug in the weight mask fixed; a
+gauge-blind test corrected; `TestAgainstTheReference` (the engine against the part-1 reference over the jet matrix,
+135 subtests); 14 mutants killed or justified; the full suite's 194 red ids recorded, all one cause (old-form objects
+reaching the new check through the oracle), for parts 4 and 5. In review.
+M2 part 2 (the engine): `M2_part2_REVIEW_r1.md` NOT YET (the join of the modes' shapes in packing untested); round 1
+added `test_modes_with_different_size_1_axes`; `M2_part2_REVIEW_r2.md` SIGN OFF. **Committed to `m2-wip`** (with the
+earlier unreviewed checkpoint `fe7c7250`, one review unit). 194 ids red, one cause, for parts 4 and 5. The reviewer's
+handoff note for a successor: `M_REVIEWER_HANDOFF.md`. Next: part 3 (`jets`).
+M2 part 3 (`jets`): `M2_part3_HANDOVER.md`, `M2_part3_REVIEW_r1.md` SIGN OFF (the checkers against 138 objects of the
+reviewer's own construction; the converters bitwise in four precision pairings; the factorials by hand; the
+re-pinned bridge independent). **Committed to `m2-wip`.** 123 red, for parts 4 and 5. Parts 4 and 5 go to a fresh
+implementer and a fresh reviewer (both previous contexts long), from the handovers and `M_REVIEWER_HANDOFF.md`.
+M2 part 4 (the backend fitting layer): `M2_part4_HANDOVER.md`, `M2_part4_REVIEW_r1.md` SIGN OFF (the fresh reviewer's
+2,135 independent cases, 0 failures; 7 mutants killed; the diff audit clean). **Committed to `m2-wip`.** 23 red, all
+part 5's frontend routes. Two minor points carried to part 5 (a doctest flag; a clear error for `f_resolution` with a
+held `r` and no `y`). Next: part 5, the frontend, the old forms, the pages, the battery comparison, the full gate.
+M2 part 5 (the frontend, the old forms, the pages, the gate): `M2_part5_HANDOVER.md`, `M2_part5_REVIEW_r1.md` SIGN OFF
+(the translation against the pre-M2 library over every old weight form: 163 of 196 arrays bitwise, losses within
+1.4e-15; stacked `y` against dense misfits; the battery re-recorded independently, bytewise equal). The battery's
+gauge explanation corrected per the review (a sign-gauge flip of the SVD retraction, possible from any start).
+**M2 gate:** suite 1,954 passed, 92,096 subtests, 0 failed; 325 module doctests; quickstart; 47 pages; 14 examples;
+Sphinx 0 warnings; slow tier 66 passed; the battery AS EXPECTED (24,427 of 25,476 arrays bitwise, the rest within
+3.6e-16); the node tally against part 1's log only the expected differences; the diff audit clean. **M2 squashed onto
+`graded-messages`.** Next: M3 (the display and the weighted block sums).

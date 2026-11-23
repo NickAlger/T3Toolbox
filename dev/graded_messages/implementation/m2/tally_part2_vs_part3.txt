@@ -1,0 +1,303 @@
+baseline: 1946 nodes {'FAILED': 202, 'PASSED': 1839, 'SKIPPED': 5, 'SUBFAILED': 1177, 'SUBPASSED': 90800, 'XFAIL': 1}
+new:      1949 nodes {'FAILED': 102, 'PASSED': 1892, 'SKIPPED': 5, 'SUBFAILED': 781, 'SUBPASSED': 91213, 'XFAIL': 1}
+  tests/backend/test_curvature.py::TestCorewiseExact::test_against_the_block_sum_and_a_finite_difference_of_the_gradient
+      baseline {'SUBFAILED': 8, 'PASSED': 1}
+      new      {'SUBPASSED': 4, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestCorewiseExact::test_shared_corewise
+      baseline {'SUBFAILED': 4, 'PASSED': 1}
+      new      {'SUBFAILED': 2, 'SUBPASSED': 1, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestDerivativeKindsExactLocalModel::test_quadratic_form_is_the_second_derivative_along_the_retraction
+      baseline {'SUBFAILED': 40, 'PASSED': 1}
+      new      {'SUBFAILED': 16, 'SUBPASSED': 12, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestExactLocalModel::test_curvature_damping_reaches_the_lift_and_is_rejected_where_it_does_nothing
+      baseline {'FAILED': 2}
+      new      {'SUBPASSED': 6, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestExactLocalModel::test_quadratic_form_is_the_second_derivative_along_the_retraction
+      baseline {'SUBFAILED': 32, 'SUBPASSED': 2, 'PASSED': 1}
+      new      {'SUBFAILED': 16, 'SUBPASSED': 10, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestExactLocalModel::test_regularized
+      baseline {'SUBFAILED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestExactLocalModel::test_sigma_min_is_the_smallest_lift_singular_value
+      baseline {'SUBFAILED': 20, 'FAILED': 2}
+      new      {'SUBFAILED': 6, 'SUBPASSED': 4, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestExactLocalModel::test_stacked_equals_per_element
+      baseline {'SUBFAILED': 6, 'PASSED': 1}
+      new      {'SUBPASSED': 1, 'SUBFAILED': 4, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestExactLocalModel::test_symmetry
+      baseline {'SUBFAILED': 16, 'PASSED': 1}
+      new      {'SUBPASSED': 8, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestExactNewtonFromNonMinimalPoints::test_tt_slack
+      baseline {'FAILED': 2}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestExactNewtonFromNonMinimalPoints::test_tucker_slack
+      baseline {'FAILED': 2}
+      new      {'SUBPASSED': 4, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestExactNewtonRate::test_gauss_newton_control_is_linear
+      baseline {'SUBFAILED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestExactNewtonRate::test_power_half_is_superlinear_of_order_one_and_a_half
+      baseline {'SUBFAILED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestExactNewtonRate::test_power_one_is_q_quadratic
+      baseline {'SUBFAILED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestFlatSlotsModel::test_corewise_d1_runs_exact
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/backend/test_curvature.py::TestFlatSlotsModel::test_normal_curvature_vanishes_without_the_shortcut
+      baseline {'SUBFAILED': 16, 'PASSED': 1}
+      new      {'SUBPASSED': 8, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestRequiredSixthOperation::test_a_geometry_without_the_exact_members_works_for_gauss_newton_and_is_rejected_for_exact
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/backend/test_curvature.py::TestRequiredSixthOperation::test_every_layout_builds_an_exact_model
+      baseline {'SUBPASSED': 6, 'SUBFAILED': 12, 'PASSED': 1}
+      new      {'SUBPASSED': 12, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestSharedExactLocalModel::test_gauge_laws_symmetry_and_stacks
+      baseline {'SUBFAILED': 8, 'FAILED': 2}
+      new      {'SUBPASSED': 5, 'FAILED': 2}
+  tests/backend/test_curvature.py::TestSharedExactLocalModel::test_padded_shared_restart
+      baseline {'SUBPASSED': 3, 'FAILED': 2}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestSharedExactLocalModel::test_quadratic_form_is_the_second_derivative_along_the_shared_retraction
+      baseline {'SUBFAILED': 20, 'PASSED': 1}
+      new      {'SUBFAILED': 12, 'SUBPASSED': 4, 'PASSED': 1}
+  tests/backend/test_curvature.py::TestSharedExactLocalModel::test_the_shared_retraction_is_second_order_here
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/backend/test_optimizer_display.py::TestSwitchDisplay::test_a_switch_run
+      baseline {'FAILED': 2}
+      new      {'SUBPASSED': 5, 'PASSED': 1}
+  tests/backend/test_optimizer_display.py::TestTimingDisplay::test_a_silent_display_of_a_timed_run
+      baseline {'SUBFAILED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/backend/test_optimizer_display.py::TestTimingDisplay::test_a_timed_run
+      baseline {'SUBFAILED': 6, 'PASSED': 1}
+      new      {'SUBPASSED': 3, 'PASSED': 1}
+  tests/backend/test_optimizer_display.py::TestTimingDisplay::test_the_last_row_closes_the_table
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/backend/test_optimizers.py::TestNewtonTiming::test_each_phase_is_its_own_work
+      baseline {'SUBFAILED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/backend/test_optimizers.py::TestNewtonTiming::test_each_phase_waits_on_its_outputs
+      baseline {'FAILED': 2}
+      new      {'SUBPASSED': 8, 'PASSED': 1}
+  tests/backend/test_optimizers.py::TestNewtonTiming::test_off_is_today
+      baseline {'SUBFAILED': 32, 'PASSED': 1}
+      new      {'SUBPASSED': 16, 'PASSED': 1}
+  tests/backend/test_optimizers.py::TestNewtonTiming::test_the_records
+      baseline {'SUBFAILED': 23, 'FAILED': 2}
+      new      {'SUBPASSED': 46, 'PASSED': 1}
+  tests/backend/test_optimizers.py::TestNewtonTiming::test_timing_changes_no_number
+      baseline {'SUBFAILED': 23, 'FAILED': 2}
+      new      {'SUBPASSED': 12, 'PASSED': 1}
+  tests/backend/test_optimizers.py::TestSwitchNewton::test_a_miss_resets
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/backend/test_optimizers.py::TestSwitchNewton::test_defaults
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/backend/test_optimizers.py::TestSwitchNewton::test_forced_at_zero_is_exact
+      baseline {'SUBFAILED': 28, 'PASSED': 1}
+      new      {'SUBPASSED': 14, 'PASSED': 1}
+  tests/backend/test_optimizers.py::TestSwitchNewton::test_it_never_fires_on_a_flat_set
+      baseline {'FAILED': 2}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/backend/test_optimizers.py::TestSwitchNewton::test_one_transpose_per_point
+      baseline {'SUBFAILED': 8, 'PASSED': 1}
+      new      {'SUBPASSED': 4, 'PASSED': 1}
+  tests/backend/test_optimizers.py::TestSwitchNewton::test_options
+      baseline {'SUBPASSED': 47, 'FAILED': 2}
+      new      {'SUBPASSED': 24, 'PASSED': 1}
+  tests/backend/test_optimizers.py::TestSwitchNewton::test_reset_rows
+      baseline {'FAILED': 2}
+      new      {'SUBPASSED': 6, 'PASSED': 1}
+  tests/backend/test_optimizers.py::TestSwitchNewton::test_stats_and_rows
+      baseline {'FAILED': 2}
+      new      {'SUBPASSED': 12, 'PASSED': 1}
+  tests/backend/test_optimizers.py::TestSwitchNewton::test_the_junction
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/backend/test_optimizers.py::TestSwitchNewton::test_threshold_disabled_is_gauss_newton
+      baseline {'SUBFAILED': 28, 'PASSED': 1}
+      new      {'SUBPASSED': 14, 'PASSED': 1}
+  tests/backend/test_optimizers.py::TestSwitchNewton::test_timing_records_the_tracking
+      baseline {'SUBFAILED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 22, 'PASSED': 1}
+  tests/backend/test_optimizers.py::TestSwitchNewton::test_what_counts_and_what_resets
+      baseline {'FAILED': 2}
+      new      {'SUBPASSED': 14, 'PASSED': 1}
+  tests/backend/test_optimizers.py::TestTrustRegionNewton::test_descent_guard
+      baseline {'FAILED': 2}
+      new      {'SUBPASSED': 3, 'PASSED': 1}
+  tests/backend/test_optimizers.py::TestTrustRegionNewton::test_exact_line_search_and_gauss_newton_trust_region
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/backend/test_optimizers.py::TestTrustRegionNewton::test_floor_a_degenerate_restart
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/backend/test_optimizers.py::TestTrustRegionNewton::test_floor_b_near_stationary_start
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/backend/test_optimizers.py::TestTrustRegionNewton::test_floor_c_accepted_steps_below_the_resolution_never_stop
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/backend/test_optimizers.py::TestTrustRegionNewton::test_floor_d_trust_region_floor
+      baseline {'FAILED': 2}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/backend/test_optimizers.py::TestTrustRegionNewton::test_option_validation
+      baseline {'SUBPASSED': 9, 'SUBFAILED': 8, 'PASSED': 1}
+      new      {'SUBPASSED': 13, 'PASSED': 1}
+  tests/backend/test_optimizers.py::TestTrustRegionNewton::test_radius_rules
+      baseline {'FAILED': 2}
+      new      {'SUBPASSED': 3, 'PASSED': 1}
+  tests/backend/test_optimizers.py::TestTrustRegionNewton::test_rejection_keeps_x_and_reuses_the_model
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/backend/test_optimizers.py::TestTrustRegionNewton::test_shrink_is_a_quarter_of_the_step_not_of_the_radius
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/backend/test_padded_start.py::TestSeamNumerics::test_exact_newton_from_a_padded_start
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/backend/test_padded_start.py::TestSeamNumerics::test_probe_derivatives_uniform_against_ragged
+      baseline {'SUBFAILED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/backend/test_padded_start.py::TestSeamNumerics::test_the_exact_model_at_a_rotated_frame
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/backend/test_uniform_curvature.py::TestUniformExactLocalModel::test_flat_slots
+      baseline {'SUBFAILED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/backend/test_uniform_curvature.py::TestUniformExactNewton::test_tt_slack_start_backend_and_frontend
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/backend/test_uniform_curvature.py::TestUniformExactNewton::test_tucker_slack_start_backend_and_frontend
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/backend/test_uniform_curvature.py::TestUniformSharedExactModel::test_padded_shared_restart
+      baseline {'SUBPASSED': 3, 'FAILED': 2}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/backend/test_uniform_curvature.py::TestUniformSharedExactModel::test_quadratic_form_is_the_second_derivative_along_the_shared_retraction
+      baseline {'SUBFAILED': 12, 'PASSED': 1}
+      new      {'SUBFAILED': 8, 'SUBPASSED': 2, 'PASSED': 1}
+  tests/backend/test_uniform_curvature.py::TestUniformSharedExactModel::test_the_shared_retraction_is_second_order_here
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/test_data_preparation.py::TestEqualizing::test_the_block_norms_have_the_block_shape
+      baseline {}
+      new      {'SUBPASSED': 27, 'PASSED': 1}
+  tests/test_data_preparation.py::TestEqualizing::test_the_block_norms_have_the_shape_of_the_weight
+      baseline {'SUBPASSED': 27, 'PASSED': 1}
+      new      {}
+  tests/test_dispatch.py::TestDispatch::test_exact_newton_cg_jit_compiles_the_cg_once_and_floors_at_float32
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/test_dispatch.py::TestDispatch::test_frontend_exact_newton_cg_use_jit
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/test_dispatch.py::TestDispatch::test_jit_exact_frontend_local_model
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/test_dispatch.py::TestDispatch::test_jit_ragged_local_model_parameterized_kind
+      baseline {'SUBFAILED': 5, 'FAILED': 2}
+      new      {'SUBPASSED': 1, 'SUBFAILED': 3, 'FAILED': 2}
+  tests/test_dispatch.py::TestDispatch::test_jit_shared_exact_local_model
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/test_dispatch.py::TestDispatch::test_jit_shared_uniform_exact
+      baseline {'FAILED': 2}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/test_dispatch.py::TestSwitchNewton::test_use_jit_ragged
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/test_dispatch.py::TestSwitchNewton::test_use_jit_shared_uniform
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/test_dispatch.py::TestSwitchNewton::test_use_jit_uniform
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/test_engine_data_space.py::TestTheUniformEdgeOfOne::test_modes_with_different_size_1_axes
+      baseline {}
+      new      {'SUBPASSED': 3, 'PASSED': 1}
+  tests/test_fitting.py::TestExactLocalModel::test_curvature_damping_reaches_the_lift_and_is_rejected_where_it_does_nothing
+      baseline {'SUBFAILED': 8, 'SUBPASSED': 4, 'FAILED': 2}
+      new      {'SUBPASSED': 7, 'PASSED': 1}
+  tests/test_fitting.py::TestExactLocalModel::test_d1_manifold_is_gauss_newton
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/test_fitting.py::TestExactLocalModel::test_every_kind_builds_exact
+      baseline {'SUBPASSED': 17, 'SUBFAILED': 33, 'FAILED': 2}
+      new      {'SUBPASSED': 20, 'PASSED': 1}
+  tests/test_fitting.py::TestExactLocalModel::test_hessian_against_a_finite_difference_of_the_riemannian_gradient
+      baseline {'SUBFAILED': 6, 'PASSED': 1}
+      new      {'SUBPASSED': 3, 'PASSED': 1}
+  tests/test_fitting.py::TestExactLocalModel::test_hessian_quadratic_and_evaluate_are_mode_dependent
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/test_fitting.py::TestExactLocalModel::test_matches_the_backend_exact_local_model
+      baseline {'SUBFAILED': 12, 'PASSED': 1}
+      new      {'SUBPASSED': 3, 'SUBFAILED': 6, 'PASSED': 1}
+  tests/test_fitting.py::TestExactLocalModel::test_mode_is_derived
+      baseline {'FAILED': 2}
+      new      {'SUBPASSED': 7, 'PASSED': 1}
+  tests/test_fitting.py::TestExactLocalModel::test_retract_is_the_geometrys_and_the_backend_models
+      baseline {'SUBFAILED': 11, 'FAILED': 2}
+      new      {'SUBPASSED': 4, 'PASSED': 1}
+  tests/test_fitting.py::TestExactLocalModel::test_shared_corewise_matches_the_backend
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/test_fitting.py::TestExactLocalModel::test_shared_manifold_matches_the_backend
+      baseline {'SUBFAILED': 6, 'PASSED': 1}
+      new      {'SUBPASSED': 2, 'SUBFAILED': 2, 'PASSED': 1}
+  tests/test_fitting.py::TestExactLocalModel::test_shared_uniform_matches_the_backend_exact_local_model
+      baseline {'SUBFAILED': 8, 'PASSED': 1}
+      new      {'SUBFAILED': 4, 'SUBPASSED': 2, 'PASSED': 1}
+  tests/test_fitting.py::TestFiniteDifferenceHessianCheckInSafeMode::test_fd_minus_exact_hessian_passes_safe_mode
+      baseline {'FAILED': 2}
+      new      {'SUBPASSED': 4, 'PASSED': 1}
+  tests/test_jax_absent.py::TestJaxAbsentPolicy::test_requests_for_jax_run_on_numpy_with_a_warning
+      baseline {'FAILED': 2}
+      new      {'PASSED': 1}
+  tests/test_jets.py::TestCheckers::test_an_object_larger_than_z_where_z_has_a_size_of_one_raises
+      baseline {}
+      new      {'SUBPASSED': 4, 'PASSED': 1}
+  tests/test_jets.py::TestCheckers::test_check_data_passes_size_1_axes_and_a_mode_leading_array
+      baseline {}
+      new      {'SUBPASSED': 6, 'PASSED': 1}
+  tests/test_jets.py::TestCheckers::test_check_weight_passes_the_exact_shape_and_none
+      baseline {'SUBPASSED': 11, 'PASSED': 1}
+      new      {}
+  tests/test_jets.py::TestCheckers::test_check_weight_passes_the_full_form_and_none
+      baseline {}
+      new      {'SUBPASSED': 76, 'PASSED': 1}
+  tests/test_jets.py::TestDerivativeData::test_the_weight_goes_the_opposite_way_on_its_jet_axes
+      baseline {'SUBPASSED': 11, 'PASSED': 1}
+      new      {'SUBPASSED': 58, 'PASSED': 1}
+  tests/test_jets.py::TestDualJet::test_a_backend_function_given_a_bad_weight_checks_nothing
+      baseline {'PASSED': 1}
+      new      {}
+  tests/test_jets.py::TestDualJet::test_a_converter_refuses_a_weight_not_of_the_type_of_the_jet
+      baseline {}
+      new      {'SUBPASSED': 14, 'PASSED': 1}
+  tests/test_least_squares_oracle.py::TestTheBatch::test_check_batch
+      baseline {'SUBPASSED': 13, 'PASSED': 1}
+      new      {'FAILED': 2}
+  tests/test_optimizers_frontend.py::TestFrontendExactNewtonDerivativeKinds::test_apply_derivatives
+      baseline {'SUBFAILED': 4, 'PASSED': 1}
+      new      {'FAILED': 2}
+  tests/test_optimizers_frontend.py::TestFrontendExactNewtonDerivativeKinds::test_entries_derivatives
+      baseline {'SUBFAILED': 4, 'PASSED': 1}
+      new      {'FAILED': 2}
+  tests/test_optimizers_frontend.py::TestFrontendSwitchNewton::test_a_switch_run_is_the_backend_run
+      baseline {'FAILED': 2}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/test_optimizers_frontend.py::TestTheTranslation::test_each_old_form_is_the_new_form
+      baseline {'SUBPASSED': 7, 'PASSED': 1}
+      new      {'SUBFAILED': 11, 'FAILED': 2}
+  tests/test_optimizers_frontend.py::TestTheTranslation::test_newton_cg_weight_forms_and_kinds
+      baseline {'SUBFAILED': 32, 'FAILED': 2}
+      new      {'SUBFAILED': 29, 'SUBPASSED': 2, 'FAILED': 2}
+100 nodes differ

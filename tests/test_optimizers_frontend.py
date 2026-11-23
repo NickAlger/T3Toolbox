@@ -13,6 +13,7 @@ import t3toolbox.manifold as t3m
 import t3toolbox.uniform_manifold as ut3m
 import t3toolbox.optimizers as topt
 from t3toolbox.backend.common import jax_available
+from t3toolbox.backend.jets import blocks_to_weight
 import os as _os, sys as _sys
 _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
 import _derivative_data as dd
@@ -1251,7 +1252,7 @@ class TestReview4aChecks(unittest.TestCase):
         _, full = topt.newton_cg(t3m.MANIFOLD, 'probe', self.ww, yp, x0, weight=[2.0, 2.0, 2.0], max_newton=3)
         self.assertEqual(one['losses'], full['losses'])
         oracle, batch = topt._old_fit('probe', self.ww, yp, self.x.shape, None, [2.0], 'test')
-        self.assertTrue(np.array_equal(batch.weight, np.full(3, 2.0)))
+        self.assertTrue(np.array_equal(batch.weight, blocks_to_weight('probe', (), np.full(3, 2.0), yp)))
 
     def test_shared_retract_reuses_the_builds_companion(self):
         """The frontend model's ``retract`` on a shared manifold geometry is the geometry's retraction with the
@@ -1520,7 +1521,7 @@ class TestTheTranslation(unittest.TestCase):
             with self.subTest(weight=np.shape(weight)):
                 oracle, batch = topt._old_fit('probe_derivatives', s, y, shape, 2, weight, 'test')
                 self.assertEqual((oracle.kind, oracle.order), ('probe', (2,)))
-                self.assertTrue(np.array_equal(batch.weight, full * fact2))
+                self.assertTrue(np.array_equal(batch.weight, blocks_to_weight('probe', (2,), full * fact2, y)))
                 for got, want in zip(batch.y, y):
                     self.assertTrue(np.allclose(got, want / fact2[:, None, None], rtol=1e-15, atol=0))
                 for got, want in zip(batch.sample, affine_jet(*s)):
@@ -1530,11 +1531,11 @@ class TestTheTranslation(unittest.TestCase):
         self.assertEqual((oracle.kind, oracle.order), ('apply', (1,)))
         for got, want in zip(batch.sample, affine_jet(index_to_one_hot(s[0], shape), s[1])):
             self.assertTrue(np.array_equal(got, want))
-        self.assertTrue(np.array_equal(batch.weight, [1., 2.]))
+        self.assertTrue(np.array_equal(batch.weight, blocks_to_weight('apply', (1,), np.array([1., 2.]), y)))
         s, y = _tr_problem('probe', 0)
         oracle, batch = topt._old_fit('probe', s, y, shape, None, [1., 2., .5, 9.], 'test')   # extra rows dropped
         self.assertEqual((oracle.kind, oracle.order), ('probe', ()))
-        self.assertTrue(np.array_equal(batch.weight, [1., 2., .5]))
+        self.assertTrue(np.array_equal(batch.weight, blocks_to_weight('probe', (), np.array([1., 2., .5]), y)))
         with self.assertRaisesRegex(ValueError, "takes no residual weight"):
             topt._old_fit('apply', *_tr_problem('apply', 0), shape, None, [1.], 'test')
         with self.assertRaisesRegex(ValueError, 'mode dimension'):
@@ -1583,7 +1584,8 @@ class TestFrontendOnlyAndUserOracles(unittest.TestCase):
         ww, pp = ([rng.standard_normal((50, N)) / math.sqrt(N) for N in shape] for _ in range(2))
         line = fitting.affine_jet(ww, pp)                                    # the lines ww + s pp
         derivatives = fitting.taylor_to_derivatives('probe', (order,), target.probe(line, (order,)))   # the data
-        weight = np.tile([1.0, 0.5, 0.25], (len(shape), 1))                  # on the derivatives, per (mode, order)
+        blocks = np.tile([1.0, 0.5, 0.25], (len(shape), 1))                  # on the derivatives, per (mode, order)
+        weight = fitting.blocks_to_weight('probe', (order,), blocks, derivatives)    # of the type of z
         y, w, _ = fitting.prepare_derivative_data('probe', (order,), derivatives, weight)
         oracle = fitting.LeastSquaresOracle('probe', order=(order,))
         x0 = t3.TuckerTensorTrain.zeros(shape, (2, 2, 2), (1, 2, 2, 1))

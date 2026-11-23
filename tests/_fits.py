@@ -17,9 +17,18 @@ The builders:
   the sample ``affine_jet(ww, pp)`` (entries: the apply kind at ``affine_jet(index_to_one_hot(index, shape), pp)``),
   the data and the weight through ``prepare_derivative_data``, so the objective is the old kinds' exactly
   (``1/2 sum_t |omega_t (d_t(x) - y_t)|^2`` on the derivatives);
+
+  both take the weight as **one value per block** (probe ``(d,)+F``, apply ``F``, entries ``()``: the form the tests
+  were written in, a weight per mode and slot) and place it on the data with ``jets.blocks_to_weight``, which reads
+  the rank of ``y`` (its stack ``C`` included), so the batch carries a weight of the type of ``z`` (data-metric plan
+  §2; M2 part 4). A test that wants another full-form weight (per sample, per entry) builds its batch itself;
+- :func:`shared_over` -- the same fit for a model stacked over ``C`` whose data are shared by every element: ``y`` and
+  the weight with size-1 ``C`` axes (a stacked model's data carry ``C``; the elements' models use the fit as built);
+  :func:`at_element` the inverse, a stacked fit's data at one element of ``C``;
 - :func:`uniform` -- the same fit on the uniform layout: the geometry ``from_point`` of the packed start, the batch
   ``pack_batch``-ed, and the start's bare supercore pair.
 """
+import dataclasses
 import typing as typ
 
 import numpy as np
@@ -69,10 +78,12 @@ def fit(
         sample,                                      # ww (input jets at `order`) | index
         y,                                           # of the type of z
         regularizer=None,
-        weight=None,                                 # probe (d,)+F, apply F, entries (); None = ones
+        weight=None,                                 # one value per block: probe (d,)+F, apply F, entries (); None = ones
         order:        typ.Tuple[int, ...] = (),
 ) -> Fit:
-    return Fit(geom, LeastSquaresOracle(kind, tuple(order)), LeastSquaresBatch(sample, y, weight), regularizer)
+    order = tuple(order)
+    omega = None if weight is None else jets.blocks_to_weight(kind, order, np.asarray(weight), y)
+    return Fit(geom, LeastSquaresOracle(kind, order), LeastSquaresBatch(sample, y, omega), regularizer)
 
 
 def derivative_fit(
@@ -83,14 +94,67 @@ def derivative_fit(
         pp,                                          # the line's direction
         derivatives,                                 # derivative data: slot t the t-th derivative along the line
         regularizer=None,
-        weight=None,                                 # on the derivative residuals: probe (d, n+1), else (n+1,); None = ones
+        weight=None,                                 # one value per block on the derivative residuals: probe (d, n+1),
+                                                     #   else (n+1,); None = ones
         shape=None,                                  # entries: the mode sizes (for the one-hot vectors)
 ) -> Fit:
     o = (int(order),)
     if kind == 'entries':
         kind, sample = 'apply', jets.index_to_one_hot(sample, shape)
-    y, w, _ = jets.prepare_derivative_data(kind, o, derivatives, None if weight is None else np.asarray(weight))
+    omega = None if weight is None else jets.blocks_to_weight(kind, o, np.asarray(weight), derivatives)
+    y, w, _ = jets.prepare_derivative_data(kind, o, derivatives, omega)
     return Fit(geom, LeastSquaresOracle(kind, o), LeastSquaresBatch(jets.affine_jet(sample, pp), y, w), regularizer)
+
+
+def shared_over(
+        fit:  Fit,                                   # a fit whose y (and weight) have no stack C
+        C:    typ.Tuple[int, ...],                   # the model's stack of base points
+) -> Fit:                                            # the same fit for a model stacked over C, its data shared
+    """The fit for a model stacked over ``C`` whose data are shared by every element: ``y`` and the weight with
+    ``len(C)`` axes of size 1 in the place of ``C`` (data-metric plan §2: data shared by a stack have size-1 ``C``
+    axes). ``C`` is the last group before the probe kind's mode edge, and the last of apply's and entries' arrays,
+    whatever the form (a ragged tuple, one mode-leading array, packed). ``C = ()`` returns the fit unchanged."""
+    if not C:
+        return fit
+    probe = fit.oracle.kind == 'probe'
+
+    def placed(a):
+        a = np.asarray(a) if not hasattr(a, 'shape') else a
+        at = a.ndim - 1 if probe else a.ndim
+        return a.reshape(a.shape[:at] + (1,) * len(C) + a.shape[at:])
+
+    def each(value):
+        if value is None:
+            return None
+        if isinstance(value, (tuple, list)):
+            return [placed(a) for a in value]
+        return placed(value)
+    return fit._replace(batch=dataclasses.replace(fit.batch, y=each(fit.batch.y), weight=each(fit.batch.weight)))
+
+
+def at_element(
+        fit:  Fit,                                   # a fit for a model stacked over C (y and the weight carry C)
+        cc:   typ.Tuple[int, ...],                   # an index into C
+) -> Fit:                                            # the fit of element cc: y and the weight at cc, C dropped
+    """The fit of one element of a stacked model: ``y`` and the weight at the element ``cc`` of their ``C`` axes (an
+    axis of size 1 is the same for every element, read at 0), ``C`` dropped. The inverse of :func:`shared_over`, and
+    the per-element fit of data that differ by element. ``C`` is located as there."""
+    probe = fit.oracle.kind == 'probe'
+    n = len(cc)
+
+    def picked(a):
+        a = np.asarray(a) if not hasattr(a, 'shape') else a
+        start = (a.ndim - 1 if probe else a.ndim) - n
+        at = tuple(c if a.shape[start + k] > 1 else 0 for k, c in enumerate(cc))
+        return a[(slice(None),) * start + at]
+
+    def each(value):
+        if value is None:
+            return None
+        if isinstance(value, (tuple, list)):
+            return [picked(a) for a in value]
+        return picked(value)
+    return fit._replace(batch=dataclasses.replace(fit.batch, y=each(fit.batch.y), weight=each(fit.batch.weight)))
 
 
 def uniform(
@@ -141,10 +205,10 @@ def old_model(
 ):                                    # the frontend LocalModel whose residual is `residual`
     """The 2026.5.0 factory ``<kind>_model(geometry, x, sample, residual, ...)`` in the new form: the data
     ``y = z(x) - residual`` (``z`` from the ragged point; derivative kinds through the derivative data), then
-    ``fitting.local_model``. The model's residual is ``residual`` to rounding. The data cannot carry the point's stack
-    (the oracle's ``y`` broadcasts over it: one ``y`` per stacked model), so for a stacked ``x`` the residual must be
-    ``z(x) - y`` with one ``y`` for every element; another raises (it would fit another residual than the one
-    stated)."""
+    ``fitting.local_model``. The model's residual is ``residual`` to rounding. The old factories took one ``y`` for a
+    stacked model, so for a stacked ``x`` the residual must be ``z(x) - y`` with one ``y`` for every element; another
+    raises (it would fit another residual than the one stated). That one ``y`` (and the weight) is then given size-1
+    ``C`` axes (:func:`shared_over`), the new form of data shared by the stack."""
     import t3toolbox.fitting as fitting
     import t3toolbox.uniform_tucker_tensor_train as ut3
     import _derivative_data as dd
@@ -164,7 +228,8 @@ def old_model(
         if stack:
             y = _one_over_the_stack(y, (Ellipsis,), stack)
     oracle, batch = old_vocabulary(kind, sample, y, tuple(rx.shape), order, weight)
-    return fitting.local_model(geometry, oracle, batch, x, **kwargs)
+    shared = shared_over(Fit(None, oracle, batch), tuple(rx.stack_shape))
+    return fitting.local_model(geometry, oracle, shared.batch, x, **kwargs)
 
 
 def _one_over_the_stack(y, lead, stack):

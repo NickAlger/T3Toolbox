@@ -279,8 +279,8 @@ class TestJetKernelsShardOverW(unittest.TestCase):
 
 
 class TestTheEngineShardsOverW(unittest.TestCase):
-    """``g`` and ``Kp`` from ``sampling_variables`` under ``shard_map`` with ``W`` sharded (the sample and the data)
-    and everything else replicated (closed over): no all-gather in the compiled program, and the result equal to the
+    """``g`` and ``Kp`` from ``sampling_variables`` under ``shard_map`` with ``W`` sharded (the sample, the data and
+    the weight, which is of the type of ``z`` and so carries ``W``) and everything else replicated (closed over): no all-gather in the compiled program, and the result equal to the
     unsharded one. Four programs: the uniform layout at ``()``, ``(3,)`` and ``(1, 1)``, the ragged at ``(3,)``. The
     varying-axes check is off, as in ``TestJetKernelsShardOverW`` (the scan carries start from constants)."""
 
@@ -298,19 +298,20 @@ class TestTheEngineShardsOverW(unittest.TestCase):
                                     ('ragged', (3,), (2,))):
             case = tsu.UniformCase('probe', (), (), True, False, order, F_in, '_manifold', W=W, seed=5)
             arguments = case.arguments() if layout == 'uniform' else case.ragged_arguments((), ())
-            arguments = {k: v for k, v in arguments.items() if k not in ('y', 'order')}
+            weight = arguments['weight']
+            arguments = {k: v for k, v in arguments.items() if k not in ('y', 'weight', 'order')}
             frame = case.frame if layout == 'uniform' else case.ragged_frame(())
             m = len(order)
             if layout == 'uniform':
-                fn = lambda sample, y: sv.sampling_variables('probe', frame, sample, ('g', 'Kp'), order=order, y=y,
-                                                             **arguments)
-                args = (case.sample, case.y)
-                specs = (P(*([None] * (1 + m) + ['w', None])), P(*([None] * (1 + m) + ['w', None])))
+                fn = lambda sample, y, weight: sv.sampling_variables('probe', frame, sample, ('g', 'Kp'), order=order,
+                                                                     y=y, weight=weight, **arguments)
+                args = (case.sample, case.y, weight)
+                specs = (P(*([None] * (1 + m) + ['w', None])),) * 3
             else:
                 d = len(case.ragged_sample)
                 fn = lambda *a: sv.sampling_variables('probe', frame, list(a[:d]), ('g', 'Kp'), order=order,
-                                                      y=list(a[d:]), **arguments)
-                args = tuple(case.ragged_sample) + tuple(case.ragged_y)
+                                                      y=list(a[d:2 * d]), weight=list(a[2 * d:]), **arguments)
+                args = tuple(case.ragged_sample) + tuple(case.ragged_y) + tuple(weight)
                 specs = tuple(P(*([None] * m + ['w', None])) for _ in args)
             with self.subTest(layout=layout, order=repr(order)):
                 self._check('%s %r' % (layout, order), fn, args, specs, args)

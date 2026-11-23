@@ -153,21 +153,38 @@ _OLD_SIGNATURES = {'gradient_descent': inspect.signature(_old_gradient_descent),
                    'newton_cg': inspect.signature(_old_newton_cg)}
 
 
+def _shared_by_the_stack(
+        kind:         str,                   # the new kind: 'probe' | 'apply' (the data's type)
+        data:         typ.Any,               # the old data, with no stack C: probe d arrays, else one array
+        stack_shape:  typ.Tuple[int, ...],   # C, the point's stack
+) -> typ.Any:                                # the data with len(C) axes of 1 in the place of C
+    """The old data were one dataset broadcast over a stacked point; in the new form a dataset shared by the stack has
+    size-1 ``C`` axes, before the probe kind's mode edge and last for the others."""
+    if not stack_shape:
+        return data
+    ones = (1,) * len(stack_shape)
+    if kind == 'probe':
+        return [np.reshape(a, np.shape(a)[:-1] + ones + np.shape(a)[-1:]) for a in data]
+    return np.reshape(data, np.shape(data) + ones)
+
+
 def _old_fit(
-        kind:    str,                 # the old kind name ('probe', 'apply_derivatives', ...), case-insensitive
-        sample:  typ.Any,             # ww / index, or (ww, pp) / (index, pp)
-        data:    typ.Any,             # the old data (derivatives for a derivative kind)
-        shape:   typ.Tuple[int, ...], # the mode sizes
-        order:   typ.Optional[int],   # derivative kinds: the highest order
-        weight:  typ.Any,             # the old residual weight, or None
-        who:     str,
+        kind:         str,                 # the old kind name ('probe', 'apply_derivatives', ...), case-insensitive
+        sample:       typ.Any,             # ww / index, or (ww, pp) / (index, pp)
+        data:         typ.Any,             # the old data (derivatives for a derivative kind)
+        shape:        typ.Tuple[int, ...], # the mode sizes
+        order:        typ.Optional[int],   # derivative kinds: the highest order
+        weight:       typ.Any,             # the old residual weight, or None
+        who:          str,
+        stack_shape:  typ.Tuple[int, ...] = (),   # the point's stack C (the old data are shared by it)
 ) -> typ.Tuple[LeastSquaresOracle, LeastSquaresBatch]:
     """The oracle and the batch of an old-form fit. Plain kinds: jet shape ``()``; the derivative kinds at order
     ``n``: ``(n,)`` (``(0,)`` at order 0: the old data carry an order axis of length 1), the sample ``(ww, pp)`` the
     lines ``affine_jet(ww, pp)`` (``entries_derivatives``: the apply kind at ``affine_jet(index_to_one_hot(index,
     shape), pp)``), the derivative data and weight through ``prepare_derivative_data`` (the old objective exactly).
-    The old weight goes through the old canonicalization (``_canonical_weight``) and is broadcast to the exact
-    shape of the new one."""
+    The old weight goes through the old canonicalization (``_canonical_weight``), is broadcast to one value per block
+    (probe ``(d,)`` or ``(d, n+1)``, else ``(n+1,)``), and is placed on the data by ``blocks_to_weight``, a weight of
+    the type of ``z``. The old data, one dataset for a stacked point, gain size-1 ``C`` axes (shared by the stack)."""
     kind = str(kind).lower()
     d = len(shape)
     if kind in _OLD_PLAIN:
@@ -175,7 +192,9 @@ def _old_fit(
             raise ValueError(f"the plain '{kind}' kind takes no residual weight (no mode or order axis); "
                              "per-mode weighting is defined for probe, per-order for the derivative kinds.")
         wm = _fitting._canonical_weight(weight, kind, d, 0)       # (1, 1) or (m >= d, 1): one row broadcasts
-        w = None if wm is None else np.ascontiguousarray(np.broadcast_to(wm[:d, 0], (d,)))
+        data = _shared_by_the_stack(kind, data, stack_shape)
+        w = None if wm is None else jets.blocks_to_weight(kind, (), np.ascontiguousarray(
+            np.broadcast_to(wm[:d, 0], (d,))), data)
         return LeastSquaresOracle(kind, ()), LeastSquaresBatch(sample, data, w)
     if kind not in _OLD_DERIVATIVE:
         raise ValueError(f"unknown sampling kind {kind!r}; expected one of "
@@ -193,17 +212,19 @@ def _old_fit(
     main, pp = sample
     if base == 'entries':
         base, main = 'apply', jets.index_to_one_hot(main, shape)
+    data = _shared_by_the_stack(base, data, stack_shape)
+    w = None if w is None else jets.blocks_to_weight(base, (n,), w, data)          # on the derivatives, then converted
     y, w, _ = jets.prepare_derivative_data(base, (n,), data, w)
     return LeastSquaresOracle(base, (n,)), LeastSquaresBatch(jets.affine_jet(main, pp), y, w)
 
 
-def _old_draw(draw, kind, shape, order, weight, scale, who):
+def _old_draw(draw, kind, shape, order, weight, scale, who, stack_shape=()):
     """An old custom draw ``draw(rng) -> (sample_B, data_B)`` as a new one returning a batch: the full per-draw
     conversion (the jets, the data and the weight), with ``minibatch_scale = n / min(batch, n)``, the 2026.5.0
     nominal factor."""
     def new_draw(rng):
         sample_b, data_b = draw(rng)
-        _, b = _old_fit(kind, sample_b, data_b, shape, order, weight, who)
+        _, b = _old_fit(kind, sample_b, data_b, shape, order, weight, who, stack_shape)
         return dc.replace(b, minibatch_scale=scale)
     return new_draw
 
@@ -216,7 +237,8 @@ def _translate(name, args, kwargs):
     extra = dict(a.pop('kwargs', None) or a.pop('keywords', None) or {})
     geometry, x0 = a['geometry'], a['x0']
     shape = tuple(x0.shape)
-    oracle, batch = _old_fit(a['kind'], a['sample'], a['data'], shape, a['order'], a['weight'], name)
+    stack = tuple(x0.stack_shape)
+    oracle, batch = _old_fit(a['kind'], a['sample'], a['data'], shape, a['order'], a['weight'], name, stack)
     new_kw = dict(regularizer=a['regularizer'])
     if name == 'gradient_descent':
         new_kw.update(g0_reference=a['g0_reference'])
@@ -225,7 +247,8 @@ def _translate(name, args, kwargs):
         draw = a['draw']
         if draw is not None:
             n = oracle.n_measurements(batch)
-            draw = _old_draw(draw, a['kind'], shape, a['order'], a['weight'], n / min(int(a['batch']), n), name)
+            draw = _old_draw(draw, a['kind'], shape, a['order'], a['weight'], n / min(int(a['batch']), n), name,
+                             stack)
         new_kw.update(draw=draw, use_jit=a['use_jit'])
         return (geometry, oracle, batch, x0, a['rng'], a['batch']), {**new_kw, **extra}
     if (a['val_sample'] is None) != (a['val_data'] is None):
@@ -233,7 +256,7 @@ def _translate(name, args, kwargs):
                          % ('None' if a['val_sample'] is None else 'given', 'None' if a['val_data'] is None else 'given'))
     val_batch = None
     if a['val_sample'] is not None:
-        _, val_batch = _old_fit(a['kind'], a['val_sample'], a['val_data'], shape, a['order'], None, name)
+        _, val_batch = _old_fit(a['kind'], a['val_sample'], a['val_data'], shape, a['order'], None, name, stack)
     for key in ('verbose', 'callback', 'use_jit', 'g0_reference', 'g0norm_newton', 'g0norm_cg', 'cg_forcing_power',
                 'max_newton', 'gtol_rel', 'cg_maxiter', 'c_armijo', 'on_line_search_failure', 'hessian',
                 'curvature_damping', 'step_control', 'tr_radius0'):

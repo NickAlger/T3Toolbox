@@ -1,0 +1,36 @@
+baseline: 1924 nodes {'PASSED': 1918, 'SKIPPED': 5, 'SUBPASSED': 91249, 'XFAIL': 1}
+new:      1934 nodes {'PASSED': 1928, 'SKIPPED': 5, 'SUBPASSED': 91525, 'XFAIL': 1}
+  tests/test_data_metric.py::TestBlocksToWeight::test_through_the_metric_it_is_the_old_block_weighting_bitwise
+      baseline {'SUBPASSED': 10, 'PASSED': 1}
+      new      {'SUBPASSED': 40, 'PASSED': 1}
+  tests/test_dense_oracle.py::TestExpand::test_expand_refuses_another_rank_or_size
+      baseline {}
+      new      {'SUBPASSED': 4, 'PASSED': 1}
+  tests/test_dense_oracle.py::TestExpand::test_expand_writes_out_the_size_one_axes
+      baseline {}
+      new      {'SUBPASSED': 5, 'PASSED': 1}
+  tests/test_dense_oracle.py::TestMisfitFull::test_a_block_weight_is_refused
+      baseline {}
+      new      {'SUBPASSED': 3, 'PASSED': 1}
+  tests/test_dense_oracle.py::TestMisfitFull::test_against_the_loop_for_every_pattern
+      baseline {}
+      new      {'SUBPASSED': 55, 'PASSED': 1}
+  tests/test_dense_oracle.py::TestMisfitFull::test_the_old_derivative_form_is_omega_t_times_t_factorial
+      baseline {}
+      new      {'SUBPASSED': 3, 'PASSED': 1}
+  tests/test_dense_oracle.py::TestTaylor::test_order_empty_is_the_plain_output
+      baseline {}
+      new      {'SUBPASSED': 3, 'PASSED': 1}
+  tests/test_dense_oracle.py::TestTaylor::test_the_taylor_coefficients_sum_to_the_output_on_the_line
+      baseline {}
+      new      {'SUBPASSED': 18, 'PASSED': 1}
+  tests/test_sampling_definitions.py::TestTheWeightIsOfTheTypeOfZ::test_a_weight_of_another_form_raises
+      baseline {}
+      new      {'SUBPASSED': 16, 'PASSED': 1}
+  tests/test_sampling_definitions.py::TestTheWeightIsOfTheTypeOfZ::test_against_brute_force
+      baseline {}
+      new      {'SUBPASSED': 135, 'PASSED': 1}
+  tests/test_sampling_definitions.py::TestTheWeightIsOfTheTypeOfZ::test_data_of_another_form_raises
+      baseline {}
+      new      {'SUBPASSED': 4, 'PASSED': 1}
+11 nodes differ

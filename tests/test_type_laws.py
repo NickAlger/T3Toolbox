@@ -96,7 +96,8 @@ class TestConverters(unittest.TestCase):
             for kind, lead in (('probe', 1), ('apply', 0)):
                 r = (tuple(rng.standard_normal(F + W + (n,)) for n in SHAPE) if kind == 'probe'
                      else rng.standard_normal(F + W))
-                weight = 0.5 + rng.random(((len(SHAPE),) if kind == 'probe' else ()) + F)     # per block
+                blocks = 0.5 + rng.random(((len(SHAPE),) if kind == 'probe' else ()) + F)     # per block
+                weight = jets.blocks_to_weight(kind, order, blocks, r)           # of the type of z (M2 part 3)
                 to_dual = lambda r, w: jets.jet_to_dual_jet(kind, order, r, w)
                 to_jet = lambda c, w: jets.dual_jet_to_jet(kind, order, c, w)
                 with self.subTest(kind=kind, order=order, reading='Y* -> Y turned'):
@@ -183,7 +184,8 @@ class TestTheLawsCatch(unittest.TestCase):
         one_axis = lambda r, w: no_flip(r, w)[::-1]                             # one jet axis flipped of the two
         self.assertGreater(law_error(one_axis, (r, blocks), (law.P(r), law.P_star(blocks)), law.P_star_turned),
                            self.FAULT)
-        swapped = lambda r, w: jets.jet_to_dual_jet('apply', order, r, w)      # a dual jet read as a jet
+        swapped = lambda r, w: jets.jet_to_dual_jet('apply', order, r,       # a dual jet read as a jet
+                                                    jets.blocks_to_weight('apply', order, w, r))
         self.assertGreater(law_error(swapped, (r, blocks), (law.P(r), law.P_star(blocks)), law.P), self.FAULT)
 
     def test_the_input_law_catches_c_read_as_a_measurement(self):

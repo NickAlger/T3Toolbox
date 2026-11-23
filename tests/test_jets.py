@@ -71,8 +71,12 @@ def random_jet(rng, kind, order, W, extra=()):
     return rng.standard_normal(F_of(order) + W + extra)
 
 
-def random_weight(rng, kind, order):
-    return 0.5 + rng.random(((D,) if kind == 'probe' else ()) + F_of(order))
+def random_weight(rng, kind, order, W=(), extra=()):
+    """A weight of the type of z, one per entry (data-metric arc): probe a list, one array F+W+extra+(Ni,) per mode;
+    apply F+W+extra; entries W+extra."""
+    if kind == 'probe':
+        return [0.5 + rng.random(F_of(order) + W + extra + (N,)) for N in SHAPE]
+    return 0.5 + rng.random(F_of(order) + W + extra)
 
 
 def per_mode(kind, value):
@@ -81,8 +85,13 @@ def per_mode(kind, value):
 
 
 def mode_weights(kind, weight):
-    """The weight of each array of an object of the type of z: a row per mode for probe, the weight otherwise."""
-    return [weight[i] for i in range(D)] if kind == 'probe' else [weight]
+    """The weight of each array of an object of the type of z: its mode's array for probe, the weight otherwise."""
+    return [weight[i] for i in range(len(weight))] if kind == 'probe' else [weight]
+
+
+def mapped(kind, function, value):
+    """``function`` applied to each array of an object of the type of z, in its form (a list for probe)."""
+    return [function(a) for a in value] if kind == 'probe' else function(value)
 
 
 def factorials(order):
@@ -106,7 +115,7 @@ class TestDualJet(unittest.TestCase):
         jets, ``weight**2 * jet``."""
         rng = np.random.default_rng(0)
         for kind, order, W, extra in CASES:
-            jet, weight = random_jet(rng, kind, order, W, extra), random_weight(rng, kind, order)
+            jet, weight = random_jet(rng, kind, order, W, extra), random_weight(rng, kind, order, W, extra)
             dual = jets.jet_to_dual_jet(kind, order, jet, weight)
             with self.subTest(kind=kind, order=order, W=W, extra=extra):
                 self.assertIsInstance(dual, tuple if kind == 'probe' else (np.ndarray, np.generic))   # W = (): a numpy scalar
@@ -120,7 +129,7 @@ class TestDualJet(unittest.TestCase):
         rng = np.random.default_rng(1)
         for kind, order, W, extra in CASES:
             jet = random_jet(rng, kind, order, W, extra)
-            ones = np.ones(((D,) if kind == 'probe' else ()) + F_of(order))
+            ones = mapped(kind, np.ones_like, jet)
             with self.subTest(kind=kind, order=order, W=W, extra=extra):
                 for a, b, c in zip(per_mode(kind, jets.jet_to_dual_jet(kind, order, jet, None)),
                                    per_mode(kind, jets.jet_to_dual_jet(kind, order, jet, ones)),
@@ -132,7 +141,7 @@ class TestDualJet(unittest.TestCase):
         """``dual_jet_to_jet(jet_to_dual_jet(x)) == x`` for a nonzero weight, and the other way round."""
         rng = np.random.default_rng(2)
         for kind, order, W, extra in CASES:
-            jet, weight = random_jet(rng, kind, order, W, extra), random_weight(rng, kind, order)
+            jet, weight = random_jet(rng, kind, order, W, extra), random_weight(rng, kind, order, W, extra)
             there_and_back = jets.dual_jet_to_jet(kind, order, jets.jet_to_dual_jet(kind, order, jet, weight), weight)
             back_and_there = jets.jet_to_dual_jet(kind, order, jets.dual_jet_to_jet(kind, order, jet, weight), weight)
             with self.subTest(kind=kind, order=order, W=W, extra=extra):
@@ -141,7 +150,7 @@ class TestDualJet(unittest.TestCase):
                     self.assertLessEqual(relerr(a_FX, x_FX), TOL)
                     self.assertLessEqual(relerr(b_FX, x_FX), TOL)
         # on a packed probe array too
-        packed, weight = rng.standard_normal((D, 2, 3, 5, 6)), random_weight(rng, 'probe', (1, 2))
+        packed, weight = rng.standard_normal((D, 2, 3, 5, 6)), 0.5 + rng.random((D, 2, 3, 1, 6))   # constant in W
         back = jets.dual_jet_to_jet('probe', (1, 2), jets.jet_to_dual_jet('probe', (1, 2), packed, weight), weight)
         self.assertLessEqual(relerr(np.stack(back), packed), TOL)
 
@@ -154,7 +163,7 @@ class TestDualJet(unittest.TestCase):
         for kind in ('probe', 'apply'):
             for order in ((1,), (2,), (5,), (1, 2), (2, 3), (2, 0)):
                 a, b = random_jet(rng, kind, order, (3,)), random_jet(rng, kind, order, (3,))
-                weight = random_weight(rng, kind, order)
+                weight = random_weight(rng, kind, order, (3,))
                 dual = jets.jet_to_dual_jet(kind, order, a, weight)
                 m, F = len(order), F_of(order)
                 with self.subTest(kind=kind, order=order):
@@ -174,7 +183,7 @@ class TestDualJet(unittest.TestCase):
                                             for p, q in zip(flat(dual_FX).T, flat(b_FX).T)])
                             self.assertLessEqual(relerr(top.reshape(weighted.shape), weighted), TOL)
         # no jets: the pairing is the plain product
-        a, b, weight = rng.standard_normal(3), rng.standard_normal(3), np.asarray(1.5)
+        a, b, weight = rng.standard_normal(3), rng.standard_normal(3), np.asarray([1.5])
         self.assertLessEqual(relerr(jets.jet_to_dual_jet('apply', (), a, weight) * b, 1.5 ** 2 * a * b), TOL)
 
     def test_the_weight_enters_squared_and_every_jet_axis_is_turned(self):
@@ -189,14 +198,16 @@ class TestDualJet(unittest.TestCase):
         rng = np.random.default_rng(4)
         for kind in ('probe', 'apply'):
             for order, zero_slot in (((2,), (1,)), ((1, 2), (0, 1))):
-                jet, weight = random_jet(rng, kind, order, (5,)), random_weight(rng, kind, order)
-                weight[(Ellipsis,) + zero_slot] = 0.0                     # one slot, in every mode
+                jet, weight = random_jet(rng, kind, order, (5,)), random_weight(rng, kind, order, (5,))
+                for omega in (weight if kind == 'probe' else [weight]):
+                    omega[zero_slot] = 0.0                                # one slot, in every mode
                 with self.subTest(kind=kind, order=order):
                     with warnings.catch_warnings():
                         warnings.simplefilter('error')                    # a warning would be an error here
                         back = jets.dual_jet_to_jet(kind, order, jet, weight)
-                        all_zero = jets.dual_jet_to_jet(kind, order, jet, np.zeros_like(weight))
-                    reference = jets.dual_jet_to_jet(kind, order, jet, np.where(weight == 0.0, 1.0, weight))
+                        all_zero = jets.dual_jet_to_jet(kind, order, jet, mapped(kind, np.zeros_like, weight))
+                    reference = jets.dual_jet_to_jet(kind, order, jet,
+                                                     mapped(kind, lambda w: np.where(w == 0.0, 1.0, w), weight))
                     for back_FX, zero_FX, reference_FX in zip(per_mode(kind, back), per_mode(kind, all_zero),
                                                               per_mode(kind, reference)):
                         self.assertFalse(np.isfinite(back_FX[zero_slot]).any())         # the slot of the zero weight
@@ -206,16 +217,33 @@ class TestDualJet(unittest.TestCase):
                         self.assertFalse(np.isfinite(zero_FX).any())
         with warnings.catch_warnings():
             warnings.simplefilter('error')
-            self.assertTrue(np.isnan(jets.dual_jet_to_jet('apply', (), np.zeros(3), np.zeros(()))).all())    # 0 / 0
+            self.assertTrue(np.isnan(jets.dual_jet_to_jet('apply', (), np.zeros(3), np.zeros(1))).all())    # 0 / 0
 
-    def test_a_backend_function_given_a_bad_weight_checks_nothing(self):
-        """Checkers, not guarantees: a weight ``check_weight`` rejects is used as it broadcasts, with no error."""
-        jet = np.arange(12.0).reshape(3, 4)
-        bad = np.array([[1.0], [2.0], [3.0]])                       # shape (3, 1), where F = (3,) is expected
+    def test_a_converter_refuses_a_weight_not_of_the_type_of_the_jet(self):
+        """The converters read the weight as :py:func:`data_metric` does (the data-metric arc): a weight of another
+        rank (the old block form; or against a jet with a stack of directions ``K``), an axis neither 1 nor the jet's
+        size, or another mode count raises a ``ValueError``; with no weight any jet is turned, ``K`` included. They
+        check the pairing with the jet, not the sample: that is ``check_weight``'s."""
+        rng = np.random.default_rng(5)
+        jet = rng.standard_normal((3, 4))                                       # apply at (2,): F + W
+        with_K = rng.standard_normal((3, 4, 2))                                 # F + W + K
+        probe = random_jet(rng, 'probe', (2,), (4,))
+        bad = {'the block form F': ('apply', jet, np.ones(3)),
+               'a jet with K': ('apply', with_K, np.ones((3, 4))),
+               'an axis neither 1 nor its size': ('apply', jet, np.ones((3, 2))),
+               'a tuple for apply': ('apply', jet, (np.ones((3, 4)),)),
+               'the probe block form (d,) + F': ('probe', probe, np.ones((D, 3))),
+               'd - 1 arrays': ('probe', probe, [np.ones((3, 4, 1))] * (D - 1)),
+               'a mode axis of 1': ('probe', probe, np.ones((1, 3, 4, 1)))}
+        for label, (kind, value, weight) in bad.items():
+            for function in (jets.jet_to_dual_jet, jets.dual_jet_to_jet):
+                with self.subTest(weight=label, function=function.__name__):
+                    with self.assertRaisesRegex(ValueError, '^%s: ' % function.__name__):     # its own message
+                        function(kind, (2,), value, weight)
+        for function in (jets.jet_to_dual_jet, jets.dual_jet_to_jet):
+            self.assertEqual(function('apply', (2,), with_K, None).shape, with_K.shape)
         with self.assertRaises(ValueError):
-            jets.check_weight('apply', (2,), bad, D)
-        self.assertTrue(np.array_equal(jets.jet_to_dual_jet('apply', (2,), jet, bad),
-                                       jets.jet_to_dual_jet('apply', (2,), jet, bad[:, 0])))
+            jets.prepare_derivative_data('apply', (2,), jet, np.ones(3))
 
     def test_kind_decides_the_type_and_a_packed_probe_array_is_taken_mode_by_mode(self):
         """``kind`` says which type the object is of; the object is not looked at. With ``kind='probe'`` the
@@ -227,10 +255,10 @@ class TestDualJet(unittest.TestCase):
         for order in ((3,), (1, 2)):
             m, F = len(order), F_of(order)
             packed = rng.standard_normal((d,) + F + W + (N,))
-            weight = 0.5 + rng.random((d,) + F)
+            weight = 0.5 + rng.random((d,) + F + (1, 1))         # per mode and slot, mode-leading
             ragged = [packed[i] for i in range(d)]
             fact = factorials(order).reshape((1,) + F + (1, 1))
-            w2 = weight.reshape((d,) + F + (1, 1)) ** 2
+            w2 = weight ** 2
             flip = (slice(None),) + (slice(None, None, -1),) * m
             wanted = {'jet_to_dual_jet': (w2 * packed)[flip],                  # the weights, then the turn, per mode
                       'dual_jet_to_jet': packed[flip] / w2,
@@ -251,11 +279,11 @@ class TestDualJet(unittest.TestCase):
                     self.assertLessEqual(relerr(np.stack(from_packed), wanted[name]), TOL)
             # prepare_derivative_data follows: a packed array with kind='probe' gives the tuple, and the factorials
             y, taylor_weight, validation = jets.prepare_derivative_data('probe', order, packed, validation=packed)
-            self.assertEqual((type(y), len(y), type(validation), taylor_weight.shape), (tuple, d, tuple, (d,) + F))
+            self.assertEqual((type(y), len(y), type(validation), taylor_weight.shape), (tuple, d, tuple, (d,) + F + (1, 1)))
             self.assertLessEqual(relerr(np.stack(y), wanted['derivatives_to_taylor']), TOL)
         # one mode: the probe type is still a tuple, of one array (the type comes from kind, not from the count)
         one = rng.standard_normal((4,) + W + (N,))
-        for out in (jets.jet_to_dual_jet('probe', (3,), [one], 0.5 + rng.random((1, 4))), jets.dual_jet_to_jet('probe', (3,), (one,), None),
+        for out in (jets.jet_to_dual_jet('probe', (3,), [one], 0.5 + rng.random((1, 4, 1, 1))), jets.dual_jet_to_jet('probe', (3,), (one,), None),
                     jets.derivatives_to_taylor('probe', (3,), one[None]), jets.taylor_to_derivatives('probe', (3,), [one])):
             self.assertEqual((type(out), len(out), out[0].shape), (tuple, 1, one.shape))
         self.assertEqual(type(jets.derivatives_to_taylor('apply', (3,), one)), np.ndarray)
@@ -268,7 +296,7 @@ class TestDualJet(unittest.TestCase):
         order = (2,)
         ragged = [rng.standard_normal((3, 5, N)) for N in SHAPE]                    # the probe type, modes of sizes 4, 5, 6
         same = [rng.standard_normal((3, 5, 6)) for _ in range(4)]                   # four modes of one size
-        weight = 0.5 + rng.random(3)
+        weight = 0.5 + rng.random((3, 1, 1))
         for call in (lambda x: jets.jet_to_dual_jet('apply', order, x, weight),
                      lambda x: jets.dual_jet_to_jet('apply', order, x, None),
                      lambda x: jets.derivatives_to_taylor('apply', order, x),
@@ -293,13 +321,13 @@ class TestDualJet(unittest.TestCase):
         a list or a negative entry raises; a numpy integer is accepted. The entries kind takes ``()`` only (O-47:
         its data then come back as they are)."""
         rng = np.random.default_rng(16)
-        y, weight = rng.standard_normal((3, 4)), 0.5 + rng.random(3)
+        y, weight = rng.standard_normal((3, 4)), 0.5 + rng.random((3, 1))
         calls = {'jet_to_dual_jet': lambda kind, order: jets.jet_to_dual_jet(kind, order, y, None),
                  'dual_jet_to_jet': lambda kind, order: jets.dual_jet_to_jet(kind, order, y, None),
                  'derivatives_to_taylor': lambda kind, order: jets.derivatives_to_taylor(kind, order, y),
                  'taylor_to_derivatives': lambda kind, order: jets.taylor_to_derivatives(kind, order, y),
                  'prepare_derivative_data': lambda kind, order: jets.prepare_derivative_data(kind, order, y),
-                 'derivative_weight_to_taylor_weight': lambda kind, order: jets.derivative_weight_to_taylor_weight(weight, order)}
+                 'derivative_weight_to_taylor_weight': lambda kind, order: jets.derivative_weight_to_taylor_weight(kind, order, weight)}
         for name, call in calls.items():
             with self.subTest(function=name):
                 for bad in (2, [2]):
@@ -309,17 +337,16 @@ class TestDualJet(unittest.TestCase):
                     call('apply', (-1,))
                 first = lambda value: value[0] if isinstance(value, tuple) and name == 'prepare_derivative_data' else value
                 self.assertTrue(np.array_equal(first(call('apply', (np.int64(2),))), first(call('apply', (2,)))))
-                if name != 'derivative_weight_to_taylor_weight':            # it has no kind
-                    with self.assertRaisesRegex(ValueError, 'the entries kind has no jets'):
-                        call('entries', (2,))
+                with self.assertRaisesRegex(ValueError, 'the entries kind has no jets'):
+                    call('entries', (2,))
         # the entries kind with no jets: its data as they are, and a weight of ones
         index_data = rng.standard_normal((5,))
         for function in (jets.derivatives_to_taylor, jets.taylor_to_derivatives):
             self.assertTrue(np.array_equal(function('entries', (), index_data), index_data))
-        self.assertTrue(np.array_equal(jets.jet_to_dual_jet('entries', (), index_data, np.asarray(2.0)), 4.0 * index_data))
+        self.assertTrue(np.array_equal(jets.jet_to_dual_jet('entries', (), index_data, np.asarray([2.0])), 4.0 * index_data))
         y_taylor, weight_taylor, _ = jets.prepare_derivative_data('entries', (), index_data)
         self.assertTrue(np.array_equal(y_taylor, index_data))
-        self.assertEqual((weight_taylor.shape, float(weight_taylor)), ((), 1.0))
+        self.assertEqual((weight_taylor.shape, float(weight_taylor[0])), ((1,), 1.0))      # one number, of the type of z
 
     def test_the_four_functions_take_kind_then_order(self):
         """The signatures: ``(kind, order, ...)``, as every other function of the two modules that takes a kind;
@@ -328,7 +355,7 @@ class TestDualJet(unittest.TestCase):
                   'dual_jet_to_jet': ['kind', 'order', 'dual_jet', 'weight'],
                   'derivatives_to_taylor': ['kind', 'order', 'jets'],
                   'taylor_to_derivatives': ['kind', 'order', 'jets'],
-                  'derivative_weight_to_taylor_weight': ['weight', 'order']}        # unchanged: no kind
+                  'derivative_weight_to_taylor_weight': ['kind', 'order', 'weight']}    # gains kind (M2)
         for name, parameters in wanted.items():
             signature = inspect.signature(getattr(jets, name))
             with self.subTest(function=name):
@@ -340,13 +367,13 @@ class TestDualJet(unittest.TestCase):
         for out in (jets.jet_to_dual_jet('apply', (), np.asarray(2.0), np.asarray(3.0)), jets.jet_to_dual_jet('apply', (), 2.0, 3.0),
                     jets.dual_jet_to_jet('apply', (), np.asarray(2.0), np.asarray(3.0)), jets.dual_jet_to_jet('apply', (), np.asarray(2.0), None),
                     jets.derivatives_to_taylor('apply', (), np.asarray(2.0)), jets.taylor_to_derivatives('apply', (), np.asarray(2.0)),
-                    jets.derivative_weight_to_taylor_weight(np.asarray(2.0), ())):
+                    jets.derivative_weight_to_taylor_weight('apply', (), np.asarray(2.0))):
             self.assertIs(type(out), np.ndarray)
             self.assertEqual(out.shape, ())
         self.assertEqual(float(jets.jet_to_dual_jet('apply', (), np.asarray(2.0), np.asarray(3.0))), 18.0)
 
     def test_the_result_has_the_lower_precision_of_the_jet_and_the_weight(self):
-        jet64, weight64 = np.ones((2, 3, 4)), np.ones((2, 3))
+        jet64, weight64 = np.ones((2, 3, 4)), np.ones((2, 3, 1))
         for function in (jets.jet_to_dual_jet, jets.dual_jet_to_jet):
             for jet_dtype, weight_dtype in itertools.product((np.float32, np.float64), repeat=2):
                 expected = np.float32 if np.float32 in (jet_dtype, weight_dtype) else np.float64
@@ -454,21 +481,34 @@ class TestDerivativeData(unittest.TestCase):
                         self.assertLessEqual(relerr(derivatives_FX[k], x_FX[k] * factor), TOL)
 
     def test_the_weight_goes_the_opposite_way_on_its_jet_axes(self):
+        """The factorials by hand, on the LEADING jet axes of a weight of the type of z (after the mode axis of a
+        mode-leading probe array), entry by entry: per entry, per sample (jet axes of 1, which come back full), and a
+        mode-leading probe array; the sizes of ``F``, ``W`` and the edge distinct, and equal (``F = W = (3,)`` against
+        an edge of 3), where a factor on the wrong axis cannot fail by shape. The form comes back as given."""
         rng = np.random.default_rng(8)
         for kind in ('probe', 'apply', 'entries'):
-            for order in (JET_SHAPES if kind != 'entries' else ((),)):
-                weight = random_weight(rng, kind, order)
-                converted = jets.derivative_weight_to_taylor_weight(weight, order)
-                with self.subTest(kind=kind, order=order):
-                    self.assertEqual(converted.shape, weight.shape)
-                    if order == ():
-                        self.assertTrue(np.array_equal(converted, weight))
-                    m = len(order)
-                    for k in (np.ndindex(*F_of(order)) if order else ()):
-                        factor = math.prod(math.factorial(k_j) for k_j in k)
-                        index = (Ellipsis,) + k                     # the trailing jet axes (probe: after the mode axis)
-                        self.assertLessEqual(relerr(converted[index], weight[index] * factor), TOL)
-                        self.assertEqual(m, len(k))
+            for order in (JET_SHAPES if kind != 'entries' else ((),)) + (((2,),) if kind != 'entries' else ()):
+                for W in ((5,), (3,)):
+                    F, m = F_of(order), len(order)
+                    edges = (3, 3, 3) if W == (3,) else SHAPE
+                    per_entry = ([0.5 + rng.random(F + W + (N,)) for N in edges] if kind == 'probe'
+                                 else 0.5 + rng.random(F + W))
+                    per_sample = mapped(kind, lambda w: w[(slice(0, 1),) * m], per_entry)
+                    forms = [('per entry', per_entry), ('per sample', per_sample)]
+                    if kind == 'probe' and W == (3,):
+                        forms.append(('mode-leading', np.stack(per_entry)))
+                    for label, weight in forms:
+                        converted = jets.derivative_weight_to_taylor_weight(kind, order, weight)
+                        with self.subTest(kind=kind, order=order, W=W, form=label):
+                            self.assertEqual(type(converted), tuple if isinstance(weight, list) else np.ndarray)
+                            for got, given in zip(mode_weights(kind, converted), mode_weights(kind, weight)):
+                                given = np.asarray(given)
+                                self.assertEqual(got.shape, F + given.shape[m:])        # a jet axis of 1 comes back full
+                                for index in np.ndindex(*got.shape):
+                                    k = index[:m]
+                                    factor = math.prod(math.factorial(k_j) for k_j in k)
+                                    source = tuple(0 if n == 1 else i for n, i in zip(given.shape, index))
+                                    self.assertEqual(got[index], given[source] * factor)
 
     def test_the_objective_written_on_derivatives_is_reproduced(self):
         """The draft's case 2, for apply and probe at ``(1,)``, ``(3,)`` and ``(1, 2)``: ``1/2 sum (weight *
@@ -478,9 +518,8 @@ class TestDerivativeData(unittest.TestCase):
         rng = np.random.default_rng(9)
 
         def objective(kind, order, weight, z, y):   # the misfit of the library: 1/2 sum (weight * (z - y))**2
-            return 0.5 * sum(float(np.sum((omega_F.reshape(F_of(order) + (1,) * (z_FX.ndim - len(order)))
-                                           * (z_FX - y_FX)) ** 2))
-                             for omega_F, z_FX, y_FX in zip(mode_weights(kind, weight), per_mode(kind, z),
+            return 0.5 * sum(float(np.sum((np.asarray(omega_FX) * (z_FX - y_FX)) ** 2))     # positionally: z's type
+                             for omega_FX, z_FX, y_FX in zip(mode_weights(kind, weight), per_mode(kind, z),
                                                             per_mode(kind, y)))
 
         for kind in ('probe', 'apply'):
@@ -488,8 +527,8 @@ class TestDerivativeData(unittest.TestCase):
                 z_taylor = random_jet(rng, kind, order, (5,))               # the model's output, as the library gives it
                 z_derivatives = jets.taylor_to_derivatives(kind, order, z_taylor)
                 y_derivatives = random_jet(rng, kind, order, (5,))
-                weight_derivatives = random_weight(rng, kind, order)
-                ones = np.ones_like(weight_derivatives)
+                weight_derivatives = random_weight(rng, kind, order, (5,))
+                ones = mapped(kind, np.ones_like, weight_derivatives)
                 with self.subTest(kind=kind, order=order):
                     wanted = objective(kind, order, weight_derivatives, z_derivatives, y_derivatives)
                     y, weight, validation = jets.prepare_derivative_data(kind, order, y_derivatives, weight_derivatives)
@@ -505,34 +544,43 @@ class TestDerivativeData(unittest.TestCase):
                         self.assertGreater(abs(objective(kind, order, ones, z_taylor, y) - wanted), 1e-3 * wanted)
 
     def test_no_weight_returns_the_factorials(self):
-        """For apply ``F``; for probe ``(d,) + F``, every mode's row ``k_1! ... k_m!``."""
+        """``k_1! ... k_m!`` per slot, in the form of ``blocks_to_weight`` (size 1 off the jet axes): for apply ``F +
+        (1,)``; for probe one mode-leading array ``(d,) + F + (1,) + (1,)``, every mode's factorials. A weight of the
+        kind (``check_weight``)."""
         rng = np.random.default_rng(10)
         for order in ((1,), (2,), (5,), (1, 2), (2, 0)):
             for kind in ('probe', 'apply'):
                 y = random_jet(rng, kind, order, (4,))
                 y_taylor, weight, validation = jets.prepare_derivative_data(kind, order, y)
                 with self.subTest(kind=kind, order=order):
-                    expected = np.stack([factorials(order)] * D) if kind == 'probe' else factorials(order)
+                    if kind == 'probe':
+                        expected = np.stack([factorials(order)] * D).reshape((D,) + F_of(order) + (1, 1))
+                    else:
+                        expected = factorials(order).reshape(F_of(order) + (1,))
+                    self.assertEqual(weight.shape, expected.shape)
                     self.assertEqual(weight.tolist(), expected.tolist())
                     self.assertEqual(weight.dtype, np.float64)
-                    jets.check_weight(kind, order, weight, D)            # it is a weight of the kind
+                    sample = [rng.standard_normal(F_of(order) + (4, N)) for N in SHAPE]
+                    jets.check_weight(kind, order, sample, weight)               # it is a weight of the kind
                     self.assertIsNone(validation)
                     for a, b in zip(per_mode(kind, y_taylor), per_mode(kind, jets.derivatives_to_taylor(kind, order, y))):
                         self.assertTrue(np.array_equal(a, b))
-        # no jets: nothing to convert, and the weight is ones in the shape of a weight
+        # no jets: nothing to convert, and the weight is ones, of the type of z
         y, weight, _ = jets.prepare_derivative_data('probe', (), random_jet(rng, 'probe', (), (4,)))
-        self.assertEqual(weight.tolist(), [1.0] * D)
+        self.assertEqual((weight.shape, weight.ravel().tolist()), ((D, 1, 1), [1.0] * D))
         y, weight, _ = jets.prepare_derivative_data('apply', (), random_jet(rng, 'apply', (), (4,)))
-        self.assertEqual((weight.shape, float(weight)), ((), 1.0))
+        self.assertEqual((weight.shape, float(weight[0])), ((1,), 1.0))
 
     def test_a_given_weight_and_validation_data_are_converted(self):
         rng = np.random.default_rng(11)
         for kind, order in (('probe', (3,)), ('apply', (3,)), ('probe', (1, 2)), ('apply', (1, 2)), ('entries', ())):
             y, validation = random_jet(rng, kind, order, (4,)), random_jet(rng, kind, order, (2,))
-            weight = random_weight(rng, kind, order)
+            weight = random_weight(rng, kind, order, (4,))
             y_taylor, weight_taylor, validation_taylor = jets.prepare_derivative_data(kind, order, y, weight, validation)
             with self.subTest(kind=kind, order=order):
-                self.assertTrue(np.array_equal(weight_taylor, jets.derivative_weight_to_taylor_weight(weight, order)))
+                for a, b in zip(mode_weights(kind, weight_taylor),
+                                mode_weights(kind, jets.derivative_weight_to_taylor_weight(kind, order, weight))):
+                    self.assertTrue(np.array_equal(a, b))
                 for a, b in zip(per_mode(kind, validation_taylor),
                                 per_mode(kind, jets.derivatives_to_taylor(kind, order, validation))):
                     self.assertTrue(np.array_equal(a, b))
@@ -544,7 +592,8 @@ class TestDerivativeData(unittest.TestCase):
         y, weight, validation = jets.prepare_derivative_data('apply', (3,), y32, validation=y32)
         self.assertEqual((y.dtype, weight.dtype, validation.dtype), (np.float32,) * 3)
         self.assertEqual(jets.taylor_to_derivatives('apply', (3,), y32).dtype, np.float32)
-        self.assertEqual(jets.derivative_weight_to_taylor_weight(np.ones(4, dtype=np.float32), (3,)).dtype, np.float32)
+        self.assertEqual(jets.derivative_weight_to_taylor_weight('apply', (3,), np.ones((4, 1), dtype=np.float32)).dtype,
+                         np.float32)
         self.assertEqual(jets.taylor_to_derivatives('apply', (1, 2), np.ones((2, 3), dtype=np.float32)).dtype, np.float32)
         with self.assertRaisesRegex(ValueError, 'unknown sampling kind'):
             jets.prepare_derivative_data('probe_derivatives', (3,), y32)
@@ -668,84 +717,144 @@ class TestCheckers(unittest.TestCase):
         self.assertIsNone(jets.check_data('probe', (1, 2), mixed, self.good_data('probe', (1, 2))))
 
     def test_check_data_raises_on_each_wrong_y(self):
+        """The data-space rule (data-metric arc): exactly ``d`` arrays for probe (a tuple, a list, or a mode-leading
+        array), each of ``z``'s rank, each axis 1 or ``z``'s size; ``C`` only with ``stack_shape``."""
         line = jets.affine_jet(self.ww, self.pp)                        # F_in = (2,)
         order = (2,)
         good = self.good_data('probe', order)
-        self.assert_raises('one array per mode: expected 3, got 2', jets.check_data, 'probe', order, line, good[:2])
-        self.assert_raises('must be a tuple or a list of 3 arrays', jets.check_data, 'probe', order, line, np.zeros((3, 3, 7, 6)))
+        self.assert_raises('exactly d = 3 arrays.*got 2 arrays', jets.check_data, 'probe', order, line, good[:2])
+        self.assert_raises(r'exactly d = 3 arrays.*got shape \(1, 3, 7, 4\)', jets.check_data, 'probe', order, line,
+                           np.zeros((1, 3, 7, 4)))                                       # a mode axis of 1
+        self.assert_raises(r'\(mode 0\) has shape \(3, 7, 6\).*\(3, 7, 4\)', jets.check_data, 'probe', order, line,
+                           np.zeros((3, 3, 7, 6)))                                       # a padded edge, mode-leading
         wrong_size = good[:2] + [np.zeros((3, 7, 9))]
-        self.assert_raises(r'y\[2\] has shape \(3, 7, 9\); expected F\+W\+\(N_2,\) = \(3, 7, 6\)',
+        self.assert_raises(r'\(mode 2\) has shape \(3, 7, 9\); .* F\+W\+C\+\(N_2,\) = \(3, 7, 6\)',
                            jets.check_data, 'probe', order, line, wrong_size)
-        self.assert_raises(r'y\[0\] has shape \(7, 4\); expected F\+W\+\(N_0,\) = \(3, 7, 4\)',
+        self.assert_raises(r'\(mode 0\) has shape \(7, 4\); .* = \(3, 7, 4\)',
                            jets.check_data, 'probe', order, line, self.good_data('probe', ()))      # no jet axis
-        self.assert_raises(r'y\[0\] has shape \(2, 7, 4\); expected F\+W\+\(N_0,\) = \(3, 7, 4\)',     # the input's
+        self.assert_raises(r'\(mode 0\) has shape \(2, 7, 4\); .* = \(3, 7, 4\)',                    # the input's
                            jets.check_data, 'probe', order, line, [np.zeros((2, 7, N)) for N in SHAPE])  # sizes, not F
-        self.assert_raises(r'y\[0\] has shape \(3, 7, 4\); expected F\+W\+\(N_0,\) = \(7, 4\)',
+        self.assert_raises(r'\(mode 0\) has shape \(3, 7, 4\); .* = \(7, 4\)',
                            jets.check_data, 'probe', (), self.ww, good)                  # a jet axis with no jets
         wrong_stack = [np.zeros((3, 8, N)) for N in SHAPE]
-        self.assert_raises(r'y\[0\] has shape \(3, 8, 4\)', jets.check_data, 'probe', order, line, wrong_stack)
+        self.assert_raises(r'\(mode 0\) has shape \(3, 8, 4\)', jets.check_data, 'probe', order, line, wrong_stack)
         with_C = [np.zeros((3, 7, 2, N)) for N in SHAPE]                            # a stack of base points
-        self.assert_raises(r'y\[0\] has shape \(3, 7, 2, 4\)', jets.check_data, 'probe', order, line, with_C)
+        self.assert_raises(r'\(mode 0\) has shape \(3, 7, 2, 4\)', jets.check_data, 'probe', order, line, with_C)
+        self.assertIsNone(jets.check_data('probe', order, line, with_C, stack_shape=(2,)))
+        self.assert_raises(r'\(mode 0\) has shape \(3, 7, 2, 4\)', jets.check_data, 'probe', order, line, with_C, (3,))
         plane = jets.affine_jet(self.ww, self.pp, self.pp)
-        self.assert_raises(r'y has shape \(2, 7\); expected F\+W = \(2, 3, 7\)',
+        self.assert_raises(r'has shape \(2, 7\); .* F\+W\+C = \(2, 3, 7\)',
                            jets.check_data, 'apply', (1, 2), plane, np.zeros((2, 7)))            # not of the full box
-        self.assert_raises(r'y has shape \(7,\); expected F\+W = \(3, 7\)', jets.check_data, 'apply', order, line, np.zeros(7))
-        self.assert_raises(r'y has shape \(3, 7\); expected F\+W = \(7,\)', jets.check_data, 'apply', (), self.ww, np.zeros((3, 7)))
-        self.assert_raises(r'y has shape \(3, 8\)', jets.check_data, 'apply', order, line, np.zeros((3, 8)))
-        self.assert_raises('y has a list of length 3', jets.check_data, 'apply', order, line, good)
-        self.assert_raises(r'y has shape \(3, 7\); expected W = \(7,\)', jets.check_data, 'entries', (), self.index,
+        self.assert_raises(r'has shape \(7,\); .* = \(3, 7\)', jets.check_data, 'apply', order, line, np.zeros(7))
+        self.assert_raises(r'has shape \(3, 7\); .* = \(7,\)', jets.check_data, 'apply', (), self.ww, np.zeros((3, 7)))
+        self.assert_raises(r'has shape \(3, 8\)', jets.check_data, 'apply', order, line, np.zeros((3, 8)))
+        self.assert_raises('is one array, of the type of z; got a list of length 3', jets.check_data, 'apply', order,
+                           line, good)
+        self.assert_raises(r'has shape \(3, 7\); .* W\+C = \(7,\)', jets.check_data, 'entries', (), self.index,
                            np.zeros((3, 7)))
         self.assert_raises('the entries kind has no jets', jets.check_data, 'entries', order, self.index, np.zeros(7))
 
+    def test_an_object_larger_than_z_where_z_has_a_size_of_one_raises(self):
+        """Where ``z``'s axis is 1 (a one-sample batch; the jet axis at ``(0,)``) an object with 3 there raises: a size of
+        1 is the object's to broadcast, never ``z``'s."""
+        rng = self.rng
+        one = [rng.standard_normal((1, N)) for N in SHAPE]                           # W = (1,)
+        clipped = [rng.standard_normal((1,) + self.W + (N,)) for N in SHAPE]         # order (0,): F = (1,)
+        for label, order, sample, shape in (('W = (1,)', (), one, (3,)), ('order (0,)', (0,), clipped, (3,) + self.W)):
+            for kind in ('probe', 'apply'):
+                z = [np.zeros(shape + (N,)) for N in SHAPE] if kind == 'probe' else np.zeros(shape)
+                good = mapped(kind, lambda a: np.zeros(tuple(1 if n == 3 else n for n in a.shape)), z)
+                with self.subTest(case=label, kind=kind):
+                    self.assertIsNone(jets.check_data(kind, order, sample, good))
+                    self.assertIsNone(jets.check_weight(kind, order, sample, good))
+                    self.assert_raises('has shape', jets.check_data, kind, order, sample, z)
+                    self.assert_raises('has shape', jets.check_weight, kind, order, sample, z)
+
+    def test_check_data_passes_size_1_axes_and_a_mode_leading_array(self):
+        """A size of 1 is the same datum along the axis: data constant over the samples, shared by a stack, per slot;
+        a probe mode-leading array whose edge is 1 (or every ``N_i``)."""
+        line = jets.affine_jet(self.ww, self.pp)
+        order = (2,)
+        for label, kind, y, C in (('apply, constant in W', 'apply', np.zeros((3, 1)), ()),
+                                  ('apply, per slot, shared by C', 'apply', np.zeros((3, 1, 1)), (2,)),
+                                  ('apply, per element of C', 'apply', np.zeros((3, 7, 2)), (2,)),
+                                  ('probe, constant over the edge', 'probe', [np.zeros((3, 7, 1))] * D, ()),
+                                  ('probe, mode-leading, edge 1', 'probe', np.zeros((D, 3, 1, 1)), ()),
+                                  ('entries, one number', 'entries', np.zeros((1,)), ())):
+            with self.subTest(case=label):
+                sample = self.index if kind == 'entries' else line
+                self.assertIsNone(jets.check_data(kind, () if kind == 'entries' else order, sample, y, C))
+
     # ------------------------------------------------------------------------------------------ check_weight
-    def test_check_weight_passes_the_exact_shape_and_none(self):
+    def test_check_weight_passes_the_full_form_and_none(self):
+        """Every form of the type of z: ``z``'s shape, every axis of 1, the blocks placed by ``blocks_to_weight``, a
+        mode-leading probe array, and a stack ``C``; and ``None``."""
+        rng = self.rng
         for kind in ('probe', 'apply', 'entries'):
             for order in (JET_SHAPES if kind != 'entries' else ((),)):
-                shape = ((D,) if kind == 'probe' else ()) + F_of(order)
-                with self.subTest(kind=kind, order=order):
-                    self.assertIsNone(jets.check_weight(kind, order, np.ones(shape), D))
-                    self.assertIsNone(jets.check_weight(kind, order, None, D))
-        self.assertIsNone(jets.check_weight('apply', (), 2.0, D))                   # a number is a 0-d weight
-        self.assertIsNone(jets.check_weight('probe', (1,), [[1.0, 2.0]] * D, D))    # nested lists have a shape
+                for C in ((), (2,)):
+                    sample = self.good_sample(kind, order)
+                    z = [np.zeros(F_of(order) + self.W + C + (N,)) for N in SHAPE] if kind == 'probe' else \
+                        np.zeros((F_of(order) if kind == 'apply' else ()) + self.W + C)
+                    blocks = 0.5 + rng.random(((D,) if kind == 'probe' else ()) + (F_of(order) if kind != 'entries'
+                                                                                   else ()))
+                    forms = {'z\'s shape': mapped(kind, np.ones_like, z),
+                             'every axis 1': mapped(kind, lambda a: np.ones((1,) * a.ndim), z),
+                             'from its blocks': jets.blocks_to_weight(kind, order, blocks, z)}
+                    if kind == 'probe':
+                        forms['mode-leading, per sample'] = np.ones((D,) + (1,) * len(order) + self.W + C + (1,))
+                    for label, weight in forms.items():
+                        with self.subTest(kind=kind, order=order, C=C, form=label):
+                            self.assertIsNone(jets.check_weight(kind, order, sample, weight, C))
+                    self.assertIsNone(jets.check_weight(kind, order, sample, None, C))
 
     def test_check_weight_raises_on_every_other_shape(self):
+        """The old table (``d = 3``, ``W = (7,)``, ``n = 3``, ``C = ()``), re-ruled by the data-space rule: two cases
+        become legal (a full form with a ``W`` axis of 1), the other 17 raise, by the mode count or by shape (rank,
+        or a size that is neither 1 nor ``z``'s)."""
         n = 3
         cases = [
-            # the old forms (2026.5.0): a bare vector meant "per order", a mode dimension of 1 was broadcast
-            ('probe', (n,), np.ones(n + 1), 'a bare per-slot vector'),
-            ('probe', (n,), np.ones((1, n + 1)), 'a mode dimension of 1'),
-            ('probe', (n,), np.ones((D, 1)), 'a jet dimension of 1'),
-            ('probe', (n,), np.ones(D), 'a bare per-mode vector'),
-            ('probe', (n,), np.ones((D + 1, n + 1)), 'more rows than modes'),
-            ('probe', (n,), np.ones((n + 1, D)), 'the two axes exchanged'),
-            ('probe', (1, 2), np.ones((D, 3)), 'a weight of (d, n + 1) given for m = 2'),
-            ('probe', (1, 2), np.ones((D, 3, 2)), 'the jet axes exchanged'),
-            ('probe', (), np.ones((D, 1)), 'no jets, with a jet axis'),
-            ('probe', (), np.ones(1), 'no jets, a mode dimension of 1'),
-            ('probe', (), np.ones(()), 'no jets, a number'),
-            ('apply', (n,), np.ones((1, n + 1)), 'a mode dimension of 1'),
-            ('apply', (n,), np.ones((D, n + 1)), 'a mode axis'),
-            ('apply', (n,), np.ones(1), 'a jet dimension of 1'),
-            ('apply', (n,), np.ones(()), 'a number with jets'),
-            ('apply', (1, 2), np.ones(3), 'one jet axis for two'),
-            ('apply', (), np.ones(1), 'a vector with no jets'),
-            ('entries', (), np.ones(1), 'a vector'),
-            ('entries', (), np.ones((1, n + 1)), 'a mode dimension of 1'),
+            ('probe', (n,), np.ones(n + 1), 'a bare per-slot vector', 'count'),
+            ('probe', (n,), np.ones((1, n + 1)), 'a mode dimension of 1', 'count'),
+            ('probe', (n,), np.ones((D, 1)), 'a jet dimension of 1', 'shape'),
+            ('probe', (n,), np.ones(D), 'a bare per-mode vector', 'shape'),
+            ('probe', (n,), np.ones((D + 1, n + 1)), 'more rows than modes', 'count'),
+            ('probe', (n,), np.ones((n + 1, D)), 'the two axes exchanged', 'count'),
+            ('probe', (1, 2), np.ones((D, 3)), 'a weight of (d, n + 1) given for m = 2', 'shape'),
+            ('probe', (1, 2), np.ones((D, 3, 2)), 'the jet axes exchanged', 'shape'),
+            ('probe', (), np.ones((D, 1)), 'no jets, with a jet axis', 'shape'),
+            ('probe', (), np.ones(1), 'no jets, a mode dimension of 1', 'count'),
+            ('probe', (), np.ones(()), 'no jets, a number', 'count'),
+            ('apply', (n,), np.ones((1, n + 1)), 'a mode dimension of 1', 'shape'),
+            ('apply', (n,), np.ones((D, n + 1)), 'a mode axis', 'shape'),
+            ('apply', (n,), np.ones(1), 'a jet dimension of 1', 'shape'),
+            ('apply', (n,), np.ones(()), 'a number with jets', 'shape'),
+            ('apply', (1, 2), np.ones(3), 'one jet axis for two', 'shape'),
+            ('apply', (), np.ones(1), 'a vector with no jets: W of 1, legal', None),
+            ('entries', (), np.ones(1), 'a vector: W of 1, legal', None),
+            ('entries', (), np.ones((1, n + 1)), 'a mode dimension of 1', 'shape'),
         ]
-        for kind, order, weight, what in cases:
+        self.assertEqual(sum(reason is not None for *_, reason in cases), 17)
+        for kind, order, weight, what, reason in cases:
             with self.subTest(kind=kind, order=order, what=what):
-                expected = ((D,) if kind == 'probe' else ()) + F_of(order)
-                pattern = 'has shape %s; expected exactly .* = %s' % tuple(
-                    str(s).replace('(', r'\(').replace(')', r'\)') for s in (weight.shape, expected))
-                self.assert_raises(pattern, jets.check_weight, kind, order, weight, D)
-        self.assert_raises('the entries kind has no jets', jets.check_weight, 'entries', (n,), np.ones(n + 1), D)
+                sample = self.good_sample(kind, order)
+                if reason is None:
+                    self.assertIsNone(jets.check_weight(kind, order, sample, weight))
+                    continue
+                read = weight.shape[1:] if kind == 'probe' else weight.shape      # probe: mode 0's slice
+                shape = str(read).replace('(', r'\(').replace(')', r'\)')
+                pattern = ('exactly d = 3 arrays' if reason == 'count' else
+                           r'the weight of the %s kind(?: \(mode 0\))? has shape %s; it is of the type of z' % (kind, shape))
+                self.assert_raises(pattern, jets.check_weight, kind, order, sample, weight)
+        self.assert_raises('the entries kind has no jets', jets.check_weight, 'entries', (n,), self.index, np.ones(n + 1))
 
     def test_check_weight_cannot_see_a_transposed_square_weight(self):
-        """The limit the docstring states: a probe weight whose axes are given in another order but have the right
-        sizes passes."""
-        weight = np.arange(1.0, 10.0).reshape(D, D)
-        self.assertIsNone(jets.check_weight('probe', (D - 1,), weight, D))
-        self.assertIsNone(jets.check_weight('probe', (D - 1,), weight.T, D))
+        """The limit the docstring states: a weight whose axes are given in another order passes when their sizes
+        coincide (apply at ``(2,)`` with ``W = (3,)``: ``F + W = (3, 3)``)."""
+        sample = [self.rng.standard_normal((3, 3, N)) for N in SHAPE]
+        weight = np.arange(1.0, 10.0).reshape(3, 3)
+        self.assertIsNone(jets.check_weight('apply', (2,), sample, weight))
+        self.assertIsNone(jets.check_weight('apply', (2,), sample, weight.T))
         self.assertIn('another order', jets.check_weight.__doc__)
 
     # ------------------------------------------------------------------------------------------ the tier

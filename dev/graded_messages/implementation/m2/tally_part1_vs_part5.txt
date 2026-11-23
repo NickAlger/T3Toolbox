@@ -1,0 +1,102 @@
+baseline: 1934 nodes {'PASSED': 1928, 'SKIPPED': 5, 'SUBPASSED': 91525, 'XFAIL': 1}
+new:      1960 nodes {'PASSED': 1954, 'SKIPPED': 5, 'SUBPASSED': 92096, 'XFAIL': 1}
+  tests/test_data_preparation.py::TestEqualizing::test_the_block_norms_have_the_block_shape
+      baseline {}
+      new      {'SUBPASSED': 27, 'PASSED': 1}
+  tests/test_data_preparation.py::TestEqualizing::test_the_block_norms_have_the_shape_of_the_weight
+      baseline {'SUBPASSED': 27, 'PASSED': 1}
+      new      {}
+  tests/test_engine_data_space.py::TestAZeroWeightDeletesASample::test_f_g_and_the_gauss_newton_terms
+      baseline {}
+      new      {'SUBPASSED': 7, 'PASSED': 1}
+  tests/test_engine_data_space.py::TestAgainstTheReference::test_the_engine_is_the_reference
+      baseline {}
+      new      {'SUBPASSED': 135, 'PASSED': 1}
+  tests/test_engine_data_space.py::TestStackedDataAreSeparateFits::test_element_by_element
+      baseline {}
+      new      {'SUBPASSED': 5, 'PASSED': 1}
+  tests/test_engine_data_space.py::TestTheCheck::test_a_packed_object_has_an_edge_of_1_or_N
+      baseline {}
+      new      {'SUBPASSED': 3, 'PASSED': 1}
+  tests/test_engine_data_space.py::TestTheCheck::test_a_y_without_C_on_a_stack_raises_where_plain_broadcasting_would_not
+      baseline {}
+      new      {'SUBPASSED': 3, 'PASSED': 1}
+  tests/test_engine_data_space.py::TestTheCheck::test_other_forms_raise
+      baseline {}
+      new      {'SUBPASSED': 7, 'PASSED': 1}
+  tests/test_engine_data_space.py::TestTheLaws::test_the_input_law
+      baseline {}
+      new      {'SUBPASSED': 4, 'PASSED': 1}
+  tests/test_engine_data_space.py::TestTheLaws::test_the_jet_law
+      baseline {}
+      new      {'SUBPASSED': 6, 'PASSED': 1}
+  tests/test_engine_data_space.py::TestTheUniformEdgeOfOne::test_a_weight_whose_padding_would_overflow_when_squared
+      baseline {}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/test_engine_data_space.py::TestTheUniformEdgeOfOne::test_mixed_edges
+      baseline {}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/test_engine_data_space.py::TestTheUniformEdgeOfOne::test_modes_with_different_size_1_axes
+      baseline {}
+      new      {'SUBPASSED': 3, 'PASSED': 1}
+  tests/test_engine_data_space.py::TestTheUniformEdgeOfOne::test_y_and_the_weight_constant_over_the_edge
+      baseline {}
+      new      {'SUBPASSED': 8, 'PASSED': 1}
+  tests/test_jets.py::TestCheckers::test_an_object_larger_than_z_where_z_has_a_size_of_one_raises
+      baseline {}
+      new      {'SUBPASSED': 4, 'PASSED': 1}
+  tests/test_jets.py::TestCheckers::test_check_data_passes_size_1_axes_and_a_mode_leading_array
+      baseline {}
+      new      {'SUBPASSED': 6, 'PASSED': 1}
+  tests/test_jets.py::TestCheckers::test_check_weight_passes_the_exact_shape_and_none
+      baseline {'SUBPASSED': 11, 'PASSED': 1}
+      new      {}
+  tests/test_jets.py::TestCheckers::test_check_weight_passes_the_full_form_and_none
+      baseline {}
+      new      {'SUBPASSED': 76, 'PASSED': 1}
+  tests/test_jets.py::TestDerivativeData::test_the_weight_goes_the_opposite_way_on_its_jet_axes
+      baseline {'SUBPASSED': 11, 'PASSED': 1}
+      new      {'SUBPASSED': 58, 'PASSED': 1}
+  tests/test_jets.py::TestDualJet::test_a_backend_function_given_a_bad_weight_checks_nothing
+      baseline {'PASSED': 1}
+      new      {}
+  tests/test_jets.py::TestDualJet::test_a_converter_refuses_a_weight_not_of_the_type_of_the_jet
+      baseline {}
+      new      {'SUBPASSED': 14, 'PASSED': 1}
+  tests/test_oracle_data_space.py::TestAZeroWeightDeletesASample::test_f_g_and_JtJp_are_those_of_the_batch_without_it
+      baseline {}
+      new      {'SUBPASSED': 10, 'PASSED': 1}
+  tests/test_oracle_data_space.py::TestCheckBatch::test_the_stack_reaches_both_checkers
+      baseline {}
+      new      {'SUBPASSED': 21, 'PASSED': 1}
+  tests/test_oracle_data_space.py::TestFResolution::test_against_a_dense_sum_over_zs_shape
+      baseline {}
+      new      {'SUBPASSED': 120, 'PASSED': 1}
+  tests/test_oracle_data_space.py::TestFResolution::test_it_needs_y_even_with_a_held_r
+      baseline {}
+      new      {'PASSED': 1}
+  tests/test_oracle_data_space.py::TestPacking::test_garbage_in_the_packed_padding_changes_nothing
+      baseline {}
+      new      {'SUBPASSED': 3, 'PASSED': 1}
+  tests/test_oracle_data_space.py::TestPacking::test_pack_batch_packs_the_weight_by_the_rule_of_y
+      baseline {}
+      new      {'SUBPASSED': 5, 'PASSED': 1}
+  tests/test_oracle_data_space.py::TestStackedDataAreSeparateFits::test_each_element_is_its_own_fit
+      baseline {}
+      new      {'SUBPASSED': 15, 'PASSED': 1}
+  tests/test_oracle_data_space.py::TestTake::test_a_mode_leading_weight_is_drawn_after_its_mode_axis
+      baseline {}
+      new      {'PASSED': 1}
+  tests/test_oracle_data_space.py::TestTake::test_an_object_without_the_W_axes_raises
+      baseline {}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/test_oracle_data_space.py::TestTake::test_y_and_the_weight_against_index_loops
+      baseline {}
+      new      {'SUBPASSED': 56, 'PASSED': 1}
+  tests/test_oracle_data_space.py::TestUnbiasedOverEverySubset::test_with_a_partly_broadcast_weight
+      baseline {}
+      new      {'SUBPASSED': 10, 'PASSED': 1}
+  tests/test_sampling_definitions.py::TestTheWeightIsOfTheTypeOfZ::test_an_object_larger_than_z_where_z_has_a_size_of_one_raises
+      baseline {}
+      new      {'SUBPASSED': 8, 'PASSED': 1}
+33 nodes differ
