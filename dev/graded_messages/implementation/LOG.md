@@ -1487,3 +1487,4 @@ M4: `M4_REVIEW_r1.md` SIGN OFF (the round trip and regeneration rerun independen
 independent; a tangent-transpose drawn-batch check of the reviewer's own; the remaining gate steps run by the reviewer,
 all green). **M4 committed.** Two minor points for M5 (the corewise Hessians' docstrings: "the curvature term", not
 "the gradient"; nine `#` columns off by one). Next: M5 (comments only), with a fresh implementer.
+M5 (the type comments, comments only; the last M slice) started with a fresh implementer: `M5_DESIGN_NOTE.md` first.
