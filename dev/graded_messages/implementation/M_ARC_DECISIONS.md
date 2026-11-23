@@ -73,3 +73,11 @@ decision, the reason, where it is recorded. Larger rulings are also in `LOG.md`.
 24. M4 designed without a separate design review (a scripted rename plus prose; the build is reviewed). The `c` line
     gets its type in M4 (`P*⊗V_i` probe, `P*` apply, `ℝ` entries), since "of the type of z" is wrong for `c`; the other
     signature lines wait for M5. P19's upgrade note: "`residual=` -> `c=`; positional calls unaffected; no shim".
+25. M5 designed without a separate design review (comments only). Types per argument and return line only; the
+    plan's function-type table goes to P19's page. The corewise point `x` is typed `X`; the manifold frame and `Vc`
+    get a role only; `omega` a role only (its square is `M`'s diagonal, `omega` is not in `Y`). `P_in_i` (the input
+    jets' ring) and `index^d` in comments; the glossary's `P` row gains `P_in,i` and `index`. The `T3Tangent`
+    transposes return `X*` in a `T3Tangent` container, before the projection. Comment lines wrap at 120 with `#   `.
+    `LocalModel`'s comments retyped (`J^T(M r)` with the scale). The engine's table gains a `Type` column (`P`, `Y*`,
+    "`Y`, turned" for `w_tilde`, "`P*`, turned" for the other tilde variables, which sit on edges; `X*` for the
+    blocks), pinned by a test that reads it.
