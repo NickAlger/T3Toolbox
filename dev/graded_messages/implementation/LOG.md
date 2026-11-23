@@ -1466,3 +1466,6 @@ M2's CI: green on the current leg, the examples and the docs; the floor leg fail
 `test_uniform_curvature.py::TestUniformSharedExactNewton::test_zero_padded_shared_restart` (17 Newton steps against a
 bound of 16; passed before M2). Likely a knife-edge iteration count moved by M2's rounding-level regrouping; an agent
 investigates (`M2_CI_FIX.md`), under the rule "change the run, not the tolerance".
+M3 built (`M3_HANDOVER.md`): suite green (1,960 passed); `f_resolution` and every non-block-sum battery output bitwise
+equal to `68c10621`; display records against `68c10621` within 2.3e-16; the tally only the expected 10 nodes; 5
+mutants killed. The remaining gate steps (doctests, pages, examples, Sphinx) are being run, then the review.
