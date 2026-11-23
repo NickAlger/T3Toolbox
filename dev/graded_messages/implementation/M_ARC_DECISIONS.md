@@ -60,3 +60,13 @@ decision, the reason, where it is recorded. Larger rulings are also in `LOG.md`.
     misattributed to the zero start) while losses (4e-16), counts, stop reasons and the
     represented tensors (4e-15) agreed. Under the knife-edge ruling (change the run, not the tolerance) they start at a
     seeded random point; the pre-M2 record was re-recorded on the base tree (bitwise equal to part 1's elsewhere).
+20. M3: `format_newton_iter`'s public parameter `obj_unweighted` (shipped in 2026.5.0) is removed with no shim, with
+    the `(unwt ...)` figure; P19's upgrade note says "remove the fourth argument" (with no table the old positional
+    call passes silently, so no error is promised).
+21. M3: the display's validation cells use `val_batch`'s own weight (documented in `make_newton_display`, the frontend
+    `newton_cg` and the oracle, and pinned by a test), rather than borrowing the training weight.
+22. M3: the frame's stack shape `C` is read by a private helper (shared by `y_block_sumsq` and `f_resolution`). The
+    reviewer proposed making it public as `frame_stack_shape` beside `frame_shape`; a new public name is the
+    maintainer's, so it is kept private for now and raised here.
+23. M3: `examples/fit_probe_display.py`'s `unwt` text fixed in M3; the page `docs/fitting_and_optimization.md:114`
+    (the ratio sentence) goes to P19's list.

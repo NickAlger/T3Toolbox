@@ -1461,3 +1461,4 @@ gauge explanation corrected per the review (a sign-gauge flip of the SVD retract
 Sphinx 0 warnings; slow tier 66 passed; the battery AS EXPECTED (24,427 of 25,476 arrays bitwise, the rest within
 3.6e-16); the node tally against part 1's log only the expected differences; the diff audit clean. **M2 squashed onto
 `graded-messages`.** Next: M3 (the display and the weighted block sums).
+M3 designed (`M3_DESIGN_NOTE.md`, `M3_DESIGN_REVIEW.md`: sound); rulings in `M_ARC_DECISIONS.md` 20 to 23. Building.
