@@ -1479,3 +1479,7 @@ rounding level (a zero-padded restart's LAPACK completion following the BLAS ker
 objective's resolution; a stop at the resolution). Fixed in the tests by changing the runs (seeds; the rate window of
 the class's own n15 rule; `gtol_rel` two decades above the floor), one bound moved for its purpose (the tied lift
 against the per-mode lift), mutants killed. Committed with M3's push.
+M4 built (`M4_HANDOVER.md`): the scripted rename `residual` -> `c` (275 edits, the edit-log round trip byte for byte);
+the `c` lines typed; the prose; `tests/test_transposes_typed.py` (the laws on all 42, the drawn-batch check); suite
+1,965 passed, the tally only 5 new nodes. The reviewer runs the remaining gate steps with its review. P19 gains:
+`residual=` -> `c=` upgrade note; `docs/transposes.md`'s five "residual" mentions.
