@@ -1462,3 +1462,7 @@ Sphinx 0 warnings; slow tier 66 passed; the battery AS EXPECTED (24,427 of 25,47
 3.6e-16); the node tally against part 1's log only the expected differences; the diff audit clean. **M2 squashed onto
 `graded-messages`.** Next: M3 (the display and the weighted block sums).
 M3 designed (`M3_DESIGN_NOTE.md`, `M3_DESIGN_REVIEW.md`: sound); rulings in `M_ARC_DECISIONS.md` 20 to 23. Building.
+M2's CI: green on the current leg, the examples and the docs; the floor leg fails one test,
+`test_uniform_curvature.py::TestUniformSharedExactNewton::test_zero_padded_shared_restart` (17 Newton steps against a
+bound of 16; passed before M2). Likely a knife-edge iteration count moved by M2's rounding-level regrouping; an agent
+investigates (`M2_CI_FIX.md`), under the rule "change the run, not the tolerance".
