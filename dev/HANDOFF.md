@@ -56,7 +56,10 @@ parts on a local side branch, squashed. Agents are Opus 5.5, high effort; implem
 fills (they stop at a clean point with a handover); the sub-arc's current reviewer took over from
 `implementation/M_REVIEWER_HANDOFF.md`. Gate at `-n 2`, one heavy run at a time on the 13 GB laptop. Every slice's
 records are in `dev/graded_messages/implementation/` (`M*_DESIGN_NOTE/REVIEW`, `_HANDOVER`, `_REVIEW_r*`, and the
-per-slice folders `m0/`, `m1/`, `m2/`). CI green at `66bdbc1c` (M3 plus the floor-leg test fixes, `implementation/M2_CI_FIX.md`). M4 (the transposes typed, `residual` -> `c`) is COMMITTED. Next: M5 (the type comments, comments only).
+per-slice folders `m0/`, `m1/`, `m2/`). CI green at `66bdbc1c` (M3 plus the floor-leg test fixes, `implementation/M2_CI_FIX.md`). M4 (the transposes typed, `residual` -> `c`) and M5 (the type comments) are COMMITTED: **THE M ARC IS COMPLETE.**
+  **Now: STOP for the maintainer** to discuss `implementation/M_ARC_DECISIONS.md` (25 decisions Claude made), the
+  audit's open decisions 3 (corewise representation) and 4 (the Hessians' names), and `frame_stack_shape`; then the
+  `from_t3` slice, then P17. P19's carried items are listed in `LOG.md`'s M-arc entries.
 
 **START HERE (updated 2026-11-19, 19:30; Claude Code on Nick's laptop, branch `graded-messages`).** Nothing lives
 in a session: everything is in files.

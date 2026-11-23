@@ -222,55 +222,65 @@ stack of base points; a block (no jet sizes) is ``C`` and the shape of the core 
 samples (with ``sum_over_samples=False``, ``W`` first: ``W + [K] + C`` and the core's shape).
 ``F = tuple(n + 1 for n in order)`` and ``F_in_i`` are the jet sizes of ``w[i]``. The tilde variables are dual jets,
 stored with every jet axis turned. For the apply kind ``z``, ``r``, ``w_tilde`` and ``Jp`` are one array each,
-``F + W + [K] + C``, with no index and no mode edge, and ``r_block_sumsq`` has the block shape ``F``.
+``F + W + [K] + C``, with no index and no mode edge, and ``r_block_sumsq`` has the block shape ``F``. The last
+column is the variable's type, explained below the table.
 
-| Variable | Index | Jet sizes | Size |
-| --- | --- | --- | --- |
-| `xi` | site | min(F_in_i, F) | nD_i |
-| `mu` | bond | F | rL_i |
-| `nu` | bond | F | rR_i |
-| `nu_L` | bond | F | rL_i |
-| `eta` | site | F | nU_i |
-| `eta_D` | site | F | nD_i |
-| `z` | mode | F | N_i |
-| `r` | mode | F | N_i |
-| `w_tilde` | mode | F | N_i |
-| `xi_tilde` | site | F | nD_i |
-| `mu_tilde` | bond | F | rL_i |
-| `nu_tilde` | bond | F | rR_i |
-| `eta_tilde` | site | F | nU_i |
-| `_eta_tilde_top` | site | min(F_in_i, F) | nU_i |
-| `V_tilde` | site | none | (nU_i, N_i) |
-| `H_tilde` | site | none | (rL_i, nD_i, rR_(i+1)) |
-| `xi_U_dot` | site | min(F_in_i, F) | nU_i |
-| `mu_R_dot` | bond | F | rR_i |
-| `nu_L_dot` | bond | F | rL_i |
-| `eta_D_dot` | site | F | nD_i |
-| `Jp` | mode | F | N_i |
-| `xi_dot` | site | min(F_in_i, F) | nD_i |
-| `mu_dot` | bond | F | rL_i |
-| `nu_L_tilde` | bond | F | rL_i |
-| `eta_D_tilde` | site | F | nD_i |
-| `_eta_D_tilde_top` | site | min(F_in_i, F) | nD_i |
-| `xi_tilde_dot` | site | F | nD_i |
-| `mu_tilde_dot` | bond | F | rL_i |
-| `nu_L_tilde_dot` | bond | F | rL_i |
-| `eta_D_tilde_dot` | site | F | nD_i |
-| `_eta_D_tilde_dot_top` | site | min(F_in_i, F) | nD_i |
-| `V_tilde_dot` | site | none | (nD_i, N_i) |
-| `H_tilde_dot` | site | none | (rL_i, nD_i, rL_(i+1)) |
-| `nu_dot` | bond | F | rL_i |
-| `eta_dot` | site | F | nD_i |
-| `nu_tilde_dot` | bond | F | rL_i |
-| `eta_tilde_dot` | site | F | nD_i |
-| `_eta_tilde_dot_top` | site | min(F_in_i, F) | nD_i |
+| Variable | Index | Jet sizes | Size | Type |
+| --- | --- | --- | --- | --- |
+| `xi` | site | min(F_in_i, F) | nD_i | P |
+| `mu` | bond | F | rL_i | P |
+| `nu` | bond | F | rR_i | P |
+| `nu_L` | bond | F | rL_i | P |
+| `eta` | site | F | nU_i | P |
+| `eta_D` | site | F | nD_i | P |
+| `z` | mode | F | N_i | Y* |
+| `r` | mode | F | N_i | Y* |
+| `w_tilde` | mode | F | N_i | Y turned |
+| `xi_tilde` | site | F | nD_i | P* turned |
+| `mu_tilde` | bond | F | rL_i | P* turned |
+| `nu_tilde` | bond | F | rR_i | P* turned |
+| `eta_tilde` | site | F | nU_i | P* turned |
+| `_eta_tilde_top` | site | min(F_in_i, F) | nU_i | P* turned |
+| `V_tilde` | site | none | (nU_i, N_i) | X* |
+| `H_tilde` | site | none | (rL_i, nD_i, rR_(i+1)) | X* |
+| `xi_U_dot` | site | min(F_in_i, F) | nU_i | P |
+| `mu_R_dot` | bond | F | rR_i | P |
+| `nu_L_dot` | bond | F | rL_i | P |
+| `eta_D_dot` | site | F | nD_i | P |
+| `Jp` | mode | F | N_i | Y* |
+| `xi_dot` | site | min(F_in_i, F) | nD_i | P |
+| `mu_dot` | bond | F | rL_i | P |
+| `nu_L_tilde` | bond | F | rL_i | P* turned |
+| `eta_D_tilde` | site | F | nD_i | P* turned |
+| `_eta_D_tilde_top` | site | min(F_in_i, F) | nD_i | P* turned |
+| `xi_tilde_dot` | site | F | nD_i | P* turned |
+| `mu_tilde_dot` | bond | F | rL_i | P* turned |
+| `nu_L_tilde_dot` | bond | F | rL_i | P* turned |
+| `eta_D_tilde_dot` | site | F | nD_i | P* turned |
+| `_eta_D_tilde_dot_top` | site | min(F_in_i, F) | nD_i | P* turned |
+| `V_tilde_dot` | site | none | (nD_i, N_i) | X* |
+| `H_tilde_dot` | site | none | (rL_i, nD_i, rL_(i+1)) | X* |
+| `nu_dot` | bond | F | rL_i | P |
+| `eta_dot` | site | F | nD_i | P |
+| `nu_tilde_dot` | bond | F | rL_i | P* turned |
+| `eta_tilde_dot` | site | F | nD_i | P* turned |
+| `_eta_tilde_dot_top` | site | min(F_in_i, F) | nD_i | P* turned |
 
 A variable made by a row with ``K = yes`` has ``K`` after ``W`` (``P + W + K + C + (size,)``; a block ``K + C`` and the
-core's shape); a private node's shape is its base's. ``f`` has the shape ``C``; ``r_block_sumsq``, ``<r, M r>`` per
-block (weighted as ``f`` is), the block shape ``(d,) + F`` (``F`` for apply); ``Jp_norm_sq`` the shape ``K + C``;
-``g`` is the pair ``(V_tilde, H_tilde)``, ``JtJp`` the pair of their twins and ``Kp`` the pair ``(V_tilde_dot,
-H_tilde_dot)``. On a corewise point the sizes of ``R`` and ``U`` are those of ``L`` and ``D``. A bond index runs over
-``0 .. d`` (``d + 1`` arrays), a site or a mode index over ``0 .. d-1``.
+core's shape); a private node's shape is its base's. ``f`` (``ℝ``) has the shape ``C``; ``r_block_sumsq`` (``ℝ`` per
+block), ``<r, M r>`` per block (weighted as ``f`` is), the block shape ``(d,) + F`` (``F`` for apply);
+``Jp_norm_sq`` (``ℝ``) the shape ``K + C``; ``g`` is the pair ``(V_tilde, H_tilde)``, ``JtJp`` the pair of their
+twins and ``Kp`` the pair ``(V_tilde_dot, H_tilde_dot)``, each in ``X*``. On a corewise point the sizes of ``R`` and
+``U`` are those of ``L`` and ``D``. A bond index runs over ``0 .. d`` (``d + 1`` arrays), a site or a mode index over
+``0 .. d-1``.
+
+**The types** (the last column; the letters are the glossary's Symbols). ``P``: a jet on an edge of the network,
+slot ``k`` the coefficient of ``s^k`` (the plain variables and the dots, linear in the direction). ``Y*``: the
+measurements, probe ``P⊗V_i*`` per mode, apply ``P``, entries ``ℝ``. ``Y turned``: ``w_tilde``, an element of
+``Y`` (probe ``P*⊗V_i``, apply ``P*``, entries ``ℝ``) with every jet axis turned, slot ``k`` holding the
+coefficient ``n - k`` of the dual jet. ``P* turned``: every other tilde variable, a dual jet on an edge, turned
+likewise. ``X*``: a block of the parameters' dual, before any projection. So under ``s_j -> ell_j s_j`` a ``P``
+slot ``k`` scales as ``ell^k``, a turned slot ``k`` as ``ell^-(n-k)``, and a block not at all.
 
 **What a call does, in order**: it checks what it needs to run, and nothing more; reads the
 layout and the call type from the structure of the frame; takes the closure of what is wanted over the graph, the
@@ -1667,21 +1677,24 @@ def frame_form(
 
 def sampling_variables(
         kind:              str,                              # 'probe' | 'apply' | 'entries'
-        frame:             typ.Tuple,                        # (D, U, L, R), four tuples of d arrays; or (B, G)
-        sample:            typ.Any,                          # ww: the input jets, len=d, elm_shape=F_in_i+W+(Ni,);
-                                                             #   entries: index, int, shape=(d,)+W
+        frame:             typ.Tuple,                        # the base point (D, U, L, R), four tuples of d arrays; or
+                                                             #   the point (B, G): X
+        sample:            typ.Any,                          # ww: P_in_i⊗V_i, the input jets, len=d,
+                                                             #   elm_shape=F_in_i+W+(Ni,);
+                                                             #   entries: index^d, shape=(d,)+W, int
         want:              typ.Sequence[str],                # variable names; the return is aligned with them
 
         order:             typ.Tuple[int, ...] = (),         # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
-        y:                 typ.Optional[typ.Any] = None,     # the data, of the type of z, each axis 1 or z's size:
+        y:                 typ.Optional[typ.Any] = None,     # the data: Y*, of the type of z, each axis 1 or z's size:
                                                              #   probe len=d, elm_shape=F+W+C+(Ni,); apply F+W+C; entries W+C
         weight:            typ.Optional[typ.Any] = None,     # omega, of the type of z likewise (no K); None = ones
-        variations:        typ.Optional[typ.Tuple] = None,   # (V, H), elm_shapes K+C+(nUi,Ni), K+C+(rLi,nDi,rR(i+1))
-        core_directions:   typ.Optional[typ.Tuple] = None,   # (D_dot, L_dot), the shapes of D, L with K+C
-        Vc:                typ.Optional[typ.Sequence[NDArray]] = None,   # len=d, elm_shape=C+(nUi,Ni)
+        variations:        typ.Optional[typ.Tuple] = None,   # X, (V, H), elm_shapes K+C+(nUi,Ni), K+C+(rLi,nDi,rR(i+1))
+        core_directions:   typ.Optional[typ.Tuple] = None,   # X, (D_dot, L_dot), the shapes of D, L with K+C
+        Vc:                typ.Optional[typ.Sequence[NDArray]] = None,   # the frame's Tucker centers: len=d,
+                                                                         #   elm_shape=C+(nUi,Ni)
         sum_over_samples:  bool = True,                      # on the blocks; False: W joins their stack, W+K+C
         held:              typ.Optional[HeldVariables] = None,   # held variables; shapes checked, values trusted
-) -> typ.Tuple[typ.Any, ...]:                                # aligned with want; shapes in the module's table
+) -> typ.Tuple[typ.Any, ...]:                                # aligned with want; types and shapes in the module's table
     """The sampling variables ``want`` of a Tucker tensor train at a frame, sampled at input jets.
 
     Each variable is computed by its recurrence over the sites, once, and only the variables that what is wanted

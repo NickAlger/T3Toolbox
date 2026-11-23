@@ -831,8 +831,10 @@ def blocks_to_weight(
 def derivatives_to_taylor(
         kind:   str,                       # 'probe' | 'apply' | 'entries': which type the jets are of
         order:  typ.Tuple[int, ...],       # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...). entries: ()
-        jets:   typ.Any,                   # derivatives: probe len=d, elm_shape=F+W+(Ni,); apply F+W; entries W
-) -> typ.Any:                              # Taylor coefficients, same shapes: slot k divided by k_1! ... k_m!. probe: a tuple
+        jets:   typ.Any,                   # Y* in derivative coordinates (or Y in Taylor ones: the contragredient):
+                                           #   probe len=d, elm_shape=F+W+(Ni,); apply F+W; entries W
+) -> typ.Any:                              # Y* in Taylor coordinates (or Y in derivative ones), same shapes: slot k
+                                           #   divided by k_1! ... k_m!. probe: a tuple
     """Derivatives to Taylor coefficients: slot ``k`` of the jet axes divided by ``k_1! ... k_m!``.
 
     The library holds a jet as Taylor coefficients, the coefficient of ``s_1^k_1 ... s_m^k_m`` in slot ``k``. The
@@ -917,8 +919,10 @@ def derivatives_to_taylor(
 def taylor_to_derivatives(
         kind:   str,                       # 'probe' | 'apply' | 'entries': which type the jets are of
         order:  typ.Tuple[int, ...],       # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...). entries: ()
-        jets:   typ.Any,                   # Taylor coefficients: probe len=d, elm_shape=F+W+(Ni,); apply F+W; entries W
-) -> typ.Any:                              # derivatives, same shapes: slot k multiplied by k_1! ... k_m!. probe: a tuple
+        jets:   typ.Any,                   # Y* in Taylor coordinates (or Y in derivative ones: the contragredient):
+                                           #   probe len=d, elm_shape=F+W+(Ni,); apply F+W; entries W
+) -> typ.Any:                              # Y* in derivative coordinates (or Y in Taylor ones), same shapes: slot k
+                                           #   multiplied by k_1! ... k_m!. probe: a tuple
     """Taylor coefficients to derivatives: slot ``k`` of the jet axes multiplied by ``k_1! ... k_m!``.
 
     The reverse of :py:func:`derivatives_to_taylor`, for a user who wants an output of the library (which is
@@ -1055,13 +1059,15 @@ def _taylor_weights(
 def prepare_derivative_data(
         kind:        str,                              # 'probe' | 'apply' | 'entries'
         order:       typ.Tuple[int, ...],              # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...). entries: ()
-        y:           typ.Any,                          # derivatives, of the type of z: probe len=d, elm_shape=F+W+C+(Ni,); apply F+W+C; entries W+C
+        y:           typ.Any,                          # Y*, in derivative coordinates: probe len=d,
+                                                       #   elm_shape=F+W+C+(Ni,); apply F+W+C; entries W+C
         weight:      typ.Optional[typ.Any] = None,     # omega on derivative residuals, of the type of z; None = ones on the derivatives
-        validation:  typ.Optional[typ.Any] = None,     # validation derivatives, of the type of z, or None
+        validation:  typ.Optional[typ.Any] = None,     # Y*, validation data in derivative coordinates, or None
 ) -> typ.Tuple[
-        typ.Any,                                       # y in Taylor coefficients, same type and shapes
-        typ.Any,                                       # the Taylor weight, of the type of z: k_1! ... k_m! per slot when weight is None
-        typ.Optional[typ.Any],                         # validation in Taylor coefficients, or None
+        typ.Any,                                       # y: Y*, in Taylor coordinates, same shapes
+        typ.Any,                                       # omega, the Taylor weight, of the type of z: k_1! ... k_m! per
+                                                       #   slot when weight is None
+        typ.Optional[typ.Any],                         # validation: Y*, in Taylor coordinates, or None
 ]:
     """Prepare derivative data for a fit: the data, the validation data and the weight, in one call.
 
@@ -1179,9 +1185,11 @@ def _affine_jet_of_one_array(
 
 
 def affine_jet(
-        ww:             typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+(Ni,); or packed (d,)+W+(N,)
-        *directions:    typ.Union[typ.Sequence[NDArray], NDArray],  # m of them, each of the form and shapes of ww
-) -> typ.Union[typ.Tuple[NDArray, ...], NDArray]:   # len=d, elm_shape=(2,)*m+W+(Ni,); or packed (d,)+(2,)*m+W+(N,)
+        ww:             typ.Union[typ.Sequence[NDArray], NDArray],  # V_i, len=d, elm_shape=W+(Ni,); or packed
+                                                                    #   (d,)+W+(N,)
+        *directions:    typ.Union[typ.Sequence[NDArray], NDArray],  # V_i, m of them, each of the form and shapes of ww
+) -> typ.Union[typ.Tuple[NDArray, ...], NDArray]:   # P_in_i⊗V_i, len=d, elm_shape=(2,)*m+W+(Ni,); or packed
+                                                    #   (d,)+(2,)*m+W+(N,)
     """The input jet of the point ``ww`` moved along ``m`` directions: ``w + s_1 p_1 + ... + s_m p_m``.
 
     A sampling function with a jet shape ``order`` takes input jets: per mode an array whose ``m = len(order)``
@@ -1272,9 +1280,9 @@ def affine_jet(
 
 
 def index_to_one_hot(
-        index:  NDArray,                # int, shape=(d,)+W
+        index:  NDArray,                # index^d, shape=(d,)+W, int
         shape:  typ.Sequence[int],      # the mode sizes N_i, len=d
-) -> typ.Tuple[NDArray, ...]:           # len=d, elm_shape=W+(Ni,): e_index, in the default float dtype
+) -> typ.Tuple[NDArray, ...]:           # e_index: V_i, len=d, elm_shape=W+(Ni,), in the default float dtype
     """The one-hot vectors of a grid point: ``e_index[i]`` in each mode ``i``.
 
     ``entries`` at ``index`` is ``apply`` at these vectors. The entries kind has no jets; the jets of a tensor
@@ -1395,10 +1403,10 @@ def _require_input_jets(
 def check_sample(
         kind:    str,                      # 'probe' | 'apply' | 'entries'
         order:   typ.Tuple[int, ...],      # the jet shape (n_1, ..., n_m); entries: ()
-        sample:  typ.Any,                  # ww (probe, apply: input jets) | index (entries)
+        sample:  typ.Any,                  # P_in_i⊗V_i (probe, apply: the input jets ww) | index^d (entries)
         shape:   typ.Sequence[int],        # the mode sizes N_i, len=d
-) -> None:                                 # d arrays F_in_i+W+(Ni,), each with len(order) jet axes of size >= 1 and
-                                           #   one W for all; or index (d,)+W, integer
+) -> None:                                 # P_in_i⊗V_i: d arrays F_in_i+W+(Ni,), each with len(order) jet axes
+                                           #   of size >= 1 and one W for all; or index^d, (d,)+W, integer
     """Check the form and the shapes of a sample against the jet shape and the mode sizes; raise a ``ValueError``
     if wrong.
 
@@ -1539,7 +1547,7 @@ def _check_of_type_of_z(
 def check_data(
         kind:         str,                      # 'probe' | 'apply' | 'entries'
         order:        typ.Tuple[int, ...],      # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...). entries: ()
-        sample:       typ.Any,                  # ww (input jets) | index, a good sample
+        sample:       typ.Any,                  # P_in_i⊗V_i (the input jets ww) | index^d, a good sample
         y:            typ.Any,                  # Y*, of the type of z: probe len=d (or (d,)+...), elm_shape=F+W+C+(Ni,); apply F+W+C; entries W+C
         stack_shape:  typ.Tuple[int, ...] = (), # C, the model's stack of base points; () for an unstacked model
 ) -> None:
@@ -1628,7 +1636,7 @@ def check_data(
 def check_weight(
         kind:         str,                      # 'probe' | 'apply' | 'entries'
         order:        typ.Tuple[int, ...],      # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...). entries: ()
-        sample:       typ.Any,                  # ww (input jets) | index, a good sample
+        sample:       typ.Any,                  # P_in_i⊗V_i (the input jets ww) | index^d, a good sample
         weight:       typ.Optional[typ.Any],    # omega, of the type of z (each axis 1 or z's size), or None
         stack_shape:  typ.Tuple[int, ...] = (), # C, the model's stack of base points; () for an unstacked model
 ) -> None:

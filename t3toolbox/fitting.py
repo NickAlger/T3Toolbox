@@ -110,12 +110,13 @@ __all__ = ['LocalModel', 'local_model',
 def rescale_coordinates(
         kind:    str,                      # 'probe' | 'apply'
         order:   typ.Tuple[int, ...],      # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
-        sample:  typ.Any,                  # ww, the input jets: len=d, elm_shape=F_in_i+W+(Ni,)
-        y:       typ.Any,                  # of the type of z: probe len=d, elm_shape=F+W+(Ni,); apply F+W
+        sample:  typ.Any,                  # the input jets ww: P_in_i⊗V_i, len=d, elm_shape=F_in_i+W+(Ni,)
+        y:       typ.Any,                  # Y*, the data: probe len=d, elm_shape=F+W+(Ni,); apply F+W
         scales:  typ.Sequence[NDArray],    # len=d, elm_shape=(Ni,): coordinate j of mode i times scales[i][j]
 ) -> typ.Tuple[
-        typ.Any,                           # the sample: every slot of every input jet times its mode's scales
-        typ.Any,                           # y: for probe, mode i's data divided by scales[i]; for apply, as given
+        typ.Any,                           # the sample: P_in_i⊗V_i, every slot of every input jet times its mode's
+                                           #   scales
+        typ.Any,                           # y: Y*; for probe, mode i's data divided by scales[i]; for apply, as given
 ]:
     """Rescale the coordinates of each mode: the inputs times ``scales``, the probe data divided by them.
 
@@ -320,7 +321,7 @@ class LocalModel:
     * **Gauss-Newton** (``hessian='gauss_newton'``, the default): :py:meth:`hessian` / :py:meth:`quadratic`
       are :py:meth:`gn_hessian` / :py:meth:`gn_quadratic`.
     * **Exact** (``hessian='exact'``): :py:meth:`hessian` is the exact Riemannian Hessian -- the Gauss-Newton
-      term plus the curvature term :py:meth:`curvature_hessian` (``Π Lᵀ(K_{Aᵀω²r} − K_{grad f}) L Π``), and
+      term plus the curvature term :py:meth:`curvature_hessian` (``Π Lᵀ(K_{Aᵀ M r} − K_{grad f}) L Π``), and
       :py:meth:`quadratic` likewise.
 
     ``gradient``, ``jacobian``, ``residual``, ``gn_hessian``, ``gn_quadratic``, ``objective_value`` and
@@ -342,7 +343,7 @@ class LocalModel:
     >>> oracle = fitting.LeastSquaresOracle('apply', order=())
     >>> batch = fitting.LeastSquaresBatch(ww, y)
 
-    On the **manifold** geometry the gradient ``g = Π 𝒥ᵀ r`` is a gauged tangent and ``H p`` stays on the
+    On the **manifold** geometry the gradient ``g = Π Jᵀ(M r)`` is a gauged tangent and ``H p`` stays on the
     gauged tangent space:
 
     >>> model = fitting.local_model(t3m.MANIFOLD, oracle, batch, x)
@@ -443,30 +444,30 @@ class LocalModel:
 
     # ------------------------------------------------------------------ the values
     @ft.cached_property
-    def objective_value(self) -> NDArray:        # c = ½‖ω⊙r‖² (+ ρ(X)), shape C
+    def objective_value(self) -> NDArray:        # f = ½<r, M r> (+ ρ(X)), shape C
         return self.backend.objective
 
     @property
-    def residual(self):                          # r = z(X) - y, of the type of z (the oracle's optional output)
+    def residual(self):                          # r = z(X) - y: Y*, of the type of z (the oracle's optional output)
         return self.backend.residual
 
     @ft.cached_property
-    def gradient(self):                          # g = Π 𝒥ᵀ ω² r (+ g_R), a tangent at frame
+    def gradient(self):                          # g = Π Jᵀ(M r) (+ g_R), M = gamma * omega**2: a tangent at frame
         return self._tangent(self.backend.gradient)
 
     def jacobian(
             self,
             p,      # a trial tangent at this model's frame
-    ) -> typ.Any:   # J p = 𝒥(Π p), of the type of z with p's stack K
+    ) -> typ.Any:   # J p = J(Π p): Y*, of the type of z with p's stack K
         return self.backend.jacobian(self._coordinates(p))
 
     def gn_quadratic(
             self,
             p,      # a trial tangent at this model's frame
-    ) -> NDArray:   # pᵀ H p = ‖ω J p‖² (+ ⟨p, H_R p⟩), shape K+C
+    ) -> NDArray:   # pᵀ H p = <M J p, J p> (+ ⟨p, H_R p⟩), shape K+C
         return self.backend.gn_quadratic(self._coordinates(p))
 
-    def gn_hessian(self, p):                     # H p = Π 𝒥ᵀ ω² 𝒥 Π p (+ H_R p): Gauss-Newton in either mode
+    def gn_hessian(self, p):                     # H p = Π Jᵀ M J Π p (+ H_R p): Gauss-Newton in either mode
         raw = self._coordinates(p)
         model = bopt._gauss_newton_view(self.backend) if self.is_exact else self.backend
         return self._tangent(model.hvp(raw))
@@ -485,7 +486,7 @@ class LocalModel:
         self._require_exact('curvature_quadratic')
         return self.backend.curvature_quadratic(self._coordinates(p))
 
-    def evaluate(self, p) -> NDArray:            # m(p) = c + ⟨g, Π p⟩ + ½ pᵀ H p, shape K+C
+    def evaluate(self, p) -> NDArray:            # m(p) = f + ⟨g, Π p⟩ + ½ pᵀ H p, shape K+C
         raw = self._coordinates(p)
         b = self.backend
         Pp = self._tangent(b.geom.project(b.frame, raw, aux=b.geom_aux))

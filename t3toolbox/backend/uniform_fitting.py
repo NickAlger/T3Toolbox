@@ -375,9 +375,10 @@ def uniform_derivatives_kind(
 def pack_sample(
         kind:    str,                       # 'probe' | 'apply' | 'entries'
         order:   typ.Tuple[int, ...],       # the jet shape: the number of leading jet axes of each input jet
-        sample:  typ.Any,                   # ww (input jets, len=d, elm_shape=F_in_i+W+(Ni,)) | index ((d,)+W, int)
+        sample:  typ.Any,                   # P_in_i⊗V_i (the input jets ww, len=d, elm_shape=F_in_i+W+(Ni,)) | index^d
+                                            #   ((d,)+W, int)
         N:       int,                       # the packed mode width
-) -> typ.Any:                               # ww packed (d,)+F_in+W+(N,) | index unchanged
+) -> typ.Any:                               # P_in_i⊗V_i packed (d,)+F_in+W+(N,) | index^d unchanged
     """Pack the loop-invariant sample once for the uniform layout: the input jets with
     :py:func:`~t3toolbox.backend.ut3_operations.pack_if_ragged` and ``len_P=len(order)`` (each jet axis brought to its
     largest size across the modes by zero coefficients, which are data: an input jet is zero beyond its slots, O-45;
@@ -397,8 +398,9 @@ def pack_sample(
 def pack_data(
         kind:   str,                        # 'probe' | 'apply' | 'entries'
         order:  typ.Tuple[int, ...],        # the jet shape (the probe data's leading F axes ride along)
-        y:      typ.Any,                    # of the type of z (the data, a weight, a residual): probe len=d,
-                                            #   elm_shape=F+W+C+(Ni,); apply F+W+C; entries W+C; each axis 1 or z's size
+        y:      typ.Any,                    # Y* or omega, of the type of z (the data, a weight, a residual):
+                                            #   probe len=d, elm_shape=F+W+C+(Ni,); apply F+W+C; entries W+C; each axis
+                                            #   1 or z's size
         N:      int,                        # the packed mode width
 ) -> typ.Any:                               # probe: (d,)+F+W+C+(e,), e = 1 or N; apply, entries: y unchanged
     """Pack a data-space object once for the uniform layout: the data ``y``, a weight or a residual, each of the type

@@ -219,11 +219,13 @@ class Oracle(typ.Protocol):
             want:             typ.Tuple[str, ...],            # required: f, g, JtJp, Jp_norm_sq; optional: Kp, Jp, r,
                                                               #   r_block_sumsq, y_block_sumsq, f_resolution
             Vc:               typ.Optional[typ.Sequence[NDArray]] = None,
-            variations:       typ.Optional[typ.Tuple] = None, # (V, H): JtJp, Jp_norm_sq, Jp
-            core_directions:  typ.Optional[typ.Tuple] = None, # (D_dot, L_dot): Kp
+            variations:       typ.Optional[typ.Tuple] = None, # X, (V, H): JtJp, Jp_norm_sq, Jp
+            core_directions:  typ.Optional[typ.Tuple] = None, # X, (D_dot, L_dot): Kp
             held:             typ.Any = None,                 # what an earlier query at this frame and batch returned
     ) -> typ.Tuple[
-            typ.Tuple[typ.Any, ...],                          # values, aligned with want; blocks before projection
+            typ.Tuple[typ.Any, ...],                          # values, aligned with want: r, Jp Y*; g, JtJp, Kp X*
+                                                              #   (before the projection); f, Jp_norm_sq, f_resolution
+                                                              #   ℝ; r_block_sumsq, y_block_sumsq ℝ per block
             typ.Any,                                          # held: any object jax can carry in a compiled program
     ]:
         ...
@@ -298,21 +300,21 @@ class LocalModel:
 
     **Two modes**, derived rather than stored (:py:attr:`is_exact` is ``curvature is not None``):
 
-    * **Gauss-Newton** (``hessian='gauss_newton'``, the default): ``hvp(p) = Pi J^T omega^2 J Pi p (+ H_R p)``, the
-      oracle's ``JtJp`` at ``Pi p``, projected.
+    * **Gauss-Newton** (``hessian='gauss_newton'``, the default): ``hvp(p) = Pi J^T M J Pi p (+ H_R p)``, the
+      oracle's ``JtJp`` at ``Pi p``, projected (``M`` the batch's data metric, ``gamma * omega**2``).
     * **Exact** (``hessian='exact'``): the exact Riemannian Hessian,
 
-      ``hvp(p) = Pi [J^T omega^2 J Pi p + L^T (K_{A^T omega^2 r} - K_{grad f}) L Pi p] (+ H_R p)``,
+      ``hvp(p) = Pi [J^T M J Pi p + L^T (K_{A^T M r} - K_{grad f}) L Pi p] (+ H_R p)``,
 
-      with ``L`` the geometry's lift from coordinates to raw core variations, ``K_{A^T omega^2 r}`` the oracle's
-      ``Kp`` along the lifted direction (the second derivative of ``<omega^2 r, z>`` at the fixed residual; one query
+      with ``L`` the geometry's lift from coordinates to raw core variations, ``K_{A^T M r}`` the oracle's
+      ``Kp`` along the lifted direction (the second derivative of ``<M r, z>`` at the fixed residual; one query
       with ``JtJp``) and ``K_{grad f}`` the geometry's tangential curvature (Absil, Mahony & Trumpf (2013), "An
       extrinsic look at the Riemannian Hessian": the Weingarten term as ``<N, d^2 Phi>`` with ``N`` the normal part
-      of ``A^T omega^2 r``). On a corewise geometry it is the plain Hessian of ``f o Phi`` (no lift, no tangential
+      of ``A^T M r``). On a corewise geometry it is the plain Hessian of ``f o Phi`` (no lift, no tangential
       term).
 
     ``gn_quadratic`` (the oracle's ``Jp_norm_sq``) / ``jacobian`` / ``residual`` / ``retract`` mean the same in both
-    modes (``gn_quadratic`` is always ``‖ω J Pi p‖² (+ <p, H_R p>)``); ``quadratic`` is the mode's model
+    modes (``gn_quadratic`` is always ``<M J Pi p, J Pi p> (+ <p, H_R p>)``); ``quadratic`` is the mode's model
     ``<p, H p>``. On a drawn batch every misfit value is the oracle's scaled one (an estimate of the full batch's),
     the regularizer's terms unscaled."""
     geom:     typ.Any        # a Geometry (backend.geometry.*GeometryOps); aux_data, so it must hash by VALUE
@@ -345,7 +347,7 @@ class LocalModel:
                              "this one is Gauss-Newton" % who)
 
     @property
-    def misfit(self):                                    # ½‖ω⊙r‖²  (the weighted data misfit alone): the build's f
+    def misfit(self):                                    # ½<r, M r>  (the weighted data misfit alone): the build's f
         return self.f
 
     @property
@@ -355,17 +357,17 @@ class LocalModel:
         return self.regularizer.value(self.geom, self.geom.base_point(self.frame))
 
     @property
-    def objective(self):                                 # c = ½‖ω⊙r‖²  (+ ρ(X) if regularized)
+    def objective(self):                                 # ½<r, M r>  (+ ρ(X) if regularized)
         return self.misfit + self.regularization
 
     @property
-    def residual(self):                                  # r = z(X) - y, of the type of z (the oracle's optional r)
+    def residual(self):                                  # r = z(X) - y: Y*, of the type of z (the oracle's optional r)
         _require_output(self.oracle, 'r', 'LocalModel.residual')
         (r,), _ = self.oracle.query(self.frame, self.batch, ('r',), Vc=self._Vc, held=self.held)
         return r
 
     @property
-    def gradient(self) -> Tangent:                       # g = Π 𝒥ᵀ ω² r  (+ g_R)
+    def gradient(self) -> Tangent:                       # g = Π Jᵀ(M r)  (+ g_R), M = gamma * omega**2
         if self.curvature is not None:                   # exact: the build's g, projected once already
             g = self.curvature.misfit_gradient
         else:
@@ -375,13 +377,13 @@ class LocalModel:
             g = cw.corewise_add(g, self.regularizer.gradient(self.geom, self.frame, aux=self.geom_aux))
         return g
 
-    def jacobian(self, p: Tangent):                      # 𝒥 Π p, of the type of z with K (the oracle's optional Jp)
+    def jacobian(self, p: Tangent):                      # J Π p: Y*, of the type of z with K (the oracle's optional Jp)
         _require_output(self.oracle, 'Jp', 'LocalModel.jacobian')
         pp = self.geom.project(self.frame, p, aux=self.geom_aux)
         (Jp,), _ = self.oracle.query(self.frame, self.batch, ('Jp',), Vc=self._Vc, variations=pp, held=self.held)
         return Jp
 
-    def gn_quadratic(self, p: Tangent):                  # ‖ω 𝒥 Π p‖²  (+ ⟨p, H_R p⟩) -- the Cauchy denominator; K+C
+    def gn_quadratic(self, p: Tangent):                  # <M JΠp, JΠp>  (+ ⟨p, H_R p⟩) -- the Cauchy denominator; K+C
         pp = self.geom.project(self.frame, p, aux=self.geom_aux)
         (q,), _ = self.oracle.query(self.frame, self.batch, ('Jp_norm_sq',), Vc=self._Vc, variations=pp,
                                     held=self.held)
@@ -389,9 +391,9 @@ class LocalModel:
             q = q + self.regularizer.quadratic(self.geom, self.frame, p, aux=self.geom_aux)
         return q
 
-    def hvp(self, p: Tangent) -> Tangent:                # GN: H p = Π 𝒥ᵀ ω² 𝒥 Π p  (+ H_R p)
+    def hvp(self, p: Tangent) -> Tangent:                # GN: H p = Π Jᵀ M J Π p  (+ H_R p)
         pp = self.geom.project(self.frame, p, aux=self.geom_aux)
-        if not self._has_curvature_term:                 # exact: Π [𝒥ᵀω²𝒥 Πp + Lᵀ K_N L Πp]  (+ H_R p)
+        if not self._has_curvature_term:                 # exact: Π [Jᵀ M J Πp + Lᵀ K_N L Πp]  (+ H_R p)
             (JtJp,), _ = self.oracle.query(self.frame, self.batch, ('JtJp',), Vc=self._Vc, variations=pp,
                                            held=self.held)
             Hp = self.geom.project(self.frame, JtJp, aux=self.geom_aux)
@@ -405,17 +407,17 @@ class LocalModel:
             Hp = cw.corewise_add(Hp, self.regularizer.hessian(self.geom, self.frame, p, aux=self.geom_aux))
         return Hp
 
-    def _curvature_from(                                 # Lᵀ (K_{Aᵀω²r} − K_{grad f}) θ̂ -- UNGAUGED, K+C
+    def _curvature_from(                                 # Lᵀ (K_{Aᵀ M r} − K_{grad f}) θ̂ -- UNGAUGED, K+C
             self,
             theta_hat:  Tangent,                         # the lifted direction L Π p (raw core directions)
-            Kp:         Tangent,                         # the oracle's Kp along it: K_{Aᵀω²r} θ̂ (ω² inside)
+            Kp:         Tangent,                         # the oracle's Kp along it: K_{Aᵀ M r} θ̂ (M inside)
     ) -> Tangent:
         geom, data = self.geom, self.curvature.geometry_data
         K_grad = geom.tangential_curvature(self.frame, theta_hat, data)           # K_{grad f} θ̂, or None
         K = Kp if K_grad is None else cw.corewise_sub(Kp, K_grad)
         return geom.lift_transpose(self.frame, K, data)
 
-    def _curvature_block(self, pp: Tangent) -> Tangent:  # Lᵀ (K_{Aᵀω²r} − K_{grad f}) L pp -- UNGAUGED, K+C
+    def _curvature_block(self, pp: Tangent) -> Tangent:  # Lᵀ (K_{Aᵀ M r} − K_{grad f}) L pp -- UNGAUGED, K+C
         theta_hat = self.geom.lift(self.frame, pp, self.curvature.geometry_data)
         (Kp,), _ = self.oracle.query(self.frame, self.batch, ('Kp',), Vc=self._Vc, core_directions=theta_hat,
                                      held=self.held)

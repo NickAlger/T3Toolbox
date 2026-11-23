@@ -698,9 +698,9 @@ class T3Tangent(common.ExplicitEquality):
 
     def probe(
             self,
-            ww:     typ.Sequence[NDArray],      # input jets, len=d, elm_shape=F_in_i+W+(Ni,)
+            ww:     typ.Sequence[NDArray],      # input jets: P_in_i⊗V_i, len=d, elm_shape=F_in_i+W+(Ni,)
             order:  typ.Tuple[int, ...] = (),   # the jet shape; F=tuple(n+1 for n in order)
-    ) -> typ.Tuple[NDArray, ...]:               # Jp. len=d, elm_shape=F+W+K+C+(Ni,)
+    ) -> typ.Tuple[NDArray, ...]:               # Jp: P⊗V_i*, len=d, elm_shape=F+W+K+C+(Ni,)
         """Probe this tangent vector: apply the single-sample least-squares Jacobian J^(s).
 
         Contracts the tangent vector with the probing vectors ``ww`` in all-but-one index, for each
@@ -751,11 +751,12 @@ class T3Tangent(common.ExplicitEquality):
     @staticmethod
     def probe_transpose(
             frame:             bvf.T3Frame,
-            ww:                typ.Sequence[NDArray],      # input jets, len=d, elm_shape=F_in_i+W+(Ni,)
+            ww:                typ.Sequence[NDArray],      # input jets: P_in_i⊗V_i, len=d, elm_shape=F_in_i+W+(Ni,)
             c:                 typ.Sequence[NDArray],      # P*⊗V_i, len=d, elm_shape=F+W+[K]+C+(Ni,)
             order:             typ.Tuple[int, ...] = (),   # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: keep the sample stack W (W+K tangents)
-    ) -> 'T3Tangent':                                      # at frame; tangent stack [W]+[K], frame stack C
+    ) -> 'T3Tangent':                                      # X*, in a T3Tangent at frame (before the projection);
+                                                           #   tangent stack [W]+[K], frame stack C
         """Apply the transpose ``(J^(s))^T`` of the probe map to ``c``; returns a T3Tangent at ``frame``.
 
         The adjoint of :py:meth:`probe`. ``c`` is an element of ``Y`` (``P*⊗V_i`` per mode), paired with ``probe``'s
@@ -776,7 +777,9 @@ class T3Tangent(common.ExplicitEquality):
         ``probe(ww, order)``, a vector per jet slot, and the jet axes are summed (the slot-by-slot pairing of ``Y`` with
         ``Y*``). See *Batching & stacking* §11 (``docs/batching_and_stacking.md``) for which mode to use and why.
 
-        Bare ``(J^(s))^T`` (no gauge projector). See Section 6.2.3 (Algorithm 8) of Alger et al. (2026).
+        Bare ``(J^(s))^T`` (no gauge projector): the result is an element of ``X*``, carried in a ``T3Tangent`` at
+        ``frame`` before the projection (the geometry's ``project`` maps it into ``X``). See Section 6.2.3
+        (Algorithm 8) of Alger et al. (2026).
 
         See Also
         --------
@@ -833,9 +836,9 @@ class T3Tangent(common.ExplicitEquality):
 
     def apply(
             self,
-            ww:     typ.Sequence[NDArray],      # input jets, len=d, elm_shape=F_in_i+W+(Ni,)
+            ww:     typ.Sequence[NDArray],      # input jets: P_in_i⊗V_i, len=d, elm_shape=F_in_i+W+(Ni,)
             order:  typ.Tuple[int, ...] = (),   # the jet shape; F=tuple(n+1 for n in order)
-    ) -> NDArray:                               # Jp. shape=F+W+K+C
+    ) -> NDArray:                               # Jp: P, shape=F+W+K+C
         """Apply this tangent vector in all modes: contract the dense tangent with ``ww`` everywhere.
 
         The all-modes special case of :py:meth:`probe` (probing leaves one index free; this contracts
@@ -872,8 +875,8 @@ class T3Tangent(common.ExplicitEquality):
 
     def entries(
             self,
-            index:  NDArray,                    # int, shape=(d,)+W (a nested list is converted)
-    ) -> NDArray:                               # Jp. shape=W+K+C
+            index:  NDArray,                    # index^d, shape=(d,)+W, int (a nested list is converted)
+    ) -> NDArray:                               # Jp: ℝ, shape=W+K+C
         """Extract entries of the dense tangent at ``index`` (without forming the dense tangent).
 
         The tangent analogue of :py:meth:`.TuckerTensorTrain.entries`, and the all-modes special case
@@ -907,11 +910,12 @@ class T3Tangent(common.ExplicitEquality):
     @staticmethod
     def apply_transpose(
             frame:             bvf.T3Frame,
-            ww:                typ.Sequence[NDArray],      # input jets, len=d, elm_shape=F_in_i+W+(Ni,)
+            ww:                typ.Sequence[NDArray],      # input jets: P_in_i⊗V_i, len=d, elm_shape=F_in_i+W+(Ni,)
             c:                 NDArray,                    # P*, shape=F+W+[K]+C
             order:             typ.Tuple[int, ...] = (),   # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: keep the sample stack W (W+K tangents)
-    ) -> 'T3Tangent':                                      # at frame; tangent stack [W]+[K], frame stack C
+    ) -> 'T3Tangent':                                      # X*, in a T3Tangent at frame (before the projection);
+                                                           #   tangent stack [W]+[K], frame stack C
         """Apply the transpose ``apply^T`` of :py:meth:`apply`: back-project ``c`` into a tangent.
 
         The adjoint of the (linear-in-the-variation) all-modes :py:meth:`apply`. ``c`` is an element of ``Y`` (``P*``
@@ -921,7 +925,8 @@ class T3Tangent(common.ExplicitEquality):
         (default) the sample stack ``W`` is summed -- ``J^T c``, the Gauss-Newton gradient ``J^T(M r)`` when
         ``c = data_metric(r, weight, minibatch_scale)``; with ``sum_over_samples=False`` it becomes the result's tangent
         stack (one tangent per sample). Needs only the frame sweep + a single-term scatter assembly (cheaper than a
-        general :py:meth:`probe_transpose`).
+        general :py:meth:`probe_transpose`). The result is ``X*`` in a ``T3Tangent``, before the projection, as
+        there.
 
         ``sum_over_samples=True == Σ_W sum_over_samples=False``. See
         *Batching & stacking* §11 (``docs/batching_and_stacking.md``) for which mode to use and why.
@@ -951,15 +956,17 @@ class T3Tangent(common.ExplicitEquality):
     @staticmethod
     def entries_transpose(
             frame:             bvf.T3Frame,
-            index:             NDArray,                    # int, shape=(d,)+W (a nested list is converted)
+            index:             NDArray,                    # index^d, shape=(d,)+W, int (a nested list is converted)
             c:                 NDArray,                    # ℝ, shape=W+[K]+C
             sum_over_samples:  bool = True,                # False: keep the sample stack W (W+K tangents)
-    ) -> 'T3Tangent':                                      # at frame; tangent stack [W]+[K], frame stack C
+    ) -> 'T3Tangent':                                      # X*, in a T3Tangent at frame (before the projection);
+                                                           #   tangent stack [W]+[K], frame stack C
         """Apply the transpose ``entries^T`` of :py:meth:`entries`: scatter ``c`` at ``index`` into a tangent.
 
         The adjoint of :py:meth:`entries` -- identical to :py:meth:`apply_transpose` with the upward ``ξ̂`` from fiber
         slicing and unit apply-vectors ``e_{index}``; ``c`` is an element of ``Y`` (``ℝ`` per sample), with no metric,
-        as there. ``sum_over_samples`` as in :py:meth:`apply_transpose` (see *Batching & stacking* §11).
+        as there. ``sum_over_samples`` as in :py:meth:`apply_transpose` (see *Batching & stacking* §11). The result
+        is ``X*`` in a ``T3Tangent``, before the projection, as there.
 
         See Also
         --------

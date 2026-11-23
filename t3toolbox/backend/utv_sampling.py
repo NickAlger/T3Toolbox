@@ -85,11 +85,13 @@ def _mask_once(
 
 
 def utv_probe(
-        frame:             typ.Tuple,                    # UT3Frame .data: (D, U, L, R, shape, masks), stack C
-        variations:        typ.Tuple,                    # UT3Variations .data: (V, H) read, the frame's masks
-        ww:                Vectors,                      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
+        frame:             typ.Tuple,                    # the base point: UT3Frame .data (D, U, L, R, shape, masks),
+                                                         #   stack C
+        variations:        typ.Tuple,                    # X, UT3Variations .data: (V, H) read, the frame's masks
+        ww:                Vectors,                      # input jets: P_in_i⊗V_i, len=d, F_in_i+W+(Ni,); or packed
+                                                         #   (d,)+F_in+W+(N,)
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
-) -> Vectors:                               # Jp, MIRRORS ww: len=d, F+W+K+C+(Ni,); or packed
+) -> Vectors:                               # Jp: P⊗V_i*, MIRRORS ww: len=d, F+W+K+C+(Ni,); or packed
     """The uniform twin of :py:func:`~t3toolbox.backend.probing.tv_probe` (the bare ``J``, no gauge projector): one
     call of the engine on the frame wanting ``Jp``. Only ``variations[:2]`` is read, masked by the FRAME's masks (a
     uniform tangent's variation masks are derived from its frame's; their own are not read). **Mirrors** the
@@ -101,11 +103,13 @@ def utv_probe(
 
 
 def utv_apply(
-        frame:             typ.Tuple,                    # UT3Frame .data: (D, U, L, R, shape, masks), stack C
-        variations:        typ.Tuple,                    # UT3Variations .data: (V, H) read, the frame's masks
-        ww:                Vectors,                      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
+        frame:             typ.Tuple,                    # the base point: UT3Frame .data (D, U, L, R, shape, masks),
+                                                         #   stack C
+        variations:        typ.Tuple,                    # X, UT3Variations .data: (V, H) read, the frame's masks
+        ww:                Vectors,                      # input jets: P_in_i⊗V_i, len=d, F_in_i+W+(Ni,); or packed
+                                                         #   (d,)+F_in+W+(N,)
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
-) -> NDArray:                               # Jp. shape=F+W+K+C
+) -> NDArray:                               # Jp: P, shape=F+W+K+C
     """The uniform twin of :py:func:`~t3toolbox.backend.apply.tv_apply` (the bare ``J``, no gauge projector): one
     call of the engine on the frame wanting ``Jp``. Only ``variations[:2]`` is read, masked by the FRAME's masks (a
     uniform tangent's variation masks are derived from its frame's; their own are not read)."""
@@ -115,10 +119,11 @@ def utv_apply(
 
 
 def utv_entries(
-        frame:             typ.Tuple,                    # UT3Frame .data: (D, U, L, R, shape, masks), stack C
-        variations:        typ.Tuple,                    # UT3Variations .data: (V, H) read, the frame's masks
-        index:             NDArray,                      # int, shape=(d,)+W: the grid points
-) -> NDArray:                               # Jp. shape=W+K+C
+        frame:             typ.Tuple,                    # the base point: UT3Frame .data (D, U, L, R, shape, masks),
+                                                         #   stack C
+        variations:        typ.Tuple,                    # X, UT3Variations .data: (V, H) read, the frame's masks
+        index:             NDArray,                      # index^d, shape=(d,)+W, int: the grid points
+) -> NDArray:                               # Jp: ℝ, shape=W+K+C
     """The uniform twin of :py:func:`~t3toolbox.backend.entries.tv_entries` (the bare ``J``, no gauge projector):
     one call of the engine on the frame wanting ``Jp``. Only ``variations[:2]`` is read, masked by the FRAME's masks
     (a uniform tangent's variation masks are derived from its frame's; their own are not read)."""
@@ -465,12 +470,14 @@ def _remasked_transpose_output(
 
 
 def utv_probe_transpose(
-        frame:             typ.Tuple,                    # UT3Frame .data: (D, U, L, R, shape, masks), stack C
-        ww:                Vectors,                      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
+        frame:             typ.Tuple,                    # the base point: UT3Frame .data (D, U, L, R, shape, masks),
+                                                         #   stack C
+        ww:                Vectors,                      # input jets: P_in_i⊗V_i, len=d, F_in_i+W+(Ni,); or packed
+                                                         #   (d,)+F_in+W+(N,)
         c:                 Vectors,                      # P*⊗V_i, len=d, F+W+[K]+C+(Ni,); or packed
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
-):  # -> UT3Variations .data: (V_tilde, H_tilde, shape, masks); stack K_new + C
+):  # -> X*: UT3Variations .data (V_tilde, H_tilde, shape, masks); stack K_new + C
     """The uniform twin of :py:func:`~t3toolbox.backend.probing.tv_probe_transpose` (the bare ``J^T``, no gauge
     projector; ``c`` an element of ``Y``, with no metric, as there): the engine's ``JtJp`` with ``c`` held as ``Jp`` (a
     ragged ``c`` packed here), then the result variation masks attached, the frame's gauge masks broadcast over the new
@@ -483,12 +490,14 @@ def utv_probe_transpose(
 
 
 def utv_apply_transpose(
-        frame:             typ.Tuple,                    # UT3Frame .data: (D, U, L, R, shape, masks), stack C
-        ww:                Vectors,                      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
+        frame:             typ.Tuple,                    # the base point: UT3Frame .data (D, U, L, R, shape, masks),
+                                                         #   stack C
+        ww:                Vectors,                      # input jets: P_in_i⊗V_i, len=d, F_in_i+W+(Ni,); or packed
+                                                         #   (d,)+F_in+W+(N,)
         c:                 NDArray,                      # P*, shape=F+W+[K]+C
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
-):  # -> UT3Variations .data: (V_tilde, H_tilde, shape, masks); stack K_new + C
+):  # -> X*: UT3Variations .data (V_tilde, H_tilde, shape, masks); stack K_new + C
     """The uniform twin of :py:func:`~t3toolbox.backend.apply.tv_apply_transpose` (the bare ``J^T``, no gauge projector;
     ``c`` an element of ``Y``, with no metric, as there): the engine's ``JtJp`` with ``c`` held as ``Jp``, then the
     result variation masks attached, the frame's gauge masks broadcast over the new tangent stack ``K_new`` (``W+K`` if
@@ -500,11 +509,12 @@ def utv_apply_transpose(
 
 
 def utv_entries_transpose(
-        frame:             typ.Tuple,                    # UT3Frame .data: (D, U, L, R, shape, masks), stack C
-        index:             NDArray,                      # int, shape=(d,)+W: the grid points
+        frame:             typ.Tuple,                    # the base point: UT3Frame .data (D, U, L, R, shape, masks),
+                                                         #   stack C
+        index:             NDArray,                      # index^d, shape=(d,)+W, int: the grid points
         c:                 NDArray,                      # ℝ, shape=W+[K]+C
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
-):  # -> UT3Variations .data: (V_tilde, H_tilde, shape, masks); stack K_new + C
+):  # -> X*: UT3Variations .data (V_tilde, H_tilde, shape, masks); stack K_new + C
     """The uniform twin of :py:func:`~t3toolbox.backend.entries.tv_entries_transpose` (the bare ``J^T``, no gauge
     projector; ``c`` an element of ``Y``, with no metric, as there): the engine's ``JtJp`` with ``c`` held as ``Jp``,
     then the result variation masks attached, the frame's gauge masks broadcast over the new tangent stack ``K_new``

@@ -3457,8 +3457,8 @@ class TuckerTensorTrain(common.ExplicitEquality):
 
     def entries(
             self,
-            index:  NDArray,                    # int, shape=(d,)+W (a nested list is converted)
-    ) -> NDArray:                               # z. shape=W+C
+            index:  NDArray,                    # index^d, shape=(d,)+W, int (a nested list is converted)
+    ) -> NDArray:                               # z: ℝ, shape=W+C
         '''Compute an entry (or multiple entries) of a Tucker tensor train.
 
         This is the entry of the ``N0 x ... x N(d-1)`` tensor *represented* by the
@@ -3567,9 +3567,9 @@ class TuckerTensorTrain(common.ExplicitEquality):
 
     def apply(
             self,
-            ww:     Sequence[NDArray],          # input jets, len=d, elm_shape=F_in_i+W+(Ni,)
+            ww:     Sequence[NDArray],          # input jets: P_in_i⊗V_i, len=d, elm_shape=F_in_i+W+(Ni,)
             order:  Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
-    ) -> NDArray:                               # z. shape=F+W+C
+    ) -> NDArray:                               # z: P, shape=F+W+C
         '''Contract a Tucker tensor train with vectors in all indices.
 
         Parameters
@@ -3659,9 +3659,9 @@ class TuckerTensorTrain(common.ExplicitEquality):
 
     def probe(
             self,
-            ww:     Sequence[NDArray],          # input jets, len=d, elm_shape=F_in_i+W+(Ni,)
+            ww:     Sequence[NDArray],          # input jets: P_in_i⊗V_i, len=d, elm_shape=F_in_i+W+(Ni,)
             order:  Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
-    ) -> Tuple[NDArray, ...]:                   # z. len=d, elm_shape=F+W+C+(Ni,)
+    ) -> Tuple[NDArray, ...]:                   # z: P⊗V_i*, len=d, elm_shape=F+W+C+(Ni,)
         """Probe a TuckerTensorTrain.
 
         Parameters
@@ -3757,10 +3757,10 @@ class TuckerTensorTrain(common.ExplicitEquality):
 
     @staticmethod
     def probe_ambient_transpose(
-            ww:                Sequence[NDArray],          # probe vectors, len=d, elm_shape=W+(Ni,)
+            ww:                Sequence[NDArray],          # probe vectors: V_i, len=d, elm_shape=W+(Ni,)
             c:                 Sequence[NDArray],          # V_i, len=d, elm_shape=W+C+(Ni,)
             sum_over_samples:  bool = False,               # True: W folds into the CP rank
-    ) -> Sequence[NDArray]:                                # CP factors, len=d, elm_shape=stack+(R,Ni)
+    ) -> Sequence[NDArray]:                                # CP factors: E*, len=d, elm_shape=stack+(R,Ni)
         """Ambient transpose of :py:meth:`probe`: back-project ``c`` into canonical (CP) factors.
 
         The probe counterpart of :py:meth:`apply_ambient_transpose` -- the literal adjoint of ``probe`` as a linear map
@@ -3816,13 +3816,13 @@ class TuckerTensorTrain(common.ExplicitEquality):
 
     def probe_corewise_transpose(
             self,
-            ww:                Sequence[NDArray],          # input jets, len=d, elm_shape=F_in_i+W+(Ni,)
+            ww:                Sequence[NDArray],          # input jets: P_in_i⊗V_i, len=d, elm_shape=F_in_i+W+(Ni,)
             c:                 Sequence[NDArray],          # P*⊗V_i, len=d, elm_shape=F+W+[K]+C+(Ni,)
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: W joins the stack
     ) -> Tuple[
-            Tuple[NDArray, ...],                  # Tucker-core gradients, len=d, elm_shape=[W]+[K]+C+(ni,Ni)
-            Tuple[NDArray, ...],                  # TT-core gradients,     len=d, elm_shape=[W]+[K]+C+(ri,ni,r(i+1))
+            Tuple[NDArray, ...],                  # Tucker-core blocks: X*, len=d, elm_shape=[W]+[K]+C+(ni,Ni)
+            Tuple[NDArray, ...],                  # TT-core blocks:     X*, len=d, elm_shape=[W]+[K]+C+(ri,ni,r(i+1))
     ]:
         """Corewise (non-manifold) transpose of :py:meth:`probe`: gradient w.r.t. *this tensor's cores*.
 
@@ -3870,10 +3870,10 @@ class TuckerTensorTrain(common.ExplicitEquality):
 
     @staticmethod
     def apply_ambient_transpose(
-            ww:                Sequence[NDArray],          # apply vectors, len=d, elm_shape=W+(Ni,)
+            ww:                Sequence[NDArray],          # apply vectors: V_i, len=d, elm_shape=W+(Ni,)
             c:                 NDArray,                    # ℝ, shape=W+C
             sum_over_samples:  bool = False,               # True: W becomes the CP rank
-    ) -> Sequence[NDArray]:                                # CP factors, len=d, elm_shape=stack+(R,Ni)
+    ) -> Sequence[NDArray]:                                # CP factors: E*, len=d, elm_shape=stack+(R,Ni)
         """Ambient transpose of :py:meth:`apply`: back-project ``c`` into canonical (CP) factors.
 
         This is **one of three** transposes of ``apply`` -- make sure it is the one you want (full
@@ -3931,11 +3931,11 @@ class TuckerTensorTrain(common.ExplicitEquality):
 
     @staticmethod
     def entries_ambient_transpose(
-            index:             NDArray,                    # int, shape=(d,)+W (a nested list is converted)
+            index:             NDArray,                    # index^d, shape=(d,)+W, int (a nested list is converted)
             shape:             Sequence[int],              # the mode sizes (N0, ..., N(d-1))
             c:                 NDArray,                    # ℝ, shape=W+C
             sum_over_samples:  bool = False,               # True: W becomes the CP rank (collisions scatter-add)
-    ) -> Sequence[NDArray]:                                # CP factors, len=d, elm_shape=stack+(R,Ni)
+    ) -> Sequence[NDArray]:                                # CP factors: E*, len=d, elm_shape=stack+(R,Ni)
         """Ambient transpose of :py:meth:`entries`: scatter ``c`` at ``index`` into canonical (CP) factors.
 
         The ``entries`` counterpart of :py:meth:`apply_ambient_transpose` -- identical, with the apply
@@ -3979,13 +3979,13 @@ class TuckerTensorTrain(common.ExplicitEquality):
 
     def apply_corewise_transpose(
             self,
-            ww:                Sequence[NDArray],          # input jets, len=d, elm_shape=F_in_i+W+(Ni,)
+            ww:                Sequence[NDArray],          # input jets: P_in_i⊗V_i, len=d, elm_shape=F_in_i+W+(Ni,)
             c:                 NDArray,                    # P*, shape=F+W+[K]+C
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: W joins the stack
     ) -> Tuple[
-            Tuple[NDArray, ...],                  # Tucker-core gradients, len=d, elm_shape=[W]+[K]+C+(ni,Ni)
-            Tuple[NDArray, ...],                  # TT-core gradients,     len=d, elm_shape=[W]+[K]+C+(ri,ni,r(i+1))
+            Tuple[NDArray, ...],                  # Tucker-core blocks: X*, len=d, elm_shape=[W]+[K]+C+(ni,Ni)
+            Tuple[NDArray, ...],                  # TT-core blocks:     X*, len=d, elm_shape=[W]+[K]+C+(ri,ni,r(i+1))
     ]:
         """Corewise (non-manifold) transpose of :py:meth:`apply`: gradient w.r.t. *this tensor's cores*.
 
@@ -4040,12 +4040,12 @@ class TuckerTensorTrain(common.ExplicitEquality):
 
     def entries_corewise_transpose(
             self,
-            index:             NDArray,                    # int, shape=(d,)+W (a nested list is converted)
+            index:             NDArray,                    # index^d, shape=(d,)+W, int (a nested list is converted)
             c:                 NDArray,                    # ℝ, shape=W+[K]+C
             sum_over_samples:  bool = True,                # False: W joins the stack
     ) -> Tuple[
-            Tuple[NDArray, ...],                  # Tucker-core gradients, len=d, elm_shape=[W]+[K]+C+(ni,Ni)
-            Tuple[NDArray, ...],                  # TT-core gradients,     len=d, elm_shape=[W]+[K]+C+(ri,ni,r(i+1))
+            Tuple[NDArray, ...],                  # Tucker-core blocks: X*, len=d, elm_shape=[W]+[K]+C+(ni,Ni)
+            Tuple[NDArray, ...],                  # TT-core blocks:     X*, len=d, elm_shape=[W]+[K]+C+(ri,ni,r(i+1))
     ]:
         """Corewise (non-manifold) transpose of :py:meth:`entries`: gradient w.r.t. *this tensor's cores*.
 
@@ -4069,10 +4069,10 @@ class TuckerTensorTrain(common.ExplicitEquality):
 
     def probe_corewise_tangent(
             self,
-            ww:                Sequence[NDArray],          # input jets, len=d, elm_shape=F_in_i+W+(Ni,)
-            core_directions:   Tuple,                      # (tucker_dirs, tt_dirs): the cores' shapes with K
+            ww:                Sequence[NDArray],          # input jets: P_in_i⊗V_i, len=d, elm_shape=F_in_i+W+(Ni,)
+            core_directions:   Tuple,                      # X, (tucker_dirs, tt_dirs): the cores' shapes with K
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
-    ) -> Tuple[NDArray, ...]:                              # J x_dot. len=d, elm_shape=F+W+K+C+(Ni,)
+    ) -> Tuple[NDArray, ...]:                              # J x_dot: P⊗V_i*, len=d, elm_shape=F+W+K+C+(Ni,)
         """The corewise forward derivative of :py:meth:`probe`: ``J x_dot``, the derivative of ``self.probe(ww)``
         along ``core_directions`` in the cores.
 
@@ -4110,10 +4110,10 @@ class TuckerTensorTrain(common.ExplicitEquality):
 
     def apply_corewise_tangent(
             self,
-            ww:                Sequence[NDArray],          # input jets, len=d, elm_shape=F_in_i+W+(Ni,)
-            core_directions:   Tuple,                      # (tucker_dirs, tt_dirs): the cores' shapes with K
+            ww:                Sequence[NDArray],          # input jets: P_in_i⊗V_i, len=d, elm_shape=F_in_i+W+(Ni,)
+            core_directions:   Tuple,                      # X, (tucker_dirs, tt_dirs): the cores' shapes with K
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
-    ) -> NDArray:                                          # J x_dot. shape=F+W+K+C
+    ) -> NDArray:                                          # J x_dot: P, shape=F+W+K+C
         """The corewise forward derivative of :py:meth:`apply`, as :py:meth:`probe_corewise_tangent`."""
         jets.check_sample('apply', order, ww, self.shape)
         _check_core_directions(core_directions)
@@ -4121,9 +4121,9 @@ class TuckerTensorTrain(common.ExplicitEquality):
 
     def entries_corewise_tangent(
             self,
-            index:             NDArray,                    # int, shape=(d,)+W (a nested list is converted)
-            core_directions:   Tuple,                      # (tucker_dirs, tt_dirs): the cores' shapes with K
-    ) -> NDArray:                                          # J x_dot. shape=W+K+C
+            index:             NDArray,                    # index^d, shape=(d,)+W, int (a nested list is converted)
+            core_directions:   Tuple,                      # X, (tucker_dirs, tt_dirs): the cores' shapes with K
+    ) -> NDArray:                                          # J x_dot: ℝ, shape=W+K+C
         """The corewise forward derivative of :py:meth:`entries`, as :py:meth:`probe_corewise_tangent`."""
         index = _as_index(index)
         jets.check_sample('entries', (), index, self.shape)
@@ -4132,20 +4132,21 @@ class TuckerTensorTrain(common.ExplicitEquality):
 
     def probe_corewise_hessian(
             self,
-            ww:                Sequence[NDArray],          # input jets, len=d, elm_shape=F_in_i+W+(Ni,)
+            ww:                Sequence[NDArray],          # input jets: P_in_i⊗V_i, len=d, elm_shape=F_in_i+W+(Ni,)
             c:                 Sequence[NDArray],          # P*⊗V_i, len=d, elm_shape=F+W+C+(Ni,)
-            core_directions:   Tuple,                      # (tucker_dirs, tt_dirs): the cores' shapes with K
+            core_directions:   Tuple,                      # X, (tucker_dirs, tt_dirs): the cores' shapes with K
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: W joins the blocks' stack
     ) -> Tuple[
-            Tuple[NDArray, ...],                           # Tucker blocks, len=d, elm_shape=[W]+K+C+(ni,Ni)
-            Tuple[NDArray, ...],                           # TT blocks,     len=d, elm_shape=[W]+K+C+(ri,ni,r(i+1))
+            Tuple[NDArray, ...],                           # Tucker blocks: X*, len=d, elm_shape=[W]+K+C+(ni,Ni)
+            Tuple[NDArray, ...],                           # TT blocks:     X*, len=d, elm_shape=[W]+K+C+(ri,ni,r(i+1))
     ]:
         """The corewise Hessian of probing: the second derivative of ``phi(x) = <c, x.probe(ww)>`` in the cores at
         ``self``, applied to ``core_directions`` (the derivative of :py:meth:`probe_corewise_transpose` along them).
         ``c`` is an element of ``Y`` (``P*⊗V_i`` per mode), paired with ``probe``'s output slot by slot, with no metric
-        (for a weighted fit's, pass ``data_metric(r, weight, minibatch_scale)``). ``core_directions`` as in
-        :py:meth:`probe_corewise_tangent`. Summed over the samples unless ``sum_over_samples=False``.
+        (for the curvature term of a weighted fit, ``Kp`` at ``c = M r``, pass
+        ``data_metric(r, weight, minibatch_scale)``). ``core_directions`` as in :py:meth:`probe_corewise_tangent`.
+        Summed over the samples unless ``sum_over_samples=False``.
 
         See Also
         --------
@@ -4178,14 +4179,14 @@ class TuckerTensorTrain(common.ExplicitEquality):
 
     def apply_corewise_hessian(
             self,
-            ww:                Sequence[NDArray],          # input jets, len=d, elm_shape=F_in_i+W+(Ni,)
+            ww:                Sequence[NDArray],          # input jets: P_in_i⊗V_i, len=d, elm_shape=F_in_i+W+(Ni,)
             c:                 NDArray,                    # P*, shape=F+W+C
-            core_directions:   Tuple,                      # (tucker_dirs, tt_dirs): the cores' shapes with K
+            core_directions:   Tuple,                      # X, (tucker_dirs, tt_dirs): the cores' shapes with K
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: W joins the blocks' stack
     ) -> Tuple[
-            Tuple[NDArray, ...],                           # Tucker blocks, len=d, elm_shape=[W]+K+C+(ni,Ni)
-            Tuple[NDArray, ...],                           # TT blocks,     len=d, elm_shape=[W]+K+C+(ri,ni,r(i+1))
+            Tuple[NDArray, ...],                           # Tucker blocks: X*, len=d, elm_shape=[W]+K+C+(ni,Ni)
+            Tuple[NDArray, ...],                           # TT blocks:     X*, len=d, elm_shape=[W]+K+C+(ri,ni,r(i+1))
     ]:
         """The corewise Hessian of :py:meth:`apply`, as :py:meth:`probe_corewise_hessian`."""
         jets.check_sample('apply', order, ww, self.shape)
@@ -4195,13 +4196,13 @@ class TuckerTensorTrain(common.ExplicitEquality):
 
     def entries_corewise_hessian(
             self,
-            index:             NDArray,                    # int, shape=(d,)+W (a nested list is converted)
+            index:             NDArray,                    # index^d, shape=(d,)+W, int (a nested list is converted)
             c:                 NDArray,                    # ℝ, shape=W+C
-            core_directions:   Tuple,                      # (tucker_dirs, tt_dirs): the cores' shapes with K
+            core_directions:   Tuple,                      # X, (tucker_dirs, tt_dirs): the cores' shapes with K
             sum_over_samples:  bool = True,                # False: W joins the blocks' stack
     ) -> Tuple[
-            Tuple[NDArray, ...],                           # Tucker blocks, len=d, elm_shape=[W]+K+C+(ni,Ni)
-            Tuple[NDArray, ...],                           # TT blocks,     len=d, elm_shape=[W]+K+C+(ri,ni,r(i+1))
+            Tuple[NDArray, ...],                           # Tucker blocks: X*, len=d, elm_shape=[W]+K+C+(ni,Ni)
+            Tuple[NDArray, ...],                           # TT blocks:     X*, len=d, elm_shape=[W]+K+C+(ri,ni,r(i+1))
     ]:
         """The corewise Hessian of :py:meth:`entries`, as :py:meth:`probe_corewise_hessian`."""
         index = _as_index(index)

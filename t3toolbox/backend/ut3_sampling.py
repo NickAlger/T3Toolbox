@@ -72,9 +72,9 @@ Vectors = typ.Union[typ.Sequence[NDArray], NDArray]   # one vector per mode: rag
 
 
 def ut3_entries(
-        x:                 UT3Data,                      # the point's .data: (B, G, shape, masks), stack C
-        index:             NDArray,                      # int, shape=(d,)+W: the grid points
-) -> NDArray:                               # z. shape=W+C
+        x:                 UT3Data,                      # the point: X, its .data (B, G, shape, masks), stack C
+        index:             NDArray,                      # index^d, shape=(d,)+W, int: the grid points
+) -> NDArray:                               # z: ℝ, shape=W+C
     """Entries of a uniform Tucker tensor train at ``index``: the uniform twin of
     :py:func:`~t3toolbox.backend.entries.t3_entries`, one call of the engine on ``x`` wanting ``z``."""
     (z,) = sampling_variables.sampling_variables('entries', x, index, ('z',))
@@ -82,10 +82,11 @@ def ut3_entries(
 
 
 def ut3_apply(
-        x:                 UT3Data,                      # the point's .data: (B, G, shape, masks), stack C
-        ww:                Vectors,                      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
+        x:                 UT3Data,                      # the point: X, its .data (B, G, shape, masks), stack C
+        ww:                Vectors,                      # input jets: P_in_i⊗V_i, len=d, F_in_i+W+(Ni,); or packed
+                                                         #   (d,)+F_in+W+(N,)
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
-) -> NDArray:                               # z. shape=F+W+C
+) -> NDArray:                               # z: P, shape=F+W+C
     """Contract a uniform Tucker tensor train with the input jets in all modes: the uniform twin of
     :py:func:`~t3toolbox.backend.apply.t3_apply`, one call of the engine on ``x`` wanting ``z`` (ragged or packed
     ``ww``; the output is one array per sample either way)."""
@@ -94,10 +95,11 @@ def ut3_apply(
 
 
 def ut3_probe(
-        x:                 UT3Data,                      # the point's .data: (B, G, shape, masks), stack C
-        ww:                Vectors,                      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
+        x:                 UT3Data,                      # the point: X, its .data (B, G, shape, masks), stack C
+        ww:                Vectors,                      # input jets: P_in_i⊗V_i, len=d, F_in_i+W+(Ni,); or packed
+                                                         #   (d,)+F_in+W+(N,)
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
-) -> Vectors:                               # z, MIRRORS ww: len=d, F+W+C+(Ni,); or packed
+) -> Vectors:                               # z: P⊗V_i*, MIRRORS ww: len=d, F+W+C+(Ni,); or packed
     """Probe a uniform Tucker tensor train (all modes but one contracted, for each mode in turn): the uniform twin of
     :py:func:`~t3toolbox.backend.probing.t3_probe`, one call of the engine on ``x`` wanting ``z``. **Mirrors** the
     sample's form: a ragged ``ww`` gives a ``len=d`` tuple sliced to the real widths, a packed ``ww`` the packed
@@ -141,11 +143,13 @@ def _remasked_core_gradient(
 
 
 def ut3_apply_corewise_tangent(
-        x:                 UT3Data,                      # the point's .data: (B, G, shape, masks), stack C
-        ww:                Vectors,                      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
-        core_directions:   typ.Tuple[NDArray, NDArray],  # (B_dot, G_dot): supercores (d,)+K+C+(...), the point's sizes
+        x:                 UT3Data,                      # the point: X, its .data (B, G, shape, masks), stack C
+        ww:                Vectors,                      # input jets: P_in_i⊗V_i, len=d, F_in_i+W+(Ni,); or packed
+                                                         #   (d,)+F_in+W+(N,)
+        core_directions:   typ.Tuple[NDArray, NDArray],  # X, (B_dot, G_dot): supercores (d,)+K+C+(...), the point's
+                                                         #   sizes
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
-) -> NDArray:                               # J x_dot. shape=F+W+K+C
+) -> NDArray:                               # J x_dot: P, shape=F+W+K+C
     """The corewise forward derivative on supercores: the uniform twin of
     :py:func:`~t3toolbox.backend.apply.t3_apply_corewise_tangent`, ``J x_dot`` along ``core_directions``. One call
     of the engine on ``x`` wanting ``Jp`` (its raw route); the engine masks the directions with the point's masks,
@@ -156,14 +160,15 @@ def ut3_apply_corewise_tangent(
 
 
 def ut3_apply_corewise_transpose(
-        x:                 UT3Data,                      # the point's .data: (B, G, shape, masks), stack C
-        ww:                Vectors,                      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
+        x:                 UT3Data,                      # the point: X, its .data (B, G, shape, masks), stack C
+        ww:                Vectors,                      # input jets: P_in_i⊗V_i, len=d, F_in_i+W+(Ni,); or packed
+                                                         #   (d,)+F_in+W+(N,)
         c:                 NDArray,                      # P*, shape=F+W+[K]+C
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
 ) -> typ.Tuple[
-        NDArray,                                         # Tucker block, (d,)+[W]+[K]+C+(n,N)
-        NDArray,                                         # TT block,     (d,)+[W]+[K]+C+(r,n,r)
+        NDArray,                                         # Tucker block: X*, (d,)+[W]+[K]+C+(n,N)
+        NDArray,                                         # TT block:     X*, (d,)+[W]+[K]+C+(r,n,r)
 ]:
     """The corewise transpose on supercores: the uniform twin of
     :py:func:`~t3toolbox.backend.apply.t3_apply_corewise_transpose`, the gradient of ``<c, z(x)>`` in the cores (``c``
@@ -176,10 +181,11 @@ def ut3_apply_corewise_transpose(
 
 
 def ut3_entries_corewise_tangent(
-        x:                 UT3Data,                      # the point's .data: (B, G, shape, masks), stack C
-        index:             NDArray,                      # int, shape=(d,)+W: the grid points
-        core_directions:   typ.Tuple[NDArray, NDArray],  # (B_dot, G_dot): supercores (d,)+K+C+(...), the point's sizes
-) -> NDArray:                               # J x_dot. shape=W+K+C
+        x:                 UT3Data,                      # the point: X, its .data (B, G, shape, masks), stack C
+        index:             NDArray,                      # index^d, shape=(d,)+W, int: the grid points
+        core_directions:   typ.Tuple[NDArray, NDArray],  # X, (B_dot, G_dot): supercores (d,)+K+C+(...), the point's
+                                                         #   sizes
+) -> NDArray:                               # J x_dot: ℝ, shape=W+K+C
     """The corewise forward derivative on supercores: the uniform twin of
     :py:func:`~t3toolbox.backend.entries.t3_entries_corewise_tangent`, ``J x_dot`` along ``core_directions``. One
     call of the engine on ``x`` wanting ``Jp`` (its raw route); the engine masks the directions with the point's
@@ -190,13 +196,13 @@ def ut3_entries_corewise_tangent(
 
 
 def ut3_entries_corewise_transpose(
-        x:                 UT3Data,                      # the point's .data: (B, G, shape, masks), stack C
-        index:             NDArray,                      # int, shape=(d,)+W: the grid points
+        x:                 UT3Data,                      # the point: X, its .data (B, G, shape, masks), stack C
+        index:             NDArray,                      # index^d, shape=(d,)+W, int: the grid points
         c:                 NDArray,                      # ℝ, shape=W+[K]+C
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
 ) -> typ.Tuple[
-        NDArray,                                         # Tucker block, (d,)+[W]+[K]+C+(n,N)
-        NDArray,                                         # TT block,     (d,)+[W]+[K]+C+(r,n,r)
+        NDArray,                                         # Tucker block: X*, (d,)+[W]+[K]+C+(n,N)
+        NDArray,                                         # TT block:     X*, (d,)+[W]+[K]+C+(r,n,r)
 ]:
     """The corewise transpose on supercores: the uniform twin of
     :py:func:`~t3toolbox.backend.entries.t3_entries_corewise_transpose`, the gradient of ``<c, z(x)>`` in the cores
@@ -209,11 +215,13 @@ def ut3_entries_corewise_transpose(
 
 
 def ut3_probe_corewise_tangent(
-        x:                 UT3Data,                      # the point's .data: (B, G, shape, masks), stack C
-        ww:                Vectors,                      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
-        core_directions:   typ.Tuple[NDArray, NDArray],  # (B_dot, G_dot): supercores (d,)+K+C+(...), the point's sizes
+        x:                 UT3Data,                      # the point: X, its .data (B, G, shape, masks), stack C
+        ww:                Vectors,                      # input jets: P_in_i⊗V_i, len=d, F_in_i+W+(Ni,); or packed
+                                                         #   (d,)+F_in+W+(N,)
+        core_directions:   typ.Tuple[NDArray, NDArray],  # X, (B_dot, G_dot): supercores (d,)+K+C+(...), the point's
+                                                         #   sizes
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
-) -> Vectors:                               # J x_dot, MIRRORS ww: len=d, F+W+K+C+(Ni,); or packed
+) -> Vectors:                               # J x_dot: P⊗V_i*, MIRRORS ww: len=d, F+W+K+C+(Ni,); or packed
     """The corewise forward derivative on supercores: the uniform twin of
     :py:func:`~t3toolbox.backend.probing.t3_probe_corewise_tangent`, ``J x_dot`` along ``core_directions``. One call
     of the engine on ``x`` wanting ``Jp`` (its raw route); the engine masks the directions with the point's masks,
@@ -225,14 +233,15 @@ def ut3_probe_corewise_tangent(
 
 
 def ut3_probe_corewise_transpose(
-        x:                 UT3Data,                      # the point's .data: (B, G, shape, masks), stack C
-        ww:                Vectors,                      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
+        x:                 UT3Data,                      # the point: X, its .data (B, G, shape, masks), stack C
+        ww:                Vectors,                      # input jets: P_in_i⊗V_i, len=d, F_in_i+W+(Ni,); or packed
+                                                         #   (d,)+F_in+W+(N,)
         c:                 Vectors,                      # P*⊗V_i, len=d, F+W+[K]+C+(Ni,); or packed
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
 ) -> typ.Tuple[
-        NDArray,                                         # Tucker block, (d,)+[W]+[K]+C+(n,N)
-        NDArray,                                         # TT block,     (d,)+[W]+[K]+C+(r,n,r)
+        NDArray,                                         # Tucker block: X*, (d,)+[W]+[K]+C+(n,N)
+        NDArray,                                         # TT block:     X*, (d,)+[W]+[K]+C+(r,n,r)
 ]:
     """The corewise transpose on supercores: the uniform twin of
     :py:func:`~t3toolbox.backend.probing.t3_probe_corewise_transpose`, the gradient of ``<c, z(x)>`` in the cores (``c``
@@ -479,15 +488,17 @@ def _masked_point_and_directions(
 
 
 def ut3_probe_corewise_hessian(
-        x:                 UT3Data,                      # the point's .data: (B, G, shape, masks), stack C
-        ww:                Vectors,                      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
+        x:                 UT3Data,                      # the point: X, its .data (B, G, shape, masks), stack C
+        ww:                Vectors,                      # input jets: P_in_i⊗V_i, len=d, F_in_i+W+(Ni,); or packed
+                                                         #   (d,)+F_in+W+(N,)
         c:                 Vectors,                      # P*⊗V_i, len=d, F+W+C+(Ni,); or packed
-        core_directions:   typ.Tuple[NDArray, NDArray],  # (B_dot, G_dot): supercores (d,)+K+C+(...), the point's sizes
+        core_directions:   typ.Tuple[NDArray, NDArray],  # X, (B_dot, G_dot): supercores (d,)+K+C+(...), the point's
+                                                         #   sizes
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
 ) -> typ.Tuple[
-        NDArray,                                         # Tucker block, (d,)+[W]+K+C+(n,N)
-        NDArray,                                         # TT block,     (d,)+[W]+K+C+(r,n,r)
+        NDArray,                                         # Tucker block: X*, (d,)+[W]+K+C+(n,N)
+        NDArray,                                         # TT block:     X*, (d,)+[W]+K+C+(r,n,r)
 ]:
     """The uniform twin of :py:func:`~t3toolbox.backend.probing.t3_probe_corewise_hessian`: the core-coordinate Hessian
     of ``theta -> <c, probe(Phi(theta))>`` applied to ``theta_hat``, on supercores (``c`` an element of ``Y``, with no
@@ -551,15 +562,17 @@ def ut3_probe_corewise_hessian_from_sweep(
 
 
 def ut3_apply_corewise_hessian(
-        x:                 UT3Data,                      # the point's .data: (B, G, shape, masks), stack C
-        ww:                Vectors,                      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
+        x:                 UT3Data,                      # the point: X, its .data (B, G, shape, masks), stack C
+        ww:                Vectors,                      # input jets: P_in_i⊗V_i, len=d, F_in_i+W+(Ni,); or packed
+                                                         #   (d,)+F_in+W+(N,)
         c:                 NDArray,                      # P*, shape=F+W+C
-        core_directions:   typ.Tuple[NDArray, NDArray],  # (B_dot, G_dot): supercores (d,)+K+C+(...), the point's sizes
+        core_directions:   typ.Tuple[NDArray, NDArray],  # X, (B_dot, G_dot): supercores (d,)+K+C+(...), the point's
+                                                         #   sizes
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
 ) -> typ.Tuple[
-        NDArray,                                         # Tucker block, (d,)+[W]+K+C+(n,N)
-        NDArray,                                         # TT block,     (d,)+[W]+K+C+(r,n,r)
+        NDArray,                                         # Tucker block: X*, (d,)+[W]+K+C+(n,N)
+        NDArray,                                         # TT block:     X*, (d,)+[W]+K+C+(r,n,r)
 ]:
     """The uniform twin of :py:func:`~t3toolbox.backend.apply.t3_apply_corewise_hessian` (``theta`` and ``theta_hat``
     masked with ``theta``'s masks, ``ww`` packed, the output re-masked), as :py:func:`ut3_probe_corewise_hessian`."""
@@ -585,14 +598,15 @@ def ut3_apply_corewise_hessian_from_sweep(
 
 
 def ut3_entries_corewise_hessian(
-        x:                 UT3Data,                      # the point's .data: (B, G, shape, masks), stack C
-        index:             NDArray,                      # int, shape=(d,)+W: the grid points
+        x:                 UT3Data,                      # the point: X, its .data (B, G, shape, masks), stack C
+        index:             NDArray,                      # index^d, shape=(d,)+W, int: the grid points
         c:                 NDArray,                      # ℝ, shape=W+C
-        core_directions:   typ.Tuple[NDArray, NDArray],  # (B_dot, G_dot): supercores (d,)+K+C+(...), the point's sizes
+        core_directions:   typ.Tuple[NDArray, NDArray],  # X, (B_dot, G_dot): supercores (d,)+K+C+(...), the point's
+                                                         #   sizes
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
 ) -> typ.Tuple[
-        NDArray,                                         # Tucker block, (d,)+[W]+K+C+(n,N)
-        NDArray,                                         # TT block,     (d,)+[W]+K+C+(r,n,r)
+        NDArray,                                         # Tucker block: X*, (d,)+[W]+K+C+(n,N)
+        NDArray,                                         # TT block:     X*, (d,)+[W]+K+C+(r,n,r)
 ]:
     """The uniform twin of :py:func:`~t3toolbox.backend.entries.t3_entries_corewise_hessian` (``index`` unpacked -- the
     one-hot vectors are built packed inside the kernel), as :py:func:`ut3_apply_corewise_hessian`."""

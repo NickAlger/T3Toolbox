@@ -130,8 +130,8 @@ def _block_norms_F(
 def data_block_norms(
         kind:   str,                       # 'probe' | 'apply' | 'entries'
         order:  typ.Tuple[int, ...],       # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...). entries: ()
-        y:      typ.Any,                   # the data: probe len=d, elm_shape=F+W+(Ni,); apply F+W; entries W
-) -> NDArray:                              # the block shape: probe (d,)+F; apply F; entries ()
+        y:      typ.Any,                   # the data: Y*, probe len=d, elm_shape=F+W+(Ni,); apply F+W; entries W
+) -> NDArray:                              # ℝ per block, the block shape: probe (d,)+F; apply F; entries ()
     """The norm of each block of the data, in the block shape.
 
     A block is, for ``'probe'``, the data of one mode at one slot of the box ``F`` (so the result has shape
@@ -197,7 +197,7 @@ def data_block_norms(
 
 
 def equalizing_weight(
-        block_norms:  NDArray,             # from data_block_norms: probe (d,)+F; apply F; entries ()
+        block_norms:  NDArray,             # ℝ per block, from data_block_norms: probe (d,)+F; apply F; entries ()
         floor:        float = 1e-6,        # relative to the largest block
 ) -> NDArray:                              # same shape: 1 / max(x, floor * max(x))
     """The equalizing weight: the filtered inverse of the block norms, ``1 / max(x, floor * max(x))``.
@@ -279,13 +279,13 @@ def _scale_jet(
 def rescale_direction(
         kind:    str,                      # 'probe' | 'apply'
         order:   typ.Tuple[int, ...],      # the jet shape (n_1, ..., n_m), at least one jet variable
-        sample:  typ.Any,                  # ww, the input jets: len=d, elm_shape=F_in_i+W+(Ni,)
-        y:       typ.Any,                  # of the type of z: probe len=d, elm_shape=F+W+(Ni,); apply F+W
+        sample:  typ.Any,                  # the input jets ww: P_in_i⊗V_i, len=d, elm_shape=F_in_i+W+(Ni,)
+        y:       typ.Any,                  # Y*, the data: probe len=d, elm_shape=F+W+(Ni,); apply F+W
         length:  typ.Any,                  # a number or a 0-d array, or one per jet variable (len=m): slot k of the
                                            #   input jets and of y times length_1**k_1 ... length_m**k_m   (loss-only)
 ) -> typ.Tuple[
-        typ.Any,                           # the sample: the input jets rescaled, a tuple
-        typ.Any,                           # y, same type and shapes, rescaled the same way
+        typ.Any,                           # the sample: P_in_i⊗V_i, the input jets rescaled, a tuple
+        typ.Any,                           # y: Y*, same shapes, rescaled the same way
 ]:
     """Rescale the jet variables of a sample by a length, and the data with them. Changes the loss only.
 
@@ -391,12 +391,13 @@ def rescale_direction(
 def rescale_coordinates(
         kind:    str,                      # 'probe' | 'apply'
         order:   typ.Tuple[int, ...],      # the jet shape (n_1, ..., n_m); F = (n_1 + 1, ...)
-        sample:  typ.Any,                  # ww, the input jets: len=d, elm_shape=F_in_i+W+(Ni,)
-        y:       typ.Any,                  # of the type of z: probe len=d, elm_shape=F+W+(Ni,); apply F+W
+        sample:  typ.Any,                  # the input jets ww: P_in_i⊗V_i, len=d, elm_shape=F_in_i+W+(Ni,)
+        y:       typ.Any,                  # Y*, the data: probe len=d, elm_shape=F+W+(Ni,); apply F+W
         scales:  typ.Sequence[NDArray],    # len=d, elm_shape=(Ni,): coordinate j of mode i times scales[i][j]
 ) -> typ.Tuple[
-        typ.Any,                           # the sample: every slot of every input jet times its mode's scales
-        typ.Any,                           # y: for probe, mode i's data divided by scales[i]; for apply, as given
+        typ.Any,                           # the sample: P_in_i⊗V_i, every slot of every input jet times its mode's
+                                           #   scales
+        typ.Any,                           # y: Y*; for probe, mode i's data divided by scales[i]; for apply, as given
 ]:
     """Rescale the coordinates of each mode: the inputs times ``scales``, the probe data divided by them.
 

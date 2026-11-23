@@ -91,14 +91,18 @@ def compute_mu(
   `# P*⊗V_i, len=d, elm_shape=F+W+[K]+C+(Ni,)`. With `len=` the type is the element's; without it, the whole
   object's (`# P*, shape=F+W+[K]+C`). A function of any kind types the whole object and lists the kinds' shapes
   after a colon (`# Y*, of the type of z: probe len=d, elm_shape=...; apply ...`). The vocabulary is the glossary's
-  Symbols: `P` (the jets) and `P*` (its dual, slot by slot), `V_i` and `V_i*`, `X` and `X*` (parameters), `Y*` (the
-  measurements) and `Y`, `E` and `E*`, `ℝ`; `*` is the algebraic dual, and `[G]` marks a group present only for
-  some variables or settings. The algebraic types are written in **Unicode** (`⊗`, `⊕`, `ℝ`, `*`), as in the
-  glossary; identifiers stay ASCII (`omega`, `gamma`, not `ω`, `γ`), in code and in the comments that name them. A
+  Symbols: `P` (the jets) and `P*` (its dual, slot by slot), `P_in_i` (the input jets of mode `i`, on their sizes
+  `F_in_i`: `ww[i]` is `P_in_i⊗V_i`), `V_i` and `V_i*`, `X` and `X*` (parameters), `Y*` (the measurements) and
+  `Y`, `E` and `E*`, `ℝ`, `index^d` (the entries sample); `*` is the algebraic dual, and `[G]` marks a group
+  present only for some variables or settings. The algebraic types are written in **Unicode** (`⊗`, `⊕`, `ℝ`,
+  `*`), as in the glossary; identifiers stay ASCII (`omega`, `gamma`, not `ω`, `γ`), in code and in the comments that name them. A
   **role name**, where the comment gives one (a return, mostly), comes first, with a colon:
   `# M r: Y, gamma * omega**2 * r elementwise`; `# z: P⊗V_i*, len=d, elm_shape=F+W+C+(Ni,)`. A placement or dtype
   **tag** comes after the shape: `# len=d+1, elm_shape=C+(r,), HOST bool, static`. A signature whose arguments are
-  not data- or parameter-space objects keeps `len` first, with no type. The exemplar is
+  not data- or parameter-space objects keeps `len` first, with no type. The point of a corewise call is
+  `X` (`# the point: X, (B, G), ...`); a manifold frame, its centers `Vc` and the weight `omega` take a role
+  and no type (the frame is not in its own `X`; `omega**2` is the diagonal of `M`). A transpose at a frame
+  returns `X*` in a tangent's container, before the projection. The exemplar is
   `backend/jets.py`'s `data_metric`:
 
   ```python

@@ -16,10 +16,11 @@ result moves by the law of its result. Two laws (``DATA_METRIC_PLAN.md`` 9.3 in 
   every represented value fixed: the inputs times ``Delta_i``; a Tucker core (``X`` on the mode axis) times
   ``Delta_i^-1``, its dual (``X*``) times ``Delta_i``; a probe measurement (``P (x) V_i*``) times ``Delta_i^-1``, an
   element of ``P* (x) V_i`` (``c``, ``M r``, and a weight with a full edge) times ``Delta_i``; an entries measurement
-  divided by ``prod_i Delta_i[n_i]``, an entries ``c`` multiplied by it; a frame's down store ``D_i`` times
-  ``Delta_i^-1`` and a tangent's ``V`` blocks (``X*``) times ``Delta_i``, the TT stores and blocks fixed; the ambient
-  transposes' output (``E*``, CP factors) compared as the dense tensor they sum to, times ``Delta_0 (x) ... (x)
-  Delta_(d-1)``.
+  divided by ``prod_i Delta_i[n_i]``, an entries ``c`` multiplied by it; a dense tensor (``E``) times ``Delta_0^-1 (x)
+  ... (x) Delta_(d-1)^-1``; a tangent's variations ``V_i`` (``X``) times ``Delta_i^-1``; a frame's down store
+  ``D_i`` times ``Delta_i^-1`` and a tangent's ``V`` blocks (``X*``) times ``Delta_i``, the TT stores and blocks fixed;
+  the ambient transposes' output (``E*``, CP factors) compared as the dense tensor they sum to, times ``Delta_0 (x)
+  ... (x) Delta_(d-1)``.
 
 Both are homogeneity tests: necessary, not sufficient (a wrong constant, sign or binomial factor passes them); the
 dense oracles stay the primary tests. They hold for the metric-free maps only (forwards, tangents, transposes, ``M``),
@@ -28,6 +29,8 @@ law; :py:func:`assert_law` asserts it is within rounding.
 
 The laws of the 42 transposes and second-order transposes (``c`` in ``Y``) are tested in ``test_transposes_typed.py``
 (M4); the packed movers there pad ``Delta`` with ones, the padding the masks zero.
+The laws of the forwards, the tangents, the dense functions, the jets helpers, the oracle's outputs and the type column
+of the engine's variable table are tested in ``test_sampling_typed.py`` (M5).
 """
 import numpy as np
 
@@ -125,6 +128,19 @@ class InputLaw:
     def frame(self, frame):
         """A frame ``(D, U, L, R)``: the down store ``D_i Delta_i^-1`` (``X`` on the mode axis), the TT stores fixed."""
         return (tuple(D / delta for D, delta in zip(frame[0], self.deltas)),) + tuple(tuple(s) for s in frame[1:4])
+
+    def variations(self, variations):
+        """A direction at a frame ``(V, H)`` (``X``: a tangent's variations): ``V_i Delta_i^-1``, ``H`` fixed."""
+        return tuple(V / delta for V, delta in zip(variations[0], self.deltas)), tuple(variations[1])
+
+    def dense(self, tensor):
+        """A dense tensor of ``E`` (``dense_*``'s ``T``), its last ``d`` axes the modes: times ``Delta_0^-1 (x) ... (x)
+        Delta_(d-1)^-1``, so that ``T(Delta w) = T(w)``."""
+        tensor = np.asarray(tensor)
+        d = len(self.deltas)
+        for i, delta in enumerate(self.deltas):
+            tensor = tensor / delta.reshape((len(delta),) + (1,) * (d - 1 - i))
+        return tensor
 
     def variations_dual(self, blocks):
         """A tangent's blocks of ``X*`` ``(V, H)`` (a transpose's output at a frame): ``V_i Delta_i``, ``H`` fixed."""

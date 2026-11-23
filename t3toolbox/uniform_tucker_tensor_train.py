@@ -399,8 +399,8 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
     # ----------------------------------------------------------------- sampling / evaluation
     def entries(
             self,
-            index:             NDArray,                    # int, shape=(d,)+W (a nested list is converted)
-    ) -> NDArray:                                          # z. shape=W+C
+            index:             NDArray,                    # index^d, shape=(d,)+W, int (a nested list is converted)
+    ) -> NDArray:                                          # z: ℝ, shape=W+C
         """Entry/entries of the represented dense tensor, evaluated without forming it (shares
         :py:func:`~t3toolbox.backend.ut3_sampling.ut3_entries`).
 
@@ -423,9 +423,10 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
 
     def apply(
             self,
-            ww:                Sequence[NDArray],          # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
+            ww:                Sequence[NDArray],          # input jets: P_in_i⊗V_i, len=d, F_in_i+W+(Ni,); or packed
+                                                           #   (d,)+F_in+W+(N,)
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
-    ) -> NDArray:                                          # z. shape=F+W+C
+    ) -> NDArray:                                          # z: P, shape=F+W+C
         """Contract the represented tensor with vectors in **all** modes, without forming it (shares
         :py:func:`~t3toolbox.backend.ut3_sampling.ut3_apply`; a scalar per stack element).
 
@@ -448,9 +449,10 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
 
     def probe(
             self,
-            ww:                Sequence[NDArray],          # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
+            ww:                Sequence[NDArray],          # input jets: P_in_i⊗V_i, len=d, F_in_i+W+(Ni,); or packed
+                                                           #   (d,)+F_in+W+(N,)
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
-    ) -> Sequence[NDArray]:                                # z, MIRRORS ww: len=d, F+W+C+(Ni,); or packed
+    ) -> Sequence[NDArray]:                                # z: P⊗V_i*, MIRRORS ww: len=d, F+W+C+(Ni,); or packed
         """Probe: contract all-but-one mode, for each mode (leaving mode ``i`` free), without forming the
         dense tensor (shares :py:func:`~t3toolbox.backend.ut3_sampling.ut3_probe`). **Mirrors** the sample's form:
         ragged ``ww`` in, a ``len=d`` tuple out; packed ``(d,)+F_in+W+(N,)`` in, the packed array out.
@@ -485,11 +487,12 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
     # --------------------------------------------------------- corewise (non-manifold) sampling transposes
     def apply_corewise_transpose(
             self,
-            ww:                Sequence[NDArray],          # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
+            ww:                Sequence[NDArray],          # input jets: P_in_i⊗V_i, len=d, F_in_i+W+(Ni,); or packed
+                                                           #   (d,)+F_in+W+(N,)
             c:                 NDArray,                    # P*, shape=F+W+[K]+C
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: W joins the stack
-    ) -> Tuple[NDArray, NDArray]:                          # (tucker, tt) supercores, (d,)+[W]+[K]+C+(...)
+    ) -> Tuple[NDArray, NDArray]:                          # (tucker, tt) supercores: X*, (d,)+[W]+[K]+C+(...)
         """Corewise (non-manifold) transpose of :py:meth:`apply`: gradient of ``apply(X(cores), ww)`` w.r.t.
         the supercores (treated as free variables) -- for a core-wise optimizer (Adam, L-BFGS).
 
@@ -528,10 +531,10 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
 
     def entries_corewise_transpose(
             self,
-            index:             NDArray,                    # int, shape=(d,)+W (a nested list is converted)
+            index:             NDArray,                    # index^d, shape=(d,)+W, int (a nested list is converted)
             c:                 NDArray,                    # ℝ, shape=W+[K]+C
             sum_over_samples:  bool = True,                # False: W joins the stack
-    ) -> Tuple[NDArray, NDArray]:                          # (tucker, tt) supercores, (d,)+[W]+[K]+C+(...)
+    ) -> Tuple[NDArray, NDArray]:                          # (tucker, tt) supercores: X*, (d,)+[W]+[K]+C+(...)
         """Corewise transpose of :py:meth:`entries`: gradient w.r.t. the supercores (= the one-hot
         :py:meth:`apply_corewise_transpose`, scattering ``c`` at ``index``). See
         :py:meth:`apply_corewise_transpose` for the return contract and ``sum_over_samples``."""
@@ -542,11 +545,12 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
 
     def probe_corewise_transpose(
             self,
-            ww:                Sequence[NDArray],          # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
+            ww:                Sequence[NDArray],          # input jets: P_in_i⊗V_i, len=d, F_in_i+W+(Ni,); or packed
+                                                           #   (d,)+F_in+W+(N,)
             c:                 Sequence[NDArray],          # P*⊗V_i, len=d, F+W+[K]+C+(Ni,); or packed
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: W joins the stack
-    ) -> Tuple[NDArray, NDArray]:                          # (tucker, tt) supercores, (d,)+[W]+[K]+C+(...)
+    ) -> Tuple[NDArray, NDArray]:                          # (tucker, tt) supercores: X*, (d,)+[W]+[K]+C+(...)
         """Corewise transpose of :py:meth:`probe`: gradient w.r.t. the supercores. Like
         :py:meth:`apply_corewise_transpose` but ``c`` carries one free mode per probe. See
         :py:meth:`apply_corewise_transpose` for the return contract and ``sum_over_samples``."""
@@ -557,10 +561,13 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
 
     def probe_corewise_tangent(
             self,
-            ww:                Sequence[NDArray],          # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
-            core_directions:   Tuple[NDArray, NDArray],    # (tucker, tt) supercores (d,)+K+C+(...): the point's sizes
+            ww:                Sequence[NDArray],          # input jets: P_in_i⊗V_i, len=d, F_in_i+W+(Ni,); or packed
+                                                           #   (d,)+F_in+W+(N,)
+            core_directions:   Tuple[NDArray, NDArray],    # X, (tucker, tt) supercores (d,)+K+C+(...): the point's
+                                                           #   sizes
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
-    ) -> Sequence[NDArray]:                                # J x_dot, MIRRORS ww: len=d, F+W+K+C+(Ni,); or packed
+    ) -> Sequence[NDArray]:                                # J x_dot: P⊗V_i*, MIRRORS ww: len=d, F+W+K+C+(Ni,); or
+                                                           #   packed
         """The corewise forward derivative of :py:meth:`probe` on supercores: ``J x_dot`` along ``core_directions``,
         the pair of supercores (``y.data[:2]`` of a uniform train ``y`` holding the direction). The uniform mirror of
         :py:meth:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe_corewise_tangent`; the directions' padding is
@@ -571,12 +578,14 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
 
     def probe_corewise_hessian(
             self,
-            ww:                Sequence[NDArray],          # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
+            ww:                Sequence[NDArray],          # input jets: P_in_i⊗V_i, len=d, F_in_i+W+(Ni,); or packed
+                                                           #   (d,)+F_in+W+(N,)
             c:                 Sequence[NDArray],          # P*⊗V_i, len=d, F+W+C+(Ni,); or packed
-            core_directions:   Tuple[NDArray, NDArray],    # (tucker, tt) supercores (d,)+K+C+(...): the point's sizes
+            core_directions:   Tuple[NDArray, NDArray],    # X, (tucker, tt) supercores (d,)+K+C+(...): the point's
+                                                           #   sizes
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: W joins the stack
-    ) -> Tuple[NDArray, NDArray]:                          # (tucker, tt) blocks, (d,)+[W]+K+C+(...)
+    ) -> Tuple[NDArray, NDArray]:                          # (tucker, tt) blocks: X*, (d,)+[W]+K+C+(...)
         """The corewise Hessian of :py:meth:`probe` on supercores: the second derivative of ``<c, z>`` in the
         supercores, applied to ``core_directions`` (as :py:meth:`probe_corewise_tangent` takes them). The uniform mirror
         of :py:meth:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe_corewise_hessian`; the output's padding is
@@ -588,10 +597,12 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
 
     def apply_corewise_tangent(
             self,
-            ww:                Sequence[NDArray],          # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
-            core_directions:   Tuple[NDArray, NDArray],    # (tucker, tt) supercores (d,)+K+C+(...): the point's sizes
+            ww:                Sequence[NDArray],          # input jets: P_in_i⊗V_i, len=d, F_in_i+W+(Ni,); or packed
+                                                           #   (d,)+F_in+W+(N,)
+            core_directions:   Tuple[NDArray, NDArray],    # X, (tucker, tt) supercores (d,)+K+C+(...): the point's
+                                                           #   sizes
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
-    ) -> NDArray:                                          # J x_dot. shape=F+W+K+C
+    ) -> NDArray:                                          # J x_dot: P, shape=F+W+K+C
         """The corewise forward derivative of :py:meth:`apply` on supercores: ``J x_dot`` along ``core_directions``,
         the pair of supercores (``y.data[:2]`` of a uniform train ``y`` holding the direction). The uniform mirror of
         :py:meth:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply_corewise_tangent`; the directions' padding is
@@ -602,12 +613,14 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
 
     def apply_corewise_hessian(
             self,
-            ww:                Sequence[NDArray],          # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
+            ww:                Sequence[NDArray],          # input jets: P_in_i⊗V_i, len=d, F_in_i+W+(Ni,); or packed
+                                                           #   (d,)+F_in+W+(N,)
             c:                 NDArray,                    # P*, shape=F+W+C
-            core_directions:   Tuple[NDArray, NDArray],    # (tucker, tt) supercores (d,)+K+C+(...): the point's sizes
+            core_directions:   Tuple[NDArray, NDArray],    # X, (tucker, tt) supercores (d,)+K+C+(...): the point's
+                                                           #   sizes
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: W joins the stack
-    ) -> Tuple[NDArray, NDArray]:                          # (tucker, tt) blocks, (d,)+[W]+K+C+(...)
+    ) -> Tuple[NDArray, NDArray]:                          # (tucker, tt) blocks: X*, (d,)+[W]+K+C+(...)
         """The corewise Hessian of :py:meth:`apply` on supercores: the second derivative of ``<c, z>`` in the
         supercores, applied to ``core_directions`` (as :py:meth:`apply_corewise_tangent` takes them). The uniform mirror
         of :py:meth:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply_corewise_hessian`; the output's padding is
@@ -619,9 +632,10 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
 
     def entries_corewise_tangent(
             self,
-            index:             NDArray,                    # int, shape=(d,)+W (a nested list is converted)
-            core_directions:   Tuple[NDArray, NDArray],    # (tucker, tt) supercores (d,)+K+C+(...): the point's sizes
-    ) -> NDArray:                                          # J x_dot. shape=W+K+C
+            index:             NDArray,                    # index^d, shape=(d,)+W, int (a nested list is converted)
+            core_directions:   Tuple[NDArray, NDArray],    # X, (tucker, tt) supercores (d,)+K+C+(...): the point's
+                                                           #   sizes
+    ) -> NDArray:                                          # J x_dot: ℝ, shape=W+K+C
         """The corewise forward derivative of :py:meth:`entries` on supercores: ``J x_dot`` along ``core_directions``,
         the pair of supercores (``y.data[:2]`` of a uniform train ``y`` holding the direction). The uniform mirror of
         :py:meth:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain.entries_corewise_tangent`; the directions' padding is
@@ -633,11 +647,12 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
 
     def entries_corewise_hessian(
             self,
-            index:             NDArray,                    # int, shape=(d,)+W (a nested list is converted)
+            index:             NDArray,                    # index^d, shape=(d,)+W, int (a nested list is converted)
             c:                 NDArray,                    # ℝ, shape=W+C
-            core_directions:   Tuple[NDArray, NDArray],    # (tucker, tt) supercores (d,)+K+C+(...): the point's sizes
+            core_directions:   Tuple[NDArray, NDArray],    # X, (tucker, tt) supercores (d,)+K+C+(...): the point's
+                                                           #   sizes
             sum_over_samples:  bool = True,                # False: W joins the stack
-    ) -> Tuple[NDArray, NDArray]:                          # (tucker, tt) blocks, (d,)+[W]+K+C+(...)
+    ) -> Tuple[NDArray, NDArray]:                          # (tucker, tt) blocks: X*, (d,)+[W]+K+C+(...)
         """The corewise Hessian of :py:meth:`entries` on supercores: the second derivative of ``<c, z>`` in the
         supercores, applied to ``core_directions`` (as :py:meth:`entries_corewise_tangent` takes them). The uniform
         mirror of :py:meth:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain.entries_corewise_hessian`; the output's

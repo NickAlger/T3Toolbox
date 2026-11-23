@@ -9,7 +9,8 @@ and a few outputs. This module says what each of them **is**. Every function her
 variable and computes it from its definition, as the dense contraction of a part of the network, with no sweep
 along the chain and no reuse of one variable by another. It is slow and meant for small problems. Use it to
 check a fast computation against (the library's own tests do), to see what a variable means, or to check a
-modification of your own.
+modification of your own. Each variable's algebraic type (``P``, ``Y*``, a turned ``P*`` or ``Y``, ``X*``) is the
+last column of the variable table of :py:mod:`t3toolbox.backend.sampling_variables`.
 
 **The network** has ``d`` sites. Site ``i`` holds a TT core over a Tucker core over an input vector::
 

@@ -1492,3 +1492,8 @@ M5 built (`M5_HANDOVER.md`): IDENTICAL CODE by an AST check; 313 scripted commen
 type column with a test that reads it; `tests/test_sampling_typed.py`; suite 1,979, every doc step green. In review.
 P19 gains: the `Pi J^T omega^2 r` texts in `backend/optimizers.py` and `fitting.py`'s module text; §9.1's function-type
 table for a page.
+M5: `M5_REVIEW_r1.md` SIGN OFF (no library code changed, confirmed by a second, token-level route; types sampled
+correct; 4 more mutants killed; the column test cannot drift silently). **M5 committed. The M arc (M0 to M5) is
+complete.** P19 gains: `signature_style.md:98` at 130 characters; the glossary's `K` row and pages §4.12/§4.14 writing
+`K_{A^T omega^2 r}`; §9.1's function-type table for a page. **STOP for the maintainer:** the discussion of
+`implementation/M_ARC_DECISIONS.md` (25 entries), the audit's decisions 3 and 4, `frame_stack_shape`.

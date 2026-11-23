@@ -550,9 +550,10 @@ class UT3Tangent(common.ExplicitEquality):
     # ------------------------------------------------------------- sampling (the bare Jacobian 𝒥)
     def probe(
             self,
-            ww:                typ.Sequence[NDArray],      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
+            ww:                typ.Sequence[NDArray],      # input jets: P_in_i⊗V_i, len=d, F_in_i+W+(Ni,); or packed
+                                                           #   (d,)+F_in+W+(N,)
             order:             typ.Tuple[int, ...] = (),   # the jet shape; F=tuple(n+1 for n in order)
-    ) -> typ.Sequence[NDArray]:                            # Jp, MIRRORS ww: len=d, F+W+K+C+(Ni,); or packed
+    ) -> typ.Sequence[NDArray]:                            # Jp: P⊗V_i*, MIRRORS ww: len=d, F+W+K+C+(Ni,); or packed
         """Probe this tangent vector: the single-sample bare Jacobian ``𝒥`` (contract all-but-one
         mode, for each mode). Uniform mirror of :py:meth:`~t3toolbox.manifold.T3Tangent.probe`; **mirrors**
         the sample's form: a ragged ``ww`` gives ``d`` ragged-width vectors, stacked ``F+W+K+C``; a packed ``ww``
@@ -582,9 +583,10 @@ class UT3Tangent(common.ExplicitEquality):
 
     def apply(
             self,
-            ww:                typ.Sequence[NDArray],      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
+            ww:                typ.Sequence[NDArray],      # input jets: P_in_i⊗V_i, len=d, F_in_i+W+(Ni,); or packed
+                                                           #   (d,)+F_in+W+(N,)
             order:             typ.Tuple[int, ...] = (),   # the jet shape; F=tuple(n+1 for n in order)
-    ) -> NDArray:                                          # Jp. shape=F+W+K+C
+    ) -> NDArray:                                          # Jp: P, shape=F+W+K+C
         """Apply this tangent vector in all modes (the all-modes special case of :py:meth:`probe`; a scalar
         per stack element, stacked ``W+K+C``). The bare ``𝒥``. Uniform mirror of
         :py:meth:`~t3toolbox.manifold.T3Tangent.apply`.
@@ -607,8 +609,8 @@ class UT3Tangent(common.ExplicitEquality):
 
     def entries(
             self,
-            index:             NDArray,                    # int, shape=(d,)+W (a nested list is converted)
-    ) -> NDArray:                                          # Jp. shape=W+K+C
+            index:             NDArray,                    # index^d, shape=(d,)+W, int (a nested list is converted)
+    ) -> NDArray:                                          # Jp: ℝ, shape=W+K+C
         """Entries of the dense tangent at ``index`` (= :py:meth:`apply` with unit vectors, by fiber
         slicing). The bare ``𝒥``. Uniform mirror of :py:meth:`~t3toolbox.manifold.T3Tangent.entries`.
 
@@ -631,17 +633,19 @@ class UT3Tangent(common.ExplicitEquality):
     @staticmethod
     def probe_transpose(
             frame:             ubv.UT3Frame,               # the orthogonal frame the tangent attaches at
-            ww:                typ.Sequence[NDArray],      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
+            ww:                typ.Sequence[NDArray],      # input jets: P_in_i⊗V_i, len=d, F_in_i+W+(Ni,); or packed
+                                                           #   (d,)+F_in+W+(N,)
             c:                 typ.Sequence[NDArray],      # P*⊗V_i, len=d, F+W+[K]+C+(Ni,); or packed
             order:             typ.Tuple[int, ...] = (),   # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: keep the sample stack W (W+K tangents)
-    ) -> 'UT3Tangent':                                     # at frame; tangent stack [W]+[K], frame stack C
+    ) -> 'UT3Tangent':                                     # X*, in a UT3Tangent at frame (before the projection);
+                                                           #   tangent stack [W]+[K], frame stack C
         """Apply the transpose ``𝒥ᵀ`` of the probe map to ``c``; returns a :py:class:`UT3Tangent` at ``frame``. The
         adjoint of :py:meth:`probe`. Uniform mirror of :py:meth:`~t3toolbox.manifold.T3Tangent.probe_transpose`: ``c``
         (an element of ``Y``, with no metric, as there) has the forward probe shape (``W+K+C``);
         ``sum_over_samples=True`` (default) sums the probe stack ``W`` (``K``; ``𝒥ᵀc``, the Gauss-Newton gradient when
         ``c = M r``), ``False`` keeps it as the result's tangent stack (``W+K``). The bare ``𝒥ᵀ`` (no gauge projector
-        ``Π``).
+        ``Π``): ``X*`` in a ``UT3Tangent``, before the projection.
 
         See Also
         --------
@@ -677,15 +681,17 @@ class UT3Tangent(common.ExplicitEquality):
     @staticmethod
     def apply_transpose(
             frame:             ubv.UT3Frame,               # the orthogonal frame the tangent attaches at
-            ww:                typ.Sequence[NDArray],      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
+            ww:                typ.Sequence[NDArray],      # input jets: P_in_i⊗V_i, len=d, F_in_i+W+(Ni,); or packed
+                                                           #   (d,)+F_in+W+(N,)
             c:                 NDArray,                    # P*, shape=F+W+[K]+C
             order:             typ.Tuple[int, ...] = (),   # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: keep the sample stack W (W+K tangents)
-    ) -> 'UT3Tangent':                                     # at frame; tangent stack [W]+[K], frame stack C
+    ) -> 'UT3Tangent':                                     # X*, in a UT3Tangent at frame (before the projection);
+                                                           #   tangent stack [W]+[K], frame stack C
         """Apply the transpose ``𝒥ᵀ`` of :py:meth:`apply` -- back-project ``c`` into a tangent at ``frame``. The adjoint
         of :py:meth:`apply`. Uniform mirror of :py:meth:`~t3toolbox.manifold.T3Tangent.apply_transpose` (``c`` an
         element of ``Y``, with no metric, as there); ``sum_over_samples`` as in :py:meth:`probe_transpose`. The bare
-        ``𝒥ᵀ`` (no gauge projector ``Π``)."""
+        ``𝒥ᵀ`` (no gauge projector ``Π``): ``X*`` in a ``UT3Tangent``, before the projection."""
         ut3._check_sample('apply', order, ww, frame.shape)
         vd = utv_sampling.utv_apply_transpose(frame.data, ww, c, order=order, sum_over_samples=sum_over_samples)
         return UT3Tangent(frame, _ut3variations_from_data(vd))
@@ -693,13 +699,15 @@ class UT3Tangent(common.ExplicitEquality):
     @staticmethod
     def entries_transpose(
             frame:             ubv.UT3Frame,               # the orthogonal frame the tangent attaches at
-            index:             NDArray,                    # int, shape=(d,)+W (a nested list is converted)
+            index:             NDArray,                    # index^d, shape=(d,)+W, int (a nested list is converted)
             c:                 NDArray,                    # ℝ, shape=W+[K]+C
             sum_over_samples:  bool = True,                # False: keep the sample stack W (W+K tangents)
-    ) -> 'UT3Tangent':                                     # at frame; tangent stack [W]+[K], frame stack C
+    ) -> 'UT3Tangent':                                     # X*, in a UT3Tangent at frame (before the projection);
+                                                           #   tangent stack [W]+[K], frame stack C
         """Apply the transpose ``𝒥ᵀ`` of :py:meth:`entries` -- scatter ``c`` at ``index`` into a tangent at
         ``frame``. The adjoint of :py:meth:`entries` (= :py:meth:`apply_transpose` with one-hot vectors).
-        Uniform mirror of :py:meth:`~t3toolbox.manifold.T3Tangent.entries_transpose`. The bare ``𝒥ᵀ``."""
+        Uniform mirror of :py:meth:`~t3toolbox.manifold.T3Tangent.entries_transpose`. The bare ``𝒥ᵀ``: ``X*`` in a
+        ``UT3Tangent``, before the projection."""
         index = t3._as_index(index)
         ut3._check_sample('entries', (), index, frame.shape)
         vd = utv_sampling.utv_entries_transpose(frame.data, index, c, sum_over_samples=sum_over_samples)

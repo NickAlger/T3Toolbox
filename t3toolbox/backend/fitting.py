@@ -771,10 +771,10 @@ class LeastSquaresBatch:
     :py:meth:`LeastSquaresOracle.check_batch`, never by the oracle's ``query`` (the engine checks the rule of ``y``
     and the weight on entry).
     """
-    sample:           typ.Any                                    # ww (input jets) | index (entries)
+    sample:           typ.Any                                    # P_in_i⊗V_i (the input jets ww) | index^d (entries)
     y:                typ.Any = None                             # Y*: probe len=d, F+W+C+(Ni,); apply F+W+C; entries W+C
     weight:           typ.Any = None                             # omega, of the type of z likewise; None = ones
-    minibatch_scale:  typ.Optional[typ.Any] = None               # n / batch_size on a drawn batch; None = 1
+    minibatch_scale:  typ.Optional[typ.Any] = None               # gamma: n / batch_size on a drawn batch; None = 1
     drawn_indices:    typ.Optional[NDArray] = None               # int, (batch_size,): the draw, flat over W
 
     def __eq__(self, other):
@@ -1007,6 +1007,11 @@ class LeastSquaresOracle(ValueHashedFields):
     batch's ``y_block_sumsq`` exactly. Each batch's sums use that batch's own weight: a validation batch with another
     weight (or none) gives the ratio under that weight.
 
+    **The outputs, typed** (the glossary's Symbols): ``r`` and ``Jp`` are in ``Y*``, of the type of ``z``; ``g``,
+    ``JtJp`` and ``Kp`` in ``X*``, the blocks before the geometry's projection; ``f``, ``Jp_norm_sq`` and
+    ``f_resolution`` are numbers, ``ℝ`` per element of ``C`` (``K + C`` for ``Jp_norm_sq``); the two block sums
+    ``ℝ`` per block.
+
     **What it holds.** ``query`` returns, with its values, a
     :py:class:`~t3toolbox.backend.sampling_variables.HeldVariables`: the ``held`` it was given plus each of ``xi``,
     ``mu``, ``nu``, ``eta``, ``r`` that the call computed anyway (never one computed only to be held). Hand it back
@@ -1067,11 +1072,13 @@ class LeastSquaresOracle(ValueHashedFields):
             batch:            LeastSquaresBatch,              # its data
             want:             typ.Sequence[str],              # f, g, JtJp, Jp_norm_sq; optional: optional_outputs
             Vc:               typ.Optional[typ.Sequence[NDArray]] = None,
-            variations:       typ.Optional[typ.Tuple] = None, # (V, H): JtJp, Jp_norm_sq, Jp; on a point, the raw form
-            core_directions:  typ.Optional[typ.Tuple] = None, # (D_dot, L_dot): Kp
+            variations:       typ.Optional[typ.Tuple] = None, # X, (V, H): JtJp, Jp_norm_sq, Jp; raw on a point
+            core_directions:  typ.Optional[typ.Tuple] = None, # X, (D_dot, L_dot): Kp
             held:             typ.Any = None,                 # a HeldVariables from an earlier query here, or None
     ) -> typ.Tuple[
-            typ.Tuple[typ.Any, ...],                          # values, aligned with want; blocks before projection
+            typ.Tuple[typ.Any, ...],                          # values, aligned with want: r, Jp Y*; g, JtJp, Kp X*
+                                                              #   (before the projection); f, Jp_norm_sq, f_resolution
+                                                              #   ℝ; r_block_sumsq, y_block_sumsq ℝ per block
             typ.Any,                                          # held: a HeldVariables
     ]:
         '''The values ``want`` at ``frame`` on ``batch``, and what to hold for a later query here (the class doc).'''
