@@ -1483,3 +1483,7 @@ M4 built (`M4_HANDOVER.md`): the scripted rename `residual` -> `c` (275 edits, t
 the `c` lines typed; the prose; `tests/test_transposes_typed.py` (the laws on all 42, the drawn-batch check); suite
 1,965 passed, the tally only 5 new nodes. The reviewer runs the remaining gate steps with its review. P19 gains:
 `residual=` -> `c=` upgrade note; `docs/transposes.md`'s five "residual" mentions.
+M4: `M4_REVIEW_r1.md` SIGN OFF (the round trip and regeneration rerun independently; prose and types by AST; the laws
+independent; a tangent-transpose drawn-batch check of the reviewer's own; the remaining gate steps run by the reviewer,
+all green). **M4 committed.** Two minor points for M5 (the corewise Hessians' docstrings: "the curvature term", not
+"the gradient"; nine `#` columns off by one). Next: M5 (comments only), with a fresh implementer.

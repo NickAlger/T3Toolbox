@@ -16,14 +16,18 @@ result moves by the law of its result. Two laws (``DATA_METRIC_PLAN.md`` 9.3 in 
   every represented value fixed: the inputs times ``Delta_i``; a Tucker core (``X`` on the mode axis) times
   ``Delta_i^-1``, its dual (``X*``) times ``Delta_i``; a probe measurement (``P (x) V_i*``) times ``Delta_i^-1``, an
   element of ``P* (x) V_i`` (``c``, ``M r``, and a weight with a full edge) times ``Delta_i``; an entries measurement
-  divided by ``prod_i Delta_i[n_i]``.
+  divided by ``prod_i Delta_i[n_i]``, an entries ``c`` multiplied by it; a frame's down store ``D_i`` times
+  ``Delta_i^-1`` and a tangent's ``V`` blocks (``X*``) times ``Delta_i``, the TT stores and blocks fixed; the ambient
+  transposes' output (``E*``, CP factors) compared as the dense tensor they sum to, times ``Delta_0 (x) ... (x)
+  Delta_(d-1)``.
 
 Both are homogeneity tests: necessary, not sufficient (a wrong constant, sign or binomial factor passes them); the
 dense oracles stay the primary tests. They hold for the metric-free maps only (forwards, tangents, transposes, ``M``),
 not for an orthonormal frame, a projection or a retraction. :py:func:`law_error` measures how far a function is from a
 law; :py:func:`assert_law` asserts it is within rounding.
 
-The ambient transposes' law (``E*``, compared as the CP tensor) is added with the slice that tests them (M4).
+The laws of the 42 transposes and second-order transposes (``c`` in ``Y``) are tested in ``test_transposes_typed.py``
+(M4); the packed movers there pad ``Delta`` with ones, the padding the masks zero.
 """
 import numpy as np
 
@@ -117,6 +121,40 @@ class InputLaw:
     def tucker_dual(self, blocks):
         """Tucker-core blocks of ``X*`` (a gradient's): ``g_B Delta_i``."""
         return tuple(g * delta for g, delta in zip(blocks, self.deltas))
+
+    def frame(self, frame):
+        """A frame ``(D, U, L, R)``: the down store ``D_i Delta_i^-1`` (``X`` on the mode axis), the TT stores fixed."""
+        return (tuple(D / delta for D, delta in zip(frame[0], self.deltas)),) + tuple(tuple(s) for s in frame[1:4])
+
+    def variations_dual(self, blocks):
+        """A tangent's blocks of ``X*`` ``(V, H)`` (a transpose's output at a frame): ``V_i Delta_i``, ``H`` fixed."""
+        return tuple(V * delta for V, delta in zip(blocks[0], self.deltas)), tuple(blocks[1])
+
+    def packed_mode_dual(self, block):
+        """A packed block of ``X*`` on the mode axis, ``(d,) + ... + (N,)`` (a uniform Tucker or ``V`` block): times
+        ``Delta_i`` padded with ones to ``N`` (the padding is zero by the masks, so its factor does not matter)."""
+        block = np.asarray(block)
+        N = block.shape[-1]
+        pad = np.ones((len(self.deltas), N))
+        for i, delta in enumerate(self.deltas):
+            pad[i, :len(delta)] = delta
+        return block * pad.reshape((len(self.deltas),) + (1,) * (block.ndim - 2) + (N,))
+
+    def entries_dual(self, c, index):
+        """An entries ``c`` (``Y``, dual to the entries measurement): times ``prod_i Delta_i[n_i]``."""
+        index = np.asarray(index)
+        factor = np.prod([delta[index[i]] for i, delta in enumerate(self.deltas)], axis=0)        # W
+        c = np.asarray(c)
+        return c * factor.reshape(factor.shape + (1,) * (c.ndim - factor.ndim))
+
+    def ambient(self, tensor):
+        """A dense tensor of ``E*`` (an ambient transpose's CP factors, summed), its last ``d`` axes the modes: times
+        ``Delta_0 (x) ... (x) Delta_(d-1)``."""
+        tensor = np.asarray(tensor)
+        d = len(self.deltas)
+        for i, delta in enumerate(self.deltas):
+            tensor = tensor * delta.reshape((len(delta),) + (1,) * (d - 1 - i))
+        return tensor
 
     def entries(self, z, index):
         """An entries measurement at the integer ``index`` (``(d,) + W``): divided by ``prod_i Delta_i[n_i]``."""

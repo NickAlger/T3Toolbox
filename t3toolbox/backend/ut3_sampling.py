@@ -158,7 +158,7 @@ def ut3_apply_corewise_tangent(
 def ut3_apply_corewise_transpose(
         x:                 UT3Data,                      # the point's .data: (B, G, shape, masks), stack C
         ww:                Vectors,                      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
-        residual:          NDArray,                      # of the type of z: shape=F+W+[K]+C
+        c:                 NDArray,                      # P*, shape=F+W+[K]+C
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
 ) -> typ.Tuple[
@@ -166,9 +166,10 @@ def ut3_apply_corewise_transpose(
         NDArray,                                         # TT block,     (d,)+[W]+[K]+C+(r,n,r)
 ]:
     """The corewise transpose on supercores: the uniform twin of
-    :py:func:`~t3toolbox.backend.apply.t3_apply_corewise_transpose`, the gradient of ``<residual, z(x)>`` in the
-    cores. The engine's ``JtJp`` with the residual held as ``Jp``; the output is masked by the point's masks."""
-    held = sampling_variables.HeldVariables(Jp=residual)
+    :py:func:`~t3toolbox.backend.apply.t3_apply_corewise_transpose`, the gradient of ``<c, z(x)>`` in the cores (``c``
+    an element of ``Y``, with no metric, as there). The engine's ``JtJp`` with ``c`` held as ``Jp``; the output is
+    masked by the point's masks."""
+    held = sampling_variables.HeldVariables(Jp=c)
     (blocks,) = sampling_variables.sampling_variables('apply', x, ww, ('JtJp',), order=order, held=held,
                                                        sum_over_samples=sum_over_samples)
     return blocks
@@ -191,16 +192,17 @@ def ut3_entries_corewise_tangent(
 def ut3_entries_corewise_transpose(
         x:                 UT3Data,                      # the point's .data: (B, G, shape, masks), stack C
         index:             NDArray,                      # int, shape=(d,)+W: the grid points
-        residual:          NDArray,                      # of the type of z: shape=W+[K]+C
+        c:                 NDArray,                      # ℝ, shape=W+[K]+C
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
 ) -> typ.Tuple[
         NDArray,                                         # Tucker block, (d,)+[W]+[K]+C+(n,N)
         NDArray,                                         # TT block,     (d,)+[W]+[K]+C+(r,n,r)
 ]:
     """The corewise transpose on supercores: the uniform twin of
-    :py:func:`~t3toolbox.backend.entries.t3_entries_corewise_transpose`, the gradient of ``<residual, z(x)>`` in the
-    cores. The engine's ``JtJp`` with the residual held as ``Jp``; the output is masked by the point's masks."""
-    held = sampling_variables.HeldVariables(Jp=residual)
+    :py:func:`~t3toolbox.backend.entries.t3_entries_corewise_transpose`, the gradient of ``<c, z(x)>`` in the cores
+    (``c`` an element of ``Y``, with no metric, as there). The engine's ``JtJp`` with ``c`` held as ``Jp``; the output
+    is masked by the point's masks."""
+    held = sampling_variables.HeldVariables(Jp=c)
     (blocks,) = sampling_variables.sampling_variables('entries', x, index, ('JtJp',), held=held,
                                                        sum_over_samples=sum_over_samples)
     return blocks
@@ -225,7 +227,7 @@ def ut3_probe_corewise_tangent(
 def ut3_probe_corewise_transpose(
         x:                 UT3Data,                      # the point's .data: (B, G, shape, masks), stack C
         ww:                Vectors,                      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
-        residual:          Vectors,                      # of the type of z: len=d, F+W+[K]+C+(Ni,); or packed
+        c:                 Vectors,                      # P*⊗V_i, len=d, F+W+[K]+C+(Ni,); or packed
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
 ) -> typ.Tuple[
@@ -233,10 +235,10 @@ def ut3_probe_corewise_transpose(
         NDArray,                                         # TT block,     (d,)+[W]+[K]+C+(r,n,r)
 ]:
     """The corewise transpose on supercores: the uniform twin of
-    :py:func:`~t3toolbox.backend.probing.t3_probe_corewise_transpose`, the gradient of ``<residual, z(x)>`` in the
-    cores. The engine's ``JtJp`` with the residual held as ``Jp`` (a ragged residual packed here); the output is
-    masked by the point's masks."""
-    held = sampling_variables.HeldVariables(Jp=ut3_operations.pack_if_ragged(residual, x[0].shape[-1]))
+    :py:func:`~t3toolbox.backend.probing.t3_probe_corewise_transpose`, the gradient of ``<c, z(x)>`` in the cores (``c``
+    an element of ``Y``, with no metric, as there). The engine's ``JtJp`` with ``c`` held as ``Jp`` (a ragged ``c``
+    packed here); the output is masked by the point's masks."""
+    held = sampling_variables.HeldVariables(Jp=ut3_operations.pack_if_ragged(c, x[0].shape[-1]))
     (blocks,) = sampling_variables.sampling_variables('probe', x, ww, ('JtJp',), order=order, held=held,
                                                        sum_over_samples=sum_over_samples)
     return blocks
@@ -479,7 +481,7 @@ def _masked_point_and_directions(
 def ut3_probe_corewise_hessian(
         x:                 UT3Data,                      # the point's .data: (B, G, shape, masks), stack C
         ww:                Vectors,                      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
-        residual:          Vectors,                      # c, of the type of z: len=d, F+W+C+(Ni,); or packed
+        c:                 Vectors,                      # P*⊗V_i, len=d, F+W+C+(Ni,); or packed
         core_directions:   typ.Tuple[NDArray, NDArray],  # (B_dot, G_dot): supercores (d,)+K+C+(...), the point's sizes
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
@@ -487,10 +489,11 @@ def ut3_probe_corewise_hessian(
         NDArray,                                         # Tucker block, (d,)+[W]+K+C+(n,N)
         NDArray,                                         # TT block,     (d,)+[W]+K+C+(r,n,r)
 ]:
-    """The uniform twin of :py:func:`~t3toolbox.backend.probing.t3_probe_corewise_hessian`: the core-coordinate
-    Hessian of ``theta -> <z~, probe(Phi(theta))>`` applied to ``theta_hat``, on supercores. ``theta`` is masked with
-    its masks, ``theta_hat`` with the SAME masks, ``ztildes`` / ``ww`` packed to ``N``, and the output re-masked; per
-    stack element the real block is the ragged two-hole of the real blocks, whatever the padding holds.
+    """The uniform twin of :py:func:`~t3toolbox.backend.probing.t3_probe_corewise_hessian`: the core-coordinate Hessian
+    of ``theta -> <c, probe(Phi(theta))>`` applied to ``theta_hat``, on supercores (``c`` an element of ``Y``, with no
+    metric, as there). ``theta`` is masked with its masks, ``theta_hat`` with the SAME masks, ``c`` / ``ww`` packed to
+    ``N``, and the output re-masked; per stack element the real block is the ragged two-hole of the real blocks,
+    whatever the padding holds.
 
     Examples
     --------
@@ -519,7 +522,7 @@ def ut3_probe_corewise_hessian(
     >>> float(np.abs(KG * pad[1]).max()), float(np.abs(KB * pad[0]).max())   # the padding: exactly zero
     (0.0, 0.0)
     """
-    held = sampling_variables.HeldVariables(r=ut3_operations.pack_if_ragged(residual, x[0].shape[-1]))
+    held = sampling_variables.HeldVariables(r=ut3_operations.pack_if_ragged(c, x[0].shape[-1]))
     (blocks,) = sampling_variables.sampling_variables('probe', x, ww, ('Kp',), order=order, held=held,
                                                        core_directions=core_directions,
                                                        sum_over_samples=sum_over_samples)
@@ -550,7 +553,7 @@ def ut3_probe_corewise_hessian_from_sweep(
 def ut3_apply_corewise_hessian(
         x:                 UT3Data,                      # the point's .data: (B, G, shape, masks), stack C
         ww:                Vectors,                      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
-        residual:          NDArray,                      # c, of the type of z: shape=F+W+C; no weight
+        c:                 NDArray,                      # P*, shape=F+W+C
         core_directions:   typ.Tuple[NDArray, NDArray],  # (B_dot, G_dot): supercores (d,)+K+C+(...), the point's sizes
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
@@ -560,7 +563,7 @@ def ut3_apply_corewise_hessian(
 ]:
     """The uniform twin of :py:func:`~t3toolbox.backend.apply.t3_apply_corewise_hessian` (``theta`` and ``theta_hat``
     masked with ``theta``'s masks, ``ww`` packed, the output re-masked), as :py:func:`ut3_probe_corewise_hessian`."""
-    held = sampling_variables.HeldVariables(r=residual)
+    held = sampling_variables.HeldVariables(r=c)
     (blocks,) = sampling_variables.sampling_variables('apply', x, ww, ('Kp',), order=order, held=held,
                                                        core_directions=core_directions,
                                                        sum_over_samples=sum_over_samples)
@@ -584,7 +587,7 @@ def ut3_apply_corewise_hessian_from_sweep(
 def ut3_entries_corewise_hessian(
         x:                 UT3Data,                      # the point's .data: (B, G, shape, masks), stack C
         index:             NDArray,                      # int, shape=(d,)+W: the grid points
-        residual:          NDArray,                      # c, of the type of z: shape=W+C; no weight
+        c:                 NDArray,                      # ℝ, shape=W+C
         core_directions:   typ.Tuple[NDArray, NDArray],  # (B_dot, G_dot): supercores (d,)+K+C+(...), the point's sizes
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
 ) -> typ.Tuple[
@@ -593,7 +596,7 @@ def ut3_entries_corewise_hessian(
 ]:
     """The uniform twin of :py:func:`~t3toolbox.backend.entries.t3_entries_corewise_hessian` (``index`` unpacked -- the
     one-hot vectors are built packed inside the kernel), as :py:func:`ut3_apply_corewise_hessian`."""
-    held = sampling_variables.HeldVariables(r=residual)
+    held = sampling_variables.HeldVariables(r=c)
     (blocks,) = sampling_variables.sampling_variables('entries', x, index, ('Kp',), held=held,
                                                        core_directions=core_directions,
                                                        sum_over_samples=sum_over_samples)

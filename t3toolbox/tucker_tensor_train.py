@@ -3758,24 +3758,23 @@ class TuckerTensorTrain(common.ExplicitEquality):
     @staticmethod
     def probe_ambient_transpose(
             ww:                Sequence[NDArray],          # probe vectors, len=d, elm_shape=W+(Ni,)
-            residual:          Sequence[NDArray],          # of the type of z: len=d, elm_shape=W+C+(Ni,)
+            c:                 Sequence[NDArray],          # V_i, len=d, elm_shape=W+C+(Ni,)
             sum_over_samples:  bool = False,               # True: W folds into the CP rank
     ) -> Sequence[NDArray]:                                # CP factors, len=d, elm_shape=stack+(R,Ni)
-        """Ambient transpose of :py:meth:`probe`: back-project probe residuals into canonical (CP) factors.
+        """Ambient transpose of :py:meth:`probe`: back-project ``c`` into canonical (CP) factors.
 
-        The probe counterpart of :py:meth:`apply_ambient_transpose` -- the literal adjoint of ``probe``
-        as a linear map on the full tensor space (one of **three** probe transposes; full taxonomy in
-        ``docs/transposes.md``). ``probe`` returns ``d`` vectors, so the residual is ``d``
-        vectors; the back-projection is the **rank-``d``** tensor
-        ``sum_i (w0 (x) ... (x) residual_i (x) ... (x) w_{d-1})`` (residual ``residual_i`` in slot ``i``,
-        probe vectors elsewhere), returned as **CP factors**. Frame-free. Realize a ``TuckerTensorTrain``
-        with :py:meth:`from_canonical`.
+        The probe counterpart of :py:meth:`apply_ambient_transpose` -- the literal adjoint of ``probe`` as a linear map
+        on the full tensor space (one of **three** probe transposes; full taxonomy in ``docs/transposes.md``). ``probe``
+        returns ``d`` vectors, so ``c`` (an element of ``Y``: ``V_i`` per mode and sample, with no metric) is ``d``
+        vectors; the back-projection is the **rank-``d``** tensor ``sum_i (w0 (x) ... (x) c_i (x) ... (x) w_{d-1})``
+        (``c_i`` in slot ``i``, probe vectors elsewhere), returned as **CP factors**. Frame-free. Realize a
+        ``TuckerTensorTrain`` with :py:meth:`from_canonical`.
 
         The other two probe transposes are ``probe_corewise_transpose`` (gradient w.r.t. a frame's cores,
         for Adam / L-BFGS) and ``T3Tangent.probe_transpose`` (the Riemannian gradient).
 
         ``sum_over_samples=False`` (the default) keeps the probe stack ``W`` (a ``W (+ C)`` stack of rank-``d`` CPs);
-        ``True`` folds ``W`` into the CP rank (one rank-``d|W|`` CP, the ambient ``J^T r``), cheap as CP.
+        ``True`` folds ``W`` into the CP rank (one rank-``d|W|`` CP, the ambient ``J^T c``), cheap as CP.
 
         See Also
         --------
@@ -3794,31 +3793,31 @@ class TuckerTensorTrain(common.ExplicitEquality):
         >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
         >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
         >>> zt = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-        >>> T = t3.TuckerTensorTrain.from_canonical(t3.TuckerTensorTrain.probe_ambient_transpose(ww, residual=zt))
+        >>> T = t3.TuckerTensorTrain.from_canonical(t3.TuckerTensorTrain.probe_ambient_transpose(ww, c=zt))
         >>> lhs = float(np.sum(T.to_dense() * x.to_dense()))
         >>> rhs = float(sum(np.sum(z * p) for z, p in zip(zt, x.probe(ww))))
         >>> print(bool(abs(lhs - rhs) < 1e-9))
         True
 
-        **The argument order** (changed in this release: the sample first, then the residual). A call in the
-        old order ``(residual, ww)`` runs, since both are ``d`` vectors, and returns the transpose of a different
-        problem. Checked against ``probe`` at the intended sample, ``<J^T r, y> = <r, y.probe(ww)>``:
+        **The argument order** (changed in this release: the sample first, then ``c``). A call in the old order
+        ``(c, ww)`` runs, since both are ``d`` vectors, and returns the transpose of a different problem. Checked
+        against ``probe`` at the intended sample, ``<J^T c, y> = <c, y.probe(ww)>``:
 
         >>> y = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
         >>> lhs = float(sum(np.sum(a * b) for a, b in zip(zt, y.probe(ww))))
         >>> pair = lambda f: float(np.sum(t3.TuckerTensorTrain.from_canonical(f).to_dense() * y.to_dense()))
-        >>> right = t3.TuckerTensorTrain.probe_ambient_transpose(ww, zt)      # the sample, then the residual
+        >>> right = t3.TuckerTensorTrain.probe_ambient_transpose(ww, zt)      # the sample, then c
         >>> wrong = t3.TuckerTensorTrain.probe_ambient_transpose(zt, ww)      # the old order: runs, and is wrong
         >>> print(abs(lhs - pair(right)) < 1e-9 * abs(lhs), abs(lhs - pair(wrong)) < 1e-9 * abs(lhs))
         True False
         """
         jets.check_sample('probe', (), ww, _sample_shape(ww))
-        return probing.t3_probe_ambient_transpose(ww, residual, sum_over_samples=sum_over_samples)
+        return probing.t3_probe_ambient_transpose(ww, c, sum_over_samples=sum_over_samples)
 
     def probe_corewise_transpose(
             self,
             ww:                Sequence[NDArray],          # input jets, len=d, elm_shape=F_in_i+W+(Ni,)
-            residual:          Sequence[NDArray],          # of the type of z: len=d, elm_shape=F+W+[K]+C+(Ni,)
+            c:                 Sequence[NDArray],          # P*⊗V_i, len=d, elm_shape=F+W+[K]+C+(Ni,)
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: W joins the stack
     ) -> Tuple[
@@ -3827,14 +3826,18 @@ class TuckerTensorTrain(common.ExplicitEquality):
     ]:
         """Corewise (non-manifold) transpose of :py:meth:`probe`: gradient w.r.t. *this tensor's cores*.
 
-        The probe counterpart of :py:meth:`apply_corewise_transpose` -- the gradient of
-        ``self.probe(ww)`` w.r.t. ``self``'s cores (for core-wise optimizers, Adam / L-BFGS, fitting
-        from probes), returned as a raw ``(tucker_grads, tt_grads)`` tuple shaped like ``self.data`` (a
-        gradient, not a tensor; no ``|W|`` blow-up). Computed by the Section 6.3 corewise simplification
-        -- the tangent probe transpose with this tensor's own cores substituted for the orthogonal
-        frames. See ``docs/transposes.md`` for the ambient/corewise/tangent distinction; the ambient and
-        Riemannian probe transposes are :py:meth:`probe_ambient_transpose` and ``T3Tangent.probe_transpose``.
-        ``sum_over_samples=True`` (the default) is the summed gradient ``J^T r``; ``False`` keeps the probe stack ``W``.
+        The probe counterpart of :py:meth:`apply_corewise_transpose` -- the gradient of ``self.probe(ww)`` w.r.t.
+        ``self``'s cores (for core-wise optimizers, Adam / L-BFGS, fitting from probes), returned as a raw
+        ``(tucker_grads, tt_grads)`` tuple shaped like ``self.data`` (a gradient, not a tensor; no ``|W|`` blow-up).
+        Computed by the Section 6.3 corewise simplification -- the tangent probe transpose with this tensor's own cores
+        substituted for the orthogonal frames. See ``docs/transposes.md`` for the ambient/corewise/tangent distinction;
+        the ambient and Riemannian probe transposes are :py:meth:`probe_ambient_transpose` and
+        ``T3Tangent.probe_transpose``. ``c`` is an element of ``Y`` (``P*⊗V_i`` per mode), paired with ``probe``'s
+        output slot by slot. It carries no metric, and none is applied here: for the gradient of a weighted
+        least-squares fit pass ``data_metric(r, weight, minibatch_scale)`` (or ``batch.data_metric(r)``), which is ``r``
+        itself with no weight and no scale. ``sum_over_samples=True`` (the default) is the summed ``J^T c`` (the
+        Gauss-Newton gradient ``J^T(M r)`` when ``c = data_metric(r, weight, minibatch_scale)``); ``False`` keeps the
+        probe stack ``W``.
 
         See Also
         --------
@@ -3844,10 +3847,10 @@ class TuckerTensorTrain(common.ExplicitEquality):
 
         Examples
         --------
-        **The argument order** (changed in this release: the sample first, then the residual, as everywhere in
-        the library). The residual and the sample are both ``d`` vectors here, so a call in the old order
-        ``(residual, ww)`` runs, and returns the transpose of a different problem. Checked against the forward
-        derivative at the intended sample, ``<r, J x_dot> = <x_dot, J^T r>``:
+        **The argument order** (changed in this release: the sample first, then ``c``, as everywhere in the library).
+        ``c`` and the sample are both ``d`` vectors here, so a call in the old order ``(c, ww)`` runs, and returns the
+        transpose of a different problem. Checked against the forward derivative at the intended sample,
+        ``<c, J x_dot> = <x_dot, J^T c>``:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
@@ -3856,22 +3859,22 @@ class TuckerTensorTrain(common.ExplicitEquality):
         >>> ww, r = ([np.random.randn(3, N) for N in x.shape] for _ in range(2))
         >>> lhs = sum(float(np.sum(a * b)) for a, b in zip(r, x.probe_corewise_tangent(ww, x_dot.data)))
         >>> pair = lambda g: sum(float(np.sum(a * b)) for p, q in zip(g, x_dot.data) for a, b in zip(p, q))
-        >>> right = x.probe_corewise_transpose(ww, r)                 # the sample, then the residual
+        >>> right = x.probe_corewise_transpose(ww, r)                 # the sample, then c
         >>> wrong = x.probe_corewise_transpose(r, ww)                 # the old order: runs, and is wrong
         >>> print(abs(lhs - pair(right)) < 1e-12 * abs(lhs), abs(lhs - pair(wrong)) < 1e-12 * abs(lhs))
         True False
         """
         jets.check_sample('probe', order, ww, self.shape)
-        return probing.t3_probe_corewise_transpose(self.data, ww, residual, order=order,
+        return probing.t3_probe_corewise_transpose(self.data, ww, c, order=order,
                                                    sum_over_samples=sum_over_samples)
 
     @staticmethod
     def apply_ambient_transpose(
             ww:                Sequence[NDArray],          # apply vectors, len=d, elm_shape=W+(Ni,)
-            residual:          NDArray,                    # of the type of z: shape=W+C
+            c:                 NDArray,                    # ℝ, shape=W+C
             sum_over_samples:  bool = False,               # True: W becomes the CP rank
     ) -> Sequence[NDArray]:                                # CP factors, len=d, elm_shape=stack+(R,Ni)
-        """Ambient transpose of :py:meth:`apply`: back-project ``residual`` into canonical (CP) factors.
+        """Ambient transpose of :py:meth:`apply`: back-project ``c`` into canonical (CP) factors.
 
         This is **one of three** transposes of ``apply`` -- make sure it is the one you want (full
         taxonomy and costs in ``docs/transposes.md``):
@@ -3893,11 +3896,12 @@ class TuckerTensorTrain(common.ExplicitEquality):
         - ``False`` (default, primary): ``W`` is a passthrough stacking axis -- a ``W (+ C)`` stack of
           rank-1 CP tensors (CP rank ``R=1``), one back-projection per probe.
         - ``True``: ``W`` becomes the CP **rank** -- one rank-``|W|`` CP tensor
-          ``sum_W c_W (w0^W (x) ...)`` (the ambient ``J^T r``). Cheap as CP; the ``|W|^2`` cost of a
+          ``sum_W c_W (w0^W (x) ...)`` (the ambient ``J^T c``). Cheap as CP; the ``|W|^2`` cost of a
           *dense* T3 is paid only if you then call :py:meth:`from_canonical`.
 
-        Returns the CP ``factors`` (``residual`` folded into the first), in the layout
-        :py:meth:`from_canonical` consumes. See *Batching & stacking* §11
+        Returns the CP ``factors`` (``c`` folded into the first), in the layout :py:meth:`from_canonical` consumes.
+        ``c`` is an element of ``Y`` (``ℝ`` per sample), paired with ``apply``'s output, with no metric (for a weighted
+        fit's, pass ``data_metric(r, weight, minibatch_scale)``). See *Batching & stacking* §11
         (``docs/batching_and_stacking.md``) for the stacking conventions.
 
         See Also
@@ -3916,23 +3920,23 @@ class TuckerTensorTrain(common.ExplicitEquality):
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
         >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-        >>> factors = t3.TuckerTensorTrain.apply_ambient_transpose(ww, residual=1.7)
+        >>> factors = t3.TuckerTensorTrain.apply_ambient_transpose(ww, c=1.7)
         >>> ATc = t3.TuckerTensorTrain.from_canonical(factors)     # CP factors -> a TuckerTensorTrain
         >>> lhs = float(np.sum(ATc.to_dense() * x.to_dense()))
         >>> print(bool(abs(lhs - 1.7 * float(x.apply(ww))) < 1e-9))
         True
         """
         jets.check_sample('apply', (), ww, _sample_shape(ww))
-        return apply.t3_apply_ambient_transpose(ww, residual, sum_over_samples=sum_over_samples)
+        return apply.t3_apply_ambient_transpose(ww, c, sum_over_samples=sum_over_samples)
 
     @staticmethod
     def entries_ambient_transpose(
             index:             NDArray,                    # int, shape=(d,)+W (a nested list is converted)
             shape:             Sequence[int],              # the mode sizes (N0, ..., N(d-1))
-            residual:          NDArray,                    # of the type of z: shape=W+C
+            c:                 NDArray,                    # ℝ, shape=W+C
             sum_over_samples:  bool = False,               # True: W becomes the CP rank (collisions scatter-add)
     ) -> Sequence[NDArray]:                                # CP factors, len=d, elm_shape=stack+(R,Ni)
-        """Ambient transpose of :py:meth:`entries`: scatter ``residual`` at ``index`` into canonical (CP) factors.
+        """Ambient transpose of :py:meth:`entries`: scatter ``c`` at ``index`` into canonical (CP) factors.
 
         The ``entries`` counterpart of :py:meth:`apply_ambient_transpose` -- identical, with the apply
         vectors replaced by the unit vectors ``e_{index_k}``, so the CP factors are one-hots and the
@@ -3941,10 +3945,10 @@ class TuckerTensorTrain(common.ExplicitEquality):
         *ambient* one (the frame-free adjoint on the full tensor space); the gradient-for-optimizers
         versions are ``entries_corewise_transpose`` and ``T3Tangent.entries_transpose``.
 
-        ``sum_over_samples=True`` makes ``W`` the CP rank (scatter-adding colliding indices -- the
-        ``J^T r`` for entry sampling); ``False`` keeps ``W`` as a stacking axis. ``shape`` supplies the
-        ambient dims ``(N0, ..., N(d-1))``, which (unlike :py:meth:`apply_ambient_transpose`, where
-        ``ww`` carries them) ``residual`` and ``index`` alone do not determine. Returns CP ``factors`` for
+        ``sum_over_samples=True`` makes ``W`` the CP rank (scatter-adding colliding indices -- the ``J^T c`` for entry
+        sampling); ``False`` keeps ``W`` as a stacking axis. ``shape`` supplies the ambient dims ``(N0, ..., N(d-1))``,
+        which (unlike :py:meth:`apply_ambient_transpose`, where ``ww`` carries them) ``c`` and ``index`` alone do not
+        determine. ``c`` is an element of ``Y`` (``ℝ`` per sample), with no metric. Returns CP ``factors`` for
         :py:meth:`from_canonical`.
 
         See Also
@@ -3956,13 +3960,12 @@ class TuckerTensorTrain(common.ExplicitEquality):
 
         Examples
         --------
-        Back-projecting a residual scatters it at the index (realize the CP factors with
-        :py:meth:`from_canonical`):
+        Back-projecting ``c`` scatters it at the index (realize the CP factors with :py:meth:`from_canonical`):
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
-        >>> factors = t3.TuckerTensorTrain.entries_ambient_transpose((3, 5, 7), x.shape, residual=2.0)
+        >>> factors = t3.TuckerTensorTrain.entries_ambient_transpose((3, 5, 7), x.shape, c=2.0)
         >>> ETc = t3.TuckerTensorTrain.from_canonical(factors)
         >>> print(bool(abs(float(ETc.to_dense()[3, 5, 7]) - 2.0) < 1e-9))     # c lands at the index
         True
@@ -3972,12 +3975,12 @@ class TuckerTensorTrain(common.ExplicitEquality):
         """
         index = _as_index(index)
         jets.check_sample('entries', (), index, shape)
-        return entries.t3_entries_ambient_transpose(index, shape, residual, sum_over_samples=sum_over_samples)
+        return entries.t3_entries_ambient_transpose(index, shape, c, sum_over_samples=sum_over_samples)
 
     def apply_corewise_transpose(
             self,
             ww:                Sequence[NDArray],          # input jets, len=d, elm_shape=F_in_i+W+(Ni,)
-            residual:          NDArray,                    # of the type of z: shape=F+W+[K]+C
+            c:                 NDArray,                    # P*, shape=F+W+[K]+C
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: W joins the stack
     ) -> Tuple[
@@ -3998,10 +4001,14 @@ class TuckerTensorTrain(common.ExplicitEquality):
           factors of ``c * (w0 (x) ... (x) w_{d-1})``.
         - **tangent** (``T3Tangent.apply_transpose``): the Riemannian gradient, a tangent vector.
 
-        Computed by the Section 6.3 corewise simplification -- the tangent transpose with this tensor's
-        own cores substituted for the orthogonal frames (orthogonality is not required).
-        ``sum_over_samples=True`` (the default) is the summed gradient ``J^T r``; ``False`` keeps the probe stack ``W``
-        (one gradient set per probe, e.g. to assemble ``J^T J``).
+        Computed by the Section 6.3 corewise simplification -- the tangent transpose with this tensor's own cores
+        substituted for the orthogonal frames (orthogonality is not required). ``c`` is an element of ``Y`` (``P*`` per
+        sample), paired with ``apply``'s output slot by slot. It carries no metric, and none is applied here: for the
+        gradient of a weighted least-squares fit pass ``data_metric(r, weight, minibatch_scale)`` (or
+        ``batch.data_metric(r)``), which is ``r`` itself with no weight and no scale. ``sum_over_samples=True`` (the
+        default) is the summed ``J^T c`` (the Gauss-Newton gradient ``J^T(M r)`` when
+        ``c = data_metric(r, weight, minibatch_scale)``); ``False`` keeps the probe stack ``W`` (one gradient set per
+        probe, e.g. to assemble ``J^T J``).
 
         Note: a corewise gradient is meaningful only at the base point where it is taken (the cores are
         a representation, not intrinsic), so combining them across base points (as L-BFGS history does)
@@ -4021,20 +4028,20 @@ class TuckerTensorTrain(common.ExplicitEquality):
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
         >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-        >>> gB, gG = x.apply_corewise_transpose(ww, residual=np.asarray(2.0))
+        >>> gB, gG = x.apply_corewise_transpose(ww, c=np.asarray(2.0))
         >>> print([g.shape for g in gB] == [b.shape for b in x.tucker_cores])   # matches Tucker cores
         True
         >>> print([g.shape for g in gG] == [g.shape for g in x.tt_cores])       # matches TT cores
         True
         """
         jets.check_sample('apply', order, ww, self.shape)
-        return apply.t3_apply_corewise_transpose(self.data, ww, residual, order=order,
+        return apply.t3_apply_corewise_transpose(self.data, ww, c, order=order,
                                                  sum_over_samples=sum_over_samples)
 
     def entries_corewise_transpose(
             self,
             index:             NDArray,                    # int, shape=(d,)+W (a nested list is converted)
-            residual:          NDArray,                    # of the type of z: shape=W+[K]+C
+            c:                 NDArray,                    # ℝ, shape=W+[K]+C
             sum_over_samples:  bool = True,                # False: W joins the stack
     ) -> Tuple[
             Tuple[NDArray, ...],                  # Tucker-core gradients, len=d, elm_shape=[W]+[K]+C+(ni,Ni)
@@ -4042,12 +4049,12 @@ class TuckerTensorTrain(common.ExplicitEquality):
     ]:
         """Corewise (non-manifold) transpose of :py:meth:`entries`: gradient w.r.t. *this tensor's cores*.
 
-        The ``entries`` counterpart of :py:meth:`apply_corewise_transpose` -- see it (and
-        ``docs/transposes.md``) for the ambient-vs-corewise-vs-tangent distinction; this is the
-        *corewise* gradient (w.r.t. the cores, for Adam / L-BFGS), returned as a raw
-        ``(tucker_grads, tt_grads)`` tuple. Unlike :py:meth:`entries_ambient_transpose` it needs **no**
-        ``shape`` argument -- the ambient dims come from ``self``. ``sum_over_samples=True`` (the default) scatter-adds
-        colliding indices (the gradient ``J^T r``).
+        The ``entries`` counterpart of :py:meth:`apply_corewise_transpose` -- see it (and ``docs/transposes.md``) for
+        the ambient-vs-corewise-vs-tangent distinction; this is the *corewise* gradient (w.r.t. the cores, for Adam /
+        L-BFGS), returned as a raw ``(tucker_grads, tt_grads)`` tuple. Unlike :py:meth:`entries_ambient_transpose` it
+        needs **no** ``shape`` argument -- the ambient dims come from ``self``. ``c`` is an element of ``Y`` (``ℝ`` per
+        sample), with no metric, as there. ``sum_over_samples=True`` (the default) scatter-adds colliding indices
+        (``J^T c``).
 
         See Also
         --------
@@ -4057,7 +4064,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
         """
         index = _as_index(index)
         jets.check_sample('entries', (), index, self.shape)
-        return entries.t3_entries_corewise_transpose(self.data, index, residual, sum_over_samples=sum_over_samples)
+        return entries.t3_entries_corewise_transpose(self.data, index, c, sum_over_samples=sum_over_samples)
 
 
     def probe_corewise_tangent(
@@ -4126,7 +4133,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
     def probe_corewise_hessian(
             self,
             ww:                Sequence[NDArray],          # input jets, len=d, elm_shape=F_in_i+W+(Ni,)
-            residual:          Sequence[NDArray],          # c, of the type of z: len=d, elm_shape=F+W+C+(Ni,)
+            c:                 Sequence[NDArray],          # P*⊗V_i, len=d, elm_shape=F+W+C+(Ni,)
             core_directions:   Tuple,                      # (tucker_dirs, tt_dirs): the cores' shapes with K
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: W joins the blocks' stack
@@ -4134,9 +4141,10 @@ class TuckerTensorTrain(common.ExplicitEquality):
             Tuple[NDArray, ...],                           # Tucker blocks, len=d, elm_shape=[W]+K+C+(ni,Ni)
             Tuple[NDArray, ...],                           # TT blocks,     len=d, elm_shape=[W]+K+C+(ri,ni,r(i+1))
     ]:
-        """The corewise Hessian of probing: the second derivative of ``phi(x) = <residual, x.probe(ww)>`` in the
-        cores at ``self``, applied to ``core_directions`` (the derivative of :py:meth:`probe_corewise_transpose`
-        along them). ``residual`` is a vector of the type of ``z``, no weight. ``core_directions`` as in
+        """The corewise Hessian of probing: the second derivative of ``phi(x) = <c, x.probe(ww)>`` in the cores at
+        ``self``, applied to ``core_directions`` (the derivative of :py:meth:`probe_corewise_transpose` along them).
+        ``c`` is an element of ``Y`` (``P*⊗V_i`` per mode), paired with ``probe``'s output slot by slot, with no metric
+        (for a weighted fit's, pass ``data_metric(r, weight, minibatch_scale)``). ``core_directions`` as in
         :py:meth:`probe_corewise_tangent`. Summed over the samples unless ``sum_over_samples=False``.
 
         See Also
@@ -4154,24 +4162,24 @@ class TuckerTensorTrain(common.ExplicitEquality):
         >>> np.random.seed(0)
         >>> x, y = (t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1)) for _ in range(2))
         >>> ww, c = ([np.random.randn(3, N) for N in x.shape] for _ in range(2))
-        >>> KB, KG = x.probe_corewise_hessian(ww, residual=c, core_directions=y.data)
+        >>> KB, KG = x.probe_corewise_hessian(ww, c=c, core_directions=y.data)
         >>> h = 1e-5
         >>> step = lambda s: t3.TuckerTensorTrain(*[tuple(a + s * b for a, b in zip(p, q))
         ...                                         for p, q in zip(x.data, y.data)])
-        >>> gp, gm = (step(s).probe_corewise_transpose(ww, residual=c) for s in (h, -h))
+        >>> gp, gm = (step(s).probe_corewise_transpose(ww, c=c) for s in (h, -h))
         >>> fd = [(p - m) / (2 * h) for p, m in zip(gp[1], gm[1])]
         >>> print(all(np.allclose(a, b, atol=1e-6) for a, b in zip(KG, fd)))
         True
         """
         jets.check_sample('probe', order, ww, self.shape)
         _check_core_directions(core_directions)
-        return probing.t3_probe_corewise_hessian(self.data, ww, residual, core_directions, order=order,
+        return probing.t3_probe_corewise_hessian(self.data, ww, c, core_directions, order=order,
                                                  sum_over_samples=sum_over_samples)
 
     def apply_corewise_hessian(
             self,
             ww:                Sequence[NDArray],          # input jets, len=d, elm_shape=F_in_i+W+(Ni,)
-            residual:          NDArray,                    # c, of the type of z: shape=F+W+C
+            c:                 NDArray,                    # P*, shape=F+W+C
             core_directions:   Tuple,                      # (tucker_dirs, tt_dirs): the cores' shapes with K
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: W joins the blocks' stack
@@ -4182,13 +4190,13 @@ class TuckerTensorTrain(common.ExplicitEquality):
         """The corewise Hessian of :py:meth:`apply`, as :py:meth:`probe_corewise_hessian`."""
         jets.check_sample('apply', order, ww, self.shape)
         _check_core_directions(core_directions)
-        return apply.t3_apply_corewise_hessian(self.data, ww, residual, core_directions, order=order,
+        return apply.t3_apply_corewise_hessian(self.data, ww, c, core_directions, order=order,
                                                sum_over_samples=sum_over_samples)
 
     def entries_corewise_hessian(
             self,
             index:             NDArray,                    # int, shape=(d,)+W (a nested list is converted)
-            residual:          NDArray,                    # c, of the type of z: shape=W+C
+            c:                 NDArray,                    # ℝ, shape=W+C
             core_directions:   Tuple,                      # (tucker_dirs, tt_dirs): the cores' shapes with K
             sum_over_samples:  bool = True,                # False: W joins the blocks' stack
     ) -> Tuple[
@@ -4199,7 +4207,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
         index = _as_index(index)
         jets.check_sample('entries', (), index, self.shape)
         _check_core_directions(core_directions)
-        return entries.t3_entries_corewise_hessian(self.data, index, residual, core_directions,
+        return entries.t3_entries_corewise_hessian(self.data, index, c, core_directions,
                                                    sum_over_samples=sum_over_samples)
 
     ##############################################################

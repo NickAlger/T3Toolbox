@@ -486,17 +486,18 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
     def apply_corewise_transpose(
             self,
             ww:                Sequence[NDArray],          # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
-            residual:          NDArray,                    # of the type of z: shape=F+W+[K]+C
+            c:                 NDArray,                    # P*, shape=F+W+[K]+C
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: W joins the stack
     ) -> Tuple[NDArray, NDArray]:                          # (tucker, tt) supercores, (d,)+[W]+[K]+C+(...)
         """Corewise (non-manifold) transpose of :py:meth:`apply`: gradient of ``apply(X(cores), ww)`` w.r.t.
         the supercores (treated as free variables) -- for a core-wise optimizer (Adam, L-BFGS).
 
-        Returns the raw gradient supercores ``(tucker_grad, tt_grad)`` (a gradient, NOT a tensor). The
-        Section 6.3 ``(U,L,R)->G`` substitution; no orthogonality required. ``sum_over_samples=True`` (default) sums the
-        apply stack ``W`` (the Gauss-Newton ``Jᵀr``), so the grads are shaped exactly like the supercores;
-        ``False`` keeps ``W`` as a leading grad stack. Uniform mirror of
+        Returns the raw gradient supercores ``(tucker_grad, tt_grad)`` (a gradient, NOT a tensor). The Section 6.3
+        ``(U,L,R)->G`` substitution; no orthogonality required. ``c`` is an element of ``Y`` (``P*`` per sample), with
+        no metric, as in the ragged method. ``sum_over_samples=True`` (default) sums the apply stack ``W`` (``Jᵀc``; the
+        Gauss-Newton gradient when ``c = M r``), so the grads are shaped exactly like the supercores; ``False`` keeps
+        ``W`` as a leading grad stack. Uniform mirror of
         :py:meth:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply_corewise_transpose`.
 
         See Also
@@ -513,44 +514,44 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
         >>> np.random.seed(0)
         >>> x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1)))
         >>> ww = [np.random.randn(2, N) for N in (10, 11, 12)]     # apply stack W=(2,)
-        >>> c = np.random.randn(2)                                 # residual, shape=W
-        >>> gB, gG = x.apply_corewise_transpose(ww, residual=c)
+        >>> c = np.random.randn(2)                                 # c, shape=W
+        >>> gB, gG = x.apply_corewise_transpose(ww, c=c)
         >>> print(gB.shape == x.tucker_supercore.shape, gG.shape == x.tt_supercore.shape)   # sum W -> core shapes
         True True
-        >>> kB, kG = x.apply_corewise_transpose(ww, residual=c, sum_over_samples=False)
+        >>> kB, kG = x.apply_corewise_transpose(ww, c=c, sum_over_samples=False)
         >>> print(kB.shape, kG.shape)                              # keep W: a leading (2,) grad stack
         (3, 2, 6, 12) (3, 2, 3, 6, 3)
         """
         _check_sample('apply', order, ww, self.shape)
-        return ut3_sampling.ut3_apply_corewise_transpose(self.data, ww, residual, order=order,
+        return ut3_sampling.ut3_apply_corewise_transpose(self.data, ww, c, order=order,
                                                          sum_over_samples=sum_over_samples)
 
     def entries_corewise_transpose(
             self,
             index:             NDArray,                    # int, shape=(d,)+W (a nested list is converted)
-            residual:          NDArray,                    # of the type of z: shape=W+[K]+C
+            c:                 NDArray,                    # ℝ, shape=W+[K]+C
             sum_over_samples:  bool = True,                # False: W joins the stack
     ) -> Tuple[NDArray, NDArray]:                          # (tucker, tt) supercores, (d,)+[W]+[K]+C+(...)
         """Corewise transpose of :py:meth:`entries`: gradient w.r.t. the supercores (= the one-hot
-        :py:meth:`apply_corewise_transpose`, scattering ``residual`` at ``index``). See
+        :py:meth:`apply_corewise_transpose`, scattering ``c`` at ``index``). See
         :py:meth:`apply_corewise_transpose` for the return contract and ``sum_over_samples``."""
         index = t3._as_index(index)
         _check_sample('entries', (), index, self.shape)
-        return ut3_sampling.ut3_entries_corewise_transpose(self.data, index, residual,
+        return ut3_sampling.ut3_entries_corewise_transpose(self.data, index, c,
                                                            sum_over_samples=sum_over_samples)
 
     def probe_corewise_transpose(
             self,
             ww:                Sequence[NDArray],          # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
-            residual:          Sequence[NDArray],          # of the type of z: len=d, F+W+[K]+C+(Ni,); or packed
+            c:                 Sequence[NDArray],          # P*⊗V_i, len=d, F+W+[K]+C+(Ni,); or packed
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: W joins the stack
     ) -> Tuple[NDArray, NDArray]:                          # (tucker, tt) supercores, (d,)+[W]+[K]+C+(...)
         """Corewise transpose of :py:meth:`probe`: gradient w.r.t. the supercores. Like
-        :py:meth:`apply_corewise_transpose` but the residual carries one free mode per probe. See
+        :py:meth:`apply_corewise_transpose` but ``c`` carries one free mode per probe. See
         :py:meth:`apply_corewise_transpose` for the return contract and ``sum_over_samples``."""
         _check_sample('probe', order, ww, self.shape)
-        return ut3_sampling.ut3_probe_corewise_transpose(self.data, ww, residual, order=order,
+        return ut3_sampling.ut3_probe_corewise_transpose(self.data, ww, c, order=order,
                                                          sum_over_samples=sum_over_samples)
 
 
@@ -571,18 +572,18 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
     def probe_corewise_hessian(
             self,
             ww:                Sequence[NDArray],          # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
-            residual:          Sequence[NDArray],          # c, of the type of z: len=d, F+W+C+(Ni,); or packed
+            c:                 Sequence[NDArray],          # P*⊗V_i, len=d, F+W+C+(Ni,); or packed
             core_directions:   Tuple[NDArray, NDArray],    # (tucker, tt) supercores (d,)+K+C+(...): the point's sizes
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: W joins the stack
     ) -> Tuple[NDArray, NDArray]:                          # (tucker, tt) blocks, (d,)+[W]+K+C+(...)
-        """The corewise Hessian of :py:meth:`probe` on supercores: the second derivative of ``<residual, z>`` in the
-        supercores, applied to ``core_directions`` (as :py:meth:`probe_corewise_tangent` takes them). The uniform
-        mirror of :py:meth:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe_corewise_hessian`; the output's
-        padding is exactly zero."""
+        """The corewise Hessian of :py:meth:`probe` on supercores: the second derivative of ``<c, z>`` in the
+        supercores, applied to ``core_directions`` (as :py:meth:`probe_corewise_tangent` takes them). The uniform mirror
+        of :py:meth:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe_corewise_hessian`; the output's padding is
+        exactly zero."""
         _check_sample('probe', order, ww, self.shape)
         t3._check_core_directions(core_directions, uniform=True)
-        return ut3_sampling.ut3_probe_corewise_hessian(self.data, ww, residual, core_directions, order=order,
+        return ut3_sampling.ut3_probe_corewise_hessian(self.data, ww, c, core_directions, order=order,
                                                       sum_over_samples=sum_over_samples)
 
     def apply_corewise_tangent(
@@ -602,18 +603,18 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
     def apply_corewise_hessian(
             self,
             ww:                Sequence[NDArray],          # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
-            residual:          NDArray,                    # c, of the type of z: shape=F+W+C
+            c:                 NDArray,                    # P*, shape=F+W+C
             core_directions:   Tuple[NDArray, NDArray],    # (tucker, tt) supercores (d,)+K+C+(...): the point's sizes
             order:             Tuple[int, ...] = (),       # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: W joins the stack
     ) -> Tuple[NDArray, NDArray]:                          # (tucker, tt) blocks, (d,)+[W]+K+C+(...)
-        """The corewise Hessian of :py:meth:`apply` on supercores: the second derivative of ``<residual, z>`` in the
-        supercores, applied to ``core_directions`` (as :py:meth:`apply_corewise_tangent` takes them). The uniform
-        mirror of :py:meth:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply_corewise_hessian`; the output's
-        padding is exactly zero."""
+        """The corewise Hessian of :py:meth:`apply` on supercores: the second derivative of ``<c, z>`` in the
+        supercores, applied to ``core_directions`` (as :py:meth:`apply_corewise_tangent` takes them). The uniform mirror
+        of :py:meth:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply_corewise_hessian`; the output's padding is
+        exactly zero."""
         _check_sample('apply', order, ww, self.shape)
         t3._check_core_directions(core_directions, uniform=True)
-        return ut3_sampling.ut3_apply_corewise_hessian(self.data, ww, residual, core_directions, order=order,
+        return ut3_sampling.ut3_apply_corewise_hessian(self.data, ww, c, core_directions, order=order,
                                                       sum_over_samples=sum_over_samples)
 
     def entries_corewise_tangent(
@@ -633,18 +634,18 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
     def entries_corewise_hessian(
             self,
             index:             NDArray,                    # int, shape=(d,)+W (a nested list is converted)
-            residual:          NDArray,                    # c, of the type of z: shape=W+C
+            c:                 NDArray,                    # ℝ, shape=W+C
             core_directions:   Tuple[NDArray, NDArray],    # (tucker, tt) supercores (d,)+K+C+(...): the point's sizes
             sum_over_samples:  bool = True,                # False: W joins the stack
     ) -> Tuple[NDArray, NDArray]:                          # (tucker, tt) blocks, (d,)+[W]+K+C+(...)
-        """The corewise Hessian of :py:meth:`entries` on supercores: the second derivative of ``<residual, z>`` in the
+        """The corewise Hessian of :py:meth:`entries` on supercores: the second derivative of ``<c, z>`` in the
         supercores, applied to ``core_directions`` (as :py:meth:`entries_corewise_tangent` takes them). The uniform
         mirror of :py:meth:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain.entries_corewise_hessian`; the output's
         padding is exactly zero."""
         index = t3._as_index(index)
         _check_sample('entries', (), index, self.shape)
         t3._check_core_directions(core_directions, uniform=True)
-        return ut3_sampling.ut3_entries_corewise_hessian(self.data, index, residual, core_directions,
+        return ut3_sampling.ut3_entries_corewise_hessian(self.data, index, c, core_directions,
                                                       sum_over_samples=sum_over_samples)
 
     def sum(self, axis=None) -> NDArray:

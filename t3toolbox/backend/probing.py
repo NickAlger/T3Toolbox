@@ -1030,21 +1030,23 @@ def tv_probe_transpose_from_sweep(
 def tv_probe_transpose(
         frame:             typ.Tuple,                    # (D, U, L, R)
         ww:                typ.Sequence[NDArray],        # len=d, elm_shape=F_in_i+W+(Ni,): input jets
-        residual:          typ.Sequence[NDArray],         # of the type of z: len=d, elm_shape=F+W+[K]+C+(Ni,)
+        c:                 typ.Sequence[NDArray],         # P*⊗V_i, len=d, elm_shape=F+W+[K]+C+(Ni,)
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
 ) -> typ.Tuple[
         typ.Tuple[NDArray, ...],                         # V blocks. len=d, elm_shape=[W]+[K]+C+(nUi,Ni)
         typ.Tuple[NDArray, ...],                         # H blocks. len=d, elm_shape=[W]+[K]+C+(rLi,nDi,rR(i+1))
 ]:
-    '''The transpose of :py:func:`tv_probe`: ``J^T`` applied to ``residual``, a tangent's blocks at ``frame``.
+    '''The transpose of :py:func:`tv_probe`: ``J^T`` applied to ``c``, a tangent's blocks at ``frame``.
 
-    ``residual`` is a vector of the type of ``z`` (a stack ``K`` of them allowed), with no weight; it is turned inside
-    (a dual jet). One call of :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` wanting ``JtJp`` with
-    ``residual`` held as ``Jp`` (the route of a held ``Jp``: ``J^T`` of the vector held). The blocks are summed over
-    the samples by default. For repeated calls at one frame (inside an iterative solver), call
-    :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` with ``held=``: the frame's sweeps are then
-    computed once.
+    ``c`` is an element of ``Y`` (``P*⊗V_i`` per mode per sample; a stack ``K`` of them allowed), paired with ``z`` slot
+    by slot. It carries no metric, and none is applied here: for the gradient of a weighted least-squares fit pass
+    ``data_metric(r, weight, minibatch_scale)`` (or ``batch.data_metric(r)``), which is ``r`` itself with no weight and
+    no scale. One call of :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` wanting ``JtJp`` with
+    ``c`` held as ``Jp`` (the route of a held ``Jp``: ``J^T`` of the vector held; the engine turns ``c`` into its
+    dual-jet form inside). The blocks are summed over the samples by default. For repeated calls at one frame (inside an
+    iterative solver), call :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` with ``held=``: the
+    frame's sweeps are then computed once.
 
     Examples
     --------
@@ -1062,7 +1064,7 @@ def tv_probe_transpose(
     >>> print(bool(np.isclose(pair((V, H), variations), sum(float(np.sum(a * a)) for a in Jp))))       # <p, J^T J p> = |J p|^2
     True
     '''
-    held = sampling_variables.HeldVariables(Jp=residual)
+    held = sampling_variables.HeldVariables(Jp=c)
     (blocks,) = sampling_variables.sampling_variables('probe', frame, ww, ('JtJp',), order=order, held=held,
                                                        sum_over_samples=sum_over_samples)
     return blocks
@@ -1070,36 +1072,35 @@ def tv_probe_transpose(
 
 def t3_probe_ambient_transpose(
         ww:                typ.Sequence[NDArray],  # probe vectors, len=d, elm_shape=W+(Ni,)
-        residual:          typ.Sequence[NDArray],  # probe residuals, len=d, elm_shape=W+C+(Ni,)
+        c:                 typ.Sequence[NDArray],  # V_i, len=d, elm_shape=W+C+(Ni,)
         sum_over_samples:  bool = False,           # True: W folds into the CP rank
 ) -> typ.Sequence[NDArray]:  # canonical (CP) factors. len=d, ith elm_shape=stack_shape+(R, Ni)
-    '''Ambient transpose of :py:func:`t3_probe`: back-project probe residuals into CP factors.
+    '''Ambient transpose of :py:func:`t3_probe`: back-project ``c`` into CP factors.
 
-    The *ambient* adjoint -- the transpose of ``probe`` as a linear map on the **full tensor space**.
-    Probe returns ``d`` vectors (one free mode each), so the residual ``residual`` is ``d`` vectors; the
-    back-projection is the rank-``d`` tensor
+    The *ambient* adjoint -- the transpose of ``probe`` as a linear map on the **full tensor space**. Probe returns
+    ``d`` vectors (one free mode each), so ``c`` (an element of ``Y``: ``V_i`` per mode and sample, paired with
+    ``probe``'s output, with no metric) is ``d`` vectors; the back-projection is the rank-``d`` tensor
 
-        sum_i  w0 (x) ... (x) w_{i-1} (x) residual_i (x) w_{i+1} (x) ... (x) w_{d-1}
+        sum_i  w0 (x) ... (x) w_{i-1} (x) c_i (x) w_{i+1} (x) ... (x) w_{d-1}
 
-    (term ``i`` has the residual ``residual_i`` in slot ``i`` and the probe vectors elsewhere), whose
-    natural representation is a **canonical (CP) decomposition** of rank ``d``. Frame-free. Distinct from
-    the *corewise* transpose (gradient w.r.t. a frame's cores) and the *tangent* transpose (Riemannian
-    gradient); see ``docs/transposes.md``. The ``apply``/``entries`` analog is the rank-1 (or rank-``|W|``)
-    :py:func:`t3_apply_ambient_transpose`.
+    (term ``i`` has ``c_i`` in slot ``i`` and the probe vectors elsewhere), whose natural representation is a
+    **canonical (CP) decomposition** of rank ``d``. Frame-free. Distinct from the *corewise* transpose (gradient w.r.t.
+    a frame's cores) and the *tangent* transpose (Riemannian gradient); see ``docs/transposes.md``. The
+    ``apply``/``entries`` analog is the rank-1 (or rank-``|W|``) :py:func:`t3_apply_ambient_transpose`.
 
     - ``sum_over_samples=False`` (primary): ``W`` is a passthrough stacking axis -- a ``W (+ C)`` stack
       of rank-``d`` CP tensors.
     - ``sum_over_samples=True``: ``W`` folds into the CP rank -- one rank-``d|W|`` CP tensor
       ``sum_W sum_i (...)``. Cheap as CP (``O(d |W| N)``).
 
-    Returns CP ``factors`` (factor ``k`` has the diagonal structure: rank slot ``k`` = ``residual_k``,
+    Returns CP ``factors`` (factor ``k`` has the diagonal structure: rank slot ``k`` = ``c_k``,
     the others = ``ww_k``), in the layout :py:func:`t3_conversions.t3_from_canonical` consumes.
 
     Examples
     --------
-    The adjoint of ``probe`` on the full tensor space, ``<J^T r, T> = <r, dense_probe(T, ww)>``. **The argument order**
-    (changed in this release: the sample, then the residual): the residual and the sample are both ``d`` vectors,
-    so the old order ``(residual, ww)`` runs and returns the transpose of a different problem:
+    The adjoint of ``probe`` on the full tensor space, ``<J^T c, T> = <c, dense_probe(T, ww)>``. **The argument order**
+    (changed in this release: the sample, then ``c``): ``c`` and the sample are both ``d`` vectors, so the old order
+    ``(c, ww)`` runs and returns the transpose of a different problem:
 
     >>> import numpy as np
     >>> import t3toolbox.backend.probing as probing
@@ -1113,12 +1114,12 @@ def t3_probe_ambient_transpose(
     >>> print(abs(lhs - pair(right)) < 1e-12 * abs(lhs), abs(lhs - pair(wrong)) < 1e-12 * abs(lhs))
     True False
     '''
-    use_jax = tree_contains_jax((residual, ww))
+    use_jax = tree_contains_jax((c, ww))
     xnp, _, _ = get_backend(False, use_jax)
     d = len(ww)
     nW = ww[0].ndim - 1
     W  = ww[0].shape[:nW]                 # probe stack
-    C  = residual[0].shape[nW:-1]          # frame stack (residual[i] is W + C + (Ni,))
+    C  = c[0].shape[nW:-1]          # frame stack (c[i] is W + C + (Ni,))
     nC = len(C)
     mW = math.prod(W)
 
@@ -1127,7 +1128,7 @@ def t3_probe_ambient_transpose(
         Nk = ww[k].shape[-1]
         w_bc = xnp.broadcast_to(ww[k].reshape(W + (1,) * nC + (1, Nk)), W + C + (d, Nk))
         diag = (xnp.arange(d) == k).reshape((d, 1))            # rank slot k is the "diagonal"
-        Fk = xnp.where(diag, residual[k][..., None, :], w_bc)   # W + C + (d, Nk)
+        Fk = xnp.where(diag, c[k][..., None, :], w_bc)   # W + C + (d, Nk)
         if sum_over_samples:                                    # fold W into the CP rank: rank d -> d|W|
             Fk = xnp.moveaxis(Fk, tuple(range(nW)), tuple(range(nC, nC + nW)))  # C + W + (d, Nk)
             Fk = Fk.reshape(C + (mW * d, Nk))
@@ -1178,21 +1179,23 @@ def t3_probe_corewise_tangent(
 def t3_probe_corewise_transpose(
         x:                 typ.Tuple,                    # (tucker_cores, tt_cores): the point
         ww:                typ.Sequence[NDArray],        # len=d, elm_shape=F_in_i+W+(Ni,): input jets
-        residual:          typ.Sequence[NDArray],         # of the type of z: len=d, elm_shape=F+W+[K]+C+(Ni,)
+        c:                 typ.Sequence[NDArray],         # P*⊗V_i, len=d, elm_shape=F+W+[K]+C+(Ni,)
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
 ) -> typ.Tuple[
         typ.Tuple[NDArray, ...],                         # Tucker-core blocks. len=d, elm_shape=[W]+[K]+C+(nDi,Ni)
         typ.Tuple[NDArray, ...],                         # TT-core blocks.     len=d, elm_shape=[W]+[K]+C+(ri,nDi,r(i+1))
 ]:
-    '''The corewise transpose: ``J^T`` applied to ``residual`` in the cores of the point ``x``, the gradient of
-    ``phi(x) = <residual, z(x)>`` (plain inner product).
+    '''The corewise transpose: ``J^T`` applied to ``c`` in the cores of the point ``x``, the gradient of
+    ``phi(x) = <c, z(x)>`` (the pairing of ``Y`` with ``Y*``, slot by slot: no metric).
 
-    ``residual`` is a vector of the type of ``z`` (a stack ``K`` allowed), with no weight, turned inside. One call of
-    :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` on the corewise point ``x`` wanting ``JtJp``
-    with ``residual`` held as ``Jp``. Summed over the samples by default. For repeated calls at one frame (inside an iterative solver), call
-    :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` with ``held=``: the frame's sweeps are then
-    computed once.
+    ``c`` is an element of ``Y`` (``P*⊗V_i`` per mode per sample; a stack ``K`` of them allowed), paired with ``z`` slot
+    by slot. It carries no metric, and none is applied here: for the gradient of a weighted least-squares fit pass
+    ``data_metric(r, weight, minibatch_scale)`` (or ``batch.data_metric(r)``), which is ``r`` itself with no weight and
+    no scale. One call of :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` on the corewise point
+    ``x`` wanting ``JtJp`` with ``c`` held as ``Jp``. Summed over the samples by default. For repeated calls at one
+    frame (inside an iterative solver), call :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` with
+    ``held=``: the frame's sweeps are then computed once.
 
     Examples
     --------
@@ -1209,20 +1212,20 @@ def t3_probe_corewise_transpose(
     >>> print([b.shape for b in B], [g.shape for g in G])
     [(2, 4), (3, 5), (2, 6)] [(1, 2, 2), (2, 3, 2), (2, 2, 1)]
 
-    **The argument order** (changed in this release: the point, the sample, then the residual). The residual
-    and the sample are both ``d`` vectors, so ``(x, residual, ww)`` runs and returns the transpose of a different
-    problem. Checked against the forward derivative at the intended sample:
+    **The argument order** (changed in this release: the point, the sample, then ``c``). ``c`` and the sample are both
+    ``d`` vectors, so ``(x, c, ww)`` runs and returns the transpose of a different problem. Checked against the forward
+    derivative at the intended sample:
 
     >>> x_dot = t3_corewise_randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
     >>> r = [np.random.randn(3, n) for n in (4, 5, 6)]
     >>> lhs = sum(float(np.sum(a * b)) for a, b in zip(r, probing.t3_probe_corewise_tangent(x, ww, x_dot)))
     >>> pair = lambda g: sum(float(np.sum(a * b)) for p, q in zip(g, x_dot) for a, b in zip(p, q))
     >>> right = probing.t3_probe_corewise_transpose(x, ww, r)
-    >>> wrong = probing.t3_probe_corewise_transpose(x, r, ww)       # the residual and the sample swapped
+    >>> wrong = probing.t3_probe_corewise_transpose(x, r, ww)       # c and the sample swapped
     >>> print(abs(lhs - pair(right)) < 1e-12 * abs(lhs), abs(lhs - pair(wrong)) < 1e-12 * abs(lhs))
     True False
     '''
-    held = sampling_variables.HeldVariables(Jp=residual)
+    held = sampling_variables.HeldVariables(Jp=c)
     (blocks,) = sampling_variables.sampling_variables('probe', x, ww, ('JtJp',), order=order, held=held,
                                                        sum_over_samples=sum_over_samples)
     return blocks
@@ -1537,7 +1540,7 @@ def t3_probe_corewise_hessian_from_sweep(
 def t3_probe_corewise_hessian(
         x:                 typ.Tuple,                    # (B, G): the point whose cores the directions vary
         ww:                typ.Sequence[NDArray],        # len=d, elm_shape=F_in_i+W+(Ni,): input jets
-        residual:          typ.Sequence[NDArray],         # c, of the type of z: len=d, elm_shape=F+W+C+(Ni,); no weight
+        c:                 typ.Sequence[NDArray],         # P*⊗V_i, len=d, elm_shape=F+W+C+(Ni,)
         core_directions:   typ.Tuple,                    # (B_dot, G_dot), the shapes of B, G with K+C
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
@@ -1545,13 +1548,15 @@ def t3_probe_corewise_hessian(
         typ.Tuple[NDArray, ...],                         # Tucker block. len=d, elm_shape=[W]+K+C+(nDi,Ni)
         typ.Tuple[NDArray, ...],                         # TT block.     len=d, elm_shape=[W]+K+C+(ri,nDi,r(i+1))
 ]:
-    '''The corewise Hessian: the second derivative of ``phi(x) = <residual, z(x)>`` in the cores, applied to
+    '''The corewise Hessian: the second derivative of ``phi(x) = <c, z(x)>`` in the cores, applied to
     ``core_directions`` (the derivative of :py:func:`t3_probe_corewise_transpose` along them).
 
-    ``residual`` is a vector of the type of ``z``, no weight, turned inside. One call of
-    :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` on the corewise point ``x`` wanting ``Kp``
-    with ``residual`` held as ``r``. Summed over the samples (``sum_over_samples=False``: per sample, ``W``
-    leading the blocks' stack). For repeated calls at one frame (inside an iterative solver), call
+    ``c`` is an element of ``Y`` (``P*⊗V_i`` per mode per sample), paired with ``z`` slot by slot. It carries no metric,
+    and none is applied here: for the gradient of a weighted least-squares fit pass
+    ``data_metric(r, weight, minibatch_scale)`` (or ``batch.data_metric(r)``), which is ``r`` itself with no weight and
+    no scale. One call of :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` on the corewise point
+    ``x`` wanting ``Kp`` with ``c`` held as ``r``. Summed over the samples (``sum_over_samples=False``: per sample,
+    ``W`` leading the blocks' stack). For repeated calls at one frame (inside an iterative solver), call
     :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` with ``held=``: the frame's sweeps are then
     computed once.
 
@@ -1570,7 +1575,7 @@ def t3_probe_corewise_hessian(
     >>> print([b.shape for b in KB], [g.shape for g in KG])
     [(2, 4), (3, 5), (2, 6)] [(1, 2, 2), (2, 3, 2), (2, 2, 1)]
     '''
-    held = sampling_variables.HeldVariables(r=residual)
+    held = sampling_variables.HeldVariables(r=c)
     (blocks,) = sampling_variables.sampling_variables('probe', x, ww, ('Kp',), order=order, held=held,
                                                        core_directions=core_directions,
                                                        sum_over_samples=sum_over_samples)

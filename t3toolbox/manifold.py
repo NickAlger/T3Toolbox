@@ -752,27 +752,29 @@ class T3Tangent(common.ExplicitEquality):
     def probe_transpose(
             frame:             bvf.T3Frame,
             ww:                typ.Sequence[NDArray],      # input jets, len=d, elm_shape=F_in_i+W+(Ni,)
-            residual:          typ.Sequence[NDArray],      # of the type of z: len=d, elm_shape=F+W+[K]+C+(Ni,)
+            c:                 typ.Sequence[NDArray],      # P*⊗V_i, len=d, elm_shape=F+W+[K]+C+(Ni,)
             order:             typ.Tuple[int, ...] = (),   # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: keep the sample stack W (W+K tangents)
     ) -> 'T3Tangent':                                      # at frame; tangent stack [W]+[K], frame stack C
-        """Apply the transpose ``(J^(s))^T`` of the probe map to residuals; returns a T3Tangent at ``frame``.
+        """Apply the transpose ``(J^(s))^T`` of the probe map to ``c``; returns a T3Tangent at ``frame``.
 
-        The adjoint of :py:meth:`probe`. The residuals live in the forward probe space,
-        ``elm_shape = W + K + C + (Ni,)`` (probe stack ``W`` outer, optional tangent batch ``K``, frame
-        stack ``C`` inner -- the output space of a ``K``-stacked :py:meth:`probe`; ``K`` is empty in
-        the common case). The tangent batch ``K`` is always carried to the result's tangent stack; the
+        The adjoint of :py:meth:`probe`. ``c`` is an element of ``Y`` (``P*⊗V_i`` per mode), paired with ``probe``'s
+        output slot by slot, and has its shape, ``elm_shape = W + K + C + (Ni,)`` (probe stack ``W`` outer, optional
+        tangent batch ``K``, frame stack ``C`` inner -- the output space of a ``K``-stacked :py:meth:`probe`; ``K`` is
+        empty in the common case). It carries no metric, and none is applied here: for the gradient of a weighted
+        least-squares fit pass ``data_metric(r, weight, minibatch_scale)`` (or ``batch.data_metric(r)``), which is ``r``
+        itself with no weight and no scale. The tangent batch ``K`` is always carried to the result's tangent stack; the
         probe stack ``W`` is summed or kept per ``sum_over_samples``:
 
         - ``sum_over_samples=True`` (default): the probe stack is summed -- the result's tangent stack is
-          ``K`` (frame stack ``C``) -- the usual Gauss-Newton ``J^T r`` (a single tangent when ``K = ()``).
-        - ``sum_over_samples=False``: each probe residual becomes one tangent -- the result's tangent stack
+          ``K`` (frame stack ``C``) -- ``J^T c`` (a single tangent when ``K = ()``); the Gauss-Newton gradient
+          ``J^T(M r)`` when ``c = data_metric(r, weight, minibatch_scale)``.
+        - ``sum_over_samples=False``: each sample's ``c`` becomes one tangent -- the result's tangent stack
           is ``W + K`` (frame stack ``C``).
 
-        ``sum_over_samples=True == Σ_W sum_over_samples=False``. With ``order``, the residual is of the type of
-        ``probe(ww, order)``, a vector per jet slot, and the jet axes are summed (the pairing of a jet with its
-        dual). See *Batching & stacking* §11
-        (``docs/batching_and_stacking.md``) for which mode to use and why.
+        ``sum_over_samples=True == Σ_W sum_over_samples=False``. With ``order``, ``c`` has the shape of
+        ``probe(ww, order)``, a vector per jet slot, and the jet axes are summed (the slot-by-slot pairing of ``Y`` with
+        ``Y*``). See *Batching & stacking* §11 (``docs/batching_and_stacking.md``) for which mode to use and why.
 
         Bare ``(J^(s))^T`` (no gauge projector). See Section 6.2.3 (Algorithm 8) of Alger et al. (2026).
 
@@ -794,30 +796,30 @@ class T3Tangent(common.ExplicitEquality):
         >>> ww = (np.random.randn(2, 10), np.random.randn(2, 11), np.random.randn(2, 12))
         >>> z = (np.random.randn(2, 10), np.random.randn(2, 11), np.random.randn(2, 12))
         >>> Jv = v.probe(ww)
-        >>> JTz = t3m.T3Tangent.probe_transpose(frame, ww, residual=z)
+        >>> JTz = t3m.T3Tangent.probe_transpose(frame, ww, c=z)
         >>> lhs = float(np.sum([np.sum(a * b) for a, b in zip(z, Jv)]))
         >>> print(bool(abs(lhs - float(JTz.corewise_inner(v))) < 1e-9))
         True
 
         Without summing, the result is a tangent-stacked T3Tangent (the tangent stack = the probe stack ``W``):
 
-        >>> JTz_batch = t3m.T3Tangent.probe_transpose(frame, ww, residual=z, sum_over_samples=False)
+        >>> JTz_batch = t3m.T3Tangent.probe_transpose(frame, ww, c=z, sum_over_samples=False)
         >>> print(JTz_batch.tangent_stack_shape, JTz_batch.frame_stack_shape)
         (2,) ()
 
-        With ``K``-stacked residuals (``W + K + C``), the tangent batch ``K`` is carried through:
+        With a ``K``-stacked ``c`` (``W + K + C``), the tangent batch ``K`` is carried through:
 
         >>> zb = tuple(np.random.randn(2, 3, N) for N in (10, 11, 12))  # W=(2,), K=(3,), C=()
-        >>> print(t3m.T3Tangent.probe_transpose(frame, ww, residual=zb).tangent_stack_shape)
+        >>> print(t3m.T3Tangent.probe_transpose(frame, ww, c=zb).tangent_stack_shape)
         (3,)
-        >>> print(t3m.T3Tangent.probe_transpose(frame, ww, residual=zb,
+        >>> print(t3m.T3Tangent.probe_transpose(frame, ww, c=zb,
         ...                                     sum_over_samples=False).tangent_stack_shape)  # W + K
         (2, 3)
 
         ``sum_over_samples=True`` is exactly the probe-stack (``W``) sum of the ``False`` result:
 
-        >>> kept   = t3m.T3Tangent.probe_transpose(frame, ww, residual=z, sum_over_samples=False)   # W stays
-        >>> summed = t3m.T3Tangent.probe_transpose(frame, ww, residual=z)                          # W summed
+        >>> kept   = t3m.T3Tangent.probe_transpose(frame, ww, c=z, sum_over_samples=False)   # W stays
+        >>> summed = t3m.T3Tangent.probe_transpose(frame, ww, c=z)                          # W summed
         >>> V_sum  = tuple(np.sum(c, axis=0) for c in kept.variations.tucker_variations)  # sum the W axis
         >>> err = max(float(np.linalg.norm(a - b))
         ...           for a, b in zip(V_sum, summed.variations.tucker_variations))
@@ -825,7 +827,7 @@ class T3Tangent(common.ExplicitEquality):
         True
         """
         jets.check_sample('probe', order, ww, frame.shape)
-        V_tildes, H_tildes = probing.tv_probe_transpose(frame.data, ww, residual, order=order,
+        V_tildes, H_tildes = probing.tv_probe_transpose(frame.data, ww, c, order=order,
                                                         sum_over_samples=sum_over_samples)
         return T3Tangent(frame, bvf.T3Variations(V_tildes, H_tildes))
 
@@ -906,17 +908,20 @@ class T3Tangent(common.ExplicitEquality):
     def apply_transpose(
             frame:             bvf.T3Frame,
             ww:                typ.Sequence[NDArray],      # input jets, len=d, elm_shape=F_in_i+W+(Ni,)
-            residual:          NDArray,                    # of the type of z: shape=F+W+[K]+C
+            c:                 NDArray,                    # P*, shape=F+W+[K]+C
             order:             typ.Tuple[int, ...] = (),   # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: keep the sample stack W (W+K tangents)
     ) -> 'T3Tangent':                                      # at frame; tangent stack [W]+[K], frame stack C
-        """Apply the transpose ``apply^T`` of :py:meth:`apply`: back-project a residual into a tangent.
+        """Apply the transpose ``apply^T`` of :py:meth:`apply`: back-project ``c`` into a tangent.
 
-        The adjoint of the (linear-in-the-variation) all-modes :py:meth:`apply`. With
-        ``sum_over_samples=True`` (default) the sample stack ``W`` is summed -- the usual Gauss-Newton
-        ``apply^T c`` back-projection; with ``sum_over_samples=False`` it becomes the result's tangent stack
-        (one tangent per sample). Needs only the
-        frame sweep + a single-term scatter assembly (cheaper than a general :py:meth:`probe_transpose`).
+        The adjoint of the (linear-in-the-variation) all-modes :py:meth:`apply`. ``c`` is an element of ``Y`` (``P*``
+        per sample), paired with ``apply``'s output slot by slot. It carries no metric, and none is applied here: for
+        the gradient of a weighted least-squares fit pass ``data_metric(r, weight, minibatch_scale)`` (or
+        ``batch.data_metric(r)``), which is ``r`` itself with no weight and no scale. With ``sum_over_samples=True``
+        (default) the sample stack ``W`` is summed -- ``J^T c``, the Gauss-Newton gradient ``J^T(M r)`` when
+        ``c = data_metric(r, weight, minibatch_scale)``; with ``sum_over_samples=False`` it becomes the result's tangent
+        stack (one tangent per sample). Needs only the frame sweep + a single-term scatter assembly (cheaper than a
+        general :py:meth:`probe_transpose`).
 
         ``sum_over_samples=True == Σ_W sum_over_samples=False``. See
         *Batching & stacking* §11 (``docs/batching_and_stacking.md``) for which mode to use and why.
@@ -934,27 +939,27 @@ class T3Tangent(common.ExplicitEquality):
         >>> frame, _ = bvf.t3_orthogonal_representations(x)
         >>> v = t3m.COREWISE.randn(frame)
         >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-        >>> ATc = t3m.T3Tangent.apply_transpose(frame, ww, residual=np.asarray(1.7))
+        >>> ATc = t3m.T3Tangent.apply_transpose(frame, ww, c=np.asarray(1.7))
         >>> lhs = float(cw.corewise_dot(ATc.variations.data, v.variations.data))
         >>> print(bool(abs(lhs - 1.7 * float(v.apply(ww))) < 1e-9))
         True
         """
         jets.check_sample('apply', order, ww, frame.shape)
-        V, H = apply.tv_apply_transpose(frame.data, ww, residual, order=order, sum_over_samples=sum_over_samples)
+        V, H = apply.tv_apply_transpose(frame.data, ww, c, order=order, sum_over_samples=sum_over_samples)
         return T3Tangent(frame, bvf.T3Variations(V, H))
 
     @staticmethod
     def entries_transpose(
             frame:             bvf.T3Frame,
             index:             NDArray,                    # int, shape=(d,)+W (a nested list is converted)
-            residual:          NDArray,                    # of the type of z: shape=W+[K]+C
+            c:                 NDArray,                    # ℝ, shape=W+[K]+C
             sum_over_samples:  bool = True,                # False: keep the sample stack W (W+K tangents)
     ) -> 'T3Tangent':                                      # at frame; tangent stack [W]+[K], frame stack C
-        """Apply the transpose ``entries^T`` of :py:meth:`entries`: scatter ``residual`` at ``index`` into a tangent.
+        """Apply the transpose ``entries^T`` of :py:meth:`entries`: scatter ``c`` at ``index`` into a tangent.
 
-        The adjoint of :py:meth:`entries` -- identical to :py:meth:`apply_transpose` with the upward
-        ``ξ̂`` from fiber slicing and unit apply-vectors ``e_{index}``. ``sum_over_samples`` as in
-        :py:meth:`apply_transpose` (see *Batching & stacking* §11).
+        The adjoint of :py:meth:`entries` -- identical to :py:meth:`apply_transpose` with the upward ``ξ̂`` from fiber
+        slicing and unit apply-vectors ``e_{index}``; ``c`` is an element of ``Y`` (``ℝ`` per sample), with no metric,
+        as there. ``sum_over_samples`` as in :py:meth:`apply_transpose` (see *Batching & stacking* §11).
 
         See Also
         --------
@@ -963,7 +968,7 @@ class T3Tangent(common.ExplicitEquality):
         """
         index = t3._as_index(index)
         jets.check_sample('entries', (), index, frame.shape)
-        V, H = entries.tv_entries_transpose(frame.data, index, residual, sum_over_samples=sum_over_samples)
+        V, H = entries.tv_entries_transpose(frame.data, index, c, sum_over_samples=sum_over_samples)
         return T3Tangent(frame, bvf.T3Variations(V, H))
 
     ############################################
@@ -1176,10 +1181,10 @@ class ManifoldGeometry:
     ) -> T3Tangent:  # gauged tangent at v's frame (a DIFFERENT vector)
         """The gauge projection ``Pi``: raw cotangent -> Riemannian gradient (orthogonal gauge).
 
-        Orthogonally projects ``v``'s variations onto the gauged tangent space (the gauge conditions
-        (47)-(48), Appendix A.3). Represents a DIFFERENT tangent vector than ``v``. This is the map
-        that turns a bare adjoint ``J^T r`` into the Riemannian gradient. For the vector-preserving
-        gauge fix see :py:meth:`project_oblique`.
+        Orthogonally projects ``v``'s variations onto the gauged tangent space (the gauge conditions (47)-(48), Appendix
+        A.3). Represents a DIFFERENT tangent vector than ``v``. This is the map that turns a bare adjoint ``J^T c``
+        (with ``c = M r``: the misfit's raw gradient) into the Riemannian gradient. For the vector-preserving gauge fix
+        see :py:meth:`project_oblique`.
 
         **Safe mode** requires ``v``'s frame to be **orthogonal** (the precondition for this to be the
         orthogonal-gauge projection ``Pi``); it raises otherwise. Skipped under ``safety.unsafe()`` / a

@@ -56,7 +56,7 @@ parts on a local side branch, squashed. Agents are Opus 5.5, high effort; implem
 fills (they stop at a clean point with a handover); the sub-arc's current reviewer took over from
 `implementation/M_REVIEWER_HANDOFF.md`. Gate at `-n 2`, one heavy run at a time on the 13 GB laptop. Every slice's
 records are in `dev/graded_messages/implementation/` (`M*_DESIGN_NOTE/REVIEW`, `_HANDOVER`, `_REVIEW_r*`, and the
-per-slice folders `m0/`, `m1/`, `m2/`). CI green at `66bdbc1c` (M3 plus the floor-leg test fixes, `implementation/M2_CI_FIX.md`). M4 (the transposes typed) is being built.
+per-slice folders `m0/`, `m1/`, `m2/`). CI green at `66bdbc1c` (M3 plus the floor-leg test fixes, `implementation/M2_CI_FIX.md`). M4 (the transposes typed, `residual` -> `c`) is COMMITTED. Next: M5 (the type comments, comments only).
 
 **START HERE (updated 2026-11-19, 19:30; Claude Code on Nick's laptop, branch `graded-messages`).** Nothing lives
 in a session: everything is in files.

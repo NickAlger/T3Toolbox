@@ -632,16 +632,16 @@ class UT3Tangent(common.ExplicitEquality):
     def probe_transpose(
             frame:             ubv.UT3Frame,               # the orthogonal frame the tangent attaches at
             ww:                typ.Sequence[NDArray],      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
-            residual:          typ.Sequence[NDArray],      # of the type of z: len=d, F+W+[K]+C+(Ni,); or packed
+            c:                 typ.Sequence[NDArray],      # P*⊗V_i, len=d, F+W+[K]+C+(Ni,); or packed
             order:             typ.Tuple[int, ...] = (),   # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: keep the sample stack W (W+K tangents)
     ) -> 'UT3Tangent':                                     # at frame; tangent stack [W]+[K], frame stack C
-        """Apply the transpose ``𝒥ᵀ`` of the probe map to residuals; returns a :py:class:`UT3Tangent` at
-        ``frame``. The adjoint of :py:meth:`probe`. Uniform mirror of
-        :py:meth:`~t3toolbox.manifold.T3Tangent.probe_transpose`: the residuals live in the forward probe
-        space (``W+K+C``); ``sum_over_samples=True`` (default) sums the probe stack ``W`` (``K``, the
-        Gauss-Newton ``𝒥ᵀr``), ``False`` keeps it as the result's tangent stack (``W+K``). The bare ``𝒥ᵀ`` (no gauge
-        projector ``Π``).
+        """Apply the transpose ``𝒥ᵀ`` of the probe map to ``c``; returns a :py:class:`UT3Tangent` at ``frame``. The
+        adjoint of :py:meth:`probe`. Uniform mirror of :py:meth:`~t3toolbox.manifold.T3Tangent.probe_transpose`: ``c``
+        (an element of ``Y``, with no metric, as there) has the forward probe shape (``W+K+C``);
+        ``sum_over_samples=True`` (default) sums the probe stack ``W`` (``K``; ``𝒥ᵀc``, the Gauss-Newton gradient when
+        ``c = M r``), ``False`` keeps it as the result's tangent stack (``W+K``). The bare ``𝒥ᵀ`` (no gauge projector
+        ``Π``).
 
         See Also
         --------
@@ -650,7 +650,7 @@ class UT3Tangent(common.ExplicitEquality):
 
         Examples
         --------
-        The defining property -- the adjoint identity ``<r, 𝒥v> = <𝒥ᵀr, v>`` (summed over probes):
+        The defining property -- the adjoint identity ``<c, 𝒥v> = <𝒥ᵀc, v>`` (summed over probes):
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
@@ -662,47 +662,47 @@ class UT3Tangent(common.ExplicitEquality):
         >>> ww = [np.random.randn(2, N) for N in (10, 11, 12)]              # probe stack W=(2,)
         >>> zz = v.probe(ww)
         >>> r = [np.random.randn(*np.asarray(z).shape) for z in zz]
-        >>> JTr = ut3m.UT3Tangent.probe_transpose(v.frame, ww, residual=r)
+        >>> JTr = ut3m.UT3Tangent.probe_transpose(v.frame, ww, c=r)
         >>> lhs = sum(float(np.sum(ri * np.asarray(zi))) for ri, zi in zip(r, zz))
         >>> print(bool(abs(lhs - float(JTr.corewise_inner(v))) < 1e-9))
         True
-        >>> keep = ut3m.UT3Tangent.probe_transpose(v.frame, ww, residual=r, sum_over_samples=False)
+        >>> keep = ut3m.UT3Tangent.probe_transpose(v.frame, ww, c=r, sum_over_samples=False)
         >>> print(keep.tangent_stack_shape, JTr.tangent_stack_shape)        # keep W (=W+K) vs sum W (=K)
         (2,) ()
         """
         ut3._check_sample('probe', order, ww, frame.shape)
-        vd = utv_sampling.utv_probe_transpose(frame.data, ww, residual, order=order, sum_over_samples=sum_over_samples)
+        vd = utv_sampling.utv_probe_transpose(frame.data, ww, c, order=order, sum_over_samples=sum_over_samples)
         return UT3Tangent(frame, _ut3variations_from_data(vd))
 
     @staticmethod
     def apply_transpose(
             frame:             ubv.UT3Frame,               # the orthogonal frame the tangent attaches at
             ww:                typ.Sequence[NDArray],      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
-            residual:          NDArray,                    # of the type of z: shape=F+W+[K]+C
+            c:                 NDArray,                    # P*, shape=F+W+[K]+C
             order:             typ.Tuple[int, ...] = (),   # the jet shape; F=tuple(n+1 for n in order)
             sum_over_samples:  bool = True,                # False: keep the sample stack W (W+K tangents)
     ) -> 'UT3Tangent':                                     # at frame; tangent stack [W]+[K], frame stack C
-        """Apply the transpose ``𝒥ᵀ`` of :py:meth:`apply` -- back-project a residual into a tangent
-        at ``frame``. The adjoint of :py:meth:`apply`. Uniform mirror of
-        :py:meth:`~t3toolbox.manifold.T3Tangent.apply_transpose`; ``sum_over_samples`` as in
-        :py:meth:`probe_transpose`. The bare ``𝒥ᵀ`` (no gauge projector ``Π``)."""
+        """Apply the transpose ``𝒥ᵀ`` of :py:meth:`apply` -- back-project ``c`` into a tangent at ``frame``. The adjoint
+        of :py:meth:`apply`. Uniform mirror of :py:meth:`~t3toolbox.manifold.T3Tangent.apply_transpose` (``c`` an
+        element of ``Y``, with no metric, as there); ``sum_over_samples`` as in :py:meth:`probe_transpose`. The bare
+        ``𝒥ᵀ`` (no gauge projector ``Π``)."""
         ut3._check_sample('apply', order, ww, frame.shape)
-        vd = utv_sampling.utv_apply_transpose(frame.data, ww, residual, order=order, sum_over_samples=sum_over_samples)
+        vd = utv_sampling.utv_apply_transpose(frame.data, ww, c, order=order, sum_over_samples=sum_over_samples)
         return UT3Tangent(frame, _ut3variations_from_data(vd))
 
     @staticmethod
     def entries_transpose(
             frame:             ubv.UT3Frame,               # the orthogonal frame the tangent attaches at
             index:             NDArray,                    # int, shape=(d,)+W (a nested list is converted)
-            residual:          NDArray,                    # of the type of z: shape=W+[K]+C
+            c:                 NDArray,                    # ℝ, shape=W+[K]+C
             sum_over_samples:  bool = True,                # False: keep the sample stack W (W+K tangents)
     ) -> 'UT3Tangent':                                     # at frame; tangent stack [W]+[K], frame stack C
-        """Apply the transpose ``𝒥ᵀ`` of :py:meth:`entries` -- scatter ``residual`` at ``index`` into a tangent at
+        """Apply the transpose ``𝒥ᵀ`` of :py:meth:`entries` -- scatter ``c`` at ``index`` into a tangent at
         ``frame``. The adjoint of :py:meth:`entries` (= :py:meth:`apply_transpose` with one-hot vectors).
         Uniform mirror of :py:meth:`~t3toolbox.manifold.T3Tangent.entries_transpose`. The bare ``𝒥ᵀ``."""
         index = t3._as_index(index)
         ut3._check_sample('entries', (), index, frame.shape)
-        vd = utv_sampling.utv_entries_transpose(frame.data, index, residual, sum_over_samples=sum_over_samples)
+        vd = utv_sampling.utv_entries_transpose(frame.data, index, c, sum_over_samples=sum_over_samples)
         return UT3Tangent(frame, _ut3variations_from_data(vd))
 
     def sum_tangents(self, axis=None) -> 'UT3Tangent':
@@ -974,11 +974,11 @@ class UniformManifoldGeometry:
     ) -> UT3Tangent:  # gauged tangent at v's frame (a DIFFERENT vector)
         """The gauge projection ``Pi``: raw cotangent -> Riemannian gradient (orthogonal gauge).
 
-        Orthogonally projects ``v``'s variations onto the gauged tangent space (conditions (47)-(48),
-        Appendix A.3). Represents a DIFFERENT tangent vector than ``v`` -- the map that turns a bare adjoint
-        ``J^T r`` into the Riemannian gradient. For the vector-preserving fix see :py:meth:`project_oblique`.
-        **Safe mode** requires ``v``'s frame orthogonal (raises otherwise; skipped under ``safety.unsafe()`` /
-        a jax trace)."""
+        Orthogonally projects ``v``'s variations onto the gauged tangent space (conditions (47)-(48), Appendix A.3).
+        Represents a DIFFERENT tangent vector than ``v`` -- the map that turns a bare adjoint ``J^T c`` (with
+        ``c = M r``: the misfit's raw gradient) into the Riemannian gradient. For the vector-preserving fix see
+        :py:meth:`project_oblique`. **Safe mode** requires ``v``'s frame orthogonal (raises otherwise; skipped under
+        ``safety.unsafe()`` / a jax trace)."""
         _require_orthogonal_frame(v.frame, 'UniformManifoldGeometry.project')
         vd = utv_operations.utv_orthogonal_gauge_projection(v.frame.data, v.variations.data)
         return UT3Tangent(v.frame, _ut3variations_from_data(vd))

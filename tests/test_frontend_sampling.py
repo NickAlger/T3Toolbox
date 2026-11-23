@@ -99,9 +99,9 @@ class TestEachMethodIsItsBackendFunction(Fixture):
                     pairs = [
                         (getattr(x, '%s_corewise_tangent' % kind)(s, y.data, **kw),
                          getattr(m, 't3_%s_corewise_tangent' % kind)(x.data, s, y.data, **kw)),
-                        (getattr(x, '%s_corewise_transpose' % kind)(s, residual=c, **kw),
+                        (getattr(x, '%s_corewise_transpose' % kind)(s, c=c, **kw),
                          getattr(m, 't3_%s_corewise_transpose' % kind)(x.data, s, c, **kw)),
-                        (getattr(x, '%s_corewise_hessian' % kind)(s, residual=c, core_directions=y.data, **kw),
+                        (getattr(x, '%s_corewise_hessian' % kind)(s, c=c, core_directions=y.data, **kw),
                          getattr(m, 't3_%s_corewise_hessian' % kind)(x.data, s, c, y.data, **kw)),
                     ]
                     for got, ref in pairs:
@@ -117,7 +117,7 @@ class TestEachMethodIsItsBackendFunction(Fixture):
                     Jp = getattr(v, kind)(s, **kw)
                     self.assertEqual(relerr(Jp, getattr(m, 'tv_%s' % kind)(fd, v.variations.data, s, **kw)), 0.0)
                     c = residual_like(kind, self.rng, Jp)
-                    t = getattr(t3m.T3Tangent, '%s_transpose' % kind)(self.frame, s, residual=c, **kw)
+                    t = getattr(t3m.T3Tangent, '%s_transpose' % kind)(self.frame, s, c=c, **kw)
                     self.assertIsInstance(t, t3m.T3Tangent)
                     self.assertEqual(relerr(t.variations.data, getattr(m, 'tv_%s_transpose' % kind)(fd, s, c, **kw)), 0.0)
 
@@ -153,11 +153,11 @@ class TestTheChecks(Fixture):
         out = {
             'TT.%s' % kind: lambda s: getattr(x, kind)(s, **kw),
             'TT.%s_corewise_tangent' % kind: lambda s: getattr(x, kind + '_corewise_tangent')(s, self.y.data, **kw),
-            'TT.%s_corewise_transpose' % kind: lambda s: getattr(x, kind + '_corewise_transpose')(s, residual=c, **kw),
+            'TT.%s_corewise_transpose' % kind: lambda s: getattr(x, kind + '_corewise_transpose')(s, c=c, **kw),
             'TT.%s_corewise_hessian' % kind: lambda s: getattr(x, kind + '_corewise_hessian')(
-                s, residual=c, core_directions=self.y.data, **kw),
+                s, c=c, core_directions=self.y.data, **kw),
             'T3Tangent.%s' % kind: lambda s: getattr(v, kind)(s, **kw),
-            'T3Tangent.%s_transpose' % kind: lambda s: getattr(T, kind + '_transpose')(fr, s, residual=c, **kw),
+            'T3Tangent.%s_transpose' % kind: lambda s: getattr(T, kind + '_transpose')(fr, s, c=c, **kw),
             'UT3.%s' % kind: lambda s: getattr(xu, kind)(s, **kw),
             'UT3Tangent.%s' % kind: lambda s: getattr(vu, kind)(s, **kw),
         }
@@ -206,17 +206,17 @@ class TestTheChecks(Fixture):
             (self.xu.entries(as_list), self.xu.entries(idx)),
             (self.v.entries(as_list), self.v.entries(idx)),
             (self.vu.entries(as_list), self.vu.entries(idx)),
-            (self.x.entries_corewise_transpose(as_list, residual=c), self.x.entries_corewise_transpose(idx, residual=c)),
+            (self.x.entries_corewise_transpose(as_list, c=c), self.x.entries_corewise_transpose(idx, c=c)),
             (self.x.entries_corewise_tangent(as_list, self.y.data), self.x.entries_corewise_tangent(idx, self.y.data)),
-            (t3.TuckerTensorTrain.entries_ambient_transpose(as_list, self.x.shape, residual=c),
-             t3.TuckerTensorTrain.entries_ambient_transpose(idx, self.x.shape, residual=c)),
-            (t3m.T3Tangent.entries_transpose(self.frame, as_list, residual=c).variations.data,
-             t3m.T3Tangent.entries_transpose(self.frame, idx, residual=c).variations.data),
+            (t3.TuckerTensorTrain.entries_ambient_transpose(as_list, self.x.shape, c=c),
+             t3.TuckerTensorTrain.entries_ambient_transpose(idx, self.x.shape, c=c)),
+            (t3m.T3Tangent.entries_transpose(self.frame, as_list, c=c).variations.data,
+             t3m.T3Tangent.entries_transpose(self.frame, idx, c=c).variations.data),
             (self.x.entries_corewise_hessian(as_list, c, self.y.data),
              self.x.entries_corewise_hessian(idx, c, self.y.data)),
-            (ut3m.UT3Tangent.entries_transpose(self.vu.frame, as_list, residual=c).variations.supercores,
-             ut3m.UT3Tangent.entries_transpose(self.vu.frame, idx, residual=c).variations.supercores),
-            (self.xu.entries_corewise_transpose(as_list, residual=c), self.xu.entries_corewise_transpose(idx, residual=c)),
+            (ut3m.UT3Tangent.entries_transpose(self.vu.frame, as_list, c=c).variations.supercores,
+             ut3m.UT3Tangent.entries_transpose(self.vu.frame, idx, c=c).variations.supercores),
+            (self.xu.entries_corewise_transpose(as_list, c=c), self.xu.entries_corewise_transpose(idx, c=c)),
             (self.xu.entries_corewise_tangent(as_list, self.yu.data[:2]),
              self.xu.entries_corewise_tangent(idx, self.yu.data[:2])),
             (self.xu.entries_corewise_hessian(as_list, c, self.yu.data[:2]),
@@ -233,7 +233,7 @@ class TestTheChecks(Fixture):
                  'three parts': self.y.data + (self.y.data[0],), 'a pair of arrays': (np.zeros(3), np.zeros(3))}
         for label, d in wrong.items():
             for name, call in (('tangent', lambda: self.x.probe_corewise_tangent(ww, d)),
-                               ('hessian', lambda: self.x.probe_corewise_hessian(ww, residual=c, core_directions=d))):
+                               ('hessian', lambda: self.x.probe_corewise_hessian(ww, c=c, core_directions=d))):
                 with self.subTest(case=label, method=name):
                     with self.assertRaisesRegex(TypeError, r'pass y\.data'):
                         call()
@@ -257,7 +257,7 @@ class TestTheCorewiseHessianMethods(Fixture):
             with self.subTest(kind=kind):
                 s = sample_of(kind, self.rng)
                 c = residual_like(kind, self.rng, getattr(self.x, kind)(s))
-                H = lambda d: getattr(self.x, kind + '_corewise_hessian')(s, residual=c, core_directions=d)
+                H = lambda d: getattr(self.x, kind + '_corewise_hessian')(s, c=c, core_directions=d)
                 self.assertLess(abs(dot(self.y.data, H(z.data)) - dot(z.data, H(self.y.data))),
                                 1e-12 * max(abs(dot(self.y.data, H(z.data))), 1.0))
 
@@ -273,13 +273,13 @@ class TestTheCorewiseHessianMethods(Fixture):
                     c = residual_like(kind, self.rng, getattr(self.x, kind)(s, **kw))
                     at = lambda t: t3.TuckerTensorTrain(*[tuple(a + t * b for a, b in zip(p, q))
                                                          for p, q in zip(self.x.data, self.y.data)])
-                    G = [leaves(getattr(at(t), kind + '_corewise_transpose')(s, residual=c, **kw)) for t in ts]
+                    G = [leaves(getattr(at(t), kind + '_corewise_transpose')(s, c=c, **kw)) for t in ts]
                     slope = []
                     for j in range(len(G[0])):
                         stack = np.stack([g[j].ravel() for g in G])                    # (2d, size)
                         coef = np.polynomial.polynomial.polyfit(ts, stack, 2 * d - 1)  # (2d, size)
                         slope.append(coef[1].reshape(G[0][j].shape))
-                    H = getattr(self.x, kind + '_corewise_hessian')(s, residual=c, core_directions=self.y.data, **kw)
+                    H = getattr(self.x, kind + '_corewise_hessian')(s, c=c, core_directions=self.y.data, **kw)
                     self.assertLess(relerr(H, slope), 1e-9)
 
 
@@ -291,12 +291,12 @@ class TestTheSumFlag(Fixture):
                 s = sample_of(kind, self.rng)
                 c = residual_like(kind, self.rng, getattr(self.x, kind)(s))
                 calls = [          # (the call, the axis of W: 0 on core tuples, 1 on supercores, after d)
-                    (lambda f: getattr(self.x, kind + '_corewise_transpose')(s, residual=c, sum_over_samples=f), 0),
-                    (lambda f: getattr(self.x, kind + '_corewise_hessian')(s, residual=c, core_directions=self.y.data,
+                    (lambda f: getattr(self.x, kind + '_corewise_transpose')(s, c=c, sum_over_samples=f), 0),
+                    (lambda f: getattr(self.x, kind + '_corewise_hessian')(s, c=c, core_directions=self.y.data,
                                                                           sum_over_samples=f), 0),
-                    (lambda f: getattr(t3m.T3Tangent, kind + '_transpose')(self.frame, s, residual=c,
+                    (lambda f: getattr(t3m.T3Tangent, kind + '_transpose')(self.frame, s, c=c,
                                                                            sum_over_samples=f).variations.data, 0),
-                    (lambda f: getattr(self.xu, kind + '_corewise_transpose')(s, residual=c, sum_over_samples=f), 1),
+                    (lambda f: getattr(self.xu, kind + '_corewise_transpose')(s, c=c, sum_over_samples=f), 1),
                 ]
                 for k, (call, axis) in enumerate(calls):
                     kept, summed = leaves(call(False)), leaves(call(True))
@@ -348,11 +348,11 @@ class TestNoSymmetricProblem(Fixture):
         """At ``d = 3`` the probe corewise and ambient transposes are not symmetric in ``ww`` and the residual: a
         call with the two swapped (an old positional call) gives different numbers."""
         ww, zt = sample_of('probe', self.rng), sample_of('probe', self.rng)
-        right = self.x.probe_corewise_transpose(ww, residual=zt)
-        swapped = self.x.probe_corewise_transpose(zt, residual=ww)
+        right = self.x.probe_corewise_transpose(ww, c=zt)
+        swapped = self.x.probe_corewise_transpose(zt, c=ww)
         self.assertGreater(relerr(swapped, right), 1e-2)
-        right = t3.TuckerTensorTrain.probe_ambient_transpose(ww, residual=zt, sum_over_samples=True)
-        swapped = t3.TuckerTensorTrain.probe_ambient_transpose(zt, residual=ww, sum_over_samples=True)
+        right = t3.TuckerTensorTrain.probe_ambient_transpose(ww, c=zt, sum_over_samples=True)
+        swapped = t3.TuckerTensorTrain.probe_ambient_transpose(zt, c=ww, sum_over_samples=True)
         dense = lambda f: t3.TuckerTensorTrain.from_canonical(f).to_dense()
         self.assertGreater(relerr(dense(swapped), dense(right)), 1e-2)
 

@@ -94,19 +94,19 @@ def t3_entries(
 def t3_entries_ambient_transpose(
         index:              NDArray,                # int, shape=(d,)+W
         shape:              typ.Sequence[int],      # ambient dims (N0,...,N(d-1)) -- to size the one-hots
-        residual:           NDArray,                # shape=W+C
+        c:                  NDArray,                # ℝ, shape=W+C
         sum_over_samples:   bool = False,           # True: W becomes the CP rank (scatter-adds collisions)
 ) -> typ.Sequence[NDArray]:  # canonical (CP) factors. len=d, ith elm_shape=stack_shape+(R, Ni)
-    '''Ambient transpose of :py:func:`t3_entries`: scatter ``residual`` at ``index`` into CP factors.
+    '''Ambient transpose of :py:func:`t3_entries`: scatter ``c`` at ``index`` into CP factors.
 
-    The ``entries`` counterpart of :py:func:`t3_apply_ambient_transpose` -- identical
-    with the apply vectors replaced by the unit vectors ``e_{index_k}``, so the CP factors are one-hots
-    and the back-projection is ``residual * e_{idx_0} (x) ... (x) e_{idx_{d-1}}``. ``sum_over_samples=True``
-    makes ``W`` the CP rank (scatter-adding colliding indices -- the ``J^T r`` for entry sampling).
-    ``shape`` supplies the ambient dims, which (unlike the apply case, where ``ww`` carries them) the
-    residual and index alone do not determine. Returns CP factors (see the apply version).
+    The ``entries`` counterpart of :py:func:`t3_apply_ambient_transpose` -- identical with the apply vectors replaced by
+    the unit vectors ``e_{index_k}``, so the CP factors are one-hots and the back-projection is
+    ``c * e_{idx_0} (x) ... (x) e_{idx_{d-1}}`` (``c`` an element of ``Y``, ``ℝ`` per sample, as there).
+    ``sum_over_samples=True`` makes ``W`` the CP rank (scatter-adding colliding indices -- the ``J^T c`` for entry
+    sampling). ``shape`` supplies the ambient dims, which (unlike the apply case, where ``ww`` carries them) ``c`` and
+    ``index`` alone do not determine. Returns CP factors (see the apply version).
     '''
-    use_jax = tree_contains_jax((residual, index))
+    use_jax = tree_contains_jax((c, index))
     xnp, _, _ = get_backend(False, use_jax)
     index = xnp.array(index)
     # one-hot CP factors e_{index_i}, elm_shape = W + (Ni,). eye(N)[index] follows numpy index semantics
@@ -114,7 +114,7 @@ def t3_entries_ambient_transpose(
     # (_onehot_vectors); the former `arange(N) == index` scatter matched nothing for a negative index and
     # silently returned zero factors.
     ww = tuple(xnp.eye(N)[index[i]] for i, N in enumerate(shape))
-    return apply.t3_apply_ambient_transpose(ww, residual, sum_over_samples=sum_over_samples)
+    return apply.t3_apply_ambient_transpose(ww, c, sum_over_samples=sum_over_samples)
 
 
 def tv_entries(
@@ -147,20 +147,22 @@ def tv_entries(
 def tv_entries_transpose(
         frame:             typ.Tuple,                    # (D, U, L, R)
         index:             NDArray,                      # int, shape=(d,)+W: the grid points
-        residual:          NDArray,                       # of the type of z: shape=W+[K]+C
+        c:                 NDArray,                       # ℝ, shape=W+[K]+C
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
 ) -> typ.Tuple[
         typ.Tuple[NDArray, ...],                         # V blocks. len=d, elm_shape=[W]+[K]+C+(nUi,Ni)
         typ.Tuple[NDArray, ...],                         # H blocks. len=d, elm_shape=[W]+[K]+C+(rLi,nDi,rR(i+1))
 ]:
-    '''The transpose of :py:func:`tv_entries`: ``J^T`` applied to ``residual``, a tangent's blocks at ``frame``.
+    '''The transpose of :py:func:`tv_entries`: ``J^T`` applied to ``c``, a tangent's blocks at ``frame``.
 
-    ``residual`` is a vector of the type of ``z`` (a stack ``K`` of them allowed), with no weight; it is turned inside
-    (a dual jet). One call of :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` wanting ``JtJp`` with
-    ``residual`` held as ``Jp`` (the route of a held ``Jp``: ``J^T`` of the vector held). The blocks are summed over
-    the samples by default. For repeated calls at one frame (inside an iterative solver), call
-    :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` with ``held=``: the frame's sweeps are then
-    computed once.
+    ``c`` is an element of ``Y`` (``ℝ`` per sample; a stack ``K`` of them allowed), paired with ``z`` slot by slot. It
+    carries no metric, and none is applied here: for the gradient of a weighted least-squares fit pass
+    ``data_metric(r, weight, minibatch_scale)`` (or ``batch.data_metric(r)``), which is ``r`` itself with no weight and
+    no scale. One call of :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` wanting ``JtJp`` with
+    ``c`` held as ``Jp`` (the route of a held ``Jp``: ``J^T`` of the vector held; the engine turns ``c`` into its
+    dual-jet form inside). The blocks are summed over the samples by default. For repeated calls at one frame (inside an
+    iterative solver), call :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` with ``held=``: the
+    frame's sweeps are then computed once.
 
     Examples
     --------
@@ -178,7 +180,7 @@ def tv_entries_transpose(
     >>> print(bool(np.isclose(pair((V, H), variations), float(np.sum(Jp * Jp)))))       # <p, J^T J p> = |J p|^2
     True
     '''
-    held = sampling_variables.HeldVariables(Jp=residual)
+    held = sampling_variables.HeldVariables(Jp=c)
     (blocks,) = sampling_variables.sampling_variables('entries', frame, index, ('JtJp',), held=held,
                                                        sum_over_samples=sum_over_samples)
     return blocks
@@ -304,20 +306,22 @@ def t3_entries_corewise_tangent(
 def t3_entries_corewise_transpose(
         x:                 typ.Tuple,                    # (tucker_cores, tt_cores): the point
         index:             NDArray,                      # int, shape=(d,)+W: the grid points
-        residual:          NDArray,                       # of the type of z: shape=W+[K]+C
+        c:                 NDArray,                       # ℝ, shape=W+[K]+C
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
 ) -> typ.Tuple[
         typ.Tuple[NDArray, ...],                         # Tucker-core blocks. len=d, elm_shape=[W]+[K]+C+(nDi,Ni)
         typ.Tuple[NDArray, ...],                         # TT-core blocks.     len=d, elm_shape=[W]+[K]+C+(ri,nDi,r(i+1))
 ]:
-    '''The corewise transpose: ``J^T`` applied to ``residual`` in the cores of the point ``x``, the gradient of
-    ``phi(x) = <residual, z(x)>`` (plain inner product).
+    '''The corewise transpose: ``J^T`` applied to ``c`` in the cores of the point ``x``, the gradient of
+    ``phi(x) = <c, z(x)>`` (the pairing of ``Y`` with ``Y*``, slot by slot: no metric).
 
-    ``residual`` is a vector of the type of ``z`` (a stack ``K`` allowed), with no weight, turned inside. One call of
-    :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` on the corewise point ``x`` wanting ``JtJp``
-    with ``residual`` held as ``Jp``. Summed over the samples by default. For repeated calls at one frame (inside an iterative solver), call
-    :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` with ``held=``: the frame's sweeps are then
-    computed once.
+    ``c`` is an element of ``Y`` (``ℝ`` per sample; a stack ``K`` of them allowed), paired with ``z`` slot by slot. It
+    carries no metric, and none is applied here: for the gradient of a weighted least-squares fit pass
+    ``data_metric(r, weight, minibatch_scale)`` (or ``batch.data_metric(r)``), which is ``r`` itself with no weight and
+    no scale. One call of :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` on the corewise point
+    ``x`` wanting ``JtJp`` with ``c`` held as ``Jp``. Summed over the samples by default. For repeated calls at one
+    frame (inside an iterative solver), call :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` with
+    ``held=``: the frame's sweeps are then computed once.
 
     Examples
     --------
@@ -334,7 +338,7 @@ def t3_entries_corewise_transpose(
     >>> print([b.shape for b in B], [g.shape for g in G])
     [(2, 4), (3, 5), (2, 6)] [(1, 2, 2), (2, 3, 2), (2, 2, 1)]
     '''
-    held = sampling_variables.HeldVariables(Jp=residual)
+    held = sampling_variables.HeldVariables(Jp=c)
     (blocks,) = sampling_variables.sampling_variables('entries', x, index, ('JtJp',), held=held,
                                                        sum_over_samples=sum_over_samples)
     return blocks
@@ -372,20 +376,22 @@ def t3_entries_corewise_hessian_from_sweep(
 def t3_entries_corewise_hessian(
         x:                 typ.Tuple,                    # (B, G): the point whose cores the directions vary
         index:             NDArray,                      # int, shape=(d,)+W: the grid points
-        residual:          NDArray,                       # c, of the type of z: shape=W+C; no weight
+        c:                 NDArray,                       # ℝ, shape=W+C
         core_directions:   typ.Tuple,                    # (B_dot, G_dot), the shapes of B, G with K+C
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
 ) -> typ.Tuple[
         typ.Tuple[NDArray, ...],                         # Tucker block. len=d, elm_shape=[W]+K+C+(nDi,Ni)
         typ.Tuple[NDArray, ...],                         # TT block.     len=d, elm_shape=[W]+K+C+(ri,nDi,r(i+1))
 ]:
-    '''The corewise Hessian: the second derivative of ``phi(x) = <residual, z(x)>`` in the cores, applied to
+    '''The corewise Hessian: the second derivative of ``phi(x) = <c, z(x)>`` in the cores, applied to
     ``core_directions`` (the derivative of :py:func:`t3_entries_corewise_transpose` along them).
 
-    ``residual`` is a vector of the type of ``z``, no weight, turned inside. One call of
-    :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` on the corewise point ``x`` wanting ``Kp``
-    with ``residual`` held as ``r``. Summed over the samples (``sum_over_samples=False``: per sample, ``W``
-    leading the blocks' stack). For repeated calls at one frame (inside an iterative solver), call
+    ``c`` is an element of ``Y`` (``ℝ`` per sample), paired with ``z`` slot by slot. It carries no metric, and none is
+    applied here: for the gradient of a weighted least-squares fit pass ``data_metric(r, weight, minibatch_scale)`` (or
+    ``batch.data_metric(r)``), which is ``r`` itself with no weight and no scale. One call of
+    :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` on the corewise point ``x`` wanting ``Kp`` with
+    ``c`` held as ``r``. Summed over the samples (``sum_over_samples=False``: per sample, ``W`` leading the blocks'
+    stack). For repeated calls at one frame (inside an iterative solver), call
     :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables` with ``held=``: the frame's sweeps are then
     computed once.
 
@@ -404,7 +410,7 @@ def t3_entries_corewise_hessian(
     >>> print([b.shape for b in KB], [g.shape for g in KG])
     [(2, 4), (3, 5), (2, 6)] [(1, 2, 2), (2, 3, 2), (2, 2, 1)]
     '''
-    held = sampling_variables.HeldVariables(r=residual)
+    held = sampling_variables.HeldVariables(r=c)
     (blocks,) = sampling_variables.sampling_variables('entries', x, index, ('Kp',), held=held,
                                                        core_directions=core_directions,
                                                        sum_over_samples=sum_over_samples)

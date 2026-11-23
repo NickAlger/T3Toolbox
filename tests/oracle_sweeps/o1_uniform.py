@@ -80,9 +80,9 @@ def sweep(sname, struct, sh, force_pad):
                     elif kind == 'entries': gu = dd.corewise_transpose(ux, 'entries', cj, index, pp, ORDER, sum_over_probes=sum_); gr = dd.corewise_transpose(x, 'entries', cj, index, pp, ORDER, sum_over_probes=sum_)
                     else: gu = dd.corewise_transpose(ux, 'probe', ztj, ww, pp, ORDER, sum_over_probes=sum_); gr = dd.corewise_transpose(x, 'probe', ztj, ww, pp, ORDER, sum_over_probes=sum_)
                 else:
-                    if kind == 'apply': gu = ux.apply_corewise_transpose(ww, residual=c, sum_over_samples=sum_); gr = x.apply_corewise_transpose(ww, residual=c, sum_over_samples=sum_)
-                    elif kind == 'entries': gu = ux.entries_corewise_transpose(index, residual=c, sum_over_samples=sum_); gr = x.entries_corewise_transpose(index, residual=c, sum_over_samples=sum_)
-                    else: gu = ux.probe_corewise_transpose(ww, residual=zt, sum_over_samples=sum_); gr = x.probe_corewise_transpose(ww, residual=zt, sum_over_samples=sum_)
+                    if kind == 'apply': gu = ux.apply_corewise_transpose(ww, c=c, sum_over_samples=sum_); gr = x.apply_corewise_transpose(ww, c=c, sum_over_samples=sum_)
+                    elif kind == 'entries': gu = ux.entries_corewise_transpose(index, c=c, sum_over_samples=sum_); gr = x.entries_corewise_transpose(index, c=c, sum_over_samples=sum_)
+                    else: gu = ux.probe_corewise_transpose(ww, c=zt, sum_over_samples=sum_); gr = x.probe_corewise_transpose(ww, c=zt, sum_over_samples=sum_)
                 # gu: uniform grads -> compare to ragged grads via adjoint identity with a random ragged delta
                 # (convert uniform grad supercores to ragged by slicing real parts using ux's masks)
                 tk_sc, tt_sc = gu[0], gu[1]
@@ -120,9 +120,9 @@ def sweep(sname, struct, sh, force_pad):
                         elif kind == 'entries': Jv = dd.forward(v, 'entries', index, pp, ORDER); t = dd.tangent_transpose(ut3m.UT3Tangent, 'entries', rkj, index, pp, frame, ORDER, sum_over_probes=sum_); r = rkj
                         else: Jv = dd.forward(v, 'probe', ww, pp, ORDER); t = dd.tangent_transpose(ut3m.UT3Tangent, 'probe', ztkj, ww, pp, frame, ORDER, sum_over_probes=sum_); r = ztkj
                     else:
-                        if kind == 'apply': Jv = v.apply(ww); t = ut3m.UT3Tangent.apply_transpose(frame, ww, residual=rk, sum_over_samples=sum_); r = rk
-                        elif kind == 'entries': Jv = v.entries(index); t = ut3m.UT3Tangent.entries_transpose(frame, index, residual=rk, sum_over_samples=sum_); r = rk
-                        else: Jv = v.probe(ww); t = ut3m.UT3Tangent.probe_transpose(frame, ww, residual=ztk, sum_over_samples=sum_); r = ztk
+                        if kind == 'apply': Jv = v.apply(ww); t = ut3m.UT3Tangent.apply_transpose(frame, ww, c=rk, sum_over_samples=sum_); r = rk
+                        elif kind == 'entries': Jv = v.entries(index); t = ut3m.UT3Tangent.entries_transpose(frame, index, c=rk, sum_over_samples=sum_); r = rk
+                        else: Jv = v.probe(ww); t = ut3m.UT3Tangent.probe_transpose(frame, ww, c=ztk, sum_over_samples=sum_); r = ztk
                     lhs = sum(tdot(a, b) for a, b in zip(r, Jv)) if kind == 'probe' else tdot(r, Jv)
                     # <t, v> via masked corewise inner: sum over the tangent stack of t with v broadcast
                     tm = t.variations.apply_masks() if hasattr(t.variations, 'apply_masks') else t.variations
@@ -223,7 +223,7 @@ def varying_rank():
             rng = np.random.RandomState(21)
             ztk = [rng.randn(*(W + K + C + (N,))) for N in shape]
             def _adj(sum_):
-                Jv = V.probe(ww); t = ut3m.UT3Tangent.probe_transpose(V.frame, ww, residual=ztk, sum_over_samples=sum_)
+                Jv = V.probe(ww); t = ut3m.UT3Tangent.probe_transpose(V.frame, ww, c=ztk, sum_over_samples=sum_)
                 lhs = sum(tdot(a, b) for a, b in zip(ztk, Jv))
                 rhs = var_dot(t.variations.apply_masks().supercores, V.variations.apply_masks().supercores)
                 return abs(lhs - rhs) / max(abs(lhs), 1e-300)

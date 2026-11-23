@@ -467,15 +467,16 @@ def _remasked_transpose_output(
 def utv_probe_transpose(
         frame:             typ.Tuple,                    # UT3Frame .data: (D, U, L, R, shape, masks), stack C
         ww:                Vectors,                      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
-        residual:          Vectors,                      # of the type of z: len=d, F+W+[K]+C+(Ni,); or packed
+        c:                 Vectors,                      # P*⊗V_i, len=d, F+W+[K]+C+(Ni,); or packed
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
 ):  # -> UT3Variations .data: (V_tilde, H_tilde, shape, masks); stack K_new + C
     """The uniform twin of :py:func:`~t3toolbox.backend.probing.tv_probe_transpose` (the bare ``J^T``, no gauge
-    projector): the engine's ``JtJp`` with the residual held as ``Jp`` (a ragged residual packed here), then the
-    result variation masks attached, the frame's gauge masks broadcast over the new tangent stack ``K_new`` (``W+K``
-    if ``sum_over_samples=False``, else ``K``), and the output re-masked with them (exact zero padding)."""
-    held = sampling_variables.HeldVariables(Jp=ut3_operations.pack_if_ragged(residual, frame[0].shape[-1]))
+    projector; ``c`` an element of ``Y``, with no metric, as there): the engine's ``JtJp`` with ``c`` held as ``Jp`` (a
+    ragged ``c`` packed here), then the result variation masks attached, the frame's gauge masks broadcast over the new
+    tangent stack ``K_new`` (``W+K`` if ``sum_over_samples=False``, else ``K``), and the output re-masked with them
+    (exact zero padding)."""
+    held = sampling_variables.HeldVariables(Jp=ut3_operations.pack_if_ragged(c, frame[0].shape[-1]))
     ((V_tilde, H_tilde),) = sampling_variables.sampling_variables('probe', frame, ww, ('JtJp',), order=order, held=held,
                                                                    sum_over_samples=sum_over_samples)
     return _remasked_transpose_output(frame, V_tilde, H_tilde)
@@ -484,15 +485,15 @@ def utv_probe_transpose(
 def utv_apply_transpose(
         frame:             typ.Tuple,                    # UT3Frame .data: (D, U, L, R, shape, masks), stack C
         ww:                Vectors,                      # input jets: len=d, F_in_i+W+(Ni,); or packed (d,)+F_in+W+(N,)
-        residual:          NDArray,                      # of the type of z: shape=F+W+[K]+C
+        c:                 NDArray,                      # P*, shape=F+W+[K]+C
         order:             typ.Tuple[int, ...] = (),     # the jet shape; F=tuple(n+1 for n in order)
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
 ):  # -> UT3Variations .data: (V_tilde, H_tilde, shape, masks); stack K_new + C
-    """The uniform twin of :py:func:`~t3toolbox.backend.apply.tv_apply_transpose` (the bare ``J^T``, no gauge
-    projector): the engine's ``JtJp`` with the residual held as ``Jp``, then the result variation masks attached,
-    the frame's gauge masks broadcast over the new tangent stack ``K_new`` (``W+K`` if ``sum_over_samples=False``,
-    else ``K``), and the output re-masked with them (exact zero padding)."""
-    held = sampling_variables.HeldVariables(Jp=residual)
+    """The uniform twin of :py:func:`~t3toolbox.backend.apply.tv_apply_transpose` (the bare ``J^T``, no gauge projector;
+    ``c`` an element of ``Y``, with no metric, as there): the engine's ``JtJp`` with ``c`` held as ``Jp``, then the
+    result variation masks attached, the frame's gauge masks broadcast over the new tangent stack ``K_new`` (``W+K`` if
+    ``sum_over_samples=False``, else ``K``), and the output re-masked with them (exact zero padding)."""
+    held = sampling_variables.HeldVariables(Jp=c)
     ((V_tilde, H_tilde),) = sampling_variables.sampling_variables('apply', frame, ww, ('JtJp',), order=order, held=held,
                                                                    sum_over_samples=sum_over_samples)
     return _remasked_transpose_output(frame, V_tilde, H_tilde)
@@ -501,14 +502,14 @@ def utv_apply_transpose(
 def utv_entries_transpose(
         frame:             typ.Tuple,                    # UT3Frame .data: (D, U, L, R, shape, masks), stack C
         index:             NDArray,                      # int, shape=(d,)+W: the grid points
-        residual:          NDArray,                      # of the type of z: shape=W+[K]+C
+        c:                 NDArray,                      # ℝ, shape=W+[K]+C
         sum_over_samples:  bool = True,                  # False: W joins the stack, W+K+C
 ):  # -> UT3Variations .data: (V_tilde, H_tilde, shape, masks); stack K_new + C
     """The uniform twin of :py:func:`~t3toolbox.backend.entries.tv_entries_transpose` (the bare ``J^T``, no gauge
-    projector): the engine's ``JtJp`` with the residual held as ``Jp``, then the result variation masks attached,
-    the frame's gauge masks broadcast over the new tangent stack ``K_new`` (``W+K`` if ``sum_over_samples=False``,
-    else ``K``), and the output re-masked with them (exact zero padding)."""
-    held = sampling_variables.HeldVariables(Jp=residual)
+    projector; ``c`` an element of ``Y``, with no metric, as there): the engine's ``JtJp`` with ``c`` held as ``Jp``,
+    then the result variation masks attached, the frame's gauge masks broadcast over the new tangent stack ``K_new``
+    (``W+K`` if ``sum_over_samples=False``, else ``K``), and the output re-masked with them (exact zero padding)."""
+    held = sampling_variables.HeldVariables(Jp=c)
     ((V_tilde, H_tilde),) = sampling_variables.sampling_variables('entries', frame, index, ('JtJp',), held=held,
                                                                    sum_over_samples=sum_over_samples)
     return _remasked_transpose_output(frame, V_tilde, H_tilde)

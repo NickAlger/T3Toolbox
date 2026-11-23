@@ -116,11 +116,12 @@ from a raw ``Jp`` would give a mixed product with no use.
 
 **The adjoint seeded by** ``Jp`` (``JtJp``) is the private twin of each row on the residual's path from ``w_tilde`` to
 ``V_tilde``, ``H_tilde`` and the short node, named ``'_Jp.' + name.lstrip('_')``: the same step and start, the call's
-``K``, the seed reading ``Jp`` for ``r``. ``JtJp`` is the twin of ``g``. The full ``eta_tilde`` has no twin.
-``JtJp`` has a second route, from a held ``Jp`` with no direction (``held:Jp``, P12): the twin path is linear in
-``Jp``, so **holding any vector of** ``Jp``'s **type as** ``Jp`` **gives** ``J^T`` **of that vector** (unweighted
-by the call: the seed is the data metric of the held vector at ``gamma = 1``, ``weight**2`` times it, turned). The transposes take this route for a residual
-with a stack ``K``, read off the held ``Jp``; a direction, when given, wins, and its ``K`` must agree.
+``K``, the seed reading ``Jp`` for ``r``. ``JtJp`` is the twin of ``g``. The full ``eta_tilde`` has no twin. ``JtJp``
+has a second route, from a held ``Jp`` with no direction (``held:Jp``, P12): the twin path is linear in ``Jp``, so
+**holding any vector of** ``Jp``'s **shape as** ``Jp`` **gives** ``J^T`` **of that vector** (the seed is the data metric
+of the held vector at ``gamma = 1``, ``weight**2`` times it, turned; with no weight, the vector itself). The transposes
+take this route for ``c``, an element of ``Y`` with the shape of ``z`` (they pass no weight), with a stack ``K`` read
+off the held ``Jp``; a direction, when given, wins, and its ``K`` must agree.
 
 **The corewise point** ``(B, G)``: one basis on each edge. It binds the stores ``D = B`` and ``L = G``, and its graph
 is derived from the manifold one: every row that reads ``U``, ``R``, ``V``, ``H`` or ``Vc``, or a ``_frame.*`` node, is
@@ -868,12 +869,13 @@ class HeldVariables:
     iteration and ``len``. An unknown name raises, at construction, in :py:meth:`with_values` and at lookup.
     :py:meth:`with_values` returns a new record; a record is never changed in place.
 
-    It checks no shape: the engine checks every held variable it is handed, at every call, against the shapes of
-    its table, and trusts the values. **One contract on a value:** a held ``Jp`` need not be the output of a
-    direction. ``JtJp`` is linear in ``Jp``, so holding any vector ``c`` of ``Jp``'s shape as ``Jp`` (with no
-    direction) gives ``J^T`` of ``weight**2 c``: this is how the transposes are computed, ``K`` read off ``c``. Where jax is importable it is a registered pytree: the filled slots are the
-    leaves, the set of filled slots is the static structure. It refuses ``==`` and is unhashable, as every
-    array-carrying class of the library is: compare the slots you mean.
+    It checks no shape: the engine checks every held variable it is handed, at every call, against the shapes of its
+    table, and trusts the values. **One contract on a value:** a held ``Jp`` need not be the output of a direction.
+    ``JtJp`` is linear in ``Jp``, so holding any vector ``c`` of ``Jp``'s shape as ``Jp`` (with no direction) gives
+    ``J^T`` of ``weight**2 c``: this is how the transposes compute ``J^T c`` (they pass no weight), ``K`` read off
+    ``c``. Where jax is importable it is a registered pytree: the filled slots are the leaves, the set of filled slots
+    is the static structure. It refuses ``==`` and is unhashable, as every array-carrying class of the library is:
+    compare the slots you mean.
 
     >>> import numpy as np
     >>> from t3toolbox.backend.sampling_variables import HeldVariables

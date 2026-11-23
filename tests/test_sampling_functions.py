@@ -446,16 +446,16 @@ class TestTheRaggedFunctions(unittest.TestCase):
             expected = {
                 't3_%s': ['x', sample],
                 'tv_%s': ['frame', 'variations', sample],
-                'tv_%s_transpose': ['frame', sample, 'residual', 'sum_over_samples'],
+                'tv_%s_transpose': ['frame', sample, 'c', 'sum_over_samples'],
                 't3_%s_corewise_tangent': ['x', sample, 'core_directions'],
-                't3_%s_corewise_transpose': ['x', sample, 'residual', 'sum_over_samples'],
-                't3_%s_corewise_hessian': ['x', sample, 'residual', 'core_directions', 'sum_over_samples'],
+                't3_%s_corewise_transpose': ['x', sample, 'c', 'sum_over_samples'],
+                't3_%s_corewise_hessian': ['x', sample, 'c', 'core_directions', 'sum_over_samples'],
                 'ut3_%s': ['x', sample],
                 'utv_%s': ['frame', 'variations', sample],
-                'utv_%s_transpose': ['frame', sample, 'residual', 'sum_over_samples'],
+                'utv_%s_transpose': ['frame', sample, 'c', 'sum_over_samples'],
                 'ut3_%s_corewise_tangent': ['x', sample, 'core_directions'],
-                'ut3_%s_corewise_transpose': ['x', sample, 'residual', 'sum_over_samples'],
-                'ut3_%s_corewise_hessian': ['x', sample, 'residual', 'core_directions', 'sum_over_samples'],
+                'ut3_%s_corewise_transpose': ['x', sample, 'c', 'sum_over_samples'],
+                'ut3_%s_corewise_hessian': ['x', sample, 'c', 'core_directions', 'sum_over_samples'],
             }
             for name, params in expected.items():
                 with self.subTest(kind=kind, name=name % kind):

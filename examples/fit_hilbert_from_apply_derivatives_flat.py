@@ -134,6 +134,8 @@ def apply_derivative_operator(ww, pp, order, s_vec):
     sv = s_vec.reshape((order + 1,) + (1,) * nW)               # broadcast over the W probe stack
     jet = affine_jet(ww, pp)                                    # the input jet of the line ww + s pp
     # derivatives = Taylor coefficients times t!: the forward multiplies by t!, its transpose too (D_t = t! T_t)
+    # (the contragredient rule: the transpose takes c, an element of Y, in Taylor slots; a c in derivative coordinates
+    # converts by taylor_to_derivatives, c_t[k] = k! c_d[k], the opposite of the data's derivatives_to_taylor)
     forward = lambda Z: taylor_to_derivatives('apply', (order,), np.asarray(Z.apply(jet, (order,)))) / sv
     transpose = lambda r, frame: t3m.T3Tangent.apply_transpose(
         frame, jet, taylor_to_derivatives('apply', (order,), np.asarray(r) / sv), (order,))

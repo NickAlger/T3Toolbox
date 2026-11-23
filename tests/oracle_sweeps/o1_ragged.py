@@ -106,19 +106,19 @@ def sweep_structure(sname, struct, sh):
                 vf, W_ = flatW(vecs)
                 return np.einsum(s, *vf).reshape(W_ + shape)
             def _amb_apply(sum_):
-                F = t3.TuckerTensorTrain.apply_ambient_transpose(ww, residual=c, sum_over_samples=sum_)
+                F = t3.TuckerTensorTrain.apply_ambient_transpose(ww, c=c, sum_over_samples=sum_)
                 D = cp_dense(F)
                 ref = c.reshape(W + C + (1,) * d) * outer_w(ww).reshape(W + (1,) * len(C) + shape)
                 if sum_: ref = ref.reshape((-1,) + C + shape).sum(axis=0)
                 return relerr(D, ref)
             def _amb_entries(sum_):
-                F = t3.TuckerTensorTrain.entries_ambient_transpose(index, shape, residual=c, sum_over_samples=sum_)
+                F = t3.TuckerTensorTrain.entries_ambient_transpose(index, shape, c=c, sum_over_samples=sum_)
                 D = cp_dense(F)
                 ref = c.reshape(W + C + (1,) * d) * outer_w(onehots(index, shape)).reshape(W + (1,) * len(C) + shape)
                 if sum_: ref = ref.reshape((-1,) + C + shape).sum(axis=0)
                 return relerr(D, ref)
             def _amb_probe(sum_):
-                F = t3.TuckerTensorTrain.probe_ambient_transpose(ww, residual=zt, sum_over_samples=sum_)
+                F = t3.TuckerTensorTrain.probe_ambient_transpose(ww, c=zt, sum_over_samples=sum_)
                 D = cp_dense(F)
                 ref = 0
                 for m in range(d):
@@ -142,11 +142,11 @@ def sweep_structure(sname, struct, sh):
             tdl = t3m.T3Tangent(cframe, dl)
             def _cw(kind, sum_):
                 if kind == 'apply':
-                    Jd = tdl.apply(ww); g = x.apply_corewise_transpose(ww, residual=c, sum_over_samples=sum_); r = c
+                    Jd = tdl.apply(ww); g = x.apply_corewise_transpose(ww, c=c, sum_over_samples=sum_); r = c
                 elif kind == 'entries':
-                    Jd = tdl.entries(index); g = x.entries_corewise_transpose(index, residual=c, sum_over_samples=sum_); r = c
+                    Jd = tdl.entries(index); g = x.entries_corewise_transpose(index, c=c, sum_over_samples=sum_); r = c
                 else:
-                    Jd = tdl.probe(ww); g = x.probe_corewise_transpose(ww, residual=zt, sum_over_samples=sum_); r = zt
+                    Jd = tdl.probe(ww); g = x.probe_corewise_transpose(ww, c=zt, sum_over_samples=sum_); r = zt
                 lhs = sum(tdot(a, b) for a, b in zip(r, Jd)) if kind == 'probe' else tdot(r, Jd)
                 rhs = var_dot(g, dl.data)
                 return abs(lhs - rhs) / max(abs(lhs), 1e-300)
@@ -195,11 +195,11 @@ def sweep_structure(sname, struct, sh):
                 ztkj = [rng.randn(*((ORDER + 1,) + W + K + C + (N,))) for N in shape]
                 def _adj(kind, sum_):
                     if kind == 'apply':
-                        Jv = v.apply(ww); t = t3m.T3Tangent.apply_transpose(frame, ww, residual=rk, sum_over_samples=sum_); r = rk
+                        Jv = v.apply(ww); t = t3m.T3Tangent.apply_transpose(frame, ww, c=rk, sum_over_samples=sum_); r = rk
                     elif kind == 'entries':
-                        Jv = v.entries(index); t = t3m.T3Tangent.entries_transpose(frame, index, residual=rk, sum_over_samples=sum_); r = rk
+                        Jv = v.entries(index); t = t3m.T3Tangent.entries_transpose(frame, index, c=rk, sum_over_samples=sum_); r = rk
                     else:
-                        Jv = v.probe(ww); t = t3m.T3Tangent.probe_transpose(frame, ww, residual=ztk, sum_over_samples=sum_); r = ztk
+                        Jv = v.probe(ww); t = t3m.T3Tangent.probe_transpose(frame, ww, c=ztk, sum_over_samples=sum_); r = ztk
                     lhs = sum(tdot(a, b) for a, b in zip(r, Jv)) if kind == 'probe' else tdot(r, Jv)
                     rhs = var_dot(t.variations.data, v.variations.data)
                     exp_stack = (W if not sum_ else ()) + K + C
