@@ -1473,3 +1473,4 @@ M3: gate green (suite 1,960 passed; module doctests 325; quickstart; 47 pages; 1
 `M3_REVIEW_r1.md` SIGN OFF (888 independent block-sum checks; `f_resolution` and 24,871 other battery arrays bitwise
 equal to `68c10621`; the validation rule checked; 5 mutants killed). **M3 committed.** Next: M4 (the transposes typed,
 `residual` -> `c`).
+M4 (the transposes typed) started: the M3 implementer writes `M4_DESIGN_NOTE.md`.
