@@ -40,6 +40,23 @@ moment. **From then on the work, that folder included, continues on the branch `
 severely breaking"); it is merged when it is done. Look on the branch for the live state. Library code has been
 changed on the branch since 2026-11-16 (slices P0 to P4 of Part 1); `main` has none of it.
 
+**RESUME HERE (2026-11-23, written for a compaction or a lost session).** The data-metric sub-arc
+(`dev/graded_messages/DATA_METRIC_PLAN.md`, complete; decisions in `TARGET_DECISIONS.md`, notes of 2026-11-21/22) is
+being built slice by slice on `graded-messages`. **Done:** M0 (`64465d8b`, the `J -> P` rename), M1 (`c16aa640`,
+`data_metric`, `blocks_to_weight`, the law helper), M2 (`68c10621`, the data-space rule; squashed from the local branch
+`m2-wip`, kept as a record). **In progress:** M3 (the weighted block sums `r_block_sumsq`/`y_block_sumsq` as
+`<., M .>` over `z`'s shape; the display ratio from them; the `(unwt ...)` figure dropped), a fresh implementer
+writing `implementation/M3_DESIGN_NOTE.md`. **Then:** M4 (the transposes typed: `residual` -> `c` in 42 functions), M5
+(the type comments, comments only), then STOP and discuss `implementation/M_ARC_DECISIONS.md` with the maintainer
+(he authorized M2 to M5 without stopping unless a major issue arises, and asked that Claude's decisions be tracked
+there), then the `from_t3` slice, then P17. **Process per slice:** design note -> the reviewer's critique -> Claude's
+rulings (log them in `M_ARC_DECISIONS.md` and `LOG.md`) -> build -> review rounds -> commit; large slices in reviewed
+parts on a local side branch, squashed. Agents are Opus 5.5, high effort; implementers are replaced when their context
+fills (they stop at a clean point with a handover); the sub-arc's current reviewer took over from
+`implementation/M_REVIEWER_HANDOFF.md`. Gate at `-n 2`, one heavy run at a time on the 13 GB laptop. Every slice's
+records are in `dev/graded_messages/implementation/` (`M*_DESIGN_NOTE/REVIEW`, `_HANDOVER`, `_REVIEW_r*`, and the
+per-slice folders `m0/`, `m1/`, `m2/`). CI green through M0 and M1; M2's CI run was in flight at this writing.
+
 **START HERE (updated 2026-11-19, 19:30; Claude Code on Nick's laptop, branch `graded-messages`).** Nothing lives
 in a session: everything is in files.
 
