@@ -1488,3 +1488,7 @@ independent; a tangent-transpose drawn-batch check of the reviewer's own; the re
 all green). **M4 committed.** Two minor points for M5 (the corewise Hessians' docstrings: "the curvature term", not
 "the gradient"; nine `#` columns off by one). Next: M5 (comments only), with a fresh implementer.
 M5 (the type comments, comments only; the last M slice) started with a fresh implementer: `M5_DESIGN_NOTE.md` first.
+M5 built (`M5_HANDOVER.md`): IDENTICAL CODE by an AST check; 313 scripted comment edits in 99 signatures; the engine's
+type column with a test that reads it; `tests/test_sampling_typed.py`; suite 1,979, every doc step green. In review.
+P19 gains: the `Pi J^T omega^2 r` texts in `backend/optimizers.py` and `fitting.py`'s module text; §9.1's function-type
+table for a page.
