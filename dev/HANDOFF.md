@@ -40,6 +40,22 @@ moment. **From then on the work, that folder included, continues on the branch `
 severely breaking"); it is merged when it is done. Look on the branch for the live state. Library code has been
 changed on the branch since 2026-11-16 (slices P0 to P4 of Part 1); `main` has none of it.
 
+**RESUME HERE (2026-11-24, the packing investigation).** The M arc is complete (CI green at `fa72e22a`); the stop
+for the maintainer to discuss `implementation/M_ARC_DECISIONS.md` (the 2026-11-23 block below) is still pending.
+Meanwhile Nick and Claude ran a scouting session on packing: how packed and ragged per-mode objects cross the
+uniform/ragged seam. It also set library-wide principles. **Decisions: `dev/graded_messages/PACKING_REFACTOR.md`**;
+evidence, measurements and the rulings as made: `PACKING_INVESTIGATION.md`; audit tools: `packing_audit/`.
+Headlines: the layer rule (each layer takes and returns its own form; no automatic packing or unpacking; the ragged
+layer takes sequences only, the entries index included); G2, liberal in, canonical out; G3, one mathematical
+operation per function, one return type (the `kind`-switched helpers split along the types); the packers and the
+checkers in `ut3_conversions`; an engine keyword to skip the input masking. These revise parts of the M arc (the
+data-metric plan's §2 rule, `blocks_to_weight`'s form). **Not yet planned or built:** the next step is a plan
+through the usual process. Still open: `PACKING_REFACTOR.md` §5 (Nick's rulings on F3.1 and F3.2; the per-mode
+loops, F2; the names of the group A split). Uncommitted at this point: the two documents, `packing_audit/`, and one
+doctest added to `t3toolbox/backend/jets.py` (`data_metric`'s mode-axis limit) outside the process, allowed once by
+Nick, for him to verify. Process rule (Nick): additions to the library go through the review process; prototypes
+and drafts go in `dev/`.
+
 **RESUME HERE (2026-11-23, written for a compaction or a lost session).** The data-metric sub-arc
 (`dev/graded_messages/DATA_METRIC_PLAN.md`, complete; decisions in `TARGET_DECISIONS.md`, notes of 2026-11-21/22) is
 being built slice by slice on `graded-messages`. **Done:** M0 (`64465d8b`, the `J -> P` rename), M1 (`c16aa640`,

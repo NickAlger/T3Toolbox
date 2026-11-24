@@ -675,6 +675,27 @@ def data_metric(
     >>> print(type(c).__name__, bool(np.allclose(c[1][2], 9.0 * y[1][2])))
     tuple True
 
+    The limit of the pairing: against a packed probe ``r``, a weight whose mode axis has size 1 is broadcast over
+    the modes, and nothing here can tell (this function has no kind, and for apply a leading axis of size 1 is a jet
+    axis). A weight per entry built for mode 0 alone is then applied to every mode, a wrong result with no error:
+
+    >>> from t3toolbox.backend.ut3_operations import pack_vectors
+    >>> ragged = [np.ones((1, 3)), np.ones((1, 4))]                      # probe, d = 2, W = (1,), Ni = 3, 4
+    >>> r = pack_vectors(ragged)                                         # packed: (d,) + W + (N,), N = 4
+    >>> right = pack_vectors([np.array([[1.0, 2.0, 3.0]]), np.ones((1, 4))])   # a weight per entry, for each mode
+    >>> wrong = right[:1]                                                # mode 0's alone: a mode axis of 1
+    >>> print(jets.data_metric(r, right, None)[1].tolist())              # mode 1, as meant
+    [[1.0, 1.0, 1.0, 1.0]]
+    >>> print(jets.data_metric(r, wrong, None)[1].tolist())              # mode 1 weighted by mode 0's entries
+    [[1.0, 4.0, 9.0, 0.0]]
+
+    The checker catches it on the ragged form, before packing (:py:func:`check_weight`):
+
+    >>> jets.check_weight('probe', (), ragged, wrong)                    # doctest: +IGNORE_EXCEPTION_DETAIL
+    Traceback (most recent call last):
+        ...
+    ValueError: the weight of the probe kind has exactly d = 2 arrays, one per mode: ...
+
     A residual with a stack of directions has no weight of its rank:
 
     >>> jets.data_metric(np.ones((2, 3, 4)), np.ones((3, 1)), None)    # doctest: +IGNORE_EXCEPTION_DETAIL

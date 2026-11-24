@@ -408,13 +408,16 @@ project engineering practices below are shared.)*
 ## Current state
 
 **On the branch `graded-messages` (not on `main`, not released): the graded-messages refactor of the sampling layer
-is being implemented.** Slices P0 to P4d of its Part 1 are built (new backend modules beside the old sampling layer,
-which is not yet switched over or deleted; P4a to P4d generalized the jets to any number of variables); the plan,
-`dev/graded_messages/PART1_PLAN.md`, was signed off as a whole on 2026-11-19, and the work is at a planned pause before
-P5 (the engine). CI runs on the branch through the draft PR #26. **Start at `dev/HANDOFF.md`, "The
-next arc", the block START HERE**, then `dev/graded_messages/implementation/ORCHESTRATION.md`. The rest of this
-section, and of this file, describes the released library; this file is brought in line with the refactor in its
-documentation slice (P19), not before.
+is being implemented.** Part 1's slices P0 to P16 are built, and the data-metric sub-arc M0 to M5 (between P16 and P17)
+is complete; P17 is next. A packing investigation (2026-11-23/24, a scouting session: what to do, not how) settled how
+packed and ragged forms cross the uniform/ragged seam, and library-wide principles G1 to G3 (G3: one mathematical
+operation per function, one return type). **Its decisions: `dev/graded_messages/PACKING_REFACTOR.md`** (history and
+evidence: `PACKING_INVESTIGATION.md`); not yet planned or built, and they revise parts of the M arc. CI runs on the
+branch through the draft PR #26. **Start at `dev/HANDOFF.md`, the block "RESUME HERE (2026-11-24)"**, then
+`PACKING_REFACTOR.md`. Process rule (Nick, 2026-11-24): additions to the library go through the full review process
+(proposal, critic, implementation, review, gates); prototypes and drafts go in `dev/`. The rest of this section, and
+of this file, describes the released library; this file is brought in line with the refactor in its documentation
+slice (P19), not before.
 
 **2026.5.0 is RELEASED (2026-11-15) — `pip install t3toolbox`.** Its headlines: the BREAKING store rename (the
 frame stores `up` and `down` swap names so a store is named for the side its cores occupy; letters D/U/L/R; upgrade
