@@ -81,3 +81,34 @@ decision, the reason, where it is recorded. Larger rulings are also in `LOG.md`.
     `LocalModel`'s comments retyped (`J^T(M r)` with the scale). The engine's table gains a `Type` column (`P`, `Y*`,
     "`Y`, turned" for `w_tilde`, "`P*`, turned" for the other tilde variables, which sit on edges; `X*` for the
     blocks), pinned by a test that reads it.
+
+## The maintainer's rulings (2026-11-24, the discussion after the arc)
+
+Entries 1 to 6, 8, 9, 12, 14, 15, 17, 21, 23 and 13(a) to (c) were put to the maintainer as routine or right, and he
+raised no objection. Entries 7, 10, 13(d), 13(e), and two unlogged choices of form (`blocks_to_weight` and
+`prepare_derivative_data(weight=None)` returning one mode-leading array for a ragged probe `y`) are overtaken by the
+packing rulings (`PACKING_REFACTOR.md`) and are decided there. His explicit rulings:
+
+- **11** (Unicode in the type comments): agreed.
+- **16** (a side branch knowingly wrong between parts): "it is acceptable for a side branch to be temporarily wrong
+  during wip, as long as it is correct at the end."
+- **18** (`take` raises on a data-space object with no `W` axes): keep the raise. What it guards is consistency, not a
+  wrong number: without it `all(())` is true, a block weight `(3,)` on apply becomes `(3, 1)`, legal on the drawn
+  batch, so a batch the full-batch check refuses would run under `mc_sgd` and `adam`.
+- **19** (the battery's `mc_sgd` runs re-seeded): fine. "Trying to keep all optimization steps bitwise is an admirable
+  goal but not strictly necessary." Rounding across machines can make optimization paths diverge to O(1) before they
+  meet again at the solution. The goal is to be sure the method works; where bitwise agreement is not available,
+  correctness is assessed in other ways.
+- **20** (`format_newton_iter`'s released `obj_unweighted` removed with no shim): accepted.
+- **22** (`frame_stack_shape`): **make it public.** A library change: carried by the packing sub-arc's plan.
+- **24, 25** (M4 and M5 built without a design review): acceptable here; judgement in future. "Comments are important.
+  Scripted changes of comments have caused problems before (e.g., breaking ascii diagrams, vertically misaligning
+  carefully handcrafted signature type comments, etc). When in doubt, do the review."
+- **25, the tangent transposes' return** ("`X*` in a `T3Tangent` container"): left as it is for now; a known pun of
+  the class holding both a tangent and a cotangent.
+
+Recorded with them, not logged at the time: the M2 CI fix moved one test bound from 9 to 17 at a new seed
+(`M2_CI_FIX.md`; the new test separates its mutant by 27 against 17, the old one by 11 against 9).
+
+**Still pending:** the audit's decisions 3 (corewise as point methods or as `COREWISE` tangent operations) and 4 (the
+name "Hessian"; `t3_inner_product_corewise_hessian`), kept pending by the maintainer; the `from_t3` slice.

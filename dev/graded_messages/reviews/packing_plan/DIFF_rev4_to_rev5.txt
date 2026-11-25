@@ -1,0 +1,183 @@
+3c3
+< Status: revision 4 (2026-11-25). The critic signed off on revision 3 after two rounds
+---
+> Status: revision 5 (2026-11-25). The critic signed off on revision 3 after two rounds
+6,7c6,8
+< four of which change the design (the batch, the masking, the full weight's sample axes, a field's name). **Nothing
+< here is built.**
+---
+> four of which change the design (the batch, the masking, the full weight's sample axes, a field's name). The critic
+> reviewed that revision too (`REVIEW_r3.md`: no ruling challenged, six seams left unspecified; `RESPONSE_r3.md`), and
+> revision 5 specifies them. **Nothing here is built.**
+220a222,225
+> - **The modes of a probe object agree in everything but the edge:** one pattern of size-1 stack axes for all `d`
+>   arrays of a full weight (and of `y`'s `C`). The one packer needs it (it stacks the modes), and one rule on both
+>   layers is simpler than a mix that is legal ragged and cannot be packed (the critic's E8a). Checked by the engine,
+>   the probe data checker, `pack_batch` and the frontend batch; the refusal names `np.broadcast_to`.
+228c233,235
+<   structured case earns it; the full weight is the catch-all.
+---
+>   structured case earns it; the full weight is the catch-all. The case that would earn it is the one use of `W` the
+>   maintainer envisions, a weight that reduces the impact of outlier samples: it varies along `W` and is constant along
+>   the slots and the edge, so on the probe kind it is a full weight at `y`'s memory until then.
+231,233c238,241
+< structural axis. T3Polynomial has one (`T3POLYNOMIAL_JET_USE.md:140-153`: a weight per sample and slot, constant
+< along the edge); its weight per coordinate of a mode, constant over the samples, is free under the rule above. For
+< apply and entries `z` is per sample already and nothing is lost. The dry port (P18) measures the first.
+---
+> structural axis (the outlier weight above; the weight per sample and slot that T3Polynomial wants and reaches today by
+> scaling its directions, `T3POLYNOMIAL_JET_USE.md:140-153`). T3Polynomial's weight per coordinate of a mode, constant
+> over the samples, is free under the rule above. For apply and entries `z` is per sample already and nothing is lost.
+> The dry port (P18) measures the first.
+258,265c266,273
+< - **The full weight is checked as a factor of an elementwise product:** `r`'s rank, each axis 1 or `r`'s size, so the
+<   product has `r`'s shape (today's `_check_pair`, `jets.py:559`), **except the mode axis, which is exact**: a tuple
+<   full weight has exactly `d` arrays, and a packed one has first axis exactly `d`. Today a packed weight with a mode
+<   axis of 1 is broadcast over the modes, silently (the limit `data_metric`'s doctest shows, `jets.py:678-690`); the
+<   function now knows the kind, so it closes it, and its two forms have one rule. Of the other axes the function is
+<   not told the stacks, so it cannot tell a `C` axis from another; and the engine calls it with the size-1 `K` axes
+<   that `_with_K` inserts (`sampling_steps.py:926`, which stays, for the full weight). The exact rule of §2.2 is the
+<   engine's and the checkers'. The docstring says both.
+---
+> - **The full weight obeys the principle of §2.2 as far as the function can see: the structural axes exact, the
+>   axes between them 1 or `r`'s size.** `probe_data_metric` knows the mode (first; a tuple of exactly `d` arrays, or a
+>   packed first axis of exactly `d`), the slots `F` (from `order`) and the edge (last): those are exact. Of the axes
+>   between them (`W`, `K`, `C`) it is not told which is which, so each may be 1 or `r`'s size; that also admits the
+>   size-1 `K` axes the engine inserts with `_with_K` (`sampling_steps.py:926`, which stays, for the full weight).
+>   `apply_data_metric`: `F` exact, the rest 1 or full. This closes the limit `data_metric`'s doctest shows today
+>   (`jets.py:678-690`: a packed weight with a mode axis of 1 broadcast over the modes), and the metric and the batch
+>   agree except for what only the batch can know: `y`'s exactness on `W`, and never `K` in a batch.
+275,276c283,285
+<   `weight`'s place after `y`; `computed_names` follows (its arguments are an engine call's). The structural check of
+<   `y` and the full weight is exact shape with `C` axes 1 or full; of the block weight, exact shape. On the uniform
+---
+>   `weight`'s place after `y`; `computed_names` follows (its arguments are an engine call's). The structural check is
+>   the rule of §2.2: `y` exact but for `C` axes of 1; the full weight exact but for `W` and `C` axes of 1; the modes
+>   of a probe object agreeing; the block weight exact. On the uniform
+280c289,293
+<   tests is rewritten, with keywords after `y`, so that no old positional call lands its scale in a weight, and K1's design note decides whether the fields after `y` become keyword-only (which
+---
+>   tests is rewritten, with keywords after `y`, so that no old positional call lands its scale in a weight. **Its
+>   constructor makes the checks the oracle's makes today** (`backend/fitting.py:1057-1066`; O-44, O-46: the kind one of
+>   three, the order a tuple of nonnegative integers, the entries kind's order `()`), on the static fields only, so they
+>   are safe when jax rebuilds the object, and it normalizes `order` to Python ints. An old positional
+>   `LeastSquaresBatch(ww, y)` then fails at once, on its kind, and K1's design note decides whether the fields after `y` become keyword-only (which
+293c306,309
+< - **The display** (`backend/optimizer_display.py`): its table has the block shape, as today; nothing else changes.
+---
+> - **The display** (`backend/optimizer_display.py`): its table has the block shape, as today. It reads the jet shape
+>   off the batch (`optimizer_display.py:622` reads `getattr(oracle, 'order', None)` today, which on an oracle without
+>   fields would be `None` and print positional labels, silently: the critic's E8b), and `make_newton_display` refuses a
+>   validation batch whose kind or order differs from the batch's (their tables would set two quantities side by side).
+340,341c356,357
+< - **One packer** serves the sample and every probe object of the type of `z`: with exact shapes (§2.2) their arrays
+<   agree across the modes except in the edge. There are no identity packers for apply and entries data. **One
+---
+> - **One packer** serves the sample and every probe object of the type of `z`: by the rule of §2.2 their arrays
+>   agree across the modes in everything but the edge. There are no identity packers for apply and entries data. **One
+371c387,389
+<   the held variables. One helper (`_masked`, `sampling_variables.py:1442`), one behaviour.
+---
+>   the held variables. One helper (`_masked`, `sampling_variables.py:1442`), one behaviour, for every input the
+>   engine reads. (The start values of the sweeps are not inputs: the engine makes them, ones on the real slots of
+>   their end bond, by a product, `:1368-1370`; unchanged.)
+503,504c521,522
+< draw   = lambda rng: batch.take(rng.choice(batch.n_measurements, 64, replace=False))
+< x, stats = t3.mc_sgd(t3.UNIFORM_MANIFOLD, LeastSquaresOracle(), batch, x0, draw=draw)
+---
+> x, stats = t3.newton_cg(t3.UNIFORM_MANIFOLD, LeastSquaresOracle(), batch, x0)
+> sub    = batch.take(np.arange(64))                                  # a drawn batch, of the same class; what a draw returns
+513,518c531,551
+< - **Validated at construction** (structural, always, as the library's other frontend classes are): the per-mode
+<   members are in one form; packed members agree in their mode sizes and in `N`. So a packed batch built by hand is
+<   checked: each member states its sizes (`PackedVectors(y_arr, (4, 5, 6))`), and they must agree.
+< - **`pack(N=None)`** refuses ragged members that disagree in their mode sizes, and returns the packed batch. No tensor
+<   is needed. `take`, `n_measurements` and `data_metric(r)` (for the probe kind a `PackedVectors` in and out) are thin
+<   methods over the backend's on `.data`.
+---
+> - **Validated at construction** (structural, always, as the library's other frontend classes are): the kind and the
+>   order (the backend constructor's checks, §2.4); the per-mode members in one form; packed members agreeing in their
+>   mode sizes and in `N`. So a packed batch built by hand is checked: each member states its sizes
+>   (`PackedVectors(y_arr, (4, 5, 6))`), and they must agree.
+> - **A registered pytree:** its members are the children, the kind and the order static. Validation runs when jax
+>   rebuilds it, as for the library's other classes.
+> - **Its methods are thin, over the backend's on `.data`:** `pack(N=None)` refuses ragged members that disagree in
+>   their mode sizes and returns the packed batch (no tensor is needed; on a batch that is already packed it raises);
+>   `take(indices)`; `data_metric(r)`, for the probe kind a `PackedVectors` in and out, whose mode sizes it compares
+>   with the batch's; `check(shape, stack_shape=())`; and the property `n_measurements`.
+> - **In the backend** the batch class has `check`, `take`, `data_metric` and `n_measurements`; packing is the function
+>   `uniform_fitting.pack_batch(batch, N=None)` (`uniform_fitting` imports `backend/fitting`, not the reverse), which the
+>   frontend's `pack` calls.
+> - **One kind and one order per fit.** Each batch is read under its own, so the frontend entries refuse a validation
+>   batch whose kind or order differs from the batch's, and the hand-over of a drawn batch compares them too (two
+>   tuples per draw). In the backend the display refuses (§2.4); the optimizers do not look.
+> - **A frontend entry takes the frontend batch.** Given the backend's (a packed one built by hand would otherwise reach
+>   the engine with no check of its mode sizes), it raises, and since the two classes share a name the message and each
+>   class's `repr` name the module (`t3toolbox.fitting.LeastSquaresBatch`, not
+>   `t3toolbox.backend.fitting.LeastSquaresBatch`) and say how to build the one from the other. A user's draw that
+>   returns the backend's is refused the same way.
+522,523c555
+<   checks on the packed form. `_is_packed` (`:582`) goes. An oracle that is not a `LeastSquaresOracle` has its own
+<   batch type, which passes through unchanged, as today.
+---
+>   checks on the packed form. `_is_packed` (`:582`) goes.
+527,529c559,569
+<   `PackedVectors`; its `batch` is the frontend batch.
+< - **A user-written oracle** receives the backend batch (writing an oracle is backend-level work,
+<   `TARGET_DECISIONS.md:349`), and reads the kind and the order off it.
+---
+>   `PackedVectors`. Its `batch` is the frontend batch, derived on request from the backend model's batch and the
+>   frame's shape, as everything else it shows is derived: the class still holds `(geometry, backend)` and its pytree
+>   does not change.
+> - **User-written oracles, and the `Oracle` protocol** (`backend/optimizers.py:181-231`). A frontend
+>   `LeastSquaresBatch` is handed to the backend as its `.data` whatever the oracle, so an oracle that reuses the
+>   library's batch receives the backend class and reads the kind and the order off it (writing an oracle is
+>   backend-level work, `TARGET_DECISIONS.md:349`). A batch of any other type passes through unread, as today. Two
+>   contracts of the protocol change, by name: its optional members `check_batch`, `n_measurements` and `take` (O-29)
+>   are the batch's, and "its data are its batch, which the optimizers pass through unread" gains one exception, **the
+>   default draw** (`flat_draw`, `_require_draw`, `backend/optimizers.py:625-654`), which calls `take` and
+>   `n_measurements` on the batch. An oracle with its own batch type gives its batch those two, or passes `draw=`.
+542a583
+> | K1 | it builds its batch with the kind and the order it reads off the old call, and calls `n_measurements` on the batch (`t3toolbox/optimizers.py:249`) |
+544d584
+< | K1 | it builds its batch with the kind and the order it reads off the old call |
+682c722,729
+< One change, like M2, built in reviewed parts on a side branch, bottom-up: (1) the dense reference
+---
+> One change, like M2, built in reviewed parts on a side branch. **Part 0 is the move of the kind and the order into
+> the batch, with its methods**: a refactor with a bitwise battery (no number changes), reviewed apart from the
+> numerical parts. Its sites beside `backend/fitting.py`: the display (`optimizer_display.py:622`); the default draw
+> (`flat_draw`, `_require_draw`, `backend/optimizers.py:625-654`); the `Oracle` protocol's text (`:181-231`); the
+> translation (`t3toolbox/optimizers.py:249`); the frontend's `_is_packed` and `prepare_batch` (`t3toolbox/fitting.py:585`,
+> `:608`) and the parameter comments of `mc_sgd` and `adam` (`t3toolbox/optimizers.py:331`, `:354`); about 104
+> `LeastSquaresOracle(` and 76 `LeastSquaresBatch(` constructions in the tests, the examples, the pages and the
+> doctests. Then, bottom-up: (1) the dense reference
+748a796,800
+> - **For K4's design note to measure:** the tests that use the frontend's batch name with backend calls
+>   (`tests/test_least_squares_oracle.py`, `tests/_fits.py`, `tests/oracle_sweeps/*`), which work by duck typing on the
+>   ragged layer and need `.data` on the packed one; and the short cross-references to `LeastSquaresBatch` in the
+>   docs, which a second class of that name may make ambiguous under `-W` (`docs/conf.py:144-178` resolves a name within
+>   its own module).
+868c920
+<    by `check_batch`.
+---
+>    by the batch's `check`.
+898c950,953
+<    (§4.3). The alternative is a name of its own.
+---
+>    (§4.3). The critic notes the precedent is weaker here: users build batches in both tiers, and one name for two
+>    types makes `isinstance`, messages and cross-references ambiguous. It would still keep the name, since design F
+>    was chosen as code with this name in it, and make every message and `repr` name the module; the plan does that.
+>    The alternative is a name of its own for one of the two.
+902,903c957,958
+< 4. **The frontend batch validates its members at construction** (§4.3), which makes the frontend's separate
+<    `check_batch` call at the optimizers' entry a comparison of the mode sizes with the point.
+---
+> 4. **The frontend batch validates its members at construction** (§4.3), so what is left where a batch meets a point
+>    is the comparison of its mode sizes and `N` with the point's, and the engine's checks.
+905a961,965
+> 7. **`n_measurements` is a property of the batch; `pack` on a packed batch raises; in the backend packing stays the
+>    function `pack_batch`, not a method** (§4.3).
+> 8. **A frontend entry refuses the backend's batch** (§4.3), and a validation or drawn batch of another kind or
+>    order.
+> 9. **Part 0 of K1 is the move of the kind and the order,** with its own bitwise battery (§7).

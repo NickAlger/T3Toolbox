@@ -895,6 +895,37 @@ returning the factorials (weight 1 on the derivatives, its natural coordinates).
 is `omega = 1`; no new engine variables or oracle outputs; O-21's "plain sums" superseded; `f_resolution` is `<y, M
 y>`. **The display's `(unwt ...)` header figure is dropped.**
 
+**The packing sub-arc: the rulings of 2026-11-24 and 2026-11-25** (the maintainer, in the planning session and in
+his review of the plan). The plan is `PACKING_PLAN.md` (revision 5; slices K0 to K7 before P17), signed off by its
+critic (`reviews/packing_plan/`) and by the maintainer ("I sign off on the design", 2026-11-25); his rulings are
+recorded in order, with his words, in `PACKING_PLAN_NOTES.md`. In brief, and where they change this ledger:
+
+- **The forms.** The container is the form (a tuple or a list of `d` arrays is ragged; one array is packed); no
+  mixing; no guessing. This supersedes "the type is decided by `kind`, never by the type of the object" (the note "A
+  `kind` argument where a function is three functions in one", above): the function's name decides the kind. No
+  sampling function packs or unpacks. On the ragged layer every per-mode input is a sequence, the entries index
+  included.
+- **The weights.** `block_weight` (one number per block) and `full_weight` (of `z`'s shape), multiplied; a size of 1 is
+  allowed exactly on stack axes (`W`, `C`), never on structural ones; `y` is exact on `W`. This supersedes Q5 and Q8
+  ("axis by axis either 1 or `z`'s size … no block form") and row 2.5. The public metric is split by kind
+  (`probe_data_metric`, `apply_data_metric`, `entries_data_metric`), superseding Q1 and Q3's kind-free `data_metric`.
+- **The batch knows its kind:** `kind` and `order` move from the oracle into the batch, with `check`, `take`,
+  `n_measurements` and `data_metric` as its methods; the oracle keeps `query`. This supersedes "the oracle is all
+  static, the batch is all leaves" (8.3) and O-29's optional members of the oracle. **The frontend has its own batch
+  class** of `PackedVectors`, superseding "the oracle and the batch are one class each for both tiers" for the batch.
+- **`PackedVectors`** (the packed array with its `mode_sizes`) is every per-mode object of the uniform frontend; the
+  check of the mode sizes is automatic there; the backend has `backend/packing.py` (packers, unpackers, checkers on
+  plain arguments) and `frame_stack_shape` public.
+- **G2** (liberal in, canonical out) for sampling and what is downstream of it; the engine masks by selection;
+  **G3** (one operation per function, one return type), the engine its one exemption; a `kind` argument is split when
+  the computation or the structural check of its arguments depends on the kind.
+- **The old kernels are deleted first** (K0 is the plan's P20, moved); the check-in on `t3_corewise_frame` stays after
+  P19.
+- **To the backlog after Part 2:** the audit of the rest of the uniform library for canonical padding; the
+  investigation's rulings upstream of sampling; a `sample_weight` factor. **To Part 2:** the option to skip the
+  engine's input masking.
+- The M arc's logged decisions were ruled in the same session (`implementation/M_ARC_DECISIONS.md`, its last section).
+
 ## Carried to Part 2 from the implementation of Part 1
 
 **Hard typing inside the engine** (the maintainer, 2026-11-22, from Claude's typing ideas 3 and 4; ideas 1, 2 and 6 are

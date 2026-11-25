@@ -40,7 +40,26 @@ moment. **From then on the work, that folder included, continues on the branch `
 severely breaking"); it is merged when it is done. Look on the branch for the live state. Library code has been
 changed on the branch since 2026-11-16 (slices P0 to P4 of Part 1); `main` has none of it.
 
-**RESUME HERE (2026-11-24, the packing investigation).** The M arc is complete (CI green at `fa72e22a`); the stop
+**RESUME HERE (2026-11-25): the packing sub-arc (K0 to K7) is planned, reviewed and SIGNED OFF by the maintainer; nothing is built. Claude orchestrates the build: read `dev/graded_messages/implementation/K_ORCHESTRATOR_HANDOFF.md` first** (what to read, the process the maintainer set, what to watch in each slice). The paragraph below is the state just before his sign-off.
+
+**(2026-11-25, before the sign-off.)** The planning session
+with the maintainer (2026-11-24/25) settled the M arc's logged decisions (`implementation/M_ARC_DECISIONS.md`, its last
+section) and turned the packing investigation into a plan: **`dev/graded_messages/PACKING_PLAN.md`** (revision 5;
+slices K0 to K7, before P17; K0 is today's P20, the deletion of the old kernels, moved to the front). The session's
+rulings, in order: `PACKING_PLAN_NOTES.md` (its §7 is the maintainer's review of the plan). A critic (Opus) reviewed
+the plan in four rounds and signed off (`reviews/packing_plan/`); the measurements are in
+`packing_audit/K_MEASUREMENTS.md`. **Next: the maintainer's sign-off of the plan as a whole, and of its §14** (nine
+decisions Claude made in the last two revisions). Then a dated note in `TARGET_DECISIONS.md` recording the rulings,
+then K0's design note. Headlines of the plan: the container is the form, no mixing, no guessing; no sampling function
+packs or unpacks; the weight becomes `block_weight` and `full_weight` (a size of 1 only on stack axes); the metric
+split by kind; `backend/packing.py`; the frontend's `PackedVectors` (field `mode_sizes`); the kind and the order in
+the batch, and a frontend batch class of `PackedVectors`; the engine masks by selection. Still pending with the
+maintainer: the audit's decisions 3 and 4. All of this is uncommitted. **Added to the backlog considered after Part 2
+(a possible Part 3):** an audit of the rest of the uniform library for canonical padding, and the investigation's
+rulings that are upstream of sampling (the plan's §10); a `sample_weight` factor, which the maintainer's envisioned
+outlier weighting would earn.
+
+**(Superseded by the block above.) RESUME HERE (2026-11-24, the packing investigation).** The M arc is complete (CI green at `fa72e22a`); the stop
 for the maintainer to discuss `implementation/M_ARC_DECISIONS.md` (the 2026-11-23 block below) is still pending.
 Meanwhile Nick and Claude ran a scouting session on packing: how packed and ragged per-mode objects cross the
 uniform/ragged seam. It also set library-wide principles. **Decisions: `dev/graded_messages/PACKING_REFACTOR.md`**;

@@ -413,7 +413,7 @@ is complete; P17 is next. A packing investigation (2026-11-23/24, a scouting ses
 packed and ragged forms cross the uniform/ragged seam, and library-wide principles G1 to G3 (G3: one mathematical
 operation per function, one return type). **Its decisions: `dev/graded_messages/PACKING_REFACTOR.md`** (history and
 evidence: `PACKING_INVESTIGATION.md`); not yet planned or built, and they revise parts of the M arc. CI runs on the
-branch through the draft PR #26. **Start at `dev/HANDOFF.md`, the block "RESUME HERE (2026-11-24)"**, then
+branch through the draft PR #26. **The packing sub-arc is planned and signed off (2026-11-25; slices K0 to K7 before P17; `dev/graded_messages/PACKING_PLAN.md`), not built: start at `dev/graded_messages/implementation/K_ORCHESTRATOR_HANDOFF.md`.** Earlier state: `dev/HANDOFF.md`, the block "RESUME HERE (2026-11-24)", then
 `PACKING_REFACTOR.md`. Process rule (Nick, 2026-11-24): additions to the library go through the full review process
 (proposal, critic, implementation, review, gates); prototypes and drafts go in `dev/`. The rest of this section, and
 of this file, describes the released library; this file is brought in line with the refactor in its documentation
