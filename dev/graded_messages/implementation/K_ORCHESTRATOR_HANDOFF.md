@@ -50,7 +50,14 @@ advised to use their judgement for decisions along the way, except for big decis
 which they can pause and talk to me about. The orchestrator logs all decisions, and then after the entire arc is
 complete, discusses it with me. I would like you to be the orchestrator."
 
-How that maps onto the existing practice (confirm against `ORCHESTRATION.md` when you read it):
+**Precedence (the maintainer, 2026-11-25): "my instructions here in chat supercede those in BRIEF.md and
+ORCHESTRATION.md wherever they conflict."** The quotation above is the process. `BRIEF.md` and `ORCHESTRATION.md`
+are the older practice: use them for what the quotation does not say (the gate, the artifacts, the lessons), and
+where they differ from it (for example a rule to be followed where he asks for judgement, or a different sequence
+of approvals), the quotation wins. Tell the agents the same in their brief.
+
+How that maps onto the existing practice (to be checked against `ORCHESTRATION.md` when you read it; the mapping
+below is Claude's, and yields to the quotation too):
 
 - **Per slice:** `K<n>_DESIGN_NOTE.md` (the implementer) -> `K<n>_DESIGN_REVIEW_r<k>.md` (the reviewer), rounds until
   the reviewer signs off -> **you approve or send back** -> the build -> `K<n>_HANDOVER.md` -> `K<n>_REVIEW_r<k>.md`
