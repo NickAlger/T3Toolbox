@@ -1497,3 +1497,15 @@ correct; 4 more mutants killed; the column test cannot drift silently). **M5 com
 complete.** P19 gains: `signature_style.md:98` at 130 characters; the glossary's `K` row and pages §4.12/§4.14 writing
 `K_{A^T omega^2 r}`; §9.1's function-type table for a page. **STOP for the maintainer:** the discussion of
 `implementation/M_ARC_DECISIONS.md` (25 entries), the audit's decisions 3 and 4, `frame_stack_shape`.
+
+### The packing sub-arc (K0 to K7) starts (2026-11-25, 16:40)
+
+The maintainer ruled the M arc's decisions (`M_ARC_DECISIONS.md`, last section), re-derived the packing design with
+Claude, and signed off `PACKING_PLAN.md` (revision 5, four rounds of a critic; commits `1eda7fc8`, `b5125f76`, not yet
+pushed). Eight slices before P17; P20 is K0 now. His process: an implementer and a reviewer (Opus 5.5, high effort),
+each slice a reviewed plan phase and a reviewed build, the orchestrator (this session) approving at the end of each
+phase, deciding what is small, pausing for him on what is big, and logging every decision in `K_ARC_DECISIONS.md` for
+a discussion after the arc. His instructions in the session supersede `BRIEF.md` and `ORCHESTRATION.md` where they
+conflict; the agents' brief for the arc is `K_BRIEF.md`. The orchestrator's own start: `K_ORCHESTRATOR_HANDOFF.md`.
+K0 started with a fresh pair: the implementer orients and writes `K0_DESIGN_NOTE.md`; the reviewer orients and notes
+its own view of K0's risks first.
