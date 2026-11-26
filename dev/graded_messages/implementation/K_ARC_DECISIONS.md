@@ -211,7 +211,7 @@ where it is recorded. Larger rulings are also in `LOG.md`. The design's decision
     float64 data would have given float64 where today's metric gives float32, and the battery compares dtypes); and
     the layout of four rows of the engine's rule table whose new entry is wider than the shared column (the table's
     own overflow form, a continuation line; no other row moves, so the table keeps one layout).
-41. **The session stops here (2026-11-26, 01:50 CT; the maintainer's 03:00 limit), at a part boundary.** Parts 0 and 1
+41. **The session stops here (2026-11-26, 01:36 CT; the maintainer's limit is 03:00), at a part boundary**, not later: part 2 (the engine) with a fresh implementer could not reach a reviewed state in the time left, and a half-built engine is the worst thing to leave for a restart. Parts 0 and 1
     of K1 are on `k1-wip`, pushed; part 2 is not started. A resume pointer is on `graded-messages`
     (`K_ORCHESTRATOR_HANDOFF.md` §0), since a new session starts from that branch's `CLAUDE.md`. Tokens so far (Opus,
     from the agents' own counts): K0 about 2.0M; K1 so far about 3.6M (the design 1.0M, part 0 about 1.5M, part 1 and

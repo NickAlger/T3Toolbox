@@ -4,7 +4,7 @@ Written by Claude on 2026-11-25, at the end of the planning session, for the sam
 a new one). **You are the orchestrator of this arc** (the maintainer, Nick, asked for it). Nothing of the arc is
 built. Everything you need is in files; this page says what they are, what the maintainer asked, and what to watch.
 
-## 0. RESUME HERE (written 2026-11-26, 01:50 CT, at the session's stop)
+## 0. RESUME HERE (written 2026-11-26, 01:36 CT, at the session's stop)
 
 The rest of this page was written before the arc started and is still the background (sections 2 to 6). **What has
 happened since, and where to pick up:**
