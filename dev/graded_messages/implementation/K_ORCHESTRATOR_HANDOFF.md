@@ -4,6 +4,14 @@ Written by Claude on 2026-11-25, at the end of the planning session, for the sam
 a new one). **You are the orchestrator of this arc** (the maintainer, Nick, asked for it). Nothing of the arc is
 built. Everything you need is in files; this page says what they are, what the maintainer asked, and what to watch.
 
+## 0. RESUME HERE (2026-11-26, 01:36 CT): K1 is in progress on the branch `k1-wip`
+
+**Switch to the branch `k1-wip` (pushed to the remote) and read this file there**: its section 0 says where things
+stand. In short: K0 is done (`282b46a9` here, CI green). K1 is designed and approved (`K1_DESIGN_NOTE.md` here), and
+its parts 0 and 1 of six are built, reviewed and committed on `k1-wip`; part 2 (the engine) is next. The branch is
+squashed into one commit here when its last part's gate passes. This branch's copy of the log and of the decision
+record stops at K1's approval; the current ones are on `k1-wip`.
+
 ## 1. Where things stand
 
 - Branch `graded-messages`; the plan and its records were committed on 2026-11-25 (`git log -1` shows the commit, "dev:
