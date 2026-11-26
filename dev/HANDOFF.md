@@ -1,7 +1,7 @@
 # T3Toolbox — current handoff
 
 _Updated 2026-11-15, at the 2026.5.0 release; "The next arc" updated the same evening, when the design work moved into
-`dev/graded_messages/`._ The previous handoff (the store rename R1–R6, phase timing P1–P3, the
+`dev/graded_messages/`, at the pause of 2026-11-16, 04:46, and at the pause of 2026-11-17, 15:14, after slice P4 of the implementation, at the pause of 2026-11-17, 16:30, with the plan for the generalized jets complete, and on 2026-11-19 for the move of the work to Claude Code on Nick's laptop (on the branch `graded-messages`)._ The previous handoff (the store rename R1–R6, phase timing P1–P3, the
 switch W1–W4, the glossary/docs pass, the hand fixes, and the 2026.4.0 arc's state blocks) is archived verbatim at
 `dev/archive/handoff_2026-11-15_pre-2026.5.0.md`; older ones are `handoff_2026-10-29_pre-2026.3.0.md`,
 `handoff_2026-08-21_optimization_layer.md`, `handoff_2026-08-20_pre-2026.1.0.md` and
@@ -33,17 +33,200 @@ intentionally so. Nick's ruling: design from FIRST PRINCIPLES; never preserve ex
 behaviour is one candidate, never the default; decide the TARGET before any sequencing; go slow.
 
 **Where it lives.** `dev/graded_messages/` (tracked since 2026-11-15, 18:04; it was the untracked handoff package
-`dev/graded_messages_handoff/` before, and any such copy on a machine is superseded). `main` holds the snapshot of that
+`dev/graded_messages_handoff/` before, and any such copy on a machine is superseded: Nick confirmed this for the
+laptop copy on 2026-11-15). `main` holds the snapshot of that
 moment. **From then on the work, that folder included, continues on the branch `graded-messages`** (Nick, 2026-11-15:
 "future commits will be on a branch. The reason for using a branch is the fact that this refactor will be major and
-severely breaking"); it is merged when it is done. Look on the branch for the live state. No library code has been
-changed yet.
+severely breaking"); it is merged when it is done. Look on the branch for the live state. Library code has been
+changed on the branch since 2026-11-16 (slices P0 to P4 of Part 1); `main` has none of it.
 
-**Read, in this order:** its `README.md`; `TARGET_DECISIONS.md`, the working agenda (its sections "Where this stands"
-and "What remains, in groups" are the state: 18 of 55 rows decided, 33 open in seven groups, being settled one at a time
-with Nick, group A "jets and the misfit" under way); `TYPE_CATALOG.md` (the types of every sampling variable, arrows on
-the edges, a type checker for every contraction); then `DESIGN_AFTER_REVIEW.md` and `REVIEW_DECISIONS.md` (the log).
-The older documents there carry status notes and are history.
+**RESUME HERE (2026-11-25): the packing sub-arc (K0 to K7) is planned, reviewed and SIGNED OFF by the maintainer; nothing is built. Claude orchestrates the build: read `dev/graded_messages/implementation/K_ORCHESTRATOR_HANDOFF.md` first** (what to read, the process the maintainer set, what to watch in each slice). The paragraph below is the state just before his sign-off.
+
+**(2026-11-25, before the sign-off.)** The planning session
+with the maintainer (2026-11-24/25) settled the M arc's logged decisions (`implementation/M_ARC_DECISIONS.md`, its last
+section) and turned the packing investigation into a plan: **`dev/graded_messages/PACKING_PLAN.md`** (revision 5;
+slices K0 to K7, before P17; K0 is today's P20, the deletion of the old kernels, moved to the front). The session's
+rulings, in order: `PACKING_PLAN_NOTES.md` (its §7 is the maintainer's review of the plan). A critic (Opus) reviewed
+the plan in four rounds and signed off (`reviews/packing_plan/`); the measurements are in
+`packing_audit/K_MEASUREMENTS.md`. **Next: the maintainer's sign-off of the plan as a whole, and of its §14** (nine
+decisions Claude made in the last two revisions). Then a dated note in `TARGET_DECISIONS.md` recording the rulings,
+then K0's design note. Headlines of the plan: the container is the form, no mixing, no guessing; no sampling function
+packs or unpacks; the weight becomes `block_weight` and `full_weight` (a size of 1 only on stack axes); the metric
+split by kind; `backend/packing.py`; the frontend's `PackedVectors` (field `mode_sizes`); the kind and the order in
+the batch, and a frontend batch class of `PackedVectors`; the engine masks by selection. Still pending with the
+maintainer: the audit's decisions 3 and 4. All of this is uncommitted. **Added to the backlog considered after Part 2
+(a possible Part 3):** an audit of the rest of the uniform library for canonical padding, and the investigation's
+rulings that are upstream of sampling (the plan's §10); a `sample_weight` factor, which the maintainer's envisioned
+outlier weighting would earn.
+
+**(Superseded by the block above.) RESUME HERE (2026-11-24, the packing investigation).** The M arc is complete (CI green at `fa72e22a`); the stop
+for the maintainer to discuss `implementation/M_ARC_DECISIONS.md` (the 2026-11-23 block below) is still pending.
+Meanwhile Nick and Claude ran a scouting session on packing: how packed and ragged per-mode objects cross the
+uniform/ragged seam. It also set library-wide principles. **Decisions: `dev/graded_messages/PACKING_REFACTOR.md`**;
+evidence, measurements and the rulings as made: `PACKING_INVESTIGATION.md`; audit tools: `packing_audit/`.
+Headlines: the layer rule (each layer takes and returns its own form; no automatic packing or unpacking; the ragged
+layer takes sequences only, the entries index included); G2, liberal in, canonical out; G3, one mathematical
+operation per function, one return type (the `kind`-switched helpers split along the types); the packers and the
+checkers in `ut3_conversions`; an engine keyword to skip the input masking. These revise parts of the M arc (the
+data-metric plan's §2 rule, `blocks_to_weight`'s form). **Not yet planned or built:** the next step is a plan
+through the usual process. Still open: `PACKING_REFACTOR.md` §5 (Nick's rulings on F3.1 and F3.2; the per-mode
+loops, F2; the names of the group A split). Uncommitted at this point: the two documents, `packing_audit/`, and one
+doctest added to `t3toolbox/backend/jets.py` (`data_metric`'s mode-axis limit) outside the process, allowed once by
+Nick, for him to verify. Process rule (Nick): additions to the library go through the review process; prototypes
+and drafts go in `dev/`.
+
+**RESUME HERE (2026-11-23, written for a compaction or a lost session).** The data-metric sub-arc
+(`dev/graded_messages/DATA_METRIC_PLAN.md`, complete; decisions in `TARGET_DECISIONS.md`, notes of 2026-11-21/22) is
+being built slice by slice on `graded-messages`. **Done:** M0 (`64465d8b`, the `J -> P` rename), M1 (`c16aa640`,
+`data_metric`, `blocks_to_weight`, the law helper), M2 (`68c10621`, the data-space rule; squashed from the local branch
+`m2-wip`, kept as a record). M3 (the weighted block sums, the display ratio, `unwt` dropped) is COMMITTED. **P19 must carry, from the M arc:**
+the upgrade note "remove the fourth argument" of `format_newton_iter` (D1, M-arc 20); the page sentence
+`docs/fitting_and_optimization.md:114` (the weighted ratio, equal to the plain one for a weight constant per block);
+the prose naming removed factories and `uniform_least_squares_problem`; `frame_stack_shape` if the maintainer approves. **Then:** M4 (the transposes typed: `residual` -> `c` in 42 functions), M5
+(the type comments, comments only), then STOP and discuss `implementation/M_ARC_DECISIONS.md` with the maintainer
+(he authorized M2 to M5 without stopping unless a major issue arises, and asked that Claude's decisions be tracked
+there), then the `from_t3` slice, then P17. **Process per slice:** design note -> the reviewer's critique -> Claude's
+rulings (log them in `M_ARC_DECISIONS.md` and `LOG.md`) -> build -> review rounds -> commit; large slices in reviewed
+parts on a local side branch, squashed. Agents are Opus 5.5, high effort; implementers are replaced when their context
+fills (they stop at a clean point with a handover); the sub-arc's current reviewer took over from
+`implementation/M_REVIEWER_HANDOFF.md`. Gate at `-n 2`, one heavy run at a time on the 13 GB laptop. Every slice's
+records are in `dev/graded_messages/implementation/` (`M*_DESIGN_NOTE/REVIEW`, `_HANDOVER`, `_REVIEW_r*`, and the
+per-slice folders `m0/`, `m1/`, `m2/`). CI green at `fa72e22a` (the whole M arc; floor-leg test fixes in `implementation/M2_CI_FIX.md`). M4 (the transposes typed, `residual` -> `c`) and M5 (the type comments) are COMMITTED: **THE M ARC IS COMPLETE.**
+  **Now: STOP for the maintainer** to discuss `implementation/M_ARC_DECISIONS.md` (25 decisions Claude made), the
+  audit's open decisions 3 (corewise representation) and 4 (the Hessians' names), and `frame_stack_shape`; then the
+  `from_t3` slice, then P17. P19's carried items are listed in `LOG.md`'s M-arc entries.
+
+**START HERE (updated 2026-11-19, 19:30; Claude Code on Nick's laptop, branch `graded-messages`).** Nothing lives
+in a session: everything is in files.
+
+- **Where it stands (2026-11-21, late): P16 is COMMITTED (`eb4d5732`, squashed from the local branch `p16-wip`, which
+  is kept as a record); the work is at a PAUSE AFTER P16 that the maintainer asked for**, on the data-space design: (1)
+  first-class data-space weights (his principle: a silent conversion of a data-space covector to a vector without the
+  option of weights is a type error); (2) the typing `J: X -> Y'`, `W: Y' -> Y`, `J^T: Y -> X'`, `R_X`, and where Banach
+  and Hilbert transposes are mixed; (3) where the sampling functions live (his proposal: by the object they act on,
+  point or tangent, and by whether they depend on the objective; corewise as a flat manifold); (4) methods vs functions
+  for the corewise operations, and the name "Hessian"; (5) one `y` per stacked model (a narrowing in P16). All recorded
+  in `LOG.md` (entries after "P16 started"). **Progress at the pause (2026-11-22):** the audit is done (`SAMPLING_AUDIT.md`); the maintainer took its decisions
+  1 and 2 (TARGET_DECISIONS, "The data metric"); `DATA_METRIC_PLAN.md` (the sub-arc for them, four slices M1 to M4
+  before P17) passed one writer/reviewer cycle and is in a second for its new section 9 (lightweight typing); CI green
+  at `7035eaab` (P16 plus a float32 test fix, `P16_CI_FIX.md`). **Status (2026-11-22, later):** the data-metric plan is COMPLETE (TARGET_DECISIONS, notes of
+  2026-11-22); its slices M0 (the `J -> P` rename, `64465d8b`) and M1 (`data_metric`, `blocks_to_weight`, the law
+  helper, `c16aa640`) and M2 (the data-space rule, `68c10621`, squashed from `m2-wip`) are COMMITTED; next M3 (the display
+  and the weighted block sums), M4, M5, then the discussion of `implementation/M_ARC_DECISIONS.md` with the maintainer,
+  then P17. The sub-arc's reviewer is kept; implementers are fresh per large slice.
+  **Still open:** the audit's 3 (corewise representation) and 4 (the Hessians' names). No build before he has read the final plan. (Superseded:) **Next:** an agent does one combined audit of every sampling function
+  (location, object, typing, metric, weights; findings and options, not decisions), then the discussion, then possibly
+  a slice reorganizing the sampling functions, then the `from_t3` slice (raise for a width below a rank; decided), then
+  P17. The P16 decisions are in `TARGET_DECISIONS.md`'s notes of 2026-11-21 and `LOG.md`. **To resume after a lost
+  session:** read `LOG.md`'s last entries; agents are started fresh on `BRIEF.md` (the first two pairs' contexts are
+  spent); state is in the files.
+- **The design-first rhythm** (from P5): before each slice's code, the implementer writes a design note and the
+  reviewer critiques it; Claude settles it into the plan; then build, review rounds, commit. Design notes and reviews
+  are beside the slices in `dev/graded_messages/implementation/`.
+- **The gate runs at `-n 2`** since P9b (memory); the suite is about 1,800 tests and 31 minutes.
+- **What P4a to P4d built:** `jet_contract` over one jet group `J` of any number of axes (`GroupLengths(J, W, K,
+  C)`, 29 strings); `affine_jet` and `index_to_one_hot`; the dense functions on input jets (`dense_probe`,
+  `dense_apply`, `dense_entries(T, index)`); the reference module `sampling_definitions` in several jet variables;
+  `jets` and `data_preparation` in the jet shape, with their frontend reach. Nothing of P1 to P4 takes `pp` or an
+  integer order any more. The per-slice record is `dev/graded_messages/implementation/LOG.md`.
+- **The agents:** two Opus 5.5 agents on high effort, an implementer and a reviewer, kept from slice to slice
+  (Nick's choice); Claude relays, rules on findings, looks each slice over and commits. Each slice: an independent
+  oracle by the reviewer, mutation passes by both, the full gate at `-n 3`. Rounds: P4a 2, P4b 2, P4c 1, P4d 1.
+- **CI:** the draft PR #26 runs both legs on every push (never merge it before Parts 1 and 2 are done). It found
+  two floor bugs from P1/P2 that had never been run in CI (fixed: jax 0.4.30's `jnp.einsum` default
+  `optimize='optimal'` is exponential in the operand count; numpy `subTest` labels that xdist cannot send on numpy
+  1.x). Green on the floor since `3ccff5da`.
+- **The laptop baseline** is `dev/graded_messages/implementation/BASELINE_laptop.md`; the suite at `-n 3` peaks near
+  10 GB of the 13, so nothing may run beside it.
+- **Read, in this order:** (1) `CLAUDE.md`; (2) this section down to the end of the block "STATE AT THE PAUSE OF
+  2026-11-17" (the blocks after it are older states, kept as history); (3)
+  `dev/graded_messages/implementation/ORCHESTRATION.md`: how a slice is run, what was particular to the cloud
+  session, section 0 (the process since the laptop), and the notes carried to later slices;
+  (4) `dev/graded_messages/PART1_PLAN.md`: the head, section 2.4 (`jet_contract`), section 5 (the slices; P5 is
+  next), section 11.1 (Nick's answers) and 11.4 (the names), section 12 (the process); (5)
+  `dev/graded_messages/implementation/BRIEF.md` (the agents' brief) and `LOG.md` (the record, slice by slice);
+  (6) as reference: `dev/graded_messages/TARGET_DECISIONS.md` (the decisions; amended for the jets on 2026-11-19,
+  see the banner at its top; its notes of 2026-11-17 and 2026-11-19 are the newest decisions) and
+  `SAMPLE_VARIABLES.md` (every variable's name, definition and shape);
+  `dev/graded_messages/REVIEW_DECISIONS.md` is the log of decisions in order (entries 116 to 122 are the jets).
+- **Nick's standing rules for this arc** (all in force; the first block of "THE ARC IN PROGRESS" above, and
+  `TARGET_DECISIONS.md`): reason from first principles; compatibility with today's behaviour is never a reason;
+  keep it simple and avoid state; code statically readable, with literal contraction strings; the backend gives
+  checkers and no guarantees, the frontend enforces; each of the two users (frontend, backend) can do everything
+  in their own layer; a new group or abstraction of weight is raised with him before it enters a plan; no reliance
+  on small CPU timings; tolerance tests for numerical things and exact tests for structural ones; read the
+  library's own records before proposing; go slowly. No release until Part 1 and Part 2 are both done.
+
+**The reading order of 2026-11-15, for the design documents** (history; the START HERE block above is the order for
+the work now): its `README.md`; `TARGET_DECISIONS.md`, the working agenda (its sections "Where this stands"
+and "What remains, in groups" are the state and carry the counts; the rows are being settled one at a time with
+Nick); `SAMPLE_VARIABLES.md`, THE reference for the names and definitions of the sampling variables (the notation Nick
+locked in on 2026-11-15, 23:23: a letter for the side contracted, `mu`/`nu`/`xi`/`eta`, a basis written only when it is
+not the usual one, then `_tilde`, `_dot`; `NOTATION_HISTORY.md` when an older text is read); `TYPE_CATALOG.md` (the
+types of every sampling variable, arrows on the edges, a type checker for every contraction); then
+`DESIGN_AFTER_REVIEW.md` and `REVIEW_DECISIONS.md` (the log). The older documents there carry status notes and are
+history.
+
+**STATE AT THE PAUSE OF 2026-11-17, 15:14 (after slice P4; the current state, and it supersedes the blocks below
+where they differ).** All of this is on the branch `graded-messages`; `main` is untouched since the release.
+
+- **The target was settled and split into two parts** (2026-11-16): Part 1 is what is computed (names, conventions,
+  interfaces); Part 2 is performance (the plan object, chunking, contraction order). No release until both are done.
+- **Part 1 has an approved plan**, `dev/graded_messages/PART1_PLAN.md` (Nick, 2026-11-16, 21:16), in slices P0 to P20.
+  How it is carried out is its section 12 and `dev/graded_messages/implementation/BRIEF.md`: per slice an implementer
+  and a reviewer (Fable 5.2, medium effort) go back and forth until the reviewer signs off; the orchestrating session
+  looks it over and commits (authored by NickAlger, Claude as co-author); major issues go to Nick. The per-slice record
+  is `implementation/LOG.md` with each slice's handover, reviews and responses beside it.
+- **Built, reviewed, committed and pushed: P0 to P4.** P0 the baseline and the gate script
+  (`implementation/run_gate.sh`; steps run ONE AT A TIME, never sphinx beside tests); P1 `jet_contract` and
+  `GroupLengths` in `backend/contractions.py`; P2 the reference module `backend/sampling_definitions.py` and the dense
+  functions; P3 `backend/jets.py`, `backend/data_preparation.py`, the checkers and the frontend's re-exports in
+  `fitting.py`; P4 the frame checkers (`fv_frame_consistency_residual`, `fv_centers_consistency_residual`, their
+  uniform twins, the cached `consistency_residual` on both frame classes). The suite is at 1,632 passed, 5 skipped,
+  1 xfailed (the xfail is the contraction-order marker carried to Part 2). Nothing of the old sampling layer is
+  rerouted or deleted yet: P5 to P11 build the engine, P12 to P17 switch the layers over, P20 deletes.
+- **P5 is NOT started, on purpose.** Nick asked for a planned pause after P4, and decided at it to **generalize the
+  jets first** (2026-11-17, log entries 116 to 120 of `dev/graded_messages/REVIEW_DECISIONS.md`; the notes "One jet
+  group, of any number of axes" and "The public interface is generalized from the start" in `TARGET_DECISIONS.md`):
+  one jet group, letter `J`, of any number of axes (jets in several variables), box truncation, an explicit output
+  shape; `T` and `A` leave the contraction strings; `order` becomes a jet shape (a tuple of maximum orders); the
+  inputs are jets with sizes of their own (a line is two slots, a curve more) and `pp` leaves every signature, a
+  helper building the input of a line; everything of the type of the output has the jet axes; the entries kind is of
+  order 0 only (a helper to one-hot vectors, and apply for anything with a derivative; `entries_derivatives` goes).
+- **The plan for that generalization is COMPLETE and awaits Nick's review of the whole (pause of 2026-11-17, 16:30).**
+  An Opus writer and an Opus critic produced it in three rounds (`dev/graded_messages/reviews/jet_group_plan/`: the
+  brief, `ACCOUNT.md` with the design on one page and every choice, `REVIEW_r1..r3.md`, `RESPONSE_r1..r2.md`); the
+  critic agreed. It is in `dev/graded_messages/PART1_PLAN.md` (commit 48a1af4): four new slices between P4 and P5,
+  **P4a** (`jet_contract(subscripts, *operands, lens, order, over_orders)` over the one group `J`,
+  `GroupLengths(J, W, K, C)`, the 41 strings become 29), **P4b** (`affine_jet(ww, *directions)`,
+  `index_to_one_hot(index, shape)`, the dense functions without `pp`), **P4c** (the reference module in several
+  variables; entries without `order`), **P4d** (`jets` and `data_preparation` in the jet shape), and every later
+  slice brought in line. Nick answered all its open points (O-36 to O-47; plan section 11.1, log entries 121 and
+  122) and approved its names (section 11.4): `order` is a tuple only; no default of `order` on `LeastSquaresOracle`
+  (required for every kind, `()` for entries), `()` the default on the sampling functions; every slot along a jet
+  axis of the uniform layout is data (no mask); the ambient transposes have no jets and none are planned; the
+  display's table has one column per multi-index and can be turned off (`error_table=True`, taken as approved with
+  the other names and TO BE CONFIRMED at his review, as is its third place, `format_newton_iter`).
+- **NEXT, and only when Nick says so** (he paused the work for a couple of days on 2026-11-17 at 16:26, to review
+  the updated plan and because of his token budget): (1) his sign-off of the plan as a whole, with any changes;
+  (2) Claude amends the decision records the account's section 7 lists (`TARGET_DECISIONS.md` rows 2.1, 2.3 to 2.9,
+  5.4, 6.2, 6.6 and the notes named there; `SAMPLE_VARIABLES.md` sections 4, 6 and 7) -- NOT yet done: the notes
+  of 2026-11-17 in `TARGET_DECISIONS.md` hold the decisions meanwhile, and the latest note wins; (3) P4a to P4d by
+  the usual pair (Fable 5.2, medium), one slice per commit (the scheduled check-ins of the cloud session are not
+  needed where the session does not stop; none is scheduled); (4) P5.
+- **From P4, answered by Nick (2026-11-17, 15:18):** the normalization and reduction of the centers' residual, ok;
+  `UT3Frame.is_consistent` thresholding against `max(1, ||T||)`, ok; `(x - y).norm()` losing accuracy across gauges
+  is noted for consideration AFTER this refactor (in the backlog below).
+- **Carried to Part 2** (the section of that name in `TARGET_DECISIONS.md`): the contraction order inside one step of
+  `jet_contract` on numpy; map-type operations on uniform one site at a time; the benchmark against 2026.5.0.
+
+**State at the pause of 2026-11-16, 04:46** (Nick: "let's pause. We will pick up tomorrow"): 41 of the 56 rows decided,
+11 remain. Groups A (jets and the misfit), B (the frame and the value) and C (what a kind is, and the public surface)
+are finished. HELD by Nick for one sitting on performance hooks and defaults: 5.3, 5.5 (the contraction order is in the
+plan; granularity, the field's form and the helpers open) and all of group E (7.2, 7.3, 7.5, 7.6, 7.7). OWED: a
+prototype for 5.4 (terms generic over several sample axes, `K`, `C` and the order group). NEXT, one question per
+message: 8.3 (the optimizers' contract with a model), 8.4 (what the display reads), 9.3 (the reference when old
+behaviour is not it). A Claude doc mirrors the folder, tab by tab, and is in step at this pause.
 
 **Settled so far, in brief** (the rows of `TARGET_DECISIONS.md` are authoritative): one public backend function
 `sampling_variables`, with `SamplePlan`/`SampleScan` hooks and explicit per-variable functions; jets are Taylor
@@ -52,10 +235,21 @@ with the order axis absent (an optional axis `T`); the plain and the jetted samp
 `probe(ww, pp=None, order=0)`, and the fitting layer has three kinds with an `order` in place of six; data and residuals
 are of the type of the output, in forward order, and the tilde variables are stored turned (reversed) inside; the misfit's
 default weight is ones, with the weight shaped `(d,) + T`; preparation of data and weights is done by standalone
-functions with opt-in keywords. All of this is USER-VISIBLE and overrides the first proposal's "no user-visible
+functions with opt-in keywords. Added in the session of 2026-11-15/16: the weight is an ARGUMENT of the engine (with
+the data `y`) and acts on `f`, `g`, `JtJp`, `Kp` and `Jp_norm_sq`, so that they are derivatives of each other, and a
+bare transpose takes a seed and no weight; transposes SUM over the samples by default (the reverse of today's
+`sum_over_probes=False`); a frame is the four stores `(D, U, L, R)` with OPTIONAL centers `(Vc, Hc)` beside it, the value
+read off the frame when they are given; frame consistency is a safe-mode precondition checked only where needed and
+never through a dense tensor; frames support arbitrary tails (in the functions this arc touches); three trial-point
+policies as an optimizer option; a kind is CLOSED in the sampling layer (three strings plus an order) and the open
+extension point is an `Oracle` in the fitting layer (a frozen record: at a frame, return the wanted ones of `f`, `g`,
+`JtJp`, `Jp_norm_sq`, and optionally `Kp`, `Jp`, `r`, as blocks before projection); `LocalModel` is the geometry, the
+oracle and the regularizer at one frame and still the holder of local information (`residual`, `jacobian(p)` stay); the
+projection, the lift and the exact-Hessian assembly stay in the geometry; one set of step functions for the ragged and
+the uniform layout; the dtype rule is absorbing (jax over numpy, lower precision over higher). All of this is USER-VISIBLE and overrides the first proposal's "no user-visible
 convention has to change".
 
-**Planned after the target is settled** (from the handoff written at the release; not re-confirmed since): an agent
+**Planned after the target is settled** (from the handoff written at the release; confirmed by Nick on 2026-11-15, 18:32): an agent
 re-running the folder's checks against the tag and scouts reading the library's own records -> a writer/critic in-depth
 plan (two stages; token map + gates reusing the rename machinery; exact-equality test cleanup as a pre-slice; a
 performance gate on the Darcy ladders before any hand kernel is deleted) -> sample-edit batches -> implementer/reviewer
@@ -174,6 +368,56 @@ As run for 2026.5.0 (the archived prep's §5 has the exact commands):
   `Claude-Session:` line. Check `gh run list` after each push.
 
 ## Next up — the backlog (open since 2026.3.0)
+
+**From the graded-messages arc, for after it** (Nick, 2026-11-17, 15:18: "Note for consideration later, after this
+refactor"):
+- **An accurate norm of a difference.** `(x - y).norm()` loses accuracy when `x` and `y` are in different gauges: the
+  error grows like `eps ||T||^2` (measured in slice P4: a consistent frame of norm `3.7e6` read `3.9e-10` through the
+  subtraction and `4e-15` through the new route). The frame checkers avoid it by bringing each term to left-orthogonal
+  form before the difference is taken (`_tt_difference_norm` and its helpers in `backend/fv_operations.py`, private).
+  To consider: a public function for the norm of a difference of two T3s by that route, and whether `-` followed by
+  `norm` should use it. Record: `dev/graded_messages/implementation/P4_HANDOVER.md` section 4.1 and `P4_REVIEW_r1.md`.
+
+- **For future consideration: the low-rank structure of per-sample blocks** (Nick, 2026-11-20: "worth filing away").
+  With `sum_over_samples=False` the engine materializes each sample's `g`/`JtJp`/`Kp` block dense, `W x |core|` in
+  memory. But each per-sample block is low rank: without jets, a sample's `V_tilde` is a rank-1 outer product
+  (`eta_tilde_s (x) w_s`) and its `H_tilde` a sum of three rank-1 three-way products (`mu_tilde (x) xi (x) nu` and its two
+  siblings); with jets, short sums of such terms over slot pairs. The information is about `W x (sum of edge sizes)`,
+  and the per-sample edge variables the engine already returns hold it in factored form. It is the same structure the
+  ambient transposes exploit when their sum folds `W` into the CP rank. Many per-sample statistics need no dense
+  blocks: directional derivatives `<g_s, p>` come from `r` and `Jp`; norms from the edge variables. **The oracle does
+  not ask for unsummed blocks** (Nick: wait for a use case; his lean even then is to add hooks another way than through
+  the oracle, the decision to be made on the facts at that time).
+- **Before the release, after Parts 1 and 2: consider this backlog** (Nick, 2026-11-20: "let's make sure we take a
+  moment to consider the backlog. We may make another Part 3 from the backlog before release").
+- **Re-gauging for corewise optimization** (Nick agreed, 2026-11-20). Gauge drift (scale traded between neighbouring
+  cores, or between `B_i` and `G_i`) degrades conditioning over long corewise runs. Recommended: an option on the corewise
+  optimizers (or the corewise retraction) with a period and two modes. `'orthogonalize'`: the canonical form (what
+  practitioners do), optionally followed by spreading the norm evenly over the cores, since orthogonalization alone
+  puts all the scale in one core and the Hessian blocks then differ by about `||T||^2`; Adam's moments must be reset
+  after it (a rotation has no diagonal image), L-BFGS pairs can be transformed exactly (`s' = A s`, `y' = A^-T y`).
+  `'balance'`: a positive scalar per core equalizing norms, a diagonal change of coordinates that carries Adam's and
+  L-BFGS's state exactly, essentially free and parallel (no latency-bound sweep of small factorizations on a GPU),
+  fixing scale drift but not ill-conditioned bond matrices. Cost: one orthogonalization is about `max(n, r) / (c W)`
+  gradients (`c` 3 to 6), so it is cheap unless the minibatch is below the rank; frequency tunes it. Defaults to be
+  chosen on real problems (Darcy ladders), not CPU microbenchmarks.
+- **A test cut held in reserve: the four-site half of `TestJetsTwoWays::test_every_variable`**
+  (`tests/test_sampling_definitions.py`; Nick, 2026-11-20: "leave the tests in for now", the suggestion recorded). The
+  test checks the 24 jetted variables of the reference module (`z`, `Jp` and the 22 edge variables) against an
+  independent route: the same variable with no jets, at the input jets evaluated on two real node grids, interpolated
+  into Taylor coefficients. It runs every jet case on three sites, and two cases (the line at order `(3,)` and the
+  mixed modes) on the four-site problem `long()`. *Why it could go:* on four sites it is the most expensive part of
+  the file; and the four-site problem's variables are also checked by `TestRecurrences` (each grade's recurrences),
+  `TestReadouts`, and `TestOutputsAgainstDense` (`z` and `Jp` against the dense functions, at every jet case
+  including the order-3 line), all of which keep running. *What would be lost:* the only check of the 22 EDGE
+  variables against an independent route at full degree. On three sites a line's order-3 output has a structurally
+  zero top coefficient (`z[i]` contracts `d - 1 = 2` line inputs, degree 2), so an error confined to the highest
+  slots of the shared jet machinery (the roots-of-unity grid, the clipping) could pass on three sites and is caught
+  there only on four; the outputs through the same machinery would still be checked. The reviewer of P4c and the
+  implementer both named this as the one cut they would accept. *Measured savings* (2026-11-20, single process): the
+  test takes 122 s on the floor env (`tttt`) and 67 s on `t3toolbox`; without the four-site half 48 s and 32 s: **about
+  74 s on the floor and 35 s on the current env**, of the file's 224 s and 217 s. In the `-n 3` suite it is one test on
+  one worker, so the wall-clock saving there is up to about that much, less when other tests fill the wait.
 
 **From the exact-Hessian arc** (each also in the ledger `docs/contributor/deferred_and_rejected.md`):
 - **float32 end to end.** A float32 fit comes back float64: 38 default-dtype constructors in eight backend modules sit

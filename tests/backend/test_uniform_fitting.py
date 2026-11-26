@@ -16,14 +16,16 @@ import t3toolbox.uniform_frame_variations_format as ubv
 import t3toolbox.uniform_manifold as ut3m
 import t3toolbox.manifold as t3m
 import t3toolbox.backend.optimizers as bopt
-import t3toolbox.backend.ufv_masking as ufv_masking
 import t3toolbox.backend.geometry as bgeo
 import t3toolbox.backend.apply as bapply
 import t3toolbox.backend.fitting as bfit
 import t3toolbox.backend.uniform_fitting as uf
 import t3toolbox.backend.utv_operations as utv_operations
-import t3toolbox.backend.utv_sampling as utv_sampling
 import t3toolbox.backend.ut3_operations as uops
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))   # tests/
+import _derivative_data as dd       # derivative data from the merged methods (P13b)
+import _fits as F                   # a backend fit (geometry, oracle, batch, regularizer) from plain specs (P16)
 
 _STRUCT = ((10, 11, 12), (2, 4, 2), (1, 2, 2, 1))   # (shape, tucker, tt); MINIMAL ranks (tucker capped by
                                                     # the tt bonds), still rank-varied -> real padding
@@ -54,8 +56,15 @@ class TestUniformGeometryOps(unittest.TestCase):
     def _compare_ops(self, geom_front, ops, x):
         """Backend ops (on bare supercore pairs) vs the frontend geometry (on typed objects), at point x."""
         x_sc = (x.data[0], x.data[1])
-        frame_front, frame_back = geom_front.frame(x), ops.frame(x_sc)
-        self.assertTrue(_frame_close(frame_front.data, frame_back), 'frame')
+        frame_front, frame_back = geom_front.frame(x), ops.frame(x_sc)[0]
+        if len(frame_back) == 4:                    # a corewise geometry: its frame is the point (P16); the frontend's
+            fd = frame_front.data                   #   is still (B, G, G, G, shape, (tk, tk, tt, tt) masks) until part 4
+            self.assertTrue(_sc_close((fd[0], fd[2]), frame_back[:2]) and np.array_equal(fd[2], fd[1])
+                            and tuple(fd[4]) == tuple(frame_back[2])
+                            and np.array_equal(fd[5][0], frame_back[3][0])
+                            and np.array_equal(fd[5][2], frame_back[3][1]), 'frame')
+        else:
+            self.assertTrue(_frame_close(frame_front.data, frame_back), 'frame')
 
         v1 = ubv.UT3Variations.randn_like(frame_front)     # ungauged variations at the frame
         v2 = ubv.UT3Variations.randn_like(frame_front)
@@ -84,117 +93,6 @@ class TestUniformGeometryOps(unittest.TestCase):
             with self.subTest(geometry=name):
                 x0, x = _uniform_x(0), _uniform_x(1)
                 self._compare_ops(geom_front, factory(x0.data), x)
-
-
-class TestUniformSamplingKind(unittest.TestCase):
-    """U3: the uniform SamplingKind builders (apply/entries/probe) reproduce the ragged SamplingKind on the
-    equivalent frame (the uniform-equivalence contract), satisfy the adjoint identity <r, Jv> = <Jᵀr, v>,
-    and ignore garbage in the masked-out variation padding."""
-    # (name, ragged kind, sample-is-integer-index)
-    _KINDS = [('apply', bfit.APPLY, False), ('probe', bfit.PROBE, False), ('entries', bfit.ENTRIES, True)]
-
-    def setUp(self):
-        np.random.seed(0)
-        self.x = _uniform_x(0)
-        self.frame = ut3m.UNIFORM_MANIFOLD.frame(self.x)
-        self.var = ubv.UT3Variations.randn_like(self.frame)
-        self.frame_r = self.frame.to_t3frame()               # equivalent ragged frame
-        self.var_r = self.var.to_t3variations()              # equivalent ragged variation
-        self.vmask = ufv_masking.ufv_variation_masks(self.frame.data[5])
-
-    def _sample(self, is_index, W=15):
-        shape = _STRUCT[0]
-        if is_index:
-            return np.stack([np.random.randint(0, n, size=W) for n in shape], axis=0)    # (d,)+W
-        return [np.random.randn(W, n) for n in shape]                                    # len=d, W+(Ni,)
-
-    def test_forward_matches_ragged(self):
-        for name, kind_r, is_index in self._KINDS:
-            with self.subTest(kind=name):
-                kind_u = uf.uniform_sampling_kind(name, self.x.data)
-                sample = self._sample(is_index)
-                sw_u = kind_u.precompute(self.frame.data, sample)
-                sw_r = kind_r.precompute(self.frame_r.data, sample)
-                fu = kind_u.forward(self.var.supercores, sample, self.frame.data, sw_u)
-                fr = kind_r.forward(self.var_r.data, sample, self.frame_r.data, sw_r)
-                if name == 'probe':
-                    fu = uops.unpack_vectors(fu, _STRUCT[0])   # the split-seam forward is PACKED; unpack to compare
-                    self.assertTrue(all(np.allclose(np.asarray(a), np.asarray(b)) for a, b in zip(fu, fr)))
-                else:
-                    self.assertTrue(np.allclose(np.asarray(fu), np.asarray(fr)))
-
-    def test_point_forward_matches_ragged(self):
-        for name, kind_r, is_index in self._KINDS:
-            with self.subTest(kind=name):
-                kind_u = uf.uniform_sampling_kind(name, self.x.data)
-                sample = self._sample(is_index)
-                x_r = self.frame_r.to_t3()                   # the ragged point (== x)
-                su = kind_u.point_forward((self.x.data[0], self.x.data[1]), sample)
-                sr = kind_r.point_forward(x_r.data, sample)
-                if name == 'probe':
-                    self.assertTrue(all(np.allclose(np.asarray(a), np.asarray(b)) for a, b in zip(su, sr)))
-                else:
-                    self.assertTrue(np.allclose(np.asarray(su), np.asarray(sr)))
-
-    def test_adjoint_identity(self):
-        for name, kind_r, is_index in self._KINDS:
-            with self.subTest(kind=name):
-                kind_u = uf.uniform_sampling_kind(name, self.x.data)
-                sample = self._sample(is_index)
-                sw = kind_u.precompute(self.frame.data, sample)
-                fwd = kind_u.forward(self.var.supercores, sample, self.frame.data, sw)
-                # probe forward is PACKED (d,)+W+C+(N,); a packed random residual exercises the packed path.
-                r = np.random.randn(*np.asarray(fwd).shape)
-                lhs = float(np.sum(r * np.asarray(fwd)))
-                jt = kind_u.transpose(r, sample, self.frame.data, sw)     # bare (V, H)
-                rhs = float(utv_operations.utv_corewise_inner(
-                    (jt[0], jt[1], _STRUCT[0], self.vmask), self.var.data, 0))
-                self.assertTrue(np.isclose(lhs, rhs), f"{name}: {lhs} != {rhs}")
-
-    def test_forward_garbage_robust(self):
-        # garbage in the masked-out variation padding must not change the forward (mask-once contracts it away)
-        for name, kind_r, is_index in self._KINDS:
-            with self.subTest(kind=name):
-                kind_u = uf.uniform_sampling_kind(name, self.x.data)
-                sample = self._sample(is_index)
-                sw = kind_u.precompute(self.frame.data, sample)
-                clean = kind_u.forward(self.var.supercores, sample, self.frame.data, sw)
-                V = self.var
-                tkv, ttv = V.supercores
-                m_tkv, m_ttv = ubv.UT3Variations(np.ones_like(tkv), np.ones_like(ttv),
-                                                 V.shape, V.masks).apply_masks().supercores
-                ck_tkv, ck_ttv = V.apply_masks().supercores
-                garb = (ck_tkv + 1e6 * (1.0 - m_tkv), ck_ttv + 1e6 * (1.0 - m_ttv))
-                dirty = kind_u.forward(garb, sample, self.frame.data, sw)
-                self.assertTrue(np.allclose(np.asarray(clean), np.asarray(dirty)))   # scalar / packed array
-
-
-class TestUniformBlockSumsq(unittest.TestCase):
-    """D6: the uniform probe kinds' `block_sumsq` (the per-(mode,order) reduction for the diagnostic error
-    table) reduces the PACKED residual directly and matches the ragged reduction on the real parts -- the
-    uniform-equivalence contract. The uniform kinds inherit the dual-path `block_sumsq_over_probes` via
-    `dc.replace` (no override); the packed free-mode padding is a zeroed prefix (like `sumsq`)."""
-    def test_probe_block_sumsq_matches_ragged(self):
-        rng = np.random.default_rng(0)
-        shape, order, W = _STRUCT[0], 2, 9
-        x = _uniform_x(0)
-        N = x.data[0].shape[-1]
-        # plain probe: ragged residual = list of d (W+(Ni,)); packed = (d,)+W+(N,)
-        r_probe = [rng.standard_normal((W, n)) for n in shape]
-        bs_ragged = np.asarray(bfit.PROBE.block_sumsq(r_probe, 1))
-        bs_uniform = np.asarray(uf.UniformProbeKind.from_point(x.data).block_sumsq(uops.pack_if_ragged(r_probe, N), 1))
-        self.assertEqual(bs_ragged.shape, (len(shape), 1))
-        self.assertTrue(np.allclose(bs_ragged, bs_uniform))
-        # probe derivatives: ragged = list of d ((order+1)+W+(Ni,)); packed = (d,)+(order+1)+W+(N,)
-        r_jet = [rng.standard_normal((order + 1, W, n)) for n in shape]
-        bd_ragged = np.asarray(bfit.probe_derivatives_kind(order).block_sumsq(r_jet, 1))
-        bd_uniform = np.asarray(uf.UniformProbeDerivativesKind.from_point(x.data, order=order)
-                                .block_sumsq(uops.pack_if_ragged(r_jet, N), 1))
-        self.assertEqual(bd_ragged.shape, (len(shape), order + 1))
-        self.assertTrue(np.allclose(bd_ragged, bd_uniform))
-        # apply/entries kinds have no mode axis -> they INHERIT the ragged (scalar-output) block_sumsq
-        self.assertEqual(np.asarray(uf.UniformApplyKind.from_point(x.data).block_sumsq(rng.standard_normal((W,)), 1)).shape,
-                         (1, 1))
 
 
 class TestUniformSamplingMirror(unittest.TestCase):
@@ -227,278 +125,19 @@ class TestUniformSamplingMirror(unittest.TestCase):
     def test_probe_derivatives_mirrors_and_agrees(self):
         ww_r, pp_r = self._ww(), self._ww()
         ww_p, pp_p = uops.pack_vectors(ww_r, self.N), uops.pack_vectors(pp_r, self.N)
-        out_r = self.x.probe_derivatives(ww_r, pp_r, 3)
-        out_p = self.x.probe_derivatives(ww_p, pp_p, 3)
+        out_r = dd.forward(self.x, 'probe', ww_r, pp_r, 3)
+        out_p = dd.forward(self.x, 'probe', ww_p, pp_p, 3)
         self.assertIsInstance(out_r, tuple)
         self.assertNotIsInstance(out_p, (list, tuple))
         unpacked = uops.unpack_vectors(out_p, _STRUCT[0])
         self.assertTrue(all(np.allclose(np.asarray(a), np.asarray(b)) for a, b in zip(unpacked, out_r)))
 
 
-class TestUniformDerivativeSamplingKind(unittest.TestCase):
-    """U3': the uniform DERIVATIVE (jet) SamplingKind builders reproduce the ragged derivative kind on the
-    equivalent frame, satisfy the omega-weighted adjoint identity <w^2 r, Jv> = <J^T w^2 r, v>, and ignore
-    garbage in the masked-out variation padding."""
-    _ORDER = 3
-    _WEIGHT = [1.0, 0.5, 0.3, 0.2]
-    # (name, ragged kind factory, sample-first-is-integer-index)
-    _KINDS = [('apply_derivatives', bfit.apply_derivatives_kind, False),
-              ('probe_derivatives', bfit.probe_derivatives_kind, False),
-              ('entries_derivatives', bfit.entries_derivatives_kind, True)]
-
-    def setUp(self):
-        np.random.seed(0)
-        self.x = _uniform_x(0)
-        self.frame = ut3m.UNIFORM_MANIFOLD.frame(self.x)
-        self.var = ubv.UT3Variations.randn_like(self.frame)
-        self.frame_r = self.frame.to_t3frame()
-        self.var_r = self.var.to_t3variations()
-        self.vmask = ufv_masking.ufv_variation_masks(self.frame.data[5])
-        _wmat = bfit._weight_matrix(self._WEIGHT, self._ORDER, 'order')
-        self.aw = bfit._make_weight(_wmat, order_axis=0, mode_axis=None)          # order-leading (apply/entries)
-        self.aw_packed = bfit._make_weight(_wmat, order_axis=1, mode_axis=0)      # packed probe: order at axis 1
-
-    def _sample(self, is_index, W=15):
-        shape = _STRUCT[0]
-        pp = [np.random.randn(W, n) for n in shape]
-        if is_index:
-            return (np.stack([np.random.randint(0, n, size=W) for n in shape], axis=0), pp)
-        return ([np.random.randn(W, n) for n in shape], pp)
-
-    def _kinds(self, name, ragged_factory):
-        return (uf.uniform_derivatives_kind(name, self.x.data, self._ORDER, self._WEIGHT),
-                ragged_factory(self._ORDER, self._WEIGHT))
-
-    def test_forward_matches_ragged(self):
-        for name, factory, is_index in self._KINDS:
-            with self.subTest(kind=name):
-                kind_u, kind_r = self._kinds(name, factory)
-                sample = self._sample(is_index)
-                fu = kind_u.forward(self.var.supercores, sample, self.frame.data,
-                                    kind_u.precompute(self.frame.data, sample))
-                fr = kind_r.forward(self.var_r.data, sample, self.frame_r.data,
-                                    kind_r.precompute(self.frame_r.data, sample))
-                if name == 'probe_derivatives':
-                    fu = uops.unpack_vectors(fu, _STRUCT[0])   # the split-seam forward is PACKED; unpack to compare
-                    self.assertTrue(all(np.allclose(np.asarray(a), np.asarray(b)) for a, b in zip(fu, fr)))
-                else:
-                    self.assertTrue(np.allclose(np.asarray(fu), np.asarray(fr)))
-
-    def test_point_forward_matches_ragged(self):
-        for name, factory, is_index in self._KINDS:
-            with self.subTest(kind=name):
-                kind_u, kind_r = self._kinds(name, factory)
-                sample = self._sample(is_index)
-                x_r = self.frame_r.to_t3()
-                pu = kind_u.point_forward((self.x.data[0], self.x.data[1]), sample)
-                pr = kind_r.point_forward(x_r.data, sample)
-                if name == 'probe_derivatives':
-                    self.assertTrue(all(np.allclose(np.asarray(a), np.asarray(b)) for a, b in zip(pu, pr)))
-                else:
-                    self.assertTrue(np.allclose(np.asarray(pu), np.asarray(pr)))
-
-    def test_adjoint_identity_weighted(self):
-        for name, factory, is_index in self._KINDS:
-            with self.subTest(kind=name):
-                kind_u, _ = self._kinds(name, factory)
-                sample = self._sample(is_index)
-                sw = kind_u.precompute(self.frame.data, sample)
-                fwd = kind_u.forward(self.var.supercores, sample, self.frame.data, sw)
-                # transpose applies the omega**2 weight aw(r, 2) internally -> the identity is
-                # <aw(r,2), Jv> = <J^T aw(r,2), v>. probe_derivatives forward/residual are PACKED with the
-                # order axis at 1 (after d), so its omega uses order_axis=1 (aw_packed).
-                if name == 'probe_derivatives':
-                    r = np.random.randn(*np.asarray(fwd).shape)   # packed (d,)+(order+1,)+W+C+(N,)
-                    lhs = float(np.sum(np.asarray(self.aw_packed(r, 2)) * np.asarray(fwd)))
-                else:
-                    r = np.random.randn(*np.asarray(fwd).shape)
-                    lhs = float(np.sum(np.asarray(self.aw(r, 2)) * np.asarray(fwd)))
-                jt = kind_u.transpose(r, sample, self.frame.data, sw)
-                rhs = float(utv_operations.utv_corewise_inner((jt[0], jt[1], _STRUCT[0], self.vmask), self.var.data, 0))
-                self.assertTrue(np.isclose(lhs, rhs), f"{name}: {lhs} != {rhs}")
-
-    def test_forward_garbage_robust(self):
-        for name, factory, is_index in self._KINDS:
-            with self.subTest(kind=name):
-                kind_u, _ = self._kinds(name, factory)
-                sample = self._sample(is_index)
-                sw = kind_u.precompute(self.frame.data, sample)
-                clean = kind_u.forward(self.var.supercores, sample, self.frame.data, sw)
-                V = self.var
-                tkv, ttv = V.supercores
-                m_tkv, m_ttv = ubv.UT3Variations(np.ones_like(tkv), np.ones_like(ttv),
-                                                 V.shape, V.masks).apply_masks().supercores
-                ck_tkv, ck_ttv = V.apply_masks().supercores
-                garb = (ck_tkv + 1e6 * (1.0 - m_tkv), ck_ttv + 1e6 * (1.0 - m_ttv))
-                dirty = kind_u.forward(garb, sample, self.frame.data, sw)
-                self.assertTrue(np.allclose(np.asarray(clean), np.asarray(dirty)))   # scalar / packed array
-
-
-def _prefix(ranks, size):   # int ranks -> boolean prefix mask of width `size` (canonical form)
-    return np.arange(size) < np.asarray(ranks)[..., None]
-
-
-def _corrupt(obj, scale):
-    """``obj`` (a UT3Frame) with ``scale * (1 - mask)`` added to its padding; the real region unchanged."""
-    scs = obj.supercores
-    ind = type(obj)(*([np.ones_like(s) for s in scs] + [obj.shape, obj.masks])).apply_masks().supercores
-    return type(obj)(*([sc + scale * (1.0 - i) for sc, i in zip(scs, ind)] + [obj.shape, obj.masks]))
-
-
-def _expected_gauge_indicator(rframes, uframe, K):
-    """Real-slot indicators of a kind-transpose output ``(V, H)``, stack ``K+C``, derived from the RAGGED
-    frame(s)' core shapes (one per ``C`` element, or one shared by all) -- never from a uniform mask, so the
-    check is not circular. A variation of core i spans ``(rL_i, nD_i, rR_(i+1))`` (the gauge shift)."""
-    C, d = tuple(uframe.stack_shape), len(uframe.shape)
-    def fam(ranks_of, size):   # (d,)+K+C+(size,)
-        R = np.asarray([ranks_of(f) for f in rframes]).T
-        R = np.broadcast_to(R.reshape((d,) + (C if R.shape[1] > 1 else (1,) * len(C))), (d,) + C)
-        m = _prefix(R, size)
-        return np.broadcast_to(m.reshape((d,) + (1,) * len(K) + m.shape[1:]), (d,) + tuple(K) + m.shape[1:])
-    down = fam(lambda f: [D.shape[-2] for D in f.down_tucker_cores], uframe.nD)
-    up = fam(lambda f: [U.shape[-2] for U in f.up_tt_cores], uframe.nU)
-    left = fam(lambda f: [L.shape[-3] for L in f.left_tt_cores], uframe.rL)
-    right = fam(lambda f: [R.shape[-1] for R in f.right_tt_cores], uframe.rR)
-    sm = _prefix(np.asarray(uframe.shape), uframe.N).reshape((d,) + (1,) * (len(K) + len(C)) + (1, uframe.N))
-    return (up[..., :, None] & sm,
-            left[..., :, None, None] & down[..., None, :, None] & right[..., None, None, :])
-
-
-class TestKindTransposeOutputHygiene(unittest.TestCase):
-    """S0c: each uniform kind's ``transpose`` RE-MASKS its output with the frame's gauge-shifted variation
-    masks (broadcast over the residual's tangent stack ``K``), so the padding comes back as exact zeros
-    instead of the raw seam's garbage. Over all six kinds, both geometries' frames, C and K stacks, forced
-    padding, a varying-rank C stack and a non-minimal (TT-slack) frame, whose variation masks are a strict
-    subset of the point's (the expected extent is read off the ragged frame, so it is the frame's):
-
-    (a)+(c) every slot outside the expected real extent (derived from the ragged frames) is exactly zero;
-    (b) the real block is BITWISE the pre-S0c value -- the bare ``*_from_sweep`` seam on the same residual
-        (the old ``transpose`` body, frozen here);
-    (d) garbage (``1e6 * (1 - mask)``) in the frame's padding, swept again, leaves the output unchanged.
-    Non-vacuous: the bare seam's padding is nonzero for every kind."""
-
-    _ORDER = 2
-    _W = 6
-    # name -> the pre-S0c transpose body: the bare seam on the (weighted) residual
-    _SEAMS = {
-        'apply': lambda k, r, sw: utv_sampling.utv_apply_transpose_from_sweep(r, sw, sum_over_probes=True),
-        'entries': lambda k, r, sw: utv_sampling.utv_entries_transpose_from_sweep(r, sw, sum_over_probes=True),
-        'probe': lambda k, r, sw: utv_sampling.utv_probe_transpose_from_sweep(
-            k._apply_weight(r, 2), sw, sum_over_probes=True),
-        'apply_derivatives': lambda k, r, sw: utv_sampling.utv_apply_transpose_derivatives_from_sweep(
-            k._apply_weight(r, 2), sw, k.order, sum_over_probes=True),
-        'entries_derivatives': lambda k, r, sw: utv_sampling.utv_entries_transpose_derivatives_from_sweep(
-            k._apply_weight(r, 2), sw, k.order, sum_over_probes=True),
-        'probe_derivatives': lambda k, r, sw: utv_sampling.utv_probe_transpose_derivatives_from_sweep(
-            k._apply_weight(r, 2), sw, k.order, sum_over_probes=True, chunk_size=k.chunk_size),
-    }
-
-    def _points(self):
-        """(label, uniform point, the ragged point(s) it represents)."""
-        np.random.seed(21)
-        pts = []
-        for C in [(), (2,)]:
-            x = t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=C)
-            pts.append(('C=%s' % (C,), ut3.UniformTuckerTensorTrain.from_t3(x), [x]))
-            pts.append(('C=%s forced pad' % (C,), ut3.UniformTuckerTensorTrain.from_t3(x, N=13, n=5, r=3), [x]))
-        xs = [t3.TuckerTensorTrain.randn(*_STRUCT), t3.TuckerTensorTrain.randn((10, 11, 12), (3, 2, 2), (1, 3, 2, 1))]
-        pts.append(('varying C', ut3.UniformTuckerTensorTrain.stack(
-            [ut3.UniformTuckerTensorTrain.from_t3(x, N=12, n=4, r=3) for x in xs]), xs))
-        xn = t3.TuckerTensorTrain.randn((10, 11, 12), (2, 3, 2), (1, 2, 3, 1))   # TT slack: r2 = 3 > n2 * r3 = 2
-        self.assertFalse(bool(np.all(xn.has_minimal_ranks)))
-        pts.append(('non-minimal', ut3.UniformTuckerTensorTrain.from_t3(xn), [xn]))
-        return pts
-
-    def _kind_and_sample(self, name, xu):
-        np.random.seed(22)
-        shape, W = xu.shape, self._W
-        ww = [np.random.randn(W, n) for n in shape]
-        pp = [np.random.randn(W, n) for n in shape]
-        idx = np.stack([np.random.randint(0, n, size=W) for n in shape], axis=0)
-        if name in ('apply', 'entries'):
-            return uf.uniform_sampling_kind(name, xu.data), (ww if name == 'apply' else idx)
-        if name == 'probe':
-            return uf.uniform_sampling_kind(name, xu.data, weight=[1.0, 0.5, 0.25]), ww
-        kind = uf.uniform_derivatives_kind(name, xu.data, self._ORDER, [1.0, 0.5, 0.25])
-        return kind, ((idx if name == 'entries_derivatives' else ww), pp)
-
-    def _residual(self, name, xu, K):
-        """A random residual of the kind's packed layout with a tangent stack K after W: lead + W+K+C + tail.
-        Probe residuals keep the packed convention's zero mode padding."""
-        d, O, C = len(xu.shape), self._ORDER + 1, tuple(xu.stack_shape)
-        lead = {'apply': (), 'entries': (), 'probe': (d,), 'apply_derivatives': (O,),
-                'entries_derivatives': (O,), 'probe_derivatives': (d, O)}[name]
-        packed = name in ('probe', 'probe_derivatives')
-        r = np.random.randn(*(lead + (self._W,) + tuple(K) + C + ((xu.N,) if packed else ())))
-        if packed:
-            sm = _prefix(np.asarray(xu.shape), xu.N)
-            r = r * sm.reshape((d,) + (1,) * (r.ndim - 2) + (xu.N,))
-        return r
-
-    def test_kind_transposes(self):
-        seen = {}
-        for label, xu, xs in self._points():
-            for geom_name, ugeom, rgeom in (('manifold', ut3m.UNIFORM_MANIFOLD, t3m.MANIFOLD),
-                                            ('corewise', ut3m.UNIFORM_COREWISE, t3m.COREWISE)):
-                frame = ugeom.frame(xu)
-                rframes = [rgeom.frame(x) for x in xs]
-                dirty = _corrupt(frame, 1e6)
-                for name, seam in self._SEAMS.items():
-                    kind, sample = self._kind_and_sample(name, xu)
-                    sw, dsw = kind.precompute(frame.data, sample), kind.precompute(dirty.data, sample)
-                    for K in [(), (3,)]:
-                        with self.subTest(case=label, geometry=geom_name, kind=name, K=K):
-                            np.random.seed(23)
-                            r = self._residual(name, xu, K)
-                            out = kind.transpose(r, sample, frame.data, sw)
-                            bare = seam(kind, r, sw)
-                            ind = _expected_gauge_indicator(rframes, frame, K)
-                            dout = kind.transpose(r, sample, dirty.data, dsw)
-                            for j in range(2):
-                                o, b = np.asarray(out[j]), np.asarray(bare[j])
-                                self.assertEqual(o.shape, ind[j].shape)
-                                self.assertTrue(np.all(o[~ind[j]] == 0), 'padding not zero')               # (a)+(c)
-                                self.assertEqual(o[ind[j]].tobytes(), b[ind[j]].tobytes(), 'real block')   # (b)
-                                self.assertTrue(np.array_equal(np.asarray(dout[j]), o), 'garbage leaked')  # (d)
-                                seen[name] = max(seen.get(name, 0.0), float(np.abs(b[~ind[j]]).max(initial=0.0)))
-        for name, worst in seen.items():
-            self.assertGreater(worst, 0.0, '%s: the bare seam left no padding garbage to re-mask' % name)
-
-
-class TestSplitSeamDefaultParity(unittest.TestCase):
-    """Review H2-4: the six utv_*_transpose_from_sweep hooks must carry the SAME sum_over_probes
-    default as the ragged functions they share -- a differing default silently changes the result
-    shape for a raw-.data user porting code across the seam."""
-
-    def test_sum_over_probes_defaults_match_ragged(self):
-        import inspect
-        import t3toolbox.backend.utv_sampling as utvs
-        import t3toolbox.backend.apply as bapply_
-        import t3toolbox.backend.entries as bentries
-        import t3toolbox.backend.probing as bprobing
-        import t3toolbox.backend.sampling_derivatives as bsd
-        pairs = [
-            (utvs.utv_apply_transpose_from_sweep, bapply_.tv_apply_transpose_from_sweep),
-            (utvs.utv_entries_transpose_from_sweep, bentries.tv_entries_transpose_from_sweep),
-            (utvs.utv_probe_transpose_from_sweep, bprobing.tv_probe_transpose_from_sweep),
-            (utvs.utv_apply_transpose_derivatives_from_sweep, bsd.tv_apply_transpose_derivatives_from_sweep),
-            (utvs.utv_entries_transpose_derivatives_from_sweep, bsd.tv_entries_transpose_derivatives_from_sweep),
-            (utvs.utv_probe_transpose_derivatives_from_sweep, bsd.tv_probe_transpose_derivatives_from_sweep),
-        ]
-        for uf_, rf_ in pairs:
-            with self.subTest(hook=uf_.__name__):
-                du = inspect.signature(uf_).parameters['sum_over_probes'].default
-                dr = inspect.signature(rf_).parameters['sum_over_probes'].default
-                self.assertEqual(du, dr, f'{uf_.__name__} default differs from {rf_.__name__}')
-                self.assertIs(du, False)
-
-
 class TestUniformProblem(unittest.TestCase):
-    """U4: the uniform least-squares Problem (fully packed) reproduces the ragged backend Problem's
+    """U4: the uniform fit (the batch packed once, pack_batch; the geometry from_point) reproduces the ragged fit's
     LocalModel -- objective, gradient (via <g, p>), and gn_quadratic(p) -- on the equivalent (up to
-    gauge) frame, for
-    every sampling kind and both geometries. This certifies the Problem factory's sample/data packing and
-    the reused LocalModel wiring."""
+    gauge) frame, for every sampling kind (plain, and derivative data along lines through the oracle at a jet shape)
+    and both geometries. This certifies the batch packing and the LocalModel wiring on the uniform layout."""
     _GEOMS = [('manifold', bgeo.ManifoldGeometryOps(), t3m.MANIFOLD), ('corewise', bgeo.CorewiseGeometryOps(), t3m.COREWISE)]
 
     def setUp(self):
@@ -527,12 +166,11 @@ class TestUniformProblem(unittest.TestCase):
                 p_u = ubv.UT3Variations.from_t3variations(p.variations).supercores
             self.trial[name] = (p.variations.data, p_u)
 
-    def _check(self, geom, bgeom, kind_name, ragged_kind, sample, data, order=None, weight=None):
+    def _check(self, geom, prob_r):
         p_r, p_u = self.trial[geom]
-        prob_r = bopt.least_squares_problem(bgeom, ragged_kind, sample, data)
-        prob_u = uf.uniform_least_squares_problem(geom, kind_name, self.ux0, sample, data, order, weight)
+        prob_u, x_u = F.uniform(prob_r, self.ux0)
         lm_r = prob_r.local_model(self.x0.data)
-        lm_u = prob_u.local_model((self.ux0.data[0], self.ux0.data[1]))
+        lm_u = prob_u.local_model(x_u)
         self.assertTrue(np.isclose(float(lm_r.objective), float(lm_u.objective)), 'objective')
         self.assertTrue(np.isclose(float(self.cw.corewise_dot(lm_r.gradient, p_r)),
                                    float(prob_u.geom.inner(lm_u.gradient, p_u))), '<g, p>')
@@ -555,23 +193,21 @@ class TestUniformProblem(unittest.TestCase):
         }[kind_name]
 
     def test_plain_kinds_match_ragged(self):
-        kinds = {'apply': bfit.APPLY, 'entries': bfit.ENTRIES, 'probe': bfit.PROBE}
         for geom, bgeom, _fg in self._GEOMS:
-            for kind_name, ragged_kind in kinds.items():
+            for kind_name in ('apply', 'entries', 'probe'):
                 with self.subTest(geometry=geom, kind=kind_name):
                     sample, data = self._sample_data(kind_name)
-                    self._check(geom, bgeom, kind_name, ragged_kind, sample, data)
+                    self._check(geom, F.fit(bgeom, kind_name, sample, data))
 
     def test_derivative_kinds_match_ragged(self):
-        O, WEIGHT = 3, [1.0, 0.5, 0.3, 0.2]
-        kinds = {'apply_derivatives': bfit.apply_derivatives_kind,
-                 'entries_derivatives': bfit.entries_derivatives_kind,
-                 'probe_derivatives': bfit.probe_derivatives_kind}
+        O, WEIGHT = 3, np.array([1.0, 0.5, 0.3, 0.2])
         for geom, bgeom, _fg in self._GEOMS:
-            for kind_name, factory in kinds.items():
+            for kind_name in ('apply', 'entries', 'probe'):
                 with self.subTest(geometry=geom, kind=kind_name):
-                    sample, data = self._sample_data(kind_name)
-                    self._check(geom, bgeom, kind_name, factory(O, WEIGHT), sample, data, order=O, weight=WEIGHT)
+                    (sample, pp), data = self._sample_data(kind_name + '_derivatives')
+                    weight = np.tile(WEIGHT, (3, 1)) if kind_name == 'probe' else WEIGHT
+                    self._check(geom, F.derivative_fit(bgeom, kind_name, O, sample, pp, data, weight=weight,
+                                                       shape=_STRUCT[0]))
 
 
 class TestUniformOptimizers(unittest.TestCase):
@@ -596,19 +232,19 @@ class TestUniformOptimizers(unittest.TestCase):
 
     def _problems(self, geom):
         bg = {'manifold': bgeo.ManifoldGeometryOps(), 'corewise': bgeo.CorewiseGeometryOps()}[geom]
-        return (bopt.least_squares_problem(bg, bfit.APPLY, self.ww, self.data),
-                uf.uniform_least_squares_problem(geom, 'apply', self.ux0, self.ww, self.data))
+        pr = F.fit(bg, 'apply', self.ww, self.data)
+        return pr, F.uniform(pr, self.ux0)[0]
 
     def test_gradient_descent_matches_ragged(self):
         pr, pu = self._problems('manifold')
-        _, sr = bopt.gradient_descent(pr, self.x0.data, n_iter=8)
-        _, su = bopt.gradient_descent(pu, self._x0u, n_iter=8)
+        _, sr = pr.gradient_descent(self.x0.data, n_iter=8)
+        _, su = pu.gradient_descent(self._x0u, n_iter=8)
         self.assertTrue(np.allclose(sr['losses'], su['losses']))   # deterministic -> matches ragged (to tol)
 
     def test_newton_cg_matches_ragged(self):
         pr, pu = self._problems('manifold')
-        _, sr = bopt.newton_cg(pr, self.x0.data, max_newton=4)
-        _, su = bopt.newton_cg(pu, self._x0u, max_newton=4)
+        _, sr = pr.newton_cg(self.x0.data, max_newton=4)
+        _, su = pu.newton_cg(self._x0u, max_newton=4)
         self.assertLess(su['losses'][-1], su['losses'][0])                          # descends
         self.assertTrue(np.isclose(su['losses'][-1], sr['losses'][-1], rtol=1e-2))  # tracks ragged
 
@@ -616,22 +252,24 @@ class TestUniformOptimizers(unittest.TestCase):
         # same rng + same flat draw + the packed take gives the same minibatch as ragged, so the descent
         # tracks the ragged run.
         pr, pu = self._problems('manifold')
-        _, sr = bopt.mc_sgd(pr, self.x0.data, np.random.default_rng(0), batch=10, max_iter=100)
-        _, su = bopt.mc_sgd(pu, self._x0u, np.random.default_rng(0), batch=10, max_iter=100)
+        _, sr = pr.mc_sgd(self.x0.data, np.random.default_rng(0), 10, max_iter=100)
+        _, su = pu.mc_sgd(self._x0u, np.random.default_rng(0), 10, max_iter=100)
         self.assertLess(su['losses'][-1], 0.7 * su['losses'][0])                    # descends
         self.assertTrue(np.isclose(su['losses'][-1], sr['losses'][-1], rtol=1e-3))  # tracks ragged
 
     def test_adam_descends(self):
         _, pu = self._problems('corewise')
-        _, su = bopt.adam(pu, self._x0u, np.random.default_rng(0), batch=10, lr=5e-2, max_iter=200)
+        _, su = pu.adam(self._x0u, np.random.default_rng(0), 10, lr=5e-2, max_iter=200)
         self.assertLess(su['losses'][-1], 0.5 * su['losses'][0])                    # descends
 
 
 class TestUniformMinimalRank(unittest.TestCase):
     """U5.6: uniform fitting requires a minimal-rank frame (from a non-minimal frame the retraction truncates
     to the realizable rank and desyncs from the fixed masks -> a mid-loop crash). uniform_minimal reduces
-    to it (same tensor; a no-op if already minimal); uniform_least_squares_problem rejects a non-minimal x0
-    with a clear error up front; the optimizer runs cleanly from the reduced frame."""
+    to it (same tensor; a no-op if already minimal); UniformManifoldGeometryOps.from_point rejects a non-minimal
+    x0 with a clear error up front (D5: where uniform_least_squares_problem's guard was; with sharing, the shared
+    notion); the optimizer runs cleanly from the reduced frame. A local model at a non-minimal point (never
+    retracted) builds its geometry from_frame, and its gradient, gn_quadratic and hvp work there."""
     def setUp(self):
         np.random.seed(0)
         self.ww = [np.random.randn(30, n) for n in (6, 6, 6)]
@@ -643,8 +281,41 @@ class TestUniformMinimalRank(unittest.TestCase):
     def test_nonminimal_x0_rejected(self):
         x0 = self._x0((2, 2, 2), (1, 3, 3, 1))          # TT bond rank 3 unrealizable for a 2x2x2 core
         self.assertFalse(bool(np.all(x0.has_minimal_ranks)))
-        with self.assertRaises(ValueError):
-            uf.uniform_least_squares_problem('manifold', 'apply', x0, self.ww, self.data)
+        with self.assertRaisesRegex(ValueError, 'requires a minimal-rank point'):
+            bgeo.UniformManifoldGeometryOps.from_point(x0.data)
+        bgeo.UniformCorewiseGeometryOps.from_point(x0.data)          # additive: no retraction to desync
+
+    def test_shared_minimality_is_the_shared_notion(self):
+        """With sharing, minimal means the shared notion (the group ceiling admits a group rank the per-mode bound
+        clips): Tucker (2, 2, 1), TT (1, 1, 1, 1) on (6, 6, 6) with modes 0 and 1 shared is shared-minimal and not
+        minimal per mode, so from_point accepts it with the sharing and raises without it."""
+        import t3toolbox.backend.ranks as ranks
+        shape, sharing, tk, tt = (6, 6, 6), (0, 0, 1), (2, 2, 1), (1, 1, 1, 1)
+        self.assertEqual([int(n) for n in ranks.compute_minimal_ranks(shape, tk, tt, sharing=sharing)[0]], list(tk))
+        self.assertNotEqual([int(n) for n in ranks.compute_minimal_ranks(shape, tk, tt)[0]], list(tk))
+        x0 = self._x0(tk, tt)
+        bgeo.UniformManifoldGeometryOps.from_point(x0.data, sharing)
+        with self.assertRaisesRegex(ValueError, 'requires a minimal-rank point'):
+            bgeo.UniformManifoldGeometryOps.from_point(x0.data)
+
+    def test_a_local_model_at_a_nonminimal_point(self):
+        """D5's other half: from_frame (the frame in hand) builds the geometry of a non-minimal point, and the model's
+        gradient, gn_quadratic and hvp there agree with the ragged model's (<g, p>, <p, Hp> at the same tangent)."""
+        import t3toolbox.backend.ufv_conversions as ufc
+        import t3toolbox.corewise as cw
+        x = t3.TuckerTensorTrain.randn((6, 6, 6), (2, 2, 2), (1, 3, 3, 1))
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x)
+        self.assertFalse(bool(np.all(ux.has_minimal_ranks)))
+        frame, centers = ufc.ut3_orthogonal_representations(ux.data)
+        geom = bgeo.UniformManifoldGeometryOps.from_frame(frame, ux.data[3])
+        rfit = F.fit(bgeo.ManifoldGeometryOps(), 'apply', self.ww, self.data)
+        ufit = F.uniform(F.fit(bgeo.CorewiseGeometryOps(), 'apply', self.ww, self.data), ux)[0].with_(geom=geom)
+        lm = ufit.local_model((ux.data[0], ux.data[1]), frame=frame, centers=(centers[0], centers[1]))
+        lm_r = rfit.local_model(x.data)
+        g = lm.gradient
+        self.assertTrue(np.isclose(float(geom.inner(g, g)), float(rfit.geom.inner(lm_r.gradient, lm_r.gradient))))
+        self.assertTrue(np.isclose(float(lm.gn_quadratic(g)), float(geom.inner(g, lm.hvp(g)))))
+        self.assertTrue(np.isclose(float(lm.objective), float(lm_r.objective)))
 
     def test_uniform_minimal_reduces_same_tensor(self):
         x0 = self._x0((2, 2, 2), (1, 3, 3, 1))
@@ -658,38 +329,39 @@ class TestUniformMinimalRank(unittest.TestCase):
 
     def test_optimizer_runs_after_minimal(self):
         x0 = uf.uniform_minimal(self._x0((2, 2, 2), (1, 3, 3, 1)))
-        prob = uf.uniform_least_squares_problem('manifold', 'apply', x0, self.ww, self.data)
-        _, s = bopt.gradient_descent(prob, (x0.data[0], x0.data[1]), n_iter=10)
+        prob, xc = F.uniform(F.fit(bgeo.ManifoldGeometryOps(), 'apply', self.ww, self.data), x0)
+        _, s = prob.gradient_descent(xc, n_iter=10)
         self.assertLess(s['losses'][-1], s['losses'][0])
 
 
 
-class TestProblemStringArgs(unittest.TestCase):
-    """Review 2026-08-22 (C12): geometry / kind strings are validated (case-insensitively) and a
-    derivative kind needs order= at construction, not on first use."""
+class TestPackSampleAndData(unittest.TestCase):
+    """pack_sample(kind, order, sample, N) and pack_data(kind, order, y, N), the forms of P16 (in place of the old kind
+    names): the input jets packed with their jet axes brought to the largest size by zero coefficients and the modes
+    padded to N with zeros, the probe data packed likewise; the index and the scalar data unchanged; pack_batch is
+    the two. Checked against the ragged arrays slot by slot (a jet slot beyond a mode's own is zero: data, O-45)."""
 
-    def setUp(self):
-        np.random.seed(8)
-        x = t3.TuckerTensorTrain.randn((4, 5, 3), (2, 2, 2), (1, 2, 2, 1))
-        self.x0 = ut3.UniformTuckerTensorTrain.from_t3(x)
-        self.ww = tuple(np.random.randn(6, n) for n in x.shape)
-        self.b = x.apply(self.ww)
-
-    def test_geometry_string(self):
-        p = uf.uniform_least_squares_problem('Manifold', 'apply', self.x0, self.ww, self.b)
-        self.assertIsInstance(p.geom, bgeo.UniformManifoldGeometryOps)
-        p = uf.uniform_least_squares_problem('COREWISE', 'Apply', self.x0, self.ww, self.b)
-        self.assertIsInstance(p.geom, bgeo.UniformCorewiseGeometryOps)
-        with self.assertRaises(ValueError):
-            uf.uniform_least_squares_problem('manifld', 'apply', self.x0, self.ww, self.b)
-        with self.assertRaises(ValueError):
-            uf.uniform_least_squares_problem('manifold', 'bogus', self.x0, self.ww, self.b)
-
-    def test_derivative_kind_requires_order(self):
-        pp = tuple(np.random.randn(6, n) for n in self.x0.shape)
-        with self.assertRaises(ValueError):
-            uf.uniform_least_squares_problem('manifold', 'apply_derivatives', self.x0, (self.ww, pp), self.b)
-
+    def test_the_forms(self):
+        rng = np.random.default_rng(0)
+        shape, N, W = (4, 5, 3), 7, 6
+        ww = [rng.standard_normal((F_in, W, n)) for F_in, n in zip((2, 1, 2), shape)]     # mixed jet sizes, order (2,)
+        y = [rng.standard_normal((3, W, n)) for n in shape]                         # F = (3,)
+        packed = uf.pack_sample('probe', (2,), ww, N)
+        self.assertEqual(packed.shape, (3, 2, W, N))
+        for i, (w, n) in enumerate(zip(ww, shape)):
+            self.assertTrue(np.array_equal(packed[i, :w.shape[0], :, :n], w))
+            self.assertFalse(np.any(packed[i, w.shape[0]:]))                         # the missing jet slot: zero
+            self.assertFalse(np.any(packed[i, :, :, n:]))                            # the mode padding: zero
+        self.assertIs(uf.pack_sample('apply', (2,), packed, N), packed)               # a packed sample is kept
+        py = uf.pack_data('probe', (2,), y, N)
+        self.assertEqual(py.shape, (3, 3, W, N))
+        self.assertTrue(all(np.array_equal(py[i, ..., :n], a) for i, (a, n) in enumerate(zip(y, shape))))
+        index = np.stack([rng.integers(0, n, W) for n in shape])
+        self.assertIs(uf.pack_sample('entries', (), index, N), index)
+        scalar = rng.standard_normal((3, W))
+        self.assertIs(uf.pack_data('apply', (2,), scalar, N), scalar)
+        batch = uf.pack_batch('probe', (2,), bfit.LeastSquaresBatch(ww, y, np.ones((3, 3))), N)
+        self.assertTrue(np.array_equal(batch.sample, packed) and np.array_equal(batch.y, py))
 
 
 class TestSlackPaddedStart(unittest.TestCase):
@@ -697,22 +369,23 @@ class TestSlackPaddedStart(unittest.TestCase):
     real ranks) must run through every uniform optimizer; the retraction used to shrink the padded dims."""
 
     def test_optimizers_run_from_a_slack_padded_x0(self):
-        import t3toolbox.optimizers as topt
         np.random.seed(9)
         x_true = t3.TuckerTensorTrain.randn((4, 5, 6), (3, 3, 2), (1, 2, 2, 1))
         ww = tuple(np.random.randn(10, n) for n in x_true.shape)
         b = x_true.apply(ww)
-        x0 = t3.TuckerTensorTrain.randn((4, 5, 6), (3, 3, 2), (1, 2, 2, 1))
-        ux0 = ut3.UniformTuckerTensorTrain.from_t3(x0, n=5, r=4)              # slack: real max (3, 2)
-        self.assertEqual((ux0.n, ux0.r), (5, 4))
+        x0 = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))   # minimal (the frontend reduced the
+        ux0 = ut3.UniformTuckerTensorTrain.from_t3(x0, n=5, r=4)              # old (3, 3, 2) first); slack: real
+        self.assertEqual((ux0.n, ux0.r), (5, 4))                              # max (3, 2)
+        self.assertTrue(bool(np.all(ux0.has_minimal_ranks)))
         frame = ut3m.UNIFORM_MANIFOLD.frame(ux0)
         y = ut3m.UNIFORM_MANIFOLD.retract(ut3m.UNIFORM_MANIFOLD.randn(frame) * 1e-3)
         self.assertEqual((y.n, y.r), (5, 4))                                   # the frame's padded dims
         self.assertTrue(bool(np.all(np.asarray(y.tucker_ranks) == np.asarray(ux0.tucker_ranks))))
         rng = np.random.default_rng(0)
-        topt.newton_cg(ut3m.UNIFORM_MANIFOLD, 'apply', ww, b, ux0, max_newton=2)
-        topt.mc_sgd(ut3m.UNIFORM_MANIFOLD, 'apply', ww, b, ux0, rng, batch=5, max_iter=3)
-        topt.gradient_descent(ut3m.UNIFORM_MANIFOLD, 'apply', ww, b, ux0, n_iter=2)
+        prob, xc = F.uniform(F.fit(bgeo.ManifoldGeometryOps(), 'apply', ww, b), ux0)
+        prob.newton_cg(xc, max_newton=2)
+        prob.mc_sgd(xc, rng, 5, max_iter=3)
+        prob.gradient_descent(xc, n_iter=2)
 
 if __name__ == '__main__':
     unittest.main()

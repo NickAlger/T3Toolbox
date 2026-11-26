@@ -302,15 +302,22 @@ class UT3Frame(common.ExplicitEquality):
         ``T3Frame.has_numerically_minimal_ranks``."""
         return self.is_orthogonal(atol=atol) & self.has_minimal_ranks
 
+    @ft.cached_property
+    def consistency_residual(self) -> NDArray:  # shape = stack_shape (scalar/0-d when unstacked)
+        """Relative mismatch between the left- and right-canonical reconstructions of the base point,
+        ``||T(D, L) - T(D, R)|| / max(1, ||T(D, R)||)``, **per stack element** (uniform analog of
+        :py:attr:`~t3toolbox.frame_variations_format.T3Frame.consistency_residual`; through the cores, no
+        dense tensor -- see :py:func:`~t3toolbox.backend.ufv_operations.ufv_frame_consistency_residual`).
+        **cached**."""
+        return ufv_operations.ufv_frame_consistency_residual(self.data)
+
     def is_consistent(self, rtol: float = 1e-9) -> NDArray:  # bool array, shape = stack_shape
         """``True`` (per stack element) if the left- and right-canonical reconstructions of the base point
-        agree: ``||down·left - down·right|| <= rtol * ||down·right||`` (dense Frobenius norm). EXPENSIVE
-        (densifies both). Consistent by construction for a frame from :py:func:`ut3_orthogonal_representations`."""
-        left_ut3 = ut3.UniformTuckerTensorTrain(
-            self.down_tucker_supercore, self.left_tt_supercore, self.shape,
-            ut3.UT3Masks(self.masks.down_mask, self.masks.frame_left_mask))
-        right_ut3 = self.to_ut3()
-        return (left_ut3 - right_ut3).norm() <= rtol * right_ut3.norm()
+        agree: ``||T(D, L) - T(D, R)|| <= rtol * max(1, ||T(D, R)||)`` (Frobenius norm), through the cached
+        :py:attr:`consistency_residual`; no dense tensor is formed. Consistent by construction for a frame
+        from :py:func:`ut3_orthogonal_representations`; verified against the ragged oracle
+        ``to_t3frame(self).is_consistent()``."""
+        return self.consistency_residual <= rtol
 
     def allclose(
             self,

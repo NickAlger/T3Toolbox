@@ -13,6 +13,9 @@ import t3toolbox.backend.probing as t3p
 import t3toolbox.backend.apply as apply
 import t3toolbox.backend.entries as entries
 import t3toolbox.backend.tv_operations as tv_operations
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+import _derivative_data as dd       # derivative data from the merged methods (P13b)
 
 np.random.seed(0)
 tol = 1e-9
@@ -508,7 +511,7 @@ class TestManifold(unittest.TestCase):
                 self.assertLessEqual(norm(np.asarray(u.corewise_norm()) - np.sqrt(np.abs(np.asarray(u.corewise_inner(u))))), tol)
 
     def test_tangent_probe(self):
-        # forward J^(s): v.probe(ww) == dense_probe(ww, v.to_dense()); probes are stacked W + K + C + (N,)
+        # forward J^(s): v.probe(ww) == dense_probe(v.to_dense(), ww); probes are stacked W + K + C + (N,)
         STRUCT = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
         for FRAME_STACK in [(), (2,)]:
             for PROBE_STACK in [(), (2,)]:
@@ -521,7 +524,7 @@ class TestManifold(unittest.TestCase):
                         ww = tuple(rnd(*(PROBE_STACK + (N,))) for N in STRUCT[0])
 
                         zz = v.probe(ww)  # numpy/jax inferred from inputs
-                        zz2 = t3p.dense_probe(ww, v.to_dense())  # dense ground truth, also W + K + C
+                        zz2 = t3p.dense_probe(v.to_dense(), ww)  # dense ground truth, also W + K + C
                         self.assertEqual(
                             PROBE_STACK + TANGENT_STACK + FRAME_STACK + (STRUCT[0][0],),
                             tuple(np.asarray(zz[0]).shape),
@@ -553,7 +556,7 @@ class TestManifold(unittest.TestCase):
                         z = tuple(rnd(*(PROBE_STACK + TANGENT_STACK + FRAME_STACK + (N,))) for N in STRUCT[0])
 
                         Jv = v.probe(ww)  # numpy/jax inferred from inputs
-                        JTz = t3m.T3Tangent.probe_transpose(z, ww, frame, sum_over_probes=True)
+                        JTz = t3m.T3Tangent.probe_transpose(frame, ww, c=z)
                         # full contraction of both sides (sums F, V, G, N) must agree
                         lhs = float(np.sum([np.sum(np.asarray(a) * np.asarray(b)) for a, b in zip(z, Jv)]))
                         rhs = float(np.sum(np.asarray(JTz.corewise_inner(v))))
@@ -562,7 +565,7 @@ class TestManifold(unittest.TestCase):
                         # sum=True keeps V (frame G), drops F; sum=False keeps F+V (frame G)
                         self.assertEqual(TANGENT_STACK, JTz.tangent_stack_shape)
                         self.assertEqual(FRAME_STACK, JTz.frame_stack_shape)
-                        JTz_batch = t3m.T3Tangent.probe_transpose(z, ww, frame)  # sum_over_probes=False
+                        JTz_batch = t3m.T3Tangent.probe_transpose(frame, ww, c=z, sum_over_samples=False)
                         self.assertEqual(PROBE_STACK + TANGENT_STACK, JTz_batch.tangent_stack_shape)
                         self.assertEqual(FRAME_STACK, JTz_batch.frame_stack_shape)
 
@@ -627,7 +630,7 @@ class TestManifold(unittest.TestCase):
                     ww = tuple(np.random.randn(*(W + (N,))) for N in STRUCT[0])
                     c = np.asarray(np.random.randn(*(W + FRAME_STACK)))
 
-                    ATc = t3m.T3Tangent.apply_transpose(c, ww, frame, sum_over_probes=True)
+                    ATc = t3m.T3Tangent.apply_transpose(frame, ww, c=c)
                     lhs = np.asarray(cw.corewise_stack_dot(ATc.variations.data, v.variations.data, len(FRAME_STACK)))
                     rhs = np.sum(c * np.asarray(v.apply(ww)), axis=tuple(range(len(W))))   # sum_W, keep C
                     self.check_relerr(rhs, lhs)
@@ -635,7 +638,7 @@ class TestManifold(unittest.TestCase):
                     self.assertEqual(FRAME_STACK, ATc.frame_stack_shape)
 
                     # without summing, W becomes the tangent stack; sum=True == sum_W of sum=False
-                    ATc_keep = t3m.T3Tangent.apply_transpose(c, ww, frame)
+                    ATc_keep = t3m.T3Tangent.apply_transpose(frame, ww, c=c, sum_over_samples=False)
                     self.assertEqual(W, ATc_keep.tangent_stack_shape)
                     self.assertEqual(FRAME_STACK, ATc_keep.frame_stack_shape)
                     f_axes = tuple(range(len(W)))
@@ -656,11 +659,11 @@ class TestManifold(unittest.TestCase):
                     idx = np.array(tuple(np.random.randint(0, N, size=W) for N in STRUCT[0]))  # (d,)+W
                     c = np.asarray(np.random.randn(*(W + FRAME_STACK)))
 
-                    ETc = t3m.T3Tangent.entries_transpose(c, idx, frame, sum_over_probes=True)
+                    ETc = t3m.T3Tangent.entries_transpose(frame, idx, c=c)
                     lhs = np.asarray(cw.corewise_stack_dot(ETc.variations.data, v.variations.data, len(FRAME_STACK)))
                     rhs = np.sum(c * np.asarray(v.entries(idx)), axis=tuple(range(len(W))))
                     self.check_relerr(rhs, lhs)
-                    self.assertEqual(W, t3m.T3Tangent.entries_transpose(c, idx, frame).tangent_stack_shape)
+                    self.assertEqual(W, t3m.T3Tangent.entries_transpose(frame, idx, c=c, sum_over_samples=False).tangent_stack_shape)
 
     def test_tangent_apply_transpose_kstack(self):
         # The adjoint-state apply/entries transpose is K-aware: the residual c may carry a tangent
@@ -673,10 +676,10 @@ class TestManifold(unittest.TestCase):
         ww = tuple(np.random.randn(NW, N) for N in STRUCT[0])
         idx = np.array(tuple(np.random.randint(0, N, size=NW) for N in STRUCT[0]))
         vs = [t3m.MANIFOLD.randn(frame) for _ in range(K)]
-        for op, fwd, tr in [('apply', lambda v: apply.tv_apply(ww, v.variations.data, frame.data),
-                                      lambda c: apply.tv_apply_transpose(c, ww, frame.data, sum_over_probes=True)),
-                            ('entries', lambda v: entries.tv_entries(idx, v.variations.data, frame.data),
-                                        lambda c: entries.tv_entries_transpose(c, idx, frame.data, sum_over_probes=True))]:
+        for op, fwd, tr in [('apply', lambda v: apply.tv_apply(frame.data, v.variations.data, ww),
+                                      lambda c: apply.tv_apply_transpose(frame.data, ww, c)),
+                            ('entries', lambda v: entries.tv_entries(frame.data, v.variations.data, idx),
+                                        lambda c: entries.tv_entries_transpose(frame.data, idx, c))]:
             with self.subTest(op=op):
                 JvK = np.stack([np.asarray(fwd(v)) for v in vs], axis=1)     # base-inner W + K
                 c = np.random.randn(NW, K)
@@ -931,27 +934,27 @@ class TestManifold(unittest.TestCase):
         ORDER = 3
 
         # order 0 == the non-derivative op
-        for zj, z0 in zip(v.probe_derivatives(ww, pp, ORDER), v.probe(ww)):
+        for zj, z0 in zip(dd.forward(v, 'probe', ww, pp, ORDER), v.probe(ww)):
             self.check_relerr(np.asarray(z0), np.asarray(zj)[0])
-        self.check_relerr(np.asarray(v.apply(ww)), np.asarray(v.apply_derivatives(ww, pp, ORDER))[0])
-        self.check_relerr(np.asarray(v.entries(index)), np.asarray(v.entries_derivatives(index, pp, ORDER))[0])
+        self.check_relerr(np.asarray(v.apply(ww)), np.asarray(dd.forward(v, 'apply', ww, pp, ORDER))[0])
+        self.check_relerr(np.asarray(v.entries(index)), np.asarray(dd.forward(v, 'entries', index, pp, ORDER))[0])
 
         # tangent transpose: returns a T3Tangent at the same frame; adjoint identity <r, J v> = <J^T r, v>
         for kind in ['probe', 'apply', 'entries']:
             if kind == 'probe':
-                Jv = v.probe_derivatives(ww, pp, ORDER)
+                Jv = dd.forward(v, 'probe', ww, pp, ORDER)
                 r = [np.random.randn(*np.asarray(z).shape) for z in Jv]
-                JTr = t3m.T3Tangent.probe_derivatives_transpose(r, ww, pp, frame, ORDER, sum_over_probes=True)
+                JTr = dd.tangent_transpose(t3m.T3Tangent, 'probe', r, ww, pp, frame, ORDER, sum_over_probes=True)
                 lhs = sum(float(np.sum(ri * np.asarray(zi))) for ri, zi in zip(r, Jv))
             elif kind == 'apply':
-                Jv = v.apply_derivatives(ww, pp, ORDER)
+                Jv = dd.forward(v, 'apply', ww, pp, ORDER)
                 r = np.random.randn(*np.asarray(Jv).shape)
-                JTr = t3m.T3Tangent.apply_derivatives_transpose(r, ww, pp, frame, ORDER, sum_over_probes=True)
+                JTr = dd.tangent_transpose(t3m.T3Tangent, 'apply', r, ww, pp, frame, ORDER, sum_over_probes=True)
                 lhs = float(np.sum(r * np.asarray(Jv)))
             else:
-                Jv = v.entries_derivatives(index, pp, ORDER)
+                Jv = dd.forward(v, 'entries', index, pp, ORDER)
                 r = np.random.randn(*np.asarray(Jv).shape)
-                JTr = t3m.T3Tangent.entries_derivatives_transpose(r, index, pp, frame, ORDER, sum_over_probes=True)
+                JTr = dd.tangent_transpose(t3m.T3Tangent, 'entries', r, index, pp, frame, ORDER, sum_over_probes=True)
                 lhs = float(np.sum(r * np.asarray(Jv)))
             self.assertIs(frame, JTr.frame)
             self.assertLessEqual(abs(lhs - float(JTr.corewise_inner(v))) / abs(lhs), 1e-9)
@@ -959,9 +962,9 @@ class TestManifold(unittest.TestCase):
         # X/P sample-stack consistency: hard error
         pp_bad = [np.random.randn(*((3,) + (N,))) for N in shapes]   # W=(3,) != (2,)
         with self.assertRaises(ValueError):
-            v.probe_derivatives(ww, pp_bad, ORDER)
+            dd.forward(v, 'probe', ww, pp_bad, ORDER)
         with self.assertRaises(ValueError):
-            v.entries_derivatives(index, pp_bad, ORDER)
+            dd.forward(v, 'entries', index, pp_bad, ORDER)
 
 
 
@@ -991,7 +994,8 @@ class TestStructuralTangentMismatch(unittest.TestCase):
         np.random.seed(22)
         x = t3.TuckerTensorTrain.randn((4, 5, 3), (2, 2, 2), (1, 2, 2, 1))
         ww = tuple(np.random.randn(6, n) for n in x.shape)
-        model = fitting.apply_model(t3m.MANIFOLD, x, ww, x.apply(ww) * 0.5)
+        model = fitting.local_model(t3m.MANIFOLD, fitting.LeastSquaresOracle('apply', ()),
+                                    fitting.LeastSquaresBatch(ww, x.apply(ww) * 0.5), x)
         p = _random_tangent(((4, 5, 3), (1, 1, 1), (1, 1, 1, 1)))
         with safety.unsafe():
             with self.assertRaises(ValueError):

@@ -52,7 +52,10 @@ the least-squares well conditioned):
 >>> order, rng = 2, np.random.default_rng(0)
 >>> data  = A.apply(ww)                          # the apply measurements,        shape W
 >>> pdata = A.probe(ww)                          # the probe measurements,        len=d
->>> jets  = A.apply_derivatives(ww, pp, order)   # the apply-derivative jets, shape (order+1,)+W
+>>> from t3toolbox.fitting import affine_jet, taylor_to_derivatives
+>>> derivative_data = lambda kind, X, ww, pp, n: taylor_to_derivatives(       # the derivatives along w + s p,
+...     kind, (n,), getattr(X, kind)(affine_jet(ww, pp), (n,)))               #   the old optimizers' data form
+>>> jets  = derivative_data('apply', A, ww, pp, order)   # the apply-derivative jets, shape (order+1,)+W
 >>> x0 = t3.TuckerTensorTrain.zeros(shape, tucker_ranks, tt_ranks)
 
 ```
@@ -143,8 +146,9 @@ If you want to write your own iteration (a custom trust region, a different line
 ```python
 >>> import t3toolbox.fitting as fitting
 >>> x = t3.TuckerTensorTrain.randn(shape, tucker_ranks, tt_ranks)   # the current point
->>> residual = x.apply(ww) - data                                   # residual r = apply(x) − y
->>> model = fitting.apply_model(t3m.MANIFOLD, x, ww, residual)
+>>> oracle = fitting.LeastSquaresOracle('apply', order=())           # the objective ½‖apply(x) − y‖²
+>>> batch = fitting.LeastSquaresBatch(ww, data)                      # its data
+>>> model = fitting.local_model(t3m.MANIFOLD, oracle, batch, x)
 >>> g  = model.gradient                   # Π 𝒥ᵀr   (a gauged T3Tangent)
 >>> v  = t3m.MANIFOLD.randn(model.frame)  # any tangent at the model's frame
 >>> Hv = model.gn_hessian(v)              # Π 𝒥ᵀ𝒥Π v (the GN normal operator; symmetric PSD)
@@ -158,14 +162,13 @@ True
 
 ```
 
-Factories: `apply_model` / `entries_model` / `probe_model` (the last takes an optional per-mode
-`weight`), and `apply_derivatives_model` / `entries_derivatives_model` / `probe_derivatives_model` (which
-additionally take `order` + optional `weight`; see §4.6). The model is generic over the geometry — pass
-`t3m.MANIFOLD` or `t3m.COREWISE`. Everything in
-and out is a `T3Tangent` at `model.frame`. The frame sweep is computed once and reused across every
-`gradient`/`gn_hessian`/`evaluate` (so an inner CG pays for it once, not per matvec).
+`fitting.local_model(geometry, oracle, batch, x)` takes any oracle and its batch: the kind (`'apply'`, `'entries'`,
+`'probe'`) and the jet shape `order` are the oracle's; the sample, the data and an optional weight (§4.6) the batch's.
+The model is generic over the geometry — pass `t3m.MANIFOLD` or `t3m.COREWISE`. Everything in and out is a
+`T3Tangent` at `model.frame`. The build queries the oracle once and keeps what it computed, so an inner CG does not
+repeat the sweep per matvec.
 
-Every factory also takes `hessian='gauss_newton'` (the default) or `'exact'`, and the model it returns is a
+`local_model` also takes `hessian='gauss_newton'` (the default) or `'exact'`, and the model it returns is a
 `fitting.LocalModel` in that **mode** — derived, never stored: `model.is_exact`. The exact model adds the
 curvature term of §4.12 to the Hessian actions and leaves everything else as it was:
 
@@ -179,7 +182,7 @@ curvature term of §4.12 to the Hessian actions and leaves everything else as it
 | `retract(p)` | `geometry.retract(p)` at the model's frame | the same |
 
 ```python
->>> emodel = fitting.apply_model(t3m.MANIFOLD, x, ww, residual, hessian='exact')
+>>> emodel = fitting.local_model(t3m.MANIFOLD, oracle, batch, x, hessian='exact')
 >>> emodel.is_exact, model.is_exact
 (True, False)
 >>> bool(np.allclose(float(emodel.quadratic(v)),                    # exact = Gauss-Newton + curvature
@@ -418,16 +421,19 @@ on both layers.
 ```python
 >>> # probe_derivatives: down-weight the noisy high orders AND discount a coarse mode, independently:
 >>> ww3, pp3 = [w[:20] for w in ww], [p[:20] for p in pp]                      # 20 probes is plenty here
->>> r = [zi - yi for zi, yi in zip(x.probe_derivatives(ww3, pp3, 3),           # RAW r = S(x) − y,
-...                                A.probe_derivatives(ww3, pp3, 3))]          #   len=d, (order+1)+W+(Ni,)
+>>> y3 = derivative_data('probe', A, ww3, pp3, 3)                              # derivatives, len=d, (order+1)+W+(Ni,)
 >>> mode_w, order_w = [1.0, 0.6, 0.3], [1.0, 0.5, 0.3, 0.2]                    # (d=3,) and (order+1=4,)
->>> model = fitting.probe_derivatives_model(t3m.MANIFOLD, x, ww3, pp3, order=3, residual=r,
-...                                         weight=np.outer(mode_w, order_w))  # ω[mode,order], (3, 4)
->>> np.outer(mode_w, order_w).shape
-(3, 4)
->>> # plain probe: a per-mode vector is 1-D (d,):
->>> rp = [zi - yi for zi, yi in zip(x.probe(ww), pdata)]
->>> model = fitting.probe_model(t3m.MANIFOLD, x, ww, rp, weight=[0.5, 1.0, 2.0])
+>>> blocks = np.outer(mode_w, order_w)                                          # ω[mode,order], (3, 4)
+>>> omega = fitting.blocks_to_weight('probe', (3,), blocks, y3)                 # a weight of the type of z
+>>> y, w, _ = fitting.prepare_derivative_data('probe', (3,), y3, omega)
+>>> model = fitting.local_model(t3m.MANIFOLD, fitting.LeastSquaresOracle('probe', order=(3,)),
+...                             fitting.LeastSquaresBatch(affine_jet(ww3, pp3), y, w), x)
+>>> np.shape(w)                                                                 # (d,) + F + W + (edge,), W and edge 1
+(3, 4, 1, 1)
+>>> # plain probe: one value per mode, placed the same way:
+>>> per_mode = fitting.blocks_to_weight('probe', (), np.array([0.5, 1.0, 2.0]), pdata)
+>>> model = fitting.local_model(t3m.MANIFOLD, fitting.LeastSquaresOracle('probe', order=()),
+...                             fitting.LeastSquaresBatch(ww, pdata, per_mode), x)
 >>> print(model.gradient.is_gauged())
 True
 
@@ -559,7 +565,7 @@ A Gauss-Newton warm start followed by exact steps is the natural pattern — the
 ```python
 >>> np.random.seed(1)
 >>> target = t3.TuckerTensorTrain.randn(shape, (3, 3, 3), (1, 3, 3, 1))     # rank 3: our rank-2 fit cannot match it
->>> y = [z + 0.01 * np.random.randn(*z.shape) for z in target.probe_derivatives(ww3, pp3, 1)]
+>>> y = [z + 0.01 * np.random.randn(*z.shape) for z in derivative_data('probe', target, ww3, pp3, 1)]
 >>> xw, _ = topt.newton_cg(t3m.MANIFOLD, 'probe_derivatives', (ww3, pp3), y, x0, order=1, max_newton=8)
 >>> kw = dict(order=1, max_newton=60, gtol_rel=1e-10, g0_reference='warm_start')   # a tight stop, from xw
 >>> _, gn = topt.newton_cg(t3m.MANIFOLD, 'probe_derivatives', (ww3, pp3), y, xw, **kw)
@@ -606,7 +612,7 @@ is about twice the Gauss-Newton transpose's. Per Newton step the model does **on
 lift's `d` Tucker and `d − 1` bond pseudo-inverses); it adds no `W`-sized state. Under `use_jit=True` the
 exact CG compiles once per run, like Gauss-Newton's (about 1.5× the compile time). For a uniform
 `probe_derivatives` fit — the one chunked path — `chunk_size='auto'` sizes the chunk so the exact Hessian's
-assembly fits too ([`chunking.md`](chunking.md)); ragged fits and the other five kinds do not chunk, in
+assembly fits too; ragged fits and the other five kinds do not chunk, in
 either mode.
 
 **Restarts need nothing special.** From a zero-padded warm start ([`rank_continuation.md`](rank_continuation.md))
@@ -662,7 +668,7 @@ and restarted from the aligned frame (`padded_from`, [`aligned_padded_frame.md`]
 >>> rng = np.random.default_rng(0)
 >>> probes = tuple([rng.standard_normal((40, 5)) for _ in range(3)] for _ in range(2))   # (ww, pp), d = 3
 >>> truth = t3.TuckerTensorTrain.randn((5, 5, 5), (3, 3, 3), (1, 3, 3, 1))
->>> noisy = [z + 0.01 * rng.standard_normal(z.shape) for z in truth.probe_derivatives(*probes, 1)]
+>>> noisy = [z + 0.01 * rng.standard_normal(z.shape) for z in derivative_data('probe', truth, *probes, 1)]
 >>> x_old, _ = topt.newton_cg(t3m.MANIFOLD, 'probe_derivatives', probes, noisy,
 ...                           t3.TuckerTensorTrain.randn((5, 5, 5), (2, 2, 2), (1, 2, 2, 1)), order=1, max_newton=5)
 >>> x_new = x_old.resize((5, 5, 5), (3, 3, 3), (1, 3, 3, 1))              # the next level, zero-padded
@@ -967,7 +973,7 @@ the geometry must implement the exact Hessian (checked at the call), the default
 (the line search works too), `curvature_damping` applies to every exact build, the tracking ones included, and
 `tr_radius0` sets the first radius. A local model has one Hessian, so `Problem.local_model` and the `fitting`
 `*_model` factories do not take `'switch'`; `least_squares_problem(hessian='switch')` sizes `chunk_size='auto'` as
-`'exact'` ([`chunking.md`](chunking.md)).
+`'exact'`.
 
 **A worked run.** §4.13's problem at rank 2 (a noisy rank-3 target, probe derivatives of order 1; `x_old` is five
 Gauss-Newton steps from a random start), with the warm-start reference, so the stop is relative to `x_old`'s own
@@ -1242,8 +1248,7 @@ repo, maintainer-local):
   [`batching_and_stacking.md`](batching_and_stacking.md) (the `W`/`K`/`C` stack design),
   [`rank_continuation.md`](rank_continuation.md) (growing ranks during a fit),
   [`sharing.md`](sharing.md) (the shared-factor geometries), [`weighting.md`](weighting.md) (edge
-  weights and the Grasedyck–Kramer tangent metric), [`chunking.md`](chunking.md) (`chunk_size` for the
-  probe-derivative transpose and its exact Hessian).
+  weights and the Grasedyck–Kramer tangent metric).
 - **Implementation rationale** (memory tradeoffs, einsum paths, deferred work):
   [`contributor/fitting_internals.md`](contributor/fitting_internals.md); for the exact Hessian (the lift,
   the two-hole sweeps, the masking rules, the measurements) [`contributor/curvature_internals.md`](contributor/curvature_internals.md).

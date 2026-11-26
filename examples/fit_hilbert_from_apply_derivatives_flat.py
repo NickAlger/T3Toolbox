@@ -18,7 +18,7 @@ lengths and a more robust stopping signal. Untested; this example exists to see 
 
 Nothing else changes. The flatten is a pure reshape of the *same* collected data (``N_X`` distinct base
 points, ``N_P`` directions each), and the apply-derivative forward / transpose treat ``W`` as arbitrary
-leading batch axes -- so ``apply_derivative_operator`` is reused verbatim and ``sum_over_probes=True``
+leading batch axes -- so ``apply_derivative_operator`` is reused verbatim and the summing transpose
 still sums the whole minibatch into one ``J^T r``. To isolate the mixing effect we **match the per-step
 sample count** to the reference (its 2 base points x ``N_P`` directions = 60 pairs), so the epoch length
 (``round(n_pairs / |B|)``) comes out identical and the *only* difference is the minibatch composition.
@@ -44,7 +44,8 @@ import numpy as np
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.frame_variations_format as bvf
 import t3toolbox.manifold as t3m
-import t3toolbox.backend.sampling_derivatives as pd
+from t3toolbox.backend.apply import dense_apply
+from t3toolbox.fitting import affine_jet, taylor_to_derivatives
 
 
 # --------------------------------------------------------------------------------------------------
@@ -107,16 +108,11 @@ def flatten_pairs(ww, pp, b):
     return ww_f, pp_f, b_f
 
 
-def dense_apply_derivatives(A, ww, pp, order):
-    """Ground-truth apply-derivative jets of the dense tensor ``A``: shape ``(order+1,) + W`` (``W`` the
-    probe stack). Each ``W``-element is ``dense_apply_derivatives`` (the exact subset expansion)."""
-    W = ww[0].shape[:-1]
-    b = np.zeros((order + 1,) + W)
-    for idx in np.ndindex(*W):
-        ww_m = [w[idx] for w in ww]
-        pp_m = [p[idx] for p in pp]
-        b[(slice(None),) + idx] = pd.dense_apply_derivatives(ww_m, pp_m, A, order)
-    return b
+def dense_apply_jets(A, ww, pp, order):
+    """Ground-truth apply-derivative jets of the dense tensor ``A``: shape ``(order+1,) + W`` (``W`` the probe
+    stack). ``dense_apply`` at the input jet of the line ``ww + s pp`` gives the Taylor coefficients in ``s``
+    (the whole stack ``W`` at once); ``taylor_to_derivatives`` multiplies slot ``t`` by ``t!``."""
+    return taylor_to_derivatives('apply', (order,), dense_apply(A, affine_jet(ww, pp), (order,)))
 
 
 def rms(x):
@@ -133,12 +129,16 @@ def apply_derivative_operator(ww, pp, order, s_vec):
 
     Dividing the output (and the data) by ``s_vec`` (per order, broadcast over the probe stack ``W``)
     folds the per-order normalization into the operator, so ``transpose(r)`` applies ``J^T`` to
-    ``r / s_vec``. ``sum_over_probes=True`` sums the whole ``W`` stack -> one tangent."""
+    ``r / s_vec``. The transpose sums the whole ``W`` stack -> one tangent."""
     nW = ww[0].ndim - 1
     sv = s_vec.reshape((order + 1,) + (1,) * nW)               # broadcast over the W probe stack
-    forward = lambda Z: np.asarray(Z.apply_derivatives(ww, pp, order)) / sv
-    transpose = lambda r, frame: t3m.T3Tangent.apply_derivatives_transpose(
-        np.asarray(r) / sv, ww, pp, frame, order, sum_over_probes=True)
+    jet = affine_jet(ww, pp)                                    # the input jet of the line ww + s pp
+    # derivatives = Taylor coefficients times t!: the forward multiplies by t!, its transpose too (D_t = t! T_t)
+    # (the contragredient rule: the transpose takes c, an element of Y, in Taylor slots; a c in derivative coordinates
+    # converts by taylor_to_derivatives, c_t[k] = k! c_d[k], the opposite of the data's derivatives_to_taylor)
+    forward = lambda Z: taylor_to_derivatives('apply', (order,), np.asarray(Z.apply(jet, (order,)))) / sv
+    transpose = lambda r, frame: t3m.T3Tangent.apply_transpose(
+        frame, jet, taylor_to_derivatives('apply', (order,), np.asarray(r) / sv), (order,))
     meas_dot = lambda a, b: float(np.sum(np.asarray(a) * np.asarray(b)))
     return forward, transpose, meas_dot
 
@@ -151,7 +151,7 @@ def apply_derivative_operator(ww, pp, order, s_vec):
 #   * draw a fresh minibatch of `batch` (X, P) PAIRS uniformly at random from the n_pairs = N_P*N_X
 #     flat training pairs -- mixed across base points (vs the reference's few-X-all-their-P scheme);
 #   * form the gauged stochastic gradient  g = Pi Jᵀr  on that minibatch (transpose with
-#     sum_over_probes=True sums the pairs, then Pi = MANIFOLD.project gauges) -- a T3Tangent;
+#     the transpose sums the pairs, then Pi = MANIFOLD.project gauges) -- a T3Tangent;
 #   * Cauchy step length  alpha = ‖g‖² / ‖J g‖²  (1D GN-quadratic minimizer along -g; one extra J·v);
 #   * step and retract:  X <- retract(-alpha * g).
 # Stop a fixed-rank stage when an exponentially-smoothed FULL-batch loss stops decreasing (checked once
@@ -237,8 +237,8 @@ def main():
 
     ww_tr, pp_tr = unit_pairs_many_p(N_X_TRAIN, N_P, SHAPE, rng)   # train: W=(N_P, N_X_TRAIN)
     ww_va, pp_va = unit_pairs_many_p(N_X_VAL, N_P, SHAPE, rng)     # val:   W=(N_P, N_X_VAL)
-    b_tr_clean = dense_apply_derivatives(A, ww_tr, pp_tr, ORDER)   # (order+1, N_P, N_X_TRAIN)
-    b_va_clean = dense_apply_derivatives(A, ww_va, pp_va, ORDER)
+    b_tr_clean = dense_apply_jets(A, ww_tr, pp_tr, ORDER)   # (order+1, N_P, N_X_TRAIN)
+    b_va_clean = dense_apply_jets(A, ww_va, pp_va, ORDER)
 
     # per-order scale from the (clean) training data; floor avoids dividing a vanishing order by ~0
     s_vec = np.array([max(rms(b_tr_clean[t]), 1e-12) for t in range(ORDER + 1)])

@@ -1,8 +1,10 @@
 """STATUS (2026-11-14): this mockup shows the interface as it was BEFORE the review of that date and has not been
 rewritten.  The decided interface is in ../DESIGN_AFTER_REVIEW.md: `sampling_variables` with keyword arguments in
 place of `evaluate(want, have)`, `SamplePlan` with nested scans in place of `Plan`, new names (`_dot`, `_tilde`,
-`gamma`, `JtJp`), no `centers` argument, no projection inside, weighted least squares.  The explicit functions with
-the decided names are in review/jet_steps_check.py.  Known defect: `run` still holds a reference cycle (finding D14).
+`gamma` (now `nu_L`), `JtJp`), no `centers` argument, no projection inside, weighted least squares.  The explicit
+functions are in review/jet_steps_check.py; the names decided on 2026-11-15 (23:23) are those of
+../SAMPLE_VARIABLES.md and review/sample_variables_check.py.  Known defect: `run` still holds a reference cycle
+(finding D14).
 
 MOCKUP: how a user would compute the probing objective, gradient and a Gauss-Newton Hessian-vector product
 with an execution plan.  Part 1 is what the user writes.  Part 2 is a small working stand-in for what the

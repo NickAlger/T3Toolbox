@@ -7,6 +7,7 @@
 > - **"One graded cache passed to the whole operations."** Held variables are keyword arguments, and the plan is a `SamplePlan`.
 > - **Public additions now planned:** `sampling_variables`, `SamplePlan`, `SampleScan`, `chunk` and `unchunk` on sampling kinds, and a `plan` argument with a default on `LocalModel` and the frontend. `chunk_size` leaves the sampling kind in stage 2, which breaks callers that pass it to a kind.
 > - **The jet normalization** need not change for users.
+> - **The names, since 2026-11-15 (23:23).** The four letters now carry the basis where it is not the usual one, then the grade: see [SAMPLE_VARIABLES.md](SAMPLE_VARIABLES.md) (older names: [NOTATION_HISTORY.md](NOTATION_HISTORY.md)). This document's `_z` names are the `_tilde` names (`eta_z` is `eta_tilde`). `sigma` and `tau` here are the library's names.
 > - **A new acceptance requirement:** a consumer must be able to use every addition without rewriting the optimizers or changing T3Toolbox.
 >
 > Missing from the adapter list, from the reviewers (F19): the static split or a pytree registration for held variables; a `W`-slice for held variables; block sums; dispatch rows for each new public backend function; a run on the jax 0.4.30 / numpy 1.26 floor; and the test suites that scan the source for subscript strings (F1).

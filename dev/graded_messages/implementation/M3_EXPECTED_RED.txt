@@ -1,0 +1,20 @@
+# M3: the red nodes after the library change, before any test conversion (tests/test_block_sums.py already added).
+# One run on the 18 test files that read the block sums, the display or f_resolution: -n 2 -v, 2026-11-23.
+# Totals: 117 failed (nodes and subtests), 613 passed, 1 skipped, 20248 subtests passed. Every other node of those files green.
+# Nodes that FAILED outright (TypeError: the header's obj_unweighted argument, or an (unwt ...) assertion):
+tests/backend/test_optimizer_display.py::TestFormatter::test_converged_line_names_its_reference
+tests/backend/test_optimizer_display.py::TestFormatter::test_exact_mode_header
+tests/backend/test_optimizer_display.py::TestFormatter::test_header_converged_vs_stepped
+tests/backend/test_optimizer_display.py::TestFormatter::test_header_misfit_reg_breakdown
+tests/backend/test_optimizer_display.py::TestFormatter::test_header_unweighted_shown_only_when_differs
+tests/backend/test_optimizer_display.py::TestFormatter::test_truncated_symbol
+tests/backend/test_optimizer_display.py::TestMakeNewtonDisplay::test_a_drawn_batch
+tests/backend/test_optimizer_display.py::TestSwitchDisplay::test_only_on_gauss_newton_phase_rows
+tests/backend/test_optimizer_display.py::TestSwitchDisplay::test_the_segment
+tests/backend/test_optimizer_display.py::TestSwitchDisplay::test_unchanged_outside_switch_mode
+# Nodes with failing subtests (count of failing subtests):
+tests/backend/test_optimizer_display.py::TestFormatter::test_line_search_rows_are_byte_identical  (8)
+tests/backend/test_optimizer_display.py::TestMakeNewtonDisplay::test_the_errors_against_dense_residuals  (3)
+tests/test_least_squares_oracle.py::TestQuery::test_each_output_against_the_engine  (14)
+tests/test_least_squares_oracle.py::TestTheMinibatchScale::test_a_drawn_batch  (7)
+tests/test_sampling_definitions.py::TestOutputsAgainstDense::test_r_and_the_seed_and_the_sums_are_their_formulas  (75)

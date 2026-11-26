@@ -1,0 +1,157 @@
+new files (additions, not conversions): ['tests/test_dense_oracle.py', 'tests/test_engine_data_space.py', 'tests/test_oracle_data_space.py']
+tests/_fits.py                                          changed lines:   83 not touching an assertion or tolerance,   0 flagged
+tests/backend/test_curvature.py                         changed lines:   50 not touching an assertion or tolerance,   0 flagged
+tests/backend/test_optimizer_display.py                 changed lines:   10 not touching an assertion or tolerance,   0 flagged
+tests/backend/test_optimizers.py                        changed lines:   11 not touching an assertion or tolerance,   2 flagged
+tests/backend/test_uniform_curvature.py                 changed lines:    7 not touching an assertion or tolerance,   0 flagged
+tests/bridge/test_old_kernels_bridge.py                 changed lines:   32 not touching an assertion or tolerance,   0 flagged
+tests/oracle_sweeps/oracle.py                           changed lines:   67 not touching an assertion or tolerance,   0 flagged
+tests/test_contractions_sharding.py                     changed lines:   19 not touching an assertion or tolerance,   0 flagged
+tests/test_data_metric.py                               changed lines:   37 not touching an assertion or tolerance,   4 flagged
+tests/test_data_preparation.py                          changed lines:   13 not touching an assertion or tolerance,   0 flagged
+tests/test_dispatch.py                                  changed lines:   71 not touching an assertion or tolerance,   6 flagged
+tests/test_fitting.py                                   changed lines:   22 not touching an assertion or tolerance,   0 flagged
+tests/test_jax_absent.py                                changed lines:   10 not touching an assertion or tolerance,   0 flagged
+tests/test_jets.py                                      changed lines:  255 not touching an assertion or tolerance,  88 flagged
+tests/test_least_squares_oracle.py                      changed lines:   39 not touching an assertion or tolerance,   0 flagged
+tests/test_optimizers_frontend.py                       changed lines:    4 not touching an assertion or tolerance,   8 flagged
+tests/test_sampling_apply.py                            changed lines:    7 not touching an assertion or tolerance,   0 flagged
+tests/test_sampling_corewise.py                         changed lines:    3 not touching an assertion or tolerance,   0 flagged
+tests/test_sampling_definitions.py                      changed lines:  187 not touching an assertion or tolerance,  21 flagged
+tests/test_sampling_entries.py                          changed lines:    5 not touching an assertion or tolerance,   0 flagged
+tests/test_sampling_identities.py                       changed lines:    5 not touching an assertion or tolerance,   0 flagged
+tests/test_sampling_stacks.py                           changed lines:   34 not touching an assertion or tolerance,   0 flagged
+tests/test_sampling_uniform.py                          changed lines:   40 not touching an assertion or tolerance,   0 flagged
+tests/test_sampling_variables.py                        changed lines:    3 not touching an assertion or tolerance,   0 flagged
+tests/test_type_laws.py                                 changed lines:    6 not touching an assertion or tolerance,   0 flagged
+
+FLAGGED LINES
+tests/backend/test_optimizers.py | -                self.assertAlmostEqual(float(lm.objective[k]), float(problem.local_model(element.data).objective),
+tests/backend/test_optimizers.py | +                self.assertAlmostEqual(float(lm.objective[k]),
+tests/test_data_metric.py | -                    self.assertEqual(a.dtype, b.dtype)
+tests/test_data_metric.py | +                self.assertEqual(len(new), len(old))
+tests/test_data_metric.py | +                    self.assertEqual((a.dtype, c.dtype), (b.dtype, b.dtype))
+tests/test_data_metric.py | +                    self.assertTrue(np.array_equal(c, b))
+tests/test_dispatch.py | -            self.assertLess(norm(np.asarray(outs[0]) - jets.jet_to_dual_jet('apply', (2,), jet, np.array([1, 2, 3]))), 1e-5 * 1e3)
+tests/test_dispatch.py | +            self.assertLess(norm(np.asarray(outs[0]) - jets.jet_to_dual_jet('apply', (2,), jet, np.array([[1], [2], [3]]))),
+tests/test_dispatch.py | +                            1e-5 * 1e3)
+tests/test_dispatch.py | +        self.assertEqual(traces[0], 2, 'a weight full on W where it had size 1 is a new shape: one new program')
+tests/test_dispatch.py | +        self.assertEqual(traces[0], 2, 'a new value of the same weight shape recompiled')
+tests/test_dispatch.py | +            self.assertLess(norm(np.asarray(a) - np.asarray(b)), 1e-10 * max(norm(np.asarray(b)), 1.0))
+tests/test_jets.py | -            self.assertTrue(np.isnan(jets.dual_jet_to_jet('apply', (), np.zeros(3), np.zeros(()))).all())    # 0 / 0
+tests/test_jets.py | +            self.assertTrue(np.isnan(jets.dual_jet_to_jet('apply', (), np.zeros(3), np.zeros(1))).all())    # 0 / 0
+tests/test_jets.py | +                with self.subTest(weight=label, function=function.__name__):
+tests/test_jets.py | +                    with self.assertRaisesRegex(ValueError, '^%s: ' % function.__name__):     # its own message
+tests/test_jets.py | +            self.assertEqual(function('apply', (2,), with_K, None).shape, with_K.shape)
+tests/test_jets.py | -        self.assertTrue(np.array_equal(jets.jet_to_dual_jet('apply', (2,), jet, bad),
+tests/test_jets.py | -            self.assertEqual((type(y), len(y), type(validation), taylor_weight.shape), (tuple, d, tuple, (d,) + F))
+tests/test_jets.py | +            self.assertEqual((type(y), len(y), type(validation), taylor_weight.shape), (tuple, d, tuple, (d,) + F + (1, 1)))
+tests/test_jets.py | -                    with self.assertRaisesRegex(ValueError, 'the entries kind has no jets'):
+tests/test_jets.py | +                with self.assertRaisesRegex(ValueError, 'the entries kind has no jets'):
+tests/test_jets.py | -        self.assertTrue(np.array_equal(jets.jet_to_dual_jet('entries', (), index_data, np.asarray(2.0)), 4.0 * index_data))
+tests/test_jets.py | +        self.assertTrue(np.array_equal(jets.jet_to_dual_jet('entries', (), index_data, np.asarray([2.0])), 4.0 * index_data))
+tests/test_jets.py | -        self.assertEqual((weight_taylor.shape, float(weight_taylor)), ((), 1.0))
+tests/test_jets.py | +        self.assertEqual((weight_taylor.shape, float(weight_taylor[0])), ((1,), 1.0))      # one number, of the type of z
+tests/test_jets.py | -                with self.subTest(kind=kind, order=order):
+tests/test_jets.py | -                    self.assertEqual(converted.shape, weight.shape)
+tests/test_jets.py | -                        self.assertTrue(np.array_equal(converted, weight))
+tests/test_jets.py | -                        self.assertLessEqual(relerr(converted[index], weight[index] * factor), TOL)
+tests/test_jets.py | -                        self.assertEqual(m, len(k))
+tests/test_jets.py | +                        with self.subTest(kind=kind, order=order, W=W, form=label):
+tests/test_jets.py | +                            self.assertEqual(type(converted), tuple if isinstance(weight, list) else np.ndarray)
+tests/test_jets.py | +                                self.assertEqual(got.shape, F + given.shape[m:])        # a jet axis of 1 comes back full
+tests/test_jets.py | +                                    self.assertEqual(got[index], given[source] * factor)
+tests/test_jets.py | +                    self.assertEqual(weight.shape, expected.shape)
+tests/test_jets.py | -        self.assertEqual(weight.tolist(), [1.0] * D)
+tests/test_jets.py | +        self.assertEqual((weight.shape, weight.ravel().tolist()), ((D, 1, 1), [1.0] * D))
+tests/test_jets.py | -        self.assertEqual((weight.shape, float(weight)), ((), 1.0))
+tests/test_jets.py | +        self.assertEqual((weight.shape, float(weight[0])), ((1,), 1.0))
+tests/test_jets.py | -                self.assertTrue(np.array_equal(weight_taylor, jets.derivative_weight_to_taylor_weight(weight, order)))
+tests/test_jets.py | +                    self.assertTrue(np.array_equal(a, b))
+tests/test_jets.py | -        self.assertEqual(jets.derivative_weight_to_taylor_weight(np.ones(4, dtype=np.float32), (3,)).dtype, np.float32)
+tests/test_jets.py | +        self.assertEqual(jets.derivative_weight_to_taylor_weight('apply', (3,), np.ones((4, 1), dtype=np.float32)).dtype,
+tests/test_jets.py | -        self.assert_raises('one array per mode: expected 3, got 2', jets.check_data, 'probe', order, line, good[:2])
+tests/test_jets.py | -        self.assert_raises('must be a tuple or a list of 3 arrays', jets.check_data, 'probe', order, line, np.zeros((3, 3, 7, 6)))
+tests/test_jets.py | +        self.assert_raises('exactly d = 3 arrays.*got 2 arrays', jets.check_data, 'probe', order, line, good[:2])
+tests/test_jets.py | +        self.assert_raises(r'exactly d = 3 arrays.*got shape \(1, 3, 7, 4\)', jets.check_data, 'probe', order, line,
+tests/test_jets.py | +        self.assert_raises(r'\(mode 0\) has shape \(3, 7, 6\).*\(3, 7, 4\)', jets.check_data, 'probe', order, line,
+tests/test_jets.py | -        self.assert_raises(r'y\[2\] has shape \(3, 7, 9\); expected F\+W\+\(N_2,\) = \(3, 7, 6\)',
+tests/test_jets.py | +        self.assert_raises(r'\(mode 2\) has shape \(3, 7, 9\); .* F\+W\+C\+\(N_2,\) = \(3, 7, 6\)',
+tests/test_jets.py | -        self.assert_raises(r'y\[0\] has shape \(7, 4\); expected F\+W\+\(N_0,\) = \(3, 7, 4\)',
+tests/test_jets.py | +        self.assert_raises(r'\(mode 0\) has shape \(7, 4\); .* = \(3, 7, 4\)',
+tests/test_jets.py | -        self.assert_raises(r'y\[0\] has shape \(2, 7, 4\); expected F\+W\+\(N_0,\) = \(3, 7, 4\)',     # the input's
+tests/test_jets.py | +        self.assert_raises(r'\(mode 0\) has shape \(2, 7, 4\); .* = \(3, 7, 4\)',                    # the input's
+tests/test_jets.py | -        self.assert_raises(r'y\[0\] has shape \(3, 7, 4\); expected F\+W\+\(N_0,\) = \(7, 4\)',
+tests/test_jets.py | +        self.assert_raises(r'\(mode 0\) has shape \(3, 7, 4\); .* = \(7, 4\)',
+tests/test_jets.py | -        self.assert_raises(r'y\[0\] has shape \(3, 8, 4\)', jets.check_data, 'probe', order, line, wrong_stack)
+tests/test_jets.py | +        self.assert_raises(r'\(mode 0\) has shape \(3, 8, 4\)', jets.check_data, 'probe', order, line, wrong_stack)
+tests/test_jets.py | -        self.assert_raises(r'y\[0\] has shape \(3, 7, 2, 4\)', jets.check_data, 'probe', order, line, with_C)
+tests/test_jets.py | +        self.assert_raises(r'\(mode 0\) has shape \(3, 7, 2, 4\)', jets.check_data, 'probe', order, line, with_C)
+tests/test_jets.py | +        self.assertIsNone(jets.check_data('probe', order, line, with_C, stack_shape=(2,)))
+tests/test_jets.py | +        self.assert_raises(r'\(mode 0\) has shape \(3, 7, 2, 4\)', jets.check_data, 'probe', order, line, with_C, (3,))
+tests/test_jets.py | -        self.assert_raises(r'y has shape \(2, 7\); expected F\+W = \(2, 3, 7\)',
+tests/test_jets.py | +        self.assert_raises(r'has shape \(2, 7\); .* F\+W\+C = \(2, 3, 7\)',
+tests/test_jets.py | -        self.assert_raises(r'y has shape \(7,\); expected F\+W = \(3, 7\)', jets.check_data, 'apply', order, line, np.zeros(7))
+tests/test_jets.py | -        self.assert_raises(r'y has shape \(3, 7\); expected F\+W = \(7,\)', jets.check_data, 'apply', (), self.ww, np.zeros((3, 7)))
+tests/test_jets.py | -        self.assert_raises(r'y has shape \(3, 8\)', jets.check_data, 'apply', order, line, np.zeros((3, 8)))
+tests/test_jets.py | -        self.assert_raises('y has a list of length 3', jets.check_data, 'apply', order, line, good)
+tests/test_jets.py | -        self.assert_raises(r'y has shape \(3, 7\); expected W = \(7,\)', jets.check_data, 'entries', (), self.index,
+tests/test_jets.py | +        self.assert_raises(r'has shape \(7,\); .* = \(3, 7\)', jets.check_data, 'apply', order, line, np.zeros(7))
+tests/test_jets.py | +        self.assert_raises(r'has shape \(3, 7\); .* = \(7,\)', jets.check_data, 'apply', (), self.ww, np.zeros((3, 7)))
+tests/test_jets.py | +        self.assert_raises(r'has shape \(3, 8\)', jets.check_data, 'apply', order, line, np.zeros((3, 8)))
+tests/test_jets.py | +        self.assert_raises('is one array, of the type of z; got a list of length 3', jets.check_data, 'apply', order,
+tests/test_jets.py | +        self.assert_raises(r'has shape \(3, 7\); .* W\+C = \(7,\)', jets.check_data, 'entries', (), self.index,
+tests/test_jets.py | +                with self.subTest(case=label, kind=kind):
+tests/test_jets.py | +                    self.assertIsNone(jets.check_data(kind, order, sample, good))
+tests/test_jets.py | +                    self.assertIsNone(jets.check_weight(kind, order, sample, good))
+tests/test_jets.py | +                    self.assert_raises('has shape', jets.check_data, kind, order, sample, z)
+tests/test_jets.py | +                    self.assert_raises('has shape', jets.check_weight, kind, order, sample, z)
+tests/test_jets.py | +            with self.subTest(case=label):
+tests/test_jets.py | +                self.assertIsNone(jets.check_data(kind, () if kind == 'entries' else order, sample, y, C))
+tests/test_jets.py | -                with self.subTest(kind=kind, order=order):
+tests/test_jets.py | -                    self.assertIsNone(jets.check_weight(kind, order, np.ones(shape), D))
+tests/test_jets.py | -                    self.assertIsNone(jets.check_weight(kind, order, None, D))
+tests/test_jets.py | -        self.assertIsNone(jets.check_weight('apply', (), 2.0, D))                   # a number is a 0-d weight
+tests/test_jets.py | -        self.assertIsNone(jets.check_weight('probe', (1,), [[1.0, 2.0]] * D, D))    # nested lists have a shape
+tests/test_jets.py | +                        with self.subTest(kind=kind, order=order, C=C, form=label):
+tests/test_jets.py | +                            self.assertIsNone(jets.check_weight(kind, order, sample, weight, C))
+tests/test_jets.py | +                    self.assertIsNone(jets.check_weight(kind, order, sample, None, C))
+tests/test_jets.py | +        self.assertEqual(sum(reason is not None for *_, reason in cases), 17)
+tests/test_jets.py | -                self.assert_raises(pattern, jets.check_weight, kind, order, weight, D)
+tests/test_jets.py | -        self.assert_raises('the entries kind has no jets', jets.check_weight, 'entries', (n,), np.ones(n + 1), D)
+tests/test_jets.py | +                    self.assertIsNone(jets.check_weight(kind, order, sample, weight))
+tests/test_jets.py | +                self.assert_raises(pattern, jets.check_weight, kind, order, sample, weight)
+tests/test_jets.py | +        self.assert_raises('the entries kind has no jets', jets.check_weight, 'entries', (n,), self.index, np.ones(n + 1))
+tests/test_jets.py | -        self.assertIsNone(jets.check_weight('probe', (D - 1,), weight, D))
+tests/test_jets.py | -        self.assertIsNone(jets.check_weight('probe', (D - 1,), weight.T, D))
+tests/test_jets.py | +        self.assertIsNone(jets.check_weight('apply', (2,), sample, weight))
+tests/test_jets.py | +        self.assertIsNone(jets.check_weight('apply', (2,), sample, weight.T))
+tests/test_optimizers_frontend.py | -        self.assertTrue(np.array_equal(batch.weight, np.full(3, 2.0)))
+tests/test_optimizers_frontend.py | +        self.assertTrue(np.array_equal(batch.weight, blocks_to_weight('probe', (), np.full(3, 2.0), yp)))
+tests/test_optimizers_frontend.py | -                self.assertTrue(np.array_equal(batch.weight, full * fact2))
+tests/test_optimizers_frontend.py | +                self.assertTrue(np.array_equal(batch.weight, blocks_to_weight('probe', (2,), full * fact2, y)))
+tests/test_optimizers_frontend.py | -        self.assertTrue(np.array_equal(batch.weight, [1., 2.]))
+tests/test_optimizers_frontend.py | +        self.assertTrue(np.array_equal(batch.weight, blocks_to_weight('apply', (1,), np.array([1., 2.]), y)))
+tests/test_optimizers_frontend.py | -        self.assertTrue(np.array_equal(batch.weight, [1., 2., .5]))
+tests/test_optimizers_frontend.py | +        self.assertTrue(np.array_equal(batch.weight, blocks_to_weight('probe', (), np.array([1., 2., .5]), y)))
+tests/test_sampling_definitions.py | +        otherwise), from which `data` places the weight."""
+tests/test_sampling_definitions.py | -                self.assertEqual(np.shape(sums), np.shape(weight))          # structural: exact
+tests/test_sampling_definitions.py | +                self.assertEqual(np.shape(sums), ((P.d,) if kind == 'probe' else ()) + case.box)  # the block shape
+tests/test_sampling_definitions.py | +        self.assertLessEqual(abs(float(got) - float(expected)), tol * max(abs(float(expected)), 1.0))
+tests/test_sampling_definitions.py | +                with self.subTest(pattern=pattern, y_constant_in_W=y_constant, **labels):
+tests/test_sampling_definitions.py | +                        self.assertLessEqual(relative_error(a, b), TOL)
+tests/test_sampling_definitions.py | +                with self.subTest(kind=kind, weight=label):
+tests/test_sampling_definitions.py | +                    with self.assertRaises(ValueError):
+tests/test_sampling_definitions.py | +            with self.subTest(kind=kind, weight='the full form'):
+tests/test_sampling_definitions.py | +                    self.assertEqual(sdef.f(kind, P.frame, sample, order=case.order, y=y, weight=list(full)),
+tests/test_sampling_definitions.py | +                self.assertEqual({a.shape[axis] for a in z}, {1})             # z's axis is 1 there
+tests/test_sampling_definitions.py | +                with self.subTest(what='the weight', where=label, kind=kind):
+tests/test_sampling_definitions.py | +                    with self.assertRaises(ValueError):
+tests/test_sampling_definitions.py | +                with self.subTest(what='the data y', where=label, kind=kind):
+tests/test_sampling_definitions.py | +                    with self.assertRaises(ValueError):
+tests/test_sampling_definitions.py | +            with self.subTest(kind=kind):
+tests/test_sampling_definitions.py | +                with self.assertRaises(ValueError):
+tests/test_sampling_definitions.py | +                with self.subTest(kind=kind, y='a mode axis of 1'):
+tests/test_sampling_definitions.py | +                    with self.assertRaises(ValueError):
+tests/test_sampling_definitions.py | -                self.assertEqual(np.shape(sdef.r_block_sumsq(kind, P.frame, sample, **args)), np.shape(args['weight']))
+tests/test_sampling_definitions.py | +                self.assertEqual(np.shape(sdef.r_block_sumsq(kind, P.frame, sample, **args)),

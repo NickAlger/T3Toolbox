@@ -10,7 +10,13 @@ import math
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.corewise as cw
 import t3toolbox.backend.common as common
-import t3toolbox.backend.sampling_derivatives as sampling_derivatives
+import t3toolbox.backend.apply as apply
+import t3toolbox.backend.probing as probing
+import t3toolbox.backend.t3_conversions as t3_conversions
+from t3toolbox.backend.jets import affine_jet, index_to_one_hot
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+import _derivative_data as dd       # derivative data from the merged methods (P13b)
 
 try:
     import jax
@@ -2162,7 +2168,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
                         # primary: W is a passthrough stack (CP rank R=1); per-probe identity
                         # <AT(c)_W, x> == c*apply, after realizing the CP factors via from_canonical.
-                        ATf_factors = t3.TuckerTensorTrain.apply_ambient_transpose(c, ww)
+                        ATf_factors = t3.TuckerTensorTrain.apply_ambient_transpose(ww, c=c)
                         self.assertEqual(W + C + (1, shape[0]), ATf_factors[0].shape)   # CP rank 1, W stacked
                         ATf = t3.TuckerTensorTrain.from_canonical(ATf_factors)
                         self.assertEqual(W + C, ATf.stack_shape)
@@ -2170,7 +2176,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
                         # summed: W becomes the CP rank |W| (the J^T r back-projection), O(|W|N) -- the
                         # |W|^2 copy-tensor cost lives only in from_canonical, not in the returned factors.
-                        ATt_factors = t3.TuckerTensorTrain.apply_ambient_transpose(c, ww, sum_over_probes=True)
+                        ATt_factors = t3.TuckerTensorTrain.apply_ambient_transpose(ww, c=c, sum_over_samples=True)
                         self.assertEqual(C + (int(np.prod(W, dtype=int)), shape[0]), ATt_factors[0].shape)
                         ATt = t3.TuckerTensorTrain.from_canonical(ATt_factors)
                         self.assertEqual(C, ATt.stack_shape)
@@ -2208,13 +2214,13 @@ class TestTuckerTensorTrain(unittest.TestCase):
                             xb = xd.reshape((1,) * lead + xd.shape)
                             return np.sum(ETd * xb, axis=tuple(range(ETd.ndim - nN, ETd.ndim)))
 
-                        ETf_factors = t3.TuckerTensorTrain.entries_ambient_transpose(c, idx, shape)
+                        ETf_factors = t3.TuckerTensorTrain.entries_ambient_transpose(idx, shape, c=c)
                         self.assertEqual(W + C + (1, shape[0]), ETf_factors[0].shape)   # CP rank 1, W stacked
                         ETf = t3.TuckerTensorTrain.from_canonical(ETf_factors)
                         self.assertEqual(W + C, ETf.stack_shape)
                         self.check_relerr(c * fwd, ndot(ETf.to_dense(), nW))
 
-                        ETt_factors = t3.TuckerTensorTrain.entries_ambient_transpose(c, idx, shape, sum_over_probes=True)
+                        ETt_factors = t3.TuckerTensorTrain.entries_ambient_transpose(idx, shape, c=c, sum_over_samples=True)
                         self.assertEqual(C + (int(np.prod(W, dtype=int)), shape[0]), ETt_factors[0].shape)
                         ETt = t3.TuckerTensorTrain.from_canonical(ETt_factors)
                         self.assertEqual(C, ETt.stack_shape)
@@ -2256,7 +2262,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                            + sum(np.asarray(replace(x, 'G', i, dG[i]).apply(ww)) for i in range(d))  # W+C
 
                         # summed (J^T r): gradients shaped exactly like the cores (no |W| anywhere)
-                        gB, gG = x.apply_corewise_transpose(c, ww, sum_over_probes=True)
+                        gB, gG = x.apply_corewise_transpose(ww, c=c)
                         self.assertEqual([b.shape for b in tk], [g.shape for g in gB])
                         self.assertEqual([g.shape for g in tt], [g.shape for g in gG])
                         lhs = core_dot(([np.asarray(g) for g in gB], [np.asarray(g) for g in gG]), (dB, dG), nC)
@@ -2264,7 +2270,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                         self.check_relerr(rhs, lhs)
 
                         # unsummed: W is a leading stack on each gradient; sum=True == sum_W of sum=False
-                        gBk, gGk = x.apply_corewise_transpose(c, ww)
+                        gBk, gGk = x.apply_corewise_transpose(ww, c=c, sum_over_samples=False)
                         self.assertEqual(W + tk[0].shape, gBk[0].shape)
                         for s, k in zip(gB, gBk):
                             self.check_relerr(np.asarray(s), np.asarray(k).sum(axis=tuple(range(nW))))
@@ -2301,14 +2307,14 @@ class TestTuckerTensorTrain(unittest.TestCase):
                         Jd = sum(np.asarray(replace(x, 'B', i, dB[i]).entries(idx)) for i in range(d)) \
                            + sum(np.asarray(replace(x, 'G', i, dG[i]).entries(idx)) for i in range(d))
 
-                        gB, gG = x.entries_corewise_transpose(c, idx, sum_over_probes=True)
+                        gB, gG = x.entries_corewise_transpose(idx, c=c)
                         self.assertEqual([b.shape for b in tk], [g.shape for g in gB])
                         self.assertEqual([g.shape for g in tt], [g.shape for g in gG])
                         lhs = core_dot(([np.asarray(g) for g in gB], [np.asarray(g) for g in gG]), (dB, dG), nC)
                         rhs = np.sum(c * Jd, axis=tuple(range(nW)))
                         self.check_relerr(rhs, lhs)
 
-                        gBk, gGk = x.entries_corewise_transpose(c, idx)
+                        gBk, gGk = x.entries_corewise_transpose(idx, c=c, sum_over_samples=False)
                         self.assertEqual(W + tk[0].shape, gBk[0].shape)
                         for s, k in zip(gB, gBk):
                             self.check_relerr(np.asarray(s), np.asarray(k).sum(axis=tuple(range(nW))))
@@ -2342,14 +2348,14 @@ class TestTuckerTensorTrain(unittest.TestCase):
                             return np.sum(Td * xb, axis=tuple(range(Td.ndim - nN, Td.ndim)))
 
                         # primary: W passthrough; CP rank d
-                        f = t3.TuckerTensorTrain.probe_ambient_transpose(zt, ww)
+                        f = t3.TuckerTensorTrain.probe_ambient_transpose(ww, c=zt)
                         self.assertEqual(W + C + (d, shape[0]), f[0].shape)
                         T = t3.TuckerTensorTrain.from_canonical(f)
                         self.assertEqual(W + C, T.stack_shape)
                         self.check_relerr(zprobe, ndot(T.to_dense(), nW))
 
                         # summed: W folds into the CP rank (d|W|); == sum over W of the primary
-                        fs = t3.TuckerTensorTrain.probe_ambient_transpose(zt, ww, sum_over_probes=True)
+                        fs = t3.TuckerTensorTrain.probe_ambient_transpose(ww, c=zt, sum_over_samples=True)
                         self.assertEqual(C + (d * int(np.prod(W, dtype=int)), shape[0]), fs[0].shape)
                         Ts = t3.TuckerTensorTrain.from_canonical(fs)
                         self.assertEqual(C, Ts.stack_shape)
@@ -2396,14 +2402,14 @@ class TestTuckerTensorTrain(unittest.TestCase):
                         zJ = sum(np.sum(zt[m] * Jm[m], axis=-1) for m in range(d))   # W + C
                         rhs = np.sum(zJ, axis=tuple(range(nW)))                      # C
 
-                        gB, gG = x.probe_corewise_transpose(zt, ww, sum_over_probes=True)
+                        gB, gG = x.probe_corewise_transpose(ww, c=zt)
                         self.assertEqual([b.shape for b in tk], [g.shape for g in gB])
                         self.assertEqual([g.shape for g in tt], [g.shape for g in gG])
                         lhs = core_dot(([np.asarray(g) for g in gB], [np.asarray(g) for g in gG]), (dB, dG), nC)
                         self.check_relerr(rhs, lhs)
 
                         # unsummed: W leads each gradient; sum=True == sum_W of sum=False
-                        gBk, gGk = x.probe_corewise_transpose(zt, ww)
+                        gBk, gGk = x.probe_corewise_transpose(ww, c=zt, sum_over_samples=False)
                         self.assertEqual(W + tk[0].shape, gBk[0].shape)
                         for s, k in zip(gB, gBk):
                             self.check_relerr(np.asarray(s), np.asarray(k).sum(axis=tuple(range(nW))))
@@ -3021,21 +3027,24 @@ class TestTuckerTensorTrain(unittest.TestCase):
         ORDER = 3
 
         # order 0 == the non-derivative op
-        for zj, z0 in zip(x.probe_derivatives(ww, pp, ORDER), x.probe(ww)):
+        for zj, z0 in zip(dd.forward(x, 'probe', ww, pp, ORDER), x.probe(ww)):
             self.check_relerr(np.asarray(z0), np.asarray(zj)[0])
-        self.check_relerr(np.asarray(x.apply(ww)), np.asarray(x.apply_derivatives(ww, pp, ORDER))[0])
-        self.check_relerr(np.asarray(x.entries(index)), np.asarray(x.entries_derivatives(index, pp, ORDER))[0])
+        self.check_relerr(np.asarray(x.apply(ww)), np.asarray(dd.forward(x, 'apply', ww, pp, ORDER))[0])
+        self.check_relerr(np.asarray(x.entries(index)), np.asarray(dd.forward(x, 'entries', index, pp, ORDER))[0])
 
         # corewise transpose: <g, dcores> matches a central finite difference of <r, forward(cores)>
-        r = [np.random.randn(*np.asarray(z).shape) for z in x.probe_derivatives(ww, pp, ORDER)]
-        gB, gG = x.probe_corewise_derivatives_transpose(r, ww, pp, ORDER, sum_over_probes=True)
+        r = [np.random.randn(*np.asarray(z).shape) for z in dd.forward(x, 'probe', ww, pp, ORDER)]
+        gB, gG = dd.corewise_transpose(x, 'probe', r, ww, pp, ORDER, sum_over_probes=True)
         dB = [np.random.randn(*B.shape) for B in x.tucker_cores]
         dG = [np.random.randn(*G.shape) for G in x.tt_cores]
         inner = (sum(np.sum(np.asarray(gB[i]) * dB[i]) for i in range(d))
                  + sum(np.sum(np.asarray(gG[i]) * dG[i]) for i in range(d)))
         eps = 1e-6
-        dot = lambda data: sum(np.sum(r[i] * np.asarray(sampling_derivatives.t3_probe_derivatives(ww, pp, data, ORDER)[i]))
-                               for i in range(d))
+        # the forward, dense and in derivatives (slot t times t!): independent of the engine
+        factorials = np.array([math.factorial(t) for t in range(ORDER + 1)], dtype=float).reshape((ORDER + 1, 1, 1))
+        dense = lambda data: [factorials * z for z in probing.dense_probe(
+            t3_conversions.t3_to_dense(data), affine_jet(ww, pp), (ORDER,))]
+        dot = lambda data: sum(np.sum(r[i] * dense(data)[i]) for i in range(d))
         plus = ([B + eps * db for B, db in zip(x.tucker_cores, dB)], [G + eps * dg for G, dg in zip(x.tt_cores, dG)])
         minus = ([B - eps * db for B, db in zip(x.tucker_cores, dB)], [G - eps * dg for G, dg in zip(x.tt_cores, dG)])
         fd = (dot(plus) - dot(minus)) / (2 * eps)
@@ -3044,9 +3053,9 @@ class TestTuckerTensorTrain(unittest.TestCase):
         # X/P sample-stack consistency: hard error
         pp_bad = [np.random.randn(*((3,) + (N,))) for N in shapes]
         with self.assertRaises(ValueError):
-            x.probe_derivatives(ww, pp_bad, ORDER)
+            dd.forward(x, 'probe', ww, pp_bad, ORDER)
         with self.assertRaises(ValueError):
-            x.entries_derivatives(index, pp_bad, ORDER)
+            dd.forward(x, 'entries', index, pp_bad, ORDER)
 
     def test_corewise_derivative_transpose_nontrivial_boundary(self):
         # Regression: the adjoint-state apply/entries (derivative) transpose seeds the reverse sigma_hat
@@ -3058,11 +3067,16 @@ class TestTuckerTensorTrain(unittest.TestCase):
         ww = [np.random.randn(*(W + (N,))) for N in shapes]
         pp = [np.random.randn(*(W + (N,))) for N in shapes]
         index = np.stack([np.random.randint(0, N, size=W) for N in shapes], axis=0)
+        # the forward, dense and in derivatives (slot t times t!): independent of the engine
+        factorials = np.array([math.factorial(t) for t in range(ORDER + 1)], dtype=float).reshape((ORDER + 1, 1))
+        dense = lambda data, first: factorials * apply.dense_apply(t3_conversions.t3_to_dense(data),
+                                                                   affine_jet(first, pp), (ORDER,))
+        one_hot = index_to_one_hot(index, shapes)
         cases = [
-            ('apply', lambda rr: x.apply_corewise_derivatives_transpose(rr, ww, pp, ORDER, sum_over_probes=True),
-                      lambda data: sampling_derivatives.t3_apply_derivatives(ww, pp, data, ORDER)),
-            ('entries', lambda rr: x.entries_corewise_derivatives_transpose(rr, index, pp, ORDER, sum_over_probes=True),
-                        lambda data: sampling_derivatives.t3_entries_derivatives(index, pp, data, ORDER)),
+            ('apply', lambda rr: dd.corewise_transpose(x, 'apply', rr, ww, pp, ORDER, sum_over_probes=True),
+                      lambda data: dense(data, ww)),
+            ('entries', lambda rr: dd.corewise_transpose(x, 'entries', rr, index, pp, ORDER, sum_over_probes=True),
+                        lambda data: dense(data, one_hot)),
         ]
         for name, transpose, forward in cases:
             with self.subTest(op=name):
@@ -3099,13 +3113,13 @@ class TestEntriesIndexSemantics(unittest.TestCase):
                 self.assertLess(norm(e - ref) / max(1.0, norm(ref)), 1e-12)
                 c = np.random.randn(*e.shape)
                 # ambient transpose: <E^T c, X> == <c, E X>  (the adjoint identity it used to fail)
-                T = t3.TuckerTensorTrain.from_canonical(x.entries_ambient_transpose(c, idx, x.shape))
+                T = t3.TuckerTensorTrain.from_canonical(x.entries_ambient_transpose(idx, x.shape, c=c))
                 lhs = float(np.sum(np.asarray(T.to_dense()) * xd))
                 self.assertLess(abs(lhs - float(np.sum(c * e))) / max(1.0, abs(lhs)), 1e-12)
                 # corewise transpose: negative indices == the wrapped positive ones, core by core
-                g_neg = x.entries_corewise_transpose(c, idx)
-                g_pos = x.entries_corewise_transpose(c, idx % np.array(x.shape)[:, None] if idx.ndim > 1
-                                                     else idx % np.array(x.shape))
+                g_neg = x.entries_corewise_transpose(idx, c=c, sum_over_samples=False)
+                g_pos = x.entries_corewise_transpose(idx % np.array(x.shape)[:, None] if idx.ndim > 1
+                                                     else idx % np.array(x.shape), c=c, sum_over_samples=False)
                 for a, b in zip(g_neg[0] + g_neg[1], g_pos[0] + g_pos[1]):
                     self.assertLess(norm(np.asarray(a) - np.asarray(b)), 1e-12)
 
@@ -3139,11 +3153,11 @@ class TestEntriesIndexSemantics(unittest.TestCase):
         frame = t3m.MANIFOLD.frame(x)
         for c in (1.7, np.float64(1.7), np.asarray(1.7)):
             with self.subTest(type=type(c).__name__):
-                ga = x.apply_corewise_transpose(c, ww)
-                ge = x.entries_corewise_transpose(c, idx)
-                ta = t3m.T3Tangent.apply_transpose(c, ww, frame)
-                te = t3m.T3Tangent.entries_transpose(c, idx, frame)
-                ref = x.apply_corewise_transpose(np.asarray(1.7), ww)
+                ga = x.apply_corewise_transpose(ww, c=c, sum_over_samples=False)
+                ge = x.entries_corewise_transpose(idx, c=c, sum_over_samples=False)
+                ta = t3m.T3Tangent.apply_transpose(frame, ww, c=c, sum_over_samples=False)
+                te = t3m.T3Tangent.entries_transpose(frame, idx, c=c, sum_over_samples=False)
+                ref = x.apply_corewise_transpose(ww, c=np.asarray(1.7), sum_over_samples=False)
                 for a, b in zip(ga[0] + ga[1], ref[0] + ref[1]):
                     self.assertLess(norm(np.asarray(a) - np.asarray(b)), 1e-12)
                 self.assertEqual(len(ge), 2)
@@ -3163,7 +3177,7 @@ class TestDenseProbeD1(unittest.TestCase):
         x = t3.TuckerTensorTrain.randn((7,), (3,), (1, 1))
         ww = (np.random.randn(2, 3, 7),)                       # W = (2, 3)
         ref = np.asarray(x.probe(ww)[0])
-        got = np.asarray(probing.dense_probe(ww, x.to_dense())[0])
+        got = np.asarray(probing.dense_probe(x.to_dense(), ww)[0])
         self.assertEqual(got.shape, (2, 3, 7))
         self.assertLess(norm(got - ref), 1e-12)
 

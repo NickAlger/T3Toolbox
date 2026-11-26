@@ -724,8 +724,8 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
         Reconstructed in right-canonical form (the Tucker factors over the right-orthogonal core-TT).
         For a **consistent** frame (e.g. from :py:func:`t3_orthogonal_representations`) this is the base
         point and equals the left-canonical reconstruction; for a hand-built inconsistent frame it is
-        specifically this form. No consistency check is performed (verifying it would mean densifying
-        multiple reconstructions -- the kind of expensive check the library avoids).
+        specifically this form. No consistency check is performed here (:py:meth:`is_consistent` is the
+        check).
         """
         return t3.TuckerTensorTrain(self.down_tucker_cores, self.right_tt_cores)
 
@@ -746,19 +746,60 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
         """
         return T3Frame.from_t3(self.to_t3())
 
+    @ft.cached_property
+    def consistency_residual(self) -> NDArray:  # shape = stack_shape (scalar/0-d when unstacked)
+        """Relative mismatch between the left- and right-canonical reconstructions of the base point,
+        ``||T(D, L) - T(D, R)|| / max(1, ||T(D, R)||)``, **per stack element** (shape ``stack_shape``;
+        rtol-independent; **cached**).
+
+        The expensive part of :py:meth:`is_consistent`, computed through the cores
+        (:py:func:`~t3toolbox.backend.fv_operations.fv_frame_consistency_residual`): no dense tensor is
+        formed. It costs several times the construction of the frame (one SVD of each Tucker core and three
+        orthogonalizations of a TT, one of them at doubled ranks), so a fixed frame that is checked again and
+        again is contracted **once**. The up cores are not read.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.frame_variations_format as bvf
+        >>> np.random.seed(0)
+        >>> frame = bvf.T3Frame.from_t3(t3.TuckerTensorTrain.randn((14, 15, 16), (4, 5, 6), (1, 3, 2, 1)))
+        >>> bool(frame.consistency_residual < 1e-12)
+        True
+        """
+        return fv_operations.fv_frame_consistency_residual(self.data)
+
     def is_consistent(self, rtol: float = 1e-9) -> NDArray:  # bool array, shape = stack_shape (scalar unstacked)
         """``True`` (per stack element) if the left- and right-canonical reconstructions of the base point agree.
 
         A frame stores both the left- and right-orthogonal core-TTs (see :py:meth:`to_t3`); for a
         **consistent** frame they reconstruct the same base point. This checks
-        ``||left - right|| <= rtol * ||right||`` in the dense Frobenius norm.
+        ``||T(D, L) - T(D, R)|| <= rtol * max(1, ||T(D, R)||)`` in the Frobenius norm, through the cached
+        :py:attr:`consistency_residual`: no dense tensor is formed.
 
-        EXPENSIVE -- densifies both reconstructions. Deliberately **not** part of :py:meth:`validate`
-        (which is structural and cheap). For a frame from :py:func:`t3_orthogonal_representations` (or
-        :py:meth:`from_t3`/:py:meth:`orthogonalize`) consistency holds by construction; this is for
-        sanity-checking hand-built bases.
+        Deliberately **not** part of :py:meth:`validate` (which is structural). For a frame from
+        :py:func:`t3_orthogonal_representations` (or :py:meth:`from_t3`/:py:meth:`orthogonalize`)
+        consistency holds by construction; this is for hand-built frames.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.frame_variations_format as bvf
+        >>> np.random.seed(0)
+        >>> frame = bvf.T3Frame.from_t3(t3.TuckerTensorTrain.randn((14, 15, 16), (4, 5, 6), (1, 3, 2, 1)))
+        >>> bool(frame.is_consistent())
+        True
+
+        A frame whose right cores belong to another tensor is not:
+
+        >>> other = bvf.T3Frame.from_t3(t3.TuckerTensorTrain.randn((14, 15, 16), (4, 5, 6), (1, 3, 2, 1)))
+        >>> mixed = bvf.T3Frame(frame.down_tucker_cores, frame.up_tt_cores, frame.left_tt_cores, other.right_tt_cores)
+        >>> bool(mixed.is_consistent())
+        False
         """
-        return fv_operations.fv_frame_consistency_residual(self.data) <= rtol
+        return self.consistency_residual <= rtol
 
     def allclose(self, other: 'T3Frame', rtol: float = 1e-9, atol: float = 0.0) -> NDArray:  # bool array, stack_shape
         """``True`` (per stack element) if ``other`` represents the same base point as ``self`` (gauge-invariant).

@@ -5,8 +5,8 @@
 > What no longer holds here:
 >
 > - **`evaluate(..., want, have=dict)` returning a dict.** It is now `sampling_variables(kind, ..., want=(names), name=array, ...)`, returning a tuple aligned with `want`, with held variables as keyword arguments.
-> - **The names.** "Components" are "sampling variables". The suffixes `_t` and `_z` are `_dot` and `_tilde`, and the letter under the tilde does not mean what it means in the library today. See section 3 of the design document.
-> - **The `centers` argument, and reading the probe output off the frame.** Parked. The value is computed through the base point's own cores, with the new variable `gamma`.
+> - **The names.** "Components" are "sampling variables". The suffixes `_t` and `_z` are `_dot` and `_tilde`, and the letter under the tilde does not mean what it means in the library today. See section 3 of the design document. And since 2026-11-15 (23:23) a dot in the frame's form carries a basis in its name: `xi_t`, `mu_t`, `nu_t`, `eta_t` here are `xi_U_dot`, `mu_R_dot`, `nu_L_dot`, `eta_D_dot` ([SAMPLE_VARIABLES.md](SAMPLE_VARIABLES.md); older names in [NOTATION_HISTORY.md](NOTATION_HISTORY.md)). At the corewise frame `_t` is `_dot` and `_tz` is `_tilde_dot`. This document's "mode leg" is the Tucker edge of the new page. The figures `dependency_pattern.png` and `dependency_graph.png`, and `dependency_graph.dot`, use the names before the review.
+> - **The `centers` argument, and reading the probe output off the frame.** Parked. The value is computed through the base point's own cores, with the variable `nu_L` (named `gamma` from 2026-11-14 to 2026-11-15).
 > - **"Three savings need no memory."** They were examined and declined in the library's own caching audit, and two presuppose held per-sample variables (D8, F21).
 > - **`Hp` and the projection inside the evaluator.** The sampling layer returns the blocks before the gauge projection. The Gauss-Newton product is `JtJp`. `Hp` is the exact product and is assembled by `LocalModel`.
 > - **The `Jp.` prefix for copies.** Only the tilde variables seeded by the residual are public.
@@ -117,7 +117,7 @@ The gradient and the Gauss-Newton product use the manifold frame. The exact term
 The gauge facts, checked numerically by `scripts/reuse_check.py` for probes at order 0:
 
 - **Through the point's own cores, nothing can be reused.** The components are in a different gauge from the frame's, and in general have different ranks.
-- **The two `nu` differ by a bond-sized gauge matrix**, `nu_L[i] = S_i nu_R[i]`, where `L_i ... L_{d-1} = S_i R_i ... R_{d-1}`. The same holds for `nu_z`. `S` comes from the frame cores alone, at a cost independent of `W`. Both match to 1e-15.
+- **The two `nu` differ by a bond-sized gauge matrix**, `nu_L[i] = S_i nu_R[i]` (`nu_R` is `nu`), where `L_i ... L_{d-1} = S_i R_i ... R_{d-1}`. The same holds for `nu_z`. `S` comes from the frame cores alone, at a cost independent of `W`. Both match to 1e-15.
 
 Some components have a second, cheaper rule when another component is at hand:
 
@@ -413,7 +413,7 @@ The prototype and its check are in `scripts/parked/`: `plan_mockup_per_group_xi.
 
 - **Generate the graph, do not declare it per case.** The mockup declares the probe graph by hand. `scripts/component_graphs.py` gets every case from the graded program. The library version should generate each graph from the site rules; how, and what that costs under jit, is open.
 - **Alternatives in the graph.** Some components have a second rule that is cheaper when another component is at hand. Whether the evaluator chooses between rules is open.
-- **Names for copies.** The residual grade seeded by `J p` is called `Jp.xi_z` and so on, and `nu` exists through `L` and through `R`. A naming convention is needed.
+- **Names for copies.** The residual grade seeded by `J p` is called `Jp.xi_z` and so on, and `nu` exists through `L` and through `R`. A naming convention is needed. (Answered for `nu`: `nu` and `nu_L`, target decision 9.6. The `Jp`-seeded copies are 3.3.)
 - **How frontend objects pass `plan`, `want` and `have` down.** The backend takes them as explicit arguments. A `LocalModel` could hold the `have` bundle; that is not designed.
 - **Validity of `have`.** Components handed in from another point give a wrong answer silently. A safe-mode check against a token would catch it; that is not designed.
 - **Compilation.** Under jit, each distinct pair of `want` and `have` is a separate trace.

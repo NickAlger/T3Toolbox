@@ -21,16 +21,20 @@ import t3toolbox.uniform_tucker_tensor_train as ut3
 import t3toolbox.manifold as t3m
 import t3toolbox.uniform_manifold as ut3m
 import t3toolbox.shared_geometry as sg
-import t3toolbox.optimizers as topt
 import t3toolbox.corewise as cw
 import t3toolbox.backend.optimizers as bopt
 import t3toolbox.backend.geometry as bgeo
-import t3toolbox.backend.fitting as bfit
+import t3toolbox.backend.uniform_fitting as uf
 import t3toolbox.backend.fv_operations as fvo
 import t3toolbox.backend.ufv_operations as ufo
 import t3toolbox.backend.ufv_conversions as ufc
 import t3toolbox.backend.ufv_masking as ufm
 import t3toolbox.backend.t3_conversions as t3c
+import t3toolbox.backend.tv_operations as tvo
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))   # tests/
+import _derivative_data as dd       # derivative data from the merged methods (P13b)
+import _fits as F                   # a backend fit (geometry, oracle, batch, regularizer) from plain specs (P16)
 
 # (label, shape, tucker ranks, tt ranks, sharing)
 _VALIDITY_CASES = [
@@ -48,13 +52,15 @@ def _ragged_geometry(shape, sharing):
 
 def _template(shape, tucker_ranks, tt_ranks, sharing=None):
     """A frame with these ranks: the structure a fit at these ranks linearizes with."""
-    return _ragged_geometry(shape, sharing).frame(t3.TuckerTensorTrain.zeros(shape, tucker_ranks, tt_ranks).data)
+    return _ragged_geometry(shape, sharing).frame(t3.TuckerTensorTrain.zeros(shape, tucker_ranks, tt_ranks).data)[0]
 
 
 def _uniform_template(shape, tucker_ranks, tt_ranks, sharing=None):
+    """The uniform geometry and frame of the zero tensor at these ranks, built from the frame in hand (``from_frame``:
+    a template may be non-minimal, as d = 1 at Tucker rank 3 is, and ``from_point`` requires a minimal point, D5)."""
     ux = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.zeros(shape, tucker_ranks, tt_ranks))
-    geom = bgeo.UniformManifoldGeometryOps.from_point(ux.data, sharing)
-    return geom, geom.frame((ux.data[0], ux.data[1]))
+    frame, _ = ufc.ut3_orthogonal_representations(ux.data)
+    return bgeo.UniformManifoldGeometryOps.from_frame(frame, ux.data[3], sharing), frame
 
 
 def _unit_rows(rng, W, shape):
@@ -187,12 +193,12 @@ class TestNonCollapse(unittest.TestCase):
         ww = [np.concatenate([np.zeros((W, n)), w[:, n:]], axis=1) for w, n in zip(ww, tk)]
         data = rng.standard_normal(W)
         x0 = t3.TuckerTensorTrain.zeros(shape, tk, tt)
-        problem = bopt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.APPLY, ww, data)
+        problem = F.fit(bgeo.ManifoldGeometryOps(), 'apply', ww, data)
         g = problem.local_model(x0.data).gradient                            # at the start's LAPACK frame
         self.assertEqual(float(problem.geom.inner(g, g)), 0.0)               # the exact-zero trap
         with warnings.catch_warnings():
             warnings.simplefilter('error')                                   # no vanishing-reference warning
-            _, stats = bopt.newton_cg(problem, x0.data, max_newton=1)
+            _, stats = problem.newton_cg(x0.data, max_newton=1)
         row = stats['history'][0]
         self.assertEqual(row['g0_reference'], 'zero')
         self.assertGreater(row['g0norm'], 1.0)
@@ -214,7 +220,8 @@ class _CountingGeometry:
 
 
 class _NineMemberGeometry:
-    """A custom geometry with exactly the nine required members -- no optional ``zero_point_frame``."""
+    """A custom geometry with exactly the ten required members (``point_data`` the tenth, P16) -- no optional
+    ``zero_point_frame``."""
 
     def __init__(self, base):
         self._base = base
@@ -228,6 +235,7 @@ class _NineMemberGeometry:
     def inner(self, a, b):                          return self._base.inner(a, b)
     def point_norm_sq(self, x_cores):               return self._base.point_norm_sq(x_cores)
     def point_tangent(self, frame):                 return self._base.point_tangent(frame)
+    def point_data(self, x_cores):                  return self._base.point_data(x_cores)
 
 
 class TestReferenceResolution(unittest.TestCase):
@@ -243,7 +251,7 @@ class TestReferenceResolution(unittest.TestCase):
         self.x0 = t3.TuckerTensorTrain.randn(self.shape, self.tk, self.tt)   # nonzero: valid on corewise too
 
     def _problem(self, geom, data=None):
-        return bopt.least_squares_problem(geom, bfit.APPLY, self.ww, self.data if data is None else data)
+        return F.fit(geom, 'apply', self.ww, self.data if data is None else data)
 
     def test_none_is_the_geometrys_own(self):
         """(a): None -> 'zero' on the manifold geometries (ragged, uniform, shared), 'warm_start' on the
@@ -254,49 +262,51 @@ class TestReferenceResolution(unittest.TestCase):
         wws = _unit_rows(np.random.default_rng(4), 60, (6, 6, 5))
         ds = np.asarray(_tied(t3.TuckerTensorTrain.randn((6, 6, 5), (2, 2, 2), (1, 2, 2, 1)), ((0, 1),)).apply(wws))
         uxs = ut3.UniformTuckerTensorTrain.from_t3(xs)
-        cases = [('MANIFOLD', t3m.MANIFOLD, self.ww, self.data, self.x0, 'zero'),
-                 ('COREWISE', t3m.COREWISE, self.ww, self.data, self.x0, 'warm_start'),
-                 ('UNIFORM_MANIFOLD', ut3m.UNIFORM_MANIFOLD, self.ww, self.data, ux0, 'zero'),
-                 ('UNIFORM_COREWISE', ut3m.UNIFORM_COREWISE, self.ww, self.data, ux0, 'warm_start'),
-                 ('shared MANIFOLD', sg.shared(t3m.MANIFOLD, spec), wws, ds, xs, 'zero'),
-                 ('shared COREWISE', sg.shared(t3m.COREWISE, spec), wws, ds, xs, 'warm_start'),
-                 ('shared UNIFORM_MANIFOLD', sg.shared(ut3m.UNIFORM_MANIFOLD, spec), wws, ds, uxs, 'zero')]
-        for label, geometry, ww, data, x0, expected in cases:
+        manifold, corewise = bgeo.ManifoldGeometryOps(), bgeo.CorewiseGeometryOps()
+        cases = [('MANIFOLD', F.fit(manifold, 'apply', self.ww, self.data), self.x0.data, 'zero'),
+                 ('COREWISE', F.fit(corewise, 'apply', self.ww, self.data), self.x0.data, 'warm_start'),
+                 ('UNIFORM_MANIFOLD', *F.uniform(F.fit(manifold, 'apply', self.ww, self.data), ux0), 'zero'),
+                 ('UNIFORM_COREWISE', *F.uniform(F.fit(corewise, 'apply', self.ww, self.data), ux0), 'warm_start'),
+                 ('shared MANIFOLD', F.fit(manifold.with_sharing(spec, (6, 6, 5)), 'apply', wws, ds), xs.data, 'zero'),
+                 ('shared COREWISE', F.fit(corewise.with_sharing(spec, (6, 6, 5)), 'apply', wws, ds), xs.data,
+                  'warm_start'),
+                 ('shared UNIFORM_MANIFOLD', *F.uniform(F.fit(manifold.with_sharing(spec, (6, 6, 5)), 'apply', wws, ds),
+                                                         uf.uniform_minimal(uxs, spec), spec), 'zero')]
+        for label, fit, x0, expected in cases:
             with self.subTest(geometry=label):
-                _, stats = topt.newton_cg(geometry, 'apply', ww, data, x0, max_newton=1)
+                _, stats = fit.newton_cg(x0, max_newton=1)
                 self.assertEqual(stats['history'][0]['g0_reference'], expected)
-                _, stats = topt.newton_cg(geometry, 'apply', ww, data, x0, max_newton=1,
-                                          g0_reference='Warm_Start')         # case-insensitive
+                _, stats = fit.newton_cg(x0, max_newton=1, g0_reference='Warm_Start')         # case-insensitive
                 self.assertEqual(stats['history'][0]['g0_reference'], 'warm_start')
                 if expected == 'warm_start':
                     with self.assertRaisesRegex(ValueError, 'zero-point frame'):
-                        topt.newton_cg(geometry, 'apply', ww, data, x0, max_newton=1, g0_reference='zero')
+                        fit.newton_cg(x0, max_newton=1, g0_reference='zero')
                     with self.assertRaisesRegex(ValueError, 'zero-point frame'):
-                        topt.gradient_descent(geometry, 'apply', ww, data, x0, n_iter=1, g0_reference='zero')
+                        fit.gradient_descent(x0, n_iter=1, g0_reference='zero')
         with self.assertRaisesRegex(ValueError, 'g0_reference must be'):
-            topt.newton_cg(t3m.MANIFOLD, 'apply', self.ww, self.data, self.x0, g0_reference='start')
+            cases[0][1].newton_cg(self.x0.data, g0_reference='start')
 
     def test_custom_geometry_without_the_member(self):
         """(a), m34: a custom geometry with only the nine required members runs unchanged -- the default is
         the warm start, bit-identical to an explicit 'warm_start' on the geometry it wraps -- and an explicit
         'zero' names the missing member."""
         custom = self._problem(_NineMemberGeometry(bgeo.ManifoldGeometryOps()))
-        _, st_custom = bopt.newton_cg(custom, self.x0.data, max_newton=4)
-        _, st_base = bopt.newton_cg(self._problem(bgeo.ManifoldGeometryOps()), self.x0.data, max_newton=4,
+        _, st_custom = custom.newton_cg(self.x0.data, max_newton=4)
+        _, st_base = self._problem(bgeo.ManifoldGeometryOps()).newton_cg(self.x0.data, max_newton=4,
                                     g0_reference='warm_start')
         self.assertEqual(st_custom['losses'], st_base['losses'])
         self.assertEqual(st_custom['history'][0]['g0_reference'], 'warm_start')
         with self.assertRaisesRegex(ValueError, 'zero_point_frame'):
-            bopt.newton_cg(custom, self.x0.data, max_newton=1, g0_reference='zero')
+            custom.newton_cg(self.x0.data, max_newton=1, g0_reference='zero')
         with self.assertRaisesRegex(ValueError, 'zero_point_frame'):
-            bopt.gradient_descent(custom, self.x0.data, n_iter=1, g0_reference='zero')
+            custom.gradient_descent(self.x0.data, n_iter=1, g0_reference='zero')
 
     def test_overrides_win_and_skip_the_computation(self):
         """(f), m32: g0norm_newton alone sets both references and never asks for the zero-point frame;
         g0norm_cg alone sets only CG and does not skip; the reference is computed once per run."""
         def run(**kw):
             geom = _CountingGeometry(bgeo.ManifoldGeometryOps())
-            _, stats = bopt.newton_cg(self._problem(geom), self.x0.data, max_newton=4, **kw)
+            _, stats = self._problem(geom).newton_cg(self.x0.data, max_newton=4, **kw)
             return geom.calls, stats['history']
 
         calls, h = run()
@@ -315,10 +325,10 @@ class TestReferenceResolution(unittest.TestCase):
         self.assertEqual(calls, 0)
         # gradient_descent: the same resolution, once per run
         geom = _CountingGeometry(bgeo.ManifoldGeometryOps())
-        bopt.gradient_descent(self._problem(geom), self.x0.data, n_iter=3)
+        self._problem(geom).gradient_descent(self.x0.data, n_iter=3)
         self.assertEqual(geom.calls, 1)
         geom = _CountingGeometry(bgeo.ManifoldGeometryOps())
-        bopt.gradient_descent(self._problem(geom), self.x0.data, n_iter=3, g0_reference='warm_start')
+        self._problem(geom).gradient_descent(self.x0.data, n_iter=3, g0_reference='warm_start')
         self.assertEqual(geom.calls, 0)
 
     def test_vanishing_reference(self):
@@ -327,18 +337,18 @@ class TestReferenceResolution(unittest.TestCase):
         zeros = np.zeros_like(self.data)
         problem = self._problem(bgeo.ManifoldGeometryOps(), zeros)
         with self.assertWarnsRegex(RuntimeWarning, 'vanishes'):
-            _, stats = bopt.newton_cg(problem, self.x0.data)
+            _, stats = problem.newton_cg(self.x0.data)
         self.assertEqual(stats['history'][0]['g0_reference'], 'warm_start')
         self.assertEqual(stats['stop_reason'], 'gradient')
         self.assertLess(stats['losses'][-1], 1e-12 * stats['losses'][0])
         with self.assertRaisesRegex(ValueError, 'reference is 0'):
-            bopt.newton_cg(problem, self.x0.data, g0_reference='zero')
+            problem.newton_cg(self.x0.data, g0_reference='zero')
         with self.assertWarnsRegex(RuntimeWarning, 'vanishes'):
-            bopt.gradient_descent(problem, self.x0.data, n_iter=2)
+            problem.gradient_descent(self.x0.data, n_iter=2)
         with self.assertRaisesRegex(ValueError, 'reference is 0'):
-            bopt.gradient_descent(problem, self.x0.data, n_iter=2, g0_reference='zero')
+            problem.gradient_descent(self.x0.data, n_iter=2, g0_reference='zero')
         with self.assertRaises(ValueError):                                  # an override does not rescue 0
-            bopt.newton_cg(problem, self.x0.data, g0norm_newton=0.0)
+            problem.newton_cg(self.x0.data, g0norm_newton=0.0)
 
     def test_warm_start_is_the_2026_2_reference(self):
         """(h): 'warm_start' -- and the corewise default -- is today's `‖g(x0)‖`, bitwise."""
@@ -348,7 +358,7 @@ class TestReferenceResolution(unittest.TestCase):
                 problem = self._problem(geom)
                 g = problem.local_model(self.x0.data).gradient
                 g0 = float(problem.geom.inner(g, g)) ** 0.5                   # the 2026.2.0 computed_g0norm
-                _, stats = bopt.newton_cg(problem, self.x0.data, max_newton=3, **kw)
+                _, stats = problem.newton_cg(self.x0.data, max_newton=3, **kw)
                 for row in stats['history']:
                     self.assertEqual(row['g0norm'], g0)
                     self.assertEqual(row['g0_reference'], 'warm_start')
@@ -357,21 +367,21 @@ class TestReferenceResolution(unittest.TestCase):
         """The recorded zero reference is ‖Π 𝒥ᵀ(S(0) − data)‖ at the canonical frame of x0's structure --
         independent of x0's VALUES (only its ranks matter), and the same from a zero start."""
         problem = self._problem(bgeo.ManifoldGeometryOps())
-        geom, kind = problem.geom, problem.kind
+        geom = problem.geom
         F0 = geom.zero_point_frame(problem.local_model(self.x0.data).frame)
-        g = geom.project(F0, kind.transpose(-self.data, self.ww, F0, kind.precompute(F0, self.ww)))
+        A0 = -np.einsum('w,wa,wb,wc->abc', self.data, *self.ww)                 # the dense Aᵀ(0 − data), apply
+        g = tvo.tv_project_dense_onto_tangent_space(F0, A0)
         expected = float(geom.inner(g, g)) ** 0.5
         for x0 in (self.x0, t3.TuckerTensorTrain.zeros(self.shape, self.tk, self.tt),
                    t3.TuckerTensorTrain.randn(self.shape, self.tk, self.tt)):
-            _, stats = bopt.newton_cg(problem, x0.data, max_newton=1)
+            _, stats = problem.newton_cg(x0.data, max_newton=1)
             self.assertAlmostEqual(stats['history'][0]['g0norm'], expected, delta=1e-13 * expected)
 
     def test_regularizer_does_not_enter_the_reference(self):
         """(i): ρ's gradient vanishes at the zero tensor, so the regularized reference is the unregularized one."""
-        plain = bopt.newton_cg(self._problem(bgeo.ManifoldGeometryOps()), self.x0.data, max_newton=1)[1]
-        reg = bopt.newton_cg(bopt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.APPLY, self.ww,
-                                                        self.data, regularizer=bopt.IdentityRegularizer(0.7)),
-                             self.x0.data, max_newton=1)[1]
+        plain = self._problem(bgeo.ManifoldGeometryOps()).newton_cg(self.x0.data, max_newton=1)[1]
+        reg = F.fit(bgeo.ManifoldGeometryOps(), 'apply', self.ww, self.data,
+                    regularizer=bopt.IdentityRegularizer(0.7)).newton_cg(self.x0.data, max_newton=1)[1]
         self.assertEqual(reg['history'][0]['g0_reference'], 'zero')
         self.assertAlmostEqual(reg['history'][0]['g0norm'], plain['history'][0]['g0norm'],
                                delta=1e-14 * plain['history'][0]['g0norm'])
@@ -394,29 +404,25 @@ class TestLayerIndependence(unittest.TestCase):
         if shared:
             A, x = _tied(A, ((0, 1),)), _tied(x, ((0, 1),))
         ww = _unit_rows(rng, 40, shape)
+        geom = bgeo.ManifoldGeometryOps() if sharing is None else bgeo.ManifoldGeometryOps().with_sharing(sharing, shape)
         if kind == 'apply':
-            return x, sharing, ww, np.asarray(A.apply(ww)), {}
-        if kind == 'probe':
-            return x, sharing, ww, [np.asarray(z) for z in A.probe(ww)], {}
-        pp = _unit_rows(rng, 40, shape)
-        omega = np.array([1.0, 0.5, 0.25])
-        jets = [np.asarray(z) for z in A.probe_derivatives(ww, pp, 2)]
-        return x, sharing, (ww, pp), jets, dict(order=2, weight=omega)
-
-    def _geometries(self, sharing):
-        if sharing is None:
-            return t3m.MANIFOLD, ut3m.UNIFORM_MANIFOLD
-        return sg.shared(t3m.MANIFOLD, sharing), sg.shared(ut3m.UNIFORM_MANIFOLD, sharing)
+            fit = F.fit(geom, 'apply', ww, np.asarray(A.apply(ww)))
+        elif kind == 'probe':
+            fit = F.fit(geom, 'probe', ww, [np.asarray(z) for z in A.probe(ww)])
+        else:
+            pp = _unit_rows(rng, 40, shape)
+            omega = np.tile(np.array([1.0, 0.5, 0.25]), (len(shape), 1))      # per order, every mode
+            fit = F.derivative_fit(geom, 'probe', 2, ww, pp, dd.forward(A, 'probe', ww, pp, 2), weight=omega)
+        ufit, ux = F.uniform(fit, uf.uniform_minimal(ut3.UniformTuckerTensorTrain.from_t3(x), sharing), sharing)
+        return (fit, x.data), (ufit, ux)
 
     def test_reference_is_layer_independent(self):
         for kind in ('apply', 'probe', 'probe_derivatives'):
             for shared in (False, True):
                 with self.subTest(kind=kind, shared=shared):
-                    x, sharing, sample, data, kw = self._case(kind, shared)
-                    rg, ug = self._geometries(sharing)
-                    ux = ut3.UniformTuckerTensorTrain.from_t3(x)
-                    r = topt.newton_cg(rg, kind, sample, data, x, max_newton=1, **kw)[1]['history'][0]
-                    u = topt.newton_cg(ug, kind, sample, data, ux, max_newton=1, **kw)[1]['history'][0]
+                    (rg, x), (ug, ux) = self._case(kind, shared)
+                    r = rg.newton_cg(x, max_newton=1)[1]['history'][0]
+                    u = ug.newton_cg(ux, max_newton=1)[1]['history'][0]
                     self.assertEqual((r['g0_reference'], u['g0_reference']), ('zero', 'zero'))
                     self.assertAlmostEqual(u['g0norm'], r['g0norm'], delta=1e-14 * r['g0norm'])
 
@@ -425,11 +431,9 @@ class TestLayerIndependence(unittest.TestCase):
         `newton_losses` to 1e-7 (the O2 threshold; observed worst over the 44 O2 pairs 3.5e-12, F37)."""
         for kind, shared in (('apply', False), ('probe_derivatives', False), ('apply', True), ('probe', True)):
             with self.subTest(kind=kind, shared=shared):
-                x, sharing, sample, data, kw = self._case(kind, shared)
-                rg, ug = self._geometries(sharing)
-                ux = ut3.UniformTuckerTensorTrain.from_t3(x)
-                lr = np.array(topt.newton_cg(rg, kind, sample, data, x, max_newton=6, **kw)[1]['losses'])
-                lu = np.array(topt.newton_cg(ug, kind, sample, data, ux, max_newton=6, **kw)[1]['losses'])
+                (rg, x), (ug, ux) = self._case(kind, shared)
+                lr = np.array(rg.newton_cg(x, max_newton=6)[1]['losses'])
+                lu = np.array(ug.newton_cg(ux, max_newton=6)[1]['losses'])
                 self.assertEqual(len(lr), len(lu))     # same stop iteration on both layers, not just a common prefix
                 m = len(lr)
                 self.assertGreater(m, 1)

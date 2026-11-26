@@ -173,23 +173,24 @@ def probe(T, order, w, w_tilde, frame, variation):
     mu = left_to_right(lambda mu, L, xi: T.mu_term(mu, L, xi, o), ones(L[0].shape[0]), d, L, xi)
     nu = right_to_left(lambda nu, R, xi: T.nu_term(R, xi, nu, o), ones(R[-1].shape[2]), d, R, xi)
     eta = each_site(lambda mu, U, nu: T.eta_term(mu, U, nu, o), d, mu, U, nu[1:])
-    gamma = right_to_left(lambda g, L, xi: T.nu_term(L, xi, g, o), ones(L[-1].shape[2]), d, L, xi)
-    z = each_site(lambda mu, L, g, D: T.z_term(T.eta_term(mu, L, g, o), D, o), d, mu, L, gamma[1:], D)
+    nu_L = right_to_left(lambda nu_L, L, xi: T.nu_term(L, xi, nu_L, o), ones(L[-1].shape[2]), d, L, xi)
+    z = each_site(lambda mu, L, nu_L, D: T.z_term(T.eta_term(mu, L, nu_L, o), D, o), d, mu, L, nu_L[1:], D)
 
-    xi_dot = each_site(lambda V, w: T.xi_term(V, w, o), d, V, w)
-    mu_dot = left_to_right(
-        lambda mu_dot, mu, xi, xi_dot, R, U, H:
-            T.mu_term(mu_dot, R, xi, o) + T.mu_term(mu, H, xi, o) + T.mu_term(mu, U, xi_dot, o),
-        zeros(R[0].shape[0]), d, mu, xi, xi_dot, R, U, H)
-    nu_dot = right_to_left(
-        lambda nu_dot, nu, xi, xi_dot, L, U, H:
-            T.nu_term(L, xi, nu_dot, o) + T.nu_term(H, xi, nu, o) + T.nu_term(U, xi_dot, nu, o),
-        zeros(L[-1].shape[2]), d, nu[1:], xi, xi_dot, L, U, H)
-    eta_dot = each_site(
-        lambda mu_dot, mu, nu_dot, nu, L, R, H:
-            T.eta_term(mu_dot, R, nu, o) + T.eta_term(mu, H, nu, o) + T.eta_term(mu, L, nu_dot, o),
-        d, mu_dot, mu, nu_dot[1:], nu[1:], L, R, H)
-    Jp = each_site(lambda eta_dot, eta, D, V: T.z_term(eta_dot, D, o) + T.z_term(eta, V, o), d, eta_dot, eta, D, V)
+    xi_U_dot = each_site(lambda V, w: T.xi_term(V, w, o), d, V, w)
+    mu_R_dot = left_to_right(
+        lambda mu_R_dot, mu, xi, xi_U_dot, R, U, H:
+            T.mu_term(mu_R_dot, R, xi, o) + T.mu_term(mu, H, xi, o) + T.mu_term(mu, U, xi_U_dot, o),
+        zeros(R[0].shape[0]), d, mu, xi, xi_U_dot, R, U, H)
+    nu_L_dot = right_to_left(
+        lambda nu_L_dot, nu, xi, xi_U_dot, L, U, H:
+            T.nu_term(L, xi, nu_L_dot, o) + T.nu_term(H, xi, nu, o) + T.nu_term(U, xi_U_dot, nu, o),
+        zeros(L[-1].shape[2]), d, nu[1:], xi, xi_U_dot, L, U, H)
+    eta_D_dot = each_site(
+        lambda mu_R_dot, mu, nu_L_dot, nu, L, R, H:
+            T.eta_term(mu_R_dot, R, nu, o) + T.eta_term(mu, H, nu, o) + T.eta_term(mu, L, nu_L_dot, o),
+        d, mu_R_dot, mu, nu_L_dot[1:], nu[1:], L, R, H)
+    Jp = each_site(lambda eta_D_dot, eta, D, V: T.z_term(eta_D_dot, D, o) + T.z_term(eta, V, o),
+                   d, eta_D_dot, eta, D, V)
 
     xi_tilde = each_site(lambda D, s: T.xi_term(D, s, o), d, D, w_tilde)
     mu_tilde = left_to_right(

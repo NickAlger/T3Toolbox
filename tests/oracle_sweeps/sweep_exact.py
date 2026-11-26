@@ -152,19 +152,10 @@ def sampling_matrix(kind, shape, sample, order, weight):
 
 
 # ---- one case ----------------------------------------------------------------------------------------------
-def build_exact_model(geom, x, kind, sample, residual, order, weight, reg, damping):
-    kw = dict(regularizer=reg, hessian='exact', curvature_damping=damping)
-    if kind == 'apply':
-        return fitting.apply_model(geom, x, sample, residual, **kw)
-    if kind == 'entries':
-        return fitting.entries_model(geom, x, sample, residual, **kw)
-    if kind == 'probe':
-        return fitting.probe_model(geom, x, sample, residual, weight=weight, **kw)
-    if kind == 'apply_derivatives':
-        return fitting.apply_derivatives_model(geom, x, sample[0], sample[1], order, residual, weight=weight, **kw)
-    if kind == 'entries_derivatives':
-        return fitting.entries_derivatives_model(geom, x, sample[0], sample[1], order, residual, weight=weight, **kw)
-    return fitting.probe_derivatives_model(geom, x, sample[0], sample[1], order, residual, weight=weight, **kw)
+def build_exact_model(geom, x, kind, sample, y, order, weight, reg, damping):
+    """The exact frontend local model of a fit stated in the 2026.5.0 vocabulary (``sweep_models.build_model``)."""
+    oracle, batch = SM.F.old_vocabulary(kind, sample, y, tuple(x.shape), order, weight)
+    return fitting.local_model(geom, oracle, batch, x, regularizer=reg, hessian='exact', curvature_damping=damping)
 
 
 def _ragged_tangent(v):
@@ -205,9 +196,6 @@ def run_case(d, rep, geom_name, shared, kind, order, wspec, regspec, seed=13, W=
     A = t3.TuckerTensorTrain(tuple(rng.standard_normal(c.shape) for c in A0.data[0]),
                              tuple(rng.standard_normal(c.shape) for c in A0.data[1]))
     y = O.S(kind, A.to_dense(), sample, order)
-    Sx = SM.lib_S(x, kind, sample, order)
-    residual = ([np.asarray(a) - np.asarray(b) for a, b in zip(Sx, y)] if kind.startswith('probe')
-                else np.asarray(Sx) - np.asarray(y))
 
     if rep == 'ragged':
         base, pt = (t3m.MANIFOLD if geom_name == 'manifold' else t3m.COREWISE), x
@@ -215,7 +203,7 @@ def run_case(d, rep, geom_name, shared, kind, order, wspec, regspec, seed=13, W=
         base = ut3m.UNIFORM_MANIFOLD if geom_name == 'manifold' else ut3m.UNIFORM_COREWISE
         pt = ut3.UniformTuckerTensorTrain.from_t3(x)
     geom = sg.shared(base, sharing) if shared else base
-    model = build_exact_model(geom, pt, kind, sample, residual, order, weight, reg,
+    model = build_exact_model(geom, pt, kind, sample, y, order, weight, reg,
                               0.0 if geom_name == 'manifold' else None)
     p = geom.project(geom.randn(model.frame))
     q = geom.project(geom.randn(model.frame))

@@ -39,6 +39,8 @@ import t3toolbox.backend.ufv_masking as ufv_masking
 import t3toolbox.backend.tv_operations as tvo
 import t3toolbox.backend.utv_operations as utvo
 import t3toolbox.backend.uniform_fitting as uniform_fitting
+import t3toolbox.backend.geometry as bgeo
+from t3toolbox.fitting import LeastSquaresOracle, LeastSquaresBatch
 import t3toolbox.backend.ranks as ranks
 
 SHAPE, OLD, TARGET = (5, 6, 5), ((2, 2, 2), (1, 2, 2, 1)), ((3, 4, 3), (1, 3, 3, 1))
@@ -147,10 +149,15 @@ class TestTwinsAreTheirBackendCalls(unittest.TestCase):
                 geometry = t3m.MANIFOLD if layer == 'ragged' else ut3m.UNIFORM_MANIFOLD
                 start = x0 if layer == 'ragged' else ut3.UniformTuckerTensorTrain.from_t3(x0)
                 old = x_old if layer == 'ragged' else ut3.UniformTuckerTensorTrain.from_t3(x_old, N=start.N)
-                _, front = topt.newton_cg(geometry, 'probe', ww, data, start, max_newton=3, padded_from=old,
+                oracle, batch = LeastSquaresOracle('probe', order=()), LeastSquaresBatch(ww, data)
+                _, front = topt.newton_cg(geometry, oracle, batch, start, max_newton=3, padded_from=old,
                                           padded_max_passes=4)
-                setup = topt.least_squares_problem(geometry, 'probe', ww, data, start)
-                _, back = bopt.newton_cg(setup.problem, setup.x0_cores, max_newton=3, padded_from=old.data,
+                if layer == 'ragged':                       # the backend twin, built here (start and old minimal)
+                    geom, cores, bbatch = bgeo.ManifoldGeometryOps(), start.data, batch
+                else:
+                    geom = bgeo.UniformManifoldGeometryOps.from_point(start.data)
+                    cores, bbatch = start.data[:2], uniform_fitting.pack_batch('probe', (), batch, start.N)
+                _, back = bopt.newton_cg(geom, oracle, bbatch, cores, max_newton=3, padded_from=old.data,
                                          padded_max_passes=4)
                 self.assertEqual(front['losses'], back['losses'])
                 self.assertEqual(front['start_movements'], back['start_movements'])
@@ -277,7 +284,7 @@ class TestNewtonValidation(unittest.TestCase):
         untied = t3.TuckerTensorTrain.randn(SHAPE, *OLD)
         cases = ((dict(padded_from=other), 'different tensors'), (dict(start_frame=scaled), 'not orthonormal'),
                  (dict(start_frame=bvf.t3_orthogonal_representations(other.resize(SHAPE, *TARGET))[0]),
-                  'does not represent x0'),
+                  'does not represent the point'),
                  (dict(geometry=sgm.shared(t3m.MANIFOLD, shared), padded_from=untied,
                        x0=untied.resize(SHAPE, *TARGET).share(shared, max_tucker_ranks=TARGET[0],
                                                                max_tt_ranks=TARGET[1])), 'tied'))

@@ -411,6 +411,89 @@ class TestFrameVariationsFormat(unittest.TestCase):
                               frame.right_tt_cores)
             self.assertFalse(bad.is_consistent().all())
 
+    # ---- is_consistent through the cached consistency_residual (graded messages, P4) ----
+    def test_consistency_residual_is_the_dense_definition(self):
+        # ||T(D, L) - T(D, R)|| / max(1, ||T(D, R)||) per stack element, on hand-made (inconsistent) frames:
+        # the stores' two dense reconstructions, formed here, against the residual through the cores.
+        structure = ((5, 6, 4), (3, 4, 2), (2, 3, 3), (2, 2, 3, 2), (3, 2, 2, 1))     # tails in both stores
+        for C in [(), (2,), (2, 3)]:
+            with self.subTest(C=C):
+                frame, _ = _random_frame_variations(structure + (C,))
+                through_left = t3.TuckerTensorTrain(frame.down_tucker_cores, frame.left_tt_cores).to_dense()
+                through_right = t3.TuckerTensorTrain(frame.down_tucker_cores, frame.right_tt_cores).to_dense()
+                modes = tuple(range(len(C), through_left.ndim))
+                expected = (np.sqrt(np.sum((through_left - through_right) ** 2, axis=modes))
+                            / np.maximum(1.0, np.sqrt(np.sum(through_right ** 2, axis=modes))))
+                residual = frame.consistency_residual
+                self.assertEqual(residual.shape, C)
+                self.assertTrue(np.all(expected > 1e-3))
+                self.assertLess(float(np.max(np.abs(residual - expected) / expected)), 1e-12)
+                self.assertFalse(frame.is_consistent().any())
+
+    def test_is_consistent_passes_a_library_built_frame_and_fails_a_perturbed_store(self):
+        for C in [(), (2,), (2, 3)]:
+            with self.subTest(C=C):
+                x = t3.TuckerTensorTrain.randn((5, 6, 4), (3, 4, 3), (1, 2, 3, 1), stack_shape=C)
+                frame = bvf.T3Frame.from_t3(x)
+                self.assertEqual(frame.is_consistent().shape, C)
+                self.assertTrue(frame.is_consistent().all())
+                self.assertLess(float(np.max(frame.consistency_residual)), 1e-12)
+                self.assertTrue(frame.is_consistent(rtol=1e-12).all())                # rtol is the threshold
+                for name in ('left_tt_cores', 'right_tt_cores'):
+                    for site in range(3):
+                        cores = list(getattr(frame, name))
+                        cores[site] = cores[site] * (1.0 + 0.1 * np.random.randn(*cores[site].shape))
+                        stores = dict(down_tucker_cores=frame.down_tucker_cores, up_tt_cores=frame.up_tt_cores,
+                                      left_tt_cores=frame.left_tt_cores, right_tt_cores=frame.right_tt_cores)
+                        stores[name] = tuple(cores)
+                        bad = bvf.T3Frame(**stores)
+                        self.assertFalse(bad.is_consistent().any(), (name, site))
+                        self.assertTrue(bad.is_consistent(rtol=10.0).all())           # a loose threshold passes it
+
+    def test_is_consistent_is_per_stack_element(self):
+        x = t3.TuckerTensorTrain.randn((5, 6, 4), (3, 4, 3), (1, 2, 3, 1), stack_shape=(3,))
+        frame = bvf.T3Frame.from_t3(x)
+        right = list(frame.right_tt_cores)
+        core = right[1].copy()
+        core[2] *= 1.5                                                    # stack element 2 only
+        right[1] = core
+        bad = bvf.T3Frame(frame.down_tucker_cores, frame.up_tt_cores, frame.left_tt_cores, tuple(right))
+        self.assertTrue(np.array_equal(bad.is_consistent(), np.array([True, True, False])))
+
+    def test_consistency_residual_is_computed_once(self):
+        # cached like orthogonality_residual: a frame checked again and again is contracted once, and the cache
+        # is the frame's own (another frame computes its own).
+        import unittest.mock as mock
+        import t3toolbox.backend.fv_operations as fvo
+        x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
+        frame = bvf.T3Frame.from_t3(x)
+        other = bvf.T3Frame.from_t3(x)
+        with mock.patch.object(fvo, 'fv_frame_consistency_residual',
+                               wraps=fvo.fv_frame_consistency_residual) as backend_checker:
+            self.assertNotIn('consistency_residual', frame.__dict__)
+            self.assertTrue(frame.is_consistent())
+            self.assertEqual(backend_checker.call_count, 1)
+            self.assertIn('consistency_residual', frame.__dict__)
+            self.assertTrue(frame.is_consistent(rtol=1e-12))
+            first = frame.consistency_residual
+            self.assertIs(frame.consistency_residual, first)
+            self.assertEqual(backend_checker.call_count, 1)                # three more uses, no more calls
+            self.assertIs(backend_checker.call_args.args[0], frame.data)   # the frame's raw data, as it is
+            self.assertTrue(other.is_consistent())
+            self.assertEqual(backend_checker.call_count, 2)
+
+    def test_is_consistent_forms_no_dense_tensor(self):
+        # d = 12, N = 100: the dense tensor has 1e24 entries and could not be allocated; the check returns.
+        x = t3.TuckerTensorTrain.randn((100,) * 12, (5,) * 12, (1,) + (4,) * 11 + (1,))
+        frame = bvf.T3Frame.from_t3(x)
+        verdict = frame.is_consistent(rtol=1e-12)
+        self.assertTrue(bool(verdict))
+        right = list(frame.right_tt_cores)
+        right[7] = 1.01 * right[7]
+        bad = bvf.T3Frame(frame.down_tucker_cores, frame.up_tt_cores, frame.left_tt_cores, tuple(right))
+        self.assertLess(abs(float(bad.consistency_residual) - 0.01 / 1.01), 1e-10)
+        self.assertFalse(bool(bad.is_consistent()))
+
     def test_allclose(self):
         # T3Frame.allclose compares represented base points (gauge-invariant); T3Variations.allclose
         # compares variations corewise.

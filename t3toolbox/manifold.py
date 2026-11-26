@@ -30,7 +30,7 @@ import t3toolbox.backend.tv_operations as tv_operations
 import t3toolbox.backend.probing as probing
 import t3toolbox.backend.apply as apply
 import t3toolbox.backend.entries as entries
-import t3toolbox.backend.sampling_derivatives as sampling_derivatives
+import t3toolbox.backend.jets as jets
 import t3toolbox.backend.ranks as ranks
 import t3toolbox.backend.padded_frames as padded_frames
 from t3toolbox.backend.common import *
@@ -698,8 +698,9 @@ class T3Tangent(common.ExplicitEquality):
 
     def probe(
             self,
-            ww:         typ.Sequence[NDArray],  # probing vectors, len=d, elm_shape=W+(Ni,)
-    ) -> typ.Sequence[NDArray]:                 # probes, len=d, elm_shape=W+K+C+(Ni,)
+            ww:     typ.Sequence[NDArray],      # input jets: P_in_i⊗V_i, len=d, elm_shape=F_in_i+W+(Ni,)
+            order:  typ.Tuple[int, ...] = (),   # the jet shape; F=tuple(n+1 for n in order)
+    ) -> typ.Tuple[NDArray, ...]:               # Jp: P⊗V_i*, len=d, elm_shape=F+W+K+C+(Ni,)
         """Probe this tangent vector: apply the single-sample least-squares Jacobian J^(s).
 
         Contracts the tangent vector with the probing vectors ``ww`` in all-but-one index, for each
@@ -732,7 +733,7 @@ class T3Tangent(common.ExplicitEquality):
         >>> zz = v.probe(ww)
         >>> print(zz[0].shape)             # W + C + (N0,) = (2,) + () + (10,)
         (2, 10)
-        >>> zz2 = t3p.dense_probe(ww, v.to_dense())   # dense reference
+        >>> zz2 = t3p.dense_probe(v.to_dense(), ww)   # dense reference
         >>> print(bool(max(float(np.linalg.norm(a - b)) for a, b in zip(zz, zz2)) < 1e-9))
         True
 
@@ -743,35 +744,42 @@ class T3Tangent(common.ExplicitEquality):
         >>> print(zzb[0].shape)            # W + K + C + (N0,) = (2,) + (3,) + () + (10,)
         (2, 3, 10)
         """
+        jets.check_sample('probe', order, ww, self.shape)
         # probing's frame order is exactly T3Frame.data = (down, up, left, right) -- no reorder.
-        # numpy/jax dispatch is inferred from the input array types inside probing.
-        return probing.tv_probe(ww, self.variations.data, self.frame.data)
+        return probing.tv_probe(self.frame.data, self.variations.data, ww, order=order)
 
     @staticmethod
     def probe_transpose(
-            ztildes:            typ.Sequence[NDArray],  # probe residuals, len=d, elm_shape=W+K+C+(Ni,)
-            ww:                 typ.Sequence[NDArray],  # probing vectors, len=d, elm_shape=W+(Ni,)
-            frame:              bvf.T3Frame,
-            sum_over_probes:    bool = False,           # True: sum the probe stack W (Gauss-Newton J^T r)
-    ) -> 'T3Tangent':
-        """Apply the transpose ``(J^(s))^T`` of the probe map to residuals; returns a T3Tangent at ``frame``.
+            frame:             bvf.T3Frame,
+            ww:                typ.Sequence[NDArray],      # input jets: P_in_i⊗V_i, len=d, elm_shape=F_in_i+W+(Ni,)
+            c:                 typ.Sequence[NDArray],      # P*⊗V_i, len=d, elm_shape=F+W+[K]+C+(Ni,)
+            order:             typ.Tuple[int, ...] = (),   # the jet shape; F=tuple(n+1 for n in order)
+            sum_over_samples:  bool = True,                # False: keep the sample stack W (W+K tangents)
+    ) -> 'T3Tangent':                                      # X*, in a T3Tangent at frame (before the projection);
+                                                           #   tangent stack [W]+[K], frame stack C
+        """Apply the transpose ``(J^(s))^T`` of the probe map to ``c``; returns a T3Tangent at ``frame``.
 
-        The adjoint of :py:meth:`probe`. The residuals ``ztildes`` live in the forward probe space,
-        ``elm_shape = W + K + C + (Ni,)`` (probe stack ``W`` outer, optional tangent batch ``K``, frame
-        stack ``C`` inner -- the output space of a ``K``-stacked :py:meth:`probe`; ``K`` is empty in
-        the common case). The tangent batch ``K`` is always carried to the result's tangent stack; the
-        probe stack ``W`` is summed or kept per ``sum_over_probes``:
+        The adjoint of :py:meth:`probe`. ``c`` is an element of ``Y`` (``P*⊗V_i`` per mode), paired with ``probe``'s
+        output slot by slot, and has its shape, ``elm_shape = W + K + C + (Ni,)`` (probe stack ``W`` outer, optional
+        tangent batch ``K``, frame stack ``C`` inner -- the output space of a ``K``-stacked :py:meth:`probe`; ``K`` is
+        empty in the common case). It carries no metric, and none is applied here: for the gradient of a weighted
+        least-squares fit pass ``data_metric(r, weight, minibatch_scale)`` (or ``batch.data_metric(r)``), which is ``r``
+        itself with no weight and no scale. The tangent batch ``K`` is always carried to the result's tangent stack; the
+        probe stack ``W`` is summed or kept per ``sum_over_samples``:
 
-        - ``sum_over_probes=False`` (default): each probe residual becomes one tangent -- the result's
-          tangent stack is ``W + K`` (frame stack ``C``).
-        - ``sum_over_probes=True``: the probe stack is summed -- the result's tangent stack is ``K``
-          (frame stack ``C``) -- the usual Gauss-Newton ``J^T r`` (a single tangent when ``K = ()``).
+        - ``sum_over_samples=True`` (default): the probe stack is summed -- the result's tangent stack is
+          ``K`` (frame stack ``C``) -- ``J^T c`` (a single tangent when ``K = ()``); the Gauss-Newton gradient
+          ``J^T(M r)`` when ``c = data_metric(r, weight, minibatch_scale)``.
+        - ``sum_over_samples=False``: each sample's ``c`` becomes one tangent -- the result's tangent stack
+          is ``W + K`` (frame stack ``C``).
 
-        ``False`` is the **primary** transpose (``W`` a passthrough stack); ``True`` is the derived
-        contraction ``sum_over_probes=True == Σ_W sum_over_probes=False``. See *Batching & stacking* §11
-        (``docs/batching_and_stacking.md``) for which mode to use and why.
+        ``sum_over_samples=True == Σ_W sum_over_samples=False``. With ``order``, ``c`` has the shape of
+        ``probe(ww, order)``, a vector per jet slot, and the jet axes are summed (the slot-by-slot pairing of ``Y`` with
+        ``Y*``). See *Batching & stacking* §11 (``docs/batching_and_stacking.md``) for which mode to use and why.
 
-        Bare ``(J^(s))^T`` (no gauge projector). See Section 6.2.3 (Algorithm 8) of Alger et al. (2026).
+        Bare ``(J^(s))^T`` (no gauge projector): the result is an element of ``X*``, carried in a ``T3Tangent`` at
+        ``frame`` before the projection (the geometry's ``project`` maps it into ``X``). See Section 6.2.3
+        (Algorithm 8) of Alger et al. (2026).
 
         See Also
         --------
@@ -791,46 +799,46 @@ class T3Tangent(common.ExplicitEquality):
         >>> ww = (np.random.randn(2, 10), np.random.randn(2, 11), np.random.randn(2, 12))
         >>> z = (np.random.randn(2, 10), np.random.randn(2, 11), np.random.randn(2, 12))
         >>> Jv = v.probe(ww)
-        >>> JTz = t3m.T3Tangent.probe_transpose(z, ww, frame, sum_over_probes=True)
+        >>> JTz = t3m.T3Tangent.probe_transpose(frame, ww, c=z)
         >>> lhs = float(np.sum([np.sum(a * b) for a, b in zip(z, Jv)]))
         >>> print(bool(abs(lhs - float(JTz.corewise_inner(v))) < 1e-9))
         True
 
         Without summing, the result is a tangent-stacked T3Tangent (the tangent stack = the probe stack ``W``):
 
-        >>> JTz_batch = t3m.T3Tangent.probe_transpose(z, ww, frame)  # sum_over_probes=False
+        >>> JTz_batch = t3m.T3Tangent.probe_transpose(frame, ww, c=z, sum_over_samples=False)
         >>> print(JTz_batch.tangent_stack_shape, JTz_batch.frame_stack_shape)
         (2,) ()
 
-        With ``K``-stacked residuals (``W + K + C``), the tangent batch ``K`` is carried through:
+        With a ``K``-stacked ``c`` (``W + K + C``), the tangent batch ``K`` is carried through:
 
         >>> zb = tuple(np.random.randn(2, 3, N) for N in (10, 11, 12))  # W=(2,), K=(3,), C=()
-        >>> print(t3m.T3Tangent.probe_transpose(zb, ww, frame, sum_over_probes=True).tangent_stack_shape)
+        >>> print(t3m.T3Tangent.probe_transpose(frame, ww, c=zb).tangent_stack_shape)
         (3,)
-        >>> print(t3m.T3Tangent.probe_transpose(zb, ww, frame).tangent_stack_shape)  # sum=False -> W + K
+        >>> print(t3m.T3Tangent.probe_transpose(frame, ww, c=zb,
+        ...                                     sum_over_samples=False).tangent_stack_shape)  # W + K
         (2, 3)
 
-        ``sum_over_probes=True`` is exactly the probe-stack (``W``) sum of the ``False`` result:
+        ``sum_over_samples=True`` is exactly the probe-stack (``W``) sum of the ``False`` result:
 
-        >>> kept   = t3m.T3Tangent.probe_transpose(z, ww, frame)                          # W stays a stack
-        >>> summed = t3m.T3Tangent.probe_transpose(z, ww, frame, sum_over_probes=True)    # W summed
+        >>> kept   = t3m.T3Tangent.probe_transpose(frame, ww, c=z, sum_over_samples=False)   # W stays
+        >>> summed = t3m.T3Tangent.probe_transpose(frame, ww, c=z)                          # W summed
         >>> V_sum  = tuple(np.sum(c, axis=0) for c in kept.variations.tucker_variations)  # sum the W axis
         >>> err = max(float(np.linalg.norm(a - b))
         ...           for a, b in zip(V_sum, summed.variations.tucker_variations))
         >>> print(bool(err < 1e-9))
         True
         """
-        # probing's frame order is exactly T3Frame.data = (down, up, left, right) -- no reorder.
-        # numpy/jax dispatch is inferred from the input array types inside probing.
-        V_tildes, H_tildes = probing.tv_probe_transpose(
-            ztildes, ww, frame.data, sum_over_probes=sum_over_probes,
-        )
+        jets.check_sample('probe', order, ww, frame.shape)
+        V_tildes, H_tildes = probing.tv_probe_transpose(frame.data, ww, c, order=order,
+                                                        sum_over_samples=sum_over_samples)
         return T3Tangent(frame, bvf.T3Variations(V_tildes, H_tildes))
 
     def apply(
             self,
-            ww:         typ.Sequence[NDArray],  # apply vectors, len=d, elm_shape=W+(Ni,)
-    ) -> NDArray:                               # apply(v, ww), one scalar per stack element; shape=W+K+C
+            ww:     typ.Sequence[NDArray],      # input jets: P_in_i⊗V_i, len=d, elm_shape=F_in_i+W+(Ni,)
+            order:  typ.Tuple[int, ...] = (),   # the jet shape; F=tuple(n+1 for n in order)
+    ) -> NDArray:                               # Jp: P, shape=F+W+K+C
         """Apply this tangent vector in all modes: contract the dense tangent with ``ww`` everywhere.
 
         The all-modes special case of :py:meth:`probe` (probing leaves one index free; this contracts
@@ -862,14 +870,13 @@ class T3Tangent(common.ExplicitEquality):
         >>> print(bool(abs(float(a) - float(a_dense)) < 1e-9))
         True
         """
-        # frame order is exactly T3Frame.data = (down, up, left, right) -- no reorder.
-        # numpy/jax dispatch is inferred from the input array types inside probing.
-        return apply.tv_apply(ww, self.variations.data, self.frame.data)
+        jets.check_sample('apply', order, ww, self.shape)
+        return apply.tv_apply(self.frame.data, self.variations.data, ww, order=order)
 
     def entries(
             self,
-            index:      NDArray,  # int, shape=(d,)+W (a stack W of multi-indices)
-    ) -> NDArray:                 # entries of the dense tangent at ``index``; shape=W+K+C
+            index:  NDArray,                    # index^d, shape=(d,)+W, int (a nested list is converted)
+    ) -> NDArray:                               # Jp: ℝ, shape=W+K+C
         """Extract entries of the dense tangent at ``index`` (without forming the dense tangent).
 
         The tangent analogue of :py:meth:`.TuckerTensorTrain.entries`, and the all-modes special case
@@ -896,24 +903,32 @@ class T3Tangent(common.ExplicitEquality):
         >>> print(bool(abs(float(v.entries(idx)) - float(v.to_dense()[idx])) < 1e-9))
         True
         """
-        return entries.tv_entries(index, self.variations.data, self.frame.data)
+        index = t3._as_index(index)
+        jets.check_sample('entries', (), index, self.shape)
+        return entries.tv_entries(self.frame.data, self.variations.data, index)
 
     @staticmethod
     def apply_transpose(
-            c:                  NDArray,                # residual, shape=W+C
-            ww:                 typ.Sequence[NDArray],  # apply vectors, len=d, elm_shape=W+(Ni,)
-            frame:              bvf.T3Frame,
-            sum_over_probes:    bool = False,           # True: sum the apply stack W (Gauss-Newton apply^T c)
-    ) -> 'T3Tangent':
-        """Apply the transpose ``apply^T`` of :py:meth:`apply`: back-project a residual ``c`` into a tangent.
+            frame:             bvf.T3Frame,
+            ww:                typ.Sequence[NDArray],      # input jets: P_in_i⊗V_i, len=d, elm_shape=F_in_i+W+(Ni,)
+            c:                 NDArray,                    # P*, shape=F+W+[K]+C
+            order:             typ.Tuple[int, ...] = (),   # the jet shape; F=tuple(n+1 for n in order)
+            sum_over_samples:  bool = True,                # False: keep the sample stack W (W+K tangents)
+    ) -> 'T3Tangent':                                      # X*, in a T3Tangent at frame (before the projection);
+                                                           #   tangent stack [W]+[K], frame stack C
+        """Apply the transpose ``apply^T`` of :py:meth:`apply`: back-project ``c`` into a tangent.
 
-        The adjoint of the (linear-in-the-variation) all-modes :py:meth:`apply`. With
-        ``sum_over_probes=False`` (default) the apply-vector stack ``W`` becomes the result's tangent
-        stack (one tangent per apply-set); with ``sum_over_probes=True`` ``W`` is summed -- the usual
-        Gauss-Newton ``apply^T c`` back-projection (a single tangent when ``W = ()``). Needs only the
-        frame sweep + a single-term scatter assembly (cheaper than a general :py:meth:`probe_transpose`).
+        The adjoint of the (linear-in-the-variation) all-modes :py:meth:`apply`. ``c`` is an element of ``Y`` (``P*``
+        per sample), paired with ``apply``'s output slot by slot. It carries no metric, and none is applied here: for
+        the gradient of a weighted least-squares fit pass ``data_metric(r, weight, minibatch_scale)`` (or
+        ``batch.data_metric(r)``), which is ``r`` itself with no weight and no scale. With ``sum_over_samples=True``
+        (default) the sample stack ``W`` is summed -- ``J^T c``, the Gauss-Newton gradient ``J^T(M r)`` when
+        ``c = data_metric(r, weight, minibatch_scale)``; with ``sum_over_samples=False`` it becomes the result's tangent
+        stack (one tangent per sample). Needs only the frame sweep + a single-term scatter assembly (cheaper than a
+        general :py:meth:`probe_transpose`). The result is ``X*`` in a ``T3Tangent``, before the projection, as
+        there.
 
-        ``False`` is the primary transpose; ``sum_over_probes=True == Σ_W sum_over_probes=False``. See
+        ``sum_over_samples=True == Σ_W sum_over_samples=False``. See
         *Batching & stacking* §11 (``docs/batching_and_stacking.md``) for which mode to use and why.
 
         Examples
@@ -929,259 +944,38 @@ class T3Tangent(common.ExplicitEquality):
         >>> frame, _ = bvf.t3_orthogonal_representations(x)
         >>> v = t3m.COREWISE.randn(frame)
         >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-        >>> ATc = t3m.T3Tangent.apply_transpose(np.asarray(1.7), ww, frame, sum_over_probes=True)
+        >>> ATc = t3m.T3Tangent.apply_transpose(frame, ww, c=np.asarray(1.7))
         >>> lhs = float(cw.corewise_dot(ATc.variations.data, v.variations.data))
         >>> print(bool(abs(lhs - 1.7 * float(v.apply(ww))) < 1e-9))
         True
         """
-        # frame order is exactly T3Frame.data = (down, up, left, right) -- no reorder.
-        V, H = apply.tv_apply_transpose(c, ww, frame.data, sum_over_probes=sum_over_probes)
+        jets.check_sample('apply', order, ww, frame.shape)
+        V, H = apply.tv_apply_transpose(frame.data, ww, c, order=order, sum_over_samples=sum_over_samples)
         return T3Tangent(frame, bvf.T3Variations(V, H))
 
     @staticmethod
     def entries_transpose(
-            c:                  NDArray,                # residual, shape=W+C
-            index:              NDArray,                # int, shape=(d,)+W
-            frame:              bvf.T3Frame,
-            sum_over_probes:    bool = False,           # True: sum the apply stack W (Gauss-Newton entries^T c)
-    ) -> 'T3Tangent':
+            frame:             bvf.T3Frame,
+            index:             NDArray,                    # index^d, shape=(d,)+W, int (a nested list is converted)
+            c:                 NDArray,                    # ℝ, shape=W+[K]+C
+            sum_over_samples:  bool = True,                # False: keep the sample stack W (W+K tangents)
+    ) -> 'T3Tangent':                                      # X*, in a T3Tangent at frame (before the projection);
+                                                           #   tangent stack [W]+[K], frame stack C
         """Apply the transpose ``entries^T`` of :py:meth:`entries`: scatter ``c`` at ``index`` into a tangent.
 
-        The adjoint of :py:meth:`entries` -- identical to :py:meth:`apply_transpose` with the upward
-        ``ξ̂`` from fiber slicing and unit apply-vectors ``e_{index}``. ``sum_over_probes`` as in
-        :py:meth:`apply_transpose` (see *Batching & stacking* §11).
+        The adjoint of :py:meth:`entries` -- identical to :py:meth:`apply_transpose` with the upward ``ξ̂`` from fiber
+        slicing and unit apply-vectors ``e_{index}``; ``c`` is an element of ``Y`` (``ℝ`` per sample), with no metric,
+        as there. ``sum_over_samples`` as in :py:meth:`apply_transpose` (see *Batching & stacking* §11). The result
+        is ``X*`` in a ``T3Tangent``, before the projection, as there.
 
         See Also
         --------
         entries
         apply_transpose
         """
-        V, H = entries.tv_entries_transpose(c, index, frame.data, sum_over_probes=sum_over_probes)
-        return T3Tangent(frame, bvf.T3Variations(V, H))
-
-    ###############################################
-    ##########    Symmetric derivatives    ########
-    ###############################################
-
-    def probe_derivatives(
-            self,
-            ww:     typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=W+(Ni,)
-            pp:     typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
-            order:  int,                    # highest derivative order
-    ) -> typ.Sequence[NDArray]:             # len=d, elm_shape=(order+1,)+W+K+C+(Ni,)
-        """Symmetric directional derivatives of probing this tangent vector, in one repeated direction.
-
-        Returns, for each mode ``i``, the stack ``y_i^(t) = d^t/ds^t [probe(X + s P)]_i|_0`` for
-        ``t=0..order`` -- the derivative analogue of :py:meth:`probe`, obtained by perturbing every probe
-        vector in the same direction ``P``. Index ``0`` is the ordinary :py:meth:`probe`. Stacks ``order
-        + W + K + C`` (order outermost; probe stack ``W``, tangent stack ``K``, frame stack ``C``). The
-        points ``X`` (``ww``) and the perturbations ``P`` (``pp``) must share the probe stack ``W``.
-
-        See ``docs/symmetric_probe_derivatives.tex``.
-
-        See Also
-        --------
-        probe
-        apply_derivatives
-        probe_derivatives_transpose
-
-        Examples
-        --------
-        >>> import numpy as np
-        >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.frame_variations_format as bvf
-        >>> import t3toolbox.manifold as t3m
-        >>> np.random.seed(0)
-        >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
-        >>> frame, variations = bvf.t3_orthogonal_representations(x)
-        >>> v = t3m.T3Tangent(frame, variations)
-        >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-        >>> pp = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-        >>> zj = v.probe_derivatives(ww, pp, 3)
-        >>> print([z.shape for z in zj])           # (order+1,) + (Ni,)
-        [(4, 10), (4, 11), (4, 12)]
-        >>> print([bool(np.allclose(z[0], z0)) for z, z0 in zip(zj, v.probe(ww))])  # order 0 == probe
-        [True, True, True]
-        """
-        sampling_derivatives.check_perturbation_vectors(ww, pp)
-        return sampling_derivatives.tv_probe_derivatives(ww, pp, self.variations.data, self.frame.data, order)
-
-    def apply_derivatives(
-            self,
-            ww:     typ.Sequence[NDArray],  # apply vectors X,        len=d, elm_shape=W+(Ni,)
-            pp:     typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
-            order:  int,                    # highest derivative order
-    ) -> NDArray:                           # shape=(order+1,)+W+K+C
-        """Symmetric directional derivatives of applying this tangent vector in all modes.
-
-        The all-modes analogue of :py:meth:`probe_derivatives` (and the derivative analogue of
-        :py:meth:`apply`): ``y^(t) = d^t/ds^t apply(X + s P)|_0`` for ``t=0..order`` (a scalar per
-        stack element). Stacks ``order + W + K + C``. ``X`` and ``P`` must share the probe stack ``W``.
-
-        See Also
-        --------
-        apply
-        probe_derivatives
-        apply_derivatives_transpose
-
-        Examples
-        --------
-        >>> import numpy as np
-        >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.frame_variations_format as bvf
-        >>> import t3toolbox.manifold as t3m
-        >>> np.random.seed(0)
-        >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
-        >>> frame, variations = bvf.t3_orthogonal_representations(x)
-        >>> v = t3m.T3Tangent(frame, variations)
-        >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-        >>> pp = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-        >>> yj = v.apply_derivatives(ww, pp, 3)
-        >>> print(yj.shape)                        # (order+1,) -- one scalar per order
-        (4,)
-        >>> print(bool(np.allclose(yj[0], v.apply(ww))))     # order 0 == apply
-        True
-        """
-        sampling_derivatives.check_perturbation_vectors(ww, pp)
-        return sampling_derivatives.tv_apply_derivatives(ww, pp, self.variations.data, self.frame.data, order)
-
-    def entries_derivatives(
-            self,
-            index:  NDArray,                # int, shape=(d,)+W -- grid points
-            pp:     typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
-            order:  int,                    # highest derivative order
-    ) -> NDArray:                           # shape=(order+1,)+W+K+C
-        """Symmetric directional derivatives of this tangent's entries at ``index``, in direction ``P``.
-
-        The Taylor data of the tangent's multilinear extension at grid corner ``index``, in direction
-        ``P``: ``y^(t) = d^t/ds^t apply(e_{index} + s P)|_0`` for ``t=0..order``. Index ``0`` is the
-        ordinary :py:meth:`entries`. Stacks ``order + W + K + C``. ``index`` and ``P`` share ``W``.
-
-        See Also
-        --------
-        entries
-        apply_derivatives
-        entries_derivatives_transpose
-
-        Examples
-        --------
-        >>> import numpy as np
-        >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.frame_variations_format as bvf
-        >>> import t3toolbox.manifold as t3m
-        >>> np.random.seed(0)
-        >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
-        >>> frame, variations = bvf.t3_orthogonal_representations(x)
-        >>> v = t3m.T3Tangent(frame, variations)
-        >>> index = np.array([3, 5, 7])
-        >>> pp = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-        >>> yj = v.entries_derivatives(index, pp, 3)
-        >>> print(yj.shape)
-        (4,)
-        >>> print(bool(np.allclose(yj[0], v.entries(index))))   # order 0 == entries
-        True
-        """
-        sampling_derivatives.check_perturbation_index(index, pp, self.shape)
-        return sampling_derivatives.tv_entries_derivatives(index, pp, self.variations.data, self.frame.data, order)
-
-    @staticmethod
-    def probe_derivatives_transpose(
-            ztildes:            typ.Sequence[NDArray],    # residual jets, len=d, elm_shape=(order+1,)+W+K+C+(Ni,)
-            ww:                 typ.Sequence[NDArray],    # probe vectors X,        len=d, elm_shape=W+(Ni,)
-            pp:                 typ.Sequence[NDArray],    # perturbation vectors P, len=d, elm_shape=W+(Ni,)
-            frame:              bvf.T3Frame,
-            order:              int,                      # highest derivative order
-            sum_over_probes:    bool = False,             # True: sum the probe stack W (Gauss-Newton J^T r)
-            chunk_size:         typ.Optional[int] = 100,  # W-chunk size for the gradient assembly; None -> dense
-    ) -> 'T3Tangent':
-        """Transpose ``(J^(s))^T`` of :py:meth:`probe_derivatives`; returns a :py:class:`T3Tangent` at ``frame``.
-
-        The adjoint of :py:meth:`probe_derivatives`. Residual jets ``ztildes`` live in its output space
-        (``(order+1)+W+K+C+(Ni,)``); the tangent batch ``K`` rides through, the probe stack ``W`` is
-        summed (``sum_over_probes=True``, the Gauss-Newton ``J^T r``) or kept (``False``, ``W`` becomes
-        the tangent stack). Bare ``(J^(s))^T`` (no gauge projector).
-
-        ``chunk_size`` bounds the peak memory of the (uniform+jax) gradient assembly by processing the
-        probe stack in slices; ``None`` runs the dense assembly. See :doc:`/chunking`.
-
-        See Also
-        --------
-        probe_derivatives
-        probe_transpose
-
-        Examples
-        --------
-        Adjoint identity ``<r, J v> = <J^T r, v>`` (sum over probes):
-
-        >>> import numpy as np
-        >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.frame_variations_format as bvf
-        >>> import t3toolbox.manifold as t3m
-        >>> np.random.seed(0)
-        >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
-        >>> frame, _ = bvf.t3_orthogonal_representations(x)
-        >>> v = t3m.COREWISE.randn(frame)
-        >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-        >>> pp = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-        >>> Jv = v.probe_derivatives(ww, pp, 2)
-        >>> r = [np.random.randn(*z.shape) for z in Jv]
-        >>> JTr = t3m.T3Tangent.probe_derivatives_transpose(r, ww, pp, frame, 2, sum_over_probes=True)
-        >>> lhs = sum(float(np.sum(ri * zi)) for ri, zi in zip(r, Jv))
-        >>> print(bool(abs(lhs - float(JTr.corewise_inner(v))) < 1e-9))
-        True
-        """
-        sampling_derivatives.check_perturbation_vectors(ww, pp)
-        V, H = sampling_derivatives.tv_probe_derivatives_transpose(
-            ztildes, ww, pp, frame.data, order, sum_over_probes=sum_over_probes, chunk_size=chunk_size)
-        return T3Tangent(frame, bvf.T3Variations(V, H))
-
-    @staticmethod
-    def apply_derivatives_transpose(
-            c:                  NDArray,                # residual jet (scalar), shape=(order+1,)+W+K+C
-            ww:                 typ.Sequence[NDArray],  # apply vectors X,        len=d, elm_shape=W+(Ni,)
-            pp:                 typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
-            frame:              bvf.T3Frame,
-            order:              int,                    # highest derivative order
-            sum_over_probes:    bool = False,
-    ) -> 'T3Tangent':
-        """Transpose of :py:meth:`apply_derivatives`: back-project residual jets ``c`` into a tangent.
-
-        The adjoint-state apply-derivative transpose (the scalar residual jet seeds one sweep; about half
-        a :py:meth:`probe_derivatives_transpose`). ``sum_over_probes`` as in :py:meth:`probe_derivatives_transpose`.
-
-        See Also
-        --------
-        apply_derivatives
-        apply_transpose
-        """
-        sampling_derivatives.check_perturbation_vectors(ww, pp)
-        V, H = sampling_derivatives.tv_apply_derivatives_transpose(
-            c, ww, pp, frame.data, order, sum_over_probes=sum_over_probes)
-        return T3Tangent(frame, bvf.T3Variations(V, H))
-
-    @staticmethod
-    def entries_derivatives_transpose(
-            c:                  NDArray,                # residual jet (scalar), shape=(order+1,)+W+K+C
-            index:              NDArray,                # int, shape=(d,)+W
-            pp:                 typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
-            frame:              bvf.T3Frame,
-            order:              int,                    # highest derivative order
-            sum_over_probes:    bool = False,
-    ) -> 'T3Tangent':
-        """Transpose of :py:meth:`entries_derivatives`: scatter residual jets ``c`` at ``index`` into a tangent.
-
-        Identical to :py:meth:`apply_derivatives_transpose` with the frame's upward edge variables from fiber slicing
-        and the ambient ``w_jet`` from the unit vectors ``e_{index}`` (so the Tucker-variation gradient
-        scatters onto the indexed rows).
-
-        See Also
-        --------
-        entries_derivatives
-        apply_derivatives_transpose
-        """
-        sampling_derivatives.check_perturbation_index(index, pp, frame.shape)
-        V, H = sampling_derivatives.tv_entries_derivatives_transpose(
-            c, index, pp, frame.data, order, sum_over_probes=sum_over_probes)
+        index = t3._as_index(index)
+        jets.check_sample('entries', (), index, frame.shape)
+        V, H = entries.tv_entries_transpose(frame.data, index, c, sum_over_samples=sum_over_samples)
         return T3Tangent(frame, bvf.T3Variations(V, H))
 
     ############################################
@@ -1394,10 +1188,10 @@ class ManifoldGeometry:
     ) -> T3Tangent:  # gauged tangent at v's frame (a DIFFERENT vector)
         """The gauge projection ``Pi``: raw cotangent -> Riemannian gradient (orthogonal gauge).
 
-        Orthogonally projects ``v``'s variations onto the gauged tangent space (the gauge conditions
-        (47)-(48), Appendix A.3). Represents a DIFFERENT tangent vector than ``v``. This is the map
-        that turns a bare adjoint ``J^T r`` into the Riemannian gradient. For the vector-preserving
-        gauge fix see :py:meth:`project_oblique`.
+        Orthogonally projects ``v``'s variations onto the gauged tangent space (the gauge conditions (47)-(48), Appendix
+        A.3). Represents a DIFFERENT tangent vector than ``v``. This is the map that turns a bare adjoint ``J^T c``
+        (with ``c = M r``: the misfit's raw gradient) into the Riemannian gradient. For the vector-preserving gauge fix
+        see :py:meth:`project_oblique`.
 
         **Safe mode** requires ``v``'s frame to be **orthogonal** (the precondition for this to be the
         orthogonal-gauge projection ``Pi``); it raises otherwise. Skipped under ``safety.unsafe()`` / a

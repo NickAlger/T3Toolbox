@@ -9,11 +9,10 @@ val_sample=…, val_data=…)`` and a train/validation split:
   2. **probe derivatives** (kind ``'probe_derivatives'``) -- two data axes (mode × order), so the table
      puts **modes in rows, orders in columns, and train|val in each cell**.
 
-Each Newton iteration prints a header line -- objective (and, when a residual weight ``ω`` is used, the
-unweighted objective), gradient norm, CG iterations / tolerance / achieved residual / status
-(``✓`` converged, ``⋯`` hit maxiter, ``⌇`` truncated on nonpositive curvature), line-search steps and step
-length, the actual-vs-predicted reduction ``ρ``, and the wall time -- followed by the relative-error table
-``‖S(x)_ij − y_ij‖ / ‖y_ij‖`` per ``(mode, order)`` block, for train and validation.
+Each Newton iteration prints a header line -- objective, gradient norm, CG iterations / tolerance / achieved
+residual / status (``✓`` converged, ``⋯`` hit maxiter, ``⌇`` truncated on nonpositive curvature), line-search
+steps and step length, the actual-vs-predicted reduction ``ρ``, and the wall time -- followed by the
+relative-error table ``‖S(x)_ij − y_ij‖ / ‖y_ij‖`` per ``(mode, order)`` block, for train and validation.
 
 The per-iteration records are also returned in ``stats['diagnostics']`` (the same data, for plotting).
 Everything here is a thin convenience over the **backend** display: a raw-``.data`` user gets the identical
@@ -27,6 +26,7 @@ import numpy as np
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.manifold as t3m
 import t3toolbox.optimizers as topt
+from t3toolbox.fitting import affine_jet, taylor_to_derivatives
 
 
 # --------------------------------------------------------------------------------------------------
@@ -46,6 +46,13 @@ def unit_probes(M, rng):
     """M probe tuples (a W=(M,) stack), each vector scaled to unit norm."""
     ww = [rng.standard_normal((M, N)) for N in SHAPE]
     return [w / np.linalg.norm(w, axis=1, keepdims=True) for w in ww]
+
+
+def derivative_data(A, ww, pp):
+    """The probe-derivative jets of ``A`` along the lines ``ww + s pp``: the merged ``probe`` at the input jet gives
+    the Taylor coefficients, and ``taylor_to_derivatives`` the derivatives (slot ``t`` times ``t!``), the data
+    form of the ``'probe_derivatives'`` kind."""
+    return taylor_to_derivatives('probe', (ORDER,), A.probe(affine_jet(ww, pp), (ORDER,)))
 
 
 def main():
@@ -73,10 +80,10 @@ def main():
           "MODES IN ROWS, ORDERS IN COLUMNS, train|val cells" % ORDER)
     print("=" * 100)
     pp, ppv = unit_probes(M_TRAIN, rng), unit_probes(M_VAL, rng)   # one perturbation direction per probe
-    jet_tr = [np.asarray(z) for z in A.probe_derivatives(ww, pp, ORDER)]    # d jets, (order+1)+W+(Ni,)
-    jet_va = [np.asarray(z) for z in A.probe_derivatives(wwv, ppv, ORDER)]
-    # a per-order residual weight ω = 1/‖data at that order‖ conditions the wildly-scaled orders (§4.6);
-    # it makes the header show the unweighted objective alongside the weighted one.
+    jet_tr = [np.asarray(z) for z in derivative_data(A, ww, pp)]          # d jets, (order+1)+W+(Ni,)
+    jet_va = [np.asarray(z) for z in derivative_data(A, wwv, ppv)]
+    # a per-order residual weight ω = 1/‖data at that order‖ conditions the wildly-scaled orders (§4.6); it is
+    # constant within each (mode, order) block, so it leaves the table's relative errors as they are.
     order_norm = np.sqrt(sum(np.sum(z ** 2, axis=tuple(range(1, z.ndim))) for z in jet_tr))  # (order+1,)
     omega = 1.0 / order_norm                                                # a row vector -> per-order
     _, stats = topt.newton_cg(t3m.MANIFOLD, 'probe_derivatives', (ww, pp), jet_tr, x0, order=ORDER,

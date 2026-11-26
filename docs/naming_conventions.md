@@ -176,13 +176,21 @@ The batching convention ([`batching_and_stacking.md`](batching_and_stacking.md))
 UPPERCASE letters **`C`** (frame/core stack), **`W`** (probe stack) and **`K`** (tangent stack) for
 the three batch blocks, and lowercase letters for single axes in contraction strings.
 
+**`P`** is the group of jet axes (the jets on the box `F`, one axis per jet variable), leading every term that has it
+(`jet_contract('PWCa,Caib,PWCi->PWCb', ...)`, `GroupLengths(P=m, W=..., K=..., C=...)`); **`Q`** is reserved for the
+dual-jet axes. `J` is the Jacobian only (`J`, `Jp`, `JtJp`). In shape comments **a concrete shape spells the sizes**
+(`F`, the box; `F_in_i`, the input jets' own sizes; `min(F_in_i, F)` for a leaf) and **a family of shapes spells the
+group**: `P + W + [K] + C + (size,)`, where `[G]` marks a group present only for some variables or settings. Any
+group may also be empty (zero axes).
+
 **Derivative order has no letter in code and docs: the scalar is spelled `order`.** The
 *order/jet axis* (length `order + 1`) is lowercase **`t`** in contraction strings and shape
 comments, with **`r`, `s`** the two input-order axes of a binomial convolution (the derivation's
 `trs[t,r,s] = C(t,r)·[r+s=t]`), and **`k`, `u`** the length-2 pair axis of a banded recurrence (an input
 jet's two orders; the two read rows of `dx̃i`). `K` means the tangent stack *only* -- a 2026-08-24 ruling: the
 sampling-derivatives docstrings used to gloss the max order as `K`, colliding with the
-tangent-stack letter in the very functions that carry both.
+tangent-stack letter in the very functions that carry both. (This `t` is the order axis of the derivative kernels in
+`backend/sampling_derivatives.py`; the sampling engine's jet axes are the group `P`, above.)
 
 The math note `docs/symmetric_probe_derivatives.tex` writes the max order as **$m$** (the jet-bundle
 $J^m$ precedent) with running index $t = 0, \dots, m$ and binomial split $\binom{t}{r}$ -- the same

@@ -14,6 +14,7 @@ from the data) cannot be jitted, so they get a weaker jax-in -> jax-out output c
 numerical smoke tests guard against subtle backend divergence on the most complex ops.
 """
 import dataclasses as dc
+import math
 import os
 import sys
 import numpy as np
@@ -34,7 +35,6 @@ import t3toolbox.backend.optimizers as bopt
 import t3toolbox.backend.fitting as bfit
 import t3toolbox.backend.common as common
 import t3toolbox.backend.contractions as contractions
-import t3toolbox.backend.sampling_derivatives as pd
 import t3toolbox.backend.tv_operations as tops
 import t3toolbox.backend.linalg as linalg
 import t3toolbox.backend.probing as probing
@@ -44,7 +44,18 @@ import t3toolbox.fitting as fitting
 import t3toolbox.optimizers as topt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import _jet_trs_twins as twins      # the binomial tensor: test-only (the package never contracts it)
+import _jet_contract_cases as jet_cases     # the literal jet_contract strings and their operands: test-only
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+import _derivative_data as dd       # derivative data from the merged methods (P13b)
+import _fits as F                   # a backend fit (geometry, oracle, batch, regularizer) from plain specs (P16)
+
+
+def _fmodel(geometry, x, kind, sample, data, order=None, weight=None, **kw):
+    '''The frontend local model of a fit stated in the 2026.5.0 vocabulary (``F.old_vocabulary``): plain kinds at the
+    jet shape (), derivative data along lines through ``prepare_derivative_data``.'''
+    oracle, batch = F.old_vocabulary(kind, sample, data, tuple(x.shape), order, weight)
+    return fitting.local_model(geometry, oracle, batch, x, **kw)
 
 try:
     import jax
@@ -234,36 +245,36 @@ class TestDispatch(unittest.TestCase):
         # ambient adjoints: residual c shape W (+ C); both sum modes; returns CP factors (a pytree)
         N = STRUCT[0]
         self.assert_jit_jax(
-            lambda cc, *ws: t3.TuckerTensorTrain.apply_ambient_transpose(cc, ws), jnp.ones(2), *self.ww)
+            lambda cc, *ws: t3.TuckerTensorTrain.apply_ambient_transpose(ws, c=cc), jnp.ones(2), *self.ww)
         self.assert_jit_jax(
-            lambda cc, *ws: t3.TuckerTensorTrain.apply_ambient_transpose(cc, ws, sum_over_probes=True),
+            lambda cc, *ws: t3.TuckerTensorTrain.apply_ambient_transpose(ws, c=cc, sum_over_samples=True),
             jnp.ones(2), *self.ww)
         self.assert_jit_jax(
-            lambda cc, i: t3.TuckerTensorTrain.entries_ambient_transpose(cc, i, N), jnp.ones(()), idx)
+            lambda cc, i: t3.TuckerTensorTrain.entries_ambient_transpose(i, N, c=cc), jnp.ones(()), idx)
         self.assert_jit_jax(
-            lambda cc, i: t3.TuckerTensorTrain.entries_ambient_transpose(cc, i, N, sum_over_probes=True),
+            lambda cc, i: t3.TuckerTensorTrain.entries_ambient_transpose(i, N, c=cc, sum_over_samples=True),
             jnp.ones(2), jnp.array([[1, 2], [2, 3], [3, 0]]))  # (d,) + W, W=(2,)
         # corewise (non-manifold) adjoints: gradient w.r.t. the cores (frame x passed as a traced pytree)
         self.assert_jit_jax(
-            lambda xx, cc, *ws: xx.apply_corewise_transpose(cc, ws), self.x, jnp.ones(2), *self.ww)
+            lambda xx, cc, *ws: xx.apply_corewise_transpose(ws, c=cc, sum_over_samples=False), self.x, jnp.ones(2), *self.ww)
         self.assert_jit_jax(
-            lambda xx, cc, *ws: xx.apply_corewise_transpose(cc, ws, sum_over_probes=True),
+            lambda xx, cc, *ws: xx.apply_corewise_transpose(ws, c=cc),
             self.x, jnp.ones(2), *self.ww)
         self.assert_jit_jax(
-            lambda xx, cc, i: xx.entries_corewise_transpose(cc, i), self.x, jnp.ones(()), idx)
+            lambda xx, cc, i: xx.entries_corewise_transpose(i, c=cc, sum_over_samples=False), self.x, jnp.ones(()), idx)
         self.assert_jit_jax(
-            lambda xx, cc, i: xx.entries_corewise_transpose(cc, i, sum_over_probes=True),
+            lambda xx, cc, i: xx.entries_corewise_transpose(i, c=cc),
             self.x, jnp.ones(2), jnp.array([[1, 2], [2, 3], [3, 0]]))  # (d,) + W, W=(2,)
         # probe transposes: residuals zz (d vecs, W+C+(N,)), probe vecs ww; ambient -> CP, corewise -> grads
         self.assert_jit_jax(
-            lambda zt, w: t3.TuckerTensorTrain.probe_ambient_transpose(zt, w), list(self.zz), list(self.ww))
+            lambda zt, w: t3.TuckerTensorTrain.probe_ambient_transpose(w, c=zt), list(self.zz), list(self.ww))
         self.assert_jit_jax(
-            lambda zt, w: t3.TuckerTensorTrain.probe_ambient_transpose(zt, w, sum_over_probes=True),
+            lambda zt, w: t3.TuckerTensorTrain.probe_ambient_transpose(w, c=zt, sum_over_samples=True),
             list(self.zz), list(self.ww))
         self.assert_jit_jax(
-            lambda xx, zt, w: xx.probe_corewise_transpose(zt, w), self.x, list(self.zz), list(self.ww))
+            lambda xx, zt, w: xx.probe_corewise_transpose(w, c=zt, sum_over_samples=False), self.x, list(self.zz), list(self.ww))
         self.assert_jit_jax(
-            lambda xx, zt, w: xx.probe_corewise_transpose(zt, w, sum_over_probes=True),
+            lambda xx, zt, w: xx.probe_corewise_transpose(w, c=zt),
             self.x, list(self.zz), list(self.ww))
 
     # ---------------------------------------------------- jit bucket: T3Tangent
@@ -297,38 +308,34 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda xx: t3m.MANIFOLD.project_ambient(frame, xx), self.x_other)
         self.assert_jit_jax(lambda a, w: a.probe(w), self.v, self.ww)
         self.assert_jit_jax(lambda a, w: a.probe(w), self.v_vstack, self.ww)  # 3-group (W,K,C) probe
-        self.assert_jit_jax(lambda z, w: t3m.T3Tangent.probe_transpose(z, w, frame), self.zz, self.ww)
+        self.assert_jit_jax(lambda z, w: t3m.T3Tangent.probe_transpose(frame, w, c=z, sum_over_samples=False), self.zz, self.ww)
         # K-stacked residuals (W+K+C) -> 3-group transpose assemble, both sum modes
         self.assert_jit_jax(
-            lambda z, w: t3m.T3Tangent.probe_transpose(z, w, frame, sum_over_probes=True), self.zz_vstack, self.ww)
+            lambda z, w: t3m.T3Tangent.probe_transpose(frame, w, c=z), self.zz_vstack, self.ww)
         self.assert_jit_jax(
-            lambda z, w: t3m.T3Tangent.probe_transpose(z, w, frame), self.zz_vstack, self.ww)
+            lambda z, w: t3m.T3Tangent.probe_transpose(frame, w, c=z, sum_over_samples=False), self.zz_vstack, self.ww)
         self.assert_jit_jax(lambda a, w: a.apply(w), self.v_vstack, self.ww)              # tangent apply
         self.assert_jit_jax(lambda a, i: a.entries(i), self.v_vstack, jnp.array([1, 2, 3]))  # tangent entries
         # tangent adjoints: c shape W (+C); both sum modes
         self.assert_jit_jax(
-            lambda cc, w: t3m.T3Tangent.apply_transpose(cc, w, frame, sum_over_probes=True), jnp.ones(2), self.ww)
+            lambda cc, w: t3m.T3Tangent.apply_transpose(frame, w, c=cc), jnp.ones(2), self.ww)
         self.assert_jit_jax(
-            lambda cc, w: t3m.T3Tangent.apply_transpose(cc, w, frame), jnp.ones(2), self.ww)  # keep W
+            lambda cc, w: t3m.T3Tangent.apply_transpose(frame, w, c=cc, sum_over_samples=False), jnp.ones(2), self.ww)  # keep W
         self.assert_jit_jax(
-            lambda cc, i: t3m.T3Tangent.entries_transpose(cc, i, frame, sum_over_probes=True),
+            lambda cc, i: t3m.T3Tangent.entries_transpose(frame, i, c=cc),
             jnp.ones(()), jnp.array([1, 2, 3]))
 
     # ---------------------------------------------------- jit bucket: symmetric probe derivatives
-    def test_jit_probe_derivatives(self):
-        # paired (X, P) sample stack W=(2,); order static; all-orders jet output must be all-jax.
-        self.assert_jit_jax(
-            lambda cc, w, p: pd.t3_probe_derivatives(w, p, cc, 3),
-            self.x.data, list(self.ww), list(self.zz))
-        # with a frame/core stack C=(2,) too: output (K+1) + W + C + (N,)
-        xc = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=(2,)).to_jax()
-        self.assert_jit_jax(
-            lambda cc, w, p: pd.t3_probe_derivatives(w, p, cc, 3),
-            xc.data, list(self.ww), list(self.zz))
-        # the grouped-einsum interpreter directly: ndim solve + expansion at trace time (static
-        # string/lens); a 4-operand trs combine (the dense twins' form), an order-broadcast lift, and a
-        # summed-W assemble
-        trs = twins.binomial_combine_tensor(3)
+    def test_jit_the_interpreter_on_multi_group_strings(self):
+        # the grouped-einsum interpreter directly: ndim solve + expansion at trace time (static string/lens); a
+        # 4-operand combine with a binomial tensor, an order-broadcast lift, a summed-W assemble, and the
+        # order-threaded 3-group strings (K=(3,), C=())
+        order = 3
+        trs = np.zeros((order + 1,) * 3)                    # trs[t, r, s] = C(t, r) when r + s == t, else 0
+        for t in range(order + 1):
+            for r in range(t + 1):
+                trs[t, r, t - r] = math.comb(t, r)
+        trs = jnp.asarray(trs)
         mu = jnp.ones((4, 2, 5)); G = jnp.ones((5, 4, 6)); xij = jnp.ones((2, 2, 4)); nu = jnp.ones((4, 2, 6))
         self.assert_jit_jax(lambda a, b, c, e: contractions.contract('trs,rWCa,Caib,sWCi->tWCb', a, b, c, e),
                             trs[:, :, :2], mu, G, xij)
@@ -338,52 +345,6 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda a, b: contractions.contract('tWCi,Cio->tWCo', a, b), eta, D)
         self.assert_jit_jax(lambda a, b: contractions.contract('WCo,WCa->Cao', a, b, len_W=1),
                             jnp.ones((2, 5)), jnp.ones((2, 6)))
-        # Riemannian (tangent) forward derivatives: jit, frame + variation sweeps, all-orders
-        self.assert_jit_jax(
-            lambda var, b, w, p: pd.tv_probe_derivatives(w, p, var, b, 3),
-            self.var.data, self.frame.data, list(self.ww), list(self.zz))
-        # Riemannian (tangent) transpose: jit, residual jets (K+1)+W+(N,) -> variation gradient
-        rt = tuple(jnp.asarray(np.random.randn(4, 2, N)) for N in STRUCT[0])  # K+1=4, W=(2,)
-        self.assert_jit_jax(
-            lambda rr, w, p, b: pd.tv_probe_derivatives_transpose(rr, w, p, b, 3, sum_over_probes=True),
-            rt, list(self.ww), list(self.zz), self.frame.data)
-        # transpose with a frame/core stack C=(2,): residual jets (K+1)+W+C+(N,), both sum_over_probes
-        frameC = bvf.t3_orthogonal_representations(
-            t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=(2,)).to_jax())[0].data
-        rtC = tuple(jnp.asarray(np.random.randn(4, 2, 2, N)) for N in STRUCT[0])  # K+1=4, W=(2,), C=(2,)
-        for sop in (True, False):
-            self.assert_jit_jax(
-                lambda rr, w, p, b: pd.tv_probe_derivatives_transpose(rr, w, p, b, 3, sum_over_probes=sop),
-                rtC, list(self.ww), list(self.zz), frameC)
-        # K-stacked Riemannian forward (exercises the order-threaded 3-block W/K/C contractions under jit)
-        self.assert_jit_jax(
-            lambda var, b, w, p: pd.tv_probe_derivatives(w, p, var, b, 3),
-            self.v_vstack.variations.data, self.frame.data, list(self.ww), list(self.zz))
-        # K-stacked transpose (the order-threaded 3-block ADJOINT contractions): residual (order+1)+W+K+C
-        rtK = tuple(jnp.asarray(np.random.randn(4, 2, 3, N)) for N in STRUCT[0])  # order+1=4, W=(2,), K=(3,)
-        for sop in (True, False):
-            self.assert_jit_jax(
-                lambda rr, w, p, b: pd.tv_probe_derivatives_transpose(rr, w, p, b, 3, sum_over_probes=sop),
-                rtK, list(self.ww), list(self.zz), self.frame.data)
-        # apply derivatives: Euclidean (W+C), Riemannian single, Riemannian K-stacked
-        self.assert_jit_jax(
-            lambda cc, w, p: pd.t3_apply_derivatives(w, p, cc, 3),
-            self.x.data, list(self.ww), list(self.zz))
-        self.assert_jit_jax(
-            lambda var, b, w, p: pd.tv_apply_derivatives(w, p, var, b, 3),
-            self.var.data, self.frame.data, list(self.ww), list(self.zz))
-        self.assert_jit_jax(
-            lambda var, b, w, p: pd.tv_apply_derivatives(w, p, var, b, 3),
-            self.v_vstack.variations.data, self.frame.data, list(self.ww), list(self.zz))
-        # entries derivatives: Euclidean and Riemannian (index a dynamic gather; general perturbation P)
-        idx = jnp.array([[1, 2], [2, 3], [3, 4]])              # (d,) + W, W=(2,)
-        self.assert_jit_jax(
-            lambda cc, ix, p: pd.t3_entries_derivatives(ix, p, cc, 3),
-            self.x.data, idx, list(self.zz))
-        self.assert_jit_jax(
-            lambda var, b, ix, p: pd.tv_entries_derivatives(ix, p, var, b, 3),
-            self.var.data, self.frame.data, idx, list(self.zz))
-        # the order-threaded 3-group interpreter strings directly (K=(3,), C=())
         sig = jnp.ones((4, 2, 3, 5)); Rc = jnp.ones((5, 4, 6)); xij2 = jnp.ones((2, 2, 4))
         self.assert_jit_jax(
             lambda a, b, c, e: contractions.contract('trs,rWKCa,Caib,sWCi->tWKCb', a, b, c, e),
@@ -392,30 +353,870 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(
             lambda a, b, c, e: contractions.contract('trs,rWCa,KCaib,sWCi->tWKCb', a, b, c, e, len_C=0),
             trs[:, :, :2], muc, dGc, xij2)
-        # apply/entries derivative transpose (adjoint-state seeded sweep): residual jet c is a scalar
-        # (order+1)+W+K+C. Single tangent (K=()) and K-stacked; both sum_over_probes; entries gathers idx.
-        ca = jnp.asarray(np.random.randn(4, 2))        # order+1=4, W=(2,), K=(), C=()
-        caK = jnp.asarray(np.random.randn(4, 2, 3))    # K=(3,)
-        for sop in (True, False):
-            self.assert_jit_jax(
-                lambda cc, w, p, b: pd.tv_apply_derivatives_transpose(cc, w, p, b, 3, sum_over_probes=sop),
-                ca, list(self.ww), list(self.zz), self.frame.data)
-            self.assert_jit_jax(
-                lambda cc, w, p, b: pd.tv_apply_derivatives_transpose(cc, w, p, b, 3, sum_over_probes=sop),
-                caK, list(self.ww), list(self.zz), self.frame.data)
-            self.assert_jit_jax(
-                lambda cc, ix, p, b: pd.tv_entries_derivatives_transpose(cc, ix, p, b, 3, sum_over_probes=sop),
-                ca, idx, list(self.zz), self.frame.data)
-        # corewise derivative transposes (U,L,R->G substitution): gradient w.r.t. the frame's own cores
-        self.assert_jit_jax(
-            lambda rr, w, p, cp: pd.t3_probe_corewise_derivatives_transpose(rr, w, p, cp, 3, sum_over_probes=True),
-            rt, list(self.ww), list(self.zz), self.x.data)
-        self.assert_jit_jax(
-            lambda cc, w, p, cp: pd.t3_apply_corewise_derivatives_transpose(cc, w, p, cp, 3, sum_over_probes=True),
-            ca, list(self.ww), list(self.zz), self.x.data)
-        self.assert_jit_jax(
-            lambda cc, ix, p, cp: pd.t3_entries_corewise_derivatives_transpose(cc, ix, p, cp, 3, sum_over_probes=True),
-            ca, idx, list(self.zz), self.x.data)
+
+    # ---------------------------------------------------- jit bucket: jet_contract
+    # the cases of jet_contract, as (string, the position of a leaf of two slots or None): a ride; a product with a
+    # leaf; a product of two full jets and a readout of three (where the forms over the orders differ with one jet
+    # variable); a readout with a leaf
+    JET_RIDE, JET_LEAF, JET_FULL = ('PWKCo,Cio->PWKCi', None), ('PWCa,KCaib,PWCi->PWKCb', 2), ('PWCa,KCaib,PWCb->PWKCi', None)
+    JET_READOUT, JET_READOUT_FULL = ('PWCa,PWCi,PWKCb->KCaib', 1), ('PWCa,PWCi,PWKCb->KCaib', None)
+    JET_CASES = (JET_RIDE, JET_LEAF, JET_FULL, JET_READOUT, JET_READOUT_FULL)
+
+    def _jet_operands(self, case, order, dtype=np.float64):
+        string, leaf = case
+        rng = np.random.default_rng(0)
+        shape_of = dict(W=(2, 2), K=(3,), C=(2,))
+        box = tuple(n + 1 for n in order)
+        sizes = {p: (tuple(min(2, f) for f in box) if p == leaf else box) for p in jet_cases.jet_operands(string)}
+        arrays = jet_cases.build(string, sizes, shape_of, rng)
+        lens = contractions.GroupLengths(P=len(order), W=2, K=1, C=1)
+        return [a.astype(dtype) for a in arrays], lens
+
+    def test_jit_jet_contract(self):
+        """jit each case under both forms (a stray np.* on a tracer would raise), with no jets, one jet variable and
+        two; jax in gives jax out, eagerly too; float32 stays float32 with x64 on (so no array is created in a
+        default dtype); and the numbers are numpy's (a smoke test).
+
+        Then the dispatch is inferred from ALL the operands: for each operand position in turn, that operand is a
+        numpy array held OUTSIDE the traced arguments while the others are traced. If jax-ness were read off a
+        subset of the operands, a host numpy call would meet a tracer and raise (eagerly it would not: numpy pulls
+        a concrete jax array to the host without a word, and the sum re-absorbs it)."""
+        for case in self.JET_CASES:
+            string = case[0]
+            for order in ((3,), (), (1, 2)):
+                for form in ('scan', 'loop'):
+                    for dtype, smoke_tol in ((np.float64, 1e-12), (np.float32, 1e-5)):
+                        arrays, lens = self._jet_operands(case, order, dtype)
+                        fn = lambda *ops: contractions.jet_contract(string, *ops, lens=lens, order=order, over_orders=form)
+                        on_numpy = fn(*arrays)
+                        jops = [jnp.asarray(a) for a in arrays]
+                        with self.subTest(case=case, order=order, over_orders=form, dtype=np.dtype(dtype).name):
+                            self.assertTrue(common.is_numpy_ndarray(on_numpy))
+                            self.assert_jit_jax(fn, *jops)
+                            self.assert_eager_jax(fn, *jops)
+                            jitted = jax.jit(fn)(*jops)
+                            self.assertEqual(jitted.dtype, dtype)
+                            self.assertEqual(fn(*jops).dtype, dtype)
+                            self.assertEqual(on_numpy.dtype, dtype)
+                            self.assertLess(norm(np.asarray(jitted) - on_numpy) / norm(on_numpy), smoke_tol)
+                        for p in range(len(arrays)):
+                            with self.subTest(case=case, order=order, over_orders=form,
+                                              dtype=np.dtype(dtype).name, numpy_operand=p):
+                                mixed = lambda *rest: fn(*rest[:p], arrays[p], *rest[p:])   # arrays[p]: numpy, closed over
+                                traced = jops[:p] + jops[p + 1:]
+                                out = jax.jit(mixed)(*traced)
+                                self._leaves_all_jax(out)
+                                self.assertEqual(out.dtype, dtype)
+                                self.assertLess(norm(np.asarray(out) - on_numpy) / norm(on_numpy), smoke_tol)
+                                self.assert_eager_jax(mixed, *traced)
+
+        # Two more paths, at one jet shape, one form and float32 only (the cross-product above is what costs):
+        # a lone readout whose corner its operand does not reach (the zeros of a coefficient), and a pair no
+        # combination brings to the corner (the empty-sum fallback, with the looped coefficients zeroed). Each
+        # jitted, and with each operand in turn closed over as numpy: a host numpy call in either branch raises.
+        for string, sizes, order in (('PWCi,Cio->WCo', {0: (2,)}, (3,)),
+                                     ('PWCa,PWCi,PWCb->Caib', {0: (2,), 1: (2,), 2: (2,)}, (6,))):
+            shape_of = dict(W=(2, 2), K=(), C=(2,))
+            arrays = [a.astype(np.float32) for a in jet_cases.build(string, sizes, shape_of, np.random.default_rng(0))]
+            lens = contractions.GroupLengths(P=1, W=2, K=0, C=1)
+            fn = lambda *ops: contractions.jet_contract(string, *ops, lens=lens, order=order, over_orders='loop')
+            on_numpy = fn(*arrays)
+            self.assertFalse(np.any(on_numpy))                  # nothing reaches the corner: zeros
+            jops = [jnp.asarray(a) for a in arrays]
+            with self.subTest(string=string, order=order):
+                out = jax.jit(fn)(*jops)
+                self._leaves_all_jax(out)
+                self.assertEqual(np.float32, out.dtype)
+                self.assertTrue(np.array_equal(np.asarray(out), on_numpy))
+            for p in range(len(arrays)):
+                with self.subTest(string=string, order=order, numpy_operand=p):
+                    mixed = lambda *rest: fn(*rest[:p], arrays[p], *rest[p:])
+                    out = jax.jit(mixed)(*(jops[:p] + jops[p + 1:]))
+                    self._leaves_all_jax(out)
+                    self.assertEqual(np.float32, out.dtype)
+                    self.assertTrue(np.array_equal(np.asarray(out), on_numpy))
+
+    def test_jet_contract_scan_is_one_lax_scan(self):
+        """With one jet variable, wherever a full partner is taken one coefficient at a time (a product of two full
+        jets, a readout of three), ``over_orders='scan'`` on jax operands is ONE ``lax.scan`` over the coefficients,
+        so the program has one size at every order; ``'loop'`` has no scan and grows with the order. Elsewhere at
+        orders of 2 and above (a ride, a product with a leaf of two slots, a readout with no third full jet) neither
+        form scans, and the program has one size at every order under both. At order 1 a leaf of two slots is as
+        large as the box: the product with it, and the readout whose third jet is then full, scan once, one step.
+        With two jet variables neither form scans, and the program grows with the box (Part 2's, row 5.4). And the
+        scan body is one stable object per set of statics, so an EAGER scan traces its body on the first call only
+        (docs/contributor/scan_body_principles.md)."""
+        def program(case, order, form):
+            arrays, lens = self._jet_operands(case, order)
+            fn = lambda *ops: contractions.jet_contract(case[0], *ops, lens=lens, order=order, over_orders=form)
+            return str(jax.make_jaxpr(fn)(*[jnp.asarray(a) for a in arrays]))
+
+        n_lines = lambda case, order, form: len(program(case, order, form).splitlines())
+        for case in (self.JET_FULL, self.JET_READOUT_FULL):
+            with self.subTest(case=case):
+                self.assertEqual(1, program(case, (3,), 'scan').count('scan['))
+                self.assertEqual(0, program(case, (3,), 'loop').count('scan['))
+                self.assertEqual(n_lines(case, (2,), 'scan'), n_lines(case, (8,), 'scan'))
+                self.assertLess(n_lines(case, (2,), 'loop'), n_lines(case, (8,), 'loop'))
+        for case in (self.JET_RIDE, self.JET_LEAF, self.JET_READOUT, ('PWCi,PWKCo->KCio', None)):
+            for form in ('scan', 'loop'):
+                with self.subTest(case=case, over_orders=form):
+                    self.assertEqual(0, program(case, (3,), form).count('scan['))
+                    self.assertEqual(n_lines(case, (2,), form), n_lines(case, (8,), form))
+        for case in (self.JET_LEAF, self.JET_READOUT):
+            with self.subTest(case=case, order=(1,)):
+                at_one = program(case, (1,), 'scan')
+                self.assertEqual(1, at_one.count('scan['))
+                self.assertIn('length=1', at_one)
+                self.assertEqual(0, program(case, (1,), 'loop').count('scan['))
+        for case in (self.JET_FULL, self.JET_READOUT_FULL):
+            for form in ('scan', 'loop'):
+                with self.subTest(case=case, order='two variables', over_orders=form):
+                    self.assertEqual(0, program(case, (1, 2), form).count('scan['))
+                    self.assertLess(n_lines(case, (1, 2), form), n_lines(case, (2, 3), form))
+
+        # eager: the first call traces the body (more `contract` calls than the one made outside the scan);
+        # a second call, with new arrays of the same shapes and an equal record built anew, does not
+        for case in (self.JET_FULL, self.JET_READOUT_FULL):
+            _release_jax_programs()         # forget every traced body, so that the first call below is a first
+            calls = []
+            for trial in range(2):
+                arrays, lens = self._jet_operands(case, (3,))
+                jops = [jnp.asarray(a + trial) for a in arrays]
+                with unittest.mock.patch.object(contractions, 'contract', wraps=contractions.contract) as spy:
+                    contractions.jet_contract(case[0], *jops, lens=dc.replace(lens), order=(3,), over_orders='scan')
+                calls.append(spy.call_count)
+            with self.subTest(case=case):
+                self.assertGreater(calls[0], 1, 'the first eager call should have traced the scan body')
+                self.assertEqual(1, calls[1], 'the eager scan traced its body again: the body is not a stable object')
+
+    # ---------------------------------------------------- jit bucket: jets and data preparation (graded messages, P3)
+    def _jets_and_preparation_cases(self, dtype):
+        """(name, function of arrays only, numpy arguments) for every public function of ``backend.jets`` and
+        ``backend.data_preparation`` that returns arrays, for the probe type (a tuple per mode) and the apply type,
+        at the jet shapes ``(3,)`` and ``(1, 2)``; the entries kind with no jets."""
+        import t3toolbox.backend.jets as jets
+        import t3toolbox.backend.data_preparation as prep
+        rng = np.random.default_rng(0)
+        shape, W = (4, 3, 5), (2, 2)
+        f = lambda a: np.asarray(a, dtype=dtype)
+        ww = [f(rng.standard_normal(W + (n,))) for n in shape]
+        pp = [f(rng.standard_normal(W + (n,))) for n in shape]
+        qq = [f(rng.standard_normal(W + (n,))) for n in shape]
+        scales = [f(0.5 + rng.random(n)) for n in shape]
+        x = t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1), stack_shape=(2,))
+        cores = tuple(tuple(f(c) for c in family) for family in x.data)
+        cases = []
+        for order, sample in (((3,), list(jets.affine_jet(ww, pp))), ((1, 2), list(jets.affine_jet(ww, pp, qq)))):
+            F = tuple(n + 1 for n in order)
+            y_probe = [f(rng.standard_normal(F + W + (n,))) for n in shape]
+            y_apply = f(rng.standard_normal(F + W))
+            b_probe, b_apply = f(0.5 + rng.random((3,) + F)), f(0.5 + rng.random(F))       # per block
+            w_probe = jets.blocks_to_weight('probe', order, b_probe, y_probe)               # of the type of z
+            w_apply = jets.blocks_to_weight('apply', order, b_apply, y_apply)
+            lengths = f(3.0) if len(order) == 1 else f([3.0, 0.5])             # one length, and one per variable
+            for label, y, weight, blocks in (('probe', y_probe, w_probe, b_probe), ('apply', y_apply, w_apply, b_apply)):
+                tag = '/%s %s' % (label, order)
+                cases += [
+                    ('jet_to_dual_jet' + tag, lambda y, weight, kind=label, order=order: jets.jet_to_dual_jet(kind, order, y, weight), (y, weight)),
+                    ('dual_jet_to_jet' + tag, lambda y, weight, kind=label, order=order: jets.dual_jet_to_jet(kind, order, y, weight), (y, weight)),
+                    ('jet_to_dual_jet, no weight' + tag, lambda y, kind=label, order=order: jets.jet_to_dual_jet(kind, order, y, None), (y,)),
+                    ('derivatives_to_taylor' + tag, lambda y, kind=label, order=order: jets.derivatives_to_taylor(kind, order, y), (y,)),
+                    ('taylor_to_derivatives' + tag, lambda y, kind=label, order=order: jets.taylor_to_derivatives(kind, order, y), (y,)),
+                    ('derivative_weight_to_taylor_weight' + tag,
+                     lambda weight, kind=label, order=order: jets.derivative_weight_to_taylor_weight(kind, order, weight),
+                     (weight,)),
+                    ('prepare_derivative_data' + tag,
+                     lambda y, weight, kind=label, order=order: jets.prepare_derivative_data(kind, order, y, weight, y), (y, weight)),
+                    ('prepare_derivative_data, no weight' + tag,
+                     lambda y, kind=label, order=order: jets.prepare_derivative_data(kind, order, y)[:2], (y,)),
+                    ('data_block_norms' + tag, lambda y, kind=label, order=order: prep.data_block_norms(kind, order, y), (y,)),
+                    ('equalizing_weight' + tag, lambda blocks: prep.equalizing_weight(blocks), (blocks,)),
+                    ('rescale_direction' + tag,
+                     lambda sample, y, kind=label, order=order: prep.rescale_direction(kind, order, sample, y, 3.0), (sample, y)),
+                    ('rescale_direction, the length an array' + tag,      # traced under jit; closed over in the mixed case
+                     lambda sample, y, length, kind=label, order=order: prep.rescale_direction(kind, order, sample, y, length),
+                     (sample, y, lengths)),
+                    ('rescale_coordinates' + tag,
+                     lambda sample, y, scales, kind=label, order=order: prep.rescale_coordinates(kind, order, sample, y, scales),
+                     (sample, y, scales)),
+                ]
+            packed = f(rng.standard_normal((3,) + F + W + (5,)))          # a probe jet packed for the uniform layout
+            tag = ', a packed probe array %s' % (order,)
+            cases += [
+                ('jet_to_dual_jet' + tag, lambda y, weight, order=order: jets.jet_to_dual_jet('probe', order, y, weight),
+                 (packed, w_probe)),
+                ('dual_jet_to_jet' + tag, lambda y, weight, order=order: jets.dual_jet_to_jet('probe', order, y, weight),
+                 (packed, w_probe)),
+                ('derivatives_to_taylor' + tag, lambda y, order=order: jets.derivatives_to_taylor('probe', order, y), (packed,)),
+                ('taylor_to_derivatives' + tag, lambda y, order=order: jets.taylor_to_derivatives('probe', order, y), (packed,)),
+            ]
+        y_entries = f(rng.standard_normal(W))
+        cases += [
+            ('jet_to_dual_jet/entries ()', lambda y, weight: jets.jet_to_dual_jet('entries', (), y, weight),
+             (y_entries, f([[2.0]]))),
+            ('prepare_derivative_data/entries ()', lambda y: jets.prepare_derivative_data('entries', (), y, None, y), (y_entries,)),
+            ('data_block_norms/entries ()', lambda y: prep.data_block_norms('entries', (), y), (y_entries,)),
+            ('rescale_coordinates, no jets/probe',
+             lambda ww, y, scales: prep.rescale_coordinates('probe', (), ww, y, scales),
+             (ww, [f(rng.standard_normal(W + (n,))) for n in shape], scales)),
+            ('data_block_norms, no jets/apply', lambda y: prep.data_block_norms('apply', (), y), (f(rng.standard_normal(W)),)),
+            ('t3_unscale_coordinates', lambda cores, scales: prep.t3_unscale_coordinates(cores, scales), (cores, scales)),
+        ]
+        return cases
+
+    def _data_metric_cases(self, dtype):
+        """(name, function of arrays only, numpy arguments) for ``data_metric`` and ``blocks_to_weight`` (the data-metric
+        sub-arc, M1): the probe type (a tuple, with a tuple weight and with a mode-leading array weight), a packed
+        probe, apply and entries, with a stack ``C``; the scale a number, a traced 0-d array and ``None``."""
+        import t3toolbox.backend.jets as jets
+        rng = np.random.default_rng(1)
+        shape, W, C = (4, 3, 5), (2,), (2,)
+        f = lambda a: np.asarray(a, dtype=dtype)
+        cases = []
+        for order in ((3,), (1, 2)):
+            F = tuple(n + 1 for n in order)
+            r_probe = [f(rng.standard_normal(F + W + C + (n,))) for n in shape]
+            w_probe = [f(0.5 + rng.random(F + W + (1,) + (n,))) for n in shape]
+            blocks_probe = f(0.5 + rng.random((3,) + F))
+            r_apply, w_apply, blocks_apply = f(rng.standard_normal(F + W + C)), f(0.5 + rng.random(F + (1,) + C)), f(0.5 + rng.random(F))
+            packed, w_packed = f(rng.standard_normal((3,) + F + W + C + (5,))), f(0.5 + rng.random((3,) + F + (1, 1, 5)))
+            tag = ' %s' % (order,)
+            cases += [
+                ('data_metric/probe, a tuple weight' + tag, lambda r, w, g: jets.data_metric(r, w, g), (r_probe, w_probe, f(2.0))),
+                ('data_metric/probe, a mode-leading weight' + tag,
+                 lambda r, b, order=order: jets.data_metric(r, jets.blocks_to_weight('probe', order, b, r), 2.0), (r_probe, blocks_probe)),
+                ('data_metric/probe packed' + tag, lambda r, w: jets.data_metric(r, w, None), (packed, w_packed)),
+                ('data_metric/apply' + tag, lambda r, w, g: jets.data_metric(r, w, g), (r_apply, w_apply, f(0.5))),
+                ('data_metric/apply, no weight' + tag, lambda r: jets.data_metric(r, None, 3.0), (r_apply,)),
+                ('blocks_to_weight/probe' + tag, lambda b, y, order=order: jets.blocks_to_weight('probe', order, b, y), (blocks_probe, r_probe)),
+                ('blocks_to_weight/apply' + tag, lambda b, y, order=order: jets.blocks_to_weight('apply', order, b, y), (blocks_apply, r_apply)),
+            ]
+        r_entries = f(rng.standard_normal(W + C))
+        cases += [
+            ('data_metric/entries ()', lambda r, w, g: jets.data_metric(r, w, g), (r_entries, f(0.5 + rng.random((1, 2))), f(4.0))),
+            ('blocks_to_weight/entries ()', lambda b, y: jets.blocks_to_weight('entries', (), b, y), (f(2.0), r_entries)),
+        ]
+        return cases
+
+    def test_jit_jets_and_data_preparation(self):
+        """jit every array-returning function of ``backend.jets`` and ``backend.data_preparation`` (a stray np.* on
+        a tracer would raise); numpy in gives numpy out, jax in gives jax out, eagerly too; float32 stays float32
+        with x64 on (no array is made in a default dtype); the numbers are numpy's (a smoke test)."""
+        self._check_jit_cases(self._jets_and_preparation_cases)
+
+    def test_jit_data_metric_and_blocks_to_weight(self):
+        """The same for ``data_metric`` and ``blocks_to_weight`` (M1), the scale traced where it is an argument."""
+        self._check_jit_cases(self._data_metric_cases)
+
+    def _check_jit_cases(self, cases_of):
+        to_jax = lambda tree: jax.tree_util.tree_map(jnp.asarray, tree)
+        for dtype, smoke_tol in ((np.float64, 1e-12), (np.float32, 1e-5)):
+            for name, fn, args in cases_of(dtype):
+                on_numpy = fn(*args)
+                with self.subTest(function=name, dtype=np.dtype(dtype).name):
+                    for leaf in jax.tree_util.tree_leaves(on_numpy):
+                        self.assertTrue(common.is_numpy_ndarray(leaf), type(leaf))
+                        self.assertEqual(leaf.dtype, dtype)
+                    jargs = to_jax(args)
+                    self.assert_jit_jax(fn, *jargs)
+                    self.assert_eager_jax(fn, *jargs)
+                    for a, b, c in zip(jax.tree_util.tree_leaves(jax.jit(fn)(*jargs)), jax.tree_util.tree_leaves(on_numpy),
+                                       jax.tree_util.tree_leaves(fn(*jargs))):
+                        self.assertEqual(a.shape, b.shape)
+                        self.assertEqual((a.dtype, c.dtype), (dtype, dtype))
+                        self.assertLessEqual(norm(np.asarray(a) - b), smoke_tol * norm(b))
+                # each array argument in turn a numpy array held outside the trace: the dispatch is read off all
+                for k in range(len(args) if len(args) > 1 else 0):
+                    with self.subTest(function=name, dtype=np.dtype(dtype).name, numpy_argument=k):
+                        mixed = lambda *rest: fn(*rest[:k], args[k], *rest[k:])
+                        out = jax.jit(mixed)(*(jargs[:k] + jargs[k + 1:]))
+                        self._leaves_all_jax(out)
+                        for a in jax.tree_util.tree_leaves(out):
+                            self.assertEqual(a.dtype, dtype)
+
+    def test_jit_ut3_unscale_coordinates(self):
+        """The uniform twin under jit: the Tucker supercore is a jax array, the masks stay host numpy arrays, and
+        the result is the numpy one. The methods of the two tensor classes jit too."""
+        import t3toolbox.backend.data_preparation as prep
+        rng = np.random.default_rng(0)
+        scales = [0.5 + rng.random(N) for N in STRUCT[0]]
+        jscales = [jnp.asarray(s) for s in scales]
+        on_numpy = prep.ut3_unscale_coordinates(ut3.UniformTuckerTensorTrain.from_t3(self.x_np).data, scales)
+        self.assertTrue(common.is_numpy_ndarray(on_numpy[0]))
+        fn = lambda supercores, scales: prep.ut3_unscale_coordinates(supercores + self.ux.data[2:], scales)[:2]
+        self.assert_jit_jax(fn, self.ux.data[:2], jscales)
+        out = jax.jit(fn)(self.ux.data[:2], jscales)
+        self.assertLess(norm(np.asarray(out[0]) - on_numpy[0]), 1e-12 * norm(on_numpy[0]))
+        mixed = jax.jit(lambda supercores: prep.ut3_unscale_coordinates(supercores + self.ux.data[2:], scales)[0])
+        self.assertTrue(common.is_jax_ndarray(mixed(self.ux.data[:2])))             # numpy scales, jax supercores
+        eager = prep.ut3_unscale_coordinates(self.ux.data, jscales)
+        self.assertTrue(common.is_jax_ndarray(eager[0]))
+        for m in eager[3]:
+            self.assertTrue(common.is_numpy_ndarray(m))
+        unscaled = jax.jit(lambda ux, scales: ux.unscale_coordinates(scales))(self.ux, jscales)
+        self._leaves_all_jax(unscaled)
+        self.assert_concrete_masks(unscaled)
+        self.assertLess(norm(np.asarray(unscaled.tucker_supercore) - on_numpy[0]), 1e-12 * norm(on_numpy[0]))
+        ragged = jax.jit(lambda x, scales: x.unscale_coordinates(scales))(self.x, jscales)
+        self._leaves_all_jax(ragged)
+        reference = self.x_np.unscale_coordinates(scales)
+        self.assertLess(norm(np.asarray(ragged.tucker_cores[1]) - reference.tucker_cores[1]),
+                        1e-12 * norm(reference.tucker_cores[1]))
+
+    def test_one_dispatch_over_all_the_inputs_of_a_call(self):
+        """The house rule: numpy or jax is chosen once, over all the arrays a call is given. One jax array among
+        numpy ones (one mode of a probe tuple; the weight; the validation data; the length; the scales) makes
+        every array the call computes a jax array."""
+        import t3toolbox.backend.jets as jets
+        import t3toolbox.backend.data_preparation as prep
+        rng = np.random.default_rng(0)
+        shape, W, order = (4, 3, 5), (2,), (2,)
+        ww = [rng.standard_normal(W + (n,)) for n in shape]
+        pp = [rng.standard_normal(W + (n,)) for n in shape]
+        line, plane = list(jets.affine_jet(ww, pp)), list(jets.affine_jet(ww, pp, pp))     # F_in = (2,), (2, 2)
+        scales = [0.5 + rng.random(n) for n in shape]
+        y = [rng.standard_normal((3,) + W + (n,)) for n in shape]
+        y_plane = rng.standard_normal((2, 3) + W)                   # apply at (1, 2)
+        weight = (0.5 + rng.random((3, 3))).reshape(3, 3, 1, 1)      # per mode and slot, of the type of z
+        mixed = [y[0], jnp.asarray(y[1]), y[2]]                     # one mode of the probe tuple on jax
+        jscales = [scales[0], jnp.asarray(scales[1]), scales[2]]
+        x = self.x_np.data
+        cases = {
+            'jet_to_dual_jet, a mixed tuple': jets.jet_to_dual_jet('probe', order, mixed, weight),
+            'jet_to_dual_jet, a jax weight': jets.jet_to_dual_jet('probe', order, y, jnp.asarray(weight)),
+            'dual_jet_to_jet, a mixed tuple': jets.dual_jet_to_jet('probe', order, mixed, None),
+            'derivatives_to_taylor': jets.derivatives_to_taylor('probe', order, mixed),
+            'taylor_to_derivatives': jets.taylor_to_derivatives('probe', order, mixed),
+            'prepare_derivative_data, jax validation': jets.prepare_derivative_data('probe', order, y, weight, mixed),
+            'prepare_derivative_data, a jax weight': jets.prepare_derivative_data('probe', order, y, jnp.asarray(weight))[:2],
+            'data_block_norms': prep.data_block_norms('probe', order, mixed),
+            'rescale_direction, a jax length': (lambda out: (out[0][1], out[1]))(
+                prep.rescale_direction('probe', order, line, y, jnp.asarray(2.0))),
+            'rescale_direction, mixed data': (lambda out: (out[0][1], out[1]))(
+                prep.rescale_direction('probe', order, line, mixed, 2.0)),
+            'rescale_direction, one jax length of two': prep.rescale_direction('apply', (1, 2), plane, y_plane,
+                                                                               [2.0, jnp.asarray(3.0)]),
+            'rescale_coordinates, mixed scales': prep.rescale_coordinates('probe', order, line, y, jscales),
+            't3_unscale_coordinates, mixed scales': prep.t3_unscale_coordinates(
+                (x[0], x[1]), [0.5 + rng.random(N) if i else jnp.ones(N) for i, N in enumerate(STRUCT[0])])[0],
+        }
+        for name, out in cases.items():
+            with self.subTest(case=name):
+                self._leaves_all_jax(out)
+        # and the numbers are those of the all-numpy call
+        reference = jets.jet_to_dual_jet('probe', order, y, weight)
+        for a, b in zip(cases['jet_to_dual_jet, a mixed tuple'], reference):
+            self.assertLess(norm(np.asarray(a) - b), 1e-12 * norm(b))
+
+    def test_a_numpy_float64_array_with_a_jax_array_when_x64_is_off(self):
+        """With x64 off jax has no float64. A numpy float64 jet with a jax weight (an integer one too, which has no
+        floating dtype to lower the result's) must not ask jax for float64: no warning, a float32 jax result."""
+        import warnings
+        import t3toolbox.backend.jets as jets
+        import t3toolbox.backend.data_preparation as prep
+        x64 = jax.config.read('jax_enable_x64')
+        jax.config.update('jax_enable_x64', False)
+        try:
+            jet = np.arange(12.0).reshape(3, 4)
+            with warnings.catch_warnings():
+                warnings.simplefilter('error')
+                outs = (jets.jet_to_dual_jet('apply', (2,), jet, jnp.asarray([[1], [2], [3]])),
+                        jets.dual_jet_to_jet('apply', (2,), jet, jnp.asarray([[1], [2], [3]])),
+                        jets.jet_to_dual_jet('apply', (2,), jet, jnp.asarray([[1.0], [2.0], [3.0]])),
+                        jets.jet_to_dual_jet('probe', (2,), [jet, jnp.asarray(jet)], None)[0],
+                        prep.rescale_direction('apply', (2,), [np.stack([jet, jet])], jet, jnp.asarray(2.0))[1],
+                        prep.rescale_coordinates('apply', (), [jet], jet, [jnp.ones(4)])[0][0])
+            for out in outs:
+                self.assertTrue(common.is_jax_ndarray(out))
+                self.assertEqual(out.dtype, np.float32)
+            self.assertLess(norm(np.asarray(outs[0]) - jets.jet_to_dual_jet('apply', (2,), jet, np.array([[1], [2], [3]]))),
+                            1e-5 * 1e3)
+        finally:
+            jax.config.update('jax_enable_x64', x64)
+
+    def test_the_frontend_rescale_coordinates_under_jit(self):
+        """``fitting.rescale_coordinates`` under ``jax.jit``: the check of the scales is structural and shapes are
+        static, so it is made on tracers too (a wrong count, a wrong length for a mode and a length-1 scale raise
+        while the function is traced, also inside ``safety.unsafe()``); on good input the numbers are the backend's
+        on numpy."""
+        import t3toolbox.safety as safety
+        import t3toolbox.backend.data_preparation as prep
+        import t3toolbox.backend.jets as jets
+        rng = np.random.default_rng(0)
+        shape, W, order = (4, 3, 5), (2,), (2,)
+        ww = [rng.standard_normal(W + (n,)) for n in shape]
+        pp = [rng.standard_normal(W + (n,)) for n in shape]
+        line = list(jets.affine_jet(ww, pp))                                # the input jets, F_in = (2,)
+        scales = [0.5 + rng.random(n) for n in shape]
+        to_jax = lambda tree: jax.tree_util.tree_map(jnp.asarray, tree)
+        for kind, y in (('probe', [rng.standard_normal((3,) + W + (n,)) for n in shape]),
+                        ('apply', rng.standard_normal((3,) + W))):
+            fn = lambda line, y, scales: fitting.rescale_coordinates(kind, order, line, y, scales)
+            reference = prep.rescale_coordinates(kind, order, line, y, scales)
+            jargs = to_jax((line, y, scales))
+            with self.subTest(kind=kind):
+                self.assert_jit_jax(fn, *jargs)
+                for a, b in zip(jax.tree_util.tree_leaves(jax.jit(fn)(*jargs)), jax.tree_util.tree_leaves(reference)):
+                    self.assertLess(norm(np.asarray(a) - b), 1e-12 * norm(b))
+                on_numpy = fn(line, y, scales)
+                for a, b in zip(jax.tree_util.tree_leaves(on_numpy), jax.tree_util.tree_leaves(reference)):
+                    self.assertTrue(common.is_numpy_ndarray(a) and np.array_equal(a, b))
+                wrong = {'a wrong count': (lambda s: s[:2], 'got length 2'),
+                         'a wrong length for a mode': (lambda s: [s[0], s[0], s[2]], r'scales\[1\] has shape \(4,\)'),
+                         'a length-1 scale': (lambda s: [s[0], s[1][:1], s[2]], r'scales\[1\] has shape \(1,\)')}
+                for what, (spoil, pattern) in wrong.items():
+                    bad = lambda line, y, scales: fn(line, y, spoil(scales))
+                    with self.subTest(kind=kind, wrong=what):
+                        with self.assertRaisesRegex(ValueError, pattern):
+                            jax.jit(bad)(*jargs)
+                        with safety.unsafe():
+                            with self.assertRaisesRegex(ValueError, pattern):
+                                jax.jit(bad)(*jargs)
+
+    def test_the_checkers_run_under_jit(self):
+        """Shapes are static, so the checkers of a sample, its data and its weight run on tracers: a good input
+        passes inside a jitted function, a wrong one raises its ``ValueError`` while the function is traced. Input
+        jets at ``(2,)`` for probe and apply; an index with no jets for entries."""
+        import t3toolbox.backend.jets as jets
+        rng = np.random.default_rng(0)
+        shape, W = (4, 3, 5), (2,)
+        ww = [rng.standard_normal(W + (n,)) for n in shape]
+        pp = [rng.standard_normal(W + (n,)) for n in shape]
+        line = [jnp.asarray(w) for w in jets.affine_jet(ww, pp)]            # F_in = (2,)
+        index = jnp.asarray(np.stack([rng.integers(0, n, size=W) for n in shape]))
+        y_probe = [jnp.zeros((3,) + W + (n,)) for n in shape]
+        y_apply, w_probe, w_apply = jnp.zeros((3,) + W), jnp.ones((3, 3, 1, 1)), jnp.ones((3, 1))   # of the type of z
+        bad_y = {'probe': [jnp.zeros((3, 5, n)) for n in shape], 'apply': jnp.zeros((3, 5)), 'entries': jnp.zeros(5)}
+
+        def check(kind, order, sample, y, weight):
+            jets.check_sample(kind, order, sample, shape)
+            jets.check_data(kind, order, sample, y)
+            jets.check_weight(kind, order, sample, weight)
+            return jnp.zeros(())
+
+        import t3toolbox.backend.data_preparation as prep
+        jscales = [jnp.ones(n) for n in shape]
+        jax.jit(lambda scales: (prep.check_coordinate_scales(scales, shape), jnp.zeros(()))[1])(jscales)
+        with self.assertRaisesRegex(ValueError, r'scales\[0\] has shape'):
+            jax.jit(lambda scales: (prep.check_coordinate_scales(scales[::-1], shape), jnp.zeros(()))[1])(jscales)
+
+        for kind, order, sample, y, weight in (('probe', (2,), line, y_probe, w_probe), ('apply', (2,), line, y_apply, w_apply),
+                                               ('entries', (), index, jnp.zeros(W), jnp.ones((1,)))):
+            with self.subTest(kind=kind):
+                jax.jit(lambda sample, y, weight: check(kind, order, sample, y, weight))(sample, y, weight)
+                with self.assertRaisesRegex(ValueError, 'one array per mode|index must have shape'):
+                    jax.jit(lambda sample, y, weight: check(kind, order, sample[:2], y, weight))(sample, y, weight)
+                with self.assertRaisesRegex(ValueError, 'the data y'):
+                    jax.jit(lambda sample, y, weight: check(kind, order, sample, bad_y[kind], weight))(sample, y, weight)
+                with self.assertRaisesRegex(ValueError, 'the weight of the %s kind' % kind):
+                    jax.jit(lambda sample, y, weight: check(kind, order, sample, y, jnp.ones((3,))))(sample, y, weight)
+
+    # ---------------------------------------------------- jit bucket: the sampling engine
+    def test_jit_the_least_squares_oracle(self):
+        """P14: ``LeastSquaresOracle.query`` jitted on both layouts (the oracle closed over, the frame and the batch
+        arguments), jax in and out, with ``held`` carried out of one compiled call into the next; the held record's
+        filled slots under jit are the eager ones (they come from ``computed_names``, a query of the call's facts)."""
+        import t3toolbox.backend.jets as jets
+        import t3toolbox.backend.sampling_variables as sv
+        import t3toolbox.uniform_frame_variations_format as ubv
+        from t3toolbox.backend.fitting import LeastSquaresOracle, LeastSquaresBatch
+        from t3toolbox.backend.uniform_fitting import pack_batch
+        oracle = LeastSquaresOracle('probe', (1,))
+        jet = [jnp.asarray(w) for w in jets.affine_jet(list(self.ww), list(self.zz))]
+        y = [jnp.asarray(a) for a in self.x_other.probe(jet, (1,))]
+        batch = LeastSquaresBatch(jet, y, jets.blocks_to_weight('probe', (1,), jnp.ones((3, 2)), y))
+        uframe = ubv.UT3Frame.from_t3frame(self.frame)
+        layouts = {'ragged': (self.frame.data, batch, self.var.data),
+                   'uniform': (uframe.data, pack_batch('probe', (1,), batch, uframe.data[0].shape[-1]),
+                               ubv.UT3Variations.from_t3variations(self.var).data[:2])}
+        for name, (frame, b, v) in layouts.items():
+            with self.subTest(layout=name):
+                cores, statics = frame[:4], frame[4:]
+                f_and_held = jax.jit(lambda c, bb: oracle.query(tuple(c) + statics, bb, ('f',)))
+                (f,), held = f_and_held(cores, b)
+                self._leaves_all_jax((f, held))
+                self.assertTrue(set(held.keys()) <= {'xi', 'mu', 'nu', 'eta', 'r'} and 'r' in held)
+                g_from_held = jax.jit(lambda c, bb, h, vv: oracle.query(tuple(c) + statics, bb, ('g', 'JtJp'),
+                                                                        variations=vv, held=h))
+                (g, JtJp), held2 = g_from_held(cores, b, held, v)
+                self._leaves_all_jax((g, JtJp, held2))
+                (g_eager, _), _ = oracle.query(frame, b, ('g', 'JtJp'), variations=v)
+                for p, q in zip(jax.tree_util.tree_leaves(g), jax.tree_util.tree_leaves(g_eager)):
+                    self.assertLess(norm(np.asarray(p) - np.asarray(q)), 1e-10 * max(norm(np.asarray(q)), 1.0))
+                self.assertEqual(held.keys(), oracle.query(frame, b, ('f',))[1].keys())
+                # the two block sums (M3; y_block_sumsq is the oracle's own, its C read off the frame's shapes)
+                sums = jax.jit(lambda c, bb: oracle.query(tuple(c) + statics, bb,
+                                                          ('r_block_sumsq', 'y_block_sumsq'))[0])
+                traced = sums(cores, b)
+                self._leaves_all_jax(traced)
+                eager, _ = oracle.query(frame, b, ('r_block_sumsq', 'y_block_sumsq'))
+                for p, q in zip(traced, eager):
+                    self.assertLess(norm(np.asarray(p) - np.asarray(q)), 1e-10 * norm(np.asarray(q)))
+
+    def test_jit_the_sampling_functions(self):
+        """P12b: every backend sampling function by its signature, ragged and uniform (the six new corewise tangents
+        included), at ``order = (2,)`` for probe and apply: jitted with jax in, every output leaf jax. The uniform
+        masks are closed over (host constants); the arrays are the jit's arguments."""
+        import t3toolbox.backend.apply as bapply
+        import t3toolbox.backend.entries as bentries
+        import t3toolbox.backend.jets as jets
+        import t3toolbox.backend.ut3_sampling as ut3s
+        import t3toolbox.backend.utv_sampling as utvs
+        import t3toolbox.uniform_frame_variations_format as ubv
+        modules = {'probe': probing, 'apply': bapply, 'entries': bentries}
+        x, frame, var = self.x.data, self.frame.data, self.var.data
+        dirs = x                                                            # a direction of the cores' shapes
+        ux = self.ux.data
+        uf = ubv.UT3Frame.from_t3frame(self.frame).data
+        uv = ubv.UT3Variations.from_t3variations(self.var).data
+        upt = lambda a, b: (a, b, ux[2], ux[3])
+        ufr = lambda a, b, c, d: (a, b, c, d, uf[4], uf[5])
+        ww = [jnp.asarray(w) for w in jets.affine_jet(list(self.ww), list(self.zz))]     # input jets, (2,) + W
+        index = jnp.array([[0, 3], [1, 4], [5, 2]])
+        for kind, module in modules.items():
+            s = index if kind == 'entries' else ww
+            kw = {} if kind == 'entries' else {'order': (2,)}
+            z = getattr(module, 't3_%s' % kind)(x, s, **kw)
+            Jp = getattr(module, 'tv_%s' % kind)(frame, var, s, **kw)
+            calls = {
+                't3': (lambda x_, s_: getattr(module, 't3_%s' % kind)(x_, s_, **kw), x, s),
+                'tv': (lambda f_, v_, s_: getattr(module, 'tv_%s' % kind)(f_, v_, s_, **kw), frame, var, s),
+                'tv_transpose': (lambda f_, s_, c_: getattr(module, 'tv_%s_transpose' % kind)(f_, s_, c_, **kw),
+                                 frame, s, Jp),
+                'corewise_tangent': (lambda x_, s_, d_: getattr(module, 't3_%s_corewise_tangent' % kind)(
+                    x_, s_, d_, **kw), x, s, dirs),
+                'corewise_transpose': (lambda x_, s_, c_: getattr(module, 't3_%s_corewise_transpose' % kind)(
+                    x_, s_, c_, **kw), x, s, z),
+                'corewise_hessian': (lambda x_, s_, c_, d_: getattr(module, 't3_%s_corewise_hessian' % kind)(
+                    x_, s_, c_, d_, sum_over_samples=False, **kw), x, s, z, dirs),
+                'ut3': (lambda a, b, s_: getattr(ut3s, 'ut3_%s' % kind)(upt(a, b), s_, **kw), ux[0], ux[1], s),
+                'utv': (lambda a, b, c, d, va, vb, s_: getattr(utvs, 'utv_%s' % kind)(
+                    ufr(a, b, c, d), (va, vb), s_, **kw), *uf[:4], *uv[:2], s),
+                'utv_transpose': (lambda a, b, c, d, s_, r_: getattr(utvs, 'utv_%s_transpose' % kind)(
+                    ufr(a, b, c, d), s_, r_, **kw)[:2], *uf[:4], s, Jp),
+                'ut3_corewise_tangent': (lambda a, b, s_, da, db: getattr(ut3s, 'ut3_%s_corewise_tangent' % kind)(
+                    upt(a, b), s_, (da, db), **kw), ux[0], ux[1], s, ux[0], ux[1]),
+                'ut3_corewise_transpose': (lambda a, b, s_, r_: getattr(ut3s, 'ut3_%s_corewise_transpose' % kind)(
+                    upt(a, b), s_, r_, **kw), ux[0], ux[1], s, z),
+                'ut3_corewise_hessian': (lambda a, b, s_, r_, da, db: getattr(ut3s, 'ut3_%s_corewise_hessian' % kind)(
+                    upt(a, b), s_, r_, (da, db), **kw), ux[0], ux[1], s, z, ux[0], ux[1]),
+            }
+            for name, (fn, *args) in calls.items():
+                with self.subTest(kind=kind, function=name):
+                    self.assert_jit_jax(fn, *args)
+
+    def test_jit_sampling_variables(self):
+        """The engine under ``jax.jit`` for ``('f', 'g', 'r_block_sumsq')`` (a stray ``np.`` on a tracer would raise;
+        M3's weighted block sums included): jax in, jax out;
+        numpy in under the trace (the frame closed over) gives jax too; the numbers are numpy's; the jet shape
+        ``(2,)`` along a line and none."""
+        import t3toolbox.backend.jets as jets
+        import t3toolbox.backend.sampling_variables as sv
+        rng = np.random.default_rng(0)
+        N, nD, nU, rL, rR = (4, 5, 3), (2, 3, 2), (3, 2, 3), (1, 2, 3, 1), (1, 3, 2, 1)
+        frame = (tuple(rng.standard_normal((nD[i], N[i])) for i in range(3)),
+                 tuple(rng.standard_normal((rL[i], nU[i], rR[i + 1])) for i in range(3)),
+                 tuple(rng.standard_normal((rL[i], nD[i], rL[i + 1])) for i in range(3)),
+                 tuple(rng.standard_normal((rR[i], nD[i], rR[i + 1])) for i in range(3)))
+        ww = [rng.standard_normal((2, n)) for n in N]
+        pp = [rng.standard_normal((2, n)) for n in N]
+        for order, sample in (((), ww), ((2,), list(jets.affine_jet(ww, pp)))):
+            F = tuple(n + 1 for n in order)
+            y = [rng.standard_normal(F + (2, n)) for n in N]
+            weight = jets.blocks_to_weight('probe', order, 0.5 + rng.random((3,) + F), y)
+            fn = lambda frame, sample, y, weight: sv.sampling_variables('probe', frame, sample,
+                                                                        ('f', 'g', 'r_block_sumsq'), order=order,
+                                                                        y=y, weight=weight)
+            on_numpy, g_numpy, blocks_numpy = fn(frame, sample, y, weight)
+            to_jax = lambda tree: jax.tree_util.tree_map(jnp.asarray, tree)
+            with self.subTest(order=order):
+                self.assert_jit_jax(fn, *to_jax((frame, sample, y, weight)))
+                jitted, g_jitted, blocks_jitted = jax.jit(fn)(*to_jax((frame, sample, y, weight)))
+                self.assertLess(abs(float(jitted) - float(on_numpy)), 1e-12 * abs(float(on_numpy)))
+                self.assertLess(norm(np.asarray(blocks_jitted) - blocks_numpy), 1e-12 * norm(blocks_numpy))
+                for a, b in zip(jax.tree_util.tree_leaves(g_jitted), jax.tree_util.tree_leaves(g_numpy)):
+                    self.assertLess(norm(np.asarray(a) - b), 1e-12 * norm(b))
+                closed, g_closed, blocks_closed = jax.jit(lambda sample, y: fn(frame, sample, y, weight))(
+                    *to_jax((sample, y)))
+                self._leaves_all_jax((closed, g_closed, blocks_closed))
+                self.assertLess(abs(float(closed) - float(on_numpy)), 1e-12 * abs(float(on_numpy)))
+
+    def test_jit_sampling_variables_with_a_stack_of_directions(self):
+        """The dot grade and the adjoint seeded by ``Jp`` under ``jax.jit``, ``K = (2,)``: ``('Jp', 'JtJp',
+        'Jp_norm_sq')`` jax in, jax out, the numbers numpy's."""
+        import t3toolbox.backend.jets as jets
+        import t3toolbox.backend.sampling_variables as sv
+        rng = np.random.default_rng(1)
+        N, nD, nU, rL, rR = (4, 5, 3), (2, 3, 2), (3, 2, 3), (1, 2, 3, 1), (1, 3, 2, 1)
+        frame = (tuple(rng.standard_normal((nD[i], N[i])) for i in range(3)),
+                 tuple(rng.standard_normal((rL[i], nU[i], rR[i + 1])) for i in range(3)),
+                 tuple(rng.standard_normal((rL[i], nD[i], rL[i + 1])) for i in range(3)),
+                 tuple(rng.standard_normal((rR[i], nD[i], rR[i + 1])) for i in range(3)))
+        variations = (tuple(rng.standard_normal((2, nU[i], N[i])) for i in range(3)),
+                      tuple(rng.standard_normal((2, rL[i], nD[i], rR[i + 1])) for i in range(3)))
+        ww = [rng.standard_normal((2, n)) for n in N]
+        pp = [rng.standard_normal((2, n)) for n in N]
+        sample = list(jets.affine_jet(ww, pp))
+        weight = jets.blocks_to_weight('probe', (2,), 0.5 + rng.random((3, 3)), [np.zeros((3, 2, n)) for n in N])
+        fn = lambda frame, sample, weight, variations: sv.sampling_variables(
+            'probe', frame, sample, ('Jp', 'JtJp', 'Jp_norm_sq'), order=(2,), weight=weight, variations=variations)
+        on_numpy = fn(frame, sample, weight, variations)
+        to_jax = lambda tree: jax.tree_util.tree_map(jnp.asarray, tree)
+        jargs = to_jax((frame, sample, weight, variations))
+        self.assert_jit_jax(fn, *jargs)
+        for a, b in zip(jax.tree_util.tree_leaves(jax.jit(fn)(*jargs)), jax.tree_util.tree_leaves(on_numpy)):
+            self.assertEqual(a.shape, b.shape)
+            self.assertLess(norm(np.asarray(a) - b), 1e-12 * norm(b))
+
+    def test_jit_sampling_variables_curvature_and_the_corewise_point(self):
+        """``Kp`` under ``jax.jit`` with ``K = (2,)``, on a manifold frame and on a corewise point ``(B, G)``, with
+        ``g`` and ``JtJp`` there: jax in, jax out, the numbers numpy's."""
+        import t3toolbox.backend.jets as jets
+        import t3toolbox.backend.sampling_variables as sv
+        rng = np.random.default_rng(2)
+        N, nD, nU, rL, rR = (4, 5, 3), (2, 3, 2), (3, 2, 3), (1, 2, 3, 1), (1, 3, 2, 1)
+        frame = (tuple(rng.standard_normal((nD[i], N[i])) for i in range(3)),
+                 tuple(rng.standard_normal((rL[i], nU[i], rR[i + 1])) for i in range(3)),
+                 tuple(rng.standard_normal((rL[i], nD[i], rL[i + 1])) for i in range(3)),
+                 tuple(rng.standard_normal((rR[i], nD[i], rR[i + 1])) for i in range(3)))
+        core_directions = (tuple(rng.standard_normal((2, nD[i], N[i])) for i in range(3)),
+                           tuple(rng.standard_normal((2, rL[i], nD[i], rL[i + 1])) for i in range(3)))
+        ww = [rng.standard_normal((2, n)) for n in N]
+        pp = [rng.standard_normal((2, n)) for n in N]
+        sample = list(jets.affine_jet(ww, pp))
+        y = [rng.standard_normal((3, 2, n)) for n in N]
+        weight = jets.blocks_to_weight('probe', (2,), 0.5 + rng.random((3, 3)), y)
+        to_jax = lambda tree: jax.tree_util.tree_map(jnp.asarray, tree)
+        for label, at, want in (('manifold', frame, ('Kp',)), ('corewise', (frame[0], frame[2]), ('Kp', 'g', 'JtJp'))):
+            fn = lambda at, sample, y, weight, core_directions: sv.sampling_variables(
+                'probe', at, sample, want, order=(2,), y=y, weight=weight, core_directions=core_directions)
+            on_numpy = fn(at, sample, y, weight, core_directions)
+            jargs = to_jax((at, sample, y, weight, core_directions))
+            with self.subTest(call=label):
+                self.assert_jit_jax(fn, *jargs)
+                for a, b in zip(jax.tree_util.tree_leaves(jax.jit(fn)(*jargs)), jax.tree_util.tree_leaves(on_numpy)):
+                    self.assertEqual(a.shape, b.shape)
+                    self.assertLess(norm(np.asarray(a) - b), 1e-12 * norm(b))
+
+    def test_jit_sampling_variables_the_apply_kind(self):
+        """The apply kind under ``jax.jit`` with ``K = (2,)``: ``z``, ``f``, ``g``, ``Kp``, ``JtJp`` and ``Jp_norm_sq`` on a
+        manifold frame, ``g`` and ``Kp`` on a corewise point (the seed as a start node): jax in, jax out, the numbers
+        numpy's."""
+        import t3toolbox.backend.jets as jets
+        import t3toolbox.backend.sampling_variables as sv
+        rng = np.random.default_rng(3)
+        N, nD, nU, rL, rR = (4, 5, 3), (2, 3, 2), (3, 2, 3), (1, 2, 3, 2), (1, 3, 2, 3)
+        frame = (tuple(rng.standard_normal((nD[i], N[i])) for i in range(3)),
+                 tuple(rng.standard_normal((rL[i], nU[i], rR[i + 1])) for i in range(3)),
+                 tuple(rng.standard_normal((rL[i], nD[i], rL[i + 1])) for i in range(3)),
+                 tuple(rng.standard_normal((rR[i], nD[i], rR[i + 1])) for i in range(3)))
+        variations = (tuple(rng.standard_normal((2, nU[i], N[i])) for i in range(3)),
+                      tuple(rng.standard_normal((2, rL[i], nD[i], rR[i + 1])) for i in range(3)))
+        core_directions = (tuple(rng.standard_normal((2, nD[i], N[i])) for i in range(3)),
+                           tuple(rng.standard_normal((2, rL[i], nD[i], rL[i + 1])) for i in range(3)))
+        ww = [rng.standard_normal((2, n)) for n in N]
+        pp = [rng.standard_normal((2, n)) for n in N]
+        sample = list(jets.affine_jet(ww, pp))
+        y = rng.standard_normal((3, 2))
+        weight = jets.blocks_to_weight('apply', (2,), 0.5 + rng.random(3), y)
+        to_jax = lambda tree: jax.tree_util.tree_map(jnp.asarray, tree)
+        for label, at, want, var in (('manifold', frame, ('z', 'f', 'g', 'Kp', 'JtJp', 'Jp_norm_sq'), variations),
+                                     ('corewise', (frame[0], frame[2]), ('g', 'Kp'), None)):
+            fn = lambda at, sample, y, weight, var, core_directions: sv.sampling_variables(
+                'apply', at, sample, want, order=(2,), y=y, weight=weight, variations=var,
+                core_directions=core_directions)
+            on_numpy = fn(at, sample, y, weight, var, core_directions)
+            jargs = to_jax((at, sample, y, weight, var, core_directions))
+            with self.subTest(call=label):
+                self.assert_jit_jax(fn, *jargs)
+                for a, b in zip(jax.tree_util.tree_leaves(jax.jit(fn)(*jargs)), jax.tree_util.tree_leaves(on_numpy)):
+                    self.assertEqual(a.shape, b.shape)
+                    self.assertLess(norm(np.asarray(a) - b), 1e-12 * norm(b))
+
+    def test_jit_sampling_variables_the_entries_kind(self):
+        """The entries kind under ``jax.jit`` with ``K = (2,)``, the index a traced jax integer array with a repeated
+        index in a mode (the gather and the scatter-add): ``z``, ``g``, ``Kp`` and ``JtJp`` on a manifold frame, ``g``
+        and ``Kp`` on a corewise point; jax in, jax out, the numbers numpy's."""
+        import t3toolbox.backend.sampling_variables as sv
+        from t3toolbox.backend.jets import blocks_to_weight
+        rng = np.random.default_rng(4)
+        N, nD, nU, rL, rR = (4, 5, 3), (2, 3, 2), (3, 2, 3), (1, 2, 3, 2), (1, 3, 2, 3)
+        frame = (tuple(rng.standard_normal((nD[i], N[i])) for i in range(3)),
+                 tuple(rng.standard_normal((rL[i], nU[i], rR[i + 1])) for i in range(3)),
+                 tuple(rng.standard_normal((rL[i], nD[i], rL[i + 1])) for i in range(3)),
+                 tuple(rng.standard_normal((rR[i], nD[i], rR[i + 1])) for i in range(3)))
+        variations = (tuple(rng.standard_normal((2, nU[i], N[i])) for i in range(3)),
+                      tuple(rng.standard_normal((2, rL[i], nD[i], rR[i + 1])) for i in range(3)))
+        core_directions = (tuple(rng.standard_normal((2, nD[i], N[i])) for i in range(3)),
+                           tuple(rng.standard_normal((2, rL[i], nD[i], rL[i + 1])) for i in range(3)))
+        index = np.array([[0, 3, 3, 1], [4, 4, 0, 2], [2, 0, 2, 2]])
+        y = rng.standard_normal(4)
+        weight = blocks_to_weight('entries', (), np.asarray(0.7), y)
+        to_jax = lambda tree: jax.tree_util.tree_map(jnp.asarray, tree)
+        for label, at, want, var in (('manifold', frame, ('z', 'g', 'Kp', 'JtJp'), variations),
+                                     ('corewise', (frame[0], frame[2]), ('g', 'Kp'), None)):
+            fn = lambda at, index, y, weight, var, core_directions: sv.sampling_variables(
+                'entries', at, index, want, y=y, weight=weight, variations=var, core_directions=core_directions)
+            on_numpy = fn(at, index, y, weight, var, core_directions)
+            jargs = to_jax((at, index, y, weight, var, core_directions))
+            with self.subTest(call=label):
+                self.assert_jit_jax(fn, *jargs)
+                for a, b in zip(jax.tree_util.tree_leaves(jax.jit(fn)(*jargs)), jax.tree_util.tree_leaves(on_numpy)):
+                    self.assertEqual(a.shape, b.shape)
+                    self.assertLess(norm(np.asarray(a) - b), 1e-12 * norm(b))
+
+    def test_jit_sampling_variables_on_the_uniform_layout(self):
+        """The engine on uniform data under ``jax.jit`` (the masks closed over, static), a manifold frame with forced
+        padding and ranks varying across ``C = (2,)``, ``K = (2,)``, a line at ``(2,)``: jax in, jax out, the numbers
+        numpy's; and the program has the same size at ``(2,)`` and ``(6,)`` (a real scan over the orders, ``m = 1``):
+        the lines of its jaxpr."""
+        import test_sampling_uniform as tsu
+        import t3toolbox.backend.sampling_variables as sv
+
+        def jitted(order, C, K, varying):
+            case = tsu.UniformCase('probe', C, K, True, varying, order, (2,), '_manifold', seed=3)
+            shape, masks, s = case.frame[4], case.frame[5], case.supercores
+
+            def fn(D, U, L, R, sample, y, V, H, D_dot, L_dot):
+                return sv.sampling_variables('probe', (D, U, L, R, shape, masks), sample, ('z', 'g', 'Kp', 'JtJp'),
+                                             order=order, y=y, weight=case.weight, variations=(V, H),
+                                             core_directions=(D_dot, L_dot))
+            args = (s['D'], s['U'], s['L'], s['R'], case.sample, case.y, s['V'], s['H'], s['D_dot'], s['L_dot'])
+            return fn, args
+
+        fn, args = jitted((2,), (2,), (2,), True)
+        jargs = [jnp.asarray(a) for a in args]
+        self.assert_jit_jax(fn, *jargs)
+        for a, b in zip(jax.tree_util.tree_leaves(jax.jit(fn)(*jargs)), jax.tree_util.tree_leaves(fn(*args))):
+            self.assertEqual(a.shape, b.shape)
+            self.assertLess(norm(np.asarray(a) - b), 1e-12 * norm(b))
+        sizes = []                                      # the traced program: its lines (the compiled text also
+        for order in ((2,), (6,)):                      # depends on what the process compiled before)
+            fn, args = jitted(order, (), (), False)
+            sizes.append(str(jax.make_jaxpr(fn)(*[jnp.asarray(a) for a in args])).count('\n'))
+        self.assertEqual(sizes[0], sizes[1])
+
+    def test_an_eager_uniform_call_twice_compiles_nothing_the_second_time(self):
+        """Eager jax on the uniform layout: the scan and map bodies are module-level and memoized, so a second call
+        with the same statics and shapes compiles nothing (counted through ``jax.monitoring``)."""
+        import jax.monitoring as monitoring
+        import test_sampling_uniform as tsu
+        import t3toolbox.backend.sampling_variables as sv
+        events, listening = [], [True]
+
+        def listener(name, *args, **kwargs):            # collects only while this test listens
+            if listening[0]:
+                events.append(name)
+        monitoring.register_event_duration_secs_listener(listener)
+        try:
+            case = tsu.UniformCase('apply', (), (), True, False, (2,), (2,), '_manifold', seed=4)
+            frame = tuple(jnp.asarray(a) for a in case.frame[:4]) + case.frame[4:]
+            call = lambda: sv.sampling_variables('apply', frame, jnp.asarray(case.sample), ('g',), order=case.order,
+                                                 y=jnp.asarray(case.y), weight=jnp.asarray(case.weight))
+            call()
+            compiles = lambda: sum('backend_compile' in name for name in events)
+            if not compiles():
+                self.skipTest('this jax records no compile events through jax.monitoring')
+            before = compiles()
+            call()
+            self.assertEqual(compiles(), before)
+        finally:
+            listening[0] = False
+            unregister = getattr(monitoring, 'unregister_event_duration_listener', None)   # not in older jax
+            if unregister is not None:
+                unregister(listener)
+
+    # ---------------------------------------------------- jit bucket: the dense sampling functions
+    def test_jit_dense_sampling_functions(self):
+        """jit dense_probe and dense_apply with no jets, with the input jets of a line at (3,) and with input jets of
+        their own sizes at (1, 2), and dense_entries (a stray np.* on a tracer would raise), with a W and a C stack;
+        jax in gives jax out, eagerly too; float32 stays float32 with x64 on (no array is made in a default dtype);
+        the numbers are numpy's (a smoke test). Then with each array argument in turn a numpy array held outside the
+        trace: the dispatch must be read off all of them."""
+        import t3toolbox.backend.apply as bapply
+        import t3toolbox.backend.entries as bentries
+        rng = np.random.default_rng(0)
+        shape, W, C = (4, 3, 5), (2, 2), (2,)
+        index = np.stack([rng.integers(0, n, size=W) for n in shape])
+        jet_cases_ = ((), [()] * 3), ((3,), [(2,)] * 3), ((1, 2), [(2, 3), (1, 1), (3, 2)])  # (order, input jet sizes)
+        cases_ = [(name, function, order, sizes) for name, function in (('dense_probe', probing.dense_probe),
+                                                                        ('dense_apply', bapply.dense_apply))
+                  for order, sizes in jet_cases_] + [('dense_entries', bentries.dense_entries, None, None)]
+        for name, function, order, sizes in cases_:
+            for dtype, smoke_tol in ((np.float64, 1e-12), (np.float32, 1e-5)):
+                T = rng.standard_normal(C + shape).astype(dtype)
+                if order is None:
+                    first = index
+                    fn = lambda T, first: function(T, first)
+                    jfirst = jnp.asarray(first)
+                else:
+                    first = [rng.standard_normal(s + W + (n,)).astype(dtype) for s, n in zip(sizes, shape)]
+                    fn = lambda T, first, order=order: function(T, first, order)
+                    jfirst = [jnp.asarray(w) for w in first]
+                on_numpy = fn(T, first)
+                jargs = [jnp.asarray(T), jfirst]
+                with self.subTest(function=name, order=order, dtype=np.dtype(dtype).name):
+                    for leaf in jax.tree_util.tree_leaves(on_numpy):
+                        self.assertTrue(common.is_numpy_ndarray(leaf))
+                        self.assertEqual(leaf.dtype, dtype)
+                    self.assert_jit_jax(fn, *jargs)
+                    self.assert_eager_jax(fn, *jargs)
+                    jitted = jax.jit(fn)(*jargs)
+                    for a, b, c in zip(jax.tree_util.tree_leaves(jitted), jax.tree_util.tree_leaves(on_numpy),
+                                       jax.tree_util.tree_leaves(fn(*jargs))):
+                        self.assertEqual(a.shape, b.shape)
+                        self.assertEqual(a.dtype, dtype)
+                        self.assertEqual(c.dtype, dtype)
+                        self.assertLess(norm(np.asarray(a) - b) / norm(b), smoke_tol)
+                host = [T, first]
+                for k in range(2):
+                    with self.subTest(function=name, order=order, dtype=np.dtype(dtype).name, numpy_argument=k):
+                        mixed = lambda *rest: fn(*rest[:k], host[k], *rest[k:])    # host[k]: numpy, closed over
+                        traced = jargs[:k] + jargs[k + 1:]
+                        out = jax.jit(mixed)(*traced)
+                        self._leaves_all_jax(out)
+                        for a, b in zip(jax.tree_util.tree_leaves(out), jax.tree_util.tree_leaves(on_numpy)):
+                            self.assertEqual(a.dtype, dtype)
+                            self.assertLess(norm(np.asarray(a) - b) / norm(b), smoke_tol)
+
+    def test_jit_input_jet_helpers(self):
+        """jit affine_jet (on a tuple and on packed vectors, with one direction and two) and index_to_one_hot: jax in,
+        jax out, eagerly too; affine_jet keeps float32; the one-hot vectors are jax's default float for a jax index
+        (float64 with x64 on), numpy's float64 for a numpy one; the numbers are numpy's. A numpy direction closed
+        over beside traced ones: the dispatch is read off all the arguments."""
+        import t3toolbox.backend.jets as bjets
+        rng = np.random.default_rng(1)
+        shape, W = (4, 3, 5), (2, 2)
+        for dtype in (np.float64, np.float32):
+            ww = [rng.standard_normal(W + (n,)).astype(dtype) for n in shape]
+            pp = [rng.standard_normal(W + (n,)).astype(dtype) for n in shape]
+            qq = [rng.standard_normal(W + (n,)).astype(dtype) for n in shape]
+            packed = [np.stack([rng.standard_normal(W + (4,)).astype(dtype) for _ in range(3)]) for _ in range(3)]
+            for what, args in (('a line', (ww, pp)), ('two directions', (ww, pp, qq)), ('packed', tuple(packed))):
+                on_numpy = bjets.affine_jet(*args)
+                jargs = [jax.tree_util.tree_map(jnp.asarray, a) for a in args]
+                with self.subTest(what=what, dtype=np.dtype(dtype).name):
+                    self.assert_jit_jax(bjets.affine_jet, *jargs)
+                    self.assert_eager_jax(bjets.affine_jet, *jargs)
+                    jitted = jax.jit(bjets.affine_jet)(*jargs)
+                    for a, b in zip(jax.tree_util.tree_leaves(jitted), jax.tree_util.tree_leaves(on_numpy)):
+                        self.assertEqual(a.dtype, dtype)
+                        self.assertTrue(np.array_equal(np.asarray(a), b))
+                    mixed = lambda *rest: bjets.affine_jet(*rest, args[-1])              # the last direction: numpy
+                    out = jax.jit(mixed)(*jargs[:-1])
+                    self._leaves_all_jax(out)
+                    for a, b in zip(jax.tree_util.tree_leaves(out), jax.tree_util.tree_leaves(on_numpy)):
+                        self.assertTrue(np.array_equal(np.asarray(a), b))
+        index = np.stack([rng.integers(-n, n, size=W) for n in shape])
+        on_numpy = bjets.index_to_one_hot(index, shape)
+        self.assertTrue(all(common.is_numpy_ndarray(e) and e.dtype == np.float64 for e in on_numpy))
+        one_hot = lambda index: bjets.index_to_one_hot(index, shape)
+        self.assert_jit_jax(one_hot, jnp.asarray(index))
+        self.assert_eager_jax(one_hot, jnp.asarray(index))
+        for a, b in zip(jax.jit(one_hot)(jnp.asarray(index)), on_numpy):
+            self.assertEqual(a.dtype, jnp.zeros(()).dtype)
+            self.assertTrue(np.array_equal(np.asarray(a), b))
 
     # ---------------------------------------------------- jit bucket: backend functions
     def test_jit_backend(self):
@@ -433,6 +1234,32 @@ class TestDispatch(unittest.TestCase):
         # residual / checker backends -> jax scalar (raw-np dispatch fix)
         self.assert_jit_jax(lambda b: fv_operations.fv_frame_orthogonality_residual(b), self.frame.data)
         self.assert_jit_jax(lambda b: fv_operations.fv_frame_consistency_residual(b), self.frame.data)
+        # graded messages P4: the frame checkers go through the cores (two more orthogonalizations, no dense
+        # tensor); the centers' residual beside them, with either family alone; the frontend's cached residual
+        self.assert_jit_jax(lambda b, c: fv_operations.fv_centers_consistency_residual(b, c),
+                            self.frame.data, self.var.data)
+        self.assert_jit_jax(lambda b, vc: fv_operations.fv_centers_consistency_residual(b, (vc, None)),
+                            self.frame.data, self.var.data[0])
+        self.assert_jit_jax(lambda b, hc: fv_operations.fv_centers_consistency_residual(b, (None, hc)),
+                            self.frame.data, self.var.data[1])
+        self.assert_jit_jax(lambda b: b.consistency_residual, self.frame)
+        self.assert_jit_jax(lambda b: b.is_consistent(), self.frame)
+        for fn, args in ((fv_operations.fv_frame_consistency_residual, (self.frame.data,)),
+                         (fv_operations.fv_centers_consistency_residual, (self.frame.data, self.var.data))):
+            eager, jitted = fn(*args), jax.jit(fn)(*args)             # jax in -> jax out, eager and compiled alike
+            self.assertTrue(common.is_jax_ndarray(eager))
+            self.assertEqual(eager.dtype, self.frame.data[0][0].dtype)
+            self.assertLess(float(jitted), 1e-4 if eager.dtype == np.float32 else 1e-11)   # a consistent frame
+            self.assertLess(abs(float(jitted) - float(eager)), 1e-4 if eager.dtype == np.float32 else 1e-11)
+        # a norm whose square is not representable (float32, norm near 1e20) does not turn a residual into 0:
+        # R[0] off by 1e-3 reads 1e-3, eager and compiled
+        scale = lambda cores, factor: (jnp.asarray(factor, dtype=cores[0].dtype) * cores[0],) + tuple(cores[1:])
+        down, up, left, right = self.frame.data
+        large = (down, up, left[:-1] + (jnp.asarray(1e20, dtype=left[-1].dtype) * left[-1],), scale(right, 1.001e20))
+        if down[0].dtype == np.float32:
+            for residual in (fv_operations.fv_frame_consistency_residual(large),
+                             jax.jit(fv_operations.fv_frame_consistency_residual)(large)):
+                self.assertLess(abs(float(residual) - 1e-3), 2e-5)
         self.assert_jit_jax(lambda b, v: tops.tv_gauge_residual(b, v), self.frame.data, self.var.data)
         # S7b: the operand-scaled gauge residual (a traced per-element scale; jax in -> jax out)
         self.assert_jit_jax(lambda b, v, s: tops.tv_gauge_residual(b, v, scale=s),
@@ -550,54 +1377,8 @@ class TestDispatch(unittest.TestCase):
             self._leaves_all_jax(out)
         self.assertEqual(traces[0], 1, "the two-hole recompiled on a new point")
 
-    def test_jit_probe_derivatives_two_hole(self):
-        """The probe-derivative two-hole (one-shot and from a sweep) jits to pure jax, ragged and on packed
-        uniform supercores (the scanned dotted adjoint step, the d-prefixed dxi~ and assemblies); the
-        from-sweep kernel compiles ONCE across two points (the sweep and the cores are leaves); and with the
-        chunked assemblies engaged (uniform + jax, W = 7 at chunk_size 2: three full chunks through the
-        lax.scan plus a remainder) it jits clean and matches the dense assembly."""
-        import t3toolbox.backend.ut3_conversions as u3c
-        import t3toolbox.backend.ut3_operations as u3o
-        order, W = 2, 7
-        rnd = lambda *s: jnp.asarray(np.random.randn(*s))
-        fd = self.frame.data
-        theta = (tuple(fd[0]), tuple(fd[2]))                                     # the base point (D, L)
-        ww = tuple(rnd(W, N) for N in STRUCT[0])
-        pp = tuple(rnd(W, N) for N in STRUCT[0])
-        zt = tuple(rnd(order + 1, W, N) for N in STRUCT[0])                      # residual jets, no K
-        dirs = (tuple(rnd(3, *B.shape) for B in theta[0]), tuple(rnd(3, *G.shape) for G in theta[1]))  # K=(3,)
-        self.assert_jit_jax(lambda z, w, p, th, dd: pd.t3_probe_corewise_derivatives_hessian(z, w, p, th, dd, order),
-                            zt, ww, pp, theta, dirs)
-
-        traces = [0]
-
-        @jax.jit
-        def two_hole(z, w, p, th, dd, sweep):
-            traces[0] += 1
-            return pd.t3_probe_corewise_derivatives_hessian_from_sweep(z, w, p, th, dd, order, sweep)
-
-        other = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(*STRUCT).to_jax())[0].data
-        for f in (fd, other):                                                    # a new point, same shapes
-            out = two_hole(zt, ww, pp, (tuple(f[0]), tuple(f[2])), dirs,
-                           pd.tv_precompute_probe_frame_sweep_jets(f, ww, pp, order))
-            self._leaves_all_jax(out)
-        self.assertEqual(traces[0], 1, "the probe-derivative two-hole recompiled on a new point")
-
-        N, n, r = max(STRUCT[0]), max(STRUCT[1]), max(STRUCT[2])
-        th_u = u3c.t3_to_ut3(theta, N=N, n=n, r=r, squash_tails=False)[:2]
-        dir_u = u3c.t3_to_ut3(dirs, N=N, n=n, r=r, squash_tails=False)[:2]
-        packed = tuple(u3o.pack_vectors(v, N) for v in (zt, ww, pp))
-        uniform = lambda cs: jax.jit(lambda z, w, p, th, dd: pd.t3_probe_corewise_derivatives_hessian(
-            z, w, p, th, dd, order, chunk_size=cs))
-        chunked = uniform(2)(*packed, th_u, dir_u)
-        self._leaves_all_jax(chunked)
-        dense = uniform(None)(*packed, th_u, dir_u)
-        for a, b in zip(chunked, dense):
-            self.assertLess(norm(a - b), 1e-12 * norm(b))
-
     def test_jit_plain_kind_two_holes(self):
-        """S10 / S11: the plain probe / apply / entries two-holes jit to pure jax -- ragged (one-shot and from a
-        sweep, which compiles ONCE across two points: the sweep and the cores are leaves) and through the uniform
+        """S10 / S11: the plain probe / apply / entries two-holes jit to pure jax -- ragged and through the uniform
         wrappers on packed supercores (the masks closed over as host constants), jit == eager; and the exact local
         model of each kind, ragged and uniform, jits its hvp with the model as an ARGUMENT once across points."""
         import t3toolbox.backend.apply as bapply
@@ -611,47 +1392,33 @@ class TestDispatch(unittest.TestCase):
         dirs = (tuple(rnd(3, *B.shape) for B in theta[0]), tuple(rnd(3, *G.shape) for G in theta[1]))  # K=(3,)
         ww = tuple(rnd(W, N) for N in STRUCT[0])
         index = jnp.asarray(np.stack([np.random.randint(0, N, size=W) for N in STRUCT[0]]))
-        other = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(*STRUCT).to_jax())[0].data
         ux = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(*STRUCT)).to_jax()
         u_dirs = (rnd(*((ux.data[0].shape[0], 2) + ux.data[0].shape[1:])),
                   rnd(*((ux.data[1].shape[0], 2) + ux.data[1].shape[1:])))
         kinds = {
             'probe': (tuple(rnd(W, N) for N in STRUCT[0]), ww, probing.t3_probe_corewise_hessian,
-                      probing.t3_probe_corewise_hessian_from_sweep, probing.tv_precompute_probe_frame_sweep,
-                      ut3s.ut3_probe_corewise_hessian, bfit.ProbeKind(weight=[0.5, 1.0, 2.0])),
-            'apply': (rnd(W), ww, bapply.t3_apply_corewise_hessian, bapply.t3_apply_corewise_hessian_from_sweep,
-                      bapply.tv_precompute_apply_frame_sweep, ut3s.ut3_apply_corewise_hessian, bfit.APPLY),
-            'entries': (rnd(W), index, bentries.t3_entries_corewise_hessian,
-                        bentries.t3_entries_corewise_hessian_from_sweep, bentries.tv_precompute_entries_frame_sweep,
-                        ut3s.ut3_entries_corewise_hessian, bfit.ENTRIES)}
-        for name, (z, s, hess, from_sweep, precompute, uhess, kind) in kinds.items():
+                      ut3s.ut3_probe_corewise_hessian),
+            'apply': (rnd(W), ww, bapply.t3_apply_corewise_hessian, ut3s.ut3_apply_corewise_hessian),
+            'entries': (rnd(W), index, bentries.t3_entries_corewise_hessian, ut3s.ut3_entries_corewise_hessian)}
+        for name, (z, s, hess, uhess) in kinds.items():
             with self.subTest(kind=name):
-                self.assert_jit_jax(lambda zz, th, dd: hess(zz, s, th, dd), z, theta, dirs)
-                traces = [0]
-
-                @jax.jit
-                def two_hole(zz, th, dd, sweep):
-                    traces[0] += 1
-                    return from_sweep(zz, s, th, dd, sweep)
-
-                for f in (fd, other):                                            # a new point, same shapes
-                    self._leaves_all_jax(two_hole(z, (tuple(f[0]), tuple(f[2])), dirs, precompute(f, s)))
-                self.assertEqual(traces[0], 1, "the %s two-hole recompiled on a new point" % name)
+                self.assert_jit_jax(lambda zz, th, dd: hess(th, s, zz, dd), z, theta, dirs)
                 u = lambda a, b: (a, b, ux.data[2], ux.data[3])                  # masks: host constants, closed over
-                jitted = jax.jit(lambda zz, a, b, da, db: uhess(zz, s, u(a, b), (da, db)))(z, *ux.data[:2], *u_dirs)
+                jitted = jax.jit(lambda zz, a, b, da, db: uhess(u(a, b), s, zz, (da, db)))(z, *ux.data[:2], *u_dirs)
                 self._leaves_all_jax(jitted)
                 to_np = lambda t: jax.tree_util.tree_map(np.asarray, t)
-                eager = uhess(to_np(z), to_np(s) if name != 'entries' else np.asarray(s),
-                              (np.asarray(ux.data[0]), np.asarray(ux.data[1]), ux.data[2], ux.data[3]), to_np(u_dirs))
+                eager = uhess((np.asarray(ux.data[0]), np.asarray(ux.data[1]), ux.data[2], ux.data[3]),
+                              to_np(s) if name != 'entries' else np.asarray(s), to_np(z), to_np(u_dirs))
                 for a, b in zip(jitted, eager):
                     self.assertLess(norm(np.asarray(a) - b), 1e-12 * norm(b))
                 # the exact local model, ragged and uniform: one cache key across points
-                data = kind.point_forward(t3.TuckerTensorTrain.randn(*STRUCT).to_jax().data, s)
+                forward = {'probe': probing.t3_probe, 'apply': bapply.t3_apply, 'entries': bentries.t3_entries}[name]
+                data = forward(t3.TuckerTensorTrain.randn(*STRUCT).to_jax().data, s)
                 data = [d + 0.1 for d in data] if name == 'probe' else data + 0.1
-                problems = ((bopt.least_squares_problem(bgeo.ManifoldGeometryOps(), kind, s, data),
-                             [t3.TuckerTensorTrain.randn(*STRUCT).to_jax().data for _ in range(2)]),
-                            (uf.uniform_least_squares_problem('manifold', name, ux, s, data,
-                                                              weight=[0.5, 1.0, 2.0] if name == 'probe' else None),
+                fit = F.fit(bgeo.ManifoldGeometryOps(), name, s, data,
+                            weight=jnp.asarray([0.5, 1.0, 2.0]) if name == 'probe' else None)
+                problems = ((fit, [t3.TuckerTensorTrain.randn(*STRUCT).to_jax().data for _ in range(2)]),
+                            (F.uniform(fit, ux)[0],
                              [tuple(jnp.asarray(a) for a in ut3.UniformTuckerTensorTrain.from_t3(
                                  t3.TuckerTensorTrain.randn(*STRUCT)).data[:2]) for _ in range(2)]))
                 for prob, points in problems:
@@ -670,63 +1437,26 @@ class TestDispatch(unittest.TestCase):
                     self.assertEqual(mtraces[0], 1, "the %s exact LocalModel recompiled across points" % name)
 
     def test_jit_derivative_kind_two_holes(self):
-        """S12: the apply / entries derivative two-holes jit to pure jax -- ragged (one-shot and from a sweep, which
-        compiles ONCE across two points: the sweep and the cores are leaves) and through the uniform wrappers on packed
-        supercores (the masks closed over as host constants), jit == eager; and the exact local model of each kind,
-        ragged and uniform, jits its hvp with the model as an ARGUMENT once across points."""
-        import t3toolbox.backend.ut3_sampling as ut3s
-        import t3toolbox.backend.uniform_fitting as uf
+        """S12: the exact local model of the apply / entries derivative fits (the apply kind at jets, the entries one
+        at the one-hot jet: the two-hole is the oracle's ``Kp``), ragged and uniform, jits its hvp with the model as an
+        ARGUMENT once across points."""
         W, order = 7, 2
         rnd = lambda *s: jnp.asarray(np.random.randn(*s))
-        fd = self.frame.data
-        theta = (tuple(fd[0]), tuple(fd[2]))                                     # the base point (D, L)
-        dirs = (tuple(rnd(3, *B.shape) for B in theta[0]), tuple(rnd(3, *G.shape) for G in theta[1]))  # K=(3,)
         pp = tuple(rnd(W, N) for N in STRUCT[0])
-        c = rnd(order + 1, W)                                                    # the residual jet, no K
-        other = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(*STRUCT).to_jax())[0].data
         ux = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(*STRUCT)).to_jax()
-        u_dirs = (rnd(*((ux.data[0].shape[0], 2) + ux.data[0].shape[1:])),
-                  rnd(*((ux.data[1].shape[0], 2) + ux.data[1].shape[1:])))
-        kinds = {
-            'apply_derivatives': ((tuple(rnd(W, N) for N in STRUCT[0]), pp), pd.t3_apply_corewise_derivatives_hessian,
-                                  pd.t3_apply_corewise_derivatives_hessian_from_sweep,
-                                  pd.tv_precompute_apply_frame_sweep_jets, ut3s.ut3_apply_corewise_derivatives_hessian,
-                                  bfit.ApplyDerivativesKind(order=order, weight=[1.0, 0.5, 0.25])),
-            'entries_derivatives': ((jnp.asarray(np.stack([np.random.randint(0, N, size=W) for N in STRUCT[0]])), pp),
-                                    pd.t3_entries_corewise_derivatives_hessian,
-                                    pd.t3_entries_corewise_derivatives_hessian_from_sweep,
-                                    pd.tv_precompute_entries_frame_sweep_jets,
-                                    ut3s.ut3_entries_corewise_derivatives_hessian,
-                                    bfit.EntriesDerivativesKind(order=order, weight=[1.0, 0.5, 0.25]))}
-        for name, (s, hess, from_sweep, precompute, uhess, kind) in kinds.items():
+        samples = {'apply_derivatives': tuple(rnd(W, N) for N in STRUCT[0]),
+                   'entries_derivatives': jnp.asarray(np.stack([np.random.randint(0, N, size=W) for N in STRUCT[0]]))}
+        for name, first in samples.items():
+            s = (first, pp)
             with self.subTest(kind=name):
-                self.assert_jit_jax(lambda cc, th, dd: hess(cc, s[0], s[1], th, dd, order), c, theta, dirs)
-                traces = [0]
-
-                @jax.jit
-                def two_hole(cc, th, dd, sweep):
-                    traces[0] += 1
-                    return from_sweep(cc, s[0], s[1], th, dd, order, sweep)
-
-                for f in (fd, other):                                            # a new point, same shapes
-                    self._leaves_all_jax(two_hole(c, (tuple(f[0]), tuple(f[2])), dirs, precompute(f, s[0], s[1], order)))
-                self.assertEqual(traces[0], 1, "the %s two-hole recompiled on a new point" % name)
-                u = lambda a, b: (a, b, ux.data[2], ux.data[3])                  # masks: host constants, closed over
-                jitted = jax.jit(lambda cc, a, b, da, db: uhess(cc, s[0], s[1], u(a, b), (da, db), order))(
-                    c, *ux.data[:2], *u_dirs)
-                self._leaves_all_jax(jitted)
-                to_np = lambda t: jax.tree_util.tree_map(np.asarray, t)
-                eager = uhess(np.asarray(c), to_np(s[0]), to_np(s[1]),
-                              (np.asarray(ux.data[0]), np.asarray(ux.data[1]), ux.data[2], ux.data[3]), to_np(u_dirs),
-                              order)
-                for a, b in zip(jitted, eager):
-                    self.assertLess(norm(np.asarray(a) - b), 1e-12 * norm(b))
                 # the exact local model, ragged and uniform: one cache key across points
-                data = kind.point_forward(t3.TuckerTensorTrain.randn(*STRUCT).to_jax().data, s) + 0.1
-                problems = ((bopt.least_squares_problem(bgeo.ManifoldGeometryOps(), kind, s, data),
-                             [t3.TuckerTensorTrain.randn(*STRUCT).to_jax().data for _ in range(2)]),
-                            (uf.uniform_least_squares_problem('manifold', name, ux, s, data, order=order,
-                                                              weight=[1.0, 0.5, 0.25]),
+                base = name[:-len('_derivatives')]
+                data = jnp.asarray(dd.forward(t3.TuckerTensorTrain.randn(*STRUCT).to_jax(), base, s[0], s[1],
+                                              order)) + 0.1
+                fit = F.derivative_fit(bgeo.ManifoldGeometryOps(), base, order, s[0], s[1], data,
+                                       weight=np.array([1.0, 0.5, 0.25]), shape=STRUCT[0])
+                problems = ((fit, [t3.TuckerTensorTrain.randn(*STRUCT).to_jax().data for _ in range(2)]),
+                            (F.uniform(fit, ux)[0],
                              [tuple(jnp.asarray(a) for a in ut3.UniformTuckerTensorTrain.from_t3(
                                  t3.TuckerTensorTrain.randn(*STRUCT)).data[:2]) for _ in range(2)]))
                 for prob, points in problems:
@@ -752,23 +1482,23 @@ class TestDispatch(unittest.TestCase):
                                    jnp.asarray(np.random.randn(2, 2, 1))))
         geom = sgm.shared_manifold((0, 0))
         ww = tuple(jnp.asarray(np.random.randn(5, 6)) for _ in range(2))
-        r = jnp.asarray(np.random.randn(5))
-        model = fitting.apply_model(geom, xt, ww, r)
+        y = jnp.asarray(np.random.randn(5))
+        model = _fmodel(geom, xt, 'apply', ww, y)
         p = geom.randn(model.frame)
         self.assert_jit_jax(lambda m, q: m.gn_hessian(q), model, p)
         self.assert_jit_jax(lambda m: m.gradient, model)
 
     # ---------------------------------------------------- jit bucket: Gauss-Newton fitting (fitting.py)
     def test_jit_fitting(self):
-        # the geometry-generic GN model, every (kind x geometry): cached sweep + frame fold in as closure
-        # constants; the trial tangent pp is the traced input (frame survives jit as aux). evaluate exercises
-        # the kind's sumsq reducer; gn_hessian exercises forward + transpose + geometry.project.
+        # the geometry-generic GN model, every (kind x geometry): the model's held values and frame fold in as
+        # closure constants; the trial tangent pp is the traced input. evaluate exercises the oracle's quadratic and
+        # the projection; gn_hessian exercises the oracle's JtJp + geometry.project.
         index = jnp.array([[1, 2], [2, 3], [3, 0]])              # (d,)+W, W=(2,)
-        probe_r = tuple(jnp.ones((2, N)) for N in STRUCT[0])     # d probe residual vectors, W=(2,)
+        probe_y = tuple(jnp.ones((2, N)) for N in STRUCT[0])     # d probe data vectors, W=(2,)
         for geom in (t3m.MANIFOLD, t3m.COREWISE):                # corewise: NO Π; manifold: gauged
-            models = [fitting.apply_model(geom, self.x, self.ww, jnp.ones(2)),
-                      fitting.entries_model(geom, self.x, index, jnp.ones(2)),
-                      fitting.probe_model(geom, self.x, self.ww, probe_r)]
+            models = [_fmodel(geom, self.x, 'apply', self.ww, jnp.ones(2)),
+                      _fmodel(geom, self.x, 'entries', index, jnp.ones(2)),
+                      _fmodel(geom, self.x, 'probe', self.ww, probe_y)]
             for model in models:
                 _ = model.gradient; _ = model.objective_value     # warm the caches -> concrete jax constants
                 p = geom.randn(model.frame)                       # a tangent at the model's frame (jax)
@@ -776,15 +1506,14 @@ class TestDispatch(unittest.TestCase):
                 self.assert_jit_jax(lambda pp: model.jacobian(pp), p)      # J p (forward), sample-space
                 self.assert_jit_jax(lambda pp: model.gn_quadratic(pp), p)  # pᵀHp = ‖Jp‖², a jax scalar
                 self.assert_jit_jax(lambda pp: model.evaluate(pp), p)      # m(p), returns a jax scalar
-        # weighted probe kinds jit-clean: a per-mode probe weight (d,) and a full ω[mode,order] matrix are
-        # host-numpy static -> fold in as device constants (no tracer leak through the weighted sumsq/transpose).
+        # weighted probe fits jit-clean: a per-mode probe weight (d,) and a full ω[mode,order] matrix are batch
+        # leaves (no tracer leak through the weighted sums and transposes).
         d, order = len(STRUCT[0]), 2
         pp = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])
-        jet_r = tuple(jnp.ones((order + 1, 2, N)) for N in STRUCT[0])
-        wmodels = [fitting.probe_model(t3m.MANIFOLD, self.x, self.ww, probe_r,
-                                       weight=np.linspace(0.4, 1.8, d)),
-                   fitting.probe_derivatives_model(t3m.MANIFOLD, self.x, self.ww, pp, order, jet_r,
-                                                   weight=np.linspace(0.3, 2.0, d * (order + 1)).reshape(d, order + 1))]
+        jet_y = tuple(jnp.ones((order + 1, 2, N)) for N in STRUCT[0])
+        wmodels = [_fmodel(t3m.MANIFOLD, self.x, 'probe', self.ww, probe_y, weight=np.linspace(0.4, 1.8, d)),
+                   _fmodel(t3m.MANIFOLD, self.x, 'probe_derivatives', (self.ww, pp), jet_y, order,
+                           np.linspace(0.3, 2.0, d * (order + 1)).reshape(d, order + 1))]
         for model in wmodels:
             _ = model.gradient; _ = model.objective_value
             p = t3m.MANIFOLD.randn(model.frame)
@@ -805,8 +1534,7 @@ class TestDispatch(unittest.TestCase):
         @jax.jit
         def step(X):
             traces[0] += 1                                       # +1 per TRACE (compile), not per call
-            r = X.apply(ww) - b
-            model = fitting.apply_model(t3m.MANIFOLD, X, ww, r)
+            model = _fmodel(t3m.MANIFOLD, X, 'apply', ww, b)
             g = model.gradient
             alpha = g.corewise_inner(g) / model.gn_quadratic(g)           # Cauchy step (one forward; no H assembly)
             return t3m.MANIFOLD.retract((-alpha) * g)
@@ -832,7 +1560,7 @@ class TestDispatch(unittest.TestCase):
         data = jnp.asarray(bapply.t3_apply(x_true.data, [np.asarray(w) for w in ww]))
         ux0 = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(SH, TK, TT)).to_jax()
         sc = (ux0.data[0], ux0.data[1])                     # jax supercores; masks stay host numpy
-        prob = uf.uniform_least_squares_problem('manifold', 'apply', ux0, ww, data)
+        prob = F.uniform(F.fit(bgeo.ManifoldGeometryOps(), 'apply', ww, data), ux0)[0]
         traces = [0]
         @jax.jit
         def step(supercores):
@@ -850,10 +1578,9 @@ class TestDispatch(unittest.TestCase):
     def test_jit_uniform_local_model(self):
         # U7b (the roll-your-own surface): a uniform fitting.LocalModel matvec `jit(lambda m, p: m.gn_hessian(p))`
         # -- model AS AN ARGUMENT -- must compile ONCE across REBUILT models of the same rank. This exercises
-        # the value-hashed aux design: the model's aux is (geometry, kind_name, x0_masks, order, weight) -- all
-        # value-hashable -- and the packed kind is rebuilt lazily from it (a fresh-closure kind stored as aux
-        # would recompile every rebuild). One clean trace also proves the matvec is jit-clean (UT3Tangent
-        # wrap/unwrap + gauge projection, no stray np on a tracer).
+        # the value-hashed aux design: the model's aux is the frontend geometry and the backend model's geometry
+        # and oracle -- all value-hashable -- and its data (frame, batch, held) are leaves. One clean trace also
+        # proves the matvec is jit-clean (UT3Tangent wrap/unwrap + gauge projection, no stray np on a tracer).
         import t3toolbox.uniform_manifold as ut3m
         SH, TK, TT = STRUCT
         W = 12
@@ -862,8 +1589,8 @@ class TestDispatch(unittest.TestCase):
         def build(seed):
             np.random.seed(seed)
             x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(SH, TK, TT)).to_jax()
-            r = jnp.asarray(np.asarray(x.apply(ww)) - np.random.randn(W))
-            return fitting.apply_model(ut3m.UNIFORM_MANIFOLD, x, ww, r)
+            y = jnp.asarray(np.random.randn(W))
+            return _fmodel(ut3m.UNIFORM_MANIFOLD, x, 'apply', ww, y)
 
         traces = [0]
         @jax.jit
@@ -875,8 +1602,7 @@ class TestDispatch(unittest.TestCase):
             p = ut3m.UNIFORM_MANIFOLD.randn(m.frame)
             hp = Hmatvec(m, p)
             jax.block_until_ready(hp.variations.supercores)
-        self.assertEqual(traces[0], 1, "uniform fitting.LocalModel matvec recompiled -- aux must be value-hashed "
-                                       "(kind rebuilt lazily, not stored as a fresh closure)")
+        self.assertEqual(traces[0], 1, "uniform fitting.LocalModel matvec recompiled -- aux must be value-hashed")
         self._leaves_all_jax(hp)
 
     def _apply_problem_jax(self):
@@ -886,7 +1612,7 @@ class TestDispatch(unittest.TestCase):
         cores = (tuple(jnp.asarray(c) for c in A.data[0]), tuple(jnp.asarray(c) for c in A.data[1]))
         ww = [jnp.asarray(np.random.randn(40, n)) for n in SH]
         b = jnp.asarray(np.asarray(A.apply([np.asarray(w) for w in ww])))
-        return bopt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.APPLY, ww, b), cores
+        return F.fit(bgeo.ManifoldGeometryOps(), 'apply', ww, b), cores
 
     def test_local_model_rebuilt_each_step_is_one_jit_cache_key(self):
         """A backend LocalModel is rebuilt at every Newton iteration by construction. It must flatten to the SAME
@@ -922,11 +1648,10 @@ class TestDispatch(unittest.TestCase):
         x_true = t3.TuckerTensorTrain.randn(SH, TK, TT)
         ww = [jnp.asarray(rng.standard_normal((W, n))) for n in SH]
         pp = [jnp.asarray(rng.standard_normal((W, n))) for n in SH]
-        data = [jnp.asarray(z) + 0.1 for z in pd.t3_probe_derivatives(ww, pp, x_true.to_jax().data, order)]
-        kind = bfit.ProbeDerivativesKind(order=order, weight=np.linspace(0.3, 1.5, len(SH) * (order + 1))
-                                         .reshape(len(SH), order + 1))
+        data = [jnp.asarray(z) + 0.1 for z in dd.forward(x_true.to_jax(), 'probe', ww, pp, order)]
+        weight = np.linspace(0.3, 1.5, len(SH) * (order + 1)).reshape(len(SH), order + 1)
         x0 = t3.TuckerTensorTrain.randn(SH, TK, TT).to_jax().data
-        return bopt.least_squares_problem(geom, kind, (ww, pp), data), x0
+        return F.derivative_fit(geom, 'probe', order, ww, pp, data, weight=weight), x0
 
     def test_jit_exact_local_model(self):
         """The exact-mode backend LocalModel (hessian='exact') -- hvp, quadratic, curvature_hvp, curvature_quadratic,
@@ -978,7 +1703,7 @@ class TestDispatch(unittest.TestCase):
         self.assertEqual(traces[0], 2)
 
     def test_jit_exact_frontend_local_model(self):
-        """The frontend exact model (``fitting.probe_derivatives_model(..., hessian='exact')``) with the model AS
+        """The frontend exact model (``fitting.local_model(..., hessian='exact')``, probe derivatives), the model AS
         AN ARGUMENT: every exact action -- hessian, quadratic, curvature_hessian, curvature_quadratic, evaluate,
         gradient -- jits to pure jax, ONCE across models rebuilt at new points with new dampings (the
         ``curvature`` child's arrays are leaves); jit == eager; the mode is tree structure; and since the
@@ -990,16 +1715,15 @@ class TestDispatch(unittest.TestCase):
         ww = [jnp.asarray(rng.standard_normal((W, n))) for n in SH]
         pp = [jnp.asarray(rng.standard_normal((W, n))) for n in SH]
         target = t3.TuckerTensorTrain.randn(*STRUCT).to_jax()
-        data = [z + 0.1 for z in target.probe_derivatives(ww, pp, ORDER)]
+        data = [z + 0.1 for z in dd.forward(target, 'probe', ww, pp, ORDER)]
 
         def build(seed, cd, hessian='exact'):
             np.random.seed(seed)
             x = t3.TuckerTensorTrain.randn(*STRUCT).to_jax()
-            r = [z - y for z, y in zip(x.probe_derivatives(ww, pp, ORDER), data)]
             if hessian != 'exact':
-                return fitting.probe_derivatives_model(t3m.MANIFOLD, x, ww, pp, ORDER, r)
-            return fitting.probe_derivatives_model(t3m.MANIFOLD, x, ww, pp, ORDER, r, hessian=hessian,
-                                                   curvature_damping=cd)
+                return _fmodel(t3m.MANIFOLD, x, 'probe_derivatives', (ww, pp), data, ORDER)
+            return _fmodel(t3m.MANIFOLD, x, 'probe_derivatives', (ww, pp), data, ORDER, hessian=hessian,
+                           curvature_damping=cd)
 
         traces = [0]
 
@@ -1025,8 +1749,8 @@ class TestDispatch(unittest.TestCase):
         leaves = jax.tree_util.tree_leaves(m)
         self.assertTrue(all(hasattr(l, 'dtype') and np.asarray(l).dtype != bool for l in leaves))
         ux = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(*STRUCT)).to_jax()
-        ur = [jnp.asarray(rng.standard_normal((ORDER + 1, W, n))) for n in SH]
-        um = fitting.probe_derivatives_model(ut3m.UNIFORM_MANIFOLD, ux, ww, pp, ORDER, ur)
+        uy = [jnp.asarray(rng.standard_normal((ORDER + 1, W, n))) for n in SH]
+        um = _fmodel(ut3m.UNIFORM_MANIFOLD, ux, 'probe_derivatives', (ww, pp), uy, ORDER)
         uleaves = jax.tree_util.tree_leaves(um)
         self.assertEqual([l for l in uleaves if not hasattr(l, 'dtype')], [], "a Python int traced as a leaf")
         self.assertEqual([l for l in uleaves if np.asarray(l).dtype == bool], [], "a mask traced as a leaf")
@@ -1048,11 +1772,11 @@ class TestDispatch(unittest.TestCase):
 
         ww = [jnp.asarray(rng.standard_normal((W, n))) for n in SH]
         pp = [jnp.asarray(rng.standard_normal((W, n))) for n in SH]
-        data = [z + 0.1 for z in tied_point().probe_derivatives(ww, pp, order)]
+        data = [z + 0.1 for z in dd.forward(tied_point(), 'probe', ww, pp, order)]
         geom = bgeo.ManifoldGeometryOps().with_sharing(labels, SH)
-        problem = bopt.least_squares_problem(geom, bfit.ProbeDerivativesKind(order=order), (ww, pp), data)
+        problem = F.Fit(geom, *F.old_vocabulary('probe_derivatives', (ww, pp), data, SH, order))
         x0 = tied_point()
-        fd = geom.frame(x0.data)
+        fd = geom.frame(x0.data)[0]
         sfd = geom.precompute(fd)
         self.assert_jit_jax(lambda f, s: bsharing.fv_tied_lift_factors(f, 1e-6, s), fd, sfd)
         lf = bsharing.fv_tied_lift_factors(fd, 1e-6, sfd)
@@ -1098,8 +1822,7 @@ class TestDispatch(unittest.TestCase):
 
         sgeom = sgm.shared_manifold(labels)
         for x, cd in ((x0, None), (tied_point(), 1e-3)):
-            r = [z - yy for z, yy in zip(x.probe_derivatives(ww, pp, order), data)]
-            fm = fitting.probe_derivatives_model(sgeom, x, ww, pp, order, r, hessian='exact', curvature_damping=cd)
+            fm = _fmodel(sgeom, x, 'probe_derivatives', (ww, pp), data, order, hessian='exact', curvature_damping=cd)
             fout = fcurvature(fm, sgeom.randn(fm.frame))
             jax.block_until_ready(fout)
         self.assertEqual(ftraces[0], 1, "the shared exact frontend LocalModel recompiled across points / dampings")
@@ -1114,30 +1837,26 @@ class TestDispatch(unittest.TestCase):
         np.random.seed(seed)
         ww = [jnp.asarray(rng.standard_normal((W, n))) for n in SH]
         pp = [jnp.asarray(rng.standard_normal((W, n))) for n in SH]
-        data = [jnp.asarray(z) + 0.1 for z in pd.t3_probe_derivatives(ww, pp, t3.TuckerTensorTrain.randn(*STRUCT)
-                                                                     .to_jax().data, order)]
+        data = [jnp.asarray(z) + 0.1 for z in dd.forward(t3.TuckerTensorTrain.randn(*STRUCT).to_jax(), 'probe', ww, pp,
+                                                         order)]
         weight = np.linspace(0.3, 1.5, len(SH) * (order + 1)).reshape(len(SH), order + 1)
         ux0 = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(SH, TK, TT)).to_jax()
-        prob = uf.uniform_least_squares_problem(geometry, 'probe_derivatives', ux0, (ww, pp), data, order=order,
-                                                weight=weight, chunk_size=chunk_size)
-        return prob, (ux0.data[0], ux0.data[1]), (ww, pp), data, weight, ux0
+        base = bgeo.ManifoldGeometryOps() if geometry == 'manifold' else bgeo.CorewiseGeometryOps()
+        prob, sc = F.uniform(F.derivative_fit(base, 'probe', order, ww, pp, data, weight=weight), ux0)
+        return prob, sc, (ww, pp), data, weight, ux0
 
     def test_jit_uniform_exact_ops(self):
         """S8: every uniform exact-mode op jits to pure jax with the masks closed over (host constants, never
         traced) -- the lift factors, the lift and its transpose (K = (2,)), the T3-T3 one-hole / sweep / two-hole,
-        the probe-derivative two-hole one-shot and from a sweep with its W-chunked assemblies ENGAGED (W = 7 at
-        chunk 2: three full chunks through the lax.scan plus a remainder), the uniform kind's corewise_hessian and
-        the geometry's four exact members; and the jitted two-hole equals the eager numpy one."""
+        and the geometry's four exact members."""
         import t3toolbox.backend.ufv_operations as ufo
         import t3toolbox.backend.ufv_masking as ufm
         import t3toolbox.backend.utv_operations as utvo
         import t3toolbox.backend.ut3_linalg as ut3la
-        import t3toolbox.backend.ut3_sampling as ut3s
-        import t3toolbox.backend.ut3_operations as ut3o
         order, W = 1, 7
         prob, sc, (ww, pp), _data, _w, _ux = self._uniform_pd_problem_jax('manifold', seed=5, W=W, order=order,
                                                                            chunk_size=2)
-        frame = prob.geom.frame(sc)
+        frame = prob.geom.frame(sc)[0]
         sc4, shape, fmasks = tuple(frame[:4]), tuple(frame[4]), frame[5]
         tmasks = (fmasks[0], fmasks[2])
         F = lambda s4: tuple(s4) + (shape, fmasks)
@@ -1163,24 +1882,6 @@ class TestDispatch(unittest.TestCase):
                             z[0], z[1], frame[0], frame[2])
         self.assert_jit_jax(lambda z0, z1, u, l, a, b: ut3la.ut3_inner_product_corewise_hessian(
             Z(z0, z1), TH(u, l), (a, b)), z[0], z[1], frame[0], frame[2], *D)
-        N = frame[0].shape[-1]
-        zt = ut3o.pack_if_ragged([jnp.asarray(rng.standard_normal((order + 1, W, n))) for n in shape], N)
-        pww, ppp = ut3o.pack_if_ragged(ww, N), ut3o.pack_if_ragged(pp, N)
-        two_hole = lambda zz, a1, a2, u, l, a, b: ut3s.ut3_probe_corewise_derivatives_hessian(
-            zz, a1, a2, TH(u, l), (a, b), order, chunk_size=2)
-        jitted = jax.jit(two_hole)(zt, pww, ppp, frame[0], frame[2], *D)
-        self._leaves_all_jax(jitted)
-        eager = two_hole(*(np.asarray(t) for t in (zt, pww, ppp, frame[0], frame[2]) + D))
-        for a, b in zip(jitted, eager):
-            self.assertLess(norm(np.asarray(a) - b), 1e-12 * norm(b))
-        sweep = prob.kind.precompute(frame, prob.sample)
-        self.assert_jit_jax(lambda zz, u, l, a, b, sw: ut3s.ut3_probe_corewise_derivatives_hessian_from_sweep(
-            zz, TH(u, l), (a, b), order, (sw[0], sw[1], sw[2], shape, sw[4]), chunk_size=2),
-            zt, frame[0], frame[2], *D, (sweep[0], sweep[1], sweep[2], None, sweep[4]))
-        r = jnp.asarray(rng.standard_normal((len(shape), order + 1, W, N)))
-        self.assert_jit_jax(lambda a, b, rr, s4, sw: prob.kind.corewise_hessian(
-            (a, b), rr, prob.sample, F(s4), (sw[0], sw[1], sw[2], shape, sw[4]), (s4[0], s4[2])),
-            *D, r, sc4, (sweep[0], sweep[1], sweep[2], None, sweep[4]))
         geom = prob.geom
         self.assert_jit_jax(lambda s4, g0, g1: geom.curvature_precompute(F(s4), (g0, g1), None, 1e-6), sc4, *g)
         cd = geom.curvature_precompute(frame, g, None, 1e-6)
@@ -1237,12 +1938,12 @@ class TestDispatch(unittest.TestCase):
         cg = bopt._jitted(bopt._cg_core, (4,))
         before = cg._cache_size() if hasattr(cg, '_cache_size') else None
         t0 = time.perf_counter()
-        x, stats = bopt.newton_cg(prob, sc, max_newton=4, hessian='exact', use_jit=True)
+        x, stats = prob.newton_cg(sc, max_newton=4, hessian='exact', use_jit=True)
         first = time.perf_counter() - t0
         mid = cg._cache_size() if before is not None else None
         other = tuple(jnp.asarray(a) for a in ut3.UniformTuckerTensorTrain.from_t3(
             t3.TuckerTensorTrain.randn(*STRUCT)).data[:2])
-        _, stats2 = bopt.newton_cg(prob, other, max_newton=3, hessian='exact', use_jit=True)
+        _, stats2 = prob.newton_cg(other, max_newton=3, hessian='exact', use_jit=True)
         self._leaves_all_jax(x)
         self.assertGreaterEqual(stats['newton_steps'], 2)
         self.assertGreaterEqual(sum(row['cg_iters'] or 0 for row in stats['history'] + stats2['history']), 4)
@@ -1283,34 +1984,34 @@ class TestDispatch(unittest.TestCase):
 
         ww = [jnp.asarray(rng.standard_normal((W, n))) for n in SH]
         pp = [jnp.asarray(rng.standard_normal((W, n))) for n in SH]
-        data = [jnp.asarray(z) + 0.1 for z in pd.t3_probe_derivatives(ww, pp, tied_ragged().to_jax().data, order)]
+        data = [jnp.asarray(z) + 0.1 for z in dd.forward(tied_ragged().to_jax(), 'probe', ww, pp, order)]
         ux0 = tied_point()
-        prob = uf.uniform_least_squares_problem('manifold', 'probe_derivatives', ux0, (ww, pp), data, order=order,
-                                                sharing=labels)
-        frame = prob.geom.frame((ux0.data[0], ux0.data[1]))
+        oracle, batch = F.old_vocabulary('probe_derivatives', (ww, pp), data, SH, order)
+        prob = F.uniform(F.Fit(bgeo.ManifoldGeometryOps(), oracle, batch), ux0, labels)[0]
+        frame = prob.geom.frame((ux0.data[0], ux0.data[1]))[0]
         sfd = prob.geom.precompute(frame)
         sc4, shape, fmasks = tuple(frame[:4]), tuple(frame[4]), frame[5]
-        F = lambda s4: tuple(s4) + (shape, fmasks)
-        self.assert_jit_jax(lambda s4, s: ufo.ufv_tied_lift_factors(F(s4), 1e-6, s), sc4, sfd)
+        F4 = lambda s4: tuple(s4) + (shape, fmasks)
+        self.assert_jit_jax(lambda s4, s: ufo.ufv_tied_lift_factors(F4(s4), 1e-6, s), sc4, sfd)
         lf = ufo.ufv_tied_lift_factors(frame, 1e-6, sfd)
         self.assertTrue(all(hasattr(l, 'dtype') and np.asarray(l).dtype != bool for l in jax.tree_util.tree_leaves(lf)))
         tk_shape, tt_shape = ufo.ufv_variation_shapes(frame)
         v = (jnp.asarray(rng.standard_normal(tk_shape[:1] + (2,) + tk_shape[1:])),
              jnp.asarray(rng.standard_normal(tt_shape[:1] + (2,) + tt_shape[1:])))
         vmK = ufm.ufv_variation_masks_over_stack(fmasks, (), (2,))
-        self.assert_jit_jax(lambda s4, a, b, l: utvo.utv_corewise_lift(F(s4), (a, b, shape, vmK), l)[:2], sc4, *v, lf)
+        self.assert_jit_jax(lambda s4, a, b, l: utvo.utv_corewise_lift(F4(s4), (a, b, shape, vmK), l)[:2], sc4, *v, lf)
         D = (jnp.asarray(rng.standard_normal(frame[0].shape[:1] + (2,) + frame[0].shape[1:])),
              jnp.asarray(rng.standard_normal(frame[2].shape[:1] + (2,) + frame[2].shape[1:])))
         self.assert_jit_jax(lambda s4, a, b, l: utvo.utv_corewise_lift_transpose(
-            F(s4), (a, b, shape, (fmasks[0], fmasks[2])), l)[:2], sc4, *D, lf)
+            F4(s4), (a, b, shape, (fmasks[0], fmasks[2])), l)[:2], sc4, *D, lf)
         g = prob.local_model((ux0.data[0], ux0.data[1])).gradient
-        self.assert_jit_jax(lambda s4, g0, g1, s: prob.geom.curvature_precompute(F(s4), (g0, g1), s, 1e-6),
+        self.assert_jit_jax(lambda s4, g0, g1, s: prob.geom.curvature_precompute(F4(s4), (g0, g1), s, 1e-6),
                             sc4, *g, sfd)
 
         for geometry, dampings in (('manifold', (None, 1e-3, 0.0)), ('corewise', (None, None, None))):
             with self.subTest(geometry=geometry):
-                gprob = uf.uniform_least_squares_problem(geometry, 'probe_derivatives', ux0, (ww, pp), data,
-                                                         order=order, sharing=labels)
+                base = bgeo.ManifoldGeometryOps() if geometry == 'manifold' else bgeo.CorewiseGeometryOps()
+                gprob = F.uniform(F.Fit(base, oracle, batch), ux0, labels)[0]
                 traces = [0]
 
                 @jax.jit
@@ -1335,10 +2036,10 @@ class TestDispatch(unittest.TestCase):
 
         cg = bopt._jitted(bopt._cg_core, (4,))
         before = cg._cache_size() if hasattr(cg, '_cache_size') else None
-        x, stats = bopt.newton_cg(prob, (ux0.data[0], ux0.data[1]), max_newton=4, hessian='exact', use_jit=True)
+        x, stats = prob.newton_cg((ux0.data[0], ux0.data[1]), max_newton=4, hessian='exact', use_jit=True)
         mid = cg._cache_size() if before is not None else None
         other = tied_point()
-        _, stats2 = bopt.newton_cg(prob, (other.data[0], other.data[1]), max_newton=3, hessian='exact', use_jit=True)
+        _, stats2 = prob.newton_cg((other.data[0], other.data[1]), max_newton=3, hessian='exact', use_jit=True)
         self._leaves_all_jax(x)
         self.assertGreaterEqual(sum(row['cg_iters'] or 0 for row in stats['history'] + stats2['history']), 4)
         if before is not None:
@@ -1361,7 +2062,7 @@ class TestDispatch(unittest.TestCase):
         ww = [rng.standard_normal((W, n)) for n in SH]
         pp = [rng.standard_normal((W, n)) for n in SH]
         np.random.seed(4)
-        data = [np.asarray(z) + 0.01 for z in t3.TuckerTensorTrain.randn(*STRUCT).probe_derivatives(ww, pp, ORDER)]
+        data = [np.asarray(z) + 0.01 for z in dd.forward(t3.TuckerTensorTrain.randn(*STRUCT), 'probe', ww, pp, ORDER)]
         x0 = t3.TuckerTensorTrain.randn(*STRUCT)
         x, stats = topt.newton_cg(t3m.MANIFOLD, 'probe_derivatives', (ww, pp), data, x0, order=ORDER, max_newton=3,
                                   hessian='exact', curvature_damping=1e-5, use_jit=True)
@@ -1430,10 +2131,9 @@ class TestDispatch(unittest.TestCase):
         target = t3.TuckerTensorTrain.randn(SH, (2, 2, 2), (1, 2, 2, 1))
         ww = [rng.standard_normal((20, n)) for n in SH]
         pp = [rng.standard_normal((20, n)) for n in SH]
-        kind = bfit.ProbeDerivativesKind(order=1)
-        data = kind.point_forward(target.data, (ww, pp))
-        problem = bopt.least_squares_problem(bgeo.ManifoldGeometryOps(), kind, (ww, pp), data)
-        x1, _ = bopt.newton_cg(problem, t3.TuckerTensorTrain.randn(SH, (2, 2, 2), (1, 2, 2, 1)).data,
+        problem = F.derivative_fit(bgeo.ManifoldGeometryOps(), 'probe', 1, ww, pp, dd.forward(target, 'probe', ww, pp, 1))
+        data = problem.batch.y                                                  # order 1: Taylor = derivatives
+        x1, _ = problem.newton_cg(t3.TuckerTensorTrain.randn(SH, (2, 2, 2), (1, 2, 2, 1)).data,
                                max_newton=80, gtol_rel=1e-10)               # eager float64: the level-1 fit
         restart = t3.TuckerTensorTrain(*x1).resize(SH, (3, 3, 3), (1, 3, 3, 1)).data
         start = t3.TuckerTensorTrain.randn(SH, (3, 3, 3), (1, 3, 3, 1)).data
@@ -1442,9 +2142,10 @@ class TestDispatch(unittest.TestCase):
         try:
             cg = bopt._jitted(bopt._cg_core, (4,))
             before = cg._cache_size() if hasattr(cg, '_cache_size') else None
-            _, far = bopt.newton_cg(problem, start, max_newton=6, hessian='exact', use_jit=True)
-            _, floor = bopt.newton_cg(problem, restart, max_newton=10, hessian='exact', g0_reference='warm_start',
-                                      use_jit=True)
+            _, far = problem.newton_cg(start, max_newton=6, hessian='exact', use_jit=True)
+            seen = []
+            _, floor = problem.newton_cg(restart, max_newton=10, hessian='exact', g0_reference='warm_start',
+                                      use_jit=True, callback=seen.append)
             after = cg._cache_size() if before is not None else None
         finally:
             jax.config.update('jax_enable_x64', x64)
@@ -1456,42 +2157,42 @@ class TestDispatch(unittest.TestCase):
         self.assertEqual((len(h), floor['newton_accepted']), (1, 0))
         y = float(np.sqrt(sum(np.sum(np.asarray(z, dtype=float) ** 2) for z in data)))
         pred = abs(h[0]['slope'] + 0.5 * h[0]['pHp'])
-        scale = y * np.sqrt(2.0 * h[0]['misfit']) + abs(h[0]['objective'])
+        # |r| as the floor sizes it: the model's residual (its frame-route misfit, lm.misfit). The reported misfit is the
+        # point route's (D9), whose float32 rounding at the floor is a different noise of the same size.
+        scale = y * np.sqrt(2.0 * float(seen[0].lm.misfit)) + abs(h[0]['objective'])
         self.assertLessEqual(pred, 10.0 * float(np.finfo(np.float32).eps) * scale)
         self.assertGreater(pred, 10.0 * float(np.finfo(np.float64).eps) * scale)
 
     def test_a_derived_kind_does_not_inherit_its_parents_cache_key(self):
-        """A kind with DIFFERENT math must not share a jit cache key with the one it derives from.
+        """An oracle with DIFFERENT math must not share a jit cache key with the one it derives from.
 
-        Regression test for a silent miscompile in the pre-class design. Kinds were a dataclass of
-        lambdas plus a hand-maintained ``identity`` tuple, and ``dataclasses.replace`` copied that tuple
-        unchanged -- so ``dc.replace(APPLY, forward=<something else>)`` compared EQUAL to ``APPLY``,
-        jax reused ``APPLY``'s compiled program, and jit returned the unscaled answer while eager
-        returned the scaled one (measured on the fitting.LocalModel docstring's fixture: 115.302888 vs
-        28.825722; this fixture is smaller, but the failure is the same).
-
-        Parameters are fields now and behaviour is methods, so the failure is unrepresentable: a variant
-        is a subclass, which is a different type, which the value-based ``__eq__`` rejects up front."""
+        Regression test for a silent miscompile in the pre-class design: kinds were a dataclass of lambdas plus a
+        hand-maintained ``identity`` tuple, and ``dataclasses.replace`` copied that tuple unchanged -- so a variant
+        compared EQUAL to its parent, jax reused the parent's compiled program, and jit returned the parent's answer
+        while eager returned the variant's (measured on the fitting.LocalModel docstring's fixture: 115.302888 vs
+        28.825722). The oracle rides as aux_data of the model. Parameters are fields and behaviour is methods, so a
+        variant is a subclass, which is a different type, which the value-based ``__eq__`` rejects up front."""
         SH, TK, TT = STRUCT
 
         @dc.dataclass(frozen=True, eq=False)
-        class HalfApplyKind(bfit.ApplyKind):
-            def forward(self, v, ww_, frame, sweep):
-                return 0.5 * super().forward(v, ww_, frame, sweep)
+        class HalfOracle(bfit.LeastSquaresOracle):
+            def query(self, frame, batch, want, *args, **kwargs):
+                values, held = super().query(frame, batch, want, *args, **kwargs)
+                return tuple(0.5 * v if name == 'Jp_norm_sq' else v for name, v in zip(want, values)), held
 
-        self.assertNotEqual(HalfApplyKind(), bfit.APPLY)
-        self.assertNotEqual(hash(HalfApplyKind()), hash(bfit.APPLY))
+        self.assertNotEqual(HalfOracle('apply', ()), bfit.LeastSquaresOracle('apply', ()))
+        self.assertNotEqual(hash(HalfOracle('apply', ())), hash(bfit.LeastSquaresOracle('apply', ())))
 
         np.random.seed(0)
         x = t3.TuckerTensorTrain.randn(SH, TK, TT)
         x = t3.TuckerTensorTrain(tuple(jnp.asarray(c) for c in x.data[0]),
                                  tuple(jnp.asarray(c) for c in x.data[1]))
         ww = [jnp.asarray(np.random.randn(15, n)) for n in SH]
-        r = jnp.asarray(np.random.randn(15))
+        y = jnp.asarray(np.random.randn(15))
 
         quad = jax.jit(lambda m, p: m.gn_quadratic(p))
-        plain = fitting.apply_model(t3m.MANIFOLD, x, ww, r)
-        derived = dc.replace(plain, kind=HalfApplyKind())
+        plain = _fmodel(t3m.MANIFOLD, x, 'apply', ww, y)
+        derived = dc.replace(plain, backend=dc.replace(plain.backend, oracle=HalfOracle('apply', ())))
         p0 = t3m.MANIFOLD.randn(plain.frame)
 
         q_plain = float(quad(plain, p0))
@@ -1500,13 +2201,11 @@ class TestDispatch(unittest.TestCase):
         self.assertNotAlmostEqual(q_derived, q_plain, places=6)                        # and NOT the parent's
 
     def test_jit_ragged_local_model_parameterized_kind(self):
-        # The ragged twin of the test above, for the PARAMETERIZED kinds. A fitting.LocalModel carries its
-        # SamplingKind as jax aux_data, and jax keys the compilation cache on the aux. APPLY/ENTRIES/PROBE
-        # are module singletons, so they were always one object and always one compile -- but the derivative
-        # and weighted kinds are BUILT PER MODEL, out of fresh closures, so under dataclass field equality
-        # every rebuilt model was a new cache key and the documented "roll your own optimizer" loop
-        # recompiled every outer step (measured: 3 traces for 3 rebuilds). Value-typed kinds fix it by
-        # comparing the PARAMETERS (name, order, weight, chunk_size) instead of the lambdas.
+        # The ragged twin of the test above, for the PARAMETERIZED fits. A fitting.LocalModel carries its oracle as
+        # jax aux_data (value-hashed: kind and jet shape), and jax keys the compilation cache on the aux. The old
+        # derivative and weighted kinds were BUILT PER MODEL, out of fresh closures, so every rebuilt model was a
+        # new cache key and the documented "roll your own optimizer" loop recompiled every outer step (measured:
+        # 3 traces for 3 rebuilds). The oracle compares by its PARAMETERS; the weight is a batch leaf.
         SH, TK, TT = STRUCT
         W, ORDER = 12, 2
         ww = [np.random.randn(W, n) for n in SH]
@@ -1518,9 +2217,8 @@ class TestDispatch(unittest.TestCase):
             x = t3.TuckerTensorTrain.randn(SH, TK, TT)
             x = t3.TuckerTensorTrain(tuple(jnp.asarray(c) for c in x.data[0]),
                                      tuple(jnp.asarray(c) for c in x.data[1]))
-            r = [jnp.asarray(np.asarray(z) - np.random.randn(*np.shape(z)))
-                 for z in x.probe_derivatives(ww, pp, ORDER)]
-            return fitting.probe_derivatives_model(t3m.MANIFOLD, x, ww, pp, ORDER, r, weight=wt)
+            y = [jnp.asarray(np.random.randn(*np.shape(z))) for z in dd.forward(x, 'probe', ww, pp, ORDER)]
+            return _fmodel(t3m.MANIFOLD, x, 'probe_derivatives', (ww, pp), y, ORDER, wt)
 
         for label, wt in (('unweighted', None), ('weighted', weight)):
             with self.subTest(kind=label):
@@ -1534,18 +2232,54 @@ class TestDispatch(unittest.TestCase):
                     hp = Hmatvec(m, t3m.MANIFOLD.randn(m.frame))
                     jax.block_until_ready(hp.variations.tucker_variations[0])
                 self.assertEqual(traces[0], 1,
-                                 'fitting.LocalModel matvec recompiled on rebuild -- SamplingKind must '
-                                 'compare by identity (parameters), not by its closure fields')
+                                 'fitting.LocalModel matvec recompiled on rebuild -- the oracle must '
+                                 'compare by its parameters, not by identity')
 
-        # ... and a genuinely different kind MUST still get its own compile
+        # ... the weight is a batch LEAF (P16): a new weight value shares the compilation. Derivative data always
+        # carry a weight (prepare_derivative_data's t! Taylor weight, ones times t! when none is given), so the
+        # unweighted fit has the same tree structure and shares it too; its numbers are its own.
         traces = [0]
         @jax.jit
         def Hmatvec2(m, p):
             traces[0] += 1
             return m.gn_hessian(p)
-        Hmatvec2(build(1, None), t3m.MANIFOLD.randn(build(1, None).frame))
-        Hmatvec2(build(1, weight), t3m.MANIFOLD.randn(build(1, weight).frame))
-        self.assertEqual(traces[0], 2, 'different residual weights must not share a compilation')
+        outs = []
+        for wt in (weight, 2.0 * weight, None):
+            m = build(1, wt)
+            p = t3m.MANIFOLD.randn(m.frame)
+            outs.append((Hmatvec2(m, p), m.gn_hessian(p)))
+        self.assertEqual(traces[0], 1, 'a new weight value recompiled -- the weight must be a batch leaf')
+        for jitted, eager in outs:                                     # each compile-shared call is its own model's
+            for a, b in zip(jax.tree_util.tree_leaves(jitted.variations), jax.tree_util.tree_leaves(eager.variations)):
+                self.assertLess(norm(np.asarray(a) - np.asarray(b)), 1e-10 * max(norm(np.asarray(b)), 1.0))
+
+        # ... and the weight's SHAPE is structure (M2, the data-metric plan section 4): the same weight written out
+        # full on W, where it had size 1, is a new program (with the same numbers); another value of that shape is not.
+        def build_on_W(seed, scale):
+            np.random.seed(seed)
+            x = t3.TuckerTensorTrain.randn(SH, TK, TT)
+            x = t3.TuckerTensorTrain(tuple(jnp.asarray(c) for c in x.data[0]),
+                                     tuple(jnp.asarray(c) for c in x.data[1]))
+            y = [jnp.asarray(np.random.randn(*np.shape(z))) for z in dd.forward(x, 'probe', ww, pp, ORDER)]
+            oracle, batch = F.old_vocabulary('probe_derivatives', (ww, pp), y, tuple(x.shape), ORDER, weight)
+            w = jnp.asarray(batch.weight)                                 # (d,) + F + (1,) + (1,): size 1 on W
+            full = scale * jnp.broadcast_to(w, w.shape[:2] + (W,) + w.shape[3:])
+            return fitting.local_model(t3m.MANIFOLD, oracle, dc.replace(batch, weight=full), x)
+
+        traces = [0]
+        @jax.jit
+        def Hmatvec3(m, p):
+            traces[0] += 1
+            return m.gn_hessian(p)
+        block = build(1, weight)
+        p = t3m.MANIFOLD.randn(block.frame)
+        on_block = Hmatvec3(block, p)
+        on_W = Hmatvec3(build_on_W(1, 1.0), p)
+        self.assertEqual(traces[0], 2, 'a weight full on W where it had size 1 is a new shape: one new program')
+        jax.block_until_ready(Hmatvec3(build_on_W(1, 2.0), p).variations.tucker_variations[0])
+        self.assertEqual(traces[0], 2, 'a new value of the same weight shape recompiled')
+        for a, b in zip(jax.tree_util.tree_leaves(on_W.variations), jax.tree_util.tree_leaves(on_block.variations)):
+            self.assertLess(norm(np.asarray(a) - np.asarray(b)), 1e-10 * max(norm(np.asarray(b)), 1.0))
 
     def test_jit_shared_uniform_local_model(self):
         # The SHARED uniform model (slice 11): SharedGeometry(UNIFORM_MANIFOLD, sharing) is value-hashed
@@ -1564,8 +2298,8 @@ class TestDispatch(unittest.TestCase):
             tk_b, tt_b = xr.data
             x = ut3.UniformTuckerTensorTrain.from_t3(
                 t3.TuckerTensorTrain((tk_b[0], tk_b[0], tk_b[2]), tt_b)).to_jax()
-            r = jnp.asarray(np.asarray(x.apply(ww)) - np.random.randn(W))
-            return fitting.apply_model(geom, x, ww, r)
+            y = jnp.asarray(np.random.randn(W))
+            return _fmodel(geom, x, 'apply', ww, y)
 
         traces = [0]
         @jax.jit
@@ -1596,14 +2330,14 @@ class TestDispatch(unittest.TestCase):
         def build_probe(seed):
             np.random.seed(seed)
             x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(SH, TK, TT)).to_jax()
-            r = [jnp.asarray(np.random.randn(W, n)) for n in SH]
-            return fitting.probe_model(ut3m.UNIFORM_MANIFOLD, x, ww, r, weight=omega_mode)
+            y = [jnp.asarray(np.random.randn(W, n)) for n in SH]
+            return _fmodel(ut3m.UNIFORM_MANIFOLD, x, 'probe', ww, y, weight=omega_mode)
 
         def build_deriv(seed):
             np.random.seed(seed)
             x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(SH, TK, TT)).to_jax()
-            r = [jnp.asarray(np.random.randn(order + 1, W, n)) for n in SH]
-            return fitting.probe_derivatives_model(ut3m.UNIFORM_MANIFOLD, x, ww, pp, order, r, weight=wmat)
+            y = [jnp.asarray(np.random.randn(order + 1, W, n)) for n in SH]
+            return _fmodel(ut3m.UNIFORM_MANIFOLD, x, 'probe_derivatives', (ww, pp), y, order, wmat)
 
         for build in (build_probe, build_deriv):
             traces = [0]
@@ -1779,12 +2513,12 @@ class TestDispatch(unittest.TestCase):
         rr = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])   # probe residual, W=(2,), K=C=()
         cc = jnp.array(np.random.randn(2))                                # scalar residual, W=(2,)
         self.assert_jit_jax(
-            lambda r0, r1, r2, *w: ut3m.UT3Tangent.probe_transpose((r0, r1, r2), w, bj, sum_over_probes=True).to_dense(),
+            lambda r0, r1, r2, *w: ut3m.UT3Tangent.probe_transpose(bj, w, c=(r0, r1, r2)).to_dense(),
             *rr, *ww)
         self.assert_jit_jax(
-            lambda c, *w: ut3m.UT3Tangent.apply_transpose(c, w, bj, sum_over_probes=True).to_dense(), cc, *ww)
+            lambda c, *w: ut3m.UT3Tangent.apply_transpose(bj, w, c=c).to_dense(), cc, *ww)
         self.assert_jit_jax(
-            lambda c, i: ut3m.UT3Tangent.entries_transpose(c, i, bj, sum_over_probes=True).to_dense(), cc, idx)
+            lambda c, i: ut3m.UT3Tangent.entries_transpose(bj, i, c=c).to_dense(), cc, idx)
 
     # ---------------------------------------------------- jit bucket: uniform corewise transposes (3b-6c)
     def test_jit_uniform_corewise_transpose(self):
@@ -1794,54 +2528,53 @@ class TestDispatch(unittest.TestCase):
         ww = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])    # W = (2,)
         idx = jnp.array([[1, 2], [2, 3], [3, 0]])
         cc = jnp.array(np.random.randn(2))
-        self.assert_jit_jax(lambda u, c, *w: u.apply_corewise_transpose(c, w, sum_over_probes=True), xu, cc, *ww)
-        self.assert_jit_jax(lambda u, c, i: u.entries_corewise_transpose(c, i, sum_over_probes=True), xu, cc, idx)
-        self.assert_jit_jax(lambda u, *w: u.probe_corewise_transpose(w[:3], w[3:], sum_over_probes=True),
+        self.assert_jit_jax(lambda u, c, *w: u.apply_corewise_transpose(w, c=c), xu, cc, *ww)
+        self.assert_jit_jax(lambda u, c, i: u.entries_corewise_transpose(i, c=c), xu, cc, idx)
+        self.assert_jit_jax(lambda u, *w: u.probe_corewise_transpose(w[3:], c=w[:3]),
                             xu, *ww, *ww)
 
     # ---------------------------------------------------- jit bucket: uniform forward derivatives (3b-6'b)
     def test_jit_uniform_derivatives(self):
-        # 3b-6'b: the forward derivative jets (probe/apply/entries_derivatives) jit -- the supercores trace
-        # through the d-prefixed JET contractions + the scan sweeps, the binomial tensor + masks stay host
-        # constants, build_input_jets vectorizes over d (no unroll), pack/unpack slice with static shapes.
-        # order is a Python int (static; sets the order-axis length). Plain UT3 + K-stacked UT3Tangent.
+        # 3b-6'b: the forward jets of probe / apply / entries along a line (through _derivative_data: the merged
+        # methods at an input jet, the engine) jit -- the supercores trace through the engine's jet sweeps, the
+        # masks stay host constants. order is a Python int (static; sets the jet axis' length). Plain UT3 and a
+        # K-stacked UT3Tangent.
         import t3toolbox.uniform_manifold as ut3m
         ww = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])    # W = (2,)
         pp = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])
         idx = jnp.array([[1, 2], [2, 3], [3, 0]])                          # (d,) + W
 
         xu = ut3.UniformTuckerTensorTrain.from_t3(self.x_np).to_jax()     # plain layer
-        self.assert_jit_jax(lambda u, *w: u.probe_derivatives(w[:3], w[3:], 2), xu, *ww, *pp)
-        self.assert_jit_jax(lambda u, *w: u.apply_derivatives(w[:3], w[3:], 2), xu, *ww, *pp)
-        self.assert_jit_jax(lambda u, i, *w: u.entries_derivatives(i, w, 2), xu, idx, *pp)
+        self.assert_jit_jax(lambda u, *w: dd.forward(u, 'probe', w[:3], w[3:], 2), xu, *ww, *pp)
+        self.assert_jit_jax(lambda u, *w: dd.forward(u, 'apply', w[:3], w[3:], 2), xu, *ww, *pp)
+        self.assert_jit_jax(lambda u, i, *w: dd.forward(u, 'entries', i, w, 2), xu, idx, *pp)
 
         v = ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.frame(xu), stack_shape=(2,)).to_jax()  # K=(2,)
-        self.assert_jit_jax(lambda t, *w: t.probe_derivatives(w[:3], w[3:], 2), v, *ww, *pp)
-        self.assert_jit_jax(lambda t, *w: t.apply_derivatives(w[:3], w[3:], 2), v, *ww, *pp)
-        self.assert_jit_jax(lambda t, i, *w: t.entries_derivatives(i, w, 2), v, idx, *pp)
+        self.assert_jit_jax(lambda t, *w: dd.forward(t, 'probe', w[:3], w[3:], 2), v, *ww, *pp)
+        self.assert_jit_jax(lambda t, *w: dd.forward(t, 'apply', w[:3], w[3:], 2), v, *ww, *pp)
+        self.assert_jit_jax(lambda t, i, *w: dd.forward(t, 'entries', i, w, 2), v, idx, *pp)
 
         # 3b-6'c transpose derivatives 𝒥ᵀ: residual jets -> UT3Tangent (jit the whole op + .to_dense()); the
-        # supercores trace through the d-prefixed JET adjoint contractions + scan sweeps, gauge masks host.
+        # supercores trace through the engine's adjoint jet sweeps, the gauge masks stay host constants.
         bj = v.frame                                                     # jax frame, C=()
         rj = tuple(jnp.array(np.random.randn(3, 2, N)) for N in STRUCT[0])   # probe residual jets, (order+1,W,Ni)
         cj = jnp.array(np.random.randn(3, 2))                            # scalar residual jet, (order+1,W)
         self.assert_jit_jax(
-            lambda r0, r1, r2, *w: ut3m.UT3Tangent.probe_derivatives_transpose(
-                (r0, r1, r2), w[:3], w[3:], bj, 2, sum_over_probes=True).to_dense(), *rj, *ww, *pp)
+            lambda r0, r1, r2, *w: dd.tangent_transpose(ut3m.UT3Tangent, 'probe', (r0, r1, r2), w[:3], w[3:], bj, 2, sum_over_probes=True).to_dense(), *rj, *ww, *pp)
         self.assert_jit_jax(
-            lambda c, *w: ut3m.UT3Tangent.apply_derivatives_transpose(c, w[:3], w[3:], bj, 2, sum_over_probes=True).to_dense(),
+            lambda c, *w: dd.tangent_transpose(ut3m.UT3Tangent, 'apply', c, w[:3], w[3:], bj, 2, sum_over_probes=True).to_dense(),
             cj, *ww, *pp)
         self.assert_jit_jax(
-            lambda c, i, *w: ut3m.UT3Tangent.entries_derivatives_transpose(c, i, w, bj, 2, sum_over_probes=True).to_dense(),
+            lambda c, i, *w: dd.tangent_transpose(ut3m.UT3Tangent, 'entries', c, i, w, bj, 2, sum_over_probes=True).to_dense(),
             cj, idx, *pp)
 
         # corewise (non-manifold) derivative transposes on the plain UT3 (gradient w.r.t. cores; §6.3)
         self.assert_jit_jax(
-            lambda u, c, *w: u.apply_corewise_derivatives_transpose(c, w[:3], w[3:], 2, sum_over_probes=True), xu, cj, *ww, *pp)
+            lambda u, c, *w: dd.corewise_transpose(u, 'apply', c, w[:3], w[3:], 2, sum_over_probes=True), xu, cj, *ww, *pp)
         self.assert_jit_jax(
-            lambda u, c, i, *w: u.entries_corewise_derivatives_transpose(c, i, w, 2, sum_over_probes=True), xu, cj, idx, *pp)
+            lambda u, c, i, *w: dd.corewise_transpose(u, 'entries', c, i, w, 2, sum_over_probes=True), xu, cj, idx, *pp)
         self.assert_jit_jax(
-            lambda u, r0, r1, r2, *w: u.probe_corewise_derivatives_transpose((r0, r1, r2), w[:3], w[3:], 2, sum_over_probes=True),
+            lambda u, r0, r1, r2, *w: dd.corewise_transpose(u, 'probe', (r0, r1, r2), w[:3], w[3:], 2, sum_over_probes=True),
             xu, *rj, *ww, *pp)
 
     # ---------------------------------------------------- stack/unstack: masks must stay host under jax
@@ -1949,7 +2682,7 @@ class TestDispatch(unittest.TestCase):
         self.assert_eager_jax(fv_operations.fv_zero_point_frame, self.frame.data)
         self.assert_eager_jax(geom.zero_point_frame, self.frame.data)
         ugeom = bgeo.UniformManifoldGeometryOps.from_point(self.ux.data)
-        uframe = ugeom.frame((self.ux.data[0], self.ux.data[1]))
+        uframe = ugeom.frame((self.ux.data[0], self.ux.data[1]))[0]
         uzero = ufv_operations.ufv_zero_point_frame(uframe)
         self._leaves_all_jax(uzero[:4])
         self.assertTrue(all(common.is_numpy_ndarray(m) for m in uzero[5]))
@@ -1957,9 +2690,9 @@ class TestDispatch(unittest.TestCase):
         ww = [np.random.randn(30, N) for N in STRUCT[0]]
         data = np.asarray(self.x_np.apply(ww))
         x0 = t3.TuckerTensorTrain.zeros(*STRUCT).data
-        problem = bopt.least_squares_problem(geom, bfit.APPLY, ww, data)
-        row_np = bopt.newton_cg(problem, x0, max_newton=1)[1]['history'][0]
-        row_jit = bopt.newton_cg(problem, x0, max_newton=1, use_jit=True)[1]['history'][0]
+        problem = F.fit(geom, 'apply', ww, data)
+        row_np = problem.newton_cg(x0, max_newton=1)[1]['history'][0]
+        row_jit = problem.newton_cg(x0, max_newton=1, use_jit=True)[1]['history'][0]
         self.assertEqual((row_np['g0_reference'], row_jit['g0_reference']), ('zero', 'zero'))
         self.assertAlmostEqual(row_jit['g0norm'], row_np['g0norm'], delta=1e-10 * row_np['g0norm'])
 
@@ -2573,8 +3306,8 @@ class TestPaddedStartSeam(unittest.TestCase):
 
     def test_members_and_padded_start(self):
         """numpy in -> numpy out, jax in -> jax out, the same movements; and (the Newton timing plan's T7, eager jax)
-        the member with timing=True on jax: its frame and movements those of the untimed call, bitwise, then one
-        positive float per pass."""
+        the member with timing=True on jax: its frame, centers (P16 part 1) and movements those of the untimed call,
+        bitwise, then one positive float per pass. The member's centers are jax too."""
         import t3toolbox.backend.optimizers as bopt
         to_jax = lambda tree: jax.tree_util.tree_map(jnp.asarray, tree)
         for layer in ('ragged', 'uniform'):
@@ -2582,30 +3315,33 @@ class TestPaddedStartSeam(unittest.TestCase):
                 setup, old, _, _ = self.case(layer)
                 problem, x = setup.problem, setup.x0_cores
                 geom = problem.geom
-                F_np, m_np = bopt.padded_start(problem, x, old, max_passes=2, tol=0.0)
+                F_np, _, m_np = problem.padded_start(x, old, max_passes=2, tol=0.0)
                 arrays = (lambda F: F) if layer == 'ragged' else (lambda F: F[:4])
                 self.assertTrue(all(common.is_numpy_ndarray(a) for a in jax.tree_util.tree_leaves(arrays(F_np))))
                 self.assertIs(type(geom.with_frame(F_np)), type(geom))
                 geom.require_frame_structure(x, F_np)
                 jx = to_jax(x)
                 jold = to_jax(old) if layer == 'ragged' else tuple(jnp.asarray(a) for a in old[:2]) + tuple(old[2:])
-                jproblem = bopt._prepare_jit_inputs(True, x, problem)[1]
+                jproblem = problem.with_(batch=bopt._prepare_jit_inputs(True, x, problem.batch)[1])
                 for name, args in (('member', None), ('padded_start', None)):
                     if name == 'member':
-                        r0 = bopt.cw.corewise_sub(jproblem.kind.point_forward(jx, jproblem.sample), jproblem.data)
-                        F, m = geom.aligned_padded_frame(jx, jold, bopt._misfit_gradient_at, (jproblem, r0),
-                                                         max_passes=2, tol=0.0)
-                        timed = geom.aligned_padded_frame(jx, jold, bopt._misfit_gradient_at, (jproblem, r0),
+                        F, centers, m = geom.aligned_padded_frame(jx, jold, bopt._alignment_projector(jproblem.geom, jproblem.oracle), jproblem.batch,
+                                                                  max_passes=2, tol=0.0)
+                        timed = geom.aligned_padded_frame(jx, jold, bopt._alignment_projector(jproblem.geom, jproblem.oracle), jproblem.batch,
                                                           max_passes=2, tol=0.0, timing=True)
-                        for a, b in zip(jax.tree_util.tree_leaves(arrays(timed[0])) + [timed[1]],
-                                        jax.tree_util.tree_leaves(arrays(F)) + [m]):
+                        self.assertEqual(len(timed), 4)
+                        for a, b in zip(jax.tree_util.tree_leaves(arrays(timed[0])) + jax.tree_util.tree_leaves(timed[1])
+                                        + [timed[2]],
+                                        jax.tree_util.tree_leaves(arrays(F)) + jax.tree_util.tree_leaves(centers) + [m]):
                             self.assertTrue(np.array_equal(np.asarray(a, dtype=float), np.asarray(b, dtype=float),
                                                            equal_nan=True))
                         self._leaves(arrays(timed[0]))
-                        self.assertEqual(len(timed[2]), len(bopt._movement_record(m)))
-                        self.assertTrue(all(isinstance(t, float) and t > 0.0 for t in timed[2]))
+                        self._leaves(centers)
+                        self.assertEqual(len(timed[3]), len(bopt._movement_record(m)))
+                        self.assertTrue(all(isinstance(t, float) and t > 0.0 for t in timed[3]))
                     else:
-                        F, m = bopt.padded_start(jproblem, jx, jold, max_passes=2, tol=0.0)
+                        F, centers, m = jproblem.padded_start(jx, jold, max_passes=2, tol=0.0)
+                        self._leaves(centers)
                     self._leaves(arrays(F))
                     geom.require_frame_structure(jx, F)
                     self.assertLessEqual(max(abs(float(a) - float(b)) for a, b in zip(bopt._movement_record(m),
@@ -2625,7 +3361,7 @@ class TestPaddedStartSeam(unittest.TestCase):
         runs = {}
         for use_jit in (False, True):
             frames = []
-            _, stats = bopt.newton_cg(setup.problem, setup.x0_cores, max_newton=1, padded_from=old,
+            _, stats = setup.problem.newton_cg(setup.x0_cores, max_newton=1, padded_from=old,
                                       g0_reference='cone', use_jit=use_jit,
                                       callback=lambda info: frames.append(info.lm.frame))
             runs[use_jit] = (stats, frames[0])
@@ -2662,10 +3398,9 @@ class TestAlignmentTiming(unittest.TestCase):
             with self.subTest(layer=layer):
                 setup, old, _, _ = TestPaddedStartSeam.case(layer)
                 problem, x = setup.problem, setup.x0_cores
-                jproblem = bopt._prepare_jit_inputs(True, x, problem)[1]
+                jproblem = problem.with_(batch=bopt._prepare_jit_inputs(True, x, problem.batch)[1])
                 jx = jax.tree_util.tree_map(jnp.asarray, x)
-                r0 = bopt.cw.corewise_sub(jproblem.kind.point_forward(jx, jproblem.sample), jproblem.data)
-                call = lambda **kw: problem.geom.aligned_padded_frame(jx, old, bopt._misfit_gradient_at, (jproblem, r0),
+                call = lambda **kw: problem.geom.aligned_padded_frame(jx, old, bopt._alignment_projector(jproblem.geom, jproblem.oracle), jproblem.batch,
                                                                       use_jit=True, max_passes=2, tol=0.0, **kw)
                 program = programs[layer]
                 _release_jax_programs()                                   # every program's cache now empty
@@ -2675,15 +3410,17 @@ class TestAlignmentTiming(unittest.TestCase):
                 on = call(timing=True)
                 self.assertEqual(program._cache_size(), size, 'timing=True compiled another program')
                 arrays = (lambda F: F) if layer == 'ragged' else (lambda F: F[:4])
-                for a, b in zip(jax.tree_util.tree_leaves(arrays(on[0])) + [on[1]],
-                                jax.tree_util.tree_leaves(arrays(off[0])) + [off[1]]):
+                self.assertEqual((len(off), len(on)), (3, 4))                 # (frame, centers, movements[, seconds])
+                for a, b in zip(jax.tree_util.tree_leaves(arrays(on[0])) + jax.tree_util.tree_leaves(on[1]) + [on[2]],
+                                jax.tree_util.tree_leaves(arrays(off[0])) + jax.tree_util.tree_leaves(off[1])
+                                + [off[2]]):
                     self.assertTrue(np.array_equal(np.asarray(a, dtype=float), np.asarray(b, dtype=float),
                                                    equal_nan=True))
                 if layer == 'uniform':
-                    self.assertIsNone(on[2])
+                    self.assertIsNone(on[3])
                 else:
-                    self.assertEqual(len(on[2]), len(off[1]))
-                    self.assertTrue(all(isinstance(t, float) and t > 0.0 for t in on[2]))
+                    self.assertEqual(len(on[3]), len(off[2]))
+                    self.assertTrue(all(isinstance(t, float) and t > 0.0 for t in on[3]))
 
 
 @unittest.skipUnless(HAS_JAX, "jax not available")
@@ -2720,7 +3457,7 @@ class TestNewtonTiming(unittest.TestCase):
 
     def timed(self, problem, x0, **kw):
         seen = []
-        out = bopt.newton_cg(problem, x0, timing=True, callback=seen.append, **kw)
+        out = problem.newton_cg(x0, timing=True, callback=seen.append, **kw)
         sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backend'))
         import test_optimizers as optimizer_tests
         optimizer_tests.check_timing(self, out[1], seen, compiled=self.listening())
@@ -2735,12 +3472,12 @@ class TestNewtonTiming(unittest.TestCase):
         (x, stats), seen, untimed = self.timed(problem, x0, max_newton=2)
         self.assertEqual(self.listeners(), before)
         self.assertTrue(common.is_jax_ndarray(x[0][0]))
-        self.assertEqual(untimed((x, stats)), untimed(bopt.newton_cg(problem, x0, max_newton=2)))
+        self.assertEqual(untimed((x, stats)), untimed(problem.newton_cg(x0, max_newton=2)))
 
         def raising(info):
             raise RuntimeError('a failing callback')
         with self.assertRaisesRegex(RuntimeError, 'a failing callback'):
-            bopt.newton_cg(problem, x0, max_newton=1, timing=True, callback=raising)
+            problem.newton_cg(x0, max_newton=1, timing=True, callback=raising)
         self.assertEqual(self.listeners(), before)
 
     def check_no_new_program(self, problem, x0, layer, **kw):
@@ -2750,7 +3487,7 @@ class TestNewtonTiming(unittest.TestCase):
         cg = bopt._jitted(bopt._cg_core, (4,))
         loop = padded_frames._jitted(uniform_padded_frames._ufv_aligned_loop_kernel, (2, 3, 4, 5))
         _release_jax_programs()
-        off = bopt.newton_cg(problem, x0, use_jit=True, **kw)
+        off = problem.newton_cg(x0, use_jit=True, **kw)
         sizes = (cg._cache_size(), loop._cache_size())
         self.assertGreater(sizes[0], 0, 'the untimed run did not use this CG program')
         self.assertEqual(sizes[1] > 0, layer == 'uniform' and 'padded_from' in kw)
@@ -2776,7 +3513,7 @@ class TestNewtonTiming(unittest.TestCase):
             self.assertIsNone(seen[0].timing.compile_seconds)
             self.assertIsNone(first[1]['timing']['compile'])
         self.check_no_new_program(problem, x0, 'ragged', max_newton=3)
-        self.assertEqual(untimed(first), untimed(bopt.newton_cg(problem, x0, max_newton=3, use_jit=True)))
+        self.assertEqual(untimed(first), untimed(problem.newton_cg(x0, max_newton=3, use_jit=True)))
 
     def test_use_jit_uniform_padded(self):
         """use_jit, uniform, padded_from: the whole-loop alignment is one program, so row 0's alignment_passes is None
@@ -2809,20 +3546,25 @@ class TestSwitchNewton(unittest.TestCase):
     def test_rounding_gate_at_float32(self):
         """T5: a noise-free fit at the true rank, run to its floor with use_jit=True and x64 off (float32). Every tracked
         row's rounding floor is 1000·ε·(‖ω⊙y‖·‖ω⊙r‖ + |f|) with float32's ε (recorded at the call), and the gate's
-        verdict (recorded) is uninformative exactly on the rows whose two errors are below it (a 1 % margin each side
-        absorbs the float64 ‖y‖ here against the run's float32); every countable row whose two errors are at or below
-        it has switch_count 0 (such rows exist: the run reaches its floor); if the switch fires, its last switch_k rows
-        are informative."""
+        verdict (recorded) is uninformative exactly on the rows whose two errors are below it (a margin of ``tol`` each
+        side, derived below); every countable row whose two errors are at or below it has switch_count 0 (such rows
+        exist: the run reaches its floor); if the switch fires, its last switch_k rows are informative.
+
+        ``r`` and ``f`` are the model's (the frame route's, ``lm.misfit``, read through the callback), which is what the
+        floor reads (``_objective_resolution`` queries ``f_resolution`` at the model's frame). The row's ``misfit`` /
+        ``objective`` are the point route's (D9): at the floor its float32 residual is a different rounding noise of
+        the same size, so a hand floor built from it is off by O(1) on the last rows (measured: 6.6e-5 relative on this
+        laptop, 5.9e-4 to 0.47 under a 1e-7 relative perturbation of the start, 4.8e-4 and 7.3e-4 on CI). See
+        ``dev/graded_messages/implementation/P16_CI_FIX.md``."""
         SH = STRUCT[0]
         rng = np.random.default_rng(7)
         np.random.seed(7)
         target = t3.TuckerTensorTrain.randn(SH, (2, 2, 2), (1, 2, 2, 1))
         ww, pp = ([rng.standard_normal((20, n)) for n in SH] for _ in range(2))
-        kind = bfit.ProbeDerivativesKind(order=1)
-        data = kind.point_forward(target.data, (ww, pp))
-        problem = bopt.least_squares_problem(bgeo.ManifoldGeometryOps(), kind, (ww, pp), data)
+        problem = F.derivative_fit(bgeo.ManifoldGeometryOps(), 'probe', 1, ww, pp, dd.forward(target, 'probe', ww, pp, 1))
+        data = problem.batch.y                                                  # order 1: Taylor = derivatives
         start = t3.TuckerTensorTrain.randn(SH, (2, 2, 2), (1, 2, 2, 1)).data
-        floors, verdicts = [], []
+        floors, verdicts, models = [], [], []
         real = bopt._switch_sample
 
         def recording(delta_f, predicted, curvature, floor, tau):
@@ -2834,23 +3576,36 @@ class TestSwitchNewton(unittest.TestCase):
         jax.config.update('jax_enable_x64', False)
         try:
             with unittest.mock.patch.object(bopt, '_switch_sample', recording):
-                x, stats = bopt.newton_cg(problem, start, max_newton=30, gtol_rel=1e-12, hessian='switch',
-                                          use_jit=True)
+                x, stats = problem.newton_cg(start, max_newton=30, gtol_rel=1e-12, hessian='switch', use_jit=True,
+                                             callback=lambda info: models.append(float(info.lm.misfit)))
         finally:
             jax.config.update('jax_enable_x64', x64)
         self.assertEqual(np.asarray(x[0][0]).dtype, np.float32)
         y = float(np.sqrt(sum(np.sum(np.asarray(z, dtype=float) ** 2) for z in data)))
         eps = float(np.finfo(np.float32).eps)
-        tracked = [row for row in stats['history'] if row['switch_e_n'] is not None]
+        # The hand floor is the run's formula on the run's own |r| and f (the model's, the frame route: see the
+        # docstring), so it differs from the recorded floor only by rounding, which bounds tol relative:
+        # * ‖y‖: float64 here, float32 in the run. Rounding the N data to float32 moves ‖y‖ by <= u (u = ε/2); the
+        #   float32 sum of N squares is off by <= (N-1)u + u relative (worst case, recursive summation), its square
+        #   root by half that: <= (N/2 + 2)u in all.
+        # * the float32 evaluation of eps·(‖y‖·sqrt(2f) + |f|) from those values: a few roundings, <= 8u.
+        # tol = (N/2 + 16)·ε covers both with room (N = 600 here: tol ~ 3.8e-5; measured: <= 1.2e-7). A wrong formula
+        # misses by far more: a dropped term, or a factor off by 1 %, fails here (the mutants in P16_CI_FIX.md).
+        n_data = sum(np.size(z) for z in data)
+        tol = (n_data / 2 + 16) * eps
+        tracked = [(row, f) for row, f in zip(stats['history'], models) if row['switch_e_n'] is not None]
         self.assertEqual(len(tracked), len(floors))
+
+        def hand_floor(f):                                                   # f: the model's misfit (unregularized)
+            return 1000.0 * eps * (y * np.sqrt(2.0 * f) + abs(f))
         at_floor = 0
-        for row, floor, informative in zip(tracked, floors, verdicts):
-            expected = 1000.0 * eps * (y * np.sqrt(2.0 * row['misfit']) + abs(row['objective']))
-            self.assertAlmostEqual(floor, expected, delta=1e-4 * expected)
+        for (row, f), floor, informative in zip(tracked, floors, verdicts):
+            expected = hand_floor(f)
+            self.assertAlmostEqual(floor, expected, delta=tol * expected)
             error = max(row['switch_e_gn'], row['switch_e_n'])
-            if error <= 0.99 * expected:
+            if error <= (1.0 - tol) * expected:
                 self.assertFalse(informative)
-            elif error > 1.01 * expected:
+            elif error > (1.0 + tol) * expected:
                 self.assertTrue(informative)
             if error <= expected:
                 at_floor += 1
@@ -2858,9 +3613,8 @@ class TestSwitchNewton(unittest.TestCase):
         self.assertGreater(at_floor, 0)
         self.assertIn(False, verdicts)
         if stats['switched_at'] is not None:
-            for row in stats['history'][stats['switched_at'] - 2:stats['switched_at']]:
-                self.assertGreater(max(row['switch_e_gn'], row['switch_e_n']),
-                                   1000.0 * eps * (y * np.sqrt(2.0 * row['misfit']) + abs(row['objective'])))
+            for row, f in list(zip(stats['history'], models))[stats['switched_at'] - 2:stats['switched_at']]:
+                self.assertGreater(max(row['switch_e_gn'], row['switch_e_n']), hand_floor(f))
 
     def check_use_jit(self, layer, geometry):
         """T9 at one structure: jax in, jax out; after a pure Gauss-Newton trust-region run there, a switch_tau=0 run
@@ -2874,23 +3628,23 @@ class TestSwitchNewton(unittest.TestCase):
             self.skipTest("this jax has no jit _cache_size()")
         problem, x0 = self.cases()._switch_case(layer, geometry)
         kw = dict(tr_radius0=self.cases()._untied_radius(problem, x0), use_jit=True)
-        bopt.newton_cg(problem, x0, max_newton=3, step_control='trust_region', **kw)
+        problem.newton_cg(x0, max_newton=3, step_control='trust_region', **kw)
         size = cg._cache_size()
-        x, stats = bopt.newton_cg(problem, x0, max_newton=3, hessian='switch', switch_tau=0.0, **kw)
+        x, stats = problem.newton_cg(x0, max_newton=3, hessian='switch', switch_tau=0.0, **kw)
         self.assertEqual(cg._cache_size(), size, 'the Gauss-Newton phase compiled another CG program')
         self._leaves(x)
         self.assertTrue(any(row['switch_e_n'] is not None for row in stats['history']))
-        x, stats = bopt.newton_cg(problem, x0, max_newton=16, hessian='switch', **kw)
+        x, stats = problem.newton_cg(x0, max_newton=16, hessian='switch', **kw)
         self._leaves(x)
         self.assertIsNotNone(stats['switched_at'])
         self.assertLessEqual(cg._cache_size() - size, 1, 'the switch compiled more than the exact CG program')
         size = cg._cache_size()
-        again = bopt.newton_cg(problem, x0, max_newton=16, hessian='switch', **kw)
+        again = problem.newton_cg(x0, max_newton=16, hessian='switch', **kw)
         self.assertEqual(cg._cache_size(), size, 'a second switch run compiled a CG program')
         self.assertEqual(again[1]['switched_at'], stats['switched_at'])
         if layer == 'ragged':
             jx, jproblem = bopt._prepare_jit_inputs(True, x0, problem)
-            _, eager = bopt.newton_cg(jproblem, jx, max_newton=16, hessian='switch', tr_radius0=kw['tr_radius0'])
+            _, eager = jproblem.newton_cg(jx, max_newton=16, hessian='switch', tr_radius0=kw['tr_radius0'])
             self.assertEqual(eager['switched_at'], stats['switched_at'])
             self.assertEqual(len(eager['losses']), len(stats['losses']))
             for a, b in zip(eager['losses'], stats['losses']):
@@ -3027,45 +3781,65 @@ class TestJitStack(unittest.TestCase):
 
 @unittest.skipUnless(HAS_JAX, "jax not available")
 class TestJetDtypeUnderX64(unittest.TestCase):
-    """A float32 jet pipeline stays float32 with jax_enable_x64 on (this module turns it on at import). The
-    sweeps' scan inits (the order-0 ones, the zero boundary jets, the adjoint and accumulator zeros) are built
-    in their operands' dtype; built in the default dtype they promoted every float32 jet to float64 under x64
-    (and every numpy float32 jet to float64 always) -- 2026.2.0 did, which also made the chunk-size estimator
-    depend on the global x64 flag. Uniform supercores (eager and jitted) and ragged numpy float32."""
+    """A float32 jet pipeline stays float32 with jax_enable_x64 on (this module turns it on at import): the engine's
+    start values (the ones that close an end bond, the zero starts) and every intermediate are built in their
+    operands' dtype; built in the default dtype they would promote every float32 jet to float64 under x64 (and every
+    numpy float32 jet to float64 always) -- 2026.2.0's kernels did. The engine's faces at a line, ragged and on
+    uniform supercores, numpy eager, jax eager and jitted."""
 
     def test_float32_in_float32_out(self):
-        import t3toolbox.backend.sampling_derivatives as sd
+        import t3toolbox.uniform_manifold as ut3m
+        import t3toolbox.backend.apply as bapply
+        import t3toolbox.backend.entries as bentries
+        import t3toolbox.backend.ut3_sampling as ut3s
+        import t3toolbox.backend.utv_sampling as utvs
+        from t3toolbox.backend.jets import affine_jet
+        np.random.seed(0)
         rng = np.random.default_rng(0)
-        d, n, r, N, order, W = 3, 3, 3, 5, 2, 8
-        for xnp_ in (jnp, np):
-            R = lambda *s: xnp_.asarray(rng.standard_normal(s), xnp_.float32)
-            frame = (R(d, n, N), R(d, r, n, r), R(d, r, n, r), R(d, r, n, r))
-            var = (R(d, n, N), R(d, r, n, r))
-            zt, ww, pp, c = R(d, order + 1, W, N), R(d, W, N), R(d, W, N), R(order + 1, W)
-            idx = xnp_.asarray(rng.integers(0, N, (d, W)))
-            ops = {
-                't3_probe_derivatives': lambda: sd.t3_probe_derivatives(ww, pp, (frame[0], frame[2]), order),
-                'tv_probe_derivatives': lambda: sd.tv_probe_derivatives(ww, pp, var, frame, order),
-                'tv_probe_derivatives_transpose': lambda: sd.tv_probe_derivatives_transpose(
-                    zt, ww, pp, frame, order, sum_over_probes=True, chunk_size=3),
-                'two_hole': lambda: sd.t3_probe_corewise_derivatives_hessian(
-                    zt, ww, pp, (frame[0], frame[2]), var, order, chunk_size=3),
-                'tv_apply_derivatives': lambda: sd.tv_apply_derivatives(ww, pp, var, frame, order),
-                'tv_apply_derivatives_transpose': lambda: sd.tv_apply_derivatives_transpose(c, ww, pp, frame, order, True),
-                'tv_entries_derivatives_transpose': lambda: sd.tv_entries_derivatives_transpose(
-                    c, idx, pp, frame, order, True),
-            }
+        shape, order, W = (5, 4, 6), (2,), 8
+        x = t3.TuckerTensorTrain.randn(shape, (3, 3, 3), (1, 3, 3, 1))
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x, N=7, n=4, r=4)
+        tangent = t3m.MANIFOLD.randn(t3m.MANIFOLD.frame(x))
+        utangent = ut3m.UNIFORM_MANIFOLD.randn(ut3m.UNIFORM_MANIFOLD.frame(ux))
+        line = affine_jet([rng.standard_normal((W, n)) for n in shape], [rng.standard_normal((W, n)) for n in shape])
+        F = order[0] + 1
+        cp = [rng.standard_normal((F, W, n)) for n in shape]                   # a probe c, F + W + (Ni,)
+        ca = rng.standard_normal((F, W))                                       # an apply c, F + W
+        index = np.stack([rng.integers(0, n, size=W) for n in shape])
+        ce = rng.standard_normal((W,))
+        dirs = tuple(tuple(rng.standard_normal(c.shape) for c in cores) for cores in x.data)
+        udirs = tuple(rng.standard_normal(c.shape) for c in ux.data[:2])
+
+        def cast(tree, xnp):                    # floating arrays to float32 (jax or numpy); masks, ints as they are
+            if isinstance(tree, (tuple, list)):
+                return tuple(cast(t, xnp) for t in tree)
+            if isinstance(tree, np.ndarray) and tree.dtype.kind == 'f':
+                return xnp.asarray(tree, dtype=xnp.float32)
+            return tree
+
+        ops = {
+            't3_probe': lambda X: probing.t3_probe(X['x'], X['line'], order),
+            'tv_probe': lambda X: probing.tv_probe(X['frame'], X['v'], X['line'], order),
+            'tv_probe_transpose': lambda X: probing.tv_probe_transpose(X['frame'], X['line'], X['cp'], order),
+            't3_probe_corewise_hessian': lambda X: probing.t3_probe_corewise_hessian(X['x'], X['line'], X['cp'],
+                                                                                    X['dirs'], order),
+            'tv_apply': lambda X: bapply.tv_apply(X['frame'], X['v'], X['line'], order),
+            'tv_apply_transpose': lambda X: bapply.tv_apply_transpose(X['frame'], X['line'], X['ca'], order),
+            'tv_entries_transpose': lambda X: bentries.tv_entries_transpose(X['frame'], index, X['ce']),
+            'ut3_probe_corewise_hessian': lambda X: ut3s.ut3_probe_corewise_hessian(X['ux'], X['line'], X['cp'],
+                                                                                   X['udirs'], order),
+            'utv_probe_transpose': lambda X: utvs.utv_probe_transpose(X['uframe'], X['line'], X['cp'], order)[:2],
+            'utv_apply': lambda X: utvs.utv_apply(X['uframe'], X['uv'], X['line'], order),
+        }
+        base = dict(x=x.data, frame=tangent.frame.data, v=tangent.variations.data, line=line, cp=cp, ca=ca, ce=ce,
+                    dirs=dirs, ux=ux.data, udirs=udirs, uframe=utangent.frame.data, uv=utangent.variations.data)
+        for xnp in (np, jnp):
+            X = {k: cast(v, xnp) for k, v in base.items()}
             for name, op in ops.items():
-                runs = [op()] + ([jax.jit(op)()] if xnp_ is jnp else [])
+                runs = [op(X)] + ([jax.jit(lambda: op(X))()] if xnp is jnp else [])
                 for k, out in enumerate(runs):
-                    with self.subTest(op=name, backend=xnp_.__name__, jit=bool(k)):
-                        self.assertEqual({str(l.dtype) for l in jax.tree_util.tree_leaves(out)}, {'float32'})
-            ragged = lambda a: tuple(np.asarray(x) for x in a)                     # ragged numpy float32 too
-            if xnp_ is np:
-                with self.subTest(op='tv_probe_derivatives_transpose', backend='ragged numpy'):
-                    out = sd.tv_probe_derivatives_transpose(ragged(zt), ragged(ww), ragged(pp),
-                                                            tuple(ragged(f) for f in frame), order, sum_over_probes=True)
-                    self.assertEqual({str(l.dtype) for l in jax.tree_util.tree_leaves(out)}, {'float32'})
+                    with self.subTest(op=name, backend=xnp.__name__, jit=bool(k)):
+                        self.assertEqual({str(leaf.dtype) for leaf in jax.tree_util.tree_leaves(out)}, {'float32'})
 
 
 if __name__ == "__main__":
@@ -3211,17 +3985,33 @@ class TestJitUniformWeighted(unittest.TestCase):
         import t3toolbox.backend.ufv_operations as ubvo
         self.assert_jit_jax(lambda b: b.reverse(), self.frame)
         self.assert_jit_jax(lambda b: ubvo.ufv_frame_orthogonality_residual(b.data), self.frame)
+        # graded messages P4: the uniform twins of the frame checkers (supercores traced, masks host constants)
+        _, centers = self.ubv.ut3_orthogonal_representations(self.ux)
+        Vc_sc, Hc_sc = centers.supercores
+        self.assert_jit_jax(lambda b: ubvo.ufv_frame_consistency_residual(b.data), self.frame)
+        self.assert_jit_jax(lambda b, vc, hc: ubvo.ufv_centers_consistency_residual(b.data, (vc, hc)),
+                            self.frame, Vc_sc, Hc_sc)
+        self.assert_jit_jax(lambda b, vc: ubvo.ufv_centers_consistency_residual(b.data, (vc, None)), self.frame, Vc_sc)
+        self.assert_jit_jax(lambda b, hc: ubvo.ufv_centers_consistency_residual(b.data, (None, hc)), self.frame, Hc_sc)
+        self.assert_jit_jax(lambda b: b.consistency_residual, self.frame)
+        tol = 1e-4 if self.frame.supercores[0].dtype == np.float32 else 1e-11
+        eager = ubvo.ufv_centers_consistency_residual(self.frame.data, (Vc_sc, Hc_sc))
+        jitted = jax.jit(lambda b, vc, hc: ubvo.ufv_centers_consistency_residual(b.data, (vc, hc)))(self.frame, Vc_sc, Hc_sc)
+        self.assertTrue(common.is_jax_ndarray(eager))
+        self.assertLess(float(jitted), tol)                           # the library's own centers are consistent
+        self.assertLess(float(ubvo.ufv_frame_consistency_residual(self.frame.data)), tol)
 
 
 @unittest.skipUnless(HAS_JAX, "jax not available")
 class TestCurvatureJvpOracle(unittest.TestCase):
     """The jvp oracle (2026.3.0): every two-hole is the DERIVATIVE of its corewise transpose along raw core
-    directions, so forward-mode autodiff of the shipped one-hole -- ``jax.jvp`` through the Gauss-Newton kernels,
-    independent of the hand-written two-hole sweeps -- must reproduce it. float64 (x64 is on in this module), raw
-    unsquashed cores (``TuckerTensorTrain.randn``: boundary bonds of size 1, no orthogonality), a ``K = (2,)``
-    direction stack (one ``jvp`` per direction), ``W`` summed. The seven ragged two-holes (the six kinds and the
-    T3-to-T3 inner product) and the uniform probe-derivative one (whose transpose masks theta, so the jvp along an
-    UNMASKED direction is the masked one the two-hole computes)."""
+    directions, so forward-mode autodiff of the one-hole -- ``jax.jvp`` through the engine's transpose rows,
+    independent of its two-hole rows -- must reproduce it. float64 (x64 is on in this module), raw unsquashed cores
+    (``TuckerTensorTrain.randn``: boundary bonds of size 1, no orthogonality), a ``K = (2,)`` direction stack (one
+    ``jvp`` per direction), ``W`` summed. The ragged two-holes of the three kinds, of probe and apply at a line
+    (jet shape ``(2,)``), of apply at the one-hot line (the entries kind has no jets), and of the T3-to-T3 inner
+    product; and the uniform probe two-hole at a line (whose transpose masks theta, so the jvp along an UNMASKED
+    direction is the masked one the two-hole computes)."""
 
     def setUp(self):
         np.random.seed(97)
@@ -3246,6 +4036,7 @@ class TestCurvatureJvpOracle(unittest.TestCase):
         import t3toolbox.backend.apply as bapply
         import t3toolbox.backend.entries as bentries
         import t3toolbox.backend.t3_linalg as t3la
+        from t3toolbox.backend.jets import affine_jet, index_to_one_hot
         W, order = 6, 2
         rnd = lambda *s: jnp.asarray(np.random.randn(*s))
         x = t3.TuckerTensorTrain.randn(*STRUCT).to_jax()
@@ -3257,32 +4048,33 @@ class TestCurvatureJvpOracle(unittest.TestCase):
         zt = tuple(rnd(W, N) for N in STRUCT[0])
         zt_jets = tuple(rnd(order + 1, W, N) for N in STRUCT[0])
         c, c_jets = rnd(W), rnd(order + 1, W)
+        line = affine_jet(ww, pp)                                                              # the jet shape (order,)
+        one_hot_line = affine_jet([jnp.asarray(e) for e in index_to_one_hot(index, STRUCT[0])], pp)
         z = t3.TuckerTensorTrain.randn((4, 5, 6), (3, 2, 3), (1, 3, 2, 1)).to_jax().data      # the T3-T3 operand
         cases = {
-            'probe': (lambda th: probing.t3_probe_corewise_transpose(zt, ww, th, sum_over_probes=True),
-                      lambda th, dd: probing.t3_probe_corewise_hessian(zt, ww, th, dd)),
-            'apply': (lambda th: bapply.t3_apply_corewise_transpose(c, ww, th, sum_over_probes=True),
-                      lambda th, dd: bapply.t3_apply_corewise_hessian(c, ww, th, dd)),
-            'entries': (lambda th: bentries.t3_entries_corewise_transpose(c, index, th, sum_over_probes=True),
-                        lambda th, dd: bentries.t3_entries_corewise_hessian(c, index, th, dd)),
-            'probe_derivatives': (
-                lambda th: pd.t3_probe_corewise_derivatives_transpose(zt_jets, ww, pp, th, order, sum_over_probes=True,
-                                                                      chunk_size=None),
-                lambda th, dd: pd.t3_probe_corewise_derivatives_hessian(zt_jets, ww, pp, th, dd, order, chunk_size=None)),
-            'apply_derivatives': (
-                lambda th: pd.t3_apply_corewise_derivatives_transpose(c_jets, ww, pp, th, order, sum_over_probes=True),
-                lambda th, dd: pd.t3_apply_corewise_derivatives_hessian(c_jets, ww, pp, th, dd, order)),
-            'entries_derivatives': (
-                lambda th: pd.t3_entries_corewise_derivatives_transpose(c_jets, index, pp, th, order,
-                                                                        sum_over_probes=True),
-                lambda th, dd: pd.t3_entries_corewise_derivatives_hessian(c_jets, index, pp, th, dd, order)),
+            'probe': (lambda th: probing.t3_probe_corewise_transpose(th, ww, zt),
+                      lambda th, dd: probing.t3_probe_corewise_hessian(th, ww, zt, dd)),
+            'apply': (lambda th: bapply.t3_apply_corewise_transpose(th, ww, c),
+                      lambda th, dd: bapply.t3_apply_corewise_hessian(th, ww, c, dd)),
+            'entries': (lambda th: bentries.t3_entries_corewise_transpose(th, index, c),
+                        lambda th, dd: bentries.t3_entries_corewise_hessian(th, index, c, dd)),
+            'probe at a line': (
+                lambda th: probing.t3_probe_corewise_transpose(th, line, zt_jets, order=(order,)),
+                lambda th, dd: probing.t3_probe_corewise_hessian(th, line, zt_jets, dd, order=(order,))),
+            'apply at a line': (
+                lambda th: bapply.t3_apply_corewise_transpose(th, line, c_jets, order=(order,)),
+                lambda th, dd: bapply.t3_apply_corewise_hessian(th, line, c_jets, dd, order=(order,))),
+            'apply at the one-hot line': (
+                lambda th: bapply.t3_apply_corewise_transpose(th, one_hot_line, c_jets, order=(order,)),
+                lambda th, dd: bapply.t3_apply_corewise_hessian(th, one_hot_line, c_jets, dd, order=(order,))),
             'inner_product': (lambda th: t3la.t3_inner_product_corewise_transpose(z, th),
                               lambda th, dd: t3la.t3_inner_product_corewise_hessian(z, th, dd))}
         for name, (transpose, hessian) in cases.items():
             self._check(name, transpose, hessian, core_pair, dirs)
 
-    def test_uniform_probe_derivatives_two_hole_is_the_jvp_of_its_transpose(self):
+    def test_uniform_probe_two_hole_at_jets_is_the_jvp_of_its_transpose(self):
         import t3toolbox.backend.ut3_sampling as ut3s
+        from t3toolbox.backend.jets import affine_jet
         W, order = 6, 2
         rnd = lambda *s: jnp.asarray(np.random.randn(*s))
         ux = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 3, 1)))
@@ -3291,11 +4083,12 @@ class TestCurvatureJvpOracle(unittest.TestCase):
         pp = tuple(rnd(W, N) for N in shape)
         zt = tuple(rnd(order + 1, W, N) for N in shape)
         dirs = (rnd(*((Usc.shape[0], 2) + Usc.shape[1:])), rnd(*((Gsc.shape[0], 2) + Gsc.shape[1:])))  # garbage pad
-        transpose = lambda th: ut3s.ut3_probe_corewise_derivatives_transpose(
-            zt, ww, pp, (th[0], th[1], shape, masks), order, sum_over_probes=True, chunk_size=None)
-        hessian = lambda th, dd: tuple(jnp.moveaxis(a, 1, 0) for a in ut3s.ut3_probe_corewise_derivatives_hessian(
-            zt, ww, pp, (th[0], th[1], shape, masks), dd, order, chunk_size=None))     # (d, K, ...) -> (K, d, ...)
+        line = affine_jet(ww, pp)                                                      # the jet shape (order,)
+        transpose = lambda th: ut3s.ut3_probe_corewise_transpose(
+            (th[0], th[1], shape, masks), line, zt, order=(order,))
+        hessian = lambda th, dd: tuple(jnp.moveaxis(a, 1, 0) for a in ut3s.ut3_probe_corewise_hessian(
+            (th[0], th[1], shape, masks), line, zt, dd, order=(order,)))               # (d, K, ...) -> (K, d, ...)
         dirs_k = tuple(jnp.moveaxis(a, 1, 0) for a in dirs)                            # K leading, for _check
-        self._check('uniform probe_derivatives', transpose,
+        self._check('uniform probe at a line', transpose,
                     lambda th, dd: hessian(th, tuple(jnp.moveaxis(a, 0, 1) for a in dd)),
                     (jnp.asarray(Usc), jnp.asarray(Gsc)), dirs_k)

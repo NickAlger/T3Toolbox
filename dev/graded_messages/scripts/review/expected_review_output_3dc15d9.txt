@@ -5,9 +5,12 @@ two-hole   against t3_probe_corewise_hessian   3.9e-16
 22 component functions, 59 terms in total, 7 literal subscript strings
 
 === jet_steps_check.py
-order 0   z 2.0e-16   f 3.6e-16   r_block_sumsq 4.0e-16   g 2.9e-16   Jp 3.4e-16   Jp_sumsq 0.0e+00   JtJp 3.6e-16   Kp 2.3e-16
-order 2   z 3.2e-16   f 1.9e-16   r_block_sumsq 2.6e-16   g 2.1e-16   Jp 2.9e-16   Jp_sumsq 0.0e+00   JtJp 3.5e-16   Kp 3.3e-16
-order 4   z 3.2e-16   f 0.0e+00   r_block_sumsq 2.8e-16   g 2.7e-16   Jp 3.0e-16   Jp_sumsq 3.8e-16   JtJp 2.1e-16   Kp 3.9e-16
+order 0   z 2.0e-16   f 3.6e-16   r_block_sumsq 4.0e-16   g 2.9e-16   Jp 3.4e-16   Jp_norm_sq 0.0e+00   JtJp 3.6e-16   Kp 2.3e-16
+          <Jp, omega^2 Jp> against <p, JtJp>, random weight per mode and order   0.0e+00
+order 2   z 3.2e-16   f 1.9e-16   r_block_sumsq 2.6e-16   g 2.1e-16   Jp 2.9e-16   Jp_norm_sq 0.0e+00   JtJp 3.5e-16   Kp 3.3e-16
+          <Jp, omega^2 Jp> against <p, JtJp>, random weight per mode and order   0.0e+00
+order 4   z 3.2e-16   f 0.0e+00   r_block_sumsq 2.8e-16   g 2.7e-16   Jp 3.0e-16   Jp_norm_sq 3.8e-16   JtJp 2.1e-16   Kp 3.9e-16
+          <Jp, omega^2 Jp> against <p, JtJp>, random weight per mode and order   1.9e-16
 22 step functions, 60 terms, 7 term functions; the same for every order
 
 === kind_readout_check.py
@@ -163,10 +166,10 @@ order n = 4
 === type_catalog_check.py
 Part A. Arbitrary invertible changes of basis in N, X^D, X^U, A^L, A^R (condition numbers up to 4).
         Each variable in the new bases against the catalog's rule applied to the old one:
-        plain     ( 7 variables: w, xi, mu, nu, eta, gamma, z)  worst relative difference 1e-15
-        dot       ( 9 variables: xi_dot, mu_dot, nu_dot, eta_dot, Jp, c_xi_dot, c_mu_dot, gamma_dot, c_eta_dot)  worst relative difference 1e-15
-        tilde     ( 8 variables: w_tilde, xi_tilde, mu_tilde, nu_tilde, eta_tilde, gamma_tilde, V_tilde, H_tilde)  worst relative difference 1e-15
-        tilde-dot ( 6 variables: xi_tilde_dot, mu_tilde_dot, gamma_tilde_dot, eta_tilde_dot, V_tilde_dot, H_tilde_dot)  worst relative difference 1e-15
+        plain     ( 7 variables: w, xi, mu, nu, eta, nu_L, z)  worst relative difference 1e-15
+        dot       ( 9 variables: xi_U_dot, mu_R_dot, nu_L_dot, eta_D_dot, Jp, xi_dot, mu_dot, raw_nu_L_dot, raw_eta_D_dot)  worst relative difference 1e-15
+        tilde     ( 8 variables: w_tilde, xi_tilde, mu_tilde, nu_tilde, eta_tilde, nu_L_tilde, V_tilde, H_tilde)  worst relative difference 1e-15
+        tilde-dot ( 6 variables: xi_tilde_dot, mu_tilde_dot, nu_L_tilde_dot, eta_D_tilde_dot, V_tilde_dot, H_tilde_dot)  worst relative difference 1e-15
         the blocks are covectors on the cores: <V_tilde, V> + <H_tilde, H> is unchanged: 7e-16;  the same for Kp: 2e-15
 Part B. The one inner product: residual -> seed.  The residual is a covector of N; the seed is a vector of N.
         N changed by an arbitrary invertible  matrix:  omega^2 r copied into the seed is off by 7e-01;  the misfit changes by 2e-01
@@ -178,26 +181,53 @@ Part C. The order factor, under s -> c s with c = 1.7 (the direction p becomes c
         dual jets, read in forward order: slot t is multiplied by c^-t            worst 6e-16
         the blocks are real: unchanged                                           worst 4e-16
 
+=== subtree_gauge_check.py
+A. One dot: the frame along (V, H) against the base point along the lifted direction
+   Jp                                                        equal
+   right of a bond, L basis:   nu_L_dot,  frame and raw form  equal
+   trunk, D basis:             eta_D_dot, frame and raw form  equal
+B. Twins: one subnetwork in two bases, joined by the lift's own factors
+   left of a bond:   mu_R_dot (R)  and mu_dot (L)             equal
+      the other way round, through the bond factor         different: the bond has slack
+   leaf:             xi_dot (D)    and xi_U_dot (U)           equal
+   right of a bond:  nu (R)        and nu_L (L)               equal
+   trunk:            eta (U)       and eta_D (D)              equal
+   bond sizes, L basis [3, 2, 4], R basis [3, 2, 3]
+
+=== sample_variables_check.py
+A. order 0, the recurrences against the library:  z 2e-16   g 3e-16   Jp 3e-16   JtJp 4e-16   Kp 2e-16
+B. order 0, 14 variables as sums over where the direction and the seed are put:  equal (worst 1e-15)
+C. order 0, the direction at the 9 cut edges, as one side dotted against the other plain:  equal (worst 6e-16)
+D. order 0, xi_tilde  = deta_tildes   0e+00   one array per site or bond, of shape (5, 3) (5, 4) (5, 2) (5, 3)
+D. order 0, mu_tilde  = tau_tildes    5e-17   one array per site or bond, of shape (5, 1) (5, 3) (5, 2) (5, 4)
+D. order 0, nu_tilde  = sigma_tildes  1e-16   one array per site or bond, of shape (5, 2) (5, 4) (5, 3) (5, 1)
+D. order 0, eta_tilde = dxi_tildes    3e-16   one array per site or bond, of shape (5, 2) (5, 3) (5, 3) (5, 2)
+A. order 2, the recurrences against the library:  z 3e-16   g 2e-16   Jp 3e-16   JtJp 4e-16   Kp 3e-16
+B. order 2, 14 variables as sums over where the direction and the seed are put:  equal (worst 5e-16)
+C. order 2, the direction at the 9 cut edges, as one side dotted against the other plain:  equal (worst 2e-16)
+E. order 2, the value off the frame against the value through D:  with Vc 6e-16   with Hc 4e-16
+all checks passed
+
 === arrow_type_check.py
 1. The whole program type checks with the maintainer's arrows: 424 contractions over network indices and
    176 sums, in the 22 step functions, at order 2 with d = 4.  No error.
    The numbers are those of the untyped program: largest difference 0e+00.
 2. Which way each variable flows (its leg at site or bond 1; "-" = the arrow leaves it = it flows WITH the arrow):
-   with the arrows:    w, xi, mu, nu, eta, w_tilde, xi_tilde, mu_tilde, nu_tilde, eta_tilde, c_xi_dot, c_mu_dot, xi_tilde_dot, mu_tilde_dot
-   against the arrows: gamma, z, xi_dot, mu_dot, nu_dot, eta_dot, Jp, gamma_tilde, gamma_dot, c_eta_dot, gamma_tilde_dot, eta_tilde_dot
+   with the arrows:    w, xi, mu, nu, eta, w_tilde, xi_tilde, mu_tilde, nu_tilde, eta_tilde, xi_dot, mu_dot, xi_tilde_dot, mu_tilde_dot
+   against the arrows: nu_L, z, xi_U_dot, mu_R_dot, nu_L_dot, eta_D_dot, Jp, nu_L_tilde, raw_nu_L_dot, raw_eta_D_dot, nu_L_tilde_dot, eta_D_tilde_dot
    each block fits its hole (the legs of the block are the legs of the direction, every sign flipped):
       V_tilde      (XU1-, N1-; order real)          fits V      True
       H_tilde      (AL1-, XD1-, AR2-; order real)   fits H      True
-      V_tilde_dot  (XD1+, N1-; order real)          fits B_dot  True
-      H_tilde_dot  (AL1-, XD1-, AL2+; order real)   fits G_dot  True
+      V_tilde_dot  (XD1+, N1-; order real)          fits D_dot  True
+      H_tilde_dot  (AL1-, XD1-, AL2+; order real)   fits L_dot  True
 3. What the checker rejects
    the residual put back as it is:          xi_term(D, r)               REJECTED: xi_term: on edge N1 both legs have sign +: the arrow points the wrong way
    weights applied, order not reversed:     xi_term(D, omega^2 r)       REJECTED: xi_term: an operand's order leg is 'out': it cannot enter the product
    mu swept through an R core:              mu_term(mu, R, xi)          REJECTED: mu_term: contraction across two different edges, AL1 and AR1
    nu swept through an L core:              nu_term(L, xi, nu)          REJECTED: nu_term: contraction across two different edges, AR2 and AL2
-   gamma used where nu is wanted:           eta_term(mu, U, gamma)      REJECTED: eta_term: contraction across two different edges, AL2 and AR2
+   nu_L used where nu is wanted:            eta_term(mu, U, nu_L)       REJECTED: eta_term: contraction across two different edges, AL2 and AR2
    a bond variable from the wrong bond:     mu_term(mu[2], L[1], xi[1]) REJECTED: mu_term: contraction across two different edges, AL2 and AL1
-   a sum of mu and mu_dot:                  mu + mu_dot                 REJECTED: sum of unlike types: (AL1-; order in) and (AR1+; order in)
+   a sum of mu and mu_R_dot:                mu + mu_R_dot               REJECTED: sum of unlike types: (AL1-; order in) and (AR1+; order in)
 
 === gauge_arrow_check.py
 D  down_orthogonalize_tucker_cores  sum over o       : 9e-16
@@ -209,10 +239,10 @@ U  up_orthogonalize_tt_cores        sum over a, b    : 7e-16
 === tilde_multiplier_check.py
 order n = 3.  dF when the dot variable is perturbed, against the pairing with the tilde variable
    perturbed  multiplier top coefficient        slot by slot (wrong)  
-   eta_dot    xi_tilde   relative error 1e-11   relative error 3e+01  
-   xi_dot     eta_tilde  relative error 5e-15   relative error 7e-01  
-   nu_dot     mu_tilde   relative error 3e-13   relative error 2e+00  
-   mu_dot     nu_tilde   relative error 6e-13   relative error 2e-01  
+   eta_D_dot  xi_tilde   relative error 1e-11   relative error 3e+01  
+   xi_U_dot   eta_tilde  relative error 5e-15   relative error 7e-01  
+   nu_L_dot   mu_tilde   relative error 3e-13   relative error 2e+00  
+   mu_R_dot   nu_tilde   relative error 6e-13   relative error 2e-01  
 
 === bad_scaling_example.py
 The fit: Newton from the zero tensor, default settings.  Test error = relative error of the tensor applied
@@ -249,4 +279,78 @@ Case 2: 200 samples.  The order-0 data determine the tensor alone.
    coordinates only                                   good  (test error below 1e-6)
    coordinates, then equalizing weight                good  (test error below 1e-6)
    Blocks after the full preparation: largest / smallest 1.6.
+
+=== adapter_doctest_draft.py
+the doctest of the derivative data draft: 18 examples, 0 failures
+
+=== order_scan_check.py
+1. Each form against the explicit sum, under jit (jax), and the lines of its traced program (scan body included)
+   order  'loop'                 'scan', uniform        'scan', ragged         pair table            
+   1      correct, 54 lines      correct, 34 lines      correct, 59 lines      correct, 74 lines     
+   2      correct, 82 lines      correct, 34 lines      correct, 87 lines      correct, 74 lines     
+   4      correct, 138 lines     correct, 34 lines      correct, 143 lines     correct, 74 lines     
+   8      correct, 250 lines     correct, 34 lines      correct, 255 lines     correct, 74 lines     
+   16     correct, 474 lines     correct, 34 lines      correct, 479 lines     correct, 74 lines     
+2. Multiplications, relative to the loop
+   W = 1000, bonds 64, mode rank 32
+   order  'scan'           pair table      
+   1      1.01             1.97            
+   2      1.03             1.94            
+   4      1.06             2.83            
+   8      1.11             4.46            
+   16     1.20             7.24            
+   W = 1000, bonds 4, mode rank 4
+   order  'scan'           pair table      
+   1      1.09             1.82            
+   2      1.17             1.67            
+   4      1.29             2.14            
+   8      1.44             2.78            
+   16     1.62             3.46            
+3. The option on the four backends: over_orders='scan' (the default) against 'loop', orders 1 to 16
+   inputs           layout     xscan is       the settings agree   output          
+   numpy float64    ragged     ragged_scan    to rounding          numpy float64   
+   numpy float32    ragged     ragged_scan    to rounding          numpy float32   
+   numpy float64    uniform    numpy_scan     to rounding          numpy float64   
+   numpy float32    uniform    numpy_scan     to rounding          numpy float32   
+   jax float64      ragged     ragged_scan    to rounding          jax float64     
+   jax float32      ragged     ragged_scan    to rounding          jax float32     
+   jax float64      uniform    scan           to rounding          jax float64     
+   jax float32      uniform    scan           to rounding          jax float32     
+
+=== contraction_order_check.py
+Part 1.  mu_term(mu, G, xi) with two sample axes: one string, three paths
+  numpy  (0, 1) first: equal to the single einsum True;  largest intermediate 5.040e+02 elements
+  numpy  (1, 2) first: equal to the single einsum True;  largest intermediate 4.200e+02 elements
+  numpy  (0, 2) first: equal to the single einsum True;  largest intermediate 3.600e+02 elements
+  jax    (0, 1) first: equal to the single einsum True
+  jax    (1, 2) first: equal to the single einsum True
+  jax    (0, 2) first: equal to the single einsum True
+Part 2.  eta_term(mu, G, nu) with mu and nu full jets: the three orders as pairwise truncated products
+  (G, nu) first, then mu: equal to the explicit sum True;  intermediate W a n = 84 per order slice
+  (mu, G) first, then nu: equal to the explicit sum True;  intermediate W n b = 168 per order slice
+  (mu, nu) first, then G: equal to the explicit sum True;  intermediate P W a b = 630, all orders at once
+  each order contracts the core with one coefficient P times; they differ in the intermediate and in
+  which operand is taken one coefficient at a time
+
+=== term_stacks_check.py
+1. Every string of every family against the explicit reference, on every combination of stacks.
+   xi    5 strings, largest relative error 0.0e+00
+   z     3 strings, largest relative error 0.0e+00
+   mu    8 strings, largest relative error 3.4e-16
+   nu    8 strings, largest relative error 4.1e-16
+   eta   4 strings, largest relative error 2.8e-16
+   V     5 strings, largest relative error 2.2e-16
+   H     8 strings, largest relative error 2.7e-16
+   2760 calls checked: orders 0, 1, 3; S in (), (2,); W in (), (3,), (2, 2); K in (2,), (2, 2); C in (), (2,)
+2. The two step functions, order 0, and an operand of the wrong rank.
+   mu_dot_step at order 0: 3 contractions for its 3 terms, result (2, 3, 4, 2, 4), relative error 1.6e-16
+   mu_dot_step at order 3: 6 contractions for its 3 terms, result (4, 2, 3, 4, 2, 4), relative error 1.7e-16
+   V_tilde_step at order 3, all sites at once: result (2, 2, 3, 5), relative error 1.5e-16
+   a stray axis on mu, with len_T and len_C passed.  in front of W: raises;  between W and C: raises
+   a stray axis on a seed that carries K: W and K stand together on the only operand that has them, so
+   the stray axis is read as one more axis of W or of K unless both lengths are given.
+   len_T and len_C: ACCEPTED;  with len_W as well: ACCEPTED;  with len_W and len_K: raises
+3. jax.
+   a product with an affine leaf, a product of two full jets and a block readout, under jit, float32 in
+   and out, against the same calls on numpy: agree to rounding (below 1e-5)
 

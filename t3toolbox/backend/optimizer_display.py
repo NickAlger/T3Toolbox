@@ -6,17 +6,17 @@ identical display without touching the frontend (the anti-drift rule):
 
     import t3toolbox.backend.optimizers as bopt
     import t3toolbox.backend.optimizer_display as bdisp
-    cb, records = bdisp.make_newton_display(problem, val_sample=vs, val_data=vd)
-    x, stats = bopt.newton_cg(problem, x0, callback=cb)     # prints each iter; records == the history
+    cb, records = bdisp.make_newton_display(oracle, batch, val_batch=val_batch)
+    x, stats = bopt.newton_cg(geom, oracle, batch, x0, callback=cb)     # prints each row; records == the history
 
 Two layers, so the pure algorithm modules stay pure and the I/O is isolated:
 
 * :py:func:`format_newton_iter` -- a **pure** function returning the formatted string block (a scalar
-  header line + the per-``(mode, order)`` relative-error table). Testable without capturing stdout.
+  header line, a ``time`` line on a timed row, and the relative-error table). Testable without capturing stdout.
 * :py:func:`make_newton_display` -- builds a ``callback(NewtonInfo)`` for
-  :py:func:`t3toolbox.backend.optimizers.newton_cg`: it precomputes the constant data-norm denominators
-  once, then per iteration computes the train (and optional validation) error matrices, prints via an
-  injectable ``print_fn``, and records each iteration.
+  :py:func:`t3toolbox.backend.optimizers.newton_cg`: it reads the data's block norms once (the denominators), then
+  per row the residual's block norms through the oracle (train, and validation when a ``val_batch`` is given),
+  prints via an injectable ``print_fn``, and records each row.
 
 A run with ``newton_cg(timing=True)`` adds a ``time`` line to each row's block (the row's window by phase) and a
 closing table after the run's last row; untimed rows print exactly as before. In a ``newton_cg(hessian='switch')``
@@ -24,15 +24,20 @@ run, each Gauss-Newton-phase step row's header carries an ``sw`` segment, before
 tracking ratio ``e_N / e_GN`` and the hit count, the switching row marked ``⇒ exact``); its exact-phase rows, its
 converged line and every row of the other modes print as before.
 
-The relative-error table is ``‖r_ij‖ / ‖y_ij‖`` from the kind's UNWEIGHTED :py:meth:`block_sumsq` (D2) --
-the honest per-block recovery error, independent of any residual weight ``ω``. The **layout follows the
-kind's axes**: ``probe_derivatives`` (mode × order) -> mode rows,
-order cols, ``train|val`` cells; a single data axis (plain ``probe`` = mode, ``apply/entries_derivatives``
-= order) -> dataset rows, that axis in columns; a scalar (plain ``apply/entries``) -> a one-liner. The
-stored matrices are always canonical ``(n_mode, n_order)`` -- the layout is cosmetic.
+The relative-error table is ``‖ω⊙r_b‖ / ‖ω⊙y_b‖`` per block ``b``, from the oracle's block sums ``<r, M r>`` and
+``<y, M y>`` (``r_block_sumsq`` at the model's frame with its ``held``, ``y_block_sumsq``), ``M`` the data metric: the
+per-block recovery error under the fit's own weight. A draw's scale is in both sums and cancels; a weight constant
+within each block cancels too (the plain ``‖r_b‖ / ‖y_b‖``); a sample weighted zero counts in neither. The errors have
+the block shape: ``(d,) + F`` for probe (modes, then the jet axes ``F``), ``F`` for apply, ``()`` for entries; the
+records keep them in that shape. The printed layout follows the jet shape ``order`` (D4: given, never read off the
+model): with at most one jet variable it is the 2026.5.0 table -- modes in rows and the orders in columns
+(``train|val`` cells) for probe along a line, a single axis in columns with ``train``/``val`` rows otherwise, a one-line
+scalar for a plain apply or entries fit; with two or more, one column per multi-index of the jet axes in row-major
+order (O-42). ``error_table=False`` prints the header lines only and changes no record. An oracle without both block
+sums gets the header lines and no table.
 
 Formatting uses ``%.1e`` (Python pads the exponent to a signed 2-digit field, so every cell is exactly 7
-chars -> columns align with no extra work). The callback is **host-side** (it reads the concrete residual),
+chars -> columns align with no extra work). The callback is **host-side** (it reads concrete block sums),
 so it composes with ``newton_cg(use_jit=True)`` (only the inner CG jits) but not a fully-jitted outer loop.
 """
 import math
@@ -42,7 +47,6 @@ import numpy as np
 
 from t3toolbox.backend.common import *   # NDArray
 import t3toolbox.backend.optimizers as bopt
-from t3toolbox import corewise as _cw
 
 __all__ = ['format_newton_iter', 'make_newton_display', 'relative_errors']
 
@@ -51,11 +55,12 @@ __all__ = ['format_newton_iter', 'make_newton_display', 'relative_errors']
 # Relative-error matrix
 # --------------------------------------------------------------------------------------------------
 def relative_errors(
-        residual_block_sumsq: NDArray,   # kind.block_sumsq(residual, n_w), shape (n_mode, n_order)
-        data_block_sumsq:     NDArray,   # kind.block_sumsq(data, n_w),     shape (n_mode, n_order)
-) -> NDArray:                            # sqrt(num/den) per block; NaN where the data block norm is 0
-    """Per-``(mode, order)`` relative error ``‖r_ij‖ / ‖y_ij‖ = sqrt(block_sumsq(r) / block_sumsq(y))``.
-    A zero-norm data block (no signal in that block) is undefined -> ``NaN`` (rendered ``—``)."""
+        residual_block_sumsq: NDArray,   # the oracle's r_block_sumsq, <r, M r> per block, the block shape (d,)+F|F|()
+        data_block_sumsq:     NDArray,   # the oracle's y_block_sumsq, <y, M y> per block, the same shape
+) -> NDArray:                            # sqrt(num/den) per block, the same shape; NaN where the data block norm is 0
+    """Per-block relative error ``‖ω⊙r_b‖ / ‖ω⊙y_b‖ = sqrt(r_block_sumsq / y_block_sumsq)``, elementwise (a draw's
+    scale, in both sums, cancels). A zero data block (no signal in that block, or a weight of zero throughout it) is
+    undefined -> ``NaN`` (rendered ``—``)."""
     num = np.asarray(residual_block_sumsq, dtype=float)
     den = np.asarray(data_block_sumsq, dtype=float)
     with np.errstate(divide='ignore', invalid='ignore'):
@@ -88,8 +93,8 @@ def _grid(col_labels: typ.Sequence[str], row_labels: typ.Sequence[str],
     return '\n'.join(lines)
 
 
-def _format_table(train_err: NDArray, val_err: typ.Optional[NDArray], fmt: str) -> str:
-    """The relative-error table, layout chosen from the matrix shape (Decision 2a)."""
+def _format_matrix(train_err: NDArray, val_err: typ.Optional[NDArray], fmt: str) -> str:
+    """The 2026.5.0 table of a ``(n_mode, n_order)`` matrix, layout chosen from its shape (Decision 2a)."""
     train_err = np.asarray(train_err)
     nm, no = train_err.shape
     w = len(fmt % 1.0)                                   # cell width (7 for %.1e)
@@ -122,6 +127,72 @@ def _format_table(train_err: NDArray, val_err: typ.Optional[NDArray], fmt: str) 
         cells.append([_cell(at(val_err, j), fmt, w) for j in range(n)])
     legend = "  rel err  rows=train/val  cols=%s" % ("mode" if is_mode else "order")
     return legend + "\n" + _grid(col_labels, row_labels, cells)
+
+
+def _format_columns(
+        train_err:   NDArray,                  # lead + column axes
+        val_err:     typ.Optional[NDArray],
+        fmt:         str,
+        lead:        int,                      # 1: the first axis is the rows; 0: rows train/val
+        col_labels:  typ.Sequence[str],        # one per column, the column axes unfolded row-major
+        row_label:   str,                      # the row label's format (lead 1)
+        rows_name:   str,                      # the legend's names
+        cols_name:   str,
+) -> str:
+    """A table whose columns unfold the trailing axes in row-major order: rows by the leading axis with ``train|val``
+    cells (``lead = 1``), or ``train`` / ``val`` rows (``lead = 0``)."""
+    w = len(fmt % 1.0)
+    t = train_err.reshape(train_err.shape[:lead] + (-1,))
+    v = None if val_err is None else val_err.reshape(val_err.shape[:lead] + (-1,))
+    n = t.shape[-1]
+    if lead:
+        row_labels = [row_label % i for i in range(t.shape[0])]
+        cells = [[(_cell(t[i, c], fmt, w) + "|" + _cell(v[i, c], fmt, w)) if v is not None
+                  else _cell(t[i, c], fmt, w) for c in range(n)] for i in range(t.shape[0])]
+        legend = "  rel err  rows=%s  cols=%s" % (rows_name, cols_name) + ("  (cells train|val)" if v is not None
+                                                                           else "")
+    else:
+        row_labels = ["train"] + (["val"] if v is not None else [])
+        cells = [[_cell(e[c], fmt, w) for c in range(n)] for e in ([t] + ([v] if v is not None else []))]
+        legend = "  rel err  rows=train/val  cols=%s" % cols_name
+    return legend + "\n" + _grid(col_labels, row_labels, cells)
+
+
+def _format_table(
+        train_err:  NDArray,                          # relative errors in the block shape
+        val_err:    typ.Optional[NDArray],            # the same shape, or None
+        fmt:        str,
+        order:      typ.Optional[typ.Tuple[int, ...]] = None,   # the jet shape (D4); None: labelled by position
+) -> str:
+    """The relative-error table of arrays in the block shape (``(d,) + F`` probe, ``F`` apply, ``()``
+    entries). With the jet shape ``order`` (``m = len(order)``), the leading ``ndim - m`` axes (none or one) are the
+    modes: at ``m <= 1`` the 2026.5.0 table (:py:func:`_format_matrix` of the ``(n_mode, n_order)`` matrix); at
+    ``m >= 2`` one column per multi-index of the jet axes, row-major (O-42), mode rows with ``train|val`` cells for
+    probe, ``train`` / ``val`` rows for apply. Without ``order`` (an oracle that names none), the axes are labelled by
+    position: a scalar on one line, one axis in columns, else the first axis in rows and the others unfolded row-major
+    in columns. A malformed shape raises a ``ValueError`` (structural)."""
+    train_err = np.asarray(train_err, dtype=float)
+    val_err = None if val_err is None else np.asarray(val_err, dtype=float)
+    if val_err is not None and val_err.shape != train_err.shape:
+        raise ValueError("the validation errors have shape %s, the training errors %s: they must agree (the block "
+                         "shape)" % (val_err.shape, train_err.shape))
+    if order is None:
+        if train_err.ndim == 0:
+            return _format_matrix(train_err.reshape(1, 1), None if val_err is None else val_err.reshape(1, 1), fmt)
+        lead = 1 if train_err.ndim >= 2 else 0
+        cols = ["[%s]" % ",".join(str(i) for i in ix) for ix in np.ndindex(*train_err.shape[lead:])]
+        return _format_columns(train_err, val_err, fmt, lead, cols, "[%d]", "axis 0", "position (row-major)")
+    m = len(order)
+    lead = train_err.ndim - m
+    if lead not in (0, 1) or tuple(train_err.shape[lead:]) != tuple(n + 1 for n in order):
+        raise ValueError("relative errors of shape %s do not fit the jet shape order=%r: expected the block "
+                         "shape, (d,) + F or F with F = %r" % (train_err.shape, tuple(order),
+                                                               tuple(n + 1 for n in order)))
+    if m <= 1:
+        shape2 = (train_err.shape[0] if lead else 1, train_err.shape[-1] if m else 1)
+        return _format_matrix(train_err.reshape(shape2), None if val_err is None else val_err.reshape(shape2), fmt)
+    cols = ["ord(%s)" % ",".join(str(i) for i in ix) for ix in np.ndindex(*train_err.shape[lead:])]
+    return _format_columns(train_err, val_err, fmt, lead, cols, "m%d", "mode", "order multi-index (row-major)")
 
 
 _REFERENCE_NAMES = {'zero': 'zero tensor', 'warm_start': 'warm start', 'cone': 'cone (aligned zero tensor)',
@@ -184,17 +255,12 @@ def _switch_segment(info: "bopt.NewtonInfo") -> typ.Optional[str]:
     return "sw %s ×%d%s" % (_num(ratio, "%.1e"), count, " ⇒ exact" if getattr(info, 'switch_fired', None) else "")
 
 
-def _format_header(info: "bopt.NewtonInfo", obj_unweighted: typ.Optional[float]) -> str:
+def _format_header(info: "bopt.NewtonInfo") -> str:
     """The one-line per-iteration scalar header (a shorter form on the converged final line). A run's last
     row names its ``stop_reason`` when that is not the gradient test (the converged line says so already)."""
     obj = "obj %.3e" % info.objective
     if info.regularization is not None and info.misfit is not None:   # regularizer attached -> obj = misfit + reg
-        misfit_str = "%.3e" % info.misfit
-        if obj_unweighted is not None and not math.isclose(obj_unweighted, info.misfit, rel_tol=1e-9):
-            misfit_str += " (unwt %.2e)" % obj_unweighted             # ω-weighting gap sits on the misfit term
-        obj += " = misfit %s + reg %.3e" % (misfit_str, info.regularization)
-    elif obj_unweighted is not None and not math.isclose(obj_unweighted, info.objective, rel_tol=1e-9):
-        obj += " (unwt %.2e)" % obj_unweighted                        # unregularized + nontrivial ω: unweighted vs total
+        obj += " = misfit %.3e + reg %.3e" % (info.misfit, info.regularization)
     rel_g = info.gnorm / info.g0norm if info.g0norm else float('nan')
     obj += "  ‖g‖ %.2e (%.1e·g₀)" % (info.gnorm, rel_g)
     parts = ["iter %2d" % info.iteration, obj]
@@ -222,11 +288,11 @@ def _format_header(info: "bopt.NewtonInfo", obj_unweighted: typ.Optional[float])
 # --------------------------------------------------------------------------------------------------
 # Timing: newton_cg(timing=True)'s NewtonInfo.timing, as a line per row and a closing table per run
 # --------------------------------------------------------------------------------------------------
-_PHASE_LABELS = {'previous_callback': 'cb', 'frame': 'frame', 'sweep': 'sweep', 'companion': 'comp',
-                 'residual': 'resid', 'curvature': 'curv', 'gradient': 'grad', 'reference': 'ref', 'cg': 'cg',
+_PHASE_LABELS = {'previous_callback': 'cb', 'frame': 'frame', 'oracle': 'oracle', 'companion': 'comp',
+                 'curvature': 'curv', 'gradient': 'grad', 'reference': 'ref', 'cg': 'cg',
                  'forms': 'forms', 'trial_retraction': 'retr', 'trial_objective': 'obj', 'tracking': 'track',
                  'remainder': 'rest'}                      # PhaseSeconds field -> its label on the time line
-_MODEL_PHASES = ('frame', 'sweep', 'companion', 'residual', 'curvature')
+_MODEL_PHASES = ('frame', 'oracle', 'companion', 'curvature')
 _COMPILE_SHOWN = 1e-6    # seconds: a compile wait below this is the remainder's rounding, not a compile
 
 
@@ -343,42 +409,61 @@ def _format_timing_table(
 
 def format_newton_iter(
         info:           "bopt.NewtonInfo",       # the per-iteration diagnostics from newton_cg
-        train_err:      NDArray,                  # (n_mode, n_order) training relative-error matrix
-        val_err:        typ.Optional[NDArray] = None,   # (n_mode, n_order) validation matrix, or None
-        obj_unweighted: typ.Optional[float]   = None,   # ½‖r‖²; shown next to the misfit iff a nontrivial ω makes it differ
+        train_err:      typ.Optional[NDArray],    # training relative errors in the block shape; None: no table
+        val_err:        typ.Optional[NDArray] = None,   # validation relative errors, the same shape, or None
         fmt:            str = '%.1e',
-) -> str:                                         # the formatted header line + relative-error table
-    """Format one Newton iteration as a header line + the relative-error table (pure -- returns a string).
-    The layout of the table follows ``train_err``'s shape (Decision 2a). When a regularizer is attached the
-    header splits the objective as ``obj = misfit + reg`` (``info.misfit`` / ``info.regularization``);
-    ``obj_unweighted`` (the unweighted ½‖r‖²) is shown next to the **misfit** term only when a nontrivial
-    residual weight ``ω`` makes it differ (unregularized, it annotates the objective, as before).
+        order:          typ.Optional[typ.Tuple[int, ...]] = None,   # the jet shape (D4); None: axes labelled by position
+        error_table:    bool = True,              # False: the header lines only
+) -> str:                                         # the formatted header line(s) + relative-error table
+    """Format one Newton iteration as a header line (a ``time`` line under it on a timed row) and the relative-error
+    table (pure -- returns a string). The errors have the block shape (``(d,) + F`` probe, ``F`` apply, ``()``
+    entries); ``order``, the jet shape, says which axes are the jets (D4: given explicitly, never read off the
+    model) and so the layout: the 2026.5.0 table for at most one jet variable, one column per multi-index in row-major
+    order for two or more (O-42); without it the axes are labelled by position. ``error_table=False`` (or
+    ``train_err=None``) gives the header lines alone. When a regularizer is attached the header splits the objective
+    as ``obj = misfit + reg`` (``info.misfit`` / ``info.regularization``).
 
     Examples
     --------
-    A converged final iteration (short header) with a 2-mode x 2-order error matrix; note ``1.0e+00`` and
-    ``5.2e-04`` line up -- ``%.1e`` is fixed 7-char width, so columns align with no padding logic:
+    A converged final iteration (short header) of a probe fit along lines (``order=(1,)``: 2 modes x 2 orders); note
+    ``1.0e+00`` and ``5.2e-04`` line up -- ``%.1e`` is fixed 7-char width, so columns align with no padding logic:
 
     >>> import numpy as np
     >>> import t3toolbox.backend.optimizers as bopt
     >>> import t3toolbox.backend.optimizer_display as disp
     >>> info = bopt.NewtonInfo(iteration=5, objective=3.78e-4, gnorm=4.8e-6, g0norm=6.5e-2, converged=True)
-    >>> train = np.array([[1.9e-2, 1.3e-2], [1.0e+00, 5.2e-4]])   # (2 modes, 2 orders)
-    >>> print(disp.format_newton_iter(info, train))
+    >>> train = np.array([[1.9e-2, 1.3e-2], [1.0e+00, 5.2e-4]])   # (d,) + F = (2 modes, 2 orders)
+    >>> print(disp.format_newton_iter(info, train, order=(1,)))
     iter  5 | obj 3.780e-04  ‖g‖ 4.80e-06 (7.4e-05·g₀) | converged (‖g‖ ≤ gtol·‖g₀‖)
       rel err  rows=mode  cols=order
                ord0     ord1
         m0  1.9e-02  1.3e-02
         m1  1.0e+00  5.2e-04
 
-    With a regularizer attached, the objective splits as ``obj = misfit + reg`` (here a single apply
-    dataset, so a 1x1 error table):
+    Two jet variables (``order=(1, 1)``: the jet axes ``F = (2, 2)``) give one column per multi-index, in
+    row-major order (O-42); here an apply fit with validation, so ``train`` / ``val`` rows:
+
+    >>> train = np.array([[2.1e-3, 4.0e-2], [3.3e-2, 1.0e+00]])
+    >>> print(disp.format_newton_iter(info, train, 1.5 * train, order=(1, 1)))
+    iter  5 | obj 3.780e-04  ‖g‖ 4.80e-06 (7.4e-05·g₀) | converged (‖g‖ ≤ gtol·‖g₀‖)
+      rel err  rows=train/val  cols=order multi-index (row-major)
+               ord(0,0)  ord(0,1)  ord(1,0)  ord(1,1)
+        train   2.1e-03   4.0e-02   3.3e-02   1.0e+00
+        val     3.2e-03   6.0e-02   5.0e-02   1.5e+00
+
+    ``error_table=False`` keeps the header and drops the table:
+
+    >>> print(disp.format_newton_iter(info, train, order=(1, 1), error_table=False))
+    iter  5 | obj 3.780e-04  ‖g‖ 4.80e-06 (7.4e-05·g₀) | converged (‖g‖ ≤ gtol·‖g₀‖)
+
+    With a regularizer attached, the objective splits as ``obj = misfit + reg`` (here a plain apply fit,
+    ``order=()``: a scalar error, one line):
 
     >>> info = bopt.NewtonInfo(iteration=3, objective=6.003e1, gnorm=1.60, g0norm=1.07e1, converged=False,
     ...                        misfit=5.974e1, regularization=2.9e-1, cg_iters=8, cg_maxiter=200,
     ...                        cg_tol=6.2e-1, cg_resid=4.9e-1, cg_converged=True, cg_truncated=False,
     ...                        ls_steps=0, alpha=1.0, step_rel=1.2, delta_f=-2.22, rho=0.07, wall_time=0.03)
-    >>> print(disp.format_newton_iter(info, np.array([[3.7e-1]])))
+    >>> print(disp.format_newton_iter(info, np.array(3.7e-1), order=()))
     iter  3 | obj 6.003e+01 = misfit 5.974e+01 + reg 2.900e-01  ‖g‖ 1.60e+00 (1.5e-01·g₀) | CG 8/200 tol 6.2e-01 resid 4.9e-01 ✓ | ls 0 α 1.00e+00 ‖Δx‖/‖x‖ 1.2e+00 | Δf -2.22e+00 ρ 0.07 | 0.03s
       rel err   3.7e-01
 
@@ -387,7 +472,7 @@ def format_newton_iter(
 
     >>> info = bopt.NewtonInfo(iteration=7, objective=1.2e-9, gnorm=3.1e-7, g0norm=4.4e1, converged=True,
     ...                        g0_reference='zero')
-    >>> print(disp.format_newton_iter(info, np.array([[2.0e-5]])))
+    >>> print(disp.format_newton_iter(info, np.array(2.0e-5), order=()))
     iter  7 | obj 1.200e-09  ‖g‖ 3.10e-07 (7.0e-09·g₀) | converged (‖g‖ ≤ gtol·‖g₀‖, g₀ = zero tensor)
       rel err   2.0e-05
 
@@ -402,7 +487,7 @@ def format_newton_iter(
     ...                        rho=-0.52, wall_time=0.12, step_control='trust_region', hessian='exact',
     ...                        tr_radius=3.1e-2, tr_accepted=False, pHp=8.0e-4, pKp=-2.0e-4,
     ...                        lift_sigma_min=4.2e-1, lift_eps=1.3e-5)
-    >>> print(disp.format_newton_iter(info, np.array([[2.0e-3]])))
+    >>> print(disp.format_newton_iter(info, np.array(2.0e-3), order=()))
     iter  4 | obj 2.310e-03  ‖g‖ 7.20e-04 (1.4e-05·g₀) | CG 6/200 tol 1.9e-05 resid 3.3e-05 ∂ | TR Δ 3.10e-02 ✗ ‖Δx‖/‖x‖ 4.0e-02 | Δf +6.10e-05 ρ -0.52 | 0.12s | κ -2.0e-01 σ 4.2e-01 ε 1.3e-05
       rel err   2.0e-03
 
@@ -418,7 +503,7 @@ def format_newton_iter(
     ...                        rho=0.85, wall_time=0.03, step_control='trust_region', hessian='gauss_newton',
     ...                        tr_radius=2.51, tr_accepted=True, pHp=4.1e2, switch_pKp=7.43e1, switch_e_gn=3.70e1,
     ...                        switch_e_n=1.1e-1, switch_count=2, switch_fired=True)
-    >>> print(disp.format_newton_iter(info, np.array([[2.8e-1]])))
+    >>> print(disp.format_newton_iter(info, np.array(2.8e-1), order=()))
     iter  1 | obj 2.537e+05  ‖g‖ 4.17e+02 (4.2e-01·g₀) | CG 1/200 tol 2.1e+02 resid 1.2e+02 ✓ | TR Δ 2.51e+00 ✓ ‖Δx‖/‖x‖ 8.7e-03 | Δf -2.03e+02 ρ 0.85 | 0.03s | sw 3.0e-03 ×2 ⇒ exact
       rel err   2.8e-01
 
@@ -428,8 +513,8 @@ def format_newton_iter(
     retractions and objectives tried (``×1``), ``cb`` the previous row's callback and ``rest`` what no phase covers; a
     phase that did not run on the row (here ``ref``, row 0's) is left out:
 
-    >>> seconds = bopt.PhaseSeconds(previous_callback=2.4e-4, frame=4.6e-4, sweep=9.1e-4, companion=3.4e-6,
-    ...                             residual=9.8e-4, curvature=1.1e-3, gradient=2.7e-3, reference=None, cg=7.3e-2,
+    >>> seconds = bopt.PhaseSeconds(previous_callback=2.4e-4, frame=4.6e-4, oracle=1.9e-3, companion=3.4e-6,
+    ...                             curvature=1.1e-3, gradient=2.7e-3, reference=None, cg=7.3e-2,
     ...                             forms=1.2e-2, trial_retraction=7.8e-4, trial_objective=1.0e-3, tracking=None,
     ...                             remainder=1.6e-4)
     >>> timing = bopt.NewtonTiming(window=9.3e-2, seconds=seconds, compile_seconds=None, trials=1,
@@ -440,39 +525,66 @@ def format_newton_iter(
     ...                        rho=1.01, wall_time=9.3e-2, step_control='trust_region', hessian='exact',
     ...                        tr_radius=6.92e1, tr_accepted=True, pHp=9.2e2, pKp=1.1e1, lift_sigma_min=1.0e1,
     ...                        lift_eps=1.4e-4, timing=timing)
-    >>> print(disp.format_newton_iter(info, np.array([[1.2e-2]])))
+    >>> print(disp.format_newton_iter(info, np.array(1.2e-2), order=()))
     iter  2 | obj 4.620e+02  ‖g‖ 5.23e+02 (9.3e-03·g₀) | CG 5/200 tol 4.8e+00 resid 2.5e+00 ✓ | TR Δ 6.92e+01 ✓ ‖Δx‖/‖x‖ 1.3e-02 | Δf -4.62e+02 ρ 1.01 | 0.09s | κ +1.2e-02 σ 1.0e+01 ε 1.4e-04
-      time  model 3.5e-03 [frame 4.6e-04 sweep 9.1e-04 comp 3.4e-06 resid 9.8e-04 curv 1.1e-03] | grad 2.7e-03 | cg 7.3e-02 (1.5e-02/it) | forms 1.2e-02 | trials 1.8e-03 ×1 [retr 7.8e-04 obj 1.0e-03] | cb 2.4e-04 | rest 1.6e-04
+      time  model 3.5e-03 [frame 4.6e-04 oracle 1.9e-03 comp 3.4e-06 curv 1.1e-03] | grad 2.7e-03 | cg 7.3e-02 (1.5e-02/it) | forms 1.2e-02 | trials 1.8e-03 ×1 [retr 7.8e-04 obj 1.0e-03] | cb 2.4e-04 | rest 1.6e-04
       rel err   1.2e-02
     """
-    header = _format_header(info, obj_unweighted)
+    header = _format_header(info)
     if getattr(info, 'timing', None) is not None:
         header += "\n" + _format_timing(info)
-    return header + "\n" + _format_table(train_err, val_err, fmt)
+    if not error_table or train_err is None:
+        return header
+    return header + "\n" + _format_table(train_err, val_err, fmt, order)
 
 
 # --------------------------------------------------------------------------------------------------
 # The callback builder
 # --------------------------------------------------------------------------------------------------
+def _host(value) -> NDArray:
+    """A block-sum value on the host, float64."""
+    return np.asarray(value, dtype=float)
+
+
 def make_newton_display(
-        problem,                                  # backend.optimizers.Problem (holds the kind + full data)
-        val_sample: typ.Any = None,               # optional validation sample (same kind/layout as problem.sample)
-        val_data:   typ.Any = None,               # optional validation data; both given -> a train|val table
-        print_fn:   typ.Optional[typ.Callable] = print,   # where to send each iteration's text (None = silent)
-        fmt:        str  = '%.1e',
-        record:     bool = True,                  # accumulate per-iteration records (scalars + err matrices)
+        oracle,                                   # the fit's Oracle (its block sums: r_block_sumsq, y_block_sumsq)
+        batch,                                    # its batch (the training data: the denominators)
+        val_batch:   typ.Any = None,              # optional validation batch, laid out like batch -> a train|val table
+        print_fn:    typ.Optional[typ.Callable] = print,   # where to send each row's text (None = silent)
+        fmt:         str  = '%.1e',
+        record:      bool = True,                 # accumulate per-row records (scalars + error arrays)
+        error_table: bool = True,                 # False: print the header lines only (the records are unchanged)
 ) -> typ.Tuple[typ.Callable, list]:               # (callback for newton_cg, records list filled as it runs)
     """Build a ``callback(NewtonInfo)`` (+ its ``records`` list) that displays each Newton iteration.
 
-    Precomputes the constant per-block **data norms** ``block_sumsq(data)`` once (the relative-error
-    denominators). Each call: recomputes the residual block norms, forms the train (and, if ``val_data``
-    is given, validation -- one extra ``point_forward``, no transpose/sweep) relative-error matrices,
-    prints via ``print_fn``, and appends a self-contained record (the scalar fields + ``train_err`` /
-    ``val_err``). After a **rejected** trust-region trial (``tr_accepted is False``) the next row starts from
-    the same point with the same local model, so it reuses that row's tables -- no second validation
-    forward for an unchanged ``x``. (Reuse is keyed on that model object, so a callback shared by several
-    runs, e.g. continuation levels, recomputes the next run's first row even after a run that ended on a
-    rejected trial.) Requires ``problem.kind.has_block_sumsq`` (all built-in kinds have it).
+    **The errors are on the batch the display is given**: numerator and denominator both on ``batch`` (and on
+    ``val_batch``). The denominators, the data's block sums ``y_block_sumsq``, are queried once, at the first row's
+    frame (a packed probe ``y`` reads its mode sizes off the frame). Each row's numerator is the residual's block sums
+    ``r_block_sumsq`` at the row's model's frame (``info.lm``, with its centers' ``Vc``):
+
+    - when ``batch`` is the run's batch (``info.lm.batch is batch``), with the model's ``held``: the residual the
+      build computed, no sweep;
+    - otherwise (a run on a drawn batch, on other data, or under ``use_jit``, which converts the batch to a new jax
+      object) a forward on ``batch``, never with the model's ``held`` (that belongs to the run's batch): one forward
+      more per row. Hand the display the very batch object the run uses to take the first path.
+
+    The validation numerator is likewise a forward at the same frame on ``val_batch``, never with the model's ``held``.
+    The block sums are ``<r, M r>`` and ``<y, M y>`` per block, so each error is ``‖ω⊙r_b‖ / ‖ω⊙y_b‖``: the per-block
+    recovery error under the weight, a draw's scale cancelling (a weight constant within each block cancels too: the
+    plain ``‖r_b‖ / ‖y_b‖``). **Each table is under its own batch's weight**: the validation cells use ``val_batch``'s
+    weight, so give ``val_batch`` a weight of the same form as ``batch``'s, or the two halves of a ``train|val`` cell
+    are different quantities (a weighted ratio beside an unweighted one, say). An oracle that lacks either block sum
+    (not in its ``optional_outputs``) gets the header lines and no table, and its records no error arrays.
+
+    **The records.** Each row appends a self-contained record: the history's scalar fields, ``train_err`` and (with a
+    ``val_batch``) ``val_err`` in the block shape (``(d,) + F`` probe, ``F`` apply, ``()`` entries), nothing
+    reduced. ``error_table=False`` changes the printed text only. The layout of the printed table follows the oracle's
+    ``order`` (:py:func:`format_newton_iter`; an oracle without one: axes labelled by position).
+
+    After a **rejected** trust-region trial (``tr_accepted is False``) the next row starts from the same point with
+    the same local model, so it reuses that row's errors -- no queries for an unchanged ``x``. (Reuse is keyed on that
+    model object, so a callback shared by several runs, e.g. continuation levels, recomputes the next run's first row
+    even after a run that ended on a rejected trial.)
 
     **Timed rows** (``newton_cg(timing=True)``) print their ``time`` line (:py:func:`format_newton_iter`), and after a
     run's last row (converged, or a ``stop_reason`` set) the callback prints a closing table: per phase that ran, its
@@ -484,43 +596,73 @@ def make_newton_display(
 
     **Switch rows** (``newton_cg(hessian='switch')``): each Gauss-Newton-phase step row's header carries the ``sw``
     segment, before a last row's stop reason (:py:func:`format_newton_iter`), and every record of such a run carries
-    the five ``switch_*`` history fields."""
-    kind = problem.kind
-    if not kind.has_block_sumsq:
-        raise ValueError("this sampling kind has no block_sumsq -- the relative-error table needs it "
-                         "(all built-in kinds provide it; a custom kind must implement block_sumsq and "
-                         "set has_block_sumsq = True).")
-    n_w = kind.w_axes(problem.sample)
-    data_bs = np.asarray(kind.block_sumsq(problem.data, n_w), dtype=float)
-    if (val_sample is None) != (val_data is None):
-        raise ValueError("make_newton_display: pass val_sample and val_data together, or neither "
-                         "(val_sample=%s, val_data=%s)" % ('None' if val_sample is None else 'given',
-                                                           'None' if val_data is None else 'given'))
-    have_val = val_data is not None
-    n_w_val = kind.w_axes(val_sample) if have_val else None
-    val_data_bs = np.asarray(kind.block_sumsq(val_data, n_w_val), dtype=float) if have_val else None
+    the five ``switch_*`` history fields.
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.backend.optimizers as bopt
+    >>> import t3toolbox.backend.optimizer_display as bdisp
+    >>> from t3toolbox.backend.geometry import ManifoldGeometryOps
+    >>> from t3toolbox.backend.fitting import LeastSquaresOracle, LeastSquaresBatch
+    >>> np.random.seed(0)
+    >>> target = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 2, 2), (1, 2, 2, 1))
+    >>> ww, wv = ([np.random.randn(W, N) for N in target.shape] for W in (60, 20))
+    >>> oracle = LeastSquaresOracle('probe', order=())
+    >>> batch, val_batch = LeastSquaresBatch(ww, target.probe(ww)), LeastSquaresBatch(wv, target.probe(wv))
+    >>> cb, records = bdisp.make_newton_display(oracle, batch, val_batch, print_fn=None)
+    >>> x0 = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 2, 2), (1, 2, 2, 1)).data
+    >>> x, stats = bopt.newton_cg(ManifoldGeometryOps(), oracle, batch, x0, max_newton=4, callback=cb)
+    >>> print(len(records) == len(stats['history']), records[0]['train_err'].shape, records[0]['val_err'].shape)
+    True (3,) (3,)
+    >>> print(bool(records[-1]['val_err'].max() < records[0]['val_err'].min()))
+    True
+    """
+    outputs = tuple(getattr(oracle, 'optional_outputs', ()))
+    tables = 'r_block_sumsq' in outputs and 'y_block_sumsq' in outputs
+    order = getattr(oracle, 'order', None)
+    order = None if order is None else tuple(order)
+    denominators: dict = {}              # 'train' (and 'val'): y_block_sumsq, queried once at the first row's frame
     records: list = []
-    previous = {'lm': None}              # the last row's model if it was a rejected TR trial, and its tables
+    previous = {'lm': None}              # the last row's model if it was a rejected TR trial, and its errors
     timed: list = []                     # this run's (timing, cg_iters) per timed row, for the closing table
+
+    def errors(lm):
+        if not denominators:
+            (y_bs,), _ = oracle.query(lm.frame, batch, ('y_block_sumsq',))
+            denominators['train'] = _host(y_bs)
+            if val_batch is not None:
+                (y_bs,), _ = oracle.query(lm.frame, val_batch, ('y_block_sumsq',))
+                denominators['val'] = _host(y_bs)
+        Vc = None if lm.centers is None else lm.centers[0]
+        own = lm.batch is batch                                         # the run's batch: its held r, no sweep
+        if own:
+            (r_bs,), _ = lm.oracle.query(lm.frame, batch, ('r_block_sumsq',), Vc=Vc, held=lm.held)
+        else:                                                           # another batch: a forward on it, never held
+            (r_bs,), _ = lm.oracle.query(lm.frame, batch, ('r_block_sumsq',), Vc=Vc)
+        r_bs = _host(r_bs)
+        train_err = relative_errors(r_bs, denominators['train'])
+        val_err = None
+        if val_batch is not None:
+            (r_val,), _ = lm.oracle.query(lm.frame, val_batch, ('r_block_sumsq',), Vc=Vc)   # never the model's held
+            val_err = relative_errors(_host(r_val), denominators['val'])
+        return train_err, val_err
 
     def callback(info):
         if previous['lm'] is not None and info.lm is previous['lm']:   # a rejected trial keeps x and its model:
-            train_err, val_err, obj_unweighted = previous['tables']     #   the tables are unchanged
+            train_err, val_err = previous['tables']                     #   the errors are unchanged
+        elif tables:
+            train_err, val_err = errors(info.lm)
         else:
-            res_bs = np.asarray(kind.block_sumsq(info.lm.residual, n_w), dtype=float)
-            train_err = relative_errors(res_bs, data_bs)
-            val_err = None
-            if have_val:
-                r_val = _cw.corewise_sub(kind.point_forward(info.x_cores, val_sample), val_data)
-                val_err = relative_errors(kind.block_sumsq(r_val, n_w_val), val_data_bs)
-            obj_unweighted = 0.5 * float(res_bs.sum())
+            train_err = val_err = None
         previous['lm'] = info.lm if getattr(info, 'tr_accepted', None) is False else None   # the SAME model next row
-        previous['tables'] = (train_err, val_err, obj_unweighted)                          # (not a reused callback's next run)
+        previous['tables'] = (train_err, val_err)                                 # (not a reused callback's next run)
         if print_fn is not None:
-            print_fn(format_newton_iter(info, train_err, val_err, obj_unweighted, fmt))
+            print_fn(format_newton_iter(info, train_err, val_err, fmt, order=order,
+                                        error_table=error_table))
         if record:
             rec = dict(bopt._newton_scalar_record(info))
-            rec['train_err'] = train_err
+            if train_err is not None:
+                rec['train_err'] = train_err
             if val_err is not None:
                 rec['val_err'] = val_err
             records.append(rec)

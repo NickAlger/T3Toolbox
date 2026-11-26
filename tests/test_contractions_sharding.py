@@ -18,6 +18,7 @@ Runs on 4 VIRTUAL CPU devices (`XLA_FLAGS=--xla_force_host_platform_device_count
 before jax initializes -- hence the module-level env manipulation and the import guard below.
 """
 import os
+import sys
 import unittest
 
 import numpy as np
@@ -29,10 +30,15 @@ import t3toolbox.backend.common as common
 os.environ['XLA_FLAGS'] = (os.environ.get('XLA_FLAGS', '') +
                            ' --xla_force_host_platform_device_count=4').strip()
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _jet_contract_cases as jet_cases     # the 29 literal jet_contract strings of the sampling terms: test-only
+
 
 def _scan_vocabulary():
-    """Every grouped-subscript string literal in the library source (the same self-maintaining
-    scan as test_contractions_interpreter.py -- duplicated so the test modules stay standalone)."""
+    """Every grouped-subscript string literal in the library source but the first arguments of ``jet_contract``
+    calls (the same self-maintaining scan as test_contractions_interpreter.py -- duplicated so the test modules stay
+    standalone; the ``jet_contract`` literals are swept by ``test_jet_contract_shards_free_over_every_W_sub_axis``
+    below, through the 29 strings of the case file, which holds every one of them)."""
     import ast
     import pathlib
     import re
@@ -40,7 +46,13 @@ def _scan_vocabulary():
     subs_re = re.compile(r'^[A-Za-z]+(,[A-Za-z]+)*->[A-Za-z]*$')
     vocab = set()
     for path in sorted(pathlib.Path(t3toolbox.__file__).parent.rglob('*.py')):
-        for node in ast.walk(ast.parse(path.read_text())):
+        tree = ast.parse(path.read_text())
+        jet_literals = {id(node.args[0]) for node in ast.walk(tree)
+                        if isinstance(node, ast.Call) and node.args and isinstance(node.args[0], ast.Constant)
+                        and (getattr(node.func, 'attr', None) or getattr(node.func, 'id', None)) == 'jet_contract'}
+        for node in ast.walk(tree):
+            if id(node) in jet_literals:
+                continue
             if isinstance(node, ast.Constant) and isinstance(node.value, str):
                 s = node.value.replace(' ', '')
                 if subs_re.match(s) and any(ch.isupper() for ch in s):
@@ -87,7 +99,9 @@ class TestInterpreterAnyAxisSharding(unittest.TestCase):
         import t3toolbox.backend.contractions as ctr
 
         vocab = sorted(_scan_vocabulary())
-        self.assertGreater(len(vocab), 100, 'the AST scan found suspiciously few subscripts')
+        # A sanity floor against a scan that silently finds nothing (a moved root, skipped files), not a tolerance:
+        # every string found is checked. 84 subscripts at K0 (the old kernels deleted); 209 before.
+        self.assertGreater(len(vocab), 60, 'the AST scan found suspiciously few subscripts')
         checked = 0
         for subs in vocab:
             terms = subs.split('->')[0].split(',')
@@ -119,7 +133,8 @@ class TestInterpreterAnyAxisSharding(unittest.TestCase):
                             "sharded -- the interpreter must not reshape, so every group sub-axis "
                             "must shard free." % (subs, n, ax, g))
                         checked += 1
-        self.assertGreater(checked, 400, 'the any-axis sweep barely ran (%d cases)' % checked)
+        # The same kind of sanity floor as the scan's above: 228 cases at K0 (the old kernels deleted); 930 before.
+        self.assertGreater(checked, 150, 'the any-axis sweep barely ran (%d cases)' % checked)
 
     def test_every_vocabulary_letter_has_a_size(self):
         """The sweep above is AST-driven over the library, so every new subscripts string is in it the moment
@@ -128,15 +143,69 @@ class TestInterpreterAnyAxisSharding(unittest.TestCase):
         letters = {ch for subs in _scan_vocabulary() for ch in subs if ch.islower()}
         self.assertFalse(letters - set(self.SINGLE), 'letters with no sweep size: %s' % sorted(letters - set(self.SINGLE)))
 
+    def test_jet_contract_shards_free_over_every_W_sub_axis(self):
+        """``jet_contract`` multiplies the jets with ``contract`` calls on SLICES of the jet axes (and, under
+        ``'scan'``, a carried jet shifted along them; in a readout, a slice flipped; a part padded into the box): it
+        reshapes nothing and never moves a sample axis. So the property above carries over to every string it
+        derives and to the programs it builds around them. Compiled, not argued: each of the 29 strings of the
+        sampling terms at the jet shape ``(2,)`` with the operand shapes the library gives it (the products and
+        the readouts with a leaf of two slots AND with a full leaf, so that the scan of a full partner is among
+        them), and products and readouts at ``(1, 2)``, under both forms over the orders, with each sub-axis of the
+        sample stack ``W`` sharded in turn (every operand that has ``W`` is sharded there; the cores and whatever
+        else has no ``W`` are replicated). ZERO all-gathers. The readouts sum over ``W``: an all-reduce, which the
+        math requires.
+        """
+        from jax.sharding import PartitionSpec as P
+        import t3toolbox.backend.contractions as ctr
 
-@unittest.skipUnless(common.jax_available, 'jax not available')
-class TestJetKernelsShardOverW(unittest.TestCase):
-    """The probe-derivative transpose and the exact Hessian's two-hole under ``shard_map`` over the sample stack
-    ``W`` (``docs/chunking.md``, "Sharding over W"): the W-carrying arrays are sharded, the cores replicated (closed
-    over), each device runs the kernels -- order scans, banded recurrences, the W-chunked assembly -- on its local
-    shard, and one ``psum`` finishes the W-sum. The jet kernels move data only along the order axis (it leads every
-    jet, so no batch axis is ever moved), so the compiled program must contain NO all-gather (the ``psum``'s
-    all-reduce is expected), and the result must equal the unsharded one. A jax dispatch test (float64)."""
+        checked = 0
+        two_variables = ['PWCa,KCaib,PWCi->PWKCb', 'KCaib,PWCi,PWCb->PWKCa', 'PWCa,Caib,PWKCb->PWKCi',
+                         'PWKCi,PWo->KCio', 'PWCa,PWKCi,PWCb->KCaib']
+        for order in ((2,), (1, 2)):
+            for family, string in jet_cases.ALL_STRINGS:
+                if len(order) == 2 and string not in two_variables:
+                    continue
+                for label, sizes, out_order in jet_cases.library_shapes(family, string, order):
+                    lens = ctr.GroupLengths(P=len(out_order), W=2, K=1, C=1)
+                    for ax in range(2):                         # W has 2 sub-axes; ax=1 is the minor one
+                        W = tuple(self.n_dev if j == ax else 2 for j in range(2))
+                        shape_of = dict(W=W, K=(2,), C=(2,))    # K on the operand that names it (lens.K is its count)
+                        arrays, specs = [], []
+                        for p, term in enumerate(jet_cases.input_terms(string)):
+                            arrays.append(jet_cases.make(self.rng, shape_of, term, sizes.get(p, ())))
+                            parts = []
+                            for ch in term:
+                                if ch == 'W':
+                                    parts += ['m' if j == ax else None for j in range(2)]
+                                elif ch == 'P':
+                                    parts += [None] * len(out_order)
+                                elif ch.isupper():
+                                    parts += [None] * len(shape_of[ch])
+                                else:
+                                    parts += [None]
+                            specs.append(P(*parts) if 'm' in parts else P())
+                        self.assertTrue(any('m' in spec for spec in specs), string)     # W really is sharded
+                        for form in ('scan', 'loop'):
+                            with self.subTest(string=string, order=order, shapes=label, axis=ax, over_orders=form):
+                                n = self._all_gathers(
+                                    lambda *ops: ctr.jet_contract(string, *ops, lens=lens, order=out_order,
+                                                                  over_orders=form),
+                                    specs, *arrays)
+                                self.assertEqual(0, n,
+                                    "jet_contract(%r, order=%r, over_orders=%r) inserted %d all-gather(s) with axis "
+                                    "%d of W sharded -- it slices the jet axes only, so every sample axis must "
+                                    "shard free." % (string, out_order, form, n, ax))
+                                checked += 1
+        # (2,): 38 strings, 15 of them (mu, nu, H, the three H keeping W) in two shapes; (1, 2): 5 strings, 3 in two
+        self.assertEqual(checked, (38 + 15 + 5 + 3) * 2 * 2)
+
+
+
+class TestTheEngineShardsOverW(unittest.TestCase):
+    """``g`` and ``Kp`` from ``sampling_variables`` under ``shard_map`` with ``W`` sharded (the sample, the data and
+    the weight, which is of the type of ``z`` and so carries ``W``) and everything else replicated (closed over): no all-gather in the compiled program, and the result equal to the
+    unsharded one. Four programs: the uniform layout at ``()``, ``(3,)`` and ``(1, 1)``, the ragged at ``(3,)``. The
+    varying-axes check is off (the scan carries start from constants)."""
 
     @classmethod
     def setUpClass(cls):
@@ -189,24 +258,34 @@ class TestJetKernelsShardOverW(unittest.TestCase):
             self.assertEqual(g.shape, r.shape, name)
             self.assertLess(np.linalg.norm(g - r) / np.linalg.norm(r), 1e-14, name)
 
-    def test_probe_transpose_and_two_hole_shard_over_W(self):
+    def test_g_and_Kp_shard_over_W(self):
+        import sys
         from jax.sharding import PartitionSpec as P
-        import t3toolbox.backend.sampling_derivatives as sd
-        rng = np.random.default_rng(0)
-        d, n, r, N, order = 3, 3, 3, 5, 3
-        W = 4 * self.n_dev                                   # 4 probes per device; chunk_size 2 chunks the shard
-        R = lambda *s: rng.standard_normal(s)
-        frame = (R(d, n, N), R(d, r, n, r), R(d, r, n, r), R(d, r, n, r))     # uniform (D, U, L, R), replicated
-        theta, dirs = (R(d, n, N), R(d, r, n, r)), (R(d, n, N), R(d, r, n, r))
-        zt, ww, pp = R(d, order + 1, W, N), R(d, W, N), R(d, W, N)
-        specs = (P(None, None, 'w', None), P(None, 'w', None), P(None, 'w', None))   # W: axis 2 / 1 / 1
-        for cs in (None, 2):
-            with self.subTest(op='probe_derivatives_transpose', chunk_size=cs):
-                self._check('transpose', lambda z, w, p: sd.tv_probe_derivatives_transpose(
-                    z, w, p, frame, order, sum_over_probes=True, chunk_size=cs), (zt, ww, pp), specs, (zt, ww, pp))
-            with self.subTest(op='two_hole', chunk_size=cs):
-                self._check('two-hole', lambda z, w, p: sd.t3_probe_corewise_derivatives_hessian(
-                    z, w, p, theta, dirs, order, chunk_size=cs), (zt, ww, pp), specs, (zt, ww, pp))
+        import t3toolbox.backend.sampling_variables as sv
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import test_sampling_uniform as tsu
+        W = (2 * self.n_dev,)
+        for layout, order, F_in in (('uniform', (), None), ('uniform', (3,), (2,)), ('uniform', (1, 1), (2, 2)),
+                                    ('ragged', (3,), (2,))):
+            case = tsu.UniformCase('probe', (), (), True, False, order, F_in, '_manifold', W=W, seed=5)
+            arguments = case.arguments() if layout == 'uniform' else case.ragged_arguments((), ())
+            weight = arguments['weight']
+            arguments = {k: v for k, v in arguments.items() if k not in ('y', 'weight', 'order')}
+            frame = case.frame if layout == 'uniform' else case.ragged_frame(())
+            m = len(order)
+            if layout == 'uniform':
+                fn = lambda sample, y, weight: sv.sampling_variables('probe', frame, sample, ('g', 'Kp'), order=order,
+                                                                     y=y, weight=weight, **arguments)
+                args = (case.sample, case.y, weight)
+                specs = (P(*([None] * (1 + m) + ['w', None])),) * 3
+            else:
+                d = len(case.ragged_sample)
+                fn = lambda *a: sv.sampling_variables('probe', frame, list(a[:d]), ('g', 'Kp'), order=order,
+                                                      y=list(a[d:2 * d]), weight=list(a[2 * d:]), **arguments)
+                args = tuple(case.ragged_sample) + tuple(case.ragged_y) + tuple(weight)
+                specs = tuple(P(*([None] * m + ['w', None])) for _ in args)
+            with self.subTest(layout=layout, order=repr(order)):
+                self._check('%s %r' % (layout, order), fn, args, specs, args)
 
 
 if __name__ == '__main__':

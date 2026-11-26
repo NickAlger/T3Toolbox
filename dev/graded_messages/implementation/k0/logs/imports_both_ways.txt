@@ -1,0 +1,4 @@
+== jax yes
+58 modules imported; failures: [] ; jax_available = True
+== jax no
+58 modules imported; failures: [] ; jax_available = False

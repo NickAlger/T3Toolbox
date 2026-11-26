@@ -9,6 +9,9 @@ decision. It bears on target decisions 2.4 (what a tilde jet is), 2.5 (the misfi
 **Checked** by `scripts/review/type_catalog_check.py`; see section 7. Covered: the probe kind, ragged cores, one
 sample axis, order 2. Not covered: apply and entries, the uniform layout, the `K` and `C` stacks.
 
+**Names updated** to `SAMPLE_VARIABLES.md` (the notation decided on 2026-11-15, 23:23) on 2026-11-16. Sections 13
+and 14 moved to `NOTATION_HISTORY.md`. Section 7 of `SAMPLE_VARIABLES.md` is the reference for types and shapes.
+
 ## 1. The spaces
 
 Every variable is an element of (a space of the network) tensor (a space of the order).
@@ -35,45 +38,52 @@ inside a term joins a vector with a covector slot.
 | plain | `xi` | vector of `XD` | jet |
 | plain | `mu` | vector of `AL` | jet |
 | plain | `nu` | covector of `AR` | jet |
-| plain | `gamma` | covector of `AL` | jet |
+| plain | `nu_L` | covector of `AL` | jet |
 | plain | `eta` | covector of `XU` | jet |
 | plain | `z`, the data `y`, the residual `r` | covector of `N` | jet |
-| dot | `xi_dot` | vector of `XU` | jet |
-| dot | `mu_dot` | vector of `AR` | jet |
-| dot | `nu_dot` | covector of `AL` | jet |
-| dot | `eta_dot` | covector of `XD` | jet |
+| dot | `xi_U_dot` | vector of `XU` | jet |
+| dot | `mu_R_dot` | vector of `AR` | jet |
+| dot | `nu_L_dot` | covector of `AL` | jet |
+| dot | `eta_D_dot` | covector of `XD` | jet |
 | dot | `Jp` | covector of `N` | jet |
 | tilde | `w_tilde` (the seed) | vector of `N` | dual jet |
 | tilde | `xi_tilde` | vector of `XD` | dual jet |
 | tilde | `mu_tilde` | vector of `AL` | dual jet |
 | tilde | `nu_tilde` | covector of `AR` | dual jet |
-| tilde | `gamma_tilde` | covector of `AL` | dual jet |
+| tilde | `nu_L_tilde` | covector of `AL` | dual jet |
 | tilde | `eta_tilde` | covector of `XU` | dual jet |
 | tilde-dot | `xi_tilde_dot` | vector of `XD` | dual jet |
 | tilde-dot | `mu_tilde_dot` | vector of `AL` | dual jet |
-| tilde-dot | `gamma_tilde_dot` | covector of `AL` | dual jet |
-| tilde-dot | `eta_tilde_dot` | covector of `XD` | dual jet |
+| tilde-dot | `nu_L_tilde_dot` | covector of `AL` | dual jet |
+| tilde-dot | `eta_D_tilde_dot` | covector of `XD` | dual jet |
 | blocks | `V_tilde`, `H_tilde` | covector on the space of `V`, of `H` | none: real |
-| blocks | `V_tilde_dot`, `H_tilde_dot` (`Kp`) | covector on the space of `B`, of `G` | none: real |
+| blocks | `V_tilde_dot`, `H_tilde_dot` (`Kp`) | covector on the space of `D`, of `L` (of `D_dot`, `L_dot`) | none: real |
 
 The dot rows are for the manifold frame with the direction `(V, H)`. The tilde-dot rows are for the base point
-with the raw core direction, as `Kp` is computed; there the dot variables are `xi_dot` in `XD`, `mu_dot` in `AL`,
-`gamma_dot` a covector of `AL`, and `eta_dot` a covector of `XD`.
+with the raw core direction `(D_dot, L_dot)`, as `Kp` is computed; there the dot variables are `xi_dot` in `XD`,
+`mu_dot` in `AL` (these two names meant the frame's dots until 2026-11-15, 23:23), `nu_L_dot` a covector of `AL`,
+and `eta_D_dot` a covector of `XD`.
+
+The table, with the paragraph above, covers the arrays of the checked program. `eta_D` and `eta_D_tilde` are not
+among them: the program forms `eta_D` inside `z_step`, and `eta_D_tilde` not at all. The type of every variable is
+in `SAMPLE_VARIABLES.md` section 7.
 
 Two rules summarise the table.
 
-- **The letter fixes the network factor's variance, in every grade.** `w`, `xi` and `mu` are vectors. `eta`,
-  `nu`, `gamma` and `z` are covectors.
+- **The letter fixes the network factor's variance, in every grade.** `w`, `xi` and `mu` are vectors. `eta` and
+  `nu`, in either basis, and `z` are covectors.
 - **The grade fixes the order factor.** Plain and dot are jets. Tilde and tilde-dot are dual jets.
 
 So the tilde changes the order factor and nothing else.
 
 **Why, and where the reversal comes from.** A tilde variable is a multiplier of the constraint that defines its
-partner. The multiplier of a variable in `S (x) R` lives in the dual, `S* (x) R*`. On every edge the two partners
-are in dual network spaces: `xi` and `eta`, `mu` and `gamma`, `w` and `z`. So `S*` is the letter's own kind of
-space, and the network factor needs no identification at all. In the order factor there is no such partner: both
-partners are jets, so the multiplier is a dual jet. The duality of the network is absorbed by the partner rule.
-The duality of the order has nothing to absorb it. That leftover dual is the reversal.
+partner. The multiplier of a variable in `S (x) R` lives in the dual, `S* (x) R*`. On every edge the two partners,
+in the same basis, are in dual network spaces: `xi` and `eta_D`, `mu` and `nu_L` in the base point's bases;
+`xi_U_dot` and `eta`, `mu_R_dot` and `nu` in the frame's other bases (`SAMPLE_VARIABLES.md` section 8); `w` and
+`z`. So `S*` is the letter's own kind of space, and the network factor needs no identification at all. In the order
+factor there is no such partner: both partners are jets, so the multiplier is a dual jet. The duality of the
+network is absorbed by the partner rule. The duality of the order has nothing to absorb it. That leftover dual is
+the reversal.
 
 ## 3. What happens to the order factor
 
@@ -82,7 +92,7 @@ The duality of the order has nothing to absorb it. That leftover dual is the rev
 | Every term of a plain or dot step | The product of the ring: `R x R -> R` | convolution | convolution |
 | Every term of a tilde or tilde-dot step. Exactly one operand is a dual jet | The action of the ring on its dual: `R x R* -> R*` | correlation | convolution |
 | The block readouts: `V_term` and `H_term` in the tilde and tilde-dot grades | A dual pairing, `R* x R -> real`: one dual jet against the product of the jets | sum over slots | top coefficient |
-| The misfit `f`, `r_block_sumsq`, `Jp_sumsq` | An inner product on `R`, with the weights `omega^2` on its diagonal | sum over slots | same |
+| The misfit `f`, `r_block_sumsq`, `Jp_norm_sq` | An inner product on `R`, with the weights `omega^2` on its diagonal | sum over slots | same |
 | The seed: `omega^2 r`, and `omega^2 Jp` for `JtJp` | The Riesz map of that inner product, `R -> R*` | multiply slot `t` by `omega[t]^2` | the same, then the flip |
 
 The order index is contracted away only in the last three rows. Inside the sweeps it is never contracted.
@@ -96,7 +106,7 @@ sweep of the probe kind starts from the zero functional.
 | --- | --- |
 | Every contraction over a bond, a Tucker-rank or a mode index, inside every term | A dual pairing of a vector with a covector. No inner product |
 | The sum over the samples at a block readout | A dual pairing over the sample index |
-| The misfit `f`, `r_block_sumsq`, `Jp_sumsq` | The dot product on `N`, for each sample: an inner product |
+| The misfit `f`, `r_block_sumsq`, `Jp_norm_sq` | The dot product on `N`, for each sample: an inner product |
 | The seed | The Riesz map of that dot product: a covector of `N` (the residual) becomes a vector of `N` (the seed). The identity on the array |
 | Outside the sampling layer: the orthogonality of the frame, the gauge projection, the lift, the retraction, the inner products of the Krylov solver | Inner products on the spaces of the cores |
 
@@ -133,9 +143,9 @@ transformation, so it can be tested.
 
 - **Part A, the network factor.** Every space `N`, `XD`, `XU`, `AL`, `AR` gets an arbitrary invertible change of
   basis, with condition numbers up to 4. The frame, the directions, the input and the seed are transformed
-  according to their types. Each of the 30 variables then agrees with the catalog's rule applied to the original
-  (worst relative difference 1e-15, in every grade). This passes only if no inner product of a network space is
-  used.
+  according to their types. Each of the 30 arrays of the program then agrees with the catalog's rule applied to the
+  original (worst relative difference 1e-15, in every grade). This passes only if no inner product of a network
+  space is used.
 - **Part B, the one inner product.** With an arbitrary change of basis of `N`, copying `omega^2 r` into the seed
   is wrong by 7e-01, and the misfit changes by 2e-01. With an orthogonal one, both agree to 1e-15.
 - **Part C, the order factor.** Under `s -> c s`, slot `t` of every jet is multiplied by `c^t` (4e-16). A
@@ -159,7 +169,9 @@ Claude's reading of it against this catalog. Not a decision.
 
 - **It corrects section 2 in one respect.** The words "vector" and "covector" on an internal edge are a choice of
   orientation, not a fact. What is a fact is that the two directions on an edge are dual to each other. The
-  catalog's first rule is better said as: the letter fixes the direction of the arrow.
+  catalog's first rule is better said as: the letter fixes the direction in which a variable travels along its
+  edge. Whether that is with the arrow of the edge or against it is fixed by the basis, once the cores carry
+  arrows (section 9); on the mode edge, which has one basis, by the letter: `w` with, `z` and `Jp` against.
 - **The order index is one more leg on every edge.** Its "core" is the product of the ring: the tensor that is 1
   when `t = i + j`. As the term functions use it, two jets point in and one points out. A residual in forward
   order points out on that leg. The reversal turns it round.
@@ -219,16 +231,21 @@ thing: a variable flows with the arrow of its edge or against it.
 
 | Flows | Variables |
 | --- | --- |
-| With the arrows | `w`, `xi`, `mu`, `nu`, `eta`, and the tilde of each: `w_tilde`, `xi_tilde`, `mu_tilde`, `nu_tilde`, `eta_tilde` |
-| Against the arrows | `gamma`, `z`; the dot variables `xi_dot`, `mu_dot`, `nu_dot`, `eta_dot`, `Jp`; `gamma_tilde` |
+| With the arrows | `w`, `xi`, `mu`, `nu`, `eta`, and the tilde of each: `w_tilde`, `xi_tilde`, `mu_tilde`, `nu_tilde`, `eta_tilde`; the raw form's dots `xi_dot`, `mu_dot`, and `xi_tilde_dot`, `mu_tilde_dot` |
+| Against the arrows | `nu_L`, `z`; the frame's form's dots `xi_U_dot`, `mu_R_dot`, `nu_L_dot`, `eta_D_dot`, and `Jp`; `nu_L_tilde`; the raw form's `nu_L_dot`, `eta_D_dot`, and `nu_L_tilde_dot`, `eta_D_tilde_dot` |
 
-So what flows with the arrows has not yet met a hole. What flows against them has passed a hole (the dot grade)
-or is on its way out (`gamma`, `z`). Each block is the outer product of variables that flow with the arrows into
-a hole, and its legs are the legs of the hole's direction with every sign flipped: `V_tilde` fits `V`, `H_tilde`
-fits `H`, and the `Kp` blocks fit the raw core directions.
+So what flows against the arrows is exactly what carries a basis in its name, and the outputs `z` and `Jp`;
+everything else flows with them, the raw form's `xi_dot` and `mu_dot` and their tilde-dots included. (Until
+2026-11-16 this paragraph said that what flows with the arrows has not yet met a hole, and what flows against them
+has passed a hole or is on its way out; the raw form's `xi_dot`, `mu_dot`, `xi_tilde_dot` and `mu_tilde_dot` have
+passed a hole and flow with the arrows, so they are the exception to that.) Each block of `g` (`V_tilde` and
+`H_tilde`) is the outer product of variables that flow with the arrows into a hole. The `Kp` blocks also read
+variables that flow against them (`nu_L` and its grades, and `eta_D_dot`, `eta_D_tilde_dot`). Every block's legs
+are the legs of the hole's direction with every sign flipped: `V_tilde` fits `V`, `H_tilde` fits `H`, and the
+`Kp` blocks fit the raw core directions `D_dot` and `L_dot`.
 
 **One change to the first statement of the picture.** "Arrows can only be contracted into a core if they point
-towards it" describes the flow. With fixed arrows on the cores it does not hold as a typing rule: `gamma` enters
+towards it" describes the flow. With fixed arrows on the cores it does not hold as a typing rule: `nu_L` enters
 `L` through the leg where `L`'s arrow leaves. The typing rule is the two ends of one arrow.
 
 **What the checker rejects.**
@@ -239,9 +256,9 @@ towards it" describes the flow. With fixed arrows on the cores it does not hold 
 | Weights applied but the order not reversed | The order leg is `out`: it cannot enter the product |
 | `mu` swept through an `R` core | Two different edges, an `L` bond and an `R` bond |
 | `nu` swept through an `L` core | Two different edges |
-| `gamma` where `nu` is wanted, in `eta_term(mu, U, gamma)` | Two different edges |
+| `nu_L` where `nu` is wanted, in `eta_term(mu, U, nu_L)` | Two different edges |
 | A bond variable from the neighbouring bond | Two different edges |
-| `mu + mu_dot` | A sum of unlike types |
+| `mu + mu_R_dot` | A sum of unlike types |
 
 The first two rows are the maintainer's statement of 05:20: `r` points the wrong way and must be converted, by
 the weights and, for jets, by the reversal.
@@ -321,11 +338,12 @@ points the opposite way on its edge. Are there any more subtleties here I'm not 
    its letter: it is opposite to its partner, whose multiplier it is. On the order leg both partners are jets, so
    the multiplier points against them there. That is the reversal.
 2. **Which Lagrangian.** On the manifold frame the tilde sweeps are the adjoint of the linear program
-   `(V, H) -> Jp`, whose variables are the dot variables. So the tilde of a letter is the multiplier of the dot
-   of its partner: `xi_tilde` of `eta_dot`, `eta_tilde` of `xi_dot`, `mu_tilde` of `nu_dot`, `nu_tilde` of
-   `mu_dot`. The library's present names say the same (`deta_tilde`, `dxi_tilde`). Section 9 shows it as
-   arrows: the tilde variables flow with the arrows and the dot variables against them. On the corewise frame,
-   for the gradient of the value, the partner is the plain variable (`mu_tilde` of `gamma`), which is what
+   `(V, H) -> Jp`, whose variables are the dot variables of the frame's form. So the tilde of a letter is the
+   multiplier of the dot of its partner: `xi_tilde` of `eta_D_dot`, `eta_tilde` of `xi_U_dot`, `mu_tilde` of
+   `nu_L_dot`, `nu_tilde` of `mu_R_dot`. The library's present names say the same (`deta_tilde`, `dxi_tilde`).
+   Section 9 shows it as arrows: the tilde variables flow with the arrows and the dot variables of the frame's
+   form against them. On the corewise frame, for the gradient of the value, the partner is the plain variable
+   (`mu_tilde` of `nu_L`, which a call on the corewise frame itself calls `nu`), which is what
    `tilde_adjoint_check.py` checked at order 0. Checked now with jets in
    `scripts/review/tilde_multiplier_check.py` at order 3: perturbing each dot variable changes
    `F = <phi, Jp>` by the top-coefficient pairing with its tilde variable (relative error from 5e-15 to 1e-11).
@@ -349,7 +367,7 @@ inward pointing like H."
 Claude's view: the gauge convention, bottom-to-top and left-to-right.
 
 - It is the rows for `D` and `L` in section 9: the base point is `(D, L)`. The checker of section 9 already types
-  the raw core directions this way, and the whole `Kp` family type checks with it.
+  the raw core directions `(D_dot, L_dot)` this way, and the whole `Kp` family type checks with it.
 - The other choice, a hidden form on every edge, is the picture for the weighted networks that are parked.
 - **Typing and gauge correctness are two things.** The last `L` core and the first `R` core are typed like every
   other `L` and `R` core. What fails for them is `M M^T = I`: they carry the norm. Checked in
@@ -376,3 +394,13 @@ precisions he agreed to:
 Every tilde variable is stored turned, including those a user holds, and pairs with a jet by the top coefficient
 of the product. In the words of section 5: map 1 and map 3 are applied together, once, at the seed.
 
+## 13. The letters by edge, and the variables without names (2026-11-15, 22:11)
+
+Deprecated. Claude's analysis of options A and B for the dots of `xi` and `mu` along the raw core direction stood
+here. Superseded on 2026-11-15 at 23:23 by target decision 9.6; the section is now `NOTATION_HISTORY.md` section 5.
+
+## 14. A variable is a contracted subnetwork in a basis; one dot (2026-11-15, 22:24 to 22:27)
+
+Deprecated. Claude's analysis of the naming from first principles, with the second scheme written out at 22:41,
+stood here. Superseded on 2026-11-15 at 23:23 by target decision 9.6, which took that scheme; the parts adopted are
+in `SAMPLE_VARIABLES.md`. The section is now `NOTATION_HISTORY.md` section 6.
