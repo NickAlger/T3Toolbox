@@ -186,3 +186,10 @@ where it is recorded. Larger rulings are also in `LOG.md`. The design's decision
 35. **A third implementer takes part 1** (the second one's context: the design, its two rounds, part 0 and its
     fixes), started on `K_IMPLEMENTER_CARRYOVER.md`; a fourth reviewer will take part 1's review from
     `K_REVIEWER_CARRYOVER.md`.
+36. **Four points for part 1 passed to the implementer during its build**, from the fourth reviewer's own first look
+    (made before any handover, with its own dense pins of the reference: 1,473 checks pass on the committed tree):
+    the pin of `g` must not be a difference quotient of the reference's own `f` (the two share the weight's reading,
+    so a misplaced block row would pass on both sides: the right-hand side is a loop over the dense arrays); the 15
+    functions that read the weights through the seed need a law test each or named coverage; one engine-against-
+    reference case with both weights (the one-weight engine takes `blocks_to_weight(b) * f`); the `block_weight`
+    signature comment kept within 120 columns in the house form. None changes the design.

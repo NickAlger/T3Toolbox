@@ -71,6 +71,30 @@ How I checked part 0, step by step (a model for the parts to come):
   `uniform_least_squares_problem`.
 - The dense reference forms `ω²` itself and imports no `jets`: keep it so through K1 (part 1).
 
+## Fourth reviewer: prepared for part 1 (2026-11-26, about 01:30 CT)
+
+Reviewer 4 (Claude) takes K1 from part 1 on. Oriented on the briefs, the plan (§1, §2, §4.3, §5, §7 K1, §8), the note,
+both design reviews, the prose of part 1 (`prose_edits.md` §6), the prenotes, rulings 22 to 35, part 0's review; traced
+`TuckerTensorTrain.probe` -> `probing.t3_probe` -> `sampling_variables` (and the data-space steps of `sampling_steps`
+with `jets.data_metric`, `_omega_squared`, `blocks_to_weight`), `probe_corewise_transpose` ->
+`t3_probe_corewise_transpose` (the held `Jp` route), `__add__` -> `t3_linalg`; then the reference whole in its
+weighted parts and the tests that compare the engine with it. Nothing of the working tree was reviewed.
+
+- **The plan of my review: `k1/REVIEWER4_PLAN.md`** (what part 1's review must establish, five questions on the
+  design, the order of the review). Read it first.
+- **My tools, in `k1/reviewer_tools/`:** `ref_dense_pins.py` (my independent dense model of the reference's weighted
+  variables; `--api old` validates it on any tree before part 1: 1,473 checks pass on `78a34d77`; `--api new` is the
+  check of part 1, with the refusals; `--jax`), `ref_independence.py` (static imports, a profile hook over the 37
+  functions, the tests' call graph to the reference), `part1_textcheck.py` (the scripted rewrite against the base
+  after the intended substitutions; re-flowed prose; the prose of §6 found in the code), `audit_c_attack.py` (14
+  planted conversions against the implementer's weights audit), `ref_mutations.py` (a driver; the patches are
+  written from the built text). What each showed is in the plan's §1. Reviewer 3's tools above still hold
+  (`dense_checks.py` imports the old `jets`: run it before part 5).
+- **Things to know:** the reference imports `probing`, `apply`, `entries` for their dense functions only (which import
+  the engine module but never call it: the profile hook shows it); the audit's callee key is the bare attribute name
+  (`f`, a reason line must say `f`, not `sdef.f`); the audit passes a dropped weight (`W-GONE`): read each; note
+  §4.1's signature line is 124 characters.
+
 ## Context
 
 At the end of part 0's round 1 I have used most of my context (roughly three quarters). I can take part 0's round 2
