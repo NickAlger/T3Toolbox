@@ -116,3 +116,48 @@ The translation of the old call form passes the old `omega` matrix as `block_wei
   - mutations: a right-aligned block weight; the square dropped in one of the two weights; `take` with a
     partially-1 `W`; the `k!` on the wrong axes; `y`'s `C` broadcast skipped in `<y, M y>`;
   - the per-test tally against the tree before K1 (`tally2.py`).
+
+## Third reviewer (2026-11-25, after orienting, before reading the design note)
+
+Reviewer 3 (Claude). Risks I see that the list above does not name. Written from the plan, the notes and the code at
+`282b46a9` (the engine's entry, `sampling_steps.py:915-1099`, `jets.py:225-1185`, `backend/fitting.py`,
+`uniform_fitting.py`, the default draw, the display, `t3toolbox/fitting.py:582-609`, the translation, `tests/_fits.py`),
+before opening `K1_DESIGN_NOTE.md`.
+
+- **3a. The precision rule with three arrays.** `_omega_squared` casts the weight to the lowest precision of the pair
+  (`jets.py:548-556`). With two weights the rule must read `r`, `b` and `f` together, and the "single-weight case is
+  bitwise today's" claim holds only if `b*b` (or `f*f`) is formed in the same dtype and multiplied in the same order
+  as today's `(omega*omega)*r`, then `gamma*`. A float64 block table (the `k!` table of `prepare_*`) on a float32 jax
+  run is the case to try.
+- **3b. The stacked-fit helpers of `tests/_fits.py`** (`:110-157`, `each(fit.batch.weight)`) add or slice `C` axes of
+  the weight. Rewritten mechanically onto `block_weight` they would give a block weight `C` axes (refused, loud) or,
+  worse, slice a row of the block table at `cc` when `C` and `d` coincide in size. They must leave the block weight
+  alone and touch only `y` and the full weight.
+- **3c. `getattr` readers of the oracle besides the display.** `t3toolbox/fitting.py:585` (`_is_packed`) reads
+  `getattr(oracle, 'kind', None)`; on a fieldless oracle it gives `None`, so a packed batch is "not packed", is
+  re-checked by a checker that reads the ragged form, and is re-packed. `_require_draw` (`backend/optimizers.py:651`)
+  reads `getattr(oracle, 'take')`: after the move it reports a missing draw for the library's own oracle (loud, wrong
+  message). Look for every `getattr`/`hasattr` on an oracle, and for `n_measurements` called as a method once it is a
+  property (`oracle.n_measurements(batch)` at `t3toolbox/optimizers.py:249`).
+- **3d. A drawn or validation batch of another kind or order** in the backend between K1 and K4: the optimizers do
+  not look, the frontend comparison is K4's, so a user `draw=` returning another order runs a different objective
+  silently. Which K1 site compares, if any, and is the gap stated?
+- **3e. `dataclasses.replace` through the hand-written `__init__`.** It works only if the class is
+  `@dataclass(init=False)` with the fields left `init=True`; a `field(init=False)` would make `replace` drop or refuse
+  the field. And the pytree unflatten must pass the static fields by name, the leaves by keyword (a positional
+  unflatten lands a leaf in a keyword-only slot).
+- **3f. The oracle's data sums in K1 against the engine's masking.** If the oracle's `<y, M y>` and `y_block_sumsq`
+  move to "mask by selection, one product" in K1 (plan §2.4) while the engine still masks by a product until K5, the
+  two halves of the display's ratio use different maskings for one slice range: harmless with finite padding, but the
+  note should say which slice owns which.
+- **3g. The full weight's typical shape on the probe kind** is `F + (1,)*len(W) + (1,)*len(C) + (N_i,)`: a structural
+  `F` that is exact. A weight constant over the slots (today a jet axis of 1, legal) becomes illegal on the full
+  weight: such a weight now needs the block weight (constant over the edge) or a full `F`. Old full-form weights in
+  the tests with a jet axis of 1 and a full edge have no single-weight image and must be split in two; the battery's
+  mapping "old full-form weight passed as `full_weight`" does not cover them.
+- **3h. `f_resolution` and the block sums carry `gamma` once**: with `gamma` now possibly inside `data_metric` and
+  again in `_scale_tree`, check that no path applies it twice (the engine's steps use `gamma = 1`).
+- **3i. Bitwise claims and `derivative_block_weight_to_taylor`.** Today the `k!` is applied to the full-form weight
+  after `blocks_to_weight` (`_taylor_weight`, multiplying a reshaped table); after, to the table before placement. The
+  products are the same numbers in the same order, so bitwise is plausible, but the default branch
+  (`prepare_derivative_data(weight=None)`: the table broadcast over `d`, in `y`'s dtype) must keep its dtype.

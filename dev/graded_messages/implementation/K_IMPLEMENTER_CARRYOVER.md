@@ -70,3 +70,9 @@ re-bases (E5 still uses `taylor_to_derivatives`: the note rules factorials inlin
   (after `m2/diff_audit.py`), the `-v` baseline log of the starting tree.
 - `ast.get_source_segment` is quadratic on long files (it splits the text at every call): `k1_sites.py` slices the
   lines itself; a first version took minutes.
+- 2026-11-25 ~21:10 CT: design round 1 answered (`K1_DESIGN_RESPONSE_r1.md`; note revision 2; prose revision 2 with
+  parts 0 and 1 in full). Rulings to remember: `flat_draw(batch, batch_size)`; the frontend guards of a drawn and a
+  validation batch's `(kind, order)` are part 0's (not K4's); no sentinel default for `sample`; D4 confirmed; a part's
+  build starts only when its public docstrings are in full and reviewed (parts 2 to 5 need a prose round each).
+- Next, once the note is signed off: write `k1/diff_audit.py` (note §7.4 (a)-(c)) and `k1/battery.py` (§7), record
+  the battery `old` on `282b46a9` in scratch (`git archive`), then build part 0.

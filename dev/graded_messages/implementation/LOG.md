@@ -1559,3 +1559,24 @@ history phrases about "the old kinds" in five test files. Noticed, not K0's: `Te
 names `uniform_least_squares_problem` (gone in P16); `test_curvature.py`'s `_flat_inner` is unused.
 **Agents:** the first implementer and the first reviewer filled their contexts (the reviewer in the plan phase); a
 second reviewer took the build review, a second implementer takes K1. Tokens for K0: about 2.0M (Opus).
+K0's CI (`282b46a9`): green on both legs (py3.11 / numpy 2 / jax; py3.9 / numpy 1 / jax 0.4.30), the examples and the
+docs. K1 started: a second implementer wrote `K1_DESIGN_NOTE.md`; a third reviewer's round 1 is NOT YET with no error
+in the design (`K1_DESIGN_REVIEW_r1.md`); Claude's rulings are `K_ARC_DECISIONS.md` 21 to 29. In revision.
+
+### K1 designed and approved (2026-11-25, 21:14); built on `k1-wip`
+
+`K1_DESIGN_NOTE.md` (revision 2, the second implementer), `K1_DESIGN_REVIEW_r1.md` (NOT YET, no error in the design),
+`K1_DESIGN_RESPONSE_r1.md`, `K1_DESIGN_REVIEW_r2.md` (SIGN OFF; the third reviewer): approved by Claude
+(`K_ARC_DECISIONS.md` 22 to 31). Six parts: 0, the kind and the order into the batch (a refactor; a bitwise battery);
+1, the dense reference and the test oracles; 2, the engine and its steps; 3, `jets`; 4, the fitting layer and the
+translation; 5, the frontend's names, the deletions, the pages. Against the plan: an old name is deleted with its
+last library caller (the frontend re-exports four of `jets`' names); one temporary line in the oracle between parts
+2 and 4; the translation in part 4. Checked by both agents with independent dense scripts: the metric
+`gamma * block_weight**2 * full_weight**2` left-aligned, the `k!` in the block weight only, the sums over `z`'s shape
+when `y`'s `C` axes are 1, every single-weight case bitwise equal to today's metric; the batch's hand-written
+keyword-only constructor on Python 3.9 and 3.11 with jit. Evidence designed before the build: two audits by
+construction (the kind and the order moved with their batch; each old weight mapped to the right one of the two new
+ones), since neither conversion can be caught by a number. Part 0 also brings the frontend's refusal of a validation
+or drawn batch of another kind or order. The public docstrings of a part are written in full and reviewed before it
+is built (`k1/prose_edits.md`: parts 0 and 1 done). For the maintainer at K2: a public full-weight checker
+(`K_ARC_DECISIONS.md` 29).

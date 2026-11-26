@@ -100,3 +100,49 @@ where it is recorded. Larger rulings are also in `LOG.md`. The design's decision
     implementer lasts about one phase of a slice after its orientation (the orientation is the maintainer's
     instruction and is kept); rotations are planned at clean points, and each agent is asked after every turn how much
     room it has.
+22. **`flat_draw(batch, batch_size)`**: the default draw loses its `oracle` argument, which nothing reads once the draw
+    calls the batch (the plan's §4.3 moves `take` and `n_measurements` to the batch). A public backend signature, on
+    this branch only (P16 introduced the oracle form; no release has it).
+23. **The guards on a second batch arrive with the move of the kind, in K1's part 0, not in K4:** the frontend entries
+    refuse a validation batch whose kind or order differs from the batch's, and `_frontend_draw` compares each drawn
+    batch's kind and order with the full batch's. The plan's §4.3 lists them without a slice. Reason: before part 0
+    a validation batch was read under the oracle's kind; after it, under its own, so without the guards the "pure
+    refactor" would change a reading silently. (The reviewer found that a user's `draw=` receives only `rng`; what
+    must agree is what it returns.)
+24. **No sentinel default to make the old two-argument `LeastSquaresBatch(ww, y)` "fail on its kind"** (the plan's
+    §2.4 says an old positional call fails on its kind; with two arguments Python refuses first, "missing
+    'sample'"). The form exists only on this branch, it fails at once and loudly, and a default on `sample` would
+    make the signature lie.
+25. **The frontend re-exports the renamed helpers** (`t3toolbox.fitting`: the three metrics,
+    `derivative_block_weight_to_taylor`, the two `prepare_*_derivative_data`, in place of `data_metric`,
+    `blocks_to_weight`, `derivative_weight_to_taylor_weight`, `prepare_derivative_data`). The names are the plan's
+    (§5); their place in the frontend follows that module's rule that a fit needs no import from the backend. It
+    changes the frontend's public surface, so logged.
+26. **K1's parts are amended** (the implementer's proposal, checked by the reviewer by experiment): each old name is
+    deleted with its last library caller (the frontend re-exports four of `jets`' names, so deleting them in the
+    `jets` part would stop `import t3toolbox`); one temporary line in the oracle, `full_weight=batch.weight`,
+    between parts 2 and 4 (with it every weight is either refused by the new rule or read as before: the new rules are
+    subsets of the old, with the same meaning, so no intermediate tree runs silently wrong); the translation of the
+    old call form moves to part 4 with the batch's fields.
+27. **Two audits by construction are part of K1's evidence** (the reviewer's findings): part 0 pairs every removed
+    `LeastSquaresOracle(kind, order)` with the batch constructions it served (a wrong order passes every shape
+    check); part 4 maps every removed `blocks_to_weight(...)` to a `block_weight=` and lists every `weight=` that
+    became `full_weight=` (for apply and entries the wrong one of the two is legal and bitwise equal).
+28. **A part of K1 is built only when its public docstrings are written in full and reviewed** (parts 0 and 1 for
+    the design's sign-off; parts 2 to 5 before each is built). K0 had every rewritten text in the design phase; K1
+    is too large to write every docstring twice, so the public contract is written first and the rest is reviewed
+    with each part's build.
+29. **For the maintainer at K2:** the plan's `check_probe_data` is documented for "y, a full weight, a residual", but
+    `y` and a residual are exact on `W` and a full weight may be 1 there; a public full-weight checker (three, one
+    per kind) is proposed. Public names the plan does not have. In K1 the batch's `check` uses a private helper.
+30. **K1's design note approved** (revision 2; `K1_DESIGN_REVIEW_r1.md` NOT YET with no error in the design,
+    `K1_DESIGN_REVIEW_r2.md` SIGN OFF), with round 2's five minor findings to be folded into the note before part 0 is
+    built and checked with part 0's review, not in a third round: the audit of the kind and the order follows one
+    level of test helper and lists what it cannot pair (11); part 1 takes over the rewrite of the tests that hand the
+    dense reference a form it now refuses (12); the expected red of parts 2 and 3 is recorded per subtest, and part
+    4's green run is named as the first check of the engine on cases hidden behind a red node (13); the backend
+    `mc_sgd` and `adam` say that a draw's batch is not checked there (14); part 0's interim docstrings state part 0's
+    rule for `y`, not the final one (15).
+31. **K1 is built on the local side branch `k1-wip`**, one commit per reviewed part, squashed onto `graded-messages`
+    when part 5's gate passes (as M2 and P16 were). The branch is pushed to the remote as a backup (the maintainer:
+    the session ends at 03:00 CT and nothing should live only on the laptop); CI does not run on it.

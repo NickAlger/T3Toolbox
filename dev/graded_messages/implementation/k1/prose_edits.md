@@ -6,7 +6,12 @@ before its two weights), it is the final text with today's sentences on the one 
 shows it. Doctest outputs marked `<to be pasted>` are filled from a run during the build, never by hand; the rest
 of each example is the draft.
 
-**Status (first draft, 2026-11-25):** part 0's texts (§1) in full; part 3's module docstring of `jets` and the
+**Status (revision 2, after round 1):** part 0's texts (§1) and part 1's (§6) in full, the round-1 fixes in (the
+missing-`sample` example, `flat_draw`'s and `_require_draw`'s texts, the docstrings of `mc_sgd` and `adam`, the frontend
+guards, the engine's `full_weight` entry, `check_data`'s O3 sentence, the `ω` lines of `backend/optimizers.py`). Parts 2
+to 5 stay listed changes for the design sign-off; each is completed in full and reviewed before its part is built.
+
+**Status of the first draft (2026-11-25), for the record:** part 0's texts (§1) in full; part 3's module docstring of `jets` and the
 docstrings of `probe_data_metric`, `derivative_block_weight_to_taylor` in full, the other new functions of part 3 as
 today's texts with the changes listed (§2); the engine's parameter entries and module-docstring sentences (§3);
 `uniform_fitting`'s module docstring and `pack_batch` (§4); the fixed substitutions of part 5 (§5). Not yet: part 1's
@@ -85,12 +90,13 @@ After (part 4's final text; part 0 keeps its sentences on `weight` as today):
     >>> print(batch.kind, batch.order, batch.n_measurements)
     <to be pasted>
 
-    A batch made without its kind and jet shape fails at once:
+    A batch made without its kind and jet shape fails at once (here on the missing third argument; with more
+    positional arguments, on the kind):
 
     >>> LeastSquaresBatch(ww, np.zeros(10))                                   # doctest: +IGNORE_EXCEPTION_DETAIL
     Traceback (most recent call last):
         ...
-    TypeError: ...
+    TypeError: __init__() missing 1 required positional argument: 'sample'
     """
 
 ### 1.3 `LeastSquaresBatch.data_metric` (`backend/fitting.py:95-116`)
@@ -205,18 +211,29 @@ After:
     default draw of ``mc_sgd`` and ``adam`` calls (:py:func:`flat_draw`): a batch without them needs a ``draw``. An
     oracle that reuses :py:class:`~t3toolbox.backend.fitting.LeastSquaresBatch` reads the kind and the jet shape off it.
 
-### 1.9 `flat_draw` (`backend/optimizers.py:625-641`, under O1's recommendation)
+### 1.9 `flat_draw` (`backend/optimizers.py:625-641`; O1 ruled)
 
     """The **default** minibatch draw: a uniform random subset of ``min(batch_size, n)`` of the ``n`` samples
     (``batch.n_measurements``), flat across the whole sample stack ``W``, as ``batch.take(indices)`` returns it: for
     the least-squares batch a batch with ``minibatch_scale = n / b`` and the ``drawn_indices``. Returns
     ``draw(rng) -> batch``, which calls ``rng.choice(n, size=min(batch_size, n), replace=False)`` once per draw. A user
-    may pass **any** ``draw`` instead (slice ``W``, importance-sample, ...), returning a batch of the oracle. Host numpy
-    indices; on a jax batch the gather runs on device (the optimizer never compiles the draw, only the step)."""
+    may pass **any** ``draw`` instead (slice ``W``, importance-sample, ...), returning a batch of the same kind and jet
+    shape as the full batch: the backend does not check it (the frontend optimizers do). Host numpy indices; on a jax
+    batch the gather runs on device (the optimizer never compiles the draw, only the step)."""
 
-`_require_draw`'s docstring: "without a ``draw`` the batch needs ``take(indices)`` and ``n_measurements``, the default
-draw (:py:func:`flat_draw`); else a ``ValueError``." The comments of `mc_sgd` and `adam`'s `draw` parameter
-(`:1233`, `:1283`): `# custom draw(rng) -> a batch; None = flat_draw(batch, batch_size)`.
+`_require_draw`'s docstring:
+
+    """Structural, at entry: without a ``draw`` the batch needs ``take(indices)`` and the property
+    ``n_measurements`` (an int), the default draw (:py:func:`flat_draw`); else a ``ValueError``, which says so when
+    ``n_measurements`` is a method (a batch written before it became a property)."""
+
+The comments of the `draw` parameter of `mc_sgd` and `adam` (`:1233`, `:1283`): `# custom draw(rng) -> a batch;
+None = flat_draw(batch, batch_size)`. Their docstrings (finding r1-7c): `mc_sgd` (`:1243`) "(``draw(rng)``; by
+default :py:func:`flat_draw`, which needs an oracle with ``take``, else a ``ValueError`` at entry)" becomes
+"(``draw(rng)``, which returns a batch of the full batch's kind and jet shape; by default :py:func:`flat_draw`, which
+needs a batch with ``take`` and ``n_measurements``, else a ``ValueError`` at entry)"; `adam` (`:1295`) "(the
+regularizer unscaled; an oracle without ``take`` needs a ``draw``)" becomes "(the regularizer unscaled; a batch without
+``take`` and ``n_measurements`` needs a ``draw``)".
 
 ### 1.10 `make_newton_display` (`optimizer_display.py:549-601`)
 
@@ -239,6 +256,16 @@ position)". After "**Each table is under its own batch's weight**: ..." (part 4:
   the batch has it; structural, before any work)".
 - `t3toolbox/optimizers.py:331`, `:354` (`mc_sgd`, `adam`): `oracle,  # the objective` and `batch,  # its full data
   (with n_measurements / take for the default draw)`.
+- `t3toolbox/optimizers.py:343-344`, the frontend `mc_sgd`'s docstring (and `adam`'s, which points to it): "A custom
+  ``draw(rng)`` returns a batch (ragged; it is packed for a uniform ``x0``)" becomes "A custom ``draw(rng)`` returns a
+  batch of the full batch's kind and jet shape, checked on each draw (another raises a ``ValueError``); ragged, it is
+  packed for a uniform ``x0``".
+- `_frontend_draw`'s docstring (`t3toolbox/optimizers.py:117-118`): "Each batch a user's draw returns is compared with
+  the full batch, its kind and its jet shape (structural, two tuples per draw: a draw of another kind or order would
+  fit another objective), and for a uniform x0 packed (not re-checked each step)."
+- The frontend `newton_cg`: the comment of `val_batch` (`:450`) `# optional validation batch, of batch's kind and
+  order -> a train|val table`; its docstring (`:529-530`) "pass ``val_batch`` (a batch for the same oracle)" becomes
+  "pass ``val_batch`` (a batch of the same kind and jet shape as ``batch``; another raises a ``ValueError`` at entry)".
 
 ---
 
@@ -493,8 +520,10 @@ After:
         One number per block: probe ``shape=(d,)+F``, apply ``F``, entries ``()``, exactly; the same array on both
         layouts, never a sequence. It sits on the leading axes of ``r`` (the mode and the jet axes). ``None`` is ones.
     full_weight: sequence of NDArray or NDArray, optional
-        One number per measured number: ``z``'s shape, in ``y``'s form, each ``W`` and ``C`` axis 1 or full, never
-        with the stack of directions ``K`` (the engine places it). ``None`` is ones. The two weights multiply: the
+        One number per measured number: ``z``'s shape, each ``W`` and ``C`` axis 1 or full, never with the stack of
+        directions ``K`` (the engine places it). Probe: a sequence of ``d`` arrays (a tuple, a list, or one array whose
+        first axis is the mode), or one packed array ``(d,)+F+W+C+(N,)`` on the uniform layout; apply and entries: one
+        array. ``None`` is ones. The two weights multiply: the
         rows that read them apply ``block_weight**2 * full_weight**2`` (the data metric at ``gamma = 1``).
 
 The paragraph "The engine checks what it needs" (`:1704-1712`): "``y`` and the weight are of the type of ``z``, each
@@ -567,3 +596,191 @@ the library's Taylor coefficients: :py:func:`derivatives_to_taylor`, :py:func:`t
 "the data metric: :py:func:`probe_data_metric`, :py:func:`apply_data_metric`, :py:func:`entries_data_metric`,
 ``gamma * block_weight**2 * full_weight**2 * r``, what a transpose is applied to for the gradient of a weighted fit (a
 batch has it as the method ``batch.data_metric(r)``)"; the item on `blocks_to_weight` goes.
+
+---
+
+## 6. Part 1: the dense reference (`backend/sampling_definitions.py`), in full
+
+The functions keep their structure; the reference reads the two weights by its own code (no import of `jets`), and
+its rule is the one of note §4.1 (no `C`, no `K`: `y` exact; the full weight's `F` and edge exact, its `W` axes 1 or
+full; the block weight exact).
+
+### 6.1 The module docstring
+
+`:85-91`, before:
+
+    **The seed, and the turn.** The data ``y`` and the residual ``r = z - y`` are of the type of ``z``, in forward
+    order. The seed is the residual made into a dual jet: weighted, then turned, a flip of every jet axis,
+    ``w_tilde[k] = weight[order - k]**2 * r[order - k]`` (``k`` a multi-index, the weight read at the same entry as the
+    residual). As a polynomial in ``s`` the seed is
+    ``sum_k w_tilde[k] s^k``, so ... Pass ``y`` (and ``weight``) for the seed
+    of the residual, or ``w_tilde`` for a seed of your own; ``w_tilde`` wins where both are given.
+
+After:
+
+    **The seed, and the turn.** The data ``y`` and the residual ``r = z - y`` are of the type of ``z``, in forward
+    order. The seed is the residual made into a dual jet: weighted, then turned, a flip of every jet axis,
+    ``w_tilde[k] = b[order - k]**2 * f[order - k]**2 * r[order - k]`` (``k`` a multi-index; ``b`` the block weight's
+    row of the mode, read at the slot; ``f`` the full weight, read at the same entry as the residual). As a polynomial
+    in ``s`` the seed is ``sum_k w_tilde[k] s^k``, so ... Pass ``y`` (and the weights) for the seed of the residual, or
+    ``w_tilde`` for a seed of your own; ``w_tilde`` wins where both are given.
+
+`:108-115`, before:
+
+    - ``y``: the data, of the type of ``z``: probe ``len=d``, ``elm_shape=F+W+(Ni,)``; apply ``F+W``; entries ``W``.
+    - ``weight``: ``omega``, of the type of ``z`` too, entering squared; ``None`` is ones.
+
+    ``y`` and the weight are **data-space objects**: of the type of ``z`` (for probe exactly ``d`` arrays, a tuple, a
+    list, or one array whose first axis is the mode), each array of the rank of ``z``'s, each axis of size 1 or of
+    ``z``'s size. A size of 1 means the same value along that axis: a weight per slot has size-1 sample and edge axes,
+    one per sample size-1 jet and edge axes, one per entry ``z``'s shape. They are read by position, with no reshape, and
+    any other form raises a ``ValueError`` (a weight of one value per mode and slot, ``(d,) + F``, is not of this type).
+
+After:
+
+    - ``y``: the data, exactly ``z``'s shape: probe ``len=d``, ``elm_shape=F+W+(Ni,)``; apply ``F+W``; entries ``W``.
+    - ``block_weight``: one number per block, a mode at a slot (probe, ``shape=(d,)+F``), a slot (apply, ``F``) or all
+      of the data (entries, ``()``), exactly that shape; it enters squared, on the leading axes (row ``i`` on the jet
+      axes of mode ``i``). ``None`` is ones.
+    - ``full_weight``: one number per measured number, of the type of ``z``, with ``z``'s shape except that each
+      sample axis ``W`` may be 1 (the same for every sample); it enters squared, entry by entry. ``None`` is ones.
+
+    ``y`` and the full weight are **data-space objects**, of the type of ``z``: for probe exactly ``d`` arrays (a
+    tuple, a list, or one array whose first axis is the mode), each of the rank of ``z``'s array. ``y`` has ``z``'s
+    shape exactly; the full weight has its jet axes and its mode edge exactly, its sample axes 1 or full. A size of 1
+    elsewhere (a jet axis, the edge) raises a ``ValueError``: a weight per slot or per mode is a block weight. They are
+    read by position, with no reshape. The two weights multiply: the misfit is ``1/2 sum b**2 f**2 r**2``.
+
+### 6.2 `w_tilde`
+
+The docstring's second paragraph, after:
+
+    The seed is what the adjoint (tilde) variables are built on. With ``y`` given it is the residual ``r = z - y``
+    made into a dual jet: weighted, then turned, a flip of every jet axis (``k`` a multi-index of the box ``F``),
+
+        ``w_tilde[i][k] = b[i][order - k]**2 * f[i][order - k]**2 * r[i][order - k]``   (probe; no mode index for the
+                                                                                     others; b a number for entries),
+
+    the block weight ``b`` read at the slot, the full weight ``f`` at the same entry as the residual (positionally; a
+    sample axis of 1 is constant).
+
+    The turn is what makes its pairing with a jet the coefficient of the corner ``s_1^n_1 ... s_m^n_m`` of their
+    product: ``sum_k w_tilde[order - k] * a[k] = sum_k b[k]**2 f[k]**2 r[k] a[k]``, the weighted inner product with
+    the residual. With no jets there is nothing to turn. With ``w_tilde`` given, that seed is returned as it is.
+
+The example, after (the frame, `ww`, `pp`, `line`, `y` as today):
+
+    >>> block = 0.5 + rng.random((3, 3))                                   # (d,) + F: one number per mode and slot
+    >>> args = dict(order=(2,), y=y, block_weight=block)
+    >>> r1 = sdef.r('probe', frame, line, 1, **args)
+    >>> w_tilde1 = sdef.w_tilde('probe', frame, line, 1, **args)
+    >>> print(w_tilde1.shape)                                              # F + W + (N1,)
+    <to be pasted: (3, 7, 5)>
+    >>> print(bool(np.allclose(w_tilde1[0], block[1, 2] ** 2 * r1[2])))    # slot 0 holds order 2: turned
+    <to be pasted: True>
+    >>> print(bool(np.allclose(w_tilde1[2], block[1, 0] ** 2 * r1[0])))
+    <to be pasted: True>
+
+(`rng.random((3, 3))` draws the same nine numbers as today's `rng.random((3, 3, 1, 1))`, so the rest of the example's
+stream is unchanged; the apply example after it, with no weight, is unchanged.)
+
+### 6.3 The tilde variables' examples (`xi_tilde`, `mu_tilde`, `nu_tilde`, `eta_tilde`, `nu_L_tilde`, `eta_D_tilde`)
+
+Each has `seed = dict(y=y, weight=0.5 + rng.random((3, 1, 1)))  # the seed of the residual z - y`, a weight per mode
+(`(d,) + W + edge` of 1, illegal now). After:
+
+    >>> seed = dict(y=y, block_weight=0.5 + rng.random(3))                 # the seed of z - y; one weight per mode
+
+(the same three draws; the outputs are shapes and `True`, re-pasted from a run).
+
+### 6.4 `JtJp` and `Jp_norm_sq`
+
+`JtJp`'s first line, after: "``JtJp``: the Gauss-Newton product. ``Jp`` made into a seed (weighted by both weights,
+then turned), and the transpose applied to it: ...". Its example's weight `0.5 + rng.random((3, 7, 1))` ("a weight per
+mode and sample", an edge of 1, illegal now) becomes a full weight written out on the edge:
+
+    >>> per_sample = 0.5 + rng.random((3, 7, 1))                          # one number per mode and sample ...
+    >>> full = [np.broadcast_to(per_sample[i], (7, n)) for i, n in enumerate(N)]   # ... written out on the edge
+    >>> p = dict(variations=(V, H), full_weight=full)
+
+(the rest as today, outputs pasted). `Jp_norm_sq`'s first line: "``Jp_norm_sq``: ``<Jp, M Jp>`` with ``M = b**2
+f**2``, the squared weighted norm of the direction's output, summed as ``f`` is (without the half)"; its example the
+same rewrite, its check `sum(np.sum(full[i] ** 2 * Jp[i] ** 2) for i in range(3))`.
+
+### 6.5 `f`
+
+First line, after: "``f``: the misfit, ``1/2 <r, M r>`` with ``M = b**2 f**2``: half the sum, over the modes, the
+orders, the samples and the mode edge, of the squared weighted residual, slot by slot. Needs ``y``." The example, after
+(the setting as today):
+
+    >>> full = [0.5 + rng.random((7, n)) for n in N]                      # the full weight: one per entry
+    >>> r = sdef.r('probe', frame, ww, y=y)
+    >>> f = sdef.f('probe', frame, ww, y=y, full_weight=full)
+    >>> print(bool(np.allclose(f, 0.5 * sum(np.sum(full[i] ** 2 * r[i] ** 2) for i in range(3)))))
+    <to be pasted: True>
+
+    One value per mode is a block weight, ``(d,)`` with no jets. Given as a full weight with size-1 sample and edge
+    axes it raises: the edge is part of the measurement, never 1:
+
+    >>> per_mode = np.array([1.0, 2.0, 3.0])
+    >>> sdef.f('probe', frame, ww, y=y, full_weight=per_mode.reshape(3, 1, 1))     # doctest: +IGNORE_EXCEPTION_DETAIL
+    Traceback (most recent call last):
+        ...
+    ValueError: the full weight (mode 0) has shape (1, 1); ... the mode edge exactly ...
+    >>> print(bool(np.allclose(sdef.f('probe', frame, ww, y=y, block_weight=per_mode),
+    ...                        0.5 * sum(per_mode[i] ** 2 * np.sum(r[i] ** 2) for i in range(3)))))
+    <to be pasted: True>
+
+(The draw `rng.random(3)` of today's refused example goes; the reader sees the refusal of the old form and the right
+form side by side.)
+
+### 6.6 `r_block_sumsq`
+
+First line, after: "``r_block_sumsq``: ``<r, M r>`` in each block, ``M = b**2 f**2``, the weighted sum of squares of
+the residual (the sum of squares with no weight). A block is ... (as today)". The weighted example, after:
+
+    Weighted, one full weight per sample (written out on the slots and the edge): a zero drops the sample from every
+    block.
+
+    >>> full = [np.ones((3, 7, n)) for n in N]                            # F + W + (Ni,)
+    >>> for omega in full:
+    ...     omega[:, 3, :] = 0.0
+    >>> sums = sdef.r_block_sumsq('probe', frame, line, order=(2,), y=y, full_weight=full)
+    >>> print(bool(np.allclose(sums[1, 2], np.sum(np.delete(r[1][2], 3, axis=0) ** 2))))
+    <to be pasted: True>
+
+    A block weight scales its block: ``block[i, k]**2`` times the block's sum.
+
+    >>> block = 0.5 + rng.random((3, 3))
+    >>> print(bool(np.allclose(sdef.r_block_sumsq('probe', frame, line, order=(2,), y=y, block_weight=block),
+    ...                        block ** 2 * sdef.r_block_sumsq('probe', frame, line, order=(2,), y=y))))
+    <to be pasted: True>
+
+### 6.7 The private helpers (shown here because the reference is part 1's subject)
+
+- `_check_data_space(what, i, shape, of_shape)` becomes `_check_data_space(what, i, shape, of_shape, may_be_one)`,
+  `may_be_one` the positions (the sample axes) where a 1 is allowed (`()` for `y`); its docstring: "The rule of a
+  data-space object (``y``, the full weight): the rank of ``z``'s array, each axis ``z``'s size, except at
+  ``may_be_one`` (the full weight's sample axes), where 1 is allowed too. A structural ``ValueError`` otherwise."
+- `_check_block_weight(S, block_weight)` (new): "The block weight's shape is the block shape exactly: ``(d,) + F``
+  (probe), ``F`` (apply), ``()`` (entries); a sequence is refused (a ``TypeError``)."
+- `_weight_squared(S, block_weight, full_weight, i, shape)`: "``b**2 f**2`` for one array of the type of ``z`` (mode
+  ``i`` for probe): the block row of the mode (or the table, apply; the number, entries) reshaped onto the leading jet
+  axes, times the full weight's square read by position. ``1.0`` for a factor that is ``None``. No reshape of the
+  full weight."
+- `_dual_jet(S, jet, block_weight, full_weight)` and `_the_seed(S, sample, y, block_weight, full_weight, w_tilde,
+  name)`: the comments say "the weights" for "the weight".
+
+---
+
+## 7. The round-1 additions to the later parts' prose (listed, completed before each part)
+
+- **Part 3, `check_data`'s docstring** (O3): one sentence after its rule: "It is the checker of ``y`` (and of a
+  residual): a full weight, whose sample axes may be 1, is refused by it, and is checked by the batch's
+  :py:meth:`~t3toolbox.backend.fitting.LeastSquaresBatch.check`."
+- **Part 4, `backend/optimizers.py:1849-1851` and `:2096-2098`** (finding r1-8): "``eps (|omega y| |omega r| +
+  |f|)``" and "``ε·(‖ω⊙y‖·‖ω⊙r‖ + |f|)``" become "``eps (|y|_M |r|_M + |f|)``" and "``ε·(‖y‖_M·‖r‖_M + |f|)``", with
+  "``|v|_M = <v, M v>^(1/2)``, the norm of the data metric" said once at the first; the 2026.5.0 floor's quotation
+  keeps its old letters inside the quotation marks.
+- **Part 4, the oracle's class docstring:** its sentence on `f_resolution` stays as is; nothing in it promises that
+  the padding of `y` may hold `inf` (note §9).

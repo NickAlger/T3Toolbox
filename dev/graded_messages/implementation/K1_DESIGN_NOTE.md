@@ -8,8 +8,11 @@ tree; the scans of §1.2 were taken on the working tree just before that commit 
 as the model of a slice built in parts; `K_BRIEF.md`, `K_ARC_DECISIONS.md`. Working files: `implementation/k1/`
 (§1.2). Scratch: `scratchpad/implementer2/`.
 
-**Status of this note:** complete for review (sections 0 to 12). The prose of §10 is drafted in
-`k1/prose_edits.md` (its status line says what is in full and what is by listed change).
+**Status of this note:** revision 2, after `K1_DESIGN_REVIEW_r1.md` and the orchestrator's rulings (answers in
+`K1_DESIGN_RESPONSE_r1.md`): the audits of §7.4 (findings 1, 2), the guards of a drawn and a validation batch in part
+0 (O1's ruling), the subclasses (§5.1), the corrected red of parts 2 and 3, `pack_batch`'s own refusal (§4.10),
+`_require_draw` (§4.11), the asymmetric tables and two mutations (§6.3, §6.4), §9's additions, §10's rule. The prose
+of parts 0 and 1 is in full in `k1/prose_edits.md`; parts 2 to 5 as listed changes, each completed before its part.
 
 **Library methods traced first** (the maintainer's instruction): `TuckerTensorTrain.probe`
 (`tucker_tensor_train.py:3660`) → `jets.check_sample` → `probing.t3_probe` (`backend/probing.py:44`) →
@@ -46,11 +49,14 @@ What I found against the plan on today's tree:
    red at collection and the part's expected-red list would say nothing. So each old name is deleted **with its last
    library caller**: the `jets` part adds the new functions; `pack_data`, `_pack_data_space` and `check_weight` go in
    the fitting part; `blocks_to_weight`, `data_metric`, `prepare_derivative_data` and
-   `derivative_weight_to_taylor_weight` in the last part, with the frontend's re-exports. (b) The engine part changes the engine's keyword, which
-   the oracle passes on **every** query (`backend/fitting.py:414`, `weight=batch.weight`, `None` included): without a
-   bridge every fit of the suite is red from the engine part to the fitting part. One bridging line in the oracle,
-   `full_weight=batch.weight`, keeps every unweighted fit green and makes every weighted fit whose weight has a
-   size-1 structural axis (all of `blocks_to_weight`'s output) fail **loudly** on the new rule; none runs wrong (§2.1).
+   `derivative_weight_to_taylor_weight` in the last part, with the frontend's re-exports. (b) The engine part
+   changes the engine's keyword, which the oracle passes on **every** query (`backend/fitting.py:414`,
+   `weight=batch.weight`, `None` included): without a bridge every fit of the suite is red from the engine part to the
+   fitting part. One bridging line in the oracle, `full_weight=batch.weight`, keeps every fit with no weight green and
+   makes every fit whose weight has a size-1 structural axis fail **loudly** on the new rule: probe's
+   `blocks_to_weight` output (an edge of 1), and so every probe derivative fit, weighted or not, whose default weight is
+   the `k!` table placed by `blocks_to_weight`. Apply's and entries' `blocks_to_weight` output has no size-1
+   structural axis: it passes, as a full weight, with today's numbers bitwise. None runs wrong (§2.1).
    (c) The translation of the old call form builds batches, so it moves with the batch's fields (part 4), not with
    the frontend's names (part 5): otherwise 98 old-form calls are red between the two parts. The plan's order
    otherwise survives: part 0, the references, the engine, `jets`, the fitting layer, the frontend's names. Every
@@ -160,27 +166,44 @@ M2 did) and the tally against the part before. The part of the order of §7 "K1"
   largest mode size of the sample). `pack_sample` and `pack_data` keep their signatures (K5 and part 4 delete them).
 - `backend/optimizers.py`: the `Oracle` protocol's text (its optional members `check_batch`, `n_measurements`, `take`
   become the batch's; "the optimizers pass the batch through unread" gains the default draw's exception);
-  `flat_draw` and `_require_draw` call the batch (O1 decides `flat_draw`'s signature; the default in this note is
-  `flat_draw(batch, batch_size)`); the parameter comments of `mc_sgd` and `adam` (`:1233`, `:1283`).
+  `flat_draw(batch, batch_size)` (O1, ruled) and `_require_draw(batch, draw, who)` call the batch, and
+  `_require_draw` refuses a batch whose `n_measurements` is not an integer, naming the property (an old-protocol
+  user batch with an `n_measurements()` method, finding r1-7); the parameter comments of `mc_sgd` and `adam`
+  (`:1233`, `:1283`) and the two sentences of their docstrings that name "an oracle with `take`" (`:1243`, `:1295`).
 - `backend/optimizer_display.py`: `make_newton_display` reads `order` off `batch` (`:622`) and refuses a
   `val_batch` whose `kind` or `order` differs from `batch`'s (structural, at the call, before any run).
 - `t3toolbox/fitting.py`: `_is_packed(batch)` and `prepare_batch(batch, x, check=True)` read the batch's kind and order
   and call `batch.check` (D3: the oracle argument goes from both, and from `t3toolbox/optimizers._frontend_draw`).
 - `t3toolbox/optimizers.py`: `_old_fit` builds `LeastSquaresOracle()` and `LeastSquaresBatch(kind, order, sample,
-  data, weight=w)`; `_translate` calls `batch.n_measurements` (`:249`); `_setup`, `_frontend_draw`, `mc_sgd`,
-  `adam`, `newton_cg` follow `prepare_batch`'s signature; the parameter comments of `mc_sgd` and `adam` (`:331`,
-  `:354`).
+  data, weight=w)`; `_translate` calls `batch.n_measurements` (`:249`); `_setup`, `mc_sgd`, `adam`, `newton_cg`
+  follow `prepare_batch`'s signature; the parameter comments of `mc_sgd` and `adam` (`:331`, `:354`).
+- **The guards that arrive with the move** (the orchestrator's ruling on O1, round 1): once the kind lives in the
+  batch, each batch is read under its own, so a validation or drawn batch of another kind or order would be read
+  silently under another objective where before it was read under the oracle's. So, in part 0, not K4:
+  - the frontend `newton_cg` refuses, at entry and before any work, a `val_batch` whose `(kind, order)` differs from
+    `batch`'s (`t3toolbox/optimizers.py:839-841`; the backend display refuses it too, but only when it is built);
+  - `_frontend_draw(draw, batch, x0)` wraps every user `draw=` (on both layers; today it wraps only for a uniform
+    `x0`) and compares the `(kind, order)` of each batch the draw returns with the full batch's, a `ValueError` naming
+    both (two tuples per draw, structural); on a uniform `x0` it then packs as today;
+  - in the backend the optimizers do not look (plan §4.3); `flat_draw`'s and the protocol's texts say that a user
+    draw returns a batch of the same kind and order as the full batch, and that the backend does not check it.
+
+  Both comparisons use `getattr(..., 'kind' / 'order', None)`, so a user batch type without them is not refused (D13).
+  K4 rewrites `_frontend_draw` again and keeps the comparison.
 - Every construction is rewritten: `LeastSquaresOracle(` 71 in the tests, 16 in the library's doctests, 2 in the
-  library's code, 5 in the examples, 4 in the pages' doctests; `LeastSquaresBatch(` 75, 23, 4, 5, 4 (§5.1). The
+  library's code, 5 in the examples, 4 in the pages' doctests; `LeastSquaresBatch(` 75, 23, 4, 5, 4 (§5.1); and the
+  constructions of the nine test-local subclasses of the oracle (§5.1, about 15). The
   tests that call `oracle.check_batch`, `oracle.take`, `oracle.n_measurements`, `flat_draw`, or read `oracle.kind`,
   `oracle.order` follow (§5.1). The structural pin `tests/test_jets.py:863-893` (the checkers called only inside
   `check_batch`) follows the method's new home and name. `tests/_fits.py`: `fit`, `derivative_fit`, `shared_over`,
   `at_element`, `uniform` read the kind and order off the batch.
 - The examples change by these two lines only (seven files, §5.1); P17 still rewrites them.
 - **Red at its end:** none expected. **Its review checks on its own:** the battery `old` against `part0`, bitwise in
-  every number (§7); the diff audit (every changed test line is a construction or a moved method call; no assertion
-  and no tolerance changed, `k1/diff_audit.py`, §7.4); the per-test tally against the starting tree (no test lost
-  but the renamed `check_batch` tests, each mapped).
+  every number (§7); the `(kind, order)` audit (§7.4 (b): each `LeastSquaresOracle(kind, order)` removed is paired,
+  by `ast`, with the batch constructions it served, the same expressions moved; the pairs it cannot resolve are
+  listed for the reviewer to read); the line audit (every changed test line is a construction or a moved method
+  call; no assertion and no tolerance changed, §7.4 (a)); the per-test tally against the starting tree (no test
+  lost but the renamed `check_batch` tests, each mapped).
 
 **Part 1: the independent references** (suite green at its end).
 
@@ -223,10 +246,16 @@ M2 did) and the tally against the part before. The part of the order of §7 "K1"
   `test_sampling_stacks.py`, `test_sampling_uniform.py`, `test_sampling_corewise.py`, `test_sampling_typed.py`,
   `test_sampling_identities.py`, `test_held_variables.py`, `test_least_squares_oracle.py`'s `computed_names` rows,
   `test_dispatch.py`'s engine rows (§6 lists what each checks against).
-- **Red at its end (recorded by a run):** the weighted fits of the probe kind with a `blocks_to_weight` weight, the
-  tests that build a `y` with a size-1 `W` or structural axis and reach the engine, the old-form optimizer calls with a
-  probe weight (through the translation), the tests of `jets`' functions that pass a weight to the engine indirectly
-  (none are expected; recorded). **Review:** the engine against the reference (part 1), uniform against ragged with
+- **Red at its end (predicted here so that the part's reviewer can tell an expected red from an unexpected one;
+  the list itself is recorded by a run):**
+  - every probe fit whose weight is `blocks_to_weight`'s output (an edge of 1, refused);
+  - **every probe derivative fit, weighted or not**: with no weight `prepare_derivative_data` returns the `k!` table
+    placed by `blocks_to_weight` (`jets.py:1174-1178`), mode-leading with an edge of 1. So `tests/_fits.derivative_fit`
+    with `kind='probe'` and its callers, `old_vocabulary('probe_derivatives', ...)`, and every translated
+    `probe_derivatives` old-form call in the tests (the examples and pages are run at part 5 only);
+  - every test whose `y` has a size-1 `W` or structural axis and reaches the engine;
+  - not red: apply and entries fits with a `blocks_to_weight` weight (a legal full weight, today's numbers bitwise),
+    and every fit with no weight but the probe derivative ones. **Review:** the engine against the reference (part 1), uniform against ragged with
   finite junk in the padding of `y` and the full weight, the named laws (§6), the battery's engine rows bitwise (§7).
 
 **Part 3: the public surface of `jets`** (additive, but for the dual-jet pair).
@@ -244,8 +273,8 @@ M2 did) and the tally against the part before. The part of the order of §7 "K1"
 - Tests: `tests/test_jets.py` (the derivative-data and converter classes rewritten; the rejection table of
   `check_data` re-ruled), `tests/test_data_metric.py` (rewritten for the three metrics), `tests/test_type_laws.py`,
   the `jets` rows of `test_dispatch.py` and `test_jax_absent.py`.
-- **Red at its end:** part 2's list, plus the batch checks of tests whose `y` has a size-1 `W` (now refused by
-  `check_data`). **Review:** each metric against an explicit loop over every index (no broadcasting in the oracle),
+- **Red at its end:** part 2's list (the probe derivative fits included), plus the batch checks of tests whose `y`
+  has a size-1 `W` (now refused by `check_data`). **Review:** each metric against an explicit loop over every index (no broadcasting in the oracle),
   each refusal of §4.4's table, the precision rule, the converters' laws, the derivative functions against
   factorials written out.
 
@@ -274,8 +303,10 @@ M2 did) and the tally against the part before. The part of the order of §7 "K1"
   `backend/test_optimizer_display.py`, `test_sharing.py`, `test_optimizers_frontend.py` (its weighted new-form fits;
   `TestTheTranslation`'s 19 pins unchanged), `test_fitting.py`, the sweeps (`tests/oracle_sweeps/`).
 - **Red at its end:** none expected (the frontend's re-exports still name the old functions, which still exist).
-  **Review:** the named oracles at the oracle (§6.3), the battery's oracle rows and the translated runs bitwise,
-  `take` against index loops, `pack_batch` against loops with junk in the padding, the translation's pins.
+  **Review:** the weights audit (§7.4 (c): every `blocks_to_weight` call paired with its `block_weight=`, every
+  `full_weight=` with its reason), the named oracles at the oracle (§6.3), the battery's oracle rows and the translated
+  runs bitwise, `take` against index loops, `pack_batch` against loops with junk in the padding, the translation's
+  pins.
 
 **Part 5: the public names, the deletions, the pages.**
 
@@ -721,9 +752,12 @@ class LeastSquaresOracle(ValueHashedFields):
   that keys jit caches); the entries kind's order `()`. Nothing about the arrays: a batch is checked against a model
   by `check` (structural, called by the frontend where a batch enters), and the engine checks what it reads on every
   query. The kind is checked to be a `str` first (a `TypeError`; a packed array compared with a string by `in` would
-  compare elementwise), then one of the three (a `ValueError`). So every old positional form raises at once:
-  `LeastSquaresBatch(ww, y)` a `TypeError` (`sample` missing), `LeastSquaresBatch(ww, y, w)` and longer a `TypeError`
-  on the kind (measured on a model of the class, `k1/kwonly_check.py`, Python 3.11 and the 3.9 floor environment with
+  compare elementwise), then one of the three (a `ValueError`). So every old positional form raises at once. The
+  plan's "fails on its kind" (§2.4) holds for three or more positional arguments (`LeastSquaresBatch(ww, y, w)` and
+  longer: a `TypeError` on the kind); the two-argument `LeastSquaresBatch(ww, y)` fails on Python's own "missing 1
+  required positional argument: 'sample'". No sentinel default is given to `sample` to change that message (the
+  orchestrator's ruling, round 1: the signature stays true, and the old form exists only on this branch); the class
+  docstring's example shows the message (measured on a model of the class, `k1/kwonly_check.py`, Python 3.11 and the 3.9 floor environment with
   jax 0.4.30: `replace`, `fields`, the frozen guard, the pytree round trip and `jax.jit` over it all work).
 - **Keyword-only after `y`** (D2): `dataclass(kw_only=True)` and `KW_ONLY` are Python 3.10; the floor is 3.9. A
   hand-written `__init__` (with `object.__setattr__`, the frozen idiom) on a dataclass with `init=False` gives it.
@@ -810,16 +844,21 @@ def pack_batch(                                     # after
 - The sample by `pack_sample(batch.kind, batch.order, batch.sample, N)` (until K5); a probe `y` and full weight by
   `ut3_operations.pack_vectors(value, N)` (one packer; their arrays agree in everything but the edge, §4.2); the
   entries index, apply's and entries' data, the block weight, the scale and the drawn indices as they are.
-- **Refused** (part 4): a probe batch whose ragged members disagree in their mode sizes (`np.shape(w)[-1]` of the
-  sample, of `y` and of the full weight, mode by mode), a `ValueError` naming the mode and the three sizes; `N` below the
-  largest mode size (today `pack_vectors` pads negatively and fails deep inside).
+- **Refused** (part 4), each before any packing, a `ValueError` naming the object, the mode and the sizes:
+  - a probe batch whose ragged members disagree in their mode sizes (`np.shape(w)[-1]` of the sample, of `y` and of
+    the full weight, mode by mode);
+  - a probe `y` or full weight whose modes disagree in their pattern of size-1 stack axes (everything but the edge),
+    checked by `pack_batch` itself with the engine's message, which names `np.broadcast_to` as the fix (the plan's
+    §2.2 lists `pack_batch` among the four places that check it; `pack_vectors`' own error, `ut3_operations.py:171-174`,
+    names neither the object nor the fix);
+  - an `N` below the largest mode size (today `pack_vectors` pads negatively and fails inside `np.pad`).
 - `N=None` reads the largest mode size off a ragged sample's last axes. An entries batch has nothing to pad, so `N`
   is not read; a sample already packed keeps its `N` (and a ragged `y` beside it is packed to that `N`).
 
 ### 4.11 The optimizers, the display, the frontend (part 0)
 
 ```python
-def flat_draw(                       # after, if O1 is ruled as I recommend
+def flat_draw(                       # after (O1, ruled)
         batch:       typ.Any,       # the full batch: with the property n_measurements and take(indices)
         batch_size:  int,           # samples per minibatch
 ) -> typ.Callable:                  # draw(rng) -> a drawn batch
@@ -831,8 +870,12 @@ def _require_draw(
 ) -> None:
 ```
 
-- `_require_draw` requires `callable(getattr(batch, 'take', None))` and `hasattr(batch, 'n_measurements')`, its
-  message naming the batch's type and `draw=`.
+- `_require_draw` requires `callable(getattr(batch, 'take', None))` and `getattr(batch, 'n_measurements', None)` an
+  integer (`numbers.Integral`), its message naming the batch's type and `draw=`; a callable `n_measurements` (a user
+  batch written to the protocol before K1, a method) gets its own message: "`n_measurements` is a property of the
+  batch now, an int" (finding r1-7).
+- `flat_draw`'s and the protocol's texts: a user `draw` returns a batch of the same kind and jet shape as the full
+  batch; the backend does not check it (the frontend does, `_frontend_draw`).
 - `make_newton_display(oracle, batch, val_batch=None, ...)`: signature unchanged. `order = getattr(batch, 'order',
   None)` (a user batch without one: positional labels, as today for an oracle without one); a `val_batch` whose
   `(getattr(val_batch, 'kind', None), order)` differs from `batch`'s raises a `ValueError` at the call (the plan's
@@ -840,7 +883,9 @@ def _require_draw(
 - `t3toolbox/fitting.py`: `_is_packed(batch)`; `prepare_batch(batch, x, check=True)`: `batch.check(tuple(x.shape),
   stack_shape=tuple(x.stack_shape))` when the batch has `check` and is not packed; `ufit.pack_batch(batch, x.N)` for a
   uniform `x` (D3).
-- `t3toolbox/optimizers.py`: `_frontend_draw(draw, x0)`; `_setup(geometry, batch, x0)` (its oracle argument is not
+- `t3toolbox/optimizers.py`: `_frontend_draw(draw, batch, x0)` (the comparison of each drawn batch's kind and order,
+  §2.2 part 0); the frontend `newton_cg`'s refusal of a `val_batch` of another kind or order;
+  `_setup(geometry, batch, x0)` (its oracle argument is not
   read once `prepare_batch` does not take it: D3); the parameter comments of `mc_sgd` and `adam` move "(with n_measurements / take
   for the default draw)" from `oracle` to `batch`.
 
@@ -886,6 +931,17 @@ code, "doc" its doctests, "pages" the doctests of `docs/**`; a cell is `count (f
   `at_element`, `uniform` read `fit.oracle.kind` / `.order`: 4 sites); `tests/test_jets.py:863-893` (a structural pin:
   the checkers are called only inside `check_batch`); the mocks `mock.patch.object(LeastSquaresOracle, 'check_batch')`
   (`tests/test_optimizers_frontend.py:532`, `:1238`, `:1243`).
+- **The test-local subclasses of the oracle** (found by the reviewer, round 1; `k1_sites.py` counted calls named
+  `LeastSquaresOracle(` only): `HalfOracle` (`tests/test_dispatch.py:2178`), `_NoBlockSums`, `_NoDataBlockSums`
+  (`tests/backend/test_optimizer_display.py:333`, `:338`), `_OffsetOracle`, `_NoResolutionOracle`, `_BareOracle`,
+  `_NoKpOracle` (`tests/backend/test_optimizers.py:889`, `:1614`, `:1620`, `:2260`), `_BlockSumApplyOracle`,
+  `_NoKpOracle` (`tests/backend/test_curvature.py:1020`, `:1039`): nine classes, about 15 constructions that pass the
+  base's `kind` and `order` (`HalfOracle('apply', ())` 4 times, `_NoKpOracle(problem.oracle.kind,
+  problem.oracle.order)`, `_OffsetOracle(fit.oracle.kind, fit.oracle.order, offset, key)`, whose own fields move two
+  places left once the base has none). Part 0 rewrites them, and the audit of §7.4 (b) reads their constructions as
+  oracle constructions. `tests/test_dispatch.py:2178-2193` keeps its subject: with both oracles fieldless it pins the
+  type in `ValueHashedFields.__hash__` / `__eq__` (`common.py:678-680`, "type included: field-free siblings must not
+  collide"), which is what decides that a subclass does not reuse the base's compiled program.
 - The docs' prose naming the oracle's methods (`n_measurements`: 2 lines in 1 page) is P19's, as all narrative.
 
 ### 5.2 The weight's sites (parts 1 to 5)
@@ -941,7 +997,7 @@ written and reviewed.
 |---|---|---|
 | 0 | nothing (every construction rewritten in the part) | — |
 | 1 | nothing (the engine comparisons pass the old engine `blocks_to_weight` of the block weight) | — |
-| 2 | a probe fit with a `blocks_to_weight` weight (edge of 1, refused); a `y` with a size-1 `W` or structural axis reaching the engine; the old-form calls with a probe weight | 4, 5 |
+| 2 | a probe fit with a `blocks_to_weight` weight (edge of 1, refused); every probe derivative fit, weighted or not (the default `k!` weight is placed with an edge of 1); a `y` with a size-1 `W` or structural axis reaching the engine; the translated old-form calls of those two kinds | 4 |
 | 3 | 2's, and a batch check of such a `y` (`check_data` exact) | 4 |
 | 4 | nothing expected (the translation moves with the batch's fields; the old names still exist for the re-exports) | — |
 | 5 | nothing | — |
@@ -996,8 +1052,10 @@ its subject it becomes a refusal test (§6.2).
   ints); keyword-only after `y` (a third positional raises); the pytree round trip with `(kind, order)` as aux data, and
   a jitted query that compiles once for two batches of one kind and order and again for another order; the methods
   (`take`, `check`, `n_measurements` as a property, `data_metric`) against today's oracle methods' assertions;
-  `make_newton_display` refusing a validation batch of another kind or order; `flat_draw` and `_require_draw` on the
-  batch.
+  `make_newton_display` refusing a validation batch of another kind or order; the frontend `newton_cg` refusing one at
+  entry; `_frontend_draw` refusing a drawn batch of another kind or order, on a ragged and on a uniform `x0` (a user
+  draw that returns the wrong order on purpose); `flat_draw` and `_require_draw` on the batch, and `_require_draw`
+  refusing a batch whose `n_measurements` is a method.
 - **Part 1:** the reference's brute-force pins (§2.2, part 1) and its refusals.
 - **Part 2:** the engine's refusals (§4.2's table, each cell: a size-1 `W` in `y`; a size-1 edge, mode-count, jet axis
   in `y` or the full weight; disagreeing modes; a block weight of the wrong shape, as a tuple, with the E3b
@@ -1014,11 +1072,15 @@ its subject it becomes a refusal test (§6.2).
   refusal of a single array.
 - **Part 4:** the batch's `check` (each part wrong, both weights); `take` against index loops (the block weight
   untouched; a full weight with one `W` axis of 1; `y` gathered); `pack_batch` refusing members of disagreeing mode
-  sizes and `N` too small; `y_block_sumsq` with `inf` and `nan` in the padding of a packed `y` and full weight is
+  sizes, modes of disagreeing size-1 patterns (the message naming `np.broadcast_to`) and `N` too small; `y_block_sumsq` with `inf` and `nan` in the padding of a packed `y` and full weight is
   finite and equals the ragged one (selection); the named oracles at the oracle with two weights (zero block, zero
-  sample, stacked separate, unbiased by enumeration with a full weight per sample and a block weight per slot).
-- **Part 5:** the translation's pins as they are; one old-form weighted call per kind against the new form built by
-  hand (`block_weight` the old `omega`); the frontend's names (`TestFrontendReach`).
+  sample, stacked separate, unbiased by enumeration with a full weight per sample and a block weight per slot); the
+  translation's 19 pins as they are, and one old-form weighted call per kind against the new form built by hand
+  (`block_weight` the old `omega`).
+- **Part 5:** the frontend's names (`TestFrontendReach`).
+- **Block tables asymmetric on every jet axis** (finding r1-9): in the tests of parts 2 and 3 every block weight with
+  jets is drawn at random (no two slots equal along any jet axis, `order = (2,)` and `(2, 1)`), never the `k!` table at
+  `order = (1,)` (`[1, 1]`) or a near-constant equalizing weight, which would hide a weight applied after the flip.
 
 ### 6.4 Mutation passes (in a scratch copy of `t3toolbox/` and `tests/`, `python -B`)
 
@@ -1029,17 +1091,22 @@ own.
 |---|---|---|
 | 0 | the constructor does not normalize `order` to Python ints | the aux-data / compile-once test |
 | 0 | `make_newton_display` does not refuse a mismatched validation batch | its refusal test |
+| 0 | `_frontend_draw` does not compare the drawn batch's kind and order (and, separately, the frontend `newton_cg` does not compare its `val_batch`'s) | the two refusal tests |
+| 0 | `_require_draw` accepts a callable `n_measurements` | its refusal test |
 | 2 | `_metric` applies the block weight unsquared | engine vs reference (weighted rows) |
 | 2 | the block row right-aligned (on the trailing axes) | engine vs reference with `F != N_i` |
 | 2 | `_with_K` skipped for the full weight | `Jp_norm_sq`, `JtJp` with `K` and a full weight (it raises by shape or differs) |
 | 2 | `y` allowed a size-1 `W` | the refusal test |
-| 2 | the full weight not masked on the uniform layer | the junk-in-padding test |
+| 2 | the full weight not masked on the uniform layer | the junk-in-padding test (`1e200` in the padding, squared) |
+| 2 | the block weight applied after the flip in `w_tilde_step` (`flip(M r)` becomes `M flip(r)` for the block factor) | engine vs reference on `w_tilde`, `g`, `JtJp` with an asymmetric block table |
+| 3 | the block weight applied after the flip in `probe_jet_to_dual_jet` (and before the flip back in `probe_dual_jet_to_jet`) | the converters against loops with an asymmetric table; the pairing identity |
 | 3 | `derivative_block_weight_to_taylor` divides | the factorials test and the objective-on-derivatives test |
 | 3 | `probe_data_metric` skips the check of `r`'s own `F` | the refusal of a size-1 slot axis in `r` |
 | 4 | the oracle's sums without the broadcast to `z`'s shape | `y_block_sumsq` with `C` of 1 (off by `|C|`) |
 | 4 | `take` gathers nothing for the full weight | `take` against index loops |
 | 4 | the selection in the oracle's sums removed (the product kept) | `y_block_sumsq` with `inf` in the padding |
 | 4 | `pack_batch` does not compare the mode sizes | its refusal test |
+| 4 | `pack_batch` does not check the modes' size-1 pattern (left to `pack_vectors`) | the refusal test asserting the message names `np.broadcast_to` |
 
 ---
 
@@ -1100,12 +1167,56 @@ The baseline is K0's own `-v` record of this tree (`implementation/k0/k0_suite_v
 its expected-red record): `m0/tally.py`-style comparison, every node that disappears or appears accounted for by name
 (the renamed `check_batch` tests; the deleted `blocks_to_weight` tests; the new tests).
 
-### 7.4 The diff audit
+### 7.4 The audits (`k1/diff_audit.py`, written before part 0's build)
 
-`k1/diff_audit.py` (after `m2/diff_audit.py`): for every changed test file, every changed line classified (a
-construction, a keyword renamed, a method call moved, a weight written out by `np.broadcast_to`, a refusal added, a new
-test) and every changed `assert*` call or tolerance listed by name for the reviewer. Expected: no tolerance changed
-anywhere; the assertions changed only in the tests of §6.2.
+Two conversions K1 makes by hand cannot be caught by any number (round 1, findings 1 and 2): a wrong `(kind, order)`
+moved into a batch passes every check of shapes (input jets read at the wrong jet shape, the trap of
+`LeastSquaresOracle`'s own docstring) and a test built from it compares two wrong numbers; and for apply and entries a
+`blocks_to_weight` output passed as `full_weight=` is legal and bitwise the block weight's metric. So each part's
+evidence includes an audit by construction, which pairs the old site with the new one.
+
+**How it reads.** For every file a part changes (the tests, the examples, the library's docstrings' doctests, the
+pages' doctests), the version at the part's base and at its result (`git show`), both parsed with `ast`. Sites are
+grouped by **scope**: the enclosing function (for a method, `Class.method`; a doctest, its docstring; a page, the
+file). Expressions are compared as `ast.unparse` text, so spacing and parentheses do not matter. The audit exits
+non-zero on an unpaired or unexplained site and writes its lists to `k1/part<j>_audit.txt` for the part's reviewer.
+
+**(a) Every part: the lines.** Every changed line classified (a construction, a keyword renamed, a method call moved,
+a weight written out by `np.broadcast_to`, a refusal added, a new test), and every changed `assert*` call or tolerance
+listed by name. Expected: no tolerance changed anywhere; the assertions changed only in the tests of §6.2.
+
+**(b) Part 0: the kind and the order.**
+- In the old version, every construction of `LeastSquaresOracle` or of a class that derives from it in the same file
+  (found by `ast`: `class X(LeastSquaresOracle)`, `class X(bfit.LeastSquaresOracle)`; the nine of §5.1) is bound to
+  the base's `(kind, order)` (positional or keyword; a subclass's own fields after them are set aside), giving a pair
+  of expressions.
+- In the new version, every `LeastSquaresBatch(` construction is bound to `(kind, order, sample, y, ...)`, giving its
+  pair.
+- In each scope: every new batch pair equals an old oracle pair of the same scope (or of the enclosing class's
+  `setUp` or body, or of the module level, in that order); every old batch construction has a new one (equal counts);
+  every old read `<x>.kind` / `<x>.order` with `x` an oracle is now a read off a batch, and listed.
+- **Listed, unresolved, for the reviewer to read by hand**, each with its call chain: a scope whose batches have no
+  oracle pair in reach (the oracle came in as an argument, or the pair is built by a helper such as `tests/_fits.fit`,
+  which receives `kind` and `order` once and builds both); a pair whose expressions differ. The handover gives their
+  count; the reviewer reads each.
+
+**(c) Parts 1 to 5: the weights.**
+- Every `blocks_to_weight(k, o, b, y)` call removed is paired with a `block_weight=` in the same scope whose value is
+  the old third argument `b` (directly, or through the one assignment the old code made, `w = blocks_to_weight(...)`
+  then `weight=w`), on the call that consumed it.
+- Every old keyword `weight=X` (any callee: the engine, the reference, a helper of the tests, `dc.replace`; a
+  positional weight of `LeastSquaresBatch` counts, part 0 having made it a keyword) is paired with the new call of the
+  same callee in the same scope (by the order of the calls in the scope) and classified: `block_weight=`,
+  `full_weight=`, or removed (with its reason: the test's subject moved, §6.2).
+- **Every new `full_weight=` site needs a line** in `k1/full_weight_reasons.tsv` (file, scope, callee, the expression,
+  the reason: a weight per entry, per sample, an old full-form weight written out on a structural axis, ...), and the
+  audit fails on a site with none. The apply and entries sites are marked: there a block weight passed as a full weight
+  would give the same numbers, so the reason is what tells them apart. The reviewer reads the file.
+- **Every new `block_weight=` site whose old value was not a `blocks_to_weight` output** is listed too, with a reason
+  line in the same file: an old full-form weight turned into a block weight keeps its meaning only if it was constant
+  off the blocks.
+- What the audit cannot see (a weight built in a helper of another module and passed through two scopes) is listed as
+  unresolved, as in (b).
 
 ---
 
@@ -1131,8 +1242,19 @@ reported after each gate.
   by selection from K1 (§4.8).
 - **The per-mode loops** of the engine's data-space steps stay (one application of `_metric` per mode) until K5 (plan
   §6, its program-size gate is K5's).
-- **The checkers:** `check_sample` and `check_data` stay until K3 (`check_data` exact on `y` from part 3);
-  `check_weight` goes in K1; the full weight's public checker is O2's question for K2.
+- **The checkers:** `check_sample` and `check_data` stay until K3 (`check_data` exact on `y` from part 3; its
+  docstring says it is `y`'s checker, not the full weight's, which `batch.check` checks: O3).
+- **The public full-weight checker** (O2): K2's design note settles it, and the orchestrator takes it to the maintainer
+  (public names the plan does not have; the reviewer's and my recommendation, `check_{probe,apply,entries}_full_weight`
+  taking the sample and the stack, not `y`). Until then the batch's `check` uses the private helper of §4.7, whose rule
+  table (§4.2's, the `W` axes added to the axes that may be 1) K2 lifts.
+- **`inf` and `nan` in a packed `y`'s padding** (§4.8): from K1 the oracle's `y_block_sumsq` is finite with them (it
+  masks by selection); the engine's `f`, and so `f_resolution`, are finite with them only from K5, whose selection
+  replaces the engine's product mask. No docstring written in K1 promises more: the batch's, the oracle's and
+  `pack_batch`'s texts say the padding of data is masked (true), never that it may hold `inf` (K5's contract,
+  `PACKING_PLAN.md` §1.3).
+- **The comparison of a drawn or validation batch's kind and order** is in the frontend from K1 (part 0); K4 keeps it
+  when it rewrites `_frontend_draw` and adds it where a frontend batch enters. The backend optimizers never look.
 - **`PerSite`**: the probe metric is annotated `typ.Any` until K2 adds the `TypeVar`.
 - **The frontend batch class** (`PackedVectors` members, `pack()`, the refusal of the backend's class) is K4's; in K1
   `t3toolbox.fitting.LeastSquaresBatch` is the backend class.
@@ -1164,10 +1286,10 @@ docstring to be written twice, so I take the orchestrator's suggestion, made pre
   signatures (all in §4 already), the tests' docstrings, and the one-line references in other modules' docstrings
   (the transposes' "pass `data_metric(r, weight, minibatch_scale)`", §5.3), which change by a fixed substitution
   listed in the part's handover.
-- **When:** a first draft of `k1/prose_edits.md` is written with this note (part 0's texts in full; the module
-  docstrings and the new public functions of parts 2 to 5 in full or as today's text with each change listed). The
-  reviewer may judge the design first and the words in a later round; the build of a part starts only when its prose
-  is signed off.
+- **When** (the orchestrator's rule, round 1): **a part's build starts only when its public docstrings are written in
+  full and reviewed.** For the design sign-off, parts 0 and 1 are in full in `k1/prose_edits.md` (§1 and §6 there);
+  parts 2 to 5 may stay "today's text with the changes listed" (§2 to §5 there), and each is completed in full and
+  reviewed before its part is built (a short prose round between the parts).
 
 ---
 
@@ -1207,15 +1329,24 @@ docstring to be written twice, so I take the orchestrator's suggestion, made pre
 - **D12. `prepare_*_derivative_data` with no weight returns the `k!` table always** (ones at `order = ()`), a block
   weight of the exact block shape, never `None`: the caller passes it straight to the batch.
 - **D13. `make_newton_display` compares `(kind, order)` by `getattr(..., None)`** on both batches: a user batch type
-  without them is not refused (it has no table layout to disagree on either), as the display reads `order` today.
+  without them is not refused (it has no table layout to disagree on either), as the display reads `order` today. The
+  frontend's comparisons of a validation batch and of each drawn batch (part 0, the ruling on O1) do the same.
 - **D14. The examples change in part 0** (their two construction lines, seven files), though the examples are P17's:
   `LeastSquaresOracle('apply', order=())` raises from part 0. Nothing else in them changes.
 - **D15. The translation moves in part 4, with the batch's fields** (§2.1 (c)), not in the frontend part: it is the
   one library builder of batches outside the fitting module.
+- **D16. No sentinel default for `sample`** (the orchestrator's ruling on finding r1-6): the two-argument old form
+  fails on Python's "missing 'sample'"; the signature stays true.
 
 ---
 
-## 12. Open points for the orchestrator
+## 12. Open points for the orchestrator, and the rulings of round 1
+
+**Ruled (2026-11-25, round 1):** O1 accepted, `flat_draw(batch, batch_size)`, with the guards of a drawn and a
+validation batch's kind and order brought into part 0 (§2.2); O2 is K2's design note's, to be taken to the maintainer
+then, the batch's `check` using the private helper meanwhile (§4.7, §9); O3 accepted, with `check_data`'s docstring
+saying it is not the full weight's checker; O4 accepted; D4 (the frontend's re-exports under the new names)
+confirmed and logged. The text of each point below is kept as it was put.
 
 - **O1. `flat_draw`'s signature** (a public backend function; the plan does not name its signature). After part 0
   its `oracle` argument is unread (the draw calls `batch.n_measurements` and `batch.take`). Options: (a)
