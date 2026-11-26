@@ -4,7 +4,37 @@ Written by Claude on 2026-11-25, at the end of the planning session, for the sam
 a new one). **You are the orchestrator of this arc** (the maintainer, Nick, asked for it). Nothing of the arc is
 built. Everything you need is in files; this page says what they are, what the maintainer asked, and what to watch.
 
-## 1. Where things stand
+## 0. RESUME HERE (written 2026-11-26, 01:50 CT, at the session's stop)
+
+The rest of this page was written before the arc started and is still the background (sections 2 to 6). **What has
+happened since, and where to pick up:**
+
+- **K0 is done**: `282b46a9` on `graded-messages`, pushed, CI green on both legs.
+- **K1 is being built on the side branch `k1-wip`** (pushed to the remote as a backup; CI does not run on it). Its
+  design is approved (`K1_DESIGN_NOTE.md`, revision 2, with `k1/prose_edits.md`). **Parts 0 and 1 are reviewed,
+  signed off and committed there** (`78a34d77`, `31e3d100`). Parts 2 to 5 are not built: 2, the engine and its
+  steps; 3, `jets`' public surface; 4, the fitting layer and the translation; 5, the frontend's names, the
+  deletions, the pages, and the full gate. When part 5's gate passes, the branch is squashed into one commit on
+  `graded-messages`.
+- **The next step is part 2's build.** Its public docstrings are written in full and signed off after two rounds
+  (`k1/prose_edits.md` §3, the one text the build uses; `K1_part2_PROSE_REVIEW_r1.md`, `_r2.md`,
+  `K1_part2_PROSE_RESPONSE_r1.md`). The order of the build and what its review checks first are in the two
+  carry-over notes. Part 2 ends **red by design** (the list is §3.11 of the prose file), recorded by a run, per
+  subtest. Then, before each of parts 3, 4 and 5 is built: its prose round (`K_ARC_DECISIONS.md` 28).
+- **The agents do not survive a new session.** Start a fresh implementer on `K_IMPLEMENTER_CARRYOVER.md` and a fresh
+  reviewer on `K_REVIEWER_CARRYOVER.md`, each with the orientation the maintainer asks for, `K_BRIEF.md` first. An
+  agent lasts about one part after its orientation: ask each for its remaining context after every turn and rotate
+  at part boundaries. The reviewer orients while the implementer builds and writes its own checks before it sees the
+  build (this found real things every time).
+- **Read first:** `LOG.md` from "The packing sub-arc (K0 to K7) starts" to the end; `K_ARC_DECISIONS.md` whole (41
+  entries and the maintainer's instructions during the arc: the `typ.Any` audit after K7, with
+  `sampling_definitions` exempt; "don't worry about the token cost"); then this page's sections 3 to 6.
+- **Waiting for the maintainer:** nothing blocks K1. At K2's design: whether the full weight gets public checkers of
+  its own (`K_ARC_DECISIONS.md` 29). After the arc: the discussion of the decision log, and the `typ.Any` audit.
+- **The working tree** is on `k1-wip`; the untracked files at the repository root (`release_notes_2026.*.md`,
+  `dev/check_t3svd_retraction_second_order.py`) are the maintainer's and are left alone. Disk: about 8 GB free.
+
+## 1. Where things stand (at the arc's start, 2026-11-25)
 
 - Branch `graded-messages`; the plan and its records were committed on 2026-11-25 (`git log -1` shows the commit, "dev:
   the packing sub-arc planned"). Not pushed at the time of writing: ask the maintainer before the first push, or push

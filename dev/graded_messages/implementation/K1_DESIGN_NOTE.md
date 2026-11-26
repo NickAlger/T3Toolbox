@@ -388,9 +388,11 @@ only by checks 5 and 6, which compare with today's functions.
 
 Two consequences for the design:
 
-- **Where the product is formed.** To keep check 5's bitwise identity, the one private core (§4.3) forms `b*b` and
-  `f*f` each in the lowest floating precision of `r` and the weights (today's `_omega_squared` rule), multiplies them
-  (`(b*b) * (f*f)` only when both are given), then `* r`, then the scale `gamma * (...)` last, as today.
+- **Where the product is formed.** To keep check 5's bitwise identity, the one private core (§4.3) works in one
+  dtype, the lowest floating precision of `r` and every weight given (today's `data_metric` rule: it casts `r`
+  too); `r` and each given weight are cast to it, `b*b` and `f*f` are each formed in it, multiplied (`(b*b) * (f*f)`
+  only when both are given), then `* r`, then the scale `gamma * (...)` last, as today. (Made exact in part 2's prose
+  review, finding 1; `k1/part2_metric_dtype.py`.)
 - **The oracle's two data sums.** On a ragged `y` they stay one product and one reduction per mode (bitwise today's,
   `y` being exact now and the broadcast to `z`'s shape kept). On a packed `y` they become one product and one
   reduction on the packed array (plan §2.4, §6): the summation order changes (one reduction over `(d,)+F+W+C+(N,)`
@@ -513,7 +515,9 @@ def _metric(                                # in jets.py: the one place b**2 f**
 ) -> NDArray:                               # gamma * (block_X**2 * full_X**2) * r_X, r_X's shape; no checks
 ```
 
-It replaces `_omega_squared` and the inner loop of `data_metric`; `_check_pair` stays the full weight's pairwise check.
+Its dtype: the lowest floating precision of `r_X` and every weight given; `r_X` and each given weight are cast to it
+and each square is formed in it (today's `data_metric`, which casts `r` too; with two weights of different precision,
+the lowest of the three). It replaces `_omega_squared` and the inner loop of `data_metric`; `_check_pair` stays the full weight's pairwise check.
 The steps keep their per-mode structure in K1 (the single array operations are K5's, plan §6), with two weights:
 
 ```python

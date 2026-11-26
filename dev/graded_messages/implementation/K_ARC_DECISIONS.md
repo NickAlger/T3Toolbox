@@ -204,3 +204,15 @@ where it is recorded. Larger rulings are also in `LOG.md`. The design's decision
 39. **For part 2, from the reviewer:** the reference accepts a probe full weight whose modes disagree in their
     pattern of size-1 `W` axes (the plan puts that rule on the engine, the checkers and the batch), so the engine's
     refusal of such a weight cannot be checked against the reference: it is tested as a refusal on its own.
+40. **Part 2's prose signed off after two rounds, before its build** (`K1_part2_PROSE_REVIEW_r1.md` NOT YET,
+    `_r2.md` SIGN OFF). Two things the round settled that would otherwise have been found in the build: the dtype
+    rule of the private metric core, stated as the definition (the result's dtype is the lowest floating precision of
+    the data and every weight given, each cast to it; the draft left the data uncast, so a float32 weight against
+    float64 data would have given float64 where today's metric gives float32, and the battery compares dtypes); and
+    the layout of four rows of the engine's rule table whose new entry is wider than the shared column (the table's
+    own overflow form, a continuation line; no other row moves, so the table keeps one layout).
+41. **The session stops here (2026-11-26, 01:50 CT; the maintainer's 03:00 limit), at a part boundary.** Parts 0 and 1
+    of K1 are on `k1-wip`, pushed; part 2 is not started. A resume pointer is on `graded-messages`
+    (`K_ORCHESTRATOR_HANDOFF.md` §0), since a new session starts from that branch's `CLAUDE.md`. Tokens so far (Opus,
+    from the agents' own counts): K0 about 2.0M; K1 so far about 3.6M (the design 1.0M, part 0 about 1.5M, part 1 and
+    part 2's prose about 0.9M, the reviewers' orientations within those figures).

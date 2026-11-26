@@ -228,3 +228,84 @@ and needs no further prose round.
 - **01:05: part 1 complete.** Suite green (1,890 passed, 5 skipped, 1 xfailed, 90,398 subtests,
   `k1/part1_suite_v.log.gz`); tally `k1/tally_part0_vs_part1.txt` (10 nodes, all accounted for in the handover);
   `K1_part1_HANDOVER.md` final. Nothing running. Next: the reviewer's review of part 1.
+
+## Part 2: where it stands (01:25 CT, 2026-11-26)
+
+- **Part 1 done, reviewed SIGN OFF (`K1_part1_REVIEW_r1.md`), committed `31e3d100`.** Ruling for part 2: the
+  reference's own tests stop using `jets.blocks_to_weight` in part 2 (the three expectations of
+  `tests/test_sampling_definitions.py` that read `P.data(kind, case)[1]`, and `Problem.data` itself): a loop placement
+  of their own. Reviewer's note: the reference accepts a probe full weight whose modes disagree in their size-1 `W`
+  pattern, so the engine's refusal of it is tested as a refusal on its own (no reference comparison).
+- **Part 2's prose written in full** in `k1/prose_edits.md` §3 (3.1 to 3.10: the signature comments, the parameter
+  entries, "The engine checks", the module docstring's `reads`, table rows, held-`Jp` and uniform paragraphs,
+  `HeldVariables`, `_check_stacks`, the three checkers, the steps' comment, `_modes`/`_with_K`/`_weighted_sum`, the
+  four steps and `r_step`, `jets._metric`, the oracle's bridge) and §3.11, the predicted red of part 2. Prose review
+  round 1 NOT YET (`K1_part2_PROSE_REVIEW_r1.md`, two should-fix, four minor), all six folded by 01:35
+  (`K1_part2_PROSE_RESPONSE_r1.md`): `_metric`'s dtype rule made exact
+  (lowest precision of r and every weight; r and each weight cast to it; checked by `k1/part2_metric_dtype.py`; also
+  in the note's §3 and §4.3); the four `Rule` rows in the table's overflow form, written out; `HeldVariables` and
+  `_check_stacks` after-texts in full; the red list gains `test_block_sums::...::test_engine_and_oracle`. Waiting for
+  the reviewer's re-read of the six points.
+- **Part 2's build starts with:** the prose review's findings; then the engine (`sampling_variables.py`: signature,
+  the three checkers replacing `_check_data_space`, `_ARGUMENTS`, `_UNIFORM_MASKS`, the rows, the uniform packing
+  with `pack_if_ragged` and the always-masked full weight), the steps and `jets._metric`, the oracle's bridge line;
+  then the tests of the note's §6.1 part-2 rows **plus** `test_contractions_sharding.py` and `test_sampling_graph.py`
+  (engine calls with `weight=` outside the note's list, §3.11 item 5) and the ruling above; then the run that records
+  the expected red per subtest (`k1/part2_EXPECTED_RED.txt`), audit (c) `--part 2`, the battery's engine rows, the
+  mutations of §6.4's part-2 rows.
+- Context of the third implementer: about 70% used at 01:25.
+
+## Part 2: final state for tonight (01:50 CT, 2026-11-26), for a successor with no memory of the session
+
+**Where K1 stands.** Parts 0 and 1 are built, reviewed and committed on `k1-wip` (part 1 is `31e3d100`). **Part 2's
+prose is signed off after two rounds** (`K1_part2_PROSE_REVIEW_r1.md` NOT YET, `K1_part2_PROSE_RESPONSE_r1.md`,
+`K1_part2_PROSE_REVIEW_r2.md` SIGN OFF with two re-fills, A and B, now folded into `k1/prose_edits.md` §3.2 and §3.9).
+`k1/prose_edits.md` §3 is the one text the build uses; nothing needs merging. The note was made exact (not changed) on
+`_metric`'s dtype in its §3 and §4.3. Part 2's build has not started; the tree is part 1's plus records under `dev/`.
+
+**What the build review checks first:** the list at the end of `K1_part2_PROSE_REVIEW_r1.md` (the dtype of `_metric`
+by a float32 block weight with float64 data, then the battery's engine rows bitwise with dtypes; the engine against
+the reference with the pair on both sides, `K` and coinciding sizes, the block weight untouched by `_with_K`; the
+refusals cell by cell of the note's §4.2 table, the modes' `W` pattern as a refusal on its own; junk in the padding of
+`y` and the full weight, finite; `test_block_sums...test_engine_and_oracle` and the per-subtest expected red; the
+`Rule` rows in the overflow form, the rest of the table unchanged), plus A and B of round 2.
+
+**The order of the build, as I would do it:**
+1. `jets._metric(r_X, block_X, full_X, gamma, xnp)` (private; reuse `_lowest_precision_dtype`, cast `r_X` and each
+   weight, squares in that dtype, product only when both, then `* r_X`, `gamma` last), and check it against
+   `data_metric` with `k1/part2_metric_dtype.py`'s cases (bitwise, dtypes). `data_metric` stays (deleted in part 5).
+2. `sampling_steps.py`: `_modes` (array, block row, full array, edge), `_with_K` (full weight only), `_weighted_sum`,
+   the four steps and `r_step`'s text, all through `jets._metric`; prose §3.6 to §3.8.
+3. `sampling_variables.py`: the signature (§3.1 / note §4.2), `computed_names`; the three checkers sharing one reader
+   in place of `_check_data_space` (§3.5; the block weight checked BEFORE `_cast`, which would read a tuple as a
+   sequence of arrays); the uniform packing of a ragged `y` / full weight by `ut3_operations.pack_if_ragged(value, N)`
+   (not `_pack_data_space`, which part 4 deletes); the masking loop (`:1910-1918`): `y` and the full weight always
+   masked on the uniform layout for probe, the block weight never (no `_UNIFORM_MASKS` entry; `'full_weight'` takes
+   `'weight'`'s entry); `_ARGUMENTS`; the four `Rule` rows in the overflow form written in §3.4; the docstring texts.
+4. The oracle's bridge line (§3.10).
+5. Tests: the note's §6.1 part-2 rows and §6.2 (`test_engine_data_space`: `TestTheUniformEdgeOfOne`'s first three
+   become refusals, the `1e200` padding test kept; `TestTheCheck` re-ruled), **plus** `tests/test_contractions_sharding.py`
+   and `tests/test_sampling_graph.py` (keyword only); the orchestrator's ruling: `tests/test_sampling_definitions.py`'s
+   `Problem.data` and the three expectations that read `P.data(kind, case)[1]` (`TestOutputsAgainstDense` twice, the
+   second-derivative test of `Kp`) get a loop placement of their own, no `jets.blocks_to_weight`; the engine
+   comparisons pass `(block_weight, full_weight)` to both sides (part 1's `test_engine_data_space.TestAgainstTheReference`
+   'a block and a full weight' pattern then compares the pair with the pair); asymmetric block tables at `(2,)` and
+   `(2, 1)` (note §6.3); the new refusals of §6.3 part 2, the full weight's disagreeing `W` pattern across modes as a
+   refusal alone (the reference accepts it).
+6. Evidence: a targeted run of the changed files first (it finds missed sites fast); then the `-v` suite at `-n 2`,
+   detached (33 min), recorded per subtest as `k1/part2_EXPECTED_RED.txt` and classified against prose §3.11; audit
+   (c) `diff_audit.py 31e3d100 --part 2 --reasons k1/full_weight_reasons_part2.tsv` (keep part 1's TSV as its record:
+   against base `31e3d100` its lines would all be STALE; write part 2's with a copy of `part1_reasons.py`); the
+   battery's engine rows (`k1/battery.py`, `new` form for the engine only: the batch is still one-weight until part 4);
+   the mutations of the note's §6.4 part-2 rows (copy `part1_mutations.py`); the kept-text check; the handover
+   `K1_part2_HANDOVER.md`.
+
+**Known, in no other file:**
+- `pack_if_ragged` → `pack_vectors` packs a probe full weight only if its modes agree in everything but the edge, which
+  the new check guarantees (check before packing).
+- In the engine today, `weight` is a counted input for the dtype where a row reads it; both new weights must be, so a
+  float32 block weight with float64 cores gives float32 (the note's §4.2 "dtype" bullet); the reference is not
+  dtype-sensitive, so only the battery or a direct dtype assertion sees this.
+- `computed_names` reads presence only; the two new keywords are "not read".
+- `tests/_fits.py` and the frontend's translation are part 4's: part 2's red list (prose §3.11) is mostly theirs.
+- Times on this laptop: targeted reference files ~1.5 min at `-n 2`; full `-v` suite 33 min; mutation pass ~3 min.

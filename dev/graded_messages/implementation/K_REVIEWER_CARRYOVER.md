@@ -111,6 +111,28 @@ what I ran:
 For part 2, the reference is the anchor. The engine's refusal of probe modes whose size-1 `W` patterns disagree has
 no counterpart in the reference, which accepts them, so test it as a refusal on its own.
 
+### Where things stand (2026-11-26, 01:30 CT, reviewer 4)
+
+- **Part 1:** signed off (`K1_part1_REVIEW_r1.md`) and committed on `k1-wip` as `31e3d100`. Rulings: the reference's
+  own tests get a loop placement of their own in part 2, not part 5; the modes' `W` pattern is tested at the engine as
+  a refusal on its own.
+- **Part 2's prose** (`k1/prose_edits.md` §3) is reviewed in `K1_part2_PROSE_REVIEW_r1.md`: **NOT YET**. Two
+  should-fix findings:
+  - `jets._metric`'s dtype rule: today `r` is cast to the lowest precision of `r` and the weight; the draft would give
+    float64 where today gives float32;
+  - the `Rule` rows: use the table's existing continuation form, decided now.
+
+  Four minor findings besides. **Round 2 (`K1_part2_PROSE_REVIEW_r2.md`): SIGN OFF** (01:36 CT). The dtype rule
+  was checked against my own model and today's `data_metric` (12 pairings, integers included). The `Rule` rows were
+  checked against the real columns (60, 91, 110). Two line re-fills (A, B) are given there for the build to write.
+  **Part 2's build starts from this prose when the session resumes.**
+- **What part 2's build review must check first:** the list at the end of that review: the dtype; the engine against
+  the reference with `K` and coinciding sizes; the refusals cell by cell; junk in the padding (finite); the mixed node
+  `test_block_sums::test_engine_and_oracle`; the `Rule` rows.
+- **My tools:** `k1/reviewer_tools/` (see "Fourth reviewer" above). `ref_dense_pins.py --api new` is the anchor on the
+  reference; the engine side is for part 2's tests. `ref_mutations.py`'s patches are for the reference at `31e3d100`.
+- **My context** at this point: about three quarters used. A fresh reviewer may be needed for part 2's build review.
+
 ## Context
 
 At the end of part 0's round 1 I have used most of my context (roughly three quarters). I can take part 0's round 2

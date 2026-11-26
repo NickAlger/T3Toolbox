@@ -1602,3 +1602,8 @@ engine-against-reference case with both weights. The weights audit: 40 reason li
 weight in disguise. Suite 1,890 passed, 5 skipped, 1 xfailed, 90,398 subtests. **Committed to `k1-wip`.**
 `K_ARC_DECISIONS.md` 36 to 39. Next: part 2 (the engine and its steps), after its public docstrings are written in
 full and reviewed.
+K1 part 2's prose round (2026-11-26, 01:36): the engine's and the steps' public texts written in full
+(`k1/prose_edits.md` §3) and signed off after two rounds (`K1_part2_PROSE_REVIEW_r1.md`, `_r2.md`), with the dtype
+rule of `jets._metric` made exact and the rule table's four wide rows laid out. **The session stops here** (the
+maintainer's limit, 03:00 CT), at a part boundary: K1's parts 0 and 1 are on `k1-wip` (pushed), part 2's build is
+next. Resume from `K_ORCHESTRATOR_HANDOFF.md` §0, `K_IMPLEMENTER_CARRYOVER.md`, `K_REVIEWER_CARRYOVER.md`.
