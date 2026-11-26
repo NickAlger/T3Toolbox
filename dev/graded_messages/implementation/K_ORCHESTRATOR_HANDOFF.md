@@ -15,7 +15,8 @@ built. Everything you need is in files; this page says what they are, what the m
   the maintainer, and not this arc's: the sampling audit's decisions 3 (corewise placement) and 4 (the name
   "Hessian"). After K7: the small `from_t3` slice, then P17, P18, P19 (P20 is K0 now).
 - **After K7, with the maintainer (his request, 2026-11-25): an audit of every `typ.Any` in the sampling layer and
-  what is downstream**, case by case: why it is there, and whether it can be made strict. The handovers of K1 to K7
+  what is downstream**, case by case: why it is there, and whether it can be made strict (`sampling_definitions` is
+  exempt, his ruling). The handovers of K1 to K7
   list the ones each slice leaves (`K_BRIEF.md` §5); the count before K1 is in `K_ARC_DECISIONS.md`.
 - Untracked files to leave alone: `release_notes_2026.*.md`, `dev/check_t3svd_retraction_second_order.py`.
 

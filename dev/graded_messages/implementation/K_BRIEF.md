@@ -121,7 +121,8 @@ output is pasted from a real run; no email address in any file. In addition:
   express (`CLAUDE.md`, "Signature shape comments": real `Union` / `Optional`, a sequence type, the `PerSite`
   `TypeVar` from K2 on) and do not reach for `typ.Any` out of habit. Each handover lists the `typ.Any`s left in the
   signatures the slice touched, each with its reason (a per-mode object in two forms; a pytree of the caller's; a
-  duck-typed batch; ...). Do not go hunting for the ones a slice does not touch: that is the audit's.
+  duck-typed batch; ...). Do not go hunting for the ones a slice does not touch: that is the audit's. **The dense reference
+  `backend/sampling_definitions.py` is exempt** (the maintainer): not audited, not listed.
 - **The planned pauses of `BRIEF.md` do not apply.** The orchestrator pauses for the maintainer when section 3's
   cases need him.
 - **When your context is getting long,** say so in your report, and write what a successor needs in

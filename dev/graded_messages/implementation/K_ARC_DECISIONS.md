@@ -161,5 +161,7 @@ where it is recorded. Larger rulings are also in `LOG.md`. The design's decision
   `backend/fitting` 28, `sampling_steps` 23, `t3toolbox/optimizers` 19, `data_preparation` 17, `t3toolbox/fitting` 10,
   `uniform_fitting` 6, `geometry` 5, `optimizer_display` 1; none in `probing`, `apply`, `entries`, `ut3_sampling`,
   `utv_sampling`; 492 in the library as a whole.
+- **2026-11-25, the same day:** "sampling_definitions is exempt from the typ.Any audit" (the dense reference
+  `backend/sampling_definitions.py`, 185 of the 492). The handovers' lists leave it out too.
 - **2026-11-25:** "Don't worry about the token cost." The session ends at 03:00 CT on 2026-11-26 and is resumed later
   that day; everything is committed and pushed before it ends.
