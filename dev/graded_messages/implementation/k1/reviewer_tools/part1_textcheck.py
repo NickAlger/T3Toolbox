@@ -39,7 +39,7 @@ PROSE = os.path.join(HERE, '..', 'prose_edits.md')
 OLD_W = ("        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; "
          "None = ones")
 NEW_W = ("        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries "
-         "(); None = ones\n"
+         "();\n                                                             #   None = ones\n"
          "        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones")
 OLD_Y = "        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z"
 NEW_Y = "        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)"

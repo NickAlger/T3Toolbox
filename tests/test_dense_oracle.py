@@ -6,7 +6,7 @@
 against it.
 
 The full form: the data ``y`` and the weight ``omega`` are of the type of ``z`` (each axis 1 or ``z``'s size, read by
-position), in Taylor coordinates. Three lines of evidence, none of which calls the library:
+position), in Taylor coordinates. Four lines of evidence, none of which calls the library:
 
 1. ``expand`` against an explicit loop over every entry, and its refusals;
 2. ``S_taylor`` along a line against ``S`` evaluated on the line: ``sum_t c_t s^t == S(main + s pp)`` at points that
@@ -14,6 +14,8 @@ position), in Taylor coordinates. Three lines of evidence, none of which calls t
 3. ``misfit_full`` against an explicit loop over every entry of ``z`` (the weight and the data read at index 0 on
    their size-1 axes), for a weight per entry, per sample, per slot, per mode, one number, and none; and against the
    old form's ``misfit`` of derivative data, ``omega_t = w_t t!`` (a derivative is ``t!`` times its Taylor coefficient).
+4. the two weights (K1): ``weighted_residual_two`` and ``weighted_two`` against an explicit loop over every entry, the
+   block weight read at the entry's slot, for neither weight, either, and both.
 
 numpy only.
 """
@@ -193,6 +195,62 @@ class TestMisfitFull(unittest.TestCase):
                                          (oracle.onehots(index, SHAPE), pp) if kind == 'entries' else sample,
                                          y_t, weight, (n,))
                 self.assertLessEqual(abs(new - old), 1e-12 * old)
+
+
+class TestTwoWeights(unittest.TestCase):
+    """``weighted_residual_two`` and ``weighted_two`` (K1): the block weight on the leading jet axes and the full
+    weight entry by entry, multiplying, against an explicit loop over every entry of ``z`` (the block weight read at
+    the entry's slot, the full weight and ``y`` at 0 on their size-1 axes, `at`)."""
+
+    def loop(self, kind, z, value, block, full, residual):
+        """``b * f * (z - value)`` (``residual``) or ``b * f * value``, entry by entry, as a list over the modes."""
+        zs = list(z) if kind == 'probe' else [z]
+        vs = [value[i] for i in range(len(zs))] if kind == 'probe' else [value]
+        fs = [None] * len(zs) if full is None else ([full[i] for i in range(len(zs))] if kind == 'probe' else [full])
+        out = []
+        for i, (z_, v_, f_) in enumerate(zip(zs, vs, fs)):
+            m = 0 if block is None else np.ndim(block) - (1 if kind == 'probe' else 0)
+            o = np.zeros(np.shape(z_))
+            for index in np.ndindex(*np.shape(z_)):
+                b = 1.0 if block is None else float(np.asarray(block)[((i,) if kind == 'probe' else ()) + index[:m]])
+                f = 1.0 if f_ is None else float(at(np.asarray(f_), index))
+                v = float(at(np.asarray(v_), index))
+                o[index] = b * f * ((z_[index] - v) if residual else v)
+            out.append(o)
+        return out
+
+    def test_against_the_loop(self):
+        rng, X, ww, pp, index = problem(6)
+        for kind in ('probe', 'apply', 'entries'):
+            for order in (((), (2,)) if kind != 'entries' else ((),)):
+                sample = sample_of(kind, ww, pp, index, order)
+                z = oracle.S_taylor(kind, X, sample, order)
+                shapes = [a.shape for a in z] if kind == 'probe' else [z.shape]
+                F = tuple(n + 1 for n in order)
+                m = len(order)
+                block = 0.5 + rng.random(((len(SHAPE),) if kind == 'probe' else ()) + F)    # every slot different
+                per_entry = [0.5 + rng.random(sh) for sh in shapes]
+                w_of_one = [0.5 + rng.random(pattern_shape(sh, set(range(len(sh))) - set(range(m, m + len(W)))))
+                            for sh in shapes]
+                for name, (b, f) in {'neither': (None, None), 'block': (block, None), 'full': (None, per_entry),
+                                     'full with W of 1': (None, w_of_one), 'both': (block, w_of_one)}.items():
+                    with self.subTest(kind=kind, order=order, weights=name):
+                        y = [rng.standard_normal(sh) for sh in shapes]
+                        f_arg = None if f is None else (f if kind == 'probe' else f[0])
+                        y_arg = y if kind == 'probe' else y[0]
+                        for residual, function in ((True, oracle.weighted_residual_two), (False, oracle.weighted_two)):
+                            got = function(kind, z, y_arg, b, f_arg)
+                            got = got if kind == 'probe' else [got]
+                            expected = self.loop(kind, z, y_arg, b, f_arg, residual)
+                            for a, c in zip(got, expected):
+                                self.assertLessEqual(float(np.max(np.abs(a - c))),
+                                                     1e-12 * max(1.0, float(np.max(np.abs(c)))))
+
+    def test_a_block_row_off_the_jet_box_is_refused(self):
+        _, X, ww, pp, index = problem(7)
+        z = oracle.S_taylor('probe', X, (ww, pp), (2,))
+        with self.assertRaises(ValueError):                         # (d,) + F + (1,): the old full form
+            oracle.weighted_residual_two('probe', z, z, np.ones((3, 3, 1)), None)
 
 
 if __name__ == '__main__':

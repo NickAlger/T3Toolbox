@@ -84,10 +84,11 @@ evaluations per variable, so the module is for small problems.
 
 **The seed, and the turn.** The data ``y`` and the residual ``r = z - y`` are of the type of ``z``, in forward
 order. The seed is the residual made into a dual jet: weighted, then turned, a flip of every jet axis,
-``w_tilde[k] = weight[order - k]**2 * r[order - k]`` (``k`` a multi-index, the weight read at the same entry as the
-residual). As a polynomial in ``s`` the seed is
+``w_tilde[k] = b[order - k]**2 * f[order - k]**2 * r[order - k]`` (``k`` a multi-index; ``b`` the block weight's
+row of the mode, read at the slot; ``f`` the full weight, read at the same entry as the residual). As a polynomial
+in ``s`` the seed is
 ``sum_k w_tilde[k] s^k``, so the tilde and tilde-dot variables are stored turned too: paired with a jet, the
-number they stand for is the coefficient of the corner ``s_1^n_1 ... s_m^n_m`` of the product. Pass ``y`` (and ``weight``) for the seed
+number they stand for is the coefficient of the corner ``s_1^n_1 ... s_m^n_m`` of the product. Pass ``y`` (and the weights) for the seed
 of the residual, or ``w_tilde`` for a seed of your own; ``w_tilde`` wins where both are given.
 
 **The arguments** are the same for every function:
@@ -105,14 +106,18 @@ of the residual, or ``w_tilde`` for a seed of your own; ``w_tilde`` wins where b
 - ``order``: the jet shape, a tuple; ``()`` (the default) for no jets, and the only one ``'entries'`` takes.
 - ``variations``: ``(V, H)``, ``V[i]`` of shape ``(nUi, Ni)`` and ``H[i]`` of shape ``(rLi, nDi, rR(i+1))``.
 - ``core_directions``: ``(D_dot, L_dot)``, with the shapes of ``D`` and ``L``.
-- ``y``: the data, of the type of ``z``: probe ``len=d``, ``elm_shape=F+W+(Ni,)``; apply ``F+W``; entries ``W``.
-- ``weight``: ``omega``, of the type of ``z`` too, entering squared; ``None`` is ones.
+- ``y``: the data, exactly ``z``'s shape: probe ``len=d``, ``elm_shape=F+W+(Ni,)``; apply ``F+W``; entries ``W``.
+- ``block_weight``: one number per block, a mode at a slot (probe, ``shape=(d,)+F``), a slot (apply, ``F``) or all
+  of the data (entries, ``()``), exactly that shape; it enters squared, on the leading axes (row ``i`` on the jet
+  axes of mode ``i``). ``None`` is ones.
+- ``full_weight``: one number per measured number, of the type of ``z``, with ``z``'s shape except that each
+  sample axis ``W`` may be 1 (the same for every sample); it enters squared, entry by entry. ``None`` is ones.
 
-``y`` and the weight are **data-space objects**: of the type of ``z`` (for probe exactly ``d`` arrays, a tuple, a
-list, or one array whose first axis is the mode), each array of the rank of ``z``'s, each axis of size 1 or of
-``z``'s size. A size of 1 means the same value along that axis: a weight per slot has size-1 sample and edge axes,
-one per sample size-1 jet and edge axes, one per entry ``z``'s shape. They are read by position, with no reshape, and
-any other form raises a ``ValueError`` (a weight of one value per mode and slot, ``(d,) + F``, is not of this type).
+``y`` and the full weight are **data-space objects**, of the type of ``z``: for probe exactly ``d`` arrays (a
+tuple, a list, or one array whose first axis is the mode), each of the rank of ``z``'s array. ``y`` has ``z``'s
+shape exactly; the full weight has its jet axes and its mode edge exactly, its sample axes 1 or full. A size of 1
+elsewhere (a jet axis, the edge) raises a ``ValueError``: a weight per slot or per mode is a block weight. They are
+read by position, with no reshape. The two weights multiply: the misfit is ``1/2 sum b**2 f**2 r**2``.
 - ``w_tilde``: a seed, of the type of ``z``, stored turned.
 
 A function reads only the arguments its variable depends on, and raises a ``ValueError`` if one of those is
@@ -648,11 +653,10 @@ def _Jp(S: _Setting, variations: typ.Tuple) -> typ.Any:
 
 
 def _r(S: _Setting, sample: typ.Any, y: typ.Any) -> typ.Any:
-    '''``r = z - y``: the residual, of the type of ``z``, in forward order. ``y`` is of the type of ``z``, each axis 1
-    or ``z``'s size (checked, `_check_data_space`), and is read positionally: a size of 1 is the same value along that
-    axis.'''
+    '''``r = z - y``: the residual, of the type of ``z``, in forward order. ``y`` is of the type of ``z``, with ``z``'s
+    shape exactly (checked, `_check_data_space`).'''
     def residual(i, z_TX, y_TX):
-        _check_data_space('the data y', i, np.shape(y_TX), np.shape(z_TX))
+        _check_data_space('the data y', i, np.shape(y_TX), np.shape(z_TX), ())
         return z_TX - y_TX
     return _map_type_of_z(S, residual, _z(S, sample), _modes_of_data(S, y, 'the data y'))
 
@@ -684,34 +688,63 @@ def _modes_of_data(
 
 
 def _check_data_space(
-        what:      str,
-        i:         typ.Optional[int],               # the mode (probe), None otherwise
-        shape:     typ.Tuple[int, ...],             # the data-space array's shape
-        of_shape:  typ.Tuple[int, ...],             # the shape of the array of z it goes with
+        what:        str,
+        i:           typ.Optional[int],             # the mode (probe), None otherwise
+        shape:       typ.Tuple[int, ...],           # the data-space array's shape
+        of_shape:    typ.Tuple[int, ...],           # the shape of the array of z it goes with
+        may_be_one:  typ.Tuple[int, ...],           # the axes where 1 is allowed too: the full weight's W; () for y
 ) -> None:
-    '''The rule for a data-space object (``y``, the weight): the rank of ``z``'s array, and each axis 1 or ``z``'s
-    size. A structural ``ValueError`` otherwise, so that no other form is read in a way it was not meant.'''
+    '''The rule of a data-space object (``y``, the full weight): the rank of ``z``'s array, each axis ``z``'s size,
+    except at ``may_be_one`` (the full weight's sample axes), where 1 is allowed too. A structural ``ValueError``
+    otherwise.'''
     where = '' if i is None else ' (mode %d)' % i
-    if len(shape) != len(of_shape) or any(a not in (1, b) for a, b in zip(shape, of_shape)):
-        raise ValueError('%s%s has shape %s; it is of the type of z, whose array here has shape %s: the same rank, and '
-                         'each axis 1 or z\'s size' % (what, where, tuple(shape), tuple(of_shape)))
+    if len(shape) != len(of_shape) or any(a != b and not (a == 1 and axis in may_be_one)
+                                          for axis, (a, b) in enumerate(zip(shape, of_shape))):
+        rule = ('each sample axis 1 or its size, the jet axes and the mode edge exactly' if may_be_one else
+                'exactly that shape')
+        raise ValueError('%s%s has shape %s; it is of the type of z, whose array here has shape %s: the same rank, %s'
+                         % (what, where, tuple(shape), tuple(of_shape), rule))
+
+
+def _check_block_weight(
+        S:             _Setting,
+        block_weight:  typ.Any,                 # per block: probe (d,)+F, apply F, entries ()
+) -> None:
+    '''The block weight's shape is the block shape exactly: ``(d,) + F`` (probe), ``F`` (apply), ``()`` (entries); a
+    sequence is refused (a ``TypeError``).'''
+    if isinstance(block_weight, (tuple, list)):
+        raise TypeError('the block weight is one array (a number for entries), not a %s: per mode and slot (d,) + F '
+                        'for probe, per slot F for apply' % type(block_weight).__name__)
+    blocks = ((S.d,) if S.kind == 'probe' else ()) + S.box
+    if tuple(np.shape(block_weight)) != blocks:
+        raise ValueError('the block weight has shape %s; the block shape of the %s kind at order %s is %s exactly: '
+                         'probe (d,) + F, apply F, entries ()' % (tuple(np.shape(block_weight)), S.kind, S.order,
+                                                                  blocks))
 
 
 def _weight_squared(
-        S:       _Setting,
-        weight:  typ.Any,                   # of the type of z: each axis 1 or z's size; None = ones
-        i:       typ.Optional[int],         # the mode (probe), None otherwise
-        shape:   typ.Tuple[int, ...],       # the shape of the array of the type of z it will multiply
-) -> typ.Any:                               # weight**2, the weight's own shape (broadcast positionally), or 1.0
-    '''``weight**2`` for one array of the type of ``z`` (mode ``i`` for probe). The weight is read in the full form,
-    by position: the array's rank, each axis 1 (the same value along it) or the array's size. No reshape.'''
-    if weight is None:
-        return 1.0
-    xnp, _, _ = get_backend(False, tree_contains_jax((weight,)))
-    omega_X = _modes_of_data(S, weight, 'the weight')
-    omega_X = xnp.asarray(omega_X if i is None else omega_X[i])
-    _check_data_space('the weight', i, omega_X.shape, shape)
-    return omega_X ** 2
+        S:             _Setting,
+        block_weight:  typ.Any,                 # per block: probe (d,)+F, apply F, entries (); None = ones
+        full_weight:   typ.Any,                 # of the type of z: z's shape, each W axis 1 or W's size; None = ones
+        i:             typ.Optional[int],       # the mode (probe), None otherwise
+        shape:         typ.Tuple[int, ...],     # the shape of the array of the type of z it will multiply
+) -> typ.Any:                                   # b**2 * f**2, broadcast positionally against `shape`, or 1.0
+    '''``b**2 f**2`` for one array of the type of ``z`` (mode ``i`` for probe): the block row of the mode (or the
+    table, apply; the number, entries) reshaped onto the leading jet axes, times the full weight's square read by
+    position. ``1.0`` for a factor that is ``None``. No reshape of the full weight.'''
+    xnp, _, _ = get_backend(False, tree_contains_jax((block_weight, full_weight)))
+    m = len(S.order)
+    squared = 1.0
+    if block_weight is not None:
+        _check_block_weight(S, block_weight)
+        row = xnp.asarray(block_weight if i is None else block_weight[i])            # F (probe, apply); () entries
+        squared = xnp.reshape(row ** 2, tuple(row.shape) + (1,) * (len(shape) - m))  # left-aligned: the jet axes
+    if full_weight is not None:
+        f_X = _modes_of_data(S, full_weight, 'the full weight')
+        f_X = xnp.asarray(f_X if i is None else f_X[i])
+        _check_data_space('the full weight', i, f_X.shape, shape, tuple(range(m, len(S.M))))   # the sample axes W
+        squared = squared * f_X ** 2
+    return squared
 
 
 def _turn(S: _Setting, jet_TX: NDArray) -> NDArray:
@@ -721,28 +754,31 @@ def _turn(S: _Setting, jet_TX: NDArray) -> NDArray:
 
 
 def _dual_jet(
-        S:       _Setting,
-        jet:     typ.Any,                       # of the type of z
-        weight:  typ.Any,                       # of the type of z: each axis 1 or z's size; None = ones
-) -> typ.Any:                                   # of the type of z: weight**2 * jet, then every jet axis flipped
+        S:             _Setting,
+        jet:           typ.Any,                 # of the type of z
+        block_weight:  typ.Any,                 # per block: probe (d,)+F, apply F, entries (); None = ones
+        full_weight:   typ.Any,                 # of the type of z: z's shape, each W axis 1 or W's size; None = ones
+) -> typ.Any:                                   # of the type of z: b**2 f**2 jet, then every jet axis flipped
     '''The seed made from a jet: the weights, then the turn.'''
-    return _map_type_of_z(S, lambda i, jet_TX: _turn(S, _weight_squared(S, weight, i, jet_TX.shape) * jet_TX), jet)
+    return _map_type_of_z(S, lambda i, jet_TX: _turn(S, _weight_squared(S, block_weight, full_weight, i, jet_TX.shape)
+                                                     * jet_TX), jet)
 
 
 def _the_seed(
-        S:        _Setting,
-        sample:   typ.Any,
-        y:        typ.Any,
-        weight:   typ.Optional[NDArray],
-        w_tilde:  typ.Any,
-        name:     str,
+        S:             _Setting,
+        sample:        typ.Any,
+        y:             typ.Any,
+        block_weight:  typ.Any,
+        full_weight:   typ.Any,
+        w_tilde:       typ.Any,
+        name:          str,
 ) -> typ.Any:                                   # the seed, of the type of z, stored turned
     '''The seed a tilde variable is built on: ``w_tilde`` where it is given, else the one made from the residual
-    ``z - y`` and the weight.'''
+    ``z - y`` and the weights.'''
     if w_tilde is not None:
         return w_tilde
-    y = _need(y, name, 'the data y (with an optional weight), or a seed w_tilde')
-    return _dual_jet(S, _r(S, sample, y), weight)
+    y = _need(y, name, 'the data y (with optional weights), or a seed w_tilde')
+    return _dual_jet(S, _r(S, sample, y), block_weight, full_weight)
 
 
 def _at_nodes(
@@ -900,8 +936,10 @@ def w(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # w[i]. shape=min(F_in_i,F)+W+(Ni,)
     """``w[i]``: the input of site ``i``, as a jet.
@@ -969,8 +1007,10 @@ def w_tilde(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Any:                                                # w_tilde[i]. probe F+W+(Ni,); apply F+W; entries W
     """``w_tilde``: the seed, of the type of ``z``, stored turned.
@@ -978,12 +1018,14 @@ def w_tilde(
     The seed is what the adjoint (tilde) variables are built on. With ``y`` given it is the residual ``r = z - y``
     made into a dual jet: weighted, then turned, a flip of every jet axis (``k`` a multi-index of the box ``F``),
 
-        ``w_tilde[i][k] = weight[i][order - k]**2 * r[i][order - k]``        (probe; no mode index for the others),
+        ``w_tilde[i][k] = b[i][order - k]**2 * f[i][order - k]**2 * r[i][order - k]``   (probe; no mode index for the
+                                                                                     others; b a number for entries),
 
-    the weight read at the same entry as the residual (positionally; a size-1 axis of the weight is constant).
+    the block weight ``b`` read at the slot, the full weight ``f`` at the same entry as the residual (positionally; a
+    sample axis of 1 is constant).
 
     The turn is what makes its pairing with a jet the coefficient of the corner ``s_1^n_1 ... s_m^n_m`` of their
-    product: ``sum_k w_tilde[order - k] * a[k] = sum_k weight[k]**2 * r[k] * a[k]``, the weighted inner product with
+    product: ``sum_k w_tilde[order - k] * a[k] = sum_k b[k]**2 f[k]**2 r[k] a[k]``, the weighted inner product with
     the residual. With no jets there is nothing to turn. With ``w_tilde`` given, that seed is returned as it is.
 
     Returns
@@ -1009,15 +1051,15 @@ def w_tilde(
     >>> pp = [rng.standard_normal((7, n)) for n in N]                      # the direction the inputs move in
     >>> line = [np.stack([w, p]) for w, p in zip(ww, pp)]                  # the input jets: F_in = (2,)
     >>> y = [rng.standard_normal((3, 7, n)) for n in N]                    # the data: F + W + (Ni,), order (2,)
-    >>> weight = 0.5 + rng.random((3, 3, 1, 1))                            # (d,) + F + (1,) + (1,): per mode and slot
-    >>> args = dict(order=(2,), y=y, weight=weight)
+    >>> block = 0.5 + rng.random((3, 3))                                   # (d,) + F: one number per mode and slot
+    >>> args = dict(order=(2,), y=y, block_weight=block)
     >>> r1 = sdef.r('probe', frame, line, 1, **args)
     >>> w_tilde1 = sdef.w_tilde('probe', frame, line, 1, **args)
     >>> print(w_tilde1.shape)                                              # F + W + (N1,)
     (3, 7, 5)
-    >>> print(bool(np.allclose(w_tilde1[0], weight[1, 2] ** 2 * r1[2])))   # slot 0 holds order 2: turned
+    >>> print(bool(np.allclose(w_tilde1[0], block[1, 2] ** 2 * r1[2])))    # slot 0 holds order 2: turned
     True
-    >>> print(bool(np.allclose(w_tilde1[2], weight[1, 0] ** 2 * r1[0])))
+    >>> print(bool(np.allclose(w_tilde1[2], block[1, 0] ** 2 * r1[0])))
     True
 
     For ``'apply'`` the seed is one number per sample (here with no jets and no weight: the residual):
@@ -1037,7 +1079,7 @@ def w_tilde(
     True
     """
     S = _setting(kind, frame, sample, order)
-    return _per_mode(S, i, _the_seed(S, sample, y, weight, w_tilde, 'w_tilde'), 'w_tilde')
+    return _per_mode(S, i, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'w_tilde'), 'w_tilde')
 
 
 #############################
@@ -1054,8 +1096,10 @@ def xi(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # xi[i]. shape=min(F_in_i,F)+W+(nDi,)
     """``xi[i]``: the leaf below Tucker edge ``i``, in the ``D`` basis: ``D[i]`` applied to the input ``w[i]``.
@@ -1100,8 +1144,10 @@ def mu(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # mu[i]. shape=F+W+(rLi,)
     """``mu[i]``: the left of bond ``i``, in the ``L`` basis: the ``L`` cores of sites ``0 .. i-1``, each over its
@@ -1185,8 +1231,10 @@ def nu(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # nu[i]. shape=F+W+(rRi,)
     """``nu[i]``: the right of bond ``i``, in the ``R`` basis: the ``R`` cores of sites ``i .. d-1``, each over its
@@ -1233,8 +1281,10 @@ def eta(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # eta[i]. shape=F+W+(nUi,)
     """``eta[i]``: the trunk above Tucker edge ``i``, in the ``U`` basis: ``U[i]`` with ``L`` cores to its left and
@@ -1283,8 +1333,10 @@ def nu_L(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # nu_L[i]. shape=F+W+(rLi,)
     """``nu_L[i]``: the right of bond ``i``, in the ``L`` basis: as ``nu[i]`` with ``L`` cores in place of ``R`` cores.
@@ -1330,8 +1382,10 @@ def eta_D(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # eta_D[i]. shape=F+W+(nDi,)
     """``eta_D[i]``: the trunk above Tucker edge ``i``, in the ``D`` basis: as ``eta[i]`` with ``L[i]`` in place of
@@ -1385,8 +1439,10 @@ def xi_U_dot(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # xi_U_dot[i]. shape=min(F_in_i,F)+W+(nUi,)
     """``xi_U_dot[i]``: the leaf below Tucker edge ``i`` with the direction in it, in the ``U`` basis: ``V[i]`` applied
@@ -1434,8 +1490,10 @@ def mu_R_dot(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # mu_R_dot[i]. shape=F+W+(rRi,)
     """``mu_R_dot[i]``: the left of bond ``i`` with the direction at one of the sites ``0 .. i-1``, summed over the
@@ -1496,8 +1554,10 @@ def nu_L_dot(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # nu_L_dot[i]. shape=F+W+(rLi,)
     """``nu_L_dot[i]``: the right of bond ``i`` with the direction at one of the sites ``i .. d-1``, summed over the
@@ -1603,8 +1663,10 @@ def eta_D_dot(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # eta_D_dot[i]. shape=F+W+(nDi,)
     """``eta_D_dot[i]``: the trunk above Tucker edge ``i`` with the direction at one site, summed over the sites, in
@@ -1679,8 +1741,10 @@ def xi_dot(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # xi_dot[i]. shape=min(F_in_i,F)+W+(nDi,)
     """``xi_dot[i]``: the leaf below Tucker edge ``i`` with the raw direction in it, in the ``D`` basis: ``D_dot[i]``
@@ -1728,8 +1792,10 @@ def mu_dot(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # mu_dot[i]. shape=F+W+(rLi,)
     """``mu_dot[i]``: the left of bond ``i`` with the raw direction at one of the sites ``0 .. i-1``, summed over the
@@ -1802,8 +1868,10 @@ def xi_tilde(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # xi_tilde[i]. shape=F+W+(nDi,)
     """``xi_tilde[i]``: the leaf below Tucker edge ``i`` with the seed in place of its input, in the ``D`` basis:
@@ -1837,7 +1905,7 @@ def xi_tilde(
     >>> frame = (D, U, L, R)
     >>> ww = [rng.standard_normal((7, n)) for n in N]                      # W=(7,)
     >>> y = [rng.standard_normal((7, n)) for n in N]                       # the data: of the type of z
-    >>> seed = dict(y=y, weight=0.5 + rng.random((3, 1, 1)))               # the seed of the residual z - y
+    >>> seed = dict(y=y, block_weight=0.5 + rng.random(3))                 # the seed of z - y; one weight per mode
     >>> xi_tilde1 = sdef.xi_tilde('probe', frame, ww, 1, **seed)
     >>> print(xi_tilde1.shape)                                             # W + (nD1,)
     (7, 3)
@@ -1846,7 +1914,7 @@ def xi_tilde(
     True
     """
     S = _setting(kind, frame, sample, order)
-    seed_M = _at_nodes(S, _the_seed(S, sample, y, weight, w_tilde, 'xi_tilde'))
+    seed_M = _at_nodes(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'xi_tilde'))
 
     def xi_tilde_at(i):
         if kind == 'probe':
@@ -1864,8 +1932,10 @@ def mu_tilde(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # mu_tilde[i]. shape=F+W+(rLi,)
     """``mu_tilde[i]``: ``mu[i]`` with the seed in place of one of the inputs ``0 .. i-1``, summed over them. In the
@@ -1901,7 +1971,7 @@ def mu_tilde(
     >>> frame = (D, U, L, R)
     >>> ww = [rng.standard_normal((7, n)) for n in N]                      # W=(7,)
     >>> y = [rng.standard_normal((7, n)) for n in N]                       # the data: of the type of z
-    >>> seed = dict(y=y, weight=0.5 + rng.random((3, 1, 1)))               # the seed of the residual z - y
+    >>> seed = dict(y=y, block_weight=0.5 + rng.random(3))                 # the seed of z - y; one weight per mode
     >>> mu_tilde = sdef.mu_tilde('probe', frame, ww, **seed)
     >>> print([m.shape for m in mu_tilde])                                 # W + (rLi,)
     [(7, 1), (7, 2), (7, 3), (7, 1)]
@@ -1914,7 +1984,7 @@ def mu_tilde(
     True
     """
     S = _setting(kind, frame, sample, order)
-    seed_M = _at_nodes(S, _the_seed(S, sample, y, weight, w_tilde, 'mu_tilde'))
+    seed_M = _at_nodes(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'mu_tilde'))
 
     def mu_tilde_at(i):
         terms = [_times(_left_side(S.L, S.D, inputs, i), factor)
@@ -1932,8 +2002,10 @@ def nu_tilde(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # nu_tilde[i]. shape=F+W+(rRi,)
     """``nu_tilde[i]``: ``nu[i]`` with the seed put in, in the ``R`` basis. Needs ``y`` or ``w_tilde``.
@@ -1969,7 +2041,7 @@ def nu_tilde(
     >>> frame = (D, U, L, R)
     >>> ww = [rng.standard_normal((7, n)) for n in N]                      # W=(7,)
     >>> y = [rng.standard_normal((7, n)) for n in N]                       # the data: of the type of z
-    >>> seed = dict(y=y, weight=0.5 + rng.random((3, 1, 1)))               # the seed of the residual z - y
+    >>> seed = dict(y=y, block_weight=0.5 + rng.random(3))                 # the seed of z - y; one weight per mode
     >>> nu_tilde = sdef.nu_tilde('probe', frame, ww, **seed)
     >>> print([n.shape for n in nu_tilde])                                 # W + (rRi,)
     [(7, 1), (7, 3), (7, 2), (7, 1)]
@@ -1999,7 +2071,7 @@ def nu_tilde(
     True
     """
     S = _setting(kind, frame, sample, order)
-    seed_M = _at_nodes(S, _the_seed(S, sample, y, weight, w_tilde, 'nu_tilde'))
+    seed_M = _at_nodes(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'nu_tilde'))
 
     def nu_tilde_at(i):
         terms = [_times(_right_side(S.R, S.D, inputs, i), factor)
@@ -2017,8 +2089,10 @@ def eta_tilde(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # eta_tilde[i]. shape=F+W+(nUi,)
     """``eta_tilde[i]``: ``eta[i]`` with the seed put in, in the ``U`` basis. Needs ``y`` or ``w_tilde``.
@@ -2051,7 +2125,7 @@ def eta_tilde(
     >>> frame = (D, U, L, R)
     >>> ww = [rng.standard_normal((7, n)) for n in N]                      # W=(7,)
     >>> y = [rng.standard_normal((7, n)) for n in N]                       # the data: of the type of z
-    >>> seed = dict(y=y, weight=0.5 + rng.random((3, 1, 1)))               # the seed of the residual z - y
+    >>> seed = dict(y=y, block_weight=0.5 + rng.random(3))                 # the seed of z - y; one weight per mode
     >>> eta_tilde1 = sdef.eta_tilde('probe', frame, ww, 1, **seed)
     >>> print(eta_tilde1.shape)                                            # W + (nU1,)
     (7, 2)
@@ -2063,7 +2137,7 @@ def eta_tilde(
     True
     """
     S = _setting(kind, frame, sample, order)
-    seed_M = _at_nodes(S, _the_seed(S, sample, y, weight, w_tilde, 'eta_tilde'))
+    seed_M = _at_nodes(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'eta_tilde'))
 
     def eta_tilde_at(i):
         tt = S.L[:i] + [S.U[i]] + S.R[i + 1:]
@@ -2082,8 +2156,10 @@ def nu_L_tilde(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # nu_L_tilde[i]. shape=F+W+(rLi,)
     """``nu_L_tilde[i]``: ``nu_L[i]`` with the seed put in, in the ``L`` basis: as ``nu_tilde[i]`` with ``L`` cores in
@@ -2116,7 +2192,7 @@ def nu_L_tilde(
     >>> frame = (D, U, L, R)
     >>> ww = [rng.standard_normal((7, n)) for n in N]                      # W=(7,)
     >>> y = [rng.standard_normal((7, n)) for n in N]                       # the data: of the type of z
-    >>> seed = dict(y=y, weight=0.5 + rng.random((3, 1, 1)))               # the seed of the residual z - y
+    >>> seed = dict(y=y, block_weight=0.5 + rng.random(3))                 # the seed of z - y; one weight per mode
     >>> nu_L_tilde = sdef.nu_L_tilde('probe', frame, ww, **seed)
     >>> print([n.shape for n in nu_L_tilde])                               # W + (rLi,)
     [(7, 1), (7, 2), (7, 3), (7, 1)]
@@ -2128,7 +2204,7 @@ def nu_L_tilde(
     True
     """
     S = _setting(kind, frame, sample, order)
-    seed_M = _at_nodes(S, _the_seed(S, sample, y, weight, w_tilde, 'nu_L_tilde'))
+    seed_M = _at_nodes(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'nu_L_tilde'))
 
     def nu_L_tilde_at(i):
         terms = [_times(_right_side(S.L, S.D, inputs, i), factor)
@@ -2146,8 +2222,10 @@ def eta_D_tilde(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # eta_D_tilde[i]. shape=F+W+(nDi,)
     """``eta_D_tilde[i]``: ``eta_D[i]`` with the seed put in, in the ``D`` basis: as ``eta_tilde[i]`` with every TT
@@ -2180,7 +2258,7 @@ def eta_D_tilde(
     >>> frame = (D, U, L, R)
     >>> ww = [rng.standard_normal((7, n)) for n in N]                      # W=(7,)
     >>> y = [rng.standard_normal((7, n)) for n in N]                       # the data: of the type of z
-    >>> seed = dict(y=y, weight=0.5 + rng.random((3, 1, 1)))               # the seed of the residual z - y
+    >>> seed = dict(y=y, block_weight=0.5 + rng.random(3))                 # the seed of z - y; one weight per mode
     >>> eta_D_tilde1 = sdef.eta_D_tilde('probe', frame, ww, 1, **seed)
     >>> print(eta_D_tilde1.shape)                                          # W + (nD1,)
     (7, 3)
@@ -2196,7 +2274,7 @@ def eta_D_tilde(
     True
     """
     S = _setting(kind, frame, sample, order)
-    seed_M = _at_nodes(S, _the_seed(S, sample, y, weight, w_tilde, 'eta_D_tilde'))
+    seed_M = _at_nodes(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'eta_D_tilde'))
 
     def eta_D_tilde_at(i):
         terms = [_times(_trunk(S.L, S.D, inputs, i), factor)
@@ -2219,8 +2297,10 @@ def xi_tilde_dot(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # xi_tilde_dot[i]. shape=F+W+(nDi,)
     """``xi_tilde_dot[i]``: the leaf below Tucker edge ``i`` with the raw direction and the seed in it: ``D_dot[i]``
@@ -2261,7 +2341,7 @@ def xi_tilde_dot(
     """
     S = _setting(kind, frame, sample, order)
     D_dot, L_dot = _need(core_directions, 'xi_tilde_dot', 'core_directions (D_dot, L_dot)')
-    seed_M = _at_nodes(S, _the_seed(S, sample, y, weight, w_tilde, 'xi_tilde_dot'))
+    seed_M = _at_nodes(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'xi_tilde_dot'))
 
     def xi_tilde_dot_at(i):
         if kind == 'probe':
@@ -2279,8 +2359,10 @@ def mu_tilde_dot(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # mu_tilde_dot[i]. shape=F+W+(rLi,)
     """``mu_tilde_dot[i]``: the left of bond ``i`` with the raw direction at one of the sites ``0 .. i-1`` and the
@@ -2335,7 +2417,7 @@ def mu_tilde_dot(
     """
     S = _setting(kind, frame, sample, order)
     _need(core_directions, 'mu_tilde_dot', 'core_directions (D_dot, L_dot)')
-    seed_M = _at_nodes(S, _the_seed(S, sample, y, weight, w_tilde, 'mu_tilde_dot'))
+    seed_M = _at_nodes(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'mu_tilde_dot'))
 
     def mu_tilde_dot_at(i):
         terms = [_times(_left_side(tt, tucker, inputs, i), factor)
@@ -2354,8 +2436,10 @@ def nu_L_tilde_dot(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # nu_L_tilde_dot[i]. shape=F+W+(rLi,)
     """``nu_L_tilde_dot[i]``: the right of bond ``i`` with the raw direction at one of the sites ``i .. d-1`` and the
@@ -2409,7 +2493,7 @@ def nu_L_tilde_dot(
     """
     S = _setting(kind, frame, sample, order)
     _need(core_directions, 'nu_L_tilde_dot', 'core_directions (D_dot, L_dot)')
-    seed_M = _at_nodes(S, _the_seed(S, sample, y, weight, w_tilde, 'nu_L_tilde_dot'))
+    seed_M = _at_nodes(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'nu_L_tilde_dot'))
 
     def nu_L_tilde_dot_at(i):
         terms = [_times(_right_side(tt, tucker, inputs, i), factor)
@@ -2428,8 +2512,10 @@ def eta_D_tilde_dot(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # eta_D_tilde_dot[i]. shape=F+W+(nDi,)
     """``eta_D_tilde_dot[i]``: the trunk above Tucker edge ``i`` with the raw direction at one site and the seed put
@@ -2486,7 +2572,7 @@ def eta_D_tilde_dot(
     """
     S = _setting(kind, frame, sample, order)
     _need(core_directions, 'eta_D_tilde_dot', 'core_directions (D_dot, L_dot)')
-    seed_M = _at_nodes(S, _the_seed(S, sample, y, weight, w_tilde, 'eta_D_tilde_dot'))
+    seed_M = _at_nodes(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'eta_D_tilde_dot'))
 
     def eta_D_tilde_dot_at(i):
         terms = [_times(_trunk(tt, tucker, inputs, i), factor)
@@ -2510,8 +2596,10 @@ def z(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Any:                                                # z[i]. probe F+W+(Ni,); apply F+W; entries W
     """``z``: the value. The whole network at the base point ``(D, L)``, sampled.
@@ -2606,8 +2694,10 @@ def r(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Any:                                                # r[i]. probe F+W+(Ni,); apply F+W; entries W
     """``r = z - y``: the residual, of the type of ``z``, in forward order (slot ``k`` is the coefficient of ``s^k``).
@@ -2651,8 +2741,10 @@ def Jp(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Any:                                                # Jp[i]. probe F+W+(Ni,); apply F+W; entries W
     """``Jp``: the direction's output. The whole network with the direction ``(V, H)`` at one site, summed over the
@@ -2712,8 +2804,10 @@ def g(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Tuple[
         typ.Tuple[NDArray, ...],                             # V_tilde. len=d, elm_shape=(nUi,Ni)
@@ -2763,7 +2857,7 @@ def g(
     """
     _no_index(i, 'g')
     S = _setting(kind, frame, sample, order)
-    return _jacobian_transpose(S, _the_seed(S, sample, y, weight, w_tilde, 'g'))
+    return _jacobian_transpose(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'g'))
 
 
 def JtJp(
@@ -2775,15 +2869,17 @@ def JtJp(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Tuple[
         typ.Tuple[NDArray, ...],                             # V_tilde. len=d, elm_shape=(nUi,Ni)
         typ.Tuple[NDArray, ...],                             # H_tilde. len=d, elm_shape=(rLi,nDi,rR(i+1))
 ]:
-    """``JtJp``: the Gauss-Newton product. ``Jp`` made into a seed (weighted, then turned), and the transpose applied
-    to it: the blocks of :py:func:`g` with that seed in place of the residual's. Needs ``variations``.
+    """``JtJp``: the Gauss-Newton product. ``Jp`` made into a seed (weighted by both weights, then turned), and the
+    transpose applied to it: the blocks of :py:func:`g` with that seed in place of the residual's. Needs ``variations``.
 
     Returns
     -------
@@ -2806,7 +2902,9 @@ def JtJp(
     >>> ww = [rng.standard_normal((7, n)) for n in N]                      # W=(7,)
     >>> V = [rng.standard_normal((nU[i], N[i])) for i in range(3)]         # a direction at the frame: (V, H)
     >>> H = [rng.standard_normal((rL[i], nD[i], rR[i + 1])) for i in range(3)]
-    >>> p = dict(variations=(V, H), weight=0.5 + rng.random((3, 7, 1)))   # a weight per mode and sample
+    >>> per_sample = 0.5 + rng.random((3, 7, 1))                          # one number per mode and sample ...
+    >>> full = [np.broadcast_to(per_sample[i], (7, n)) for i, n in enumerate(N)]   # ... written out on the edge
+    >>> p = dict(variations=(V, H), full_weight=full)
     >>> JtJp_V, JtJp_H = sdef.JtJp('probe', frame, ww, **p)
     >>> print([b.shape for b in JtJp_V], [b.shape for b in JtJp_H])
     [(3, 4), (2, 5), (3, 6)] [(1, 2, 3), (2, 3, 2), (3, 2, 1)]
@@ -2816,7 +2914,8 @@ def JtJp(
     """
     _no_index(i, 'JtJp')
     S = _setting(kind, frame, sample, order)
-    return _jacobian_transpose(S, _dual_jet(S, _Jp(S, _need(variations, 'JtJp', 'variations (V, H)')), weight))
+    return _jacobian_transpose(S, _dual_jet(S, _Jp(S, _need(variations, 'JtJp', 'variations (V, H)')), block_weight,
+                                            full_weight))
 
 
 def Kp(
@@ -2828,8 +2927,10 @@ def Kp(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Tuple[
         typ.Tuple[NDArray, ...],                             # V_tilde_dot. len=d, elm_shape=(nDi,Ni)
@@ -2884,7 +2985,7 @@ def Kp(
     """
     _no_index(i, 'Kp')
     S = _setting(kind, frame, sample, order)
-    return _Kp(S, _the_seed(S, sample, y, weight, w_tilde, 'Kp'),
+    return _Kp(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'Kp'),
                _need(core_directions, 'Kp', 'core_directions (D_dot, L_dot)'))
 
 
@@ -2897,8 +2998,10 @@ def V_tilde(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # V_tilde[i]. shape=(nUi,Ni)
     """``V_tilde[i]``: the Tucker block of ``g``, with the shape of ``V[i]``: the whole network with the leaf core under
@@ -2938,7 +3041,7 @@ def V_tilde(
     True
     """
     S = _setting(kind, frame, sample, order)
-    V_blocks, H_blocks = _jacobian_transpose(S, _the_seed(S, sample, y, weight, w_tilde, 'V_tilde'))
+    V_blocks, H_blocks = _jacobian_transpose(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'V_tilde'))
     return _each(i, range(S.d), lambda i: V_blocks[i], 'V_tilde')
 
 
@@ -2951,8 +3054,10 @@ def H_tilde(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # H_tilde[i]. shape=(rLi,nDi,rR(i+1))
     """``H_tilde[i]``: the TT block of ``g``, with the shape of ``H[i]``: the whole network with the TT core of site
@@ -2996,7 +3101,7 @@ def H_tilde(
     True
     """
     S = _setting(kind, frame, sample, order)
-    V_blocks, H_blocks = _jacobian_transpose(S, _the_seed(S, sample, y, weight, w_tilde, 'H_tilde'))
+    V_blocks, H_blocks = _jacobian_transpose(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'H_tilde'))
     return _each(i, range(S.d), lambda i: H_blocks[i], 'H_tilde')
 
 
@@ -3009,8 +3114,10 @@ def V_tilde_dot(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # V_tilde_dot[i]. shape=(nDi,Ni)
     """``V_tilde_dot[i]``: the Tucker block of ``Kp``, with the shape of ``D[i]``: the network at the base point with
@@ -3054,7 +3161,7 @@ def V_tilde_dot(
     True
     """
     S = _setting(kind, frame, sample, order)
-    V_blocks, H_blocks = _Kp(S, _the_seed(S, sample, y, weight, w_tilde, 'V_tilde_dot'),
+    V_blocks, H_blocks = _Kp(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'V_tilde_dot'),
                              _need(core_directions, 'V_tilde_dot', 'core_directions (D_dot, L_dot)'))
     return _each(i, range(S.d), lambda i: V_blocks[i], 'V_tilde_dot')
 
@@ -3068,8 +3175,10 @@ def H_tilde_dot(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> typ.Union[NDArray, typ.Tuple[NDArray, ...]]:            # H_tilde_dot[i]. shape=(rLi,nDi,rL(i+1))
     """``H_tilde_dot[i]``: the TT block of ``Kp``, with the shape of ``L[i]``: the network at the base point with
@@ -3124,7 +3233,7 @@ def H_tilde_dot(
     True
     """
     S = _setting(kind, frame, sample, order)
-    V_blocks, H_blocks = _Kp(S, _the_seed(S, sample, y, weight, w_tilde, 'H_tilde_dot'),
+    V_blocks, H_blocks = _Kp(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'H_tilde_dot'),
                              _need(core_directions, 'H_tilde_dot', 'core_directions (D_dot, L_dot)'))
     return _each(i, range(S.d), lambda i: H_blocks[i], 'H_tilde_dot')
 
@@ -3143,12 +3252,14 @@ def f(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> NDArray:                                                # f. shape=()
-    """``f``: the misfit, ``1/2 <r, weight**2 r>``: half the sum, over the modes, the orders, the samples and the mode
-    edge, of the squared weighted residual, slot by slot. Needs ``y``.
+    """``f``: the misfit, ``1/2 <r, M r>`` with ``M = b**2 f**2``: half the sum, over the modes, the orders, the
+    samples and the mode edge, of the squared weighted residual, slot by slot. Needs ``y``.
 
     Returns
     -------
@@ -3168,29 +3279,30 @@ def f(
     >>> frame = (D, U, L, R)
     >>> ww = [rng.standard_normal((7, n)) for n in N]                      # W=(7,)
     >>> y = [rng.standard_normal((7, n)) for n in N]                       # the data: of the type of z
-    >>> weight = [0.5 + rng.random((7, n)) for n in N]                    # of the type of z: one per entry
+    >>> full = [0.5 + rng.random((7, n)) for n in N]                      # the full weight: one per entry
     >>> r = sdef.r('probe', frame, ww, y=y)
-    >>> f = sdef.f('probe', frame, ww, y=y, weight=weight)
-    >>> print(bool(np.allclose(f, 0.5 * sum(np.sum(weight[i] ** 2 * r[i] ** 2) for i in range(3)))))
+    >>> f = sdef.f('probe', frame, ww, y=y, full_weight=full)
+    >>> print(bool(np.allclose(f, 0.5 * sum(np.sum(full[i] ** 2 * r[i] ** 2) for i in range(3)))))
     True
 
-    A weight of one value per mode, ``(d,)``, is not of the type of ``z`` and raises; one per mode is written with
-    size-1 sample and edge axes:
+    One value per mode is a block weight, ``(d,)`` with no jets. Given as a full weight with size-1 sample and edge
+    axes it raises: the edge is part of the measurement, never 1:
 
-    >>> sdef.f('probe', frame, ww, y=y, weight=0.5 + rng.random(3))       # doctest: +IGNORE_EXCEPTION_DETAIL
+    >>> per_mode = np.array([1.0, 2.0, 3.0])
+    >>> sdef.f('probe', frame, ww, y=y, full_weight=per_mode.reshape(3, 1, 1))     # doctest: +IGNORE_EXCEPTION_DETAIL
     Traceback (most recent call last):
         ...
-    ValueError: the weight (mode 0) has shape (); it is of the type of z, whose array here has shape (7, 4): ...
-    >>> per_mode = np.array([1.0, 2.0, 3.0]).reshape(3, 1, 1)               # (d,) + (1,) + (1,)
-    >>> print(bool(np.allclose(sdef.f('probe', frame, ww, y=y, weight=per_mode),
-    ...                        0.5 * sum(per_mode[i, 0, 0] ** 2 * np.sum(r[i] ** 2) for i in range(3)))))
+    ValueError: the full weight (mode 0) has shape (1, 1); ... the mode edge exactly ...
+    >>> print(bool(np.allclose(sdef.f('probe', frame, ww, y=y, block_weight=per_mode),
+    ...                        0.5 * sum(per_mode[i] ** 2 * np.sum(r[i] ** 2) for i in range(3)))))
     True
     """
     _no_index(i, 'f')
     S = _setting(kind, frame, sample, order)
     r_ = _r(S, sample, _need(y, 'f', 'the data y'))
     xnp, _, _ = get_backend(False, tree_contains_jax((r_,)))
-    halves = _map_type_of_z(S, lambda i, r_TX: 0.5 * xnp.sum(_weight_squared(S, weight, i, r_TX.shape) * r_TX ** 2), r_)
+    halves = _map_type_of_z(S, lambda i, r_TX: 0.5 * xnp.sum(_weight_squared(S, block_weight, full_weight, i,
+                                                                              r_TX.shape) * r_TX ** 2), r_)
     return _sum(halves[1:], halves[0]) if kind == 'probe' else halves
 
 
@@ -3203,13 +3315,16 @@ def r_block_sumsq(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> NDArray:                                                # the block shape: probe (d,)+F; apply F; entries ()
-    """``r_block_sumsq``: ``<r, weight**2 r>`` in each block, the weighted sum of squares of the residual (the sum of
-    squares with no weight). A block is one mode at one slot of the box ``F`` (probe) or one slot (apply; entries has
-    the one block), so the result has the block shape; the sum is over the samples and the mode edge. Needs ``y``.
+    """``r_block_sumsq``: ``<r, M r>`` in each block, ``M = b**2 f**2``, the weighted sum of squares of the residual
+    (the sum of squares with no weight). A block is one mode at one slot of the box ``F`` (probe) or one slot (apply;
+    entries has the one block), so the result has the block shape; the sum is over the samples and the mode edge.
+    Needs ``y``.
 
     Returns
     -------
@@ -3238,13 +3353,21 @@ def r_block_sumsq(
     >>> print(bool(np.allclose(sums[1, 2], np.sum(r[1][2] ** 2))))
     True
 
-    Weighted, one weight per sample (``F + W + (1,)``): a zero drops the sample from every block.
+    Weighted, one full weight per sample (written out on the slots and the edge): a zero drops the sample from every
+    block.
 
-    >>> weight = [np.ones((1, 7, 1)) for n in N]
-    >>> for omega in weight:
-    ...     omega[0, 3, 0] = 0.0
-    >>> sums = sdef.r_block_sumsq('probe', frame, line, order=(2,), y=y, weight=weight)
+    >>> full = [np.ones((3, 7, n)) for n in N]                            # F + W + (Ni,)
+    >>> for omega in full:
+    ...     omega[:, 3, :] = 0.0
+    >>> sums = sdef.r_block_sumsq('probe', frame, line, order=(2,), y=y, full_weight=full)
     >>> print(bool(np.allclose(sums[1, 2], np.sum(np.delete(r[1][2], 3, axis=0) ** 2))))
+    True
+
+    A block weight scales its block: ``block[i, k]**2`` times the block's sum.
+
+    >>> block = 0.5 + rng.random((3, 3))
+    >>> print(bool(np.allclose(sdef.r_block_sumsq('probe', frame, line, order=(2,), y=y, block_weight=block),
+    ...                        block ** 2 * sdef.r_block_sumsq('probe', frame, line, order=(2,), y=y))))
     True
     """
     _no_index(i, 'r_block_sumsq')
@@ -3254,7 +3377,8 @@ def r_block_sumsq(
     m = len(S.order)
 
     def sumsq(i, r_FX):
-        return xnp.sum(_weight_squared(S, weight, i, r_FX.shape) * r_FX ** 2, axis=tuple(range(m, r_FX.ndim)))
+        return xnp.sum(_weight_squared(S, block_weight, full_weight, i, r_FX.shape) * r_FX ** 2,
+                       axis=tuple(range(m, r_FX.ndim)))
     sums = _map_type_of_z(S, sumsq, r_)
     return xnp.stack(sums) if kind == 'probe' else sums
 
@@ -3268,12 +3392,14 @@ def Jp_norm_sq(
         *,
         variations:       typ.Optional[typ.Tuple] = None,    # (V, H), elm_shapes (nUi,Ni), (rLi,nDi,rR(i+1))
         core_directions:  typ.Optional[typ.Tuple] = None,    # (D_dot, L_dot), the shapes of D and L
-        y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
-        weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+        y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+        block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+                                                             #   None = ones
+        full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
         w_tilde:          typ.Optional[typ.Any] = None,      # a seed of the type of z, stored turned
 ) -> NDArray:                                                # Jp_norm_sq. shape=()
-    """``Jp_norm_sq``: ``<Jp, weight**2 Jp>``, the squared weighted norm of the direction's output, summed as ``f`` is
-    (without the half). Needs ``variations``.
+    """``Jp_norm_sq``: ``<Jp, M Jp>`` with ``M = b**2 f**2``, the squared weighted norm of the direction's output,
+    summed as ``f`` is (without the half). Needs ``variations``.
 
     Returns
     -------
@@ -3294,15 +3420,17 @@ def Jp_norm_sq(
     >>> ww = [rng.standard_normal((7, n)) for n in N]                      # W=(7,)
     >>> V = [rng.standard_normal((nU[i], N[i])) for i in range(3)]         # a direction at the frame: (V, H)
     >>> H = [rng.standard_normal((rL[i], nD[i], rR[i + 1])) for i in range(3)]
-    >>> weight = 0.5 + rng.random((3, 7, 1))                               # (d,) + W + (1,): per mode and sample
+    >>> per_sample = 0.5 + rng.random((3, 7, 1))                          # one number per mode and sample ...
+    >>> full = [np.broadcast_to(per_sample[i], (7, n)) for i, n in enumerate(N)]   # ... written out on the edge
     >>> Jp = sdef.Jp('probe', frame, ww, variations=(V, H))
-    >>> Jp_norm_sq = sdef.Jp_norm_sq('probe', frame, ww, variations=(V, H), weight=weight)
-    >>> print(bool(np.allclose(Jp_norm_sq, sum(np.sum(weight[i] ** 2 * Jp[i] ** 2) for i in range(3)))))
+    >>> Jp_norm_sq = sdef.Jp_norm_sq('probe', frame, ww, variations=(V, H), full_weight=full)
+    >>> print(bool(np.allclose(Jp_norm_sq, sum(np.sum(full[i] ** 2 * Jp[i] ** 2) for i in range(3)))))
     True
     """
     _no_index(i, 'Jp_norm_sq')
     S = _setting(kind, frame, sample, order)
     Jp_ = _Jp(S, _need(variations, 'Jp_norm_sq', 'variations (V, H)'))
     xnp, _, _ = get_backend(False, tree_contains_jax((Jp_,)))
-    squares = _map_type_of_z(S, lambda i, Jp_TX: xnp.sum(_weight_squared(S, weight, i, Jp_TX.shape) * Jp_TX ** 2), Jp_)
+    squares = _map_type_of_z(S, lambda i, Jp_TX: xnp.sum(_weight_squared(S, block_weight, full_weight, i,
+                                                                         Jp_TX.shape) * Jp_TX ** 2), Jp_)
     return _sum(squares[1:], squares[0]) if kind == 'probe' else squares

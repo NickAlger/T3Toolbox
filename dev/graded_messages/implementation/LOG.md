@@ -1591,3 +1591,14 @@ drawn_indices=)` with `check`, `take`, `n_measurements` (a property), `data_metr
 fields; `pack_batch(batch, N=None)`; `flat_draw(batch, batch_size)`; the frontend refuses a validation or drawn
 batch of another kind or order, the display likewise. **Committed to `k1-wip`** and pushed there as a backup.
 `K_ARC_DECISIONS.md` 32 to 35. Next: part 1 (the dense reference and the test oracles), with a third implementer.
+K1 part 1 (the independent references), 2026-11-26 01:20, built by a third implementer and reviewed by a fourth
+reviewer: `K1_part1_HANDOVER.md`, `K1_part1_REVIEW_r1.md` SIGN OFF. The dense reference `sampling_definitions` reads
+`block_weight` and `full_weight` in its own code (no import of `jets` or the engine, checked by a profile hook over
+its 37 functions); the reviewer's own dense pins, written before it saw the build: 1,968 checks pass (`w_tilde`, `f`,
+`r_block_sumsq`, `Jp_norm_sq`, and `g` and `JtJp` entry by entry; three kinds; jets in one and two variables; sizes
+that coincide), eleven mutations of its own all caught. `g` and `JtJp` pinned by pairings computed in loops (the
+design's "through d/dt f" would have been circular); a law test over the 17 functions that build the seed; one
+engine-against-reference case with both weights. The weights audit: 40 reason lines for full weights, none a block
+weight in disguise. Suite 1,890 passed, 5 skipped, 1 xfailed, 90,398 subtests. **Committed to `k1-wip`.**
+`K_ARC_DECISIONS.md` 36 to 39. Next: part 2 (the engine and its steps), after its public docstrings are written in
+full and reviewed.

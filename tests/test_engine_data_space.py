@@ -11,7 +11,8 @@ named oracles of the plan, each independent of the engine's weighting:
 
 0. **Against the reference, over the weight patterns** (`TestAgainstTheReference`): on the reference's problems
    (``small``, where at the curve ``F = W = N_1 = (3,)``; ``tails``, ``W = (2, 2)``; ``W = ()``), the three kinds and
-   four jet cases, the weight per entry, per sample, per slot, one per mode, and on the edge and the first jet axis,
+   four jet cases, the weight per entry, per sample, per slot, one per mode, and on the edge and the first jet axis
+   (since K1's part 1 a block weight or a full weight, as the class says), and a block and a full weight together,
    ``y`` full or constant in ``W``, a stack of two directions ``K``: ``f``, ``r``, ``w_tilde``, ``g`` and, element by
    element of ``K``, ``Jp``, ``Jp_norm_sq``, ``JtJp`` and ``Kp``.
 
@@ -95,22 +96,50 @@ def of_kind(kind, arrays):
 
 
 class TestAgainstTheReference(unittest.TestCase):
+    """The weight patterns of M2, as the reference reads them since K1's part 1: a weight per mode and slot is a
+    block weight; per entry, or with size-1 sample axes, a full weight; a full weight with a structural axis of 1 (the
+    slots, the edge) and a ``y`` constant in ``W`` are written out (``np.broadcast_to``: the same values). The engine,
+    on one weight until K1's part 2, gets the same written-out ``y`` and the old form of the same weight:
+    ``blocks_to_weight`` of the block weight, the full weight itself, or their product."""
 
-    PATTERNS = ('per entry', 'per sample', 'per slot', 'one per mode', 'edge and first jet axis')
+    PATTERNS = ('per entry', 'per sample, written out', 'per slot: a block weight', 'one per mode: a block weight',
+                'edge and first jet axis, written out', 'with W of 1', 'a block and a full weight')
     PLAIN, WITH_K = ('f', 'r', 'w_tilde', 'g'), ('Jp', 'Jp_norm_sq', 'JtJp', 'Kp')
 
     @staticmethod
     def full_axes(pattern, kind, m, n_W, ndim):
-        """The axes on which a weight of ``pattern`` has ``z``'s size (every other axis is 1)."""
+        """The axes on which a full weight of ``pattern`` is drawn with ``z``'s size (every other axis is 1)."""
         if pattern == 'per entry':
             return set(range(ndim))
-        if pattern == 'per sample':
+        if pattern == 'per sample, written out':
             return set(range(m, m + n_W))
-        if pattern == 'per slot':
-            return set(range(m))
-        if pattern == 'one per mode':
-            return set()
+        if pattern in ('with W of 1', 'a block and a full weight'):
+            return set(range(ndim)) - set(range(m, m + n_W))
         return ({ndim - 1} if kind == 'probe' else set()) | ({0} if m else set())
+
+    def weights(self, rng, pattern, kind, case, P, shapes, y):
+        """``(reference, engine)``: the reference's keywords ``block_weight``, ``full_weight`` and the engine's old
+        ``weight`` of the same metric."""
+        m, n_W, lead = case.m, len(P.W), ((P.d,) if kind == 'probe' else ())
+        block = full = None
+        if pattern == 'one per mode: a block weight':
+            block = np.broadcast_to((0.5 + rng.random(lead)).reshape(lead + (1,) * m), lead + case.box)
+        elif pattern in ('per slot: a block weight', 'a block and a full weight'):
+            block = 0.5 + rng.random(lead + case.box)
+        if pattern not in ('per slot: a block weight', 'one per mode: a block weight'):
+            axes = self.full_axes(pattern, kind, m, n_W, len(shapes[0]))
+            drawn = [0.5 + rng.random(tuple(n if a in axes else 1 for a, n in enumerate(sh))) for sh in shapes]
+            keep_W_of_1 = pattern in ('with W of 1', 'a block and a full weight')
+            full = drawn if keep_W_of_1 else [np.broadcast_to(w, sh) for w, sh in zip(drawn, shapes)]
+        old_block = None if block is None else blocks_to_weight(kind, case.order, block, y)
+        if full is None:
+            engine = old_block
+        elif old_block is None:
+            engine = of_kind(kind, full)
+        else:                                   # the product, one array per mode
+            engine = of_kind(kind, [np.asarray(old_block[i] if kind == 'probe' else old_block) * f
+                                    for i, f in enumerate(full)])
+        return dict(block_weight=block, full_weight=None if full is None else of_kind(kind, full)), engine
 
     @staticmethod
     def at_k(name, value, k, lead):
@@ -137,19 +166,17 @@ class TestAgainstTheReference(unittest.TestCase):
             shapes = [np.shape(a) for a in leaves(sdef.z(kind, P.frame, sample, None, case.order))]
             for j, pattern in enumerate(self.PATTERNS):
                 count += 1
-                y_constant = j % 2 == 1                     # alternately: the data constant in W
-                axes = self.full_axes(pattern, kind, m, n_W, len(shapes[0]))
-                weight = [0.5 + rng.random(tuple(n if a in axes else 1 for a, n in enumerate(sh))) for sh in shapes]
+                y_constant = j % 2 == 1                     # alternately: the data constant in W, written out
                 y_axes = set(range(len(shapes[0]))) - (set(range(m, m + n_W)) if y_constant else set())
-                y = [rng.standard_normal(tuple(n if a in y_axes else 1 for a, n in enumerate(sh))) for sh in shapes]
-                as_array = kind == 'probe' and len({w.shape for w in weight}) == 1 and j % 2 == 0
-                w_arg = np.stack(weight) if as_array else of_kind(kind, weight)
+                y = [np.broadcast_to(rng.standard_normal(tuple(n if a in y_axes else 1 for a, n in enumerate(sh))), sh)
+                     for sh in shapes]
                 y_arg = of_kind(kind, y)
+                reference, w_arg = self.weights(rng, pattern, kind, case, P, shapes, y_arg)
                 with self.subTest(pattern=pattern, y_constant_in_W=y_constant, **labels):
                     got = dict(zip(self.PLAIN + self.WITH_K, sv.sampling_variables(
                         kind, P.frame, sample, self.PLAIN + self.WITH_K, order=case.order, y=y_arg, weight=w_arg,
                         variations=(V2, H2), core_directions=(D2, L2))))
-                    arguments = dict(y=y_arg, weight=w_arg)
+                    arguments = dict(y=y_arg, **reference)
                     for name in self.PLAIN:
                         expected = getattr(sdef, name)(kind, P.frame, sample, None, case.order, **arguments)
                         for a, b in zip(leaves(got[name]), leaves(expected)):

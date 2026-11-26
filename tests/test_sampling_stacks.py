@@ -309,7 +309,7 @@ class TestTheReferenceAnchor(unittest.TestCase):
                         if name == 'r_block_sumsq':
                             continue                    # a sum over C: the matrix checks it against the engine
                         expected = getattr(sdef, name)('probe', frame, case.sample, None, case.order,
-                                                       y=y_c, weight=weight_c,
+                                                       y=y_c, full_weight=weight_c,
                                                        variations=arguments['variations'],
                                                        core_directions=arguments['core_directions'])
                         k_ = k if name in case.with_K() else ()

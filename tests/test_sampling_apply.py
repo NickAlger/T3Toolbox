@@ -82,7 +82,7 @@ class TestByDefinition(unittest.TestCase):
                 variations, core_directions = directions(problem, stacked)
                 for case in defs.JET_CASES:
                     y, weight = problem.data('apply', case)
-                    full = problem.full_weight('apply', case)       # the reference's weight: of the type of z
+                    block = problem.block_weight('apply', case)     # the reference takes the blocks themselves
                     if call == '_manifold':
                         got = apply_call(problem, case, names(call), variations=variations,
                                          core_directions=core_directions)
@@ -96,13 +96,13 @@ class TestByDefinition(unittest.TestCase):
                         for name, value in zip(names(call), got):
                             if call == '_manifold':
                                 expected = getattr(sdef, name)('apply', problem.frame, problem.input_jets(case), None,
-                                                               case.order, y=y, weight=full, variations=v,
+                                                               case.order, y=y, block_weight=block, variations=v,
                                                                core_directions=c)
                             else:
                                 B, G = problem.D, problem.L
                                 expected = getattr(sdef, tsc.SECTION_9.get(name, name))(
                                     'apply', (B, G, G, G), problem.input_jets(case), None, case.order, y=y,
-                                    weight=full, variations=c, core_directions=c)
+                                    block_weight=block, variations=c, core_directions=c)
                             value = element(name, value, k, lead) if stacked else value
                             with self.subTest(problem=problem_name, stacked=stacked, jets=case.label, k=k, name=name):
                                 self.assertEqual(len(tsv.arrays_of(value)), len(tsv.arrays_of(expected)))

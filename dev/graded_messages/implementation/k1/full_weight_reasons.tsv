@@ -1,0 +1,42 @@
+# K1 part 1: the reason of every new full_weight= (and every new block_weight= that is not a blocks_to_weight
+# table of its scope), one line per site: file, scope, callee, keyword, expression, kind, reason.
+t3toolbox/backend/sampling_definitions.py	doc:w_tilde:<module>	dict	block_weight	block	probe	the example's per-mode-and-slot weight, (d,)+F: today (3,3,1,1) with size-1 sample and edge, the same nine draws
+t3toolbox/backend/sampling_definitions.py	doc:xi_tilde:<module>	dict	block_weight	0.5 + rng.random(3)	probe	one weight per mode, (d,) at order (): the old (3,1,1) per-mode weight, the same three draws
+t3toolbox/backend/sampling_definitions.py	doc:mu_tilde:<module>	dict	block_weight	0.5 + rng.random(3)	probe	one weight per mode, (d,) at order (): the old (3,1,1) per-mode weight, the same three draws
+t3toolbox/backend/sampling_definitions.py	doc:nu_tilde:<module>	dict	block_weight	0.5 + rng.random(3)	probe	one weight per mode, (d,) at order (): the old (3,1,1) per-mode weight, the same three draws
+t3toolbox/backend/sampling_definitions.py	doc:eta_tilde:<module>	dict	block_weight	0.5 + rng.random(3)	probe	one weight per mode, (d,) at order (): the old (3,1,1) per-mode weight, the same three draws
+t3toolbox/backend/sampling_definitions.py	doc:nu_L_tilde:<module>	dict	block_weight	0.5 + rng.random(3)	probe	one weight per mode, (d,) at order (): the old (3,1,1) per-mode weight, the same three draws
+t3toolbox/backend/sampling_definitions.py	doc:eta_D_tilde:<module>	dict	block_weight	0.5 + rng.random(3)	probe	one weight per mode, (d,) at order (): the old (3,1,1) per-mode weight, the same three draws
+t3toolbox/backend/sampling_definitions.py	doc:f:<module>	f	block_weight	per_mode	probe	one value per mode, (d,) at order (): the block form of the old per_mode.reshape(3,1,1)
+t3toolbox/backend/sampling_definitions.py	doc:r_block_sumsq:<module>	r_block_sumsq	block_weight	block	probe	a new example (prose 6.6): a block weight scales its block
+tests/test_sampling_apply.py	TestByDefinition.check	getattr(sdef, tsc.SECTION_9.get(name, name))	block_weight	block	apply	problem.block_weight: the blocks F whose blocks_to_weight placement the engine gets (problem.data); the old reference weight was that placement
+tests/test_sampling_apply.py	TestByDefinition.check	getattr(sdef, name)	block_weight	block	apply	problem.block_weight: the blocks F whose blocks_to_weight placement the engine gets (problem.data); the old reference weight was that placement
+tests/test_sampling_corewise.py	reference	getattr(sdef, SECTION_9.get(name, name))	block_weight	block	probe	problem.block_weight: the blocks (d,)+F whose blocks_to_weight placement the engine gets (problem.data)
+tests/test_sampling_definitions.py	TestJetsTwoWays.test_a_second_variable_of_order_zero_is_one_variable	dict	block_weight	weight	probe/apply	the block table of Problem.arguments with a slot axis of 1 appended for the second jet variable of order 0 (F = (4, 1))
+tests/test_sampling_definitions.py	TestKp.jax_problem	dict	block_weight	jnp.asarray(args['block_weight'])	all three	Problem.arguments' block weight on jax
+tests/test_sampling_definitions.py	Problem.arguments	dict	block_weight	self.block_weight(kind, case)	all three	the blocks of Problem.blocks; the old value, full_weight(), was blocks_to_weight of the same blocks
+tests/test_sampling_definitions.py	TestTheTwoWeights.test_against_brute_force	dict	block_weight	block	all three	the brute-force pin's block weight, a random table (d,)+F / F / a number
+tests/test_sampling_definitions.py	TestTheTwoWeights.test_every_name_that_reads_the_seed_reads_both_weights	getattr(sdef, name)	block_weight	block	all three	the law test: a random block table, the same one written into the seed by loops
+tests/test_sampling_definitions.py	TestTheTwoWeights.test_a_weight_of_another_form_raises	f	block_weight	weight	all three	the refusal table of block weights of a wrong shape
+tests/test_sampling_definitions.py	TestTheTwoWeights.test_a_weight_of_another_form_raises	f	block_weight	list(np.atleast_1d(blocks))	all three	the refusal of a sequence (TypeError)
+tests/test_sampling_definitions.py	TestTheTwoWeights.test_a_weight_of_another_form_raises	f	block_weight	blocks	all three	the right form passes: the blocks of Problem.blocks
+tests/test_sampling_definitions.py	TestTheTwoWeights.test_a_weight_of_another_form_raises	f	block_weight	np.ones(P.d)	probe and apply	the E3b coincidence: refused for probe, legal (per slot) for apply
+tests/test_sampling_definitions.py	TestTheTwoWeights.test_a_weight_of_another_form_raises	f	block_weight	np.ones(P.d)	probe and apply	the E3b coincidence: refused for probe, legal (per slot) for apply
+tests/test_sampling_entries.py	TestByDefinition.test_every_name	getattr(sdef, name)	block_weight	block	entries	problem.block_weight: the one number whose blocks_to_weight placement the engine gets (problem.data)
+tests/test_sampling_entries.py	TestByDefinition.test_every_name	getattr(sdef, tsc.SECTION_9.get(name, name))	block_weight	block	entries	problem.block_weight: the one number whose blocks_to_weight placement the engine gets (problem.data)
+tests/test_sampling_variables.py	reference	getattr(sdef, name)	block_weight	block	probe	problem.block_weight: the blocks (d,)+F whose blocks_to_weight placement the engine gets (problem.data)
+t3toolbox/backend/sampling_definitions.py	doc:JtJp:<module>	dict	full_weight	full	probe	the old per-mode-and-sample weight (3,7,1) written out on the edge (np.broadcast_to): a full weight, the same values
+t3toolbox/backend/sampling_definitions.py	doc:f:<module>	f	full_weight	full	probe	one per entry, z's shape (the old weight, renamed)
+t3toolbox/backend/sampling_definitions.py	doc:f:<module>	f	full_weight	per_mode.reshape(3, 1, 1)	probe	the refusal shown: a per-mode value passed as a full weight with size-1 sample and edge axes raises
+t3toolbox/backend/sampling_definitions.py	doc:r_block_sumsq:<module>	r_block_sumsq	full_weight	full	probe	one per sample, written out on the slots and the edge (ones with a zero sample): the old (1,7,1) form
+t3toolbox/backend/sampling_definitions.py	doc:Jp_norm_sq:<module>	Jp_norm_sq	full_weight	full	probe	the old per-mode-and-sample weight (3,7,1) written out on the edge: a full weight, the same values
+tests/test_engine_data_space.py	TestAgainstTheReference.weights	dict	full_weight	None if full is None else of_kind(kind, full)	all three	M2's patterns per entry, per sample and on the edge and first jet axis (written out), with W of 1, and the full half of both; the engine gets the same array (or its product with blocks_to_weight of the block)
+tests/test_sampling_definitions.py	TestTheTwoWeights.test_against_brute_force	dict	full_weight	f_arg	all three	the brute-force pin's full weight: per entry, per slot written out, with W of 1 (the patterns)
+tests/test_sampling_definitions.py	TestTheTwoWeights.test_every_name_that_reads_the_seed_reads_both_weights	getattr(sdef, name)	full_weight	full	all three	the law test: a full weight with W of 1, the same one written into the seed by loops
+tests/test_sampling_definitions.py	TestTheTwoWeights.test_a_weight_of_another_form_raises	f	full_weight	weight	all three	the refusal table of full weights with a structural axis of 1 or another form
+tests/test_sampling_definitions.py	TestTheTwoWeights.test_a_weight_of_another_form_raises	f	full_weight	of_kind(full)	all three	the right form passes: per entry, z's shape
+tests/test_sampling_definitions.py	TestTheTwoWeights.test_a_weight_of_another_form_raises	f	full_weight	tuple(full)	probe	per entry: a tuple and a list are one object
+tests/test_sampling_definitions.py	TestTheTwoWeights.test_a_weight_of_another_form_raises	f	full_weight	full	probe	per entry: a tuple and a list are one object
+tests/test_sampling_definitions.py	TestTheTwoWeights.test_an_object_larger_than_z_where_z_has_a_size_of_one_raises	f	full_weight	good	probe and apply	the old weight=good: ones of z's shape, per entry
+tests/test_sampling_definitions.py	TestTheTwoWeights.test_an_object_larger_than_z_where_z_has_a_size_of_one_raises	f	full_weight	bad	probe and apply	the old weight=bad: larger than z where z is 1, refused
+tests/test_sampling_stacks.py	TestTheReferenceAnchor.test_against_the_reference	getattr(sdef, name)	full_weight	weight_c	probe	case.weight is one per entry, box+W+C+(N_i,), element c of C: z's shape exactly

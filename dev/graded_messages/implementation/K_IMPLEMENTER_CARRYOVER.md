@@ -170,3 +170,61 @@ and needs no further prose round.
   the signatures it touched.
 - Times measured: full `-v` suite at `-n 2` 34 min; doctest-modules 1 min; pages 20 s; examples 9 min; Sphinx 12.5 min;
   slow tier 24 min.
+
+## Part 1: where it stands (the third implementer, from 2026-11-26 ~00:15 CT)
+
+- **Step 1 done (00:15): audit (c)** is in `k1/diff_audit.py` (`--part 1`; `audit_c`, `read_reasons`; the walker now
+  records every `weight=` / `block_weight=` / `full_weight=` keyword with its callee, `getattr(sdef, name)(...)`
+  included, every `blocks_to_weight` call with its third argument and the name it is assigned to, and the plain
+  assignments of a scope; `--files` restricts the paths). Its planted test, `k1/audit_c_planted.py` (a right
+  conversion and three wrong ones: a block table passed as `full_weight=`, a block weight of another value, a removed
+  table): all four classified as expected. Reasons go in `k1/full_weight_reasons.tsv` (7 tab-separated columns:
+  file, scope, callee, keyword, expression, kind, reason); an unmatched reason line is listed STALE.
+- **Step 2 done (00:25): the reference** (`backend/sampling_definitions.py`): the 37 signatures and 17 seed calls by
+  `k1/part1_reference_rewrite.py` (whole-line replacements, counts checked); by hand `_r`, `_check_data_space(...,
+  may_be_one)`, the new `_check_block_weight`, `_weight_squared(S, block_weight, full_weight, i, shape)`, `_dual_jet`,
+  `_the_seed`, the bodies of `JtJp`, `f`, `r_block_sumsq`, `Jp_norm_sq`; the docstrings of `prose_edits.md` §6. Its 37
+  module doctests pass. Departure: the block weight's signature comment drops the note's first word "one" (the line
+  would be 124 columns).
+- **Step 3 done (00:35): the pins.** `tests/test_sampling_definitions.py`: `TestTheWeightIsOfTheTypeOfZ` became
+  `TestTheTwoWeights` (same four method names; brute force with neither / block alone / full per entry / full per slot
+  written out / full with W of 1 / both; a new problem `distinct` with F, W, d, N_i all different; the refusals, the
+  E3b coincidence, `y` with a size-1 W, edge or jet axis); `Problem.full_weight` became `Problem.block_weight` (the
+  blocks), `Problem.arguments` passes `block_weight=`; the three formula tests read the placed weight
+  `P.data(kind, case)[1]` for their expectations. The file passes (71 tests, 5,773 subtests). Oracle:
+  `weighted_residual_two`, `weighted_two` in `tests/oracle_sweeps/oracle.py`, pinned in `tests/test_dense_oracle.py`
+  `TestTwoWeights` (passes).
+- **Step 4 (00:30, built; its run going):** the reference's callers: `test_sampling_variables.reference`,
+  `test_sampling_corewise.reference`, `test_sampling_apply.TestByDefinition.check`,
+  `test_sampling_entries.TestByDefinition.test_every_name` (the blocks, `problem.block_weight`), the stacks anchor
+  (`full_weight=`, per entry), `test_engine_data_space.TestAgainstTheReference` (rewritten: patterns as
+  (block, full) pairs, written-out forms, `y` written out; the old engine gets `blocks_to_weight(block)`, the full
+  weight, or their product). The other files that import the reference pass it no weight.
+- Audit (c) on part 1: `python3 k1/diff_audit.py HEAD --part 1 --scope-map
+  TestTheWeightIsOfTheTypeOfZ=TestTheTwoWeights --out k1/part1_audit.txt` PASS; the reasons file
+  `k1/full_weight_reasons.tsv` (38 lines) is written by `k1/part1_reasons.py AUDIT_TXT OUT` from a hand table
+  (rerun it after any edit that moves a site: it keys on scope and expression). The audit now skips `subTest`
+  labels and maps a renamed class's scopes (`--scope-map Old=New`).
+- **00:35, the orchestrator's four points (the reviewer's first look) taken in:** (1) every pin's right-hand side is
+  loops over dense arrays, no reference call (`TestTheTwoWeights.test_against_brute_force` already was; `g` and
+  `JtJp` through pairings by loops, not `d/dt f`); (2) new law test
+  `TestTheTwoWeights.test_every_name_that_reads_the_seed_reads_both_weights` (the 17 seed readers against
+  `w_tilde=` a seed written by loops, both weights); (3) the engine-vs-reference case with both weights is
+  `TestAgainstTheReference`'s pattern 'a block and a full weight' (engine gets `blocks_to_weight(b) * f`);
+  (4) the block weight's signature comment is now the note's text with "None = ones" on a `#   ` continuation line
+  (37 functions; `part1_reference_rewrite.py` updated to say so).
+- **Evidence so far:** targeted run of the 12 reference-importing files + `test_dense_oracle.py` green (139 passed,
+  15,992 subtests; before the law test); the reference's module doctests 37 passed; mutations
+  `k1/part1_mutations.txt` (11, all caught; runner `k1/part1_mutations.py SCRATCH [LABEL_PART]`); audit (c)
+  `k1/part1_audit.txt` PASS; kept-text `k1/part1_kept_text.txt` (43 changed = module docstring + 5 helpers + the 37
+  public functions; 1 added, `_check_block_weight`). `k1/tally.py` takes `--part=1` (the class rename).
+- **00:31: the full `-v` suite started** (`-n 2`, detached), log
+  `scratchpad/implementer3/part1_suite_v.log` (to gzip into `k1/part1_suite_v.log.gz`; then
+  `python3 k1/tally.py <part0 log unzipped> <part1 log> --part=1 > k1/tally_part0_vs_part1.txt`). Find it with
+  `ps -eo pid,etime,args | grep "[p]ytest tests/ -v"`.
+- **00:40: `K1_part1_HANDOVER.md` written**, its §3 waiting only for the suite's lines and the tally (marked
+  PENDING). After the suite: gzip the log into `k1/part1_suite_v.log.gz`, run the tally (part 0's log unzipped in
+  `scratchpad/implementer3/part0_suite_v.log`), fill the PENDING lines, report.
+- **01:05: part 1 complete.** Suite green (1,890 passed, 5 skipped, 1 xfailed, 90,398 subtests,
+  `k1/part1_suite_v.log.gz`); tally `k1/tally_part0_vs_part1.txt` (10 nodes, all accounted for in the handover);
+  `K1_part1_HANDOVER.md` final. Nothing running. Next: the reviewer's review of part 1.

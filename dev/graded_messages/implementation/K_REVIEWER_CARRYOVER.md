@@ -95,6 +95,22 @@ weighted parts and the tests that compare the engine with it. Nothing of the wor
   (`f`, a reason line must say `f`, not `sdef.f`); the audit passes a dropped weight (`W-GONE`): read each; note
   §4.1's signature line is 124 characters.
 
+### Part 1 reviewed (2026-11-26, 01:05 to 01:20 CT)
+
+`K1_part1_REVIEW_r1.md`: SIGN OFF, no blocking or should-fix finding, notes for parts 2 and 5 in its §9. How to rerun
+what I ran:
+- `PYTHONPATH=<repo> python -B k1/reviewer_tools/ref_dense_pins.py --api new` gives 1,968 checks; `--jax` gives 25.
+  `--api old` works on trees before part 1 only.
+- `ref_independence.py --api new --tests <files>`.
+- `part1_textcheck.py --base 78a34d77 reference|prose|files ...`. Its `NEW_W` is now the built two-line comment.
+- `audit_c_attack.py k1/diff_audit.py` gives 14 of 14.
+- The audit rerun needs `--scope-map TestTheWeightIsOfTheTypeOfZ=TestTheTwoWeights`.
+- `ref_mutations.py <repo> SCRATCH [--tests ...]`. The patches M1 to M11 match the text at part 1; refit them if
+  part 2 touches the reference.
+
+For part 2, the reference is the anchor. The engine's refusal of probe modes whose size-1 `W` patterns disagree has
+no counterpart in the reference, which accepts them, so test it as a refusal on its own.
+
 ## Context
 
 At the end of part 0's round 1 I have used most of my context (roughly three quarters). I can take part 0's round 2

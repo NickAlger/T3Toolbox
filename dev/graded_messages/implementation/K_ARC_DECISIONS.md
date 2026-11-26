@@ -193,3 +193,14 @@ where it is recorded. Larger rulings are also in `LOG.md`. The design's decision
     functions that read the weights through the seed need a law test each or named coverage; one engine-against-
     reference case with both weights (the one-weight engine takes `blocks_to_weight(b) * f`); the `block_weight`
     signature comment kept within 120 columns in the house form. None changes the design.
+37. **Part 1 approved and committed to `k1-wip`** (`K1_part1_HANDOVER.md`; `K1_part1_REVIEW_r1.md` SIGN OFF, no blocking
+    or should-fix finding). The suite's `-v` run was not repeated by the reviewer: it checked that the last library
+    or test file was written before the run started (the check the two earlier slices each failed), ran the eight
+    changed test files itself, and its own tally agrees.
+38. **The reference's own tests stop using `jets.blocks_to_weight` to place a block table in part 2**, not in part 5
+    (three expectations of `tests/test_sampling_definitions.py` and `Problem.data`). The reviewer found no
+    correlation risk (the reference never calls it, and its reading is pinned without it), but a test of the
+    independent reference should not lean on `jets`, and part 2 is where `Problem.data` stops feeding the engine.
+39. **For part 2, from the reviewer:** the reference accepts a probe full weight whose modes disagree in their
+    pattern of size-1 `W` axes (the plan puts that rule on the engine, the checkers and the batch), so the engine's
+    refusal of such a weight cannot be checked against the reference: it is tested as a refusal on its own.

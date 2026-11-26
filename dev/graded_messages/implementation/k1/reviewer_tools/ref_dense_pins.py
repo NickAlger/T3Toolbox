@@ -370,7 +370,8 @@ def refusals(kind, order, frame, smp, y, zshapes, d, W, common):
     readers = ('f', 'r_block_sumsq', 'Jp_norm_sq', 'w_tilde', 'g', 'JtJp')
     bad_block, bad_full, bad_y = {}, {}, {}
     if kind == 'probe':
-        bad_block['(d,) only'] = np.ones((d,))                                    # E3b at order (n,), d = n + 1
+        if m:
+            bad_block['(d,) only'] = np.ones((d,))                                # E3b at order (n,), d = n + 1
         bad_block['F only'] = np.ones(F) if m else np.ones((d, 1))
         bad_block['(d,)+F+(1,)'] = np.ones((d,) + F + (1,))
         bad_block['the old blocks_to_weight form'] = np.ones((d,) + F + (1,) * len(W) + (1,))
@@ -380,8 +381,8 @@ def refusals(kind, order, frame, smp, y, zshapes, d, W, common):
     else:
         bad_block['(1,)'] = np.ones((1,))
         bad_block['W'] = np.ones(W)
-    type_block = {'a tuple': tuple(np.ones((d,) + F if kind == 'probe' else F)) if (kind != 'entries') else (1.0,),
-                  'a list': list(np.ones((d,) + F if kind == 'probe' else F)) if kind != 'entries' else [1.0]}
+    table = np.ones((d,) + F if kind == 'probe' else F)
+    type_block = {'a tuple': tuple(table) if table.ndim else (1.0,), 'a list': list(table) if table.ndim else [1.0]}
 
     def per_mode(fn):
         out = [fn(sh) for sh in zshapes]

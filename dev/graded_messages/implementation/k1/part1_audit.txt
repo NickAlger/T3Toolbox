@@ -1,0 +1,1010 @@
+K1 diff audit, part 1, base HEAD
+changed lines by class: {'other': 923, 'kind_order': 33}
+audit entries: {'LINE': 925, 'W-FULL': 9, 'F-REASON': 15, 'W-BLOCK': 21, 'B-REASON': 25, 'W-GONE': 1, 'B-PAIRED': 1, 'SCOPE-MAP': 8}
+RESULT: PASS
+
+B-PAIRED tests/test_engine_data_space.py:142 TestAgainstTheReference.weights: dict(block_weight=block), a blocks_to_weight table of the scope
+B-REASON t3toolbox/backend/sampling_definitions.py:1045 doc:w_tilde:<module>: dict(block_weight=block) [probe] the example's per-mode-and-slot weight, (d,)+F: today (3,3,1,1) with size-1 sample and edge, the same nine draws
+B-REASON t3toolbox/backend/sampling_definitions.py:1900 doc:xi_tilde:<module>: dict(block_weight=0.5 + rng.random(3)) [probe] one weight per mode, (d,) at order (): the old (3,1,1) per-mode weight, the same three draws
+B-REASON t3toolbox/backend/sampling_definitions.py:1964 doc:mu_tilde:<module>: dict(block_weight=0.5 + rng.random(3)) [probe] one weight per mode, (d,) at order (): the old (3,1,1) per-mode weight, the same three draws
+B-REASON t3toolbox/backend/sampling_definitions.py:2034 doc:nu_tilde:<module>: dict(block_weight=0.5 + rng.random(3)) [probe] one weight per mode, (d,) at order (): the old (3,1,1) per-mode weight, the same three draws
+B-REASON t3toolbox/backend/sampling_definitions.py:2121 doc:eta_tilde:<module>: dict(block_weight=0.5 + rng.random(3)) [probe] one weight per mode, (d,) at order (): the old (3,1,1) per-mode weight, the same three draws
+B-REASON t3toolbox/backend/sampling_definitions.py:2188 doc:nu_L_tilde:<module>: dict(block_weight=0.5 + rng.random(3)) [probe] one weight per mode, (d,) at order (): the old (3,1,1) per-mode weight, the same three draws
+B-REASON t3toolbox/backend/sampling_definitions.py:2254 doc:eta_D_tilde:<module>: dict(block_weight=0.5 + rng.random(3)) [probe] one weight per mode, (d,) at order (): the old (3,1,1) per-mode weight, the same three draws
+B-REASON t3toolbox/backend/sampling_definitions.py:3296 doc:f:<module>: f(block_weight=per_mode) [probe] one value per mode, (d,) at order (): the block form of the old per_mode.reshape(3,1,1)
+B-REASON t3toolbox/backend/sampling_definitions.py:3370 doc:r_block_sumsq:<module>: r_block_sumsq(block_weight=block) [probe] a new example (prose 6.6): a block weight scales its block
+B-REASON tests/test_sampling_apply.py:103 TestByDefinition.check: getattr(sdef, tsc.SECTION_9.get(name, name))(block_weight=block) [apply] problem.block_weight: the blocks F whose blocks_to_weight placement the engine gets (problem.data); the old reference weight was that placement
+B-REASON tests/test_sampling_apply.py:98 TestByDefinition.check: getattr(sdef, name)(block_weight=block) [apply] problem.block_weight: the blocks F whose blocks_to_weight placement the engine gets (problem.data); the old reference weight was that placement
+B-REASON tests/test_sampling_corewise.py:60 reference: getattr(sdef, SECTION_9.get(name, name))(block_weight=block) [probe] problem.block_weight: the blocks (d,)+F whose blocks_to_weight placement the engine gets (problem.data)
+B-REASON tests/test_sampling_definitions.py:1278 TestJetsTwoWays.test_a_second_variable_of_order_zero_is_one_variable: dict(block_weight=weight) [probe/apply] the block table of Problem.arguments with a slot axis of 1 appended for the second jet variable of order 0 (F = (4, 1))
+B-REASON tests/test_sampling_definitions.py:1317 TestKp.jax_problem: dict(block_weight=jnp.asarray(args['block_weight'])) [all three] Problem.arguments' block weight on jax
+B-REASON tests/test_sampling_definitions.py:303 Problem.arguments: dict(block_weight=self.block_weight(kind, case)) [all three] the blocks of Problem.blocks; the old value, full_weight(), was blocks_to_weight of the same blocks
+B-REASON tests/test_sampling_definitions.py:631 TestTheTwoWeights.test_against_brute_force: dict(block_weight=block) [all three] the brute-force pin's block weight, a random table (d,)+F / F / a number
+B-REASON tests/test_sampling_definitions.py:705 TestTheTwoWeights.test_every_name_that_reads_the_seed_reads_both_weights: getattr(sdef, name)(block_weight=block) [all three] the law test: a random block table, the same one written into the seed by loops
+B-REASON tests/test_sampling_definitions.py:748 TestTheTwoWeights.test_a_weight_of_another_form_raises: f(block_weight=weight) [all three] the refusal table of block weights of a wrong shape
+B-REASON tests/test_sampling_definitions.py:751 TestTheTwoWeights.test_a_weight_of_another_form_raises: f(block_weight=list(np.atleast_1d(blocks))) [all three] the refusal of a sequence (TypeError)
+B-REASON tests/test_sampling_definitions.py:757 TestTheTwoWeights.test_a_weight_of_another_form_raises: f(block_weight=blocks) [all three] the right form passes: the blocks of Problem.blocks
+B-REASON tests/test_sampling_definitions.py:767 TestTheTwoWeights.test_a_weight_of_another_form_raises: f(block_weight=np.ones(P.d)) [probe and apply] the E3b coincidence: refused for probe, legal (per slot) for apply
+B-REASON tests/test_sampling_definitions.py:770 TestTheTwoWeights.test_a_weight_of_another_form_raises: f(block_weight=np.ones(P.d)) [probe and apply] the E3b coincidence: refused for probe, legal (per slot) for apply
+B-REASON tests/test_sampling_entries.py:82 TestByDefinition.test_every_name: getattr(sdef, name)(block_weight=block) [entries] problem.block_weight: the one number whose blocks_to_weight placement the engine gets (problem.data)
+B-REASON tests/test_sampling_entries.py:86 TestByDefinition.test_every_name: getattr(sdef, tsc.SECTION_9.get(name, name))(block_weight=block) [entries] problem.block_weight: the one number whose blocks_to_weight placement the engine gets (problem.data)
+B-REASON tests/test_sampling_variables.py:92 reference: getattr(sdef, name)(block_weight=block) [probe] problem.block_weight: the blocks (d,)+F whose blocks_to_weight placement the engine gets (problem.data)
+F-REASON t3toolbox/backend/sampling_definitions.py:2910 doc:JtJp:<module>: dict(full_weight=full) [probe] the old per-mode-and-sample weight (3,7,1) written out on the edge (np.broadcast_to): a full weight, the same values
+F-REASON t3toolbox/backend/sampling_definitions.py:3288 doc:f:<module>: f(full_weight=full) [probe] one per entry, z's shape (the old weight, renamed)
+F-REASON t3toolbox/backend/sampling_definitions.py:3294 doc:f:<module>: f(full_weight=per_mode.reshape(3, 1, 1)) [probe] the refusal shown: a per-mode value passed as a full weight with size-1 sample and edge axes raises
+F-REASON t3toolbox/backend/sampling_definitions.py:3364 doc:r_block_sumsq:<module>: r_block_sumsq(full_weight=full) [probe] one per sample, written out on the slots and the edge (ones with a zero sample): the old (1,7,1) form
+F-REASON t3toolbox/backend/sampling_definitions.py:3432 doc:Jp_norm_sq:<module>: Jp_norm_sq(full_weight=full) [probe] the old per-mode-and-sample weight (3,7,1) written out on the edge: a full weight, the same values
+F-REASON tests/test_engine_data_space.py:142 TestAgainstTheReference.weights: dict(full_weight=None if full is None else of_kind(kind, full)) [all three] M2's patterns per entry, per sample and on the edge and first jet axis (written out), with W of 1, and the full half of both; the engine gets the same array (or its product with blocks_to_weight of the block)
+F-REASON tests/test_sampling_definitions.py:631 TestTheTwoWeights.test_against_brute_force: dict(full_weight=f_arg) [all three] the brute-force pin's full weight: per entry, per slot written out, with W of 1 (the patterns)
+F-REASON tests/test_sampling_definitions.py:705 TestTheTwoWeights.test_every_name_that_reads_the_seed_reads_both_weights: getattr(sdef, name)(full_weight=full) [all three] the law test: a full weight with W of 1, the same one written into the seed by loops
+F-REASON tests/test_sampling_definitions.py:755 TestTheTwoWeights.test_a_weight_of_another_form_raises: f(full_weight=weight) [all three] the refusal table of full weights with a structural axis of 1 or another form
+F-REASON tests/test_sampling_definitions.py:757 TestTheTwoWeights.test_a_weight_of_another_form_raises: f(full_weight=of_kind(full)) [all three] the right form passes: per entry, z's shape
+F-REASON tests/test_sampling_definitions.py:759 TestTheTwoWeights.test_a_weight_of_another_form_raises: f(full_weight=tuple(full)) [probe] per entry: a tuple and a list are one object
+F-REASON tests/test_sampling_definitions.py:760 TestTheTwoWeights.test_a_weight_of_another_form_raises: f(full_weight=full) [probe] per entry: a tuple and a list are one object
+F-REASON tests/test_sampling_definitions.py:788 TestTheTwoWeights.test_an_object_larger_than_z_where_z_has_a_size_of_one_raises: f(full_weight=good) [probe and apply] the old weight=good: ones of z's shape, per entry
+F-REASON tests/test_sampling_definitions.py:791 TestTheTwoWeights.test_an_object_larger_than_z_where_z_has_a_size_of_one_raises: f(full_weight=bad) [probe and apply] the old weight=bad: larger than z where z is 1, refused
+F-REASON tests/test_sampling_stacks.py:311 TestTheReferenceAnchor.test_against_the_reference: getattr(sdef, name)(full_weight=weight_c) [probe] case.weight is one per entry, box+W+C+(N_i,), element c of C: z's shape exactly
+LINE   t3toolbox/backend/sampling_definitions.py +1010 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +1011 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +1012 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +1013 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +1021 [other] ``w_tilde[i][k] = b[i][order - k]**2 * f[i][order - k]**2 * r[i][order - k]``   (probe; no mode index for the
+LINE   t3toolbox/backend/sampling_definitions.py +1022 [other] others; b a number for entries),
+LINE   t3toolbox/backend/sampling_definitions.py +1024 [other] the block weight ``b`` read at the slot, the full weight ``f`` at the same entry as the residual (positionally; a
+LINE   t3toolbox/backend/sampling_definitions.py +1025 [other] sample axis of 1 is constant).
+LINE   t3toolbox/backend/sampling_definitions.py +1028 [other] product: ``sum_k w_tilde[order - k] * a[k] = sum_k b[k]**2 f[k]**2 r[k] a[k]``, the weighted inner product with
+LINE   t3toolbox/backend/sampling_definitions.py +1054 [other] >>> block = 0.5 + rng.random((3, 3))                                   # (d,) + F: one number per mode and slot
+LINE   t3toolbox/backend/sampling_definitions.py +1055 [other] >>> args = dict(order=(2,), y=y, block_weight=block)
+LINE   t3toolbox/backend/sampling_definitions.py +1060 [other] >>> print(bool(np.allclose(w_tilde1[0], block[1, 2] ** 2 * r1[2])))    # slot 0 holds order 2: turned
+LINE   t3toolbox/backend/sampling_definitions.py +1062 [other] >>> print(bool(np.allclose(w_tilde1[2], block[1, 0] ** 2 * r1[0])))
+LINE   t3toolbox/backend/sampling_definitions.py +1082 [other] return _per_mode(S, i, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'w_tilde'), 'w_tilde')
+LINE   t3toolbox/backend/sampling_definitions.py +109 [other] - ``y``: the data, exactly ``z``'s shape: probe ``len=d``, ``elm_shape=F+W+(Ni,)``; apply ``F+W``; entries ``W``.
+LINE   t3toolbox/backend/sampling_definitions.py +1099 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +110 [other] - ``block_weight``: one number per block, a mode at a slot (probe, ``shape=(d,)+F``), a slot (apply, ``F``) or all
+LINE   t3toolbox/backend/sampling_definitions.py +1100 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +1101 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +1102 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +111 [other] of the data (entries, ``()``), exactly that shape; it enters squared, on the leading axes (row ``i`` on the jet
+LINE   t3toolbox/backend/sampling_definitions.py +112 [other] axes of mode ``i``). ``None`` is ones.
+LINE   t3toolbox/backend/sampling_definitions.py +113 [other] - ``full_weight``: one number per measured number, of the type of ``z``, with ``z``'s shape except that each
+LINE   t3toolbox/backend/sampling_definitions.py +114 [other] sample axis ``W`` may be 1 (the same for every sample); it enters squared, entry by entry. ``None`` is ones.
+LINE   t3toolbox/backend/sampling_definitions.py +1147 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +1148 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +1149 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +1150 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +116 [other] ``y`` and the full weight are **data-space objects**, of the type of ``z``: for probe exactly ``d`` arrays (a
+LINE   t3toolbox/backend/sampling_definitions.py +117 [other] tuple, a list, or one array whose first axis is the mode), each of the rank of ``z``'s array. ``y`` has ``z``'s
+LINE   t3toolbox/backend/sampling_definitions.py +118 [other] shape exactly; the full weight has its jet axes and its mode edge exactly, its sample axes 1 or full. A size of 1
+LINE   t3toolbox/backend/sampling_definitions.py +119 [other] elsewhere (a jet axis, the edge) raises a ``ValueError``: a weight per slot or per mode is a block weight. They are
+LINE   t3toolbox/backend/sampling_definitions.py +120 [other] read by position, with no reshape. The two weights multiply: the misfit is ``1/2 sum b**2 f**2 r**2``.
+LINE   t3toolbox/backend/sampling_definitions.py +1234 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +1235 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +1236 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +1237 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +1284 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +1285 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +1286 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +1287 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +1336 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +1337 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +1338 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +1339 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +1385 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +1386 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +1387 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +1388 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +1442 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +1443 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +1444 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +1445 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +1493 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +1494 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +1495 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +1496 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +1557 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +1558 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +1559 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +1560 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +1666 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +1667 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +1668 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +1669 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +1744 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +1745 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +1746 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +1747 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +1795 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +1796 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +1797 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +1798 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +1871 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +1872 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +1873 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +1874 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +1908 [other] >>> seed = dict(y=y, block_weight=0.5 + rng.random(3))                 # the seed of z - y; one weight per mode
+LINE   t3toolbox/backend/sampling_definitions.py +1917 [other] seed_M = _at_nodes(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'xi_tilde'))
+LINE   t3toolbox/backend/sampling_definitions.py +1935 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +1936 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +1937 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +1938 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +1974 [other] >>> seed = dict(y=y, block_weight=0.5 + rng.random(3))                 # the seed of z - y; one weight per mode
+LINE   t3toolbox/backend/sampling_definitions.py +1987 [other] seed_M = _at_nodes(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'mu_tilde'))
+LINE   t3toolbox/backend/sampling_definitions.py +2005 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +2006 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +2007 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +2008 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +2044 [other] >>> seed = dict(y=y, block_weight=0.5 + rng.random(3))                 # the seed of z - y; one weight per mode
+LINE   t3toolbox/backend/sampling_definitions.py +2074 [other] seed_M = _at_nodes(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'nu_tilde'))
+LINE   t3toolbox/backend/sampling_definitions.py +2092 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +2093 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +2094 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +2095 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +2128 [other] >>> seed = dict(y=y, block_weight=0.5 + rng.random(3))                 # the seed of z - y; one weight per mode
+LINE   t3toolbox/backend/sampling_definitions.py +2140 [other] seed_M = _at_nodes(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'eta_tilde'))
+LINE   t3toolbox/backend/sampling_definitions.py +2159 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +2160 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +2161 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +2162 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +2195 [other] >>> seed = dict(y=y, block_weight=0.5 + rng.random(3))                 # the seed of z - y; one weight per mode
+LINE   t3toolbox/backend/sampling_definitions.py +2207 [other] seed_M = _at_nodes(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'nu_L_tilde'))
+LINE   t3toolbox/backend/sampling_definitions.py +2225 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +2226 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +2227 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +2228 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +2261 [other] >>> seed = dict(y=y, block_weight=0.5 + rng.random(3))                 # the seed of z - y; one weight per mode
+LINE   t3toolbox/backend/sampling_definitions.py +2277 [other] seed_M = _at_nodes(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'eta_D_tilde'))
+LINE   t3toolbox/backend/sampling_definitions.py +2300 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +2301 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +2302 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +2303 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +2344 [other] seed_M = _at_nodes(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'xi_tilde_dot'))
+LINE   t3toolbox/backend/sampling_definitions.py +2362 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +2363 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +2364 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +2365 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +2420 [other] seed_M = _at_nodes(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'mu_tilde_dot'))
+LINE   t3toolbox/backend/sampling_definitions.py +2439 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +2440 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +2441 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +2442 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +2496 [other] seed_M = _at_nodes(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'nu_L_tilde_dot'))
+LINE   t3toolbox/backend/sampling_definitions.py +2515 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +2516 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +2517 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +2518 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +2575 [other] seed_M = _at_nodes(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'eta_D_tilde_dot'))
+LINE   t3toolbox/backend/sampling_definitions.py +2599 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +2600 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +2601 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +2602 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +2697 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +2698 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +2699 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +2700 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +2744 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +2745 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +2746 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +2747 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +2807 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +2808 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +2809 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +2810 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +2860 [other] return _jacobian_transpose(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'g'))
+LINE   t3toolbox/backend/sampling_definitions.py +2872 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +2873 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +2874 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +2875 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +2881 [other] """``JtJp``: the Gauss-Newton product. ``Jp`` made into a seed (weighted by both weights, then turned), and the
+LINE   t3toolbox/backend/sampling_definitions.py +2882 [other] transpose applied to it: the blocks of :py:func:`g` with that seed in place of the residual's. Needs ``variations``.
+LINE   t3toolbox/backend/sampling_definitions.py +2905 [other] >>> per_sample = 0.5 + rng.random((3, 7, 1))                          # one number per mode and sample ...
+LINE   t3toolbox/backend/sampling_definitions.py +2906 [other] >>> full = [np.broadcast_to(per_sample[i], (7, n)) for i, n in enumerate(N)]   # ... written out on the edge
+LINE   t3toolbox/backend/sampling_definitions.py +2907 [other] >>> p = dict(variations=(V, H), full_weight=full)
+LINE   t3toolbox/backend/sampling_definitions.py +2917 [other] return _jacobian_transpose(S, _dual_jet(S, _Jp(S, _need(variations, 'JtJp', 'variations (V, H)')), block_weight,
+LINE   t3toolbox/backend/sampling_definitions.py +2918 [other] full_weight))
+LINE   t3toolbox/backend/sampling_definitions.py +2930 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +2931 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +2932 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +2933 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +2988 [other] return _Kp(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'Kp'),
+LINE   t3toolbox/backend/sampling_definitions.py +3001 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +3002 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +3003 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +3004 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +3044 [other] V_blocks, H_blocks = _jacobian_transpose(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'V_tilde'))
+LINE   t3toolbox/backend/sampling_definitions.py +3057 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +3058 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +3059 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +3060 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +3104 [other] V_blocks, H_blocks = _jacobian_transpose(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'H_tilde'))
+LINE   t3toolbox/backend/sampling_definitions.py +3117 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +3118 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +3119 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +3120 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +3164 [other] V_blocks, H_blocks = _Kp(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'V_tilde_dot'),
+LINE   t3toolbox/backend/sampling_definitions.py +3178 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +3179 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +3180 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +3181 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +3236 [other] V_blocks, H_blocks = _Kp(S, _the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'H_tilde_dot'),
+LINE   t3toolbox/backend/sampling_definitions.py +3255 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +3256 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +3257 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +3258 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +3261 [other] """``f``: the misfit, ``1/2 <r, M r>`` with ``M = b**2 f**2``: half the sum, over the modes, the orders, the
+LINE   t3toolbox/backend/sampling_definitions.py +3262 [other] samples and the mode edge, of the squared weighted residual, slot by slot. Needs ``y``.
+LINE   t3toolbox/backend/sampling_definitions.py +3282 [other] >>> full = [0.5 + rng.random((7, n)) for n in N]                      # the full weight: one per entry
+LINE   t3toolbox/backend/sampling_definitions.py +3284 [other] >>> f = sdef.f('probe', frame, ww, y=y, full_weight=full)
+LINE   t3toolbox/backend/sampling_definitions.py +3285 [other] >>> print(bool(np.allclose(f, 0.5 * sum(np.sum(full[i] ** 2 * r[i] ** 2) for i in range(3)))))
+LINE   t3toolbox/backend/sampling_definitions.py +3288 [other] One value per mode is a block weight, ``(d,)`` with no jets. Given as a full weight with size-1 sample and edge
+LINE   t3toolbox/backend/sampling_definitions.py +3289 [other] axes it raises: the edge is part of the measurement, never 1:
+LINE   t3toolbox/backend/sampling_definitions.py +3291 [other] >>> per_mode = np.array([1.0, 2.0, 3.0])
+LINE   t3toolbox/backend/sampling_definitions.py +3292 [other] >>> sdef.f('probe', frame, ww, y=y, full_weight=per_mode.reshape(3, 1, 1))     # doctest: +IGNORE_EXCEPTION_DETAIL
+LINE   t3toolbox/backend/sampling_definitions.py +3295 [other] ValueError: the full weight (mode 0) has shape (1, 1); ... the mode edge exactly ...
+LINE   t3toolbox/backend/sampling_definitions.py +3296 [other] >>> print(bool(np.allclose(sdef.f('probe', frame, ww, y=y, block_weight=per_mode),
+LINE   t3toolbox/backend/sampling_definitions.py +3297 [other] ...                        0.5 * sum(per_mode[i] ** 2 * np.sum(r[i] ** 2) for i in range(3)))))
+LINE   t3toolbox/backend/sampling_definitions.py +3304 [other] halves = _map_type_of_z(S, lambda i, r_TX: 0.5 * xnp.sum(_weight_squared(S, block_weight, full_weight, i,
+LINE   t3toolbox/backend/sampling_definitions.py +3305 [other] r_TX.shape) * r_TX ** 2), r_)
+LINE   t3toolbox/backend/sampling_definitions.py +3318 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +3319 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +3320 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +3321 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +3324 [other] """``r_block_sumsq``: ``<r, M r>`` in each block, ``M = b**2 f**2``, the weighted sum of squares of the residual
+LINE   t3toolbox/backend/sampling_definitions.py +3325 [other] (the sum of squares with no weight). A block is one mode at one slot of the box ``F`` (probe) or one slot (apply;
+LINE   t3toolbox/backend/sampling_definitions.py +3326 [other] entries has the one block), so the result has the block shape; the sum is over the samples and the mode edge.
+LINE   t3toolbox/backend/sampling_definitions.py +3327 [other] Needs ``y``.
+LINE   t3toolbox/backend/sampling_definitions.py +3356 [other] Weighted, one full weight per sample (written out on the slots and the edge): a zero drops the sample from every
+LINE   t3toolbox/backend/sampling_definitions.py +3357 [other] block.
+LINE   t3toolbox/backend/sampling_definitions.py +3359 [other] >>> full = [np.ones((3, 7, n)) for n in N]                            # F + W + (Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +3360 [other] >>> for omega in full:
+LINE   t3toolbox/backend/sampling_definitions.py +3361 [other] ...     omega[:, 3, :] = 0.0
+LINE   t3toolbox/backend/sampling_definitions.py +3362 [other] >>> sums = sdef.r_block_sumsq('probe', frame, line, order=(2,), y=y, full_weight=full)
+LINE   t3toolbox/backend/sampling_definitions.py +3364 [other] True
+LINE   t3toolbox/backend/sampling_definitions.py +3365 [other] 
+LINE   t3toolbox/backend/sampling_definitions.py +3366 [other] A block weight scales its block: ``block[i, k]**2`` times the block's sum.
+LINE   t3toolbox/backend/sampling_definitions.py +3367 [other] 
+LINE   t3toolbox/backend/sampling_definitions.py +3368 [other] >>> block = 0.5 + rng.random((3, 3))
+LINE   t3toolbox/backend/sampling_definitions.py +3369 [other] >>> print(bool(np.allclose(sdef.r_block_sumsq('probe', frame, line, order=(2,), y=y, block_weight=block),
+LINE   t3toolbox/backend/sampling_definitions.py +3370 [other] ...                        block ** 2 * sdef.r_block_sumsq('probe', frame, line, order=(2,), y=y))))
+LINE   t3toolbox/backend/sampling_definitions.py +3380 [other] return xnp.sum(_weight_squared(S, block_weight, full_weight, i, r_FX.shape) * r_FX ** 2,
+LINE   t3toolbox/backend/sampling_definitions.py +3381 [other] axis=tuple(range(m, r_FX.ndim)))
+LINE   t3toolbox/backend/sampling_definitions.py +3395 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +3396 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +3397 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +3398 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +3401 [other] """``Jp_norm_sq``: ``<Jp, M Jp>`` with ``M = b**2 f**2``, the squared weighted norm of the direction's output,
+LINE   t3toolbox/backend/sampling_definitions.py +3402 [other] summed as ``f`` is (without the half). Needs ``variations``.
+LINE   t3toolbox/backend/sampling_definitions.py +3423 [other] >>> per_sample = 0.5 + rng.random((3, 7, 1))                          # one number per mode and sample ...
+LINE   t3toolbox/backend/sampling_definitions.py +3424 [other] >>> full = [np.broadcast_to(per_sample[i], (7, n)) for i, n in enumerate(N)]   # ... written out on the edge
+LINE   t3toolbox/backend/sampling_definitions.py +3426 [other] >>> Jp_norm_sq = sdef.Jp_norm_sq('probe', frame, ww, variations=(V, H), full_weight=full)
+LINE   t3toolbox/backend/sampling_definitions.py +3427 [other] >>> print(bool(np.allclose(Jp_norm_sq, sum(np.sum(full[i] ** 2 * Jp[i] ** 2) for i in range(3)))))
+LINE   t3toolbox/backend/sampling_definitions.py +3434 [other] squares = _map_type_of_z(S, lambda i, Jp_TX: xnp.sum(_weight_squared(S, block_weight, full_weight, i,
+LINE   t3toolbox/backend/sampling_definitions.py +3435 [other] Jp_TX.shape) * Jp_TX ** 2), Jp_)
+LINE   t3toolbox/backend/sampling_definitions.py +656 [other] '''``r = z - y``: the residual, of the type of ``z``, in forward order. ``y`` is of the type of ``z``, with ``z``'s
+LINE   t3toolbox/backend/sampling_definitions.py +657 [other] shape exactly (checked, `_check_data_space`).'''
+LINE   t3toolbox/backend/sampling_definitions.py +659 [other] _check_data_space('the data y', i, np.shape(y_TX), np.shape(z_TX), ())
+LINE   t3toolbox/backend/sampling_definitions.py +691 [other] what:        str,
+LINE   t3toolbox/backend/sampling_definitions.py +692 [other] i:           typ.Optional[int],             # the mode (probe), None otherwise
+LINE   t3toolbox/backend/sampling_definitions.py +693 [other] shape:       typ.Tuple[int, ...],           # the data-space array's shape
+LINE   t3toolbox/backend/sampling_definitions.py +694 [other] of_shape:    typ.Tuple[int, ...],           # the shape of the array of z it goes with
+LINE   t3toolbox/backend/sampling_definitions.py +695 [other] may_be_one:  typ.Tuple[int, ...],           # the axes where 1 is allowed too: the full weight's W; () for y
+LINE   t3toolbox/backend/sampling_definitions.py +697 [other] '''The rule of a data-space object (``y``, the full weight): the rank of ``z``'s array, each axis ``z``'s size,
+LINE   t3toolbox/backend/sampling_definitions.py +698 [other] except at ``may_be_one`` (the full weight's sample axes), where 1 is allowed too. A structural ``ValueError``
+LINE   t3toolbox/backend/sampling_definitions.py +699 [other] otherwise.'''
+LINE   t3toolbox/backend/sampling_definitions.py +701 [other] if len(shape) != len(of_shape) or any(a != b and not (a == 1 and axis in may_be_one)
+LINE   t3toolbox/backend/sampling_definitions.py +702 [other] for axis, (a, b) in enumerate(zip(shape, of_shape))):
+LINE   t3toolbox/backend/sampling_definitions.py +703 [other] rule = ('each sample axis 1 or its size, the jet axes and the mode edge exactly' if may_be_one else
+LINE   t3toolbox/backend/sampling_definitions.py +704 [other] 'exactly that shape')
+LINE   t3toolbox/backend/sampling_definitions.py +705 [other] raise ValueError('%s%s has shape %s; it is of the type of z, whose array here has shape %s: the same rank, %s'
+LINE   t3toolbox/backend/sampling_definitions.py +706 [other] % (what, where, tuple(shape), tuple(of_shape), rule))
+LINE   t3toolbox/backend/sampling_definitions.py +707 [other] 
+LINE   t3toolbox/backend/sampling_definitions.py +708 [other] 
+LINE   t3toolbox/backend/sampling_definitions.py +709 [other] def _check_block_weight(
+LINE   t3toolbox/backend/sampling_definitions.py +710 [other] S:             _Setting,
+LINE   t3toolbox/backend/sampling_definitions.py +711 [other] block_weight:  typ.Any,                 # per block: probe (d,)+F, apply F, entries ()
+LINE   t3toolbox/backend/sampling_definitions.py +712 [other] ) -> None:
+LINE   t3toolbox/backend/sampling_definitions.py +713 [other] '''The block weight's shape is the block shape exactly: ``(d,) + F`` (probe), ``F`` (apply), ``()`` (entries); a
+LINE   t3toolbox/backend/sampling_definitions.py +714 [other] sequence is refused (a ``TypeError``).'''
+LINE   t3toolbox/backend/sampling_definitions.py +715 [other] if isinstance(block_weight, (tuple, list)):
+LINE   t3toolbox/backend/sampling_definitions.py +716 [other] raise TypeError('the block weight is one array (a number for entries), not a %s: per mode and slot (d,) + F '
+LINE   t3toolbox/backend/sampling_definitions.py +717 [other] 'for probe, per slot F for apply' % type(block_weight).__name__)
+LINE   t3toolbox/backend/sampling_definitions.py +719 [other] if tuple(np.shape(block_weight)) != blocks:
+LINE   t3toolbox/backend/sampling_definitions.py +720 [other] raise ValueError('the block weight has shape %s; the block shape of the %s kind at order %s is %s exactly: '
+LINE   t3toolbox/backend/sampling_definitions.py +722 [other] blocks))
+LINE   t3toolbox/backend/sampling_definitions.py +726 [other] S:             _Setting,
+LINE   t3toolbox/backend/sampling_definitions.py +727 [other] block_weight:  typ.Any,                 # per block: probe (d,)+F, apply F, entries (); None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +728 [other] full_weight:   typ.Any,                 # of the type of z: z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +729 [other] i:             typ.Optional[int],       # the mode (probe), None otherwise
+LINE   t3toolbox/backend/sampling_definitions.py +730 [other] shape:         typ.Tuple[int, ...],     # the shape of the array of the type of z it will multiply
+LINE   t3toolbox/backend/sampling_definitions.py +731 [other] ) -> typ.Any:                                   # b**2 * f**2, broadcast positionally against `shape`, or 1.0
+LINE   t3toolbox/backend/sampling_definitions.py +732 [other] '''``b**2 f**2`` for one array of the type of ``z`` (mode ``i`` for probe): the block row of the mode (or the
+LINE   t3toolbox/backend/sampling_definitions.py +733 [other] table, apply; the number, entries) reshaped onto the leading jet axes, times the full weight's square read by
+LINE   t3toolbox/backend/sampling_definitions.py +734 [other] position. ``1.0`` for a factor that is ``None``. No reshape of the full weight.'''
+LINE   t3toolbox/backend/sampling_definitions.py +735 [other] xnp, _, _ = get_backend(False, tree_contains_jax((block_weight, full_weight)))
+LINE   t3toolbox/backend/sampling_definitions.py +737 [other] squared = 1.0
+LINE   t3toolbox/backend/sampling_definitions.py +738 [other] if block_weight is not None:
+LINE   t3toolbox/backend/sampling_definitions.py +739 [other] _check_block_weight(S, block_weight)
+LINE   t3toolbox/backend/sampling_definitions.py +740 [other] row = xnp.asarray(block_weight if i is None else block_weight[i])            # F (probe, apply); () entries
+LINE   t3toolbox/backend/sampling_definitions.py +741 [other] squared = xnp.reshape(row ** 2, tuple(row.shape) + (1,) * (len(shape) - m))  # left-aligned: the jet axes
+LINE   t3toolbox/backend/sampling_definitions.py +742 [other] if full_weight is not None:
+LINE   t3toolbox/backend/sampling_definitions.py +743 [other] f_X = _modes_of_data(S, full_weight, 'the full weight')
+LINE   t3toolbox/backend/sampling_definitions.py +744 [other] f_X = xnp.asarray(f_X if i is None else f_X[i])
+LINE   t3toolbox/backend/sampling_definitions.py +745 [other] _check_data_space('the full weight', i, f_X.shape, shape, tuple(range(m, len(S.M))))   # the sample axes W
+LINE   t3toolbox/backend/sampling_definitions.py +746 [other] squared = squared * f_X ** 2
+LINE   t3toolbox/backend/sampling_definitions.py +747 [other] return squared
+LINE   t3toolbox/backend/sampling_definitions.py +757 [other] S:             _Setting,
+LINE   t3toolbox/backend/sampling_definitions.py +758 [other] jet:           typ.Any,                 # of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py +759 [other] block_weight:  typ.Any,                 # per block: probe (d,)+F, apply F, entries (); None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +760 [other] full_weight:   typ.Any,                 # of the type of z: z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +761 [other] ) -> typ.Any:                                   # of the type of z: b**2 f**2 jet, then every jet axis flipped
+LINE   t3toolbox/backend/sampling_definitions.py +763 [other] return _map_type_of_z(S, lambda i, jet_TX: _turn(S, _weight_squared(S, block_weight, full_weight, i, jet_TX.shape)
+LINE   t3toolbox/backend/sampling_definitions.py +764 [other] * jet_TX), jet)
+LINE   t3toolbox/backend/sampling_definitions.py +768 [other] S:             _Setting,
+LINE   t3toolbox/backend/sampling_definitions.py +769 [other] sample:        typ.Any,
+LINE   t3toolbox/backend/sampling_definitions.py +770 [other] y:             typ.Any,
+LINE   t3toolbox/backend/sampling_definitions.py +771 [other] block_weight:  typ.Any,
+LINE   t3toolbox/backend/sampling_definitions.py +772 [other] full_weight:   typ.Any,
+LINE   t3toolbox/backend/sampling_definitions.py +773 [other] w_tilde:       typ.Any,
+LINE   t3toolbox/backend/sampling_definitions.py +774 [other] name:          str,
+LINE   t3toolbox/backend/sampling_definitions.py +777 [other] ``z - y`` and the weights.'''
+LINE   t3toolbox/backend/sampling_definitions.py +780 [other] y = _need(y, name, 'the data y (with optional weights), or a seed w_tilde')
+LINE   t3toolbox/backend/sampling_definitions.py +781 [other] return _dual_jet(S, _r(S, sample, y), block_weight, full_weight)
+LINE   t3toolbox/backend/sampling_definitions.py +87 [other] ``w_tilde[k] = b[order - k]**2 * f[order - k]**2 * r[order - k]`` (``k`` a multi-index; ``b`` the block weight's
+LINE   t3toolbox/backend/sampling_definitions.py +88 [other] row of the mode, read at the slot; ``f`` the full weight, read at the same entry as the residual). As a polynomial
+LINE   t3toolbox/backend/sampling_definitions.py +89 [other] in ``s`` the seed is
+LINE   t3toolbox/backend/sampling_definitions.py +91 [other] number they stand for is the coefficient of the corner ``s_1^n_1 ... s_m^n_m`` of the product. Pass ``y`` (and the weights) for the seed
+LINE   t3toolbox/backend/sampling_definitions.py +939 [other] y:                typ.Optional[typ.Any] = None,      # the data, z's shape exactly: probe len=d, F+W+(Ni,)
+LINE   t3toolbox/backend/sampling_definitions.py +940 [other] block_weight:     typ.Optional[typ.Any] = None,      # one per block: probe (d,)+F, apply F, entries ();
+LINE   t3toolbox/backend/sampling_definitions.py +941 [other] #   None = ones
+LINE   t3toolbox/backend/sampling_definitions.py +942 [other] full_weight:      typ.Optional[typ.Any] = None,      # z's shape, each W axis 1 or W's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -1012 [other] >>> weight = 0.5 + rng.random((3, 3, 1, 1))                            # (d,) + F + (1,) + (1,): per mode and slot
+LINE   t3toolbox/backend/sampling_definitions.py -1013 [other] >>> args = dict(order=(2,), y=y, weight=weight)
+LINE   t3toolbox/backend/sampling_definitions.py -1018 [other] >>> print(bool(np.allclose(w_tilde1[0], weight[1, 2] ** 2 * r1[2])))   # slot 0 holds order 2: turned
+LINE   t3toolbox/backend/sampling_definitions.py -1020 [other] >>> print(bool(np.allclose(w_tilde1[2], weight[1, 0] ** 2 * r1[0])))
+LINE   t3toolbox/backend/sampling_definitions.py -1040 [other] return _per_mode(S, i, _the_seed(S, sample, y, weight, w_tilde, 'w_tilde'), 'w_tilde')
+LINE   t3toolbox/backend/sampling_definitions.py -1057 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -1058 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -108 [other] - ``y``: the data, of the type of ``z``: probe ``len=d``, ``elm_shape=F+W+(Ni,)``; apply ``F+W``; entries ``W``.
+LINE   t3toolbox/backend/sampling_definitions.py -109 [other] - ``weight``: ``omega``, of the type of ``z`` too, entering squared; ``None`` is ones.
+LINE   t3toolbox/backend/sampling_definitions.py -1103 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -1104 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -111 [other] ``y`` and the weight are **data-space objects**: of the type of ``z`` (for probe exactly ``d`` arrays, a tuple, a
+LINE   t3toolbox/backend/sampling_definitions.py -112 [other] list, or one array whose first axis is the mode), each array of the rank of ``z``'s, each axis of size 1 or of
+LINE   t3toolbox/backend/sampling_definitions.py -113 [other] ``z``'s size. A size of 1 means the same value along that axis: a weight per slot has size-1 sample and edge axes,
+LINE   t3toolbox/backend/sampling_definitions.py -114 [other] one per sample size-1 jet and edge axes, one per entry ``z``'s shape. They are read by position, with no reshape, and
+LINE   t3toolbox/backend/sampling_definitions.py -115 [other] any other form raises a ``ValueError`` (a weight of one value per mode and slot, ``(d,) + F``, is not of this type).
+LINE   t3toolbox/backend/sampling_definitions.py -1188 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -1189 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -1236 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -1237 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -1286 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -1287 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -1333 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -1334 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -1388 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -1389 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -1437 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -1438 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -1499 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -1500 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -1606 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -1607 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -1682 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -1683 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -1731 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -1732 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -1805 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -1806 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -1840 [other] >>> seed = dict(y=y, weight=0.5 + rng.random((3, 1, 1)))               # the seed of the residual z - y
+LINE   t3toolbox/backend/sampling_definitions.py -1849 [other] seed_M = _at_nodes(S, _the_seed(S, sample, y, weight, w_tilde, 'xi_tilde'))
+LINE   t3toolbox/backend/sampling_definitions.py -1867 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -1868 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -1904 [other] >>> seed = dict(y=y, weight=0.5 + rng.random((3, 1, 1)))               # the seed of the residual z - y
+LINE   t3toolbox/backend/sampling_definitions.py -1917 [other] seed_M = _at_nodes(S, _the_seed(S, sample, y, weight, w_tilde, 'mu_tilde'))
+LINE   t3toolbox/backend/sampling_definitions.py -1935 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -1936 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -1972 [other] >>> seed = dict(y=y, weight=0.5 + rng.random((3, 1, 1)))               # the seed of the residual z - y
+LINE   t3toolbox/backend/sampling_definitions.py -2002 [other] seed_M = _at_nodes(S, _the_seed(S, sample, y, weight, w_tilde, 'nu_tilde'))
+LINE   t3toolbox/backend/sampling_definitions.py -2020 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -2021 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -2054 [other] >>> seed = dict(y=y, weight=0.5 + rng.random((3, 1, 1)))               # the seed of the residual z - y
+LINE   t3toolbox/backend/sampling_definitions.py -2066 [other] seed_M = _at_nodes(S, _the_seed(S, sample, y, weight, w_tilde, 'eta_tilde'))
+LINE   t3toolbox/backend/sampling_definitions.py -2085 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -2086 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -2119 [other] >>> seed = dict(y=y, weight=0.5 + rng.random((3, 1, 1)))               # the seed of the residual z - y
+LINE   t3toolbox/backend/sampling_definitions.py -2131 [other] seed_M = _at_nodes(S, _the_seed(S, sample, y, weight, w_tilde, 'nu_L_tilde'))
+LINE   t3toolbox/backend/sampling_definitions.py -2149 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -2150 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -2183 [other] >>> seed = dict(y=y, weight=0.5 + rng.random((3, 1, 1)))               # the seed of the residual z - y
+LINE   t3toolbox/backend/sampling_definitions.py -2199 [other] seed_M = _at_nodes(S, _the_seed(S, sample, y, weight, w_tilde, 'eta_D_tilde'))
+LINE   t3toolbox/backend/sampling_definitions.py -2222 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -2223 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -2264 [other] seed_M = _at_nodes(S, _the_seed(S, sample, y, weight, w_tilde, 'xi_tilde_dot'))
+LINE   t3toolbox/backend/sampling_definitions.py -2282 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -2283 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -2338 [other] seed_M = _at_nodes(S, _the_seed(S, sample, y, weight, w_tilde, 'mu_tilde_dot'))
+LINE   t3toolbox/backend/sampling_definitions.py -2357 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -2358 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -2412 [other] seed_M = _at_nodes(S, _the_seed(S, sample, y, weight, w_tilde, 'nu_L_tilde_dot'))
+LINE   t3toolbox/backend/sampling_definitions.py -2431 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -2432 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -2489 [other] seed_M = _at_nodes(S, _the_seed(S, sample, y, weight, w_tilde, 'eta_D_tilde_dot'))
+LINE   t3toolbox/backend/sampling_definitions.py -2513 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -2514 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -2609 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -2610 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -2654 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -2655 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -2715 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -2716 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -2766 [other] return _jacobian_transpose(S, _the_seed(S, sample, y, weight, w_tilde, 'g'))
+LINE   t3toolbox/backend/sampling_definitions.py -2778 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -2779 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -2785 [other] """``JtJp``: the Gauss-Newton product. ``Jp`` made into a seed (weighted, then turned), and the transpose applied
+LINE   t3toolbox/backend/sampling_definitions.py -2786 [other] to it: the blocks of :py:func:`g` with that seed in place of the residual's. Needs ``variations``.
+LINE   t3toolbox/backend/sampling_definitions.py -2809 [other] >>> p = dict(variations=(V, H), weight=0.5 + rng.random((3, 7, 1)))   # a weight per mode and sample
+LINE   t3toolbox/backend/sampling_definitions.py -2819 [other] return _jacobian_transpose(S, _dual_jet(S, _Jp(S, _need(variations, 'JtJp', 'variations (V, H)')), weight))
+LINE   t3toolbox/backend/sampling_definitions.py -2831 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -2832 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -2887 [other] return _Kp(S, _the_seed(S, sample, y, weight, w_tilde, 'Kp'),
+LINE   t3toolbox/backend/sampling_definitions.py -2900 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -2901 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -2941 [other] V_blocks, H_blocks = _jacobian_transpose(S, _the_seed(S, sample, y, weight, w_tilde, 'V_tilde'))
+LINE   t3toolbox/backend/sampling_definitions.py -2954 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -2955 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -2999 [other] V_blocks, H_blocks = _jacobian_transpose(S, _the_seed(S, sample, y, weight, w_tilde, 'H_tilde'))
+LINE   t3toolbox/backend/sampling_definitions.py -3012 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -3013 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -3057 [other] V_blocks, H_blocks = _Kp(S, _the_seed(S, sample, y, weight, w_tilde, 'V_tilde_dot'),
+LINE   t3toolbox/backend/sampling_definitions.py -3071 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -3072 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -3127 [other] V_blocks, H_blocks = _Kp(S, _the_seed(S, sample, y, weight, w_tilde, 'H_tilde_dot'),
+LINE   t3toolbox/backend/sampling_definitions.py -3146 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -3147 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -3150 [other] """``f``: the misfit, ``1/2 <r, weight**2 r>``: half the sum, over the modes, the orders, the samples and the mode
+LINE   t3toolbox/backend/sampling_definitions.py -3151 [other] edge, of the squared weighted residual, slot by slot. Needs ``y``.
+LINE   t3toolbox/backend/sampling_definitions.py -3171 [other] >>> weight = [0.5 + rng.random((7, n)) for n in N]                    # of the type of z: one per entry
+LINE   t3toolbox/backend/sampling_definitions.py -3173 [other] >>> f = sdef.f('probe', frame, ww, y=y, weight=weight)
+LINE   t3toolbox/backend/sampling_definitions.py -3174 [other] >>> print(bool(np.allclose(f, 0.5 * sum(np.sum(weight[i] ** 2 * r[i] ** 2) for i in range(3)))))
+LINE   t3toolbox/backend/sampling_definitions.py -3177 [other] A weight of one value per mode, ``(d,)``, is not of the type of ``z`` and raises; one per mode is written with
+LINE   t3toolbox/backend/sampling_definitions.py -3178 [other] size-1 sample and edge axes:
+LINE   t3toolbox/backend/sampling_definitions.py -3180 [other] >>> sdef.f('probe', frame, ww, y=y, weight=0.5 + rng.random(3))       # doctest: +IGNORE_EXCEPTION_DETAIL
+LINE   t3toolbox/backend/sampling_definitions.py -3183 [other] ValueError: the weight (mode 0) has shape (); it is of the type of z, whose array here has shape (7, 4): ...
+LINE   t3toolbox/backend/sampling_definitions.py -3184 [other] >>> per_mode = np.array([1.0, 2.0, 3.0]).reshape(3, 1, 1)               # (d,) + (1,) + (1,)
+LINE   t3toolbox/backend/sampling_definitions.py -3185 [other] >>> print(bool(np.allclose(sdef.f('probe', frame, ww, y=y, weight=per_mode),
+LINE   t3toolbox/backend/sampling_definitions.py -3186 [other] ...                        0.5 * sum(per_mode[i, 0, 0] ** 2 * np.sum(r[i] ** 2) for i in range(3)))))
+LINE   t3toolbox/backend/sampling_definitions.py -3193 [other] halves = _map_type_of_z(S, lambda i, r_TX: 0.5 * xnp.sum(_weight_squared(S, weight, i, r_TX.shape) * r_TX ** 2), r_)
+LINE   t3toolbox/backend/sampling_definitions.py -3206 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -3207 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -3210 [other] """``r_block_sumsq``: ``<r, weight**2 r>`` in each block, the weighted sum of squares of the residual (the sum of
+LINE   t3toolbox/backend/sampling_definitions.py -3211 [other] squares with no weight). A block is one mode at one slot of the box ``F`` (probe) or one slot (apply; entries has
+LINE   t3toolbox/backend/sampling_definitions.py -3212 [other] the one block), so the result has the block shape; the sum is over the samples and the mode edge. Needs ``y``.
+LINE   t3toolbox/backend/sampling_definitions.py -3241 [other] Weighted, one weight per sample (``F + W + (1,)``): a zero drops the sample from every block.
+LINE   t3toolbox/backend/sampling_definitions.py -3243 [other] >>> weight = [np.ones((1, 7, 1)) for n in N]
+LINE   t3toolbox/backend/sampling_definitions.py -3244 [other] >>> for omega in weight:
+LINE   t3toolbox/backend/sampling_definitions.py -3245 [other] ...     omega[0, 3, 0] = 0.0
+LINE   t3toolbox/backend/sampling_definitions.py -3246 [other] >>> sums = sdef.r_block_sumsq('probe', frame, line, order=(2,), y=y, weight=weight)
+LINE   t3toolbox/backend/sampling_definitions.py -3257 [other] return xnp.sum(_weight_squared(S, weight, i, r_FX.shape) * r_FX ** 2, axis=tuple(range(m, r_FX.ndim)))
+LINE   t3toolbox/backend/sampling_definitions.py -3271 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -3272 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -3275 [other] """``Jp_norm_sq``: ``<Jp, weight**2 Jp>``, the squared weighted norm of the direction's output, summed as ``f`` is
+LINE   t3toolbox/backend/sampling_definitions.py -3276 [other] (without the half). Needs ``variations``.
+LINE   t3toolbox/backend/sampling_definitions.py -3297 [other] >>> weight = 0.5 + rng.random((3, 7, 1))                               # (d,) + W + (1,): per mode and sample
+LINE   t3toolbox/backend/sampling_definitions.py -3299 [other] >>> Jp_norm_sq = sdef.Jp_norm_sq('probe', frame, ww, variations=(V, H), weight=weight)
+LINE   t3toolbox/backend/sampling_definitions.py -3300 [other] >>> print(bool(np.allclose(Jp_norm_sq, sum(np.sum(weight[i] ** 2 * Jp[i] ** 2) for i in range(3)))))
+LINE   t3toolbox/backend/sampling_definitions.py -3307 [other] squares = _map_type_of_z(S, lambda i, Jp_TX: xnp.sum(_weight_squared(S, weight, i, Jp_TX.shape) * Jp_TX ** 2), Jp_)
+LINE   t3toolbox/backend/sampling_definitions.py -651 [other] '''``r = z - y``: the residual, of the type of ``z``, in forward order. ``y`` is of the type of ``z``, each axis 1
+LINE   t3toolbox/backend/sampling_definitions.py -652 [other] or ``z``'s size (checked, `_check_data_space`), and is read positionally: a size of 1 is the same value along that
+LINE   t3toolbox/backend/sampling_definitions.py -653 [other] axis.'''
+LINE   t3toolbox/backend/sampling_definitions.py -655 [other] _check_data_space('the data y', i, np.shape(y_TX), np.shape(z_TX))
+LINE   t3toolbox/backend/sampling_definitions.py -687 [other] what:      str,
+LINE   t3toolbox/backend/sampling_definitions.py -688 [other] i:         typ.Optional[int],               # the mode (probe), None otherwise
+LINE   t3toolbox/backend/sampling_definitions.py -689 [other] shape:     typ.Tuple[int, ...],             # the data-space array's shape
+LINE   t3toolbox/backend/sampling_definitions.py -690 [other] of_shape:  typ.Tuple[int, ...],             # the shape of the array of z it goes with
+LINE   t3toolbox/backend/sampling_definitions.py -692 [other] '''The rule for a data-space object (``y``, the weight): the rank of ``z``'s array, and each axis 1 or ``z``'s
+LINE   t3toolbox/backend/sampling_definitions.py -693 [other] size. A structural ``ValueError`` otherwise, so that no other form is read in a way it was not meant.'''
+LINE   t3toolbox/backend/sampling_definitions.py -695 [other] if len(shape) != len(of_shape) or any(a not in (1, b) for a, b in zip(shape, of_shape)):
+LINE   t3toolbox/backend/sampling_definitions.py -696 [other] raise ValueError('%s%s has shape %s; it is of the type of z, whose array here has shape %s: the same rank, and '
+LINE   t3toolbox/backend/sampling_definitions.py -697 [other] 'each axis 1 or z\'s size' % (what, where, tuple(shape), tuple(of_shape)))
+LINE   t3toolbox/backend/sampling_definitions.py -701 [other] S:       _Setting,
+LINE   t3toolbox/backend/sampling_definitions.py -702 [other] weight:  typ.Any,                   # of the type of z: each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -703 [other] i:       typ.Optional[int],         # the mode (probe), None otherwise
+LINE   t3toolbox/backend/sampling_definitions.py -704 [other] shape:   typ.Tuple[int, ...],       # the shape of the array of the type of z it will multiply
+LINE   t3toolbox/backend/sampling_definitions.py -705 [other] ) -> typ.Any:                               # weight**2, the weight's own shape (broadcast positionally), or 1.0
+LINE   t3toolbox/backend/sampling_definitions.py -706 [other] '''``weight**2`` for one array of the type of ``z`` (mode ``i`` for probe). The weight is read in the full form,
+LINE   t3toolbox/backend/sampling_definitions.py -707 [other] by position: the array's rank, each axis 1 (the same value along it) or the array's size. No reshape.'''
+LINE   t3toolbox/backend/sampling_definitions.py -708 [other] if weight is None:
+LINE   t3toolbox/backend/sampling_definitions.py -709 [other] return 1.0
+LINE   t3toolbox/backend/sampling_definitions.py -710 [other] xnp, _, _ = get_backend(False, tree_contains_jax((weight,)))
+LINE   t3toolbox/backend/sampling_definitions.py -711 [other] omega_X = _modes_of_data(S, weight, 'the weight')
+LINE   t3toolbox/backend/sampling_definitions.py -712 [other] omega_X = xnp.asarray(omega_X if i is None else omega_X[i])
+LINE   t3toolbox/backend/sampling_definitions.py -713 [other] _check_data_space('the weight', i, omega_X.shape, shape)
+LINE   t3toolbox/backend/sampling_definitions.py -714 [other] return omega_X ** 2
+LINE   t3toolbox/backend/sampling_definitions.py -724 [other] S:       _Setting,
+LINE   t3toolbox/backend/sampling_definitions.py -725 [other] jet:     typ.Any,                       # of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -726 [other] weight:  typ.Any,                       # of the type of z: each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -727 [other] ) -> typ.Any:                                   # of the type of z: weight**2 * jet, then every jet axis flipped
+LINE   t3toolbox/backend/sampling_definitions.py -729 [other] return _map_type_of_z(S, lambda i, jet_TX: _turn(S, _weight_squared(S, weight, i, jet_TX.shape) * jet_TX), jet)
+LINE   t3toolbox/backend/sampling_definitions.py -733 [other] S:        _Setting,
+LINE   t3toolbox/backend/sampling_definitions.py -734 [other] sample:   typ.Any,
+LINE   t3toolbox/backend/sampling_definitions.py -735 [other] y:        typ.Any,
+LINE   t3toolbox/backend/sampling_definitions.py -736 [other] weight:   typ.Optional[NDArray],
+LINE   t3toolbox/backend/sampling_definitions.py -737 [other] w_tilde:  typ.Any,
+LINE   t3toolbox/backend/sampling_definitions.py -738 [other] name:     str,
+LINE   t3toolbox/backend/sampling_definitions.py -741 [other] ``z - y`` and the weight.'''
+LINE   t3toolbox/backend/sampling_definitions.py -744 [other] y = _need(y, name, 'the data y (with an optional weight), or a seed w_tilde')
+LINE   t3toolbox/backend/sampling_definitions.py -745 [other] return _dual_jet(S, _r(S, sample, y), weight)
+LINE   t3toolbox/backend/sampling_definitions.py -87 [other] ``w_tilde[k] = weight[order - k]**2 * r[order - k]`` (``k`` a multi-index, the weight read at the same entry as the
+LINE   t3toolbox/backend/sampling_definitions.py -88 [other] residual). As a polynomial in ``s`` the seed is
+LINE   t3toolbox/backend/sampling_definitions.py -90 [other] number they stand for is the coefficient of the corner ``s_1^n_1 ... s_m^n_m`` of the product. Pass ``y`` (and ``weight``) for the seed
+LINE   t3toolbox/backend/sampling_definitions.py -903 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -904 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -972 [other] y:                typ.Optional[typ.Any] = None,      # the data, of the type of z
+LINE   t3toolbox/backend/sampling_definitions.py -973 [other] weight:           typ.Optional[typ.Any] = None,      # of the type of z, each axis 1 or z's size; None = ones
+LINE   t3toolbox/backend/sampling_definitions.py -981 [other] ``w_tilde[i][k] = weight[i][order - k]**2 * r[i][order - k]``        (probe; no mode index for the others),
+LINE   t3toolbox/backend/sampling_definitions.py -983 [other] the weight read at the same entry as the residual (positionally; a size-1 axis of the weight is constant).
+LINE   t3toolbox/backend/sampling_definitions.py -986 [other] product: ``sum_k w_tilde[order - k] * a[k] = sum_k weight[k]**2 * r[k] * a[k]``, the weighted inner product with
+LINE   tests/oracle_sweeps/oracle.py +222 [other] # ------------------------------------------------------------------------------------------------------------------
+LINE   tests/oracle_sweeps/oracle.py +223 [other] # The two weights (K1): a block weight, one number per block (probe (d,)+F, apply F, entries ()), and a full weight of
+LINE   tests/oracle_sweeps/oracle.py +224 [other] # the type of z, multiplying. The full weight is written out by ``expand`` (no broadcasting); the block row is placed
+LINE   tests/oracle_sweeps/oracle.py +225 [other] # by an explicit loop over the blocks. Additive: the full form above stays for the callers that still pass one weight.
+LINE   tests/oracle_sweeps/oracle.py +226 [other] # ------------------------------------------------------------------------------------------------------------------
+LINE   tests/oracle_sweeps/oracle.py +227 [other] 
+LINE   tests/oracle_sweeps/oracle.py +228 [other] def _block_factor(kind, block_weight, i, shape, m):
+LINE   tests/oracle_sweeps/oracle.py +229 [other] """The block weight of mode ``i`` (probe) written out to ``shape`` by a loop over the blocks: the slot ``k`` of
+LINE   tests/oracle_sweeps/oracle.py +230 [other] the ``m`` leading jet axes holds ``block_weight[i][k]`` (probe), ``block_weight[k]`` (apply) or the one number
+LINE   tests/oracle_sweeps/oracle.py +231 [other] (entries), at every entry after them. Ones for ``None``."""
+LINE   tests/oracle_sweeps/oracle.py +232 [other] out = np.ones(shape)
+LINE   tests/oracle_sweeps/oracle.py +233 [other] if block_weight is None:
+LINE   tests/oracle_sweeps/oracle.py +234 [other] return out
+LINE   tests/oracle_sweeps/oracle.py +235 [other] b = np.asarray(block_weight, dtype=float)
+LINE   tests/oracle_sweeps/oracle.py +236 [other] row = b[i] if kind == 'probe' else b
+LINE   tests/oracle_sweeps/oracle.py +237 [other] if row.shape != tuple(shape[:m]):
+LINE   tests/oracle_sweeps/oracle.py +238 [other] raise ValueError('the block row has shape %s, expected the jet box %s' % (row.shape, tuple(shape[:m])))
+LINE   tests/oracle_sweeps/oracle.py +239 [other] for slot in np.ndindex(*shape[:m]):
+LINE   tests/oracle_sweeps/oracle.py +240 [other] out[slot] = row[slot]
+LINE   tests/oracle_sweeps/oracle.py +241 [other] return out
+LINE   tests/oracle_sweeps/oracle.py +242 [other] 
+LINE   tests/oracle_sweeps/oracle.py +243 [other] 
+LINE   tests/oracle_sweeps/oracle.py +244 [other] def weighted_residual_two(kind, Sx, y, block_weight, full_weight):
+LINE   tests/oracle_sweeps/oracle.py +245 [other] """``b * f * (S(x) - y)`` entry by entry: ``b`` the block weight placed on the leading jet axes by a loop over the
+LINE   tests/oracle_sweeps/oracle.py +246 [other] blocks, ``f`` the full weight and ``y`` written out to z's shape by ``expand``. ``None`` is ones. Probe: a list.
+LINE   tests/oracle_sweeps/oracle.py +247 [other] The jet count ``m`` is read off the block weight (probe ``ndim - 1``, apply ``ndim``); with no block weight it
+LINE   tests/oracle_sweeps/oracle.py +248 [other] is not needed."""
+LINE   tests/oracle_sweeps/oracle.py +249 [other] zs = _modes(kind, Sx, len(Sx) if kind == 'probe' else None)
+LINE   tests/oracle_sweeps/oracle.py +250 [other] ys = _modes(kind, y, len(zs))
+LINE   tests/oracle_sweeps/oracle.py +251 [other] fs = [None] * len(zs) if full_weight is None else _modes(kind, full_weight, len(zs))
+LINE   tests/oracle_sweeps/oracle.py +252 [other] m = 0 if block_weight is None else np.ndim(block_weight) - (1 if kind == 'probe' else 0)
+LINE   tests/oracle_sweeps/oracle.py +253 [other] out = []
+LINE   tests/oracle_sweeps/oracle.py +254 [other] for i, (z, y_, f) in enumerate(zip(zs, ys, fs)):
+LINE   tests/oracle_sweeps/oracle.py +255 [other] z = np.asarray(z, dtype=float)
+LINE   tests/oracle_sweeps/oracle.py +256 [other] r = (z - expand(y_, z.shape)) * _block_factor(kind, block_weight, i, z.shape, m)
+LINE   tests/oracle_sweeps/oracle.py +257 [other] out.append(r if f is None else expand(f, z.shape) * r)
+LINE   tests/oracle_sweeps/oracle.py +258 [other] return out if kind == 'probe' else out[0]
+LINE   tests/oracle_sweeps/oracle.py +259 [other] 
+LINE   tests/oracle_sweeps/oracle.py +260 [other] 
+LINE   tests/oracle_sweeps/oracle.py +261 [other] def weighted_two(kind, like, value, block_weight, full_weight):
+LINE   tests/oracle_sweeps/oracle.py +262 [other] """``b * f * value`` entry by entry at ``like``'s shapes, as ``weighted_residual_two`` weighs the residual: the
+LINE   tests/oracle_sweeps/oracle.py +263 [other] data's half of the block sums with two weights."""
+LINE   tests/oracle_sweeps/oracle.py +264 [other] zs = _modes(kind, like, len(like) if kind == 'probe' else None)
+LINE   tests/oracle_sweeps/oracle.py +265 [other] vs = _modes(kind, value, len(zs))
+LINE   tests/oracle_sweeps/oracle.py +266 [other] fs = [None] * len(zs) if full_weight is None else _modes(kind, full_weight, len(zs))
+LINE   tests/oracle_sweeps/oracle.py +267 [other] m = 0 if block_weight is None else np.ndim(block_weight) - (1 if kind == 'probe' else 0)
+LINE   tests/oracle_sweeps/oracle.py +268 [other] out = []
+LINE   tests/oracle_sweeps/oracle.py +269 [other] for i, (z, v, f) in enumerate(zip(zs, vs, fs)):
+LINE   tests/oracle_sweeps/oracle.py +270 [other] shape = np.shape(z)
+LINE   tests/oracle_sweeps/oracle.py +271 [other] v = expand(v, shape) * _block_factor(kind, block_weight, i, shape, m)
+LINE   tests/oracle_sweeps/oracle.py +272 [other] out.append(v if f is None else expand(f, shape) * v)
+LINE   tests/oracle_sweeps/oracle.py +273 [other] return out if kind == 'probe' else out[0]
+LINE   tests/oracle_sweeps/oracle.py +274 [other] 
+LINE   tests/oracle_sweeps/oracle.py +275 [other] 
+LINE   tests/test_dense_oracle.py +17 [other] 4. the two weights (K1): ``weighted_residual_two`` and ``weighted_two`` against an explicit loop over every entry, the
+LINE   tests/test_dense_oracle.py +18 [other] block weight read at the entry's slot, for neither weight, either, and both.
+LINE   tests/test_dense_oracle.py +200 [other] class TestTwoWeights(unittest.TestCase):
+LINE   tests/test_dense_oracle.py +201 [other] """``weighted_residual_two`` and ``weighted_two`` (K1): the block weight on the leading jet axes and the full
+LINE   tests/test_dense_oracle.py +202 [other] weight entry by entry, multiplying, against an explicit loop over every entry of ``z`` (the block weight read at
+LINE   tests/test_dense_oracle.py +203 [other] the entry's slot, the full weight and ``y`` at 0 on their size-1 axes, `at`)."""
+LINE   tests/test_dense_oracle.py +204 [other] 
+LINE   tests/test_dense_oracle.py +205 [other] def loop(self, kind, z, value, block, full, residual):
+LINE   tests/test_dense_oracle.py +206 [other] """``b * f * (z - value)`` (``residual``) or ``b * f * value``, entry by entry, as a list over the modes."""
+LINE   tests/test_dense_oracle.py +207 [other] zs = list(z) if kind == 'probe' else [z]
+LINE   tests/test_dense_oracle.py +208 [other] vs = [value[i] for i in range(len(zs))] if kind == 'probe' else [value]
+LINE   tests/test_dense_oracle.py +209 [other] fs = [None] * len(zs) if full is None else ([full[i] for i in range(len(zs))] if kind == 'probe' else [full])
+LINE   tests/test_dense_oracle.py +210 [other] out = []
+LINE   tests/test_dense_oracle.py +211 [other] for i, (z_, v_, f_) in enumerate(zip(zs, vs, fs)):
+LINE   tests/test_dense_oracle.py +212 [other] m = 0 if block is None else np.ndim(block) - (1 if kind == 'probe' else 0)
+LINE   tests/test_dense_oracle.py +213 [other] o = np.zeros(np.shape(z_))
+LINE   tests/test_dense_oracle.py +214 [other] for index in np.ndindex(*np.shape(z_)):
+LINE   tests/test_dense_oracle.py +215 [other] b = 1.0 if block is None else float(np.asarray(block)[((i,) if kind == 'probe' else ()) + index[:m]])
+LINE   tests/test_dense_oracle.py +216 [other] f = 1.0 if f_ is None else float(at(np.asarray(f_), index))
+LINE   tests/test_dense_oracle.py +217 [other] v = float(at(np.asarray(v_), index))
+LINE   tests/test_dense_oracle.py +218 [other] o[index] = b * f * ((z_[index] - v) if residual else v)
+LINE   tests/test_dense_oracle.py +219 [other] out.append(o)
+LINE   tests/test_dense_oracle.py +220 [other] return out
+LINE   tests/test_dense_oracle.py +221 [other] 
+LINE   tests/test_dense_oracle.py +222 [other] def test_against_the_loop(self):
+LINE   tests/test_dense_oracle.py +223 [other] rng, X, ww, pp, index = problem(6)
+LINE   tests/test_dense_oracle.py +224 [other] for kind in ('probe', 'apply', 'entries'):
+LINE   tests/test_dense_oracle.py +225 [other] for order in (((), (2,)) if kind != 'entries' else ((),)):
+LINE   tests/test_dense_oracle.py +226 [other] sample = sample_of(kind, ww, pp, index, order)
+LINE   tests/test_dense_oracle.py +227 [other] z = oracle.S_taylor(kind, X, sample, order)
+LINE   tests/test_dense_oracle.py +228 [other] shapes = [a.shape for a in z] if kind == 'probe' else [z.shape]
+LINE   tests/test_dense_oracle.py +229 [other] F = tuple(n + 1 for n in order)
+LINE   tests/test_dense_oracle.py +230 [other] m = len(order)
+LINE   tests/test_dense_oracle.py +231 [other] block = 0.5 + rng.random(((len(SHAPE),) if kind == 'probe' else ()) + F)    # every slot different
+LINE   tests/test_dense_oracle.py +232 [other] per_entry = [0.5 + rng.random(sh) for sh in shapes]
+LINE   tests/test_dense_oracle.py +233 [other] w_of_one = [0.5 + rng.random(pattern_shape(sh, set(range(len(sh))) - set(range(m, m + len(W)))))
+LINE   tests/test_dense_oracle.py +234 [other] for sh in shapes]
+LINE   tests/test_dense_oracle.py +235 [other] for name, (b, f) in {'neither': (None, None), 'block': (block, None), 'full': (None, per_entry),
+LINE   tests/test_dense_oracle.py +236 [other] 'full with W of 1': (None, w_of_one), 'both': (block, w_of_one)}.items():
+LINE   tests/test_dense_oracle.py +237 [other] with self.subTest(kind=kind, order=order, weights=name):
+LINE   tests/test_dense_oracle.py +238 [other] y = [rng.standard_normal(sh) for sh in shapes]
+LINE   tests/test_dense_oracle.py +239 [other] f_arg = None if f is None else (f if kind == 'probe' else f[0])
+LINE   tests/test_dense_oracle.py +240 [other] y_arg = y if kind == 'probe' else y[0]
+LINE   tests/test_dense_oracle.py +241 [other] for residual, function in ((True, oracle.weighted_residual_two), (False, oracle.weighted_two)):
+LINE   tests/test_dense_oracle.py +242 [other] got = function(kind, z, y_arg, b, f_arg)
+LINE   tests/test_dense_oracle.py +243 [other] got = got if kind == 'probe' else [got]
+LINE   tests/test_dense_oracle.py +244 [other] expected = self.loop(kind, z, y_arg, b, f_arg, residual)
+LINE   tests/test_dense_oracle.py +245 [other] for a, c in zip(got, expected):
+LINE   tests/test_dense_oracle.py +246 [other] self.assertLessEqual(float(np.max(np.abs(a - c))),
+LINE   tests/test_dense_oracle.py +247 [other] 1e-12 * max(1.0, float(np.max(np.abs(c)))))
+LINE   tests/test_dense_oracle.py +248 [other] 
+LINE   tests/test_dense_oracle.py +249 [other] def test_a_block_row_off_the_jet_box_is_refused(self):
+LINE   tests/test_dense_oracle.py +250 [other] _, X, ww, pp, index = problem(7)
+LINE   tests/test_dense_oracle.py +251 [other] z = oracle.S_taylor('probe', X, (ww, pp), (2,))
+LINE   tests/test_dense_oracle.py +252 [other] with self.assertRaises(ValueError):                         # (d,) + F + (1,): the old full form
+LINE   tests/test_dense_oracle.py +253 [other] oracle.weighted_residual_two('probe', z, z, np.ones((3, 3, 1)), None)
+LINE   tests/test_dense_oracle.py +254 [other] 
+LINE   tests/test_dense_oracle.py +255 [other] 
+LINE   tests/test_dense_oracle.py +9 [other] position), in Taylor coordinates. Four lines of evidence, none of which calls the library:
+LINE   tests/test_dense_oracle.py -9 [other] position), in Taylor coordinates. Three lines of evidence, none of which calls the library:
+LINE   tests/test_engine_data_space.py +100 [other] block weight; per entry, or with size-1 sample axes, a full weight; a full weight with a structural axis of 1 (the
+LINE   tests/test_engine_data_space.py +101 [other] slots, the edge) and a ``y`` constant in ``W`` are written out (``np.broadcast_to``: the same values). The engine,
+LINE   tests/test_engine_data_space.py +102 [other] on one weight until K1's part 2, gets the same written-out ``y`` and the old form of the same weight:
+LINE   tests/test_engine_data_space.py +103 [other] ``blocks_to_weight`` of the block weight, the full weight itself, or their product."""
+LINE   tests/test_engine_data_space.py +105 [other] PATTERNS = ('per entry', 'per sample, written out', 'per slot: a block weight', 'one per mode: a block weight',
+LINE   tests/test_engine_data_space.py +106 [other] 'edge and first jet axis, written out', 'with W of 1', 'a block and a full weight')
+LINE   tests/test_engine_data_space.py +111 [other] """The axes on which a full weight of ``pattern`` is drawn with ``z``'s size (every other axis is 1)."""
+LINE   tests/test_engine_data_space.py +114 [other] if pattern == 'per sample, written out':
+LINE   tests/test_engine_data_space.py +116 [other] if pattern in ('with W of 1', 'a block and a full weight'):
+LINE   tests/test_engine_data_space.py +117 [other] return set(range(ndim)) - set(range(m, m + n_W))
+LINE   tests/test_engine_data_space.py +119 [other] 
+LINE   tests/test_engine_data_space.py +120 [other] def weights(self, rng, pattern, kind, case, P, shapes, y):
+LINE   tests/test_engine_data_space.py +121 [other] """``(reference, engine)``: the reference's keywords ``block_weight``, ``full_weight`` and the engine's old
+LINE   tests/test_engine_data_space.py +122 [other] ``weight`` of the same metric."""
+LINE   tests/test_engine_data_space.py +123 [other] m, n_W, lead = case.m, len(P.W), ((P.d,) if kind == 'probe' else ())
+LINE   tests/test_engine_data_space.py +124 [other] block = full = None
+LINE   tests/test_engine_data_space.py +125 [other] if pattern == 'one per mode: a block weight':
+LINE   tests/test_engine_data_space.py +126 [other] block = np.broadcast_to((0.5 + rng.random(lead)).reshape(lead + (1,) * m), lead + case.box)
+LINE   tests/test_engine_data_space.py +127 [other] elif pattern in ('per slot: a block weight', 'a block and a full weight'):
+LINE   tests/test_engine_data_space.py +128 [other] block = 0.5 + rng.random(lead + case.box)
+LINE   tests/test_engine_data_space.py +129 [other] if pattern not in ('per slot: a block weight', 'one per mode: a block weight'):
+LINE   tests/test_engine_data_space.py +130 [other] axes = self.full_axes(pattern, kind, m, n_W, len(shapes[0]))
+LINE   tests/test_engine_data_space.py +131 [other] drawn = [0.5 + rng.random(tuple(n if a in axes else 1 for a, n in enumerate(sh))) for sh in shapes]
+LINE   tests/test_engine_data_space.py +132 [other] keep_W_of_1 = pattern in ('with W of 1', 'a block and a full weight')
+LINE   tests/test_engine_data_space.py +133 [other] full = drawn if keep_W_of_1 else [np.broadcast_to(w, sh) for w, sh in zip(drawn, shapes)]
+LINE   tests/test_engine_data_space.py +135 [other] if full is None:
+LINE   tests/test_engine_data_space.py +136 [other] engine = old_block
+LINE   tests/test_engine_data_space.py +137 [other] elif old_block is None:
+LINE   tests/test_engine_data_space.py +138 [other] engine = of_kind(kind, full)
+LINE   tests/test_engine_data_space.py +139 [other] else:                                   # the product, one array per mode
+LINE   tests/test_engine_data_space.py +14 [other] four jet cases, the weight per entry, per sample, per slot, one per mode, and on the edge and the first jet axis
+LINE   tests/test_engine_data_space.py +140 [other] engine = of_kind(kind, [np.asarray(old_block[i] if kind == 'probe' else old_block) * f
+LINE   tests/test_engine_data_space.py +141 [other] for i, f in enumerate(full)])
+LINE   tests/test_engine_data_space.py +142 [other] return dict(block_weight=block, full_weight=None if full is None else of_kind(kind, full)), engine
+LINE   tests/test_engine_data_space.py +15 [other] (since K1's part 1 a block weight or a full weight, as the class says), and a block and a full weight together,
+LINE   tests/test_engine_data_space.py +169 [other] y_constant = j % 2 == 1                     # alternately: the data constant in W, written out
+LINE   tests/test_engine_data_space.py +171 [other] y = [np.broadcast_to(rng.standard_normal(tuple(n if a in y_axes else 1 for a, n in enumerate(sh))), sh)
+LINE   tests/test_engine_data_space.py +172 [other] for sh in shapes]
+LINE   tests/test_engine_data_space.py +174 [other] reference, w_arg = self.weights(rng, pattern, kind, case, P, shapes, y_arg)
+LINE   tests/test_engine_data_space.py +179 [other] arguments = dict(y=y_arg, **reference)
+LINE   tests/test_engine_data_space.py +99 [other] """The weight patterns of M2, as the reference reads them since K1's part 1: a weight per mode and slot is a
+LINE   tests/test_engine_data_space.py -104 [other] """The axes on which a weight of ``pattern`` has ``z``'s size (every other axis is 1)."""
+LINE   tests/test_engine_data_space.py -107 [other] if pattern == 'per sample':
+LINE   tests/test_engine_data_space.py -109 [other] if pattern == 'per slot':
+LINE   tests/test_engine_data_space.py -110 [other] return set(range(m))
+LINE   tests/test_engine_data_space.py -111 [other] if pattern == 'one per mode':
+LINE   tests/test_engine_data_space.py -112 [other] return set()
+LINE   tests/test_engine_data_space.py -14 [other] four jet cases, the weight per entry, per sample, per slot, one per mode, and on the edge and the first jet axis,
+LINE   tests/test_engine_data_space.py -140 [other] y_constant = j % 2 == 1                     # alternately: the data constant in W
+LINE   tests/test_engine_data_space.py -141 [other] axes = self.full_axes(pattern, kind, m, n_W, len(shapes[0]))
+LINE   tests/test_engine_data_space.py -142 [other] weight = [0.5 + rng.random(tuple(n if a in axes else 1 for a, n in enumerate(sh))) for sh in shapes]
+LINE   tests/test_engine_data_space.py -144 [other] y = [rng.standard_normal(tuple(n if a in y_axes else 1 for a, n in enumerate(sh))) for sh in shapes]
+LINE   tests/test_engine_data_space.py -145 [other] as_array = kind == 'probe' and len({w.shape for w in weight}) == 1 and j % 2 == 0
+LINE   tests/test_engine_data_space.py -146 [other] w_arg = np.stack(weight) if as_array else of_kind(kind, weight)
+LINE   tests/test_engine_data_space.py -152 [other] arguments = dict(y=y_arg, weight=w_arg)
+LINE   tests/test_engine_data_space.py -99 [other] PATTERNS = ('per entry', 'per sample', 'per slot', 'one per mode', 'edge and first jet axis')
+LINE   tests/test_sampling_apply.py +105 [other] block_weight=block, variations=c, core_directions=c)
+LINE   tests/test_sampling_apply.py +85 [other] block = problem.block_weight('apply', case)     # the reference takes the blocks themselves
+LINE   tests/test_sampling_apply.py -105 [other] weight=full, variations=c, core_directions=c)
+LINE   tests/test_sampling_apply.py -85 [other] full = problem.full_weight('apply', case)       # the reference's weight: of the type of z
+LINE   tests/test_sampling_corewise.py +58 [other] block = problem.block_weight('probe', case)             # the reference takes the blocks themselves
+LINE   tests/test_sampling_corewise.py +61 [other] y=y, block_weight=block, variations=core_directions,
+LINE   tests/test_sampling_corewise.py -58 [other] weight = problem.full_weight('probe', case)             # the reference's weight is of the type of z
+LINE   tests/test_sampling_corewise.py -61 [other] y=y, weight=weight, variations=core_directions,
+LINE   tests/test_sampling_definitions.py +1277 [other] weight = flat_args['block_weight'][:, :, None] if kind == 'probe' else flat_args['block_weight'][:, None]
+LINE   tests/test_sampling_definitions.py +1278 [other] args = dict(flat_args, order=(3, 0), y=y, block_weight=weight)
+LINE   tests/test_sampling_definitions.py +1320 [other] block_weight=jnp.asarray(args['block_weight'])))
+LINE   tests/test_sampling_definitions.py +1409 [other] functional = ring.weighted(r, P.data(kind, case)[1], kind)     # the block weight, placed
+LINE   tests/test_sampling_definitions.py +1574 [other] ('block_weight', inspect.Parameter.KEYWORD_ONLY, None),
+LINE   tests/test_sampling_definitions.py +1575 [other] ('full_weight', inspect.Parameter.KEYWORD_ONLY, None),
+LINE   tests/test_sampling_definitions.py +205 [other] loops of `TestTheTwoWeights` check it without broadcasting)."""
+LINE   tests/test_sampling_definitions.py +296 [other] def block_weight(self, kind, case):
+LINE   tests/test_sampling_definitions.py +297 [other] """The blocks of `blocks`: the reference's form of the weight of `data`, one number per block."""
+LINE   tests/test_sampling_definitions.py +298 [other] return self.blocks(kind, case)[1]
+LINE   tests/test_sampling_definitions.py +301 [other] """The reference's arguments: the block weight, one number per block."""
+LINE   tests/test_sampling_definitions.py +304 [other] y=y, block_weight=self.block_weight(kind, case))
+LINE   tests/test_sampling_definitions.py +456 [other] y, weight = args['y'], P.data(kind, case)[1]       # the block weight placed on the jet axes
+LINE   tests/test_sampling_definitions.py +519 [other] weight = P.data(kind, case)[1]                     # the block weight placed on the jet axes
+LINE   tests/test_sampling_definitions.py +566 [other] def distinct():     # F, W, d and every N_i different at a line at (3,): F = (4,), W = (2,), d = 3, N = (5, 6, 7)
+LINE   tests/test_sampling_definitions.py +567 [other] return Problem(7, (5, 6, 7), (2, 3, 2), (3, 2, 3), (1, 2, 3, 1), (1, 3, 2, 1), (2,))
+LINE   tests/test_sampling_definitions.py +568 [other] 
+LINE   tests/test_sampling_definitions.py +569 [other] 
+LINE   tests/test_sampling_definitions.py +570 [other] class TestTheTwoWeights(unittest.TestCase):
+LINE   tests/test_sampling_definitions.py +571 [other] """The reference's reading of the two weights and the data (K1, part 1): a block weight ``b``, one number per
+LINE   tests/test_sampling_definitions.py +572 [other] block (probe ``(d,) + F``, apply ``F``, entries ``()``), entering squared on the leading jet axes; a full weight
+LINE   tests/test_sampling_definitions.py +573 [other] ``f`` of the type of ``z``, of ``z``'s shape but that each sample axis may be 1, entering squared entry by entry;
+LINE   tests/test_sampling_definitions.py +574 [other] the two multiply. ``y`` has ``z``'s shape exactly. Pinned here against brute force, before the engine is switched
+LINE   tests/test_sampling_definitions.py +575 [other] to the same rule.
+LINE   tests/test_sampling_definitions.py +579 [other] seed, ``f``, ``r_block_sumsq``, ``Jp_norm_sq`` and the pairings ``<g, p> = sum b**2 f**2 r Jp(p)`` and
+LINE   tests/test_sampling_definitions.py +580 [other] ``<JtJp(p), q> = sum b**2 f**2 Jp(p) Jp(q)`` are explicit loops over every entry (``np.ndindex``), the block weight
+LINE   tests/test_sampling_definitions.py +581 [other] read at the entry's slot and the full weight at the entry itself, at 0 on its size-1 axes (`at`): no
+LINE   tests/test_sampling_definitions.py +582 [other] broadcasting. The cases: neither weight; a block weight alone (random, so no two slots are equal along any jet
+LINE   tests/test_sampling_definitions.py +583 [other] axis); a full weight alone, per entry, per slot written out on ``W`` and the edge, and with its ``W`` axes 1;
+LINE   tests/test_sampling_definitions.py +584 [other] both. The sizes of ``F``, ``W``, ``d`` and ``N_i`` distinct (`distinct`, a line at ``(3,)``) and equal (a curve at
+LINE   tests/test_sampling_definitions.py +585 [other] ``(2,)`` on ``small``: ``F = W = (3,)``, ``d = N_1 = 3``)."""
+LINE   tests/test_sampling_definitions.py +587 [other] PATTERNS = ('neither', 'block alone', 'full per entry', 'full per slot, written out', 'full with W of 1', 'both')
+LINE   tests/test_sampling_definitions.py +592 [other] def weights(self, rng, pattern, kind, d, box, shapes, m, n_W):
+LINE   tests/test_sampling_definitions.py +593 [other] """``(block_weight, full_weight)`` of ``pattern``; the full weight a list over the modes (one array for the
+LINE   tests/test_sampling_definitions.py +594 [other] others)."""
+LINE   tests/test_sampling_definitions.py +595 [other] block = full = None
+LINE   tests/test_sampling_definitions.py +596 [other] if pattern in ('block alone', 'both'):
+LINE   tests/test_sampling_definitions.py +597 [other] block = 0.5 + rng.random(((d,) if kind == 'probe' else ()) + box)
+LINE   tests/test_sampling_definitions.py +598 [other] if kind == 'entries':
+LINE   tests/test_sampling_definitions.py +599 [other] block = float(block)                                    # a Python number
+LINE   tests/test_sampling_definitions.py +600 [other] sample_axes = set(range(m, m + n_W))
+LINE   tests/test_sampling_definitions.py +601 [other] if pattern == 'full per entry':
+LINE   tests/test_sampling_definitions.py +602 [other] full = [0.5 + rng.random(sh) for sh in shapes]
+LINE   tests/test_sampling_definitions.py +603 [other] elif pattern == 'full per slot, written out':
+LINE   tests/test_sampling_definitions.py +604 [other] full = [np.broadcast_to(0.5 + rng.random(sh[:m] + (1,) * (len(sh) - m)), sh) for sh in shapes]
+LINE   tests/test_sampling_definitions.py +605 [other] elif pattern in ('full with W of 1', 'both'):
+LINE   tests/test_sampling_definitions.py +606 [other] full = [0.5 + rng.random(tuple(1 if a in sample_axes else n for a, n in enumerate(sh))) for sh in shapes]
+LINE   tests/test_sampling_definitions.py +607 [other] if full is not None and kind != 'probe':
+LINE   tests/test_sampling_definitions.py +608 [other] full = full[0]
+LINE   tests/test_sampling_definitions.py +609 [other] return block, full
+LINE   tests/test_sampling_definitions.py +610 [other] 
+LINE   tests/test_sampling_definitions.py +612 [other] problems = (('distinct', distinct), PROBLEMS[0], PROBLEMS[1], PROBLEMS[3])   # small, tails (W = (2, 2)), W = ()
+LINE   tests/test_sampling_definitions.py +624 [other] for pattern in self.PATTERNS:
+LINE   tests/test_sampling_definitions.py +626 [other] with self.subTest(pattern=pattern, **labels):
+LINE   tests/test_sampling_definitions.py +627 [other] block, full = self.weights(rng, pattern, kind, P.d, case.box, shapes, m, n_W)
+LINE   tests/test_sampling_definitions.py +628 [other] y = [rng.standard_normal(sh) - 0.5 for sh in shapes]
+LINE   tests/test_sampling_definitions.py +629 [other] as_array = kind == 'probe' and len(set(shapes)) == 1 and full is not None
+LINE   tests/test_sampling_definitions.py +630 [other] f_arg = np.stack(full) if as_array else full
+LINE   tests/test_sampling_definitions.py +632 [other] full_weight=f_arg)
+LINE   tests/test_sampling_definitions.py +633 [other] 
+LINE   tests/test_sampling_definitions.py +634 [other] def weight2(i, index):              # b**2 f**2 at one entry of mode i, read by hand
+LINE   tests/test_sampling_definitions.py +635 [other] b2 = 1.0
+LINE   tests/test_sampling_definitions.py +636 [other] if block is not None:
+LINE   tests/test_sampling_definitions.py +637 [other] b2 = (block[i][index[:m]] if kind == 'probe' else
+LINE   tests/test_sampling_definitions.py +638 [other] (np.asarray(block)[index[:m]] if kind == 'apply' else block)) ** 2
+LINE   tests/test_sampling_definitions.py +639 [other] f2 = 1.0
+LINE   tests/test_sampling_definitions.py +640 [other] if full is not None:
+LINE   tests/test_sampling_definitions.py +641 [other] f2 = at(np.asarray(full[i] if kind == 'probe' else full), index) ** 2
+LINE   tests/test_sampling_definitions.py +642 [other] return b2 * f2
+LINE   tests/test_sampling_definitions.py +645 [other] seeds, block_sums = [], np.zeros(((P.d,) if kind == 'probe' else ()) + case.box)
+LINE   tests/test_sampling_definitions.py +646 [other] for i, (z_i, y_i, Jp_i, Jq_i) in enumerate(zip(z, y, Jp, Jq)):
+LINE   tests/test_sampling_definitions.py +649 [other] r_i[index] = z_i[index] - y_i[index]
+LINE   tests/test_sampling_definitions.py +652 [other] omega2 = weight2(i, index)
+LINE   tests/test_sampling_definitions.py +654 [other] block_sums[((i,) if kind == 'probe' else ()) + index[:m]] += omega2 * r_i[index] ** 2
+LINE   tests/test_sampling_definitions.py +659 [other] seed_i[index] = weight2(i, turned) * r_i[turned]
+LINE   tests/test_sampling_definitions.py +665 [other] self.assertLessEqual(relative_error(sdef.r_block_sumsq(kind, P.frame, sample, **args), block_sums),
+LINE   tests/test_sampling_definitions.py +666 [other] TOL)
+LINE   tests/test_sampling_definitions.py +673 [other] SEED_NAMES = ('w_tilde', 'xi_tilde', 'mu_tilde', 'nu_tilde', 'eta_tilde', 'nu_L_tilde', 'eta_D_tilde',
+LINE   tests/test_sampling_definitions.py +674 [other] 'xi_tilde_dot', 'mu_tilde_dot', 'nu_L_tilde_dot', 'eta_D_tilde_dot', 'g', 'Kp', 'V_tilde', 'H_tilde',
+LINE   tests/test_sampling_definitions.py +675 [other] 'V_tilde_dot', 'H_tilde_dot')
+LINE   tests/test_sampling_definitions.py +676 [other] 
+LINE   tests/test_sampling_definitions.py +677 [other] def test_every_name_that_reads_the_seed_reads_both_weights(self):
+LINE   tests/test_sampling_definitions.py +678 [other] # Each function that builds the seed from (y, block_weight, full_weight) passes both weights on: its value
+LINE   tests/test_sampling_definitions.py +679 [other] # equals its value at w_tilde = the seed written out here by loops (b**2 f**2 r at the turned slot, entry by
+LINE   tests/test_sampling_definitions.py +680 [other] # entry, r from the tests' own dense route). A weight not passed on, or the two swapped, in one function's
+LINE   tests/test_sampling_definitions.py +681 [other] # own call is seen only by that function's row.
+LINE   tests/test_sampling_definitions.py +682 [other] P = small()
+LINE   tests/test_sampling_definitions.py +683 [other] rng = np.random.default_rng(4)
+LINE   tests/test_sampling_definitions.py +684 [other] flatten = lambda value: (sum((flatten(v) for v in value), []) if isinstance(value, (tuple, list))
+LINE   tests/test_sampling_definitions.py +685 [other] else [np.asarray(value)])
+LINE   tests/test_sampling_definitions.py +686 [other] for kind, case in (('probe', LINE_3), ('probe', PLANE), ('apply', LINE_3), ('entries', NO_JETS)):
+LINE   tests/test_sampling_definitions.py +687 [other] sample, m = P.sample(kind, case), case.m
+LINE   tests/test_sampling_definitions.py +688 [other] z = modes_of(kind, sample_dense_jet(P, kind, t3_conversions.t3_to_dense((P.D, P.L)), case))
+LINE   tests/test_sampling_definitions.py +689 [other] shapes = [a.shape for a in z]
+LINE   tests/test_sampling_definitions.py +690 [other] block, full = self.weights(rng, 'both', kind, P.d, case.box, shapes, m, len(P.W))
+LINE   tests/test_sampling_definitions.py +691 [other] y = [rng.standard_normal(sh) for sh in shapes]
+LINE   tests/test_sampling_definitions.py +692 [other] seed = []
+LINE   tests/test_sampling_definitions.py +693 [other] for i, (z_i, y_i) in enumerate(zip(z, y)):
+LINE   tests/test_sampling_definitions.py +694 [other] seed_i = np.zeros(z_i.shape)
+LINE   tests/test_sampling_definitions.py +695 [other] for index in np.ndindex(*z_i.shape):
+LINE   tests/test_sampling_definitions.py +697 [other] b = (block[i][turned[:m]] if kind == 'probe' else
+LINE   tests/test_sampling_definitions.py +698 [other] (block[turned[:m]] if kind == 'apply' else block))
+LINE   tests/test_sampling_definitions.py +699 [other] f = at(np.asarray(full[i] if kind == 'probe' else full), turned)
+LINE   tests/test_sampling_definitions.py +700 [other] seed_i[index] = b ** 2 * f ** 2 * (z_i[turned] - y_i[turned])
+LINE   tests/test_sampling_definitions.py +701 [other] seed.append(seed_i)
+LINE   tests/test_sampling_definitions.py +702 [other] common_args = dict(variations=(P.V, P.H), core_directions=(P.D_dot, P.L_dot))
+LINE   tests/test_sampling_definitions.py +703 [other] for name in self.SEED_NAMES:
+LINE   tests/test_sampling_definitions.py +704 [other] with self.subTest(kind=kind, jets=case.label, name=name):
+LINE   tests/test_sampling_definitions.py +706 [other] y=y if kind == 'probe' else y[0], block_weight=block, full_weight=full,
+LINE   tests/test_sampling_definitions.py +707 [other] **common_args)
+LINE   tests/test_sampling_definitions.py +709 [other] w_tilde=seed if kind == 'probe' else seed[0], **common_args)
+LINE   tests/test_sampling_definitions.py +710 [other] got, expected = flatten(got), flatten(expected)
+LINE   tests/test_sampling_definitions.py +711 [other] self.assertEqual(len(got), len(expected))
+LINE   tests/test_sampling_definitions.py +712 [other] for a, b in zip(got, expected):
+LINE   tests/test_sampling_definitions.py +713 [other] self.assertLessEqual(relative_error(a, b), TOL)
+LINE   tests/test_sampling_definitions.py +714 [other] 
+LINE   tests/test_sampling_definitions.py +717 [other] rng = np.random.default_rng(3)
+LINE   tests/test_sampling_definitions.py +722 [other] full = [0.5 + rng.random(a.shape) for a in z]                         # per entry: z's shape
+LINE   tests/test_sampling_definitions.py +723 [other] of_kind = (lambda arrays: arrays) if kind == 'probe' else (lambda arrays: arrays[0])
+LINE   tests/test_sampling_definitions.py +724 [other] d, F, m = P.d, case.box, case.m
+LINE   tests/test_sampling_definitions.py +725 [other] ones_but = lambda shape, keep: tuple(n if a in keep else 1 for a, n in enumerate(shape))
+LINE   tests/test_sampling_definitions.py +726 [other] bad_block = {'another rank': np.ones(np.shape(blocks) + (1,)),
+LINE   tests/test_sampling_definitions.py +727 [other] 'the old full form (blocks_to_weight)': P.data(kind, case)[1]}
+LINE   tests/test_sampling_definitions.py +728 [other] if kind != 'entries':
+LINE   tests/test_sampling_definitions.py +729 [other] bad_block['a slot more'] = np.ones(np.shape(blocks)[:-1] + (np.shape(blocks)[-1] + 1,))
+LINE   tests/test_sampling_definitions.py +730 [other] bad_full = {'another rank': of_kind([np.ones(a.shape + (1,)) for a in z]),
+LINE   tests/test_sampling_definitions.py +731 [other] 'an axis neither 1 nor its size': of_kind([np.ones(a.shape[:-1] + (a.shape[-1] + 1,))
+LINE   tests/test_sampling_definitions.py +732 [other] for a in z])}
+LINE   tests/test_sampling_definitions.py +733 [other] if kind != 'entries':                       # a structural axis to be 1: the jets, the edge
+LINE   tests/test_sampling_definitions.py +734 [other] bad_full['one per sample, the rest 1'] = of_kind([np.ones(ones_but(a.shape, range(m, m + 1)))
+LINE   tests/test_sampling_definitions.py +735 [other] for a in z])
+LINE   tests/test_sampling_definitions.py +737 [other] bad_full['the edge of 1'] = [np.ones(a.shape[:-1] + (1,)) for a in z]
+LINE   tests/test_sampling_definitions.py +738 [other] bad_full['one per mode, (d,) + (1,) + (1,) + (1,)'] = np.ones((d,) + (1,) * z[0].ndim)
+LINE   tests/test_sampling_definitions.py +739 [other] bad_full['a mode axis of 1'] = np.ones((1,) + z[0].shape)
+LINE   tests/test_sampling_definitions.py +740 [other] bad_full['d - 1 arrays'] = full[:d - 1]
+LINE   tests/test_sampling_definitions.py +742 [other] bad_full['a tuple'] = (full[0],)
+LINE   tests/test_sampling_definitions.py +743 [other] if m:
+LINE   tests/test_sampling_definitions.py +744 [other] bad_full['a jet axis of 1'] = of_kind([np.ones((1,) + a.shape[1:]) for a in z])
+LINE   tests/test_sampling_definitions.py +745 [other] for label, weight in bad_block.items():
+LINE   tests/test_sampling_definitions.py +746 [other] with self.subTest(kind=kind, block_weight=label):
+LINE   tests/test_sampling_definitions.py +749 [other] with self.subTest(kind=kind, block_weight='a sequence'):
+LINE   tests/test_sampling_definitions.py +750 [other] with self.assertRaises(TypeError):
+LINE   tests/test_sampling_definitions.py +752 [other] for label, weight in bad_full.items():
+LINE   tests/test_sampling_definitions.py +753 [other] with self.subTest(kind=kind, full_weight=label):
+LINE   tests/test_sampling_definitions.py +754 [other] with self.assertRaises(ValueError):
+LINE   tests/test_sampling_definitions.py +756 [other] with self.subTest(kind=kind, weight='the right forms'):
+LINE   tests/test_sampling_definitions.py +758 [other] if kind == 'probe':                             # a tuple and a list are one object
+LINE   tests/test_sampling_definitions.py +759 [kind_order] self.assertEqual(sdef.f(kind, P.frame, sample, order=case.order, y=y, full_weight=tuple(full)),
+LINE   tests/test_sampling_definitions.py +761 [other] # The plan's E3b coincidence: a (d,) block weight at order (n,) with d = n + 1 has F's length; for probe the
+LINE   tests/test_sampling_definitions.py +762 [other] # block shape is (d,) + F, so it is refused (for apply the block shape is F, and it is one weight per slot).
+LINE   tests/test_sampling_definitions.py +763 [other] P, case = small(), CURVE
+LINE   tests/test_sampling_definitions.py +764 [other] self.assertEqual((P.d,), case.box)
+LINE   tests/test_sampling_definitions.py +765 [other] y, blocks = P.blocks('probe', case)
+LINE   tests/test_sampling_definitions.py +766 [other] with self.assertRaises(ValueError):
+LINE   tests/test_sampling_definitions.py +768 [other] apply_y, apply_blocks = P.blocks('apply', case)
+LINE   tests/test_sampling_definitions.py +769 [other] self.assertEqual(np.shape(apply_blocks), (P.d,))
+LINE   tests/test_sampling_definitions.py +773 [other] # "each axis z's size" where z's own axis is 1: a one-sample batch (W = (1,)) and the jet axis of the
+LINE   tests/test_sampling_definitions.py +806 [other] constant = ([y_i[..., :1, :] for y_i in y] if kind == 'probe'         # W of 1: the same for every sample
+LINE   tests/test_sampling_definitions.py +807 [other] else np.asarray(y)[..., :1])
+LINE   tests/test_sampling_definitions.py +808 [other] with self.subTest(kind=kind, y='constant in W, a size-1 W'):
+LINE   tests/test_sampling_definitions.py +809 [other] with self.assertRaises(ValueError):
+LINE   tests/test_sampling_definitions.py +815 [other] with self.subTest(kind=kind, y='an edge of 1'):
+LINE   tests/test_sampling_definitions.py +816 [other] with self.assertRaises(ValueError):
+LINE   tests/test_sampling_definitions.py +818 [other] if case.m:
+LINE   tests/test_sampling_definitions.py +819 [other] with self.subTest(kind=kind, y='a jet axis of 1'):
+LINE   tests/test_sampling_definitions.py +820 [other] with self.assertRaises(ValueError):
+LINE   tests/test_sampling_definitions.py +822 [other] y=[y_i[:1] for y_i in y] if kind == 'probe' else np.asarray(y)[:1])
+LINE   tests/test_sampling_definitions.py -1169 [other] weight = flat_args['weight'][:, :, None] if kind == 'probe' else flat_args['weight'][:, None]
+LINE   tests/test_sampling_definitions.py -1170 [other] args = dict(flat_args, order=(3, 0), y=y, weight=weight)
+LINE   tests/test_sampling_definitions.py -1212 [other] weight=jnp.asarray(args['weight'])))
+LINE   tests/test_sampling_definitions.py -1301 [other] functional = ring.weighted(r, args['weight'], kind)
+LINE   tests/test_sampling_definitions.py -1466 [other] ('weight', inspect.Parameter.KEYWORD_ONLY, None),
+LINE   tests/test_sampling_definitions.py -205 [other] loops of `TestTheWeightIsOfTheTypeOfZ` check it without broadcasting)."""
+LINE   tests/test_sampling_definitions.py -296 [other] def full_weight(self, kind, case):
+LINE   tests/test_sampling_definitions.py -297 [other] """The weight of `data`, of the type of ``z``."""
+LINE   tests/test_sampling_definitions.py -298 [other] return self.data(kind, case)[1]
+LINE   tests/test_sampling_definitions.py -301 [other] """The reference's arguments: the weight of the type of ``z``."""
+LINE   tests/test_sampling_definitions.py -304 [other] y=y, weight=self.full_weight(kind, case))
+LINE   tests/test_sampling_definitions.py -456 [other] y, weight = args['y'], args['weight']
+LINE   tests/test_sampling_definitions.py -519 [other] weight = args['weight']
+LINE   tests/test_sampling_definitions.py -566 [other] class TestTheWeightIsOfTheTypeOfZ(unittest.TestCase):
+LINE   tests/test_sampling_definitions.py -567 [other] """The reference's reading of the data-space objects (the data-metric arc, M2 part 1): ``y`` and the weight are
+LINE   tests/test_sampling_definitions.py -568 [other] of the type of ``z``, each array of the rank of ``z``'s, each axis 1 or ``z``'s size, a size of 1 the same value
+LINE   tests/test_sampling_definitions.py -569 [other] along that axis. Pinned here against brute force, before the engine is switched to the same rule.
+LINE   tests/test_sampling_definitions.py -573 [other] seed, ``f``, ``Jp_norm_sq`` and the pairings ``<g, p> = sum omega**2 r Jp(p)`` and ``<JtJp(p), q> = sum omega**2
+LINE   tests/test_sampling_definitions.py -574 [other] Jp(p) Jp(q)`` are explicit loops over every entry (``np.ndindex``), the weight and the data read at index 0 on
+LINE   tests/test_sampling_definitions.py -575 [other] their size-1 axes (`at`): no broadcasting. The weights: per entry, per sample, per slot, one per mode (one number
+LINE   tests/test_sampling_definitions.py -576 [other] for apply and entries), and on the edge and the first jet axis; the data full or constant in ``W``; the sizes of
+LINE   tests/test_sampling_definitions.py -577 [other] ``F``, ``W`` and ``N`` distinct (a line at ``(3,)``) and equal (a curve at ``(2,)`` on ``small``: ``F = W = N_1 =
+LINE   tests/test_sampling_definitions.py -578 [other] (3,)``)."""
+LINE   tests/test_sampling_definitions.py -580 [other] PATTERNS = ('per entry', 'per sample', 'per slot', 'one per mode', 'edge and first jet axis')
+LINE   tests/test_sampling_definitions.py -581 [other] 
+LINE   tests/test_sampling_definitions.py -582 [other] def full_axes(self, pattern, kind, m, n_W, ndim):
+LINE   tests/test_sampling_definitions.py -583 [other] if pattern == 'per entry':
+LINE   tests/test_sampling_definitions.py -584 [other] return set(range(ndim))
+LINE   tests/test_sampling_definitions.py -585 [other] if pattern == 'per sample':
+LINE   tests/test_sampling_definitions.py -586 [other] return set(range(m, m + n_W))
+LINE   tests/test_sampling_definitions.py -587 [other] if pattern == 'per slot':
+LINE   tests/test_sampling_definitions.py -588 [other] return set(range(m))
+LINE   tests/test_sampling_definitions.py -589 [other] if pattern == 'one per mode':
+LINE   tests/test_sampling_definitions.py -590 [other] return set()
+LINE   tests/test_sampling_definitions.py -591 [other] edge = {ndim - 1} if kind == 'probe' else set()
+LINE   tests/test_sampling_definitions.py -592 [other] return edge | ({0} if m else set())
+LINE   tests/test_sampling_definitions.py -593 [other] 
+LINE   tests/test_sampling_definitions.py -594 [other] def data_space(self, rng, shapes, axes, low=0.5):
+LINE   tests/test_sampling_definitions.py -595 [other] return [low + rng.random(tuple(n if a in axes else 1 for a, n in enumerate(sh))) for sh in shapes]
+LINE   tests/test_sampling_definitions.py -601 [other] problems = (PROBLEMS[0], PROBLEMS[1], PROBLEMS[3])           # small, tails (W = (2, 2)), W = ()
+LINE   tests/test_sampling_definitions.py -613 [other] for j, pattern in enumerate(self.PATTERNS):
+LINE   tests/test_sampling_definitions.py -615 [other] y_constant = j % 2 == 1                     # alternately: the data constant in W
+LINE   tests/test_sampling_definitions.py -616 [other] with self.subTest(pattern=pattern, y_constant_in_W=y_constant, **labels):
+LINE   tests/test_sampling_definitions.py -617 [other] weight = self.data_space(rng, shapes, self.full_axes(pattern, kind, m, n_W, len(shapes[0])))
+LINE   tests/test_sampling_definitions.py -618 [other] y_axes = set(range(len(shapes[0]))) - (set(range(m, m + n_W)) if y_constant else set())
+LINE   tests/test_sampling_definitions.py -619 [other] y = self.data_space(rng, shapes, y_axes, low=-0.5)
+LINE   tests/test_sampling_definitions.py -620 [other] as_array = kind == 'probe' and len({w.shape for w in weight}) == 1 and j % 2 == 0
+LINE   tests/test_sampling_definitions.py -621 [other] w_arg = np.stack(weight) if as_array else (weight if kind == 'probe' else weight[0])
+LINE   tests/test_sampling_definitions.py -622 [other] y_arg = y if kind == 'probe' else y[0]
+LINE   tests/test_sampling_definitions.py -626 [other] seeds = []
+LINE   tests/test_sampling_definitions.py -627 [other] for z_i, y_i, w_i, Jp_i, Jq_i in zip(z, y, weight, Jp, Jq):
+LINE   tests/test_sampling_definitions.py -630 [other] r_i[index] = z_i[index] - at(y_i, index)
+LINE   tests/test_sampling_definitions.py -633 [other] omega2 = at(w_i, index) ** 2
+LINE   tests/test_sampling_definitions.py -639 [other] seed_i[index] = at(w_i, turned) ** 2 * r_i[turned]
+LINE   tests/test_sampling_definitions.py -656 [other] full = P.full_weight(kind, case)
+LINE   tests/test_sampling_definitions.py -657 [other] d, F = P.d, case.box
+LINE   tests/test_sampling_definitions.py -658 [other] bad = {'one per block (the old form)': blocks,
+LINE   tests/test_sampling_definitions.py -659 [other] 'another rank': np.ones((d,) + F + P.W) if kind == 'probe' else np.ones(F + P.W + (1,)),
+LINE   tests/test_sampling_definitions.py -660 [other] 'an axis neither 1 nor its size': (np.ones((d,) + F + (2,) + (1,)) if kind == 'probe'
+LINE   tests/test_sampling_definitions.py -661 [other] else np.ones(F + (2,)))}
+LINE   tests/test_sampling_definitions.py -663 [other] bad['a mode axis of 1'] = full[:1]
+LINE   tests/test_sampling_definitions.py -664 [other] bad['d - 1 arrays'] = list(full[:d - 1])
+LINE   tests/test_sampling_definitions.py -666 [other] bad['a tuple'] = (full,)
+LINE   tests/test_sampling_definitions.py -667 [other] for label, weight in bad.items():
+LINE   tests/test_sampling_definitions.py -668 [other] with self.subTest(kind=kind, weight=label):
+LINE   tests/test_sampling_definitions.py -671 [other] with self.subTest(kind=kind, weight='the full form'):
+LINE   tests/test_sampling_definitions.py -673 [other] if kind == 'probe':                             # a tuple and a mode-leading array are one object
+LINE   tests/test_sampling_definitions.py -674 [kind_order] self.assertEqual(sdef.f(kind, P.frame, sample, order=case.order, y=y, weight=list(full)),
+LINE   tests/test_sampling_definitions.py -678 [other] # "each axis 1 or z's size" where z's own axis is 1: a one-sample batch (W = (1,)) and the jet axis of the
+LINE   tests/test_sampling_entries.py +70 [other] block = problem.block_weight('entries', CASE)       # the reference takes the blocks themselves
+LINE   tests/test_sampling_entries.py +83 [other] block_weight=block, variations=v, core_directions=c)
+LINE   tests/test_sampling_entries.py +87 [other] 'entries', (B, G, G, G), problem.index, None, (), y=y, block_weight=block,
+LINE   tests/test_sampling_entries.py -70 [other] full = problem.full_weight('entries', CASE)         # the reference's weight: of the type of z
+LINE   tests/test_sampling_entries.py -83 [other] weight=full, variations=v, core_directions=c)
+LINE   tests/test_sampling_entries.py -87 [other] 'entries', (B, G, G, G), problem.index, None, (), y=y, weight=full,
+LINE   tests/test_sampling_stacks.py +312 [other] y=y_c, full_weight=weight_c,
+LINE   tests/test_sampling_stacks.py -312 [other] y=y_c, weight=weight_c,
+LINE   tests/test_sampling_variables.py +89 [other] block = problem.block_weight('probe', case)             # the reference takes the blocks themselves
+LINE   tests/test_sampling_variables.py +93 [other] block_weight=block, variations=variations, core_directions=core_directions)
+LINE   tests/test_sampling_variables.py -89 [other] weight = problem.full_weight('probe', case)             # the reference's weight is of the type of z
+LINE   tests/test_sampling_variables.py -93 [other] variations=variations, core_directions=core_directions)
+SCOPE-MAP tests/test_sampling_definitions.py TestTheWeightIsOfTheTypeOfZ.<body> -> TestTheTwoWeights.<body>
+SCOPE-MAP tests/test_sampling_definitions.py TestTheWeightIsOfTheTypeOfZ.check -> TestTheTwoWeights.check
+SCOPE-MAP tests/test_sampling_definitions.py TestTheWeightIsOfTheTypeOfZ.data_space -> TestTheTwoWeights.data_space
+SCOPE-MAP tests/test_sampling_definitions.py TestTheWeightIsOfTheTypeOfZ.full_axes -> TestTheTwoWeights.full_axes
+SCOPE-MAP tests/test_sampling_definitions.py TestTheWeightIsOfTheTypeOfZ.test_a_weight_of_another_form_raises -> TestTheTwoWeights.test_a_weight_of_another_form_raises
+SCOPE-MAP tests/test_sampling_definitions.py TestTheWeightIsOfTheTypeOfZ.test_against_brute_force -> TestTheTwoWeights.test_against_brute_force
+SCOPE-MAP tests/test_sampling_definitions.py TestTheWeightIsOfTheTypeOfZ.test_an_object_larger_than_z_where_z_has_a_size_of_one_raises -> TestTheTwoWeights.test_an_object_larger_than_z_where_z_has_a_size_of_one_raises
+SCOPE-MAP tests/test_sampling_definitions.py TestTheWeightIsOfTheTypeOfZ.test_data_of_another_form_raises -> TestTheTwoWeights.test_data_of_another_form_raises
+W-BLOCK t3toolbox/backend/sampling_definitions.py:1045 doc:w_tilde:<module>: dict(weight=weight) -> block_weight=block
+W-BLOCK t3toolbox/backend/sampling_definitions.py:1900 doc:xi_tilde:<module>: dict(weight=0.5 + rng.random((3, 1, 1))) -> block_weight=0.5 + rng.random(3)
+W-BLOCK t3toolbox/backend/sampling_definitions.py:1964 doc:mu_tilde:<module>: dict(weight=0.5 + rng.random((3, 1, 1))) -> block_weight=0.5 + rng.random(3)
+W-BLOCK t3toolbox/backend/sampling_definitions.py:2034 doc:nu_tilde:<module>: dict(weight=0.5 + rng.random((3, 1, 1))) -> block_weight=0.5 + rng.random(3)
+W-BLOCK t3toolbox/backend/sampling_definitions.py:2121 doc:eta_tilde:<module>: dict(weight=0.5 + rng.random((3, 1, 1))) -> block_weight=0.5 + rng.random(3)
+W-BLOCK t3toolbox/backend/sampling_definitions.py:2188 doc:nu_L_tilde:<module>: dict(weight=0.5 + rng.random((3, 1, 1))) -> block_weight=0.5 + rng.random(3)
+W-BLOCK t3toolbox/backend/sampling_definitions.py:2254 doc:eta_D_tilde:<module>: dict(weight=0.5 + rng.random((3, 1, 1))) -> block_weight=0.5 + rng.random(3)
+W-BLOCK t3toolbox/backend/sampling_definitions.py:3296 doc:f:<module>: f(weight=per_mode) -> block_weight=per_mode
+W-BLOCK tests/test_sampling_apply.py:103 TestByDefinition.check: getattr(sdef, tsc.SECTION_9.get(name, name))(weight=full) -> block_weight=block
+W-BLOCK tests/test_sampling_apply.py:98 TestByDefinition.check: getattr(sdef, name)(weight=full) -> block_weight=block
+W-BLOCK tests/test_sampling_corewise.py:60 reference: getattr(sdef, SECTION_9.get(name, name))(weight=weight) -> block_weight=block
+W-BLOCK tests/test_sampling_definitions.py:1278 TestJetsTwoWays.test_a_second_variable_of_order_zero_is_one_variable: dict(weight=weight) -> block_weight=weight
+W-BLOCK tests/test_sampling_definitions.py:1317 TestKp.jax_problem: dict(weight=jnp.asarray(args['weight'])) -> block_weight=jnp.asarray(args['block_weight'])
+W-BLOCK tests/test_sampling_definitions.py:303 Problem.arguments: dict(weight=self.full_weight(kind, case)) -> block_weight=self.block_weight(kind, case)
+W-BLOCK tests/test_sampling_definitions.py:631 TestTheTwoWeights.test_against_brute_force: dict(weight=w_arg) -> block_weight=block
+W-BLOCK tests/test_sampling_definitions.py:748 TestTheTwoWeights.test_a_weight_of_another_form_raises: f(weight=weight) -> block_weight=weight
+W-BLOCK tests/test_sampling_definitions.py:751 TestTheTwoWeights.test_a_weight_of_another_form_raises: f(weight=full) -> block_weight=list(np.atleast_1d(blocks))
+W-BLOCK tests/test_sampling_definitions.py:757 TestTheTwoWeights.test_a_weight_of_another_form_raises: f(weight=full) -> block_weight=blocks
+W-BLOCK tests/test_sampling_entries.py:82 TestByDefinition.test_every_name: getattr(sdef, name)(weight=full) -> block_weight=block
+W-BLOCK tests/test_sampling_entries.py:86 TestByDefinition.test_every_name: getattr(sdef, tsc.SECTION_9.get(name, name))(weight=full) -> block_weight=block
+W-BLOCK tests/test_sampling_variables.py:92 reference: getattr(sdef, name)(weight=weight) -> block_weight=block
+W-FULL  t3toolbox/backend/sampling_definitions.py:2910 doc:JtJp:<module>: dict(weight=0.5 + rng.random((3, 7, 1))) -> full_weight=full
+W-FULL  t3toolbox/backend/sampling_definitions.py:3288 doc:f:<module>: f(weight=weight) -> full_weight=full
+W-FULL  t3toolbox/backend/sampling_definitions.py:3294 doc:f:<module>: f(weight=0.5 + rng.random(3)) -> full_weight=per_mode.reshape(3, 1, 1)
+W-FULL  t3toolbox/backend/sampling_definitions.py:3364 doc:r_block_sumsq:<module>: r_block_sumsq(weight=weight) -> full_weight=full
+W-FULL  t3toolbox/backend/sampling_definitions.py:3432 doc:Jp_norm_sq:<module>: Jp_norm_sq(weight=weight) -> full_weight=full
+W-FULL  tests/test_sampling_definitions.py:755 TestTheTwoWeights.test_a_weight_of_another_form_raises: f(weight=list(full)) -> full_weight=weight
+W-FULL  tests/test_sampling_definitions.py:788 TestTheTwoWeights.test_an_object_larger_than_z_where_z_has_a_size_of_one_raises: f(weight=good) -> full_weight=good
+W-FULL  tests/test_sampling_definitions.py:791 TestTheTwoWeights.test_an_object_larger_than_z_where_z_has_a_size_of_one_raises: f(weight=bad) -> full_weight=bad
+W-FULL  tests/test_sampling_stacks.py:311 TestTheReferenceAnchor.test_against_the_reference: getattr(sdef, name)(weight=weight_c) -> full_weight=weight_c
+W-GONE  tests/test_engine_data_space.py TestAgainstTheReference.test_the_engine_is_the_reference: dict(weight=w_arg): no weight keyword on that callee now (read: the subject moved?)

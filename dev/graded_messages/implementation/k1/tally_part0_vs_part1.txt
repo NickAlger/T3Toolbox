@@ -1,0 +1,33 @@
+baseline: 1893 nodes {'PASSED': 1887, 'SKIPPED': 5, 'SUBPASSED': 90148, 'XFAIL': 1}
+new:      1896 nodes {'PASSED': 1890, 'SKIPPED': 5, 'SUBPASSED': 90398, 'XFAIL': 1}
+  tests/backend/test_optimizers.py::TestOracleSeam::test_optional_outputs_are_checked_where_needed
+      baseline {'SUBPASSED': 6, 'PASSED': 1}
+      new      {'SUBPASSED': 8, 'PASSED': 1}
+  tests/test_dense_oracle.py::TestTwoWeights::test_a_block_row_off_the_jet_box_is_refused
+      baseline {}
+      new      {'PASSED': 1}
+  tests/test_dense_oracle.py::TestTwoWeights::test_against_the_loop
+      baseline {}
+      new      {'SUBPASSED': 25, 'PASSED': 1}
+  tests/test_engine_data_space.py::TestAgainstTheReference::test_the_engine_is_the_reference
+      baseline {'SUBPASSED': 135, 'PASSED': 1}
+      new      {'SUBPASSED': 189, 'PASSED': 1}
+  tests/test_least_squares_oracle.py::TestTheBatchConstructor::test_reachable_from_the_frontend
+      baseline {'PASSED': 1}
+      new      {}
+  tests/test_least_squares_oracle.py::TestTheOracle::test_reachable_from_the_frontend
+      baseline {}
+      new      {'PASSED': 1}
+  tests/test_sampling_definitions.py::TestTheTwoWeights::test_a_weight_of_another_form_raises
+      baseline {'SUBPASSED': 16, 'PASSED': 1}
+      new      {'SUBPASSED': 30, 'PASSED': 1}
+  tests/test_sampling_definitions.py::TestTheTwoWeights::test_against_brute_force
+      baseline {'SUBPASSED': 135, 'PASSED': 1}
+      new      {'SUBPASSED': 216, 'PASSED': 1}
+  tests/test_sampling_definitions.py::TestTheTwoWeights::test_data_of_another_form_raises
+      baseline {'SUBPASSED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 10, 'PASSED': 1}
+  tests/test_sampling_definitions.py::TestTheTwoWeights::test_every_name_that_reads_the_seed_reads_both_weights
+      baseline {}
+      new      {'SUBPASSED': 68, 'PASSED': 1}
+10 nodes differ

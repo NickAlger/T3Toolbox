@@ -86,11 +86,11 @@ def engine(problem, case, names, **extra):
 
 def reference(problem, case, name, variations=None, core_directions=None):
     y, _ = problem.data('probe', case)
-    weight = problem.full_weight('probe', case)             # the reference's weight is of the type of z
+    block = problem.block_weight('probe', case)             # the reference takes the blocks themselves
     variations = (problem.V, problem.H) if variations is None else variations
     core_directions = (problem.D_dot, problem.L_dot) if core_directions is None else core_directions
-    return getattr(sdef, name)('probe', problem.frame, problem.input_jets(case), None, case.order, y=y, weight=weight,
-                               variations=variations, core_directions=core_directions)
+    return getattr(sdef, name)('probe', problem.frame, problem.input_jets(case), None, case.order, y=y,
+                               block_weight=block, variations=variations, core_directions=core_directions)
 
 
 def stacked_directions(problem, seed=0):

@@ -1,0 +1,17 @@
+# K1 part 1, mutation pass (part1_mutations.py SCRATCH), 2026-11-26. The first nine ran on a copy taken before the
+# block weight's signature comment was split and the seed law test was added (neither touches the mutated lines).
+UNMUTATED: exit 0, 11 passed, 4903 subtests passed in 45.62s
+CAUGHT   the block weight enters unsquared -- 72 failed, 1 passed, 144 subtests passed in 9.60s
+CAUGHT   the block row right-aligned (on the trailing axes) -- 42 failed, 1 passed, 174 subtests passed in 11.44s
+CAUGHT   the weights applied after the turn (M flip(r) for flip(M r)) -- 120 failed, 1 passed, 96 subtests passed in 12.43s
+CAUGHT   the full weight may not have a sample axis of 1 -- 54 failed, 1 passed, 162 subtests passed in 15.09s
+CAUGHT   the full weight may have an edge or a jet axis of 1 (every axis may be 1) -- 6 failed, 1 passed, 24 subtests passed in 1.36s
+CAUGHT   y may have a sample axis of 1 -- 3 failed, 1 passed, 7 subtests passed in 1.10s
+CAUGHT   the block weight is not checked -- 10 failed, 21 subtests passed in 1.69s
+CAUGHT   the block weight enters unsquared: seen by the old engine through the reference comparisons -- 420 failed, 1 passed, 357 subtests passed in 12.89s
+CAUGHT   the oracle places the block row on the wrong slot (transposed jet index) -- 4 failed, 2 passed, 21 subtests passed in 0.19s
+
+# the two seed-call mutations, run after the law test was added (part1_mutations.py SCRATCH 'own call'):
+UNMUTATED: exit 0, 1 passed, 68 subtests passed in 1.96s
+CAUGHT   nu_tilde swaps the two weights in its own call -- 4 failed, 1 passed, 64 subtests passed in 2.83s
+CAUGHT   V_tilde_dot drops the full weight in its own call -- 4 failed, 1 passed, 64 subtests passed in 2.36s

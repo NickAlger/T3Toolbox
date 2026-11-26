@@ -219,6 +219,60 @@ def weighted_full(kind, like, value, weight):
     return out if kind == 'probe' else out[0]
 
 
+# ------------------------------------------------------------------------------------------------------------------
+# The two weights (K1): a block weight, one number per block (probe (d,)+F, apply F, entries ()), and a full weight of
+# the type of z, multiplying. The full weight is written out by ``expand`` (no broadcasting); the block row is placed
+# by an explicit loop over the blocks. Additive: the full form above stays for the callers that still pass one weight.
+# ------------------------------------------------------------------------------------------------------------------
+
+def _block_factor(kind, block_weight, i, shape, m):
+    """The block weight of mode ``i`` (probe) written out to ``shape`` by a loop over the blocks: the slot ``k`` of
+    the ``m`` leading jet axes holds ``block_weight[i][k]`` (probe), ``block_weight[k]`` (apply) or the one number
+    (entries), at every entry after them. Ones for ``None``."""
+    out = np.ones(shape)
+    if block_weight is None:
+        return out
+    b = np.asarray(block_weight, dtype=float)
+    row = b[i] if kind == 'probe' else b
+    if row.shape != tuple(shape[:m]):
+        raise ValueError('the block row has shape %s, expected the jet box %s' % (row.shape, tuple(shape[:m])))
+    for slot in np.ndindex(*shape[:m]):
+        out[slot] = row[slot]
+    return out
+
+
+def weighted_residual_two(kind, Sx, y, block_weight, full_weight):
+    """``b * f * (S(x) - y)`` entry by entry: ``b`` the block weight placed on the leading jet axes by a loop over the
+    blocks, ``f`` the full weight and ``y`` written out to z's shape by ``expand``. ``None`` is ones. Probe: a list.
+    The jet count ``m`` is read off the block weight (probe ``ndim - 1``, apply ``ndim``); with no block weight it
+    is not needed."""
+    zs = _modes(kind, Sx, len(Sx) if kind == 'probe' else None)
+    ys = _modes(kind, y, len(zs))
+    fs = [None] * len(zs) if full_weight is None else _modes(kind, full_weight, len(zs))
+    m = 0 if block_weight is None else np.ndim(block_weight) - (1 if kind == 'probe' else 0)
+    out = []
+    for i, (z, y_, f) in enumerate(zip(zs, ys, fs)):
+        z = np.asarray(z, dtype=float)
+        r = (z - expand(y_, z.shape)) * _block_factor(kind, block_weight, i, z.shape, m)
+        out.append(r if f is None else expand(f, z.shape) * r)
+    return out if kind == 'probe' else out[0]
+
+
+def weighted_two(kind, like, value, block_weight, full_weight):
+    """``b * f * value`` entry by entry at ``like``'s shapes, as ``weighted_residual_two`` weighs the residual: the
+    data's half of the block sums with two weights."""
+    zs = _modes(kind, like, len(like) if kind == 'probe' else None)
+    vs = _modes(kind, value, len(zs))
+    fs = [None] * len(zs) if full_weight is None else _modes(kind, full_weight, len(zs))
+    m = 0 if block_weight is None else np.ndim(block_weight) - (1 if kind == 'probe' else 0)
+    out = []
+    for i, (z, v, f) in enumerate(zip(zs, vs, fs)):
+        shape = np.shape(z)
+        v = expand(v, shape) * _block_factor(kind, block_weight, i, shape, m)
+        out.append(v if f is None else expand(f, shape) * v)
+    return out if kind == 'probe' else out[0]
+
+
 def block_sumsq_full(kind, values, m):
     """The sum of squares of each block of ``values`` (of the type of z, e.g. ``weighted_full`` or
     ``weighted_residual_full``), by loops over the blocks: the block shape ``(d,) + F`` (probe), ``F`` (apply), ``()``

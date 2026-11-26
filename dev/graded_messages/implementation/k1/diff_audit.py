@@ -2,6 +2,7 @@
 """K1's audits by construction (K1_DESIGN_NOTE.md section 7.4), standard library only; never imports the library.
 
     python3 diff_audit.py BASE [--part 0] [--out FILE]      # BASE: the git revision the part starts from
+    python3 diff_audit.py BASE --part 1 [--reasons TSV] [--files PATH ...] --out FILE
 
 It compares every changed file (tests, examples, the library's docstrings' doctests, the pages' doctests) at BASE with
 the working tree, parsed with `ast`, and writes:
@@ -15,8 +16,15 @@ the working tree, parsed with `ast`, and writes:
     level up, at each call site of the helper in the file; the counts of batch constructions per scope agree. Listed:
     what cannot be paired, removed oracles whose scope keeps no paired batch, scopes with two distinct old pairs, and
     every subclass construction, old and new argument lists side by side.
+(c) parts 1 to 5, the weights: every `blocks_to_weight(k, o, b, y)` removed from a scope needs a `block_weight=` of
+    value `b` there (one plain assignment deep, either side); every old `weight=` keyword is paired with the new
+    keyword of the same callee in the scope, by order, and classified (W-BLOCK, W-FULL, W-GONE); every new
+    `full_weight=`, and every new `block_weight=` whose value is not a `blocks_to_weight` table's of the scope, needs a
+    line in `full_weight_reasons.tsv` (file, scope, callee, keyword, expression, kind, reason; tab-separated). A reason
+    line that matches no site is listed STALE. `audit_c_planted.py` plants a right and three wrong conversions.
 
-Exit status 1 if (b) finds a pair that differs from every old pair in reach, or a scope whose batch counts differ.
+Exit status 1 if (b) finds a pair that differs from every old pair in reach, or a scope whose batch counts differ; or if (c)
+finds an unpaired removal or a new weight with no reason line.
 Expressions are compared as `ast.unparse` text.
 """
 import argparse
@@ -32,6 +40,8 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, '..', '..', '..', '..'))
 ORACLE, BATCH = 'LeastSquaresOracle', 'LeastSquaresBatch'
+WEIGHT_KEYWORDS = ('weight', 'block_weight', 'full_weight')
+REASONS = os.path.join(HERE, 'full_weight_reasons.tsv')
 
 
 def git_show(rev, path):
@@ -58,6 +68,9 @@ class Scope:
         self.batches = []            # ((kind, order) text, line, args)
         self.calls = []              # (callee name, positional texts, keyword texts, line)
         self.oracle_reads = []       # (text, line)
+        self.weights = []            # (callee text, keyword, value text, first positional text or None, line)
+        self.btw = []                # (third argument text, the name it is assigned to or None, line)
+        self.assigns = {}            # name -> value text (the last plain assignment `name = value` in the scope)
 
 
 def _callee(node):
@@ -95,6 +108,7 @@ class _Walker(ast.NodeVisitor):
         self.scopes, self.prefix, self.oracle_classes, self.line0 = scopes, prefix, oracle_classes, line0
         self.stack = [self._scope(prefix + '<module>')]
         self.cls = [None]
+        self._target = {}
 
     def _scope(self, name, params=(), cls=None):
         if name not in self.scopes:
@@ -131,6 +145,22 @@ class _Walker(ast.NodeVisitor):
         if name:
             s.calls.append((name, [ast.unparse(a) for a in node.args],
                             {k.arg: ast.unparse(k.value) for k in node.keywords if k.arg}, line))
+        callee = name or ast.unparse(node.func)                       # getattr(sdef, name)(...) is a callee too
+        first = ast.unparse(node.args[0]) if node.args else None
+        for k in node.keywords:
+            if k.arg in WEIGHT_KEYWORDS and callee != 'subTest':           # a subTest label is not a weight
+                s.weights.append((callee, k.arg, ast.unparse(k.value), first, line))
+        if name == 'blocks_to_weight':
+            b = node.args[2] if len(node.args) > 2 else next((k.value for k in node.keywords if k.arg == 'blocks'),
+                                                             None)
+            s.btw.append((ast.unparse(b) if b is not None else '?', self._target.get(id(node)), line))
+        self.generic_visit(node)
+
+    def visit_Assign(self, node):
+        if len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
+            self.stack[-1].assigns[node.targets[0].id] = ast.unparse(node.value)
+            if isinstance(node.value, ast.Call):
+                self._target[id(node.value)] = node.targets[0].id
         self.generic_visit(node)
 
     def visit_Attribute(self, node):
@@ -285,6 +315,106 @@ def audit_b(path, old, new, report):
 
 
 # ---------------------------------------------------------------------------------------------------------------------
+# (c) the weights (parts 1 to 5)
+# ---------------------------------------------------------------------------------------------------------------------
+def read_reasons(path=REASONS):
+    """The reason lines: file, scope, callee, keyword, expression, kind, reason (tab-separated; '#' comments)."""
+    out = {}
+    if not os.path.exists(path):
+        return out
+    for raw in open(path):
+        if not raw.strip() or raw.startswith('#'):
+            continue
+        cols = raw.rstrip('\n').split('\t')
+        if len(cols) < 7:
+            raise SystemExit('full_weight_reasons.tsv: a line with %d columns, 7 wanted: %r' % (len(cols), raw))
+        out[tuple(cols[:5])] = (cols[5], cols[6])
+    return out
+
+
+def _resolve(scope, text):
+    """One plain assignment deep: a name assigned in the scope stands for its value."""
+    return scope.assigns.get(text, text) if scope is not None else text
+
+
+def _minus(a, b):
+    """The multiset a - b, as a list in a's order."""
+    left = collections.Counter(b)
+    out = []
+    for x in a:
+        if left[x]:
+            left[x] -= 1
+        else:
+            out.append(x)
+    return out
+
+
+def audit_c(path, old, new, reasons, used, report):
+    bad = 0
+    for name in sorted(set(old) | set(new)):
+        o, n = old.get(name), new.get(name)
+        o_btw = [b for b, _t, _l in (o.btw if o else [])]
+        n_btw = [b for b, _t, _l in (n.btw if n else [])]
+        o_w = [(c, k, v, f) for c, k, v, f, _l in (o.weights if o else [])]
+        n_w = [(c, k, v, f, l) for c, k, v, f, l in (n.weights if n else [])]
+        new_block = [(c, v, f, l) for c, k, v, f, l in n_w if k == 'block_weight']
+        n_block_vals = {_resolve(n, v) for c, v, f, l in new_block} | {v for c, v, f, l in new_block}
+        # every blocks_to_weight(k, o, b, y) removed: a block_weight= of value b in the scope
+        for b in _minus(o_btw, n_btw):
+            if b in n_block_vals or _resolve(o, b) in n_block_vals:
+                report.append('BTW-OK %s %s: blocks_to_weight(.., %s, ..) removed; block_weight=%s in the scope'
+                              % (path, name, b, b))
+            else:
+                report.append('BTW-UNPAIRED %s %s: blocks_to_weight(.., %s, ..) removed, and no block_weight= of that '
+                              'value in the scope' % (path, name, b))
+                bad += 1
+        # every old weight= keyword: the new call of the same callee, by order
+        by_callee_old, by_callee_new = collections.defaultdict(list), collections.defaultdict(list)
+        for c, k, v, f in o_w:
+            if k == 'weight':
+                by_callee_old[c].append(v)
+        for c, k, v, f, l in n_w:
+            by_callee_new[c].append((k, v, l))
+        for c, values in sorted(by_callee_old.items()):
+            news = list(by_callee_new.get(c, []))
+            kept = [v for k, v, l in news if k == 'weight']
+            for v in _minus(values, kept):
+                moved = [x for x in news if x[0] != 'weight']
+                if moved:
+                    k2, v2, l2 = moved.pop(0)
+                    news.remove((k2, v2, l2))
+                    report.append('W-%s %s:%d %s: %s(weight=%s) -> %s=%s' % ('BLOCK' if k2 == 'block_weight' else
+                                                                              'FULL ', path, l2, name, c, v, k2, v2))
+                else:
+                    report.append('W-GONE  %s %s: %s(weight=%s): no weight keyword on that callee now (read: the '
+                                  'subject moved?)' % (path, name, c, v))
+        # every new full_weight= and every block_weight= not made from a blocks_to_weight table: a reason line
+        old_keys = collections.Counter((c, k, v) for c, k, v, f in o_w)
+        btw_vals = set(o_btw) | set(n_btw) | {_resolve(o, b) for b in o_btw} | {_resolve(n, b) for b in n_btw}
+        for c, k, v, f, l in n_w:
+            if k == 'weight':
+                continue
+            if old_keys[(c, k, v)]:
+                old_keys[(c, k, v)] -= 1
+                continue                                            # not new in this part
+            key = (path, name, c, k, v)
+            if k == 'block_weight' and (v in btw_vals or _resolve(n, v) in btw_vals):
+                report.append('B-PAIRED %s:%d %s: %s(block_weight=%s), a blocks_to_weight table of the scope'
+                              % (path, l, name, c, v))
+                continue
+            if key in reasons:
+                used.add(key)
+                kind, why = reasons[key]
+                report.append('%s-REASON %s:%d %s: %s(%s=%s) [%s] %s' % ('F' if k == 'full_weight' else 'B', path,
+                                                                        l, name, c, k, v, kind, why))
+            else:
+                report.append('%s-NOREASON %s:%d %s: %s(%s=%s), first argument %s' % (
+                    'F' if k == 'full_weight' else 'B', path, l, name, c, k, v, f))
+                bad += 1
+    return bad
+
+
+# ---------------------------------------------------------------------------------------------------------------------
 # (a) the lines
 # ---------------------------------------------------------------------------------------------------------------------
 CLASSES = [
@@ -316,20 +446,36 @@ def main():
     ap.add_argument('base')
     ap.add_argument('--part', default='0')
     ap.add_argument('--out')
+    ap.add_argument('--reasons', default=REASONS)
+    ap.add_argument('--scope-map', nargs='*', default=[], help='OldClass=NewClass: a class renamed by the part')
+    ap.add_argument('--files', nargs='*', help='restrict to these paths (default: every changed file)')
     args = ap.parse_args()
     report, bad, totals = [], 0, collections.Counter()
-    for path in changed_files(args.base):
+    reasons, used = read_reasons(args.reasons), set()
+    for path in (args.files or changed_files(args.base)):
         before = git_show(args.base, path)
         after = open(os.path.join(REPO, path)).read() if os.path.exists(os.path.join(REPO, path)) else None
         totals.update(audit_a(path, before, after, report))
         if args.part == '0':
             bad += audit_b(path, scopes_of(path, before), scopes_of(path, after), report)
+        else:
+            old_scopes = scopes_of(path, before)
+            for rename in args.scope_map:                   # a renamed class: compare its scopes under the new name
+                old, new = rename.split('=')
+                for name in [n for n in old_scopes if n.split('.')[0] == old]:
+                    old_scopes[new + name[len(old):]] = old_scopes.pop(name)
+                    report.append('SCOPE-MAP %s %s -> %s' % (path, name, new + name[len(old):]))
+            bad += audit_c(path, old_scopes, scopes_of(path, after), reasons, used, report)
+    if args.part != '0':
+        for key in sorted(set(reasons) - used):
+            report.append('STALE-REASON %s: a reason line that matches no new site' % ('\t'.join(key),))
     kinds = collections.Counter(line.split()[0] for line in report)
     head = ['K1 diff audit, part %s, base %s' % (args.part, args.base),
             'changed lines by class: %s' % dict(totals),
             'audit entries: %s' % dict(kinds),
             'RESULT: %s' % ('PASS' if not bad else 'FAIL (%d)' % bad), '']
-    text = '\n'.join(head + sorted(report, key=lambda l: (l.split()[0] != 'DIFFER', l.split()[0], l)))
+    first = ('DIFFER', 'BTW-UNPAIRED', 'F-NOREASON', 'B-NOREASON')
+    text = '\n'.join(head + sorted(report, key=lambda l: (l.split()[0] not in first, l.split()[0], l)))
     if args.out:
         open(args.out, 'w').write(text + '\n')
     print('\n'.join(head))

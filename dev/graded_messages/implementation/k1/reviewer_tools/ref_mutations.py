@@ -32,6 +32,29 @@ REF = 't3toolbox/backend/sampling_definitions.py'
 
 MUTATIONS = [
     # (name, path, exact old text, new text)
+    ('M1', REF, "squared = xnp.reshape(row ** 2, tuple(row.shape) + (1,) * (len(shape) - m))",
+     "squared = xnp.reshape(row ** 2, (1,) * (len(shape) - row.ndim) + tuple(row.shape))"),
+    ('M2', REF, "row = xnp.asarray(block_weight if i is None else block_weight[i])",
+     "row = xnp.asarray(block_weight if i is None else block_weight[(i + 1) % S.d])"),
+    ('M3', REF, "row = xnp.asarray(block_weight if i is None else block_weight[i])",
+     "row = xnp.asarray(block_weight if i is None else xnp.asarray(block_weight).T[i])"),
+    ('M4b', REF, "squared = xnp.reshape(row ** 2, tuple(row.shape)", "squared = xnp.reshape(row, tuple(row.shape)"),
+    ('M4f', REF, "squared = squared * f_X ** 2", "squared = squared * f_X"),
+    ('M5', REF, "lambda i, jet_TX: _turn(S, _weight_squared(S, block_weight, full_weight, i, jet_TX.shape)\n"
+                "                                                     * jet_TX), jet)",
+     "lambda i, jet_TX: _weight_squared(S, block_weight, full_weight, i, jet_TX.shape)\n"
+     "                                                     * _turn(S, jet_TX), jet)"),
+    ('M6', REF, "_the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'Kp')",
+     "_the_seed(S, sample, y, None, full_weight, w_tilde, 'Kp')"),
+    ('M7', REF, "_the_seed(S, sample, y, block_weight, full_weight, w_tilde, 'nu_L_tilde')",
+     "_the_seed(S, sample, y, full_weight, block_weight, w_tilde, 'nu_L_tilde')"),
+    ('M8', REF, "_check_data_space('the data y', i, np.shape(y_TX), np.shape(z_TX), ())",
+     "_check_data_space('the data y', i, np.shape(y_TX), np.shape(z_TX), tuple(range(len(S.order), len(S.M))))"),
+    ('M9', REF, "tuple(range(m, len(S.M))))   # the sample axes W", "tuple(range(m, len(S.M) + 1)))   # the sample axes W"),
+    ('M10', REF, "    if isinstance(block_weight, (tuple, list)):\n        raise TypeError(",
+     "    if False:\n        raise TypeError("),
+    ('M11', REF, "any(a != b and not (a == 1 and axis in may_be_one)",
+     "any((a != b or a == 1) and not (a == 1 and axis in may_be_one)"),
 ]
 
 
@@ -68,7 +91,9 @@ def main():
         open(target, 'w').write(text.replace(old, new))
         env = dict(os.environ, PYTHONPATH=root)
         code, out = run([PY, '-B', os.path.join(HERE, 'ref_dense_pins.py'), '--api', 'new'], root, env)
-        pins = 'caught (%s)' % out.strip().splitlines()[-1] if code else 'NOT caught'
+        nfail = sum(1 for l in out.splitlines() if l.startswith('FAIL'))
+        pins = ('caught (%d FAIL lines before the end; %s)' % (nfail, out.strip().splitlines()[-1][:90]) if code
+                else 'NOT caught')
         line = '%-6s pins: %s' % (name, pins)
         if args.tests:
             code, out = run('%s -B -m pytest -x -q -n 2 -p no:cacheprovider %s' % (PY, args.tests), root, env)
