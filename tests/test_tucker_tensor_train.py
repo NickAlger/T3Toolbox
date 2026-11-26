@@ -10,7 +10,10 @@ import math
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.corewise as cw
 import t3toolbox.backend.common as common
-import t3toolbox.backend.sampling_derivatives as sampling_derivatives
+import t3toolbox.backend.apply as apply
+import t3toolbox.backend.probing as probing
+import t3toolbox.backend.t3_conversions as t3_conversions
+from t3toolbox.backend.jets import affine_jet, index_to_one_hot
 import os as _os, sys as _sys
 _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
 import _derivative_data as dd       # derivative data from the merged methods (P13b)
@@ -3037,8 +3040,11 @@ class TestTuckerTensorTrain(unittest.TestCase):
         inner = (sum(np.sum(np.asarray(gB[i]) * dB[i]) for i in range(d))
                  + sum(np.sum(np.asarray(gG[i]) * dG[i]) for i in range(d)))
         eps = 1e-6
-        dot = lambda data: sum(np.sum(r[i] * np.asarray(sampling_derivatives.t3_probe_derivatives(ww, pp, data, ORDER)[i]))
-                               for i in range(d))
+        # the forward, dense and in derivatives (slot t times t!): independent of the engine
+        factorials = np.array([math.factorial(t) for t in range(ORDER + 1)], dtype=float).reshape((ORDER + 1, 1, 1))
+        dense = lambda data: [factorials * z for z in probing.dense_probe(
+            t3_conversions.t3_to_dense(data), affine_jet(ww, pp), (ORDER,))]
+        dot = lambda data: sum(np.sum(r[i] * dense(data)[i]) for i in range(d))
         plus = ([B + eps * db for B, db in zip(x.tucker_cores, dB)], [G + eps * dg for G, dg in zip(x.tt_cores, dG)])
         minus = ([B - eps * db for B, db in zip(x.tucker_cores, dB)], [G - eps * dg for G, dg in zip(x.tt_cores, dG)])
         fd = (dot(plus) - dot(minus)) / (2 * eps)
@@ -3061,11 +3067,16 @@ class TestTuckerTensorTrain(unittest.TestCase):
         ww = [np.random.randn(*(W + (N,))) for N in shapes]
         pp = [np.random.randn(*(W + (N,))) for N in shapes]
         index = np.stack([np.random.randint(0, N, size=W) for N in shapes], axis=0)
+        # the forward, dense and in derivatives (slot t times t!): independent of the engine
+        factorials = np.array([math.factorial(t) for t in range(ORDER + 1)], dtype=float).reshape((ORDER + 1, 1))
+        dense = lambda data, first: factorials * apply.dense_apply(t3_conversions.t3_to_dense(data),
+                                                                   affine_jet(first, pp), (ORDER,))
+        one_hot = index_to_one_hot(index, shapes)
         cases = [
             ('apply', lambda rr: dd.corewise_transpose(x, 'apply', rr, ww, pp, ORDER, sum_over_probes=True),
-                      lambda data: sampling_derivatives.t3_apply_derivatives(ww, pp, data, ORDER)),
+                      lambda data: dense(data, ww)),
             ('entries', lambda rr: dd.corewise_transpose(x, 'entries', rr, index, pp, ORDER, sum_over_probes=True),
-                        lambda data: sampling_derivatives.t3_entries_derivatives(index, pp, data, ORDER)),
+                        lambda data: dense(data, one_hot)),
         ]
         for name, transpose, forward in cases:
             with self.subTest(op=name):

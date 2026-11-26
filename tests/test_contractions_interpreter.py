@@ -548,7 +548,9 @@ class TestVocabularyCompleteness(unittest.TestCase):
 
     def test_every_library_subscript_is_frozen(self):
         vocab = scan_vocabulary()
-        self.assertGreater(len(vocab), 100, 'the AST scan found suspiciously few subscripts')
+        # A sanity floor against a scan that silently finds nothing (a moved root, skipped files), not a tolerance:
+        # every string found is checked. 84 subscripts at K0 (the old kernels deleted); 209 before.
+        self.assertGreater(len(vocab), 60, 'the AST scan found suspiciously few subscripts')
         missing = vocab - set(HISTORICAL)
         self.assertFalse(
             missing,

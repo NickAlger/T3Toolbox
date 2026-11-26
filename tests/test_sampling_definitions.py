@@ -25,13 +25,10 @@ checked by lines of evidence that share nothing with it but the library's conver
 6. **Kp** (`TestKp`): automatic differentiation (jax arrays) against finite differences (numpy arrays), and that
    the route is read off the arrays; against the difference quotient of ``g`` on the corewise frame with the seed
    held; against the second derivative of the dense objective.
-7. **The old kernels** (`TestAgainstTheOldKernels`): with one variable and a line input, ``z`` and ``g`` of the
-   probe kind against ``sampling_derivatives`` (until it is deleted), through the conversions: derivatives are
-   ``t!`` times Taylor coefficients, and the old transpose takes the residual forward, not turned.
-8. **The corewise frame** (`TestCorewiseFrame`), **structure** (`TestStructure`: the names, the one signature, the
+7. **The corewise frame** (`TestCorewiseFrame`), **structure** (`TestStructure`: the names, the one signature, the
    jet shape and its reader, the declared jet sizes, the errors, a doctest on every function, and that the module
    calls nothing of the library but the three dense functions) and **dispatch** (`TestJax`).
-9. **The dense functions** (`TestDenseFunctions`): with no jets against hand-written contractions and indexing;
+8. **The dense functions** (`TestDenseFunctions`): with no jets against hand-written contractions and indexing;
    their jets at input jets of every kind (a line, two directions, a curve, modes of different jet sizes)
    against the calls with no jets along the input jets at a grid of roots of unity; the ``W`` and ``C`` stacks,
    the errors. **The input jets** (`TestInputJets`): ``affine_jet`` and ``index_to_one_hot``.
@@ -1335,43 +1332,6 @@ class TestKp(unittest.TestCase):
             self.assertLessEqual(relative_error(got, x + 2 * y), TOL)
 
 
-class TestAgainstTheOldKernels(unittest.TestCase):
-    """The bridge to the library as it is today (``sampling_derivatives``, deleted in P20): with one jet variable and
-    a line input, ``z`` and ``g`` of the probe kind. The old kernels take ``(ww, pp)`` and work in derivatives, and
-    the old transpose takes its residual forward. So, slot by slot: an old ``z`` is ``t!`` times the reference's;
-    and the old transpose given ``weight[t]**2 * r[t] / t!``, forward, is the reference's ``g``, whose seed is the
-    same residual weighted and turned."""
-
-    def test_z_and_g_of_the_probe_kind(self):
-        import t3toolbox.backend.sampling_derivatives as sampling_derivatives
-        for name, make in PROBLEMS[:3]:
-            P = make()
-            line = P.input_jets(LINE_1)
-            for n in (1, 2, 3):
-                with self.subTest(problem=name, order=n):
-                    case = JetCase('a line', (n,), 'line')
-                    factorials = np.array([math.factorial(t) for t in range(n + 1)], dtype=float)
-                    per_slot = lambda x, c: c.reshape((n + 1,) + (1,) * (x.ndim - 1)) * x
-
-                    z = sdef.z('probe', P.frame, line, order=(n,))
-                    old = sampling_derivatives.t3_probe_derivatives(P.ww, P.pp, (P.D, P.L), n)
-                    for a, b in zip(z, old):
-                        self.assertLessEqual(relative_error(a, per_slot(b, 1.0 / factorials)), TOL)
-
-                    rng = np.random.default_rng(n)
-                    y = [rng.standard_normal((n + 1,) + P.W + (N,)) for N in P.shape]
-                    weight = 0.5 + rng.random((P.d, n + 1))                         # one per mode and slot
-                    full = weight.reshape((P.d, n + 1) + (1,) * len(P.W) + (1,))   # of the type of z
-                    g = sdef.g('probe', P.frame, line, order=(n,), y=y, weight=full)
-                    r = sdef.r('probe', P.frame, line, order=(n,), y=y)
-                    forward = [per_slot(r[i], weight[i] ** 2 / factorials) for i in range(P.d)]
-                    old = sampling_derivatives.tv_probe_derivatives_transpose(forward, P.ww, P.pp, P.frame, n,
-                                                                              sum_over_probes=True)
-                    for a, b in zip(blocks_of(g), blocks_of(old)):
-                        self.assertLessEqual(relative_error(a, b), TOL)
-                    self.assertEqual(case.m, 1)
-
-
 class TestCorewiseFrame(unittest.TestCase):
     """SAMPLE_VARIABLES.md section 9: the corewise frame ``(B, G, G, G)`` has one basis on each edge."""
 
@@ -1987,20 +1947,27 @@ class TestDenseFunctions(unittest.TestCase):
 
     def test_the_jets_of_entries_off_the_grid(self):
         """The recipe of entry 120: the released ``entries_derivatives`` is apply at the one-hot vectors moved
-        along ``pp``, in Taylor coefficients, ``dense_entries_derivatives / t!`` (the old module stays until P20)."""
+        along ``pp``, in Taylor coefficients. Against its definition written out: slot ``t`` is the sum, over the
+        ``t``-subsets ``S`` of the modes, of the tensor contracted with ``pp[i]`` in the modes of ``S`` and indexed at
+        ``index[i]`` in the others (zero above ``d``)."""
         import t3toolbox.backend.jets as jets
-        import t3toolbox.backend.sampling_derivatives as sampling_derivatives
-        T = self.T                                  # the old oracle takes one grid point of an unstacked tensor
+        T = self.T                                  # one grid point of an unstacked tensor at a time
+        d = T.ndim
         for n in (1, 2, 4):
             got = apply.dense_apply(T, jets.affine_jet(jets.index_to_one_hot(self.index, self.shape), self.pp), (n,))
             self.assertEqual((n + 1, 2, 2), got.shape)
             self.assertTrue(np.array_equal(got[0], entries.dense_entries(T, self.index)))
-            factorials = np.array([math.factorial(t) for t in range(n + 1)], dtype=float)
             for a, b in itertools.product(range(2), range(2)):
                 with self.subTest(order=n, sample=(a, b)):
-                    old = sampling_derivatives.dense_entries_derivatives(
-                        [int(i) for i in self.index[:, a, b]], [p[a, b] for p in self.pp], T, n)
-                    self.check(got[:, a, b], old / factorials)
+                    ref = np.zeros(n + 1)
+                    for t in range(min(n, d) + 1):
+                        for S in itertools.combinations(range(d), t):
+                            A = T
+                            for i in reversed(range(d)):            # the last mode first: earlier axes stay put
+                                A = (np.tensordot(A, self.pp[i][a, b], axes=([i], [0])) if i in S
+                                     else np.take(A, self.index[i, a, b], axis=i))
+                            ref[t] += A
+                    self.check(got[:, a, b], ref)
 
     # ---------------------------------------------------------------- structure
     def test_the_jet_shape_is_a_tuple(self):

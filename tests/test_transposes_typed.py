@@ -4,8 +4,7 @@
 """The transposes typed (the data-metric arc, M4): their argument is ``c``, an element of ``Y``.
 
 - **The signatures**: each of the 42 transposes and second-order transposes (backend and frontend, ragged and uniform)
-  takes ``c`` and no ``residual``. The old layer keeps its own name until it is deleted (P17, P20): the old kinds'
-  ``transpose`` / ``corewise_hessian`` and the four ``utv_*_transpose*_from_sweep`` helpers.
+  takes ``c`` and no ``residual``.
 - **The laws** (``tests/_typing_laws.py``) on all 42: the input law ``w_i -> Delta_i w_i`` (``c`` moves as an
   element of ``Y``: ``Delta_i`` on a probe edge, nothing for apply, ``prod_i Delta_i[n_i]`` for entries; the output,
   ``X*``, by ``Delta_i`` on the mode axis; the ambient output, ``E*``, by ``Delta_0 (x) ... (x) Delta_(d-1)``), and the

@@ -40,3 +40,19 @@ re-bases (E5 still uses `taylor_to_derivatives`: the note rules factorials inlin
 - `ut3_*_corewise_transpose`'s probe `c` is packed by the face with `pack_if_ragged`; the engine's held `Jp` must be
   packed for probe on the uniform layout.
 - `git status` shows `K_ARC_DECISIONS.md` modified and `k0/REVIEWER_PRENOTES.md`: not the implementer's.
+
+## K0 build: where it stands (updated as it goes)
+
+- 2026-11-25, build step 1 done: every test edit of the note (§3) is in the working tree, and `k0/prose_edits.md`
+  has the final `fitting` docstring (round 3). Tools: `k0/edit_tools.py` (removes defs by name),
+  `k0/unused_imports.py` (imports newly unused against HEAD), `k0/delete_library.py` (the mechanical library cut; run
+  once, refuses a library that differs from b5125f76).
+- Recorded step: `k0/logs/pre_deletion_edited_tests_v.log.gz`: the edited files on the untouched library, 1 failed
+  (only the new absence test, expected), 519 passed, 2 skipped, 37,798 subtests. Then the slow tier of the edited
+  `test_uniform_curvature.py`: `k0/logs/pre_deletion_slow_uniform_curvature.log`.
+- Next: `delete_library.py`; the hand rewrites of `prose_edits.md`; the kept-comments diff check; `--check`; imports
+  both ways; the gate (`-v` suite gzipped in `k0/`, then the other steps by name, then `slow`); tally; mutations;
+  `K0_HANDOVER.md`.
+- Build done (2026-11-25): library deleted and rewritten, gate green (the suite's one failure, a third scan floor, fixed
+  and its file rerun), tally accounted, mutations rerun; `K0_HANDOVER.md` written. Logs: `k0/k0_suite_v.log.gz`,
+  `k0/tally_baseline_vs_k0.txt`, `k0/logs/`. Nothing running. The third floor waits for the orchestrator's confirmation.

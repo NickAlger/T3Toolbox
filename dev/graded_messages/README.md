@@ -116,6 +116,11 @@ documents and some of the proposal.
 
 ## Contents
 
+**The scripts of `scripts/` run against `v2026.5.0`, not against the branch** (O-26): many of them read the library's
+old sampling kernels and kinds (`backend/sampling_derivatives.py`, the `SamplingKind` classes), which slice K0 of the
+packing sub-arc deleted on 2026-11-25 (`implementation/K0_HANDOVER.md`). They stay as records of what the prototypes
+were checked against.
+
 | File | What it is |
 | --- | --- |
 | `README.md` | This file: status, how to resume, context that is not in the proposal |

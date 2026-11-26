@@ -99,7 +99,9 @@ class TestInterpreterAnyAxisSharding(unittest.TestCase):
         import t3toolbox.backend.contractions as ctr
 
         vocab = sorted(_scan_vocabulary())
-        self.assertGreater(len(vocab), 100, 'the AST scan found suspiciously few subscripts')
+        # A sanity floor against a scan that silently finds nothing (a moved root, skipped files), not a tolerance:
+        # every string found is checked. 84 subscripts at K0 (the old kernels deleted); 209 before.
+        self.assertGreater(len(vocab), 60, 'the AST scan found suspiciously few subscripts')
         checked = 0
         for subs in vocab:
             terms = subs.split('->')[0].split(',')
@@ -131,7 +133,8 @@ class TestInterpreterAnyAxisSharding(unittest.TestCase):
                             "sharded -- the interpreter must not reshape, so every group sub-axis "
                             "must shard free." % (subs, n, ax, g))
                         checked += 1
-        self.assertGreater(checked, 400, 'the any-axis sweep barely ran (%d cases)' % checked)
+        # The same kind of sanity floor as the scan's above: 228 cases at K0 (the old kernels deleted); 930 before.
+        self.assertGreater(checked, 150, 'the any-axis sweep barely ran (%d cases)' % checked)
 
     def test_every_vocabulary_letter_has_a_size(self):
         """The sweep above is AST-driven over the library, so every new subscripts string is in it the moment
@@ -197,14 +200,12 @@ class TestInterpreterAnyAxisSharding(unittest.TestCase):
         self.assertEqual(checked, (38 + 15 + 5 + 3) * 2 * 2)
 
 
-@unittest.skipUnless(common.jax_available, 'jax not available')
-class TestJetKernelsShardOverW(unittest.TestCase):
-    """The probe-derivative transpose and the exact Hessian's two-hole under ``shard_map`` over the sample stack
-    ``W`` (``docs/chunking.md``, "Sharding over W"): the W-carrying arrays are sharded, the cores replicated (closed
-    over), each device runs the kernels -- order scans, banded recurrences, the W-chunked assembly -- on its local
-    shard, and one ``psum`` finishes the W-sum. The jet kernels move data only along the order axis (it leads every
-    jet, so no batch axis is ever moved), so the compiled program must contain NO all-gather (the ``psum``'s
-    all-reduce is expected), and the result must equal the unsharded one. A jax dispatch test (float64)."""
+
+class TestTheEngineShardsOverW(unittest.TestCase):
+    """``g`` and ``Kp`` from ``sampling_variables`` under ``shard_map`` with ``W`` sharded (the sample, the data and
+    the weight, which is of the type of ``z`` and so carries ``W``) and everything else replicated (closed over): no all-gather in the compiled program, and the result equal to the
+    unsharded one. Four programs: the uniform layout at ``()``, ``(3,)`` and ``(1, 1)``, the ragged at ``(3,)``. The
+    varying-axes check is off (the scan carries start from constants)."""
 
     @classmethod
     def setUpClass(cls):
@@ -256,36 +257,6 @@ class TestJetKernelsShardOverW(unittest.TestCase):
             g, r = np.asarray(g), np.asarray(r)
             self.assertEqual(g.shape, r.shape, name)
             self.assertLess(np.linalg.norm(g - r) / np.linalg.norm(r), 1e-14, name)
-
-    def test_probe_transpose_and_two_hole_shard_over_W(self):
-        from jax.sharding import PartitionSpec as P
-        import t3toolbox.backend.sampling_derivatives as sd
-        rng = np.random.default_rng(0)
-        d, n, r, N, order = 3, 3, 3, 5, 3
-        W = 4 * self.n_dev                                   # 4 probes per device; chunk_size 2 chunks the shard
-        R = lambda *s: rng.standard_normal(s)
-        frame = (R(d, n, N), R(d, r, n, r), R(d, r, n, r), R(d, r, n, r))     # uniform (D, U, L, R), replicated
-        theta, dirs = (R(d, n, N), R(d, r, n, r)), (R(d, n, N), R(d, r, n, r))
-        zt, ww, pp = R(d, order + 1, W, N), R(d, W, N), R(d, W, N)
-        specs = (P(None, None, 'w', None), P(None, 'w', None), P(None, 'w', None))   # W: axis 2 / 1 / 1
-        for cs in (None, 2):
-            with self.subTest(op='probe_derivatives_transpose', chunk_size=cs):
-                self._check('transpose', lambda z, w, p: sd.tv_probe_derivatives_transpose(
-                    z, w, p, frame, order, sum_over_probes=True, chunk_size=cs), (zt, ww, pp), specs, (zt, ww, pp))
-            with self.subTest(op='two_hole', chunk_size=cs):
-                self._check('two-hole', lambda z, w, p: sd.t3_probe_corewise_derivatives_hessian(
-                    z, w, p, theta, dirs, order, chunk_size=cs), (zt, ww, pp), specs, (zt, ww, pp))
-
-
-
-class TestTheEngineShardsOverW(unittest.TestCase):
-    """``g`` and ``Kp`` from ``sampling_variables`` under ``shard_map`` with ``W`` sharded (the sample, the data and
-    the weight, which is of the type of ``z`` and so carries ``W``) and everything else replicated (closed over): no all-gather in the compiled program, and the result equal to the
-    unsharded one. Four programs: the uniform layout at ``()``, ``(3,)`` and ``(1, 1)``, the ragged at ``(3,)``. The
-    varying-axes check is off, as in ``TestJetKernelsShardOverW`` (the scan carries start from constants)."""
-
-    setUpClass = classmethod(TestJetKernelsShardOverW.setUpClass.__func__)
-    _check = TestJetKernelsShardOverW._check
 
     def test_g_and_Kp_shard_over_W(self):
         import sys

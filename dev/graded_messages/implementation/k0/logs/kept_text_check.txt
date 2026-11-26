@@ -1,0 +1,243 @@
+NEW in t3toolbox/backend/probing.py: Expr@"The ``probe`` sampling type: contract a
+CHANGED t3toolbox/backend/probing.py: __all__
+    --- 
+    +++ 
+    @@ -4,6 +4 @@
+    -    'compute_xi',
+    -    'compute_mu',
+    -    'compute_nu',
+    -    'compute_eta',
+    -    'assemble_z',
+    -    # Probe a tangent vector
+    +    # Probe a tangent vector, and its transpose
+    @@ -11,21 +5,0 @@
+    -    'compute_dxi',
+    -    'compute_sigma',
+    -    'compute_tau',
+    -    'compute_deta',
+    -    'assemble_tangent_z',
+    -    # Apply -- frame-sweep reuse split (precompute the LEAN (xi,mu) frame edge vars once; inject into the
+    -    # bare J / Jᵀ; adjoint-state transpose recomputes the right context as sigma_hat; for fitting.py)
+    -    'compute_sigma_hat',
+    -    # Entries -- frame-sweep reuse split (the fiber-sliced seed; one-hot adjoint-state transpose; for fitting.py)
+    -    # Probe -- frame-sweep reuse split (the FULL (xi,mu,nu,eta) sweep; for fitting.py)
+    -    'tv_precompute_probe_frame_sweep',
+    -    'tv_probe_jacobian_from_sweep',
+    -    'tv_probe_transpose_from_sweep',
+    -    # Corewise (non-manifold) transpose -- the tangent transpose with the frame's cores in place of the frames
+    -    # Transpose of map from tangent vector to probes
+    -    'compute_deta_tilde',
+    -    'compute_tau_tilde',
+    -    'compute_sigma_tilde',
+    -    'compute_dxi_tilde',
+    -    'assemble_tucker_variations',
+    -    'assemble_tt_variations',
+    @@ -33 +7 @@
+    -    # Ambient / corewise probe transposes (the plain-probe analogs of the apply/entries transposes)
+    +    # Ambient / corewise probe transposes, the corewise tangent and Hessian
+    @@ -37,7 +10,0 @@
+    -    # Corewise two-hole: the probe transpose's derivative in the cores (the exact Hessian's sampling term)
+    -    'compute_deta_tilde_tangent',
+    -    'compute_tau_tilde_tangent',
+    -    'compute_sigma_tilde_tangent',
+    -    'compute_dxi_tilde_tangent',
+    -    'assemble_tucker_tangent_variations',
+    -    'assemble_tt_tangent_variations',
+    @@ -45 +11,0 @@
+    -    't3_probe_corewise_hessian_from_sweep',
+t3toolbox/backend/probing.py: 12 kept statements, 10 unchanged
+CHANGED t3toolbox/backend/apply.py: Expr@"The ``apply`` sampling type: contract a
+    --- 
+    +++ 
+    @@ -3,4 +3,4 @@
+    -Holds the t3 + tv ops, the ambient/tangent/corewise transposes, the corewise transpose's derivative in the
+    -cores (the exact Hessian's sampling term), and the frame sweeps for applies.
+    -Specializes the general probing machinery (containment probe ⊃ apply ⊃ entries; this module
+    -imports from ``probing``, never the reverse). Costs and the role in Riemannian least-squares:
+    +Holds the t3 + tv ops, the ambient/tangent/corewise transposes, the corewise forward derivative and the
+    +corewise Hessian (the exact Hessian's sampling term), each but the ambient transpose one call of the engine,
+    +and the dense reference :py:func:`dense_apply` (containment probe ⊃ apply ⊃ entries; this module imports from
+    +``probing``, never the reverse). Costs and the role in Riemannian least-squares:
+CHANGED t3toolbox/backend/apply.py: __all__
+    --- 
+    +++ 
+    @@ -6,3 +5,0 @@
+    -    'tv_precompute_apply_frame_sweep',
+    -    'tv_apply_jacobian_from_sweep',
+    -    'tv_apply_transpose_from_sweep',
+    @@ -12 +8,0 @@
+    -    't3_apply_corewise_hessian_from_sweep',
+t3toolbox/backend/apply.py: 10 kept statements, 8 unchanged
+CHANGED t3toolbox/backend/entries.py: Expr@"The ``entries`` sampling type: evaluate
+    --- 
+    +++ 
+    @@ -3,4 +3,4 @@
+    -Holds the t3 + tv ops, the ambient/tangent/corewise transposes, the corewise transpose's derivative in the
+    -cores (the exact Hessian's sampling term), and the frame sweeps for entry sampling. The most-special case of
+    -probe ⊃ apply ⊃ entries; imports the general machinery from ``probing``, never the reverse. See
+    -``docs/entries_apply_probe.md``.
+    +Holds the t3 + tv ops, the ambient/tangent/corewise transposes, the corewise forward derivative and the
+    +corewise Hessian (the exact Hessian's sampling term), each but the ambient transpose one call of the engine,
+    +and the dense reference :py:func:`dense_entries`. The most-special case of probe ⊃ apply ⊃ entries; imports
+    +from ``apply`` (its ambient transpose), never the reverse. See ``docs/entries_apply_probe.md``.
+CHANGED t3toolbox/backend/entries.py: __all__
+    --- 
+    +++ 
+    @@ -6,3 +5,0 @@
+    -    'tv_precompute_entries_frame_sweep',
+    -    'tv_entries_jacobian_from_sweep',
+    -    'tv_entries_transpose_from_sweep',
+    @@ -12 +8,0 @@
+    -    't3_entries_corewise_hessian_from_sweep',
+CHANGED t3toolbox/backend/entries.py: t3_entries_ambient_transpose
+    --- 
+    +++ 
+    @@ -20,3 +20,2 @@
+    -    # (a negative index wraps), exactly like the forward t3_entries and the tangent/corewise transposes
+    -    # (_onehot_vectors); the former `arange(N) == index` scatter matched nothing for a negative index and
+    -    # silently returned zero factors.
+    +    # (a negative index wraps), exactly like the forward t3_entries and the tangent/corewise transposes; the
+    +    # former `arange(N) == index` scatter matched nothing for a negative index and silently returned zero factors.
+t3toolbox/backend/entries.py: 10 kept statements, 7 unchanged
+NEW in t3toolbox/backend/ut3_sampling.py: Expr@"Uniform plain-layer sampling: probe/app
+CHANGED t3toolbox/backend/ut3_sampling.py: __all__
+    --- 
+    +++ 
+    @@ -12,8 +11,0 @@
+    -    'ut3_probe_derivatives',
+    -    'ut3_apply_derivatives',
+    -    'ut3_entries_derivatives',
+    -    'ut3_apply_corewise_derivatives_transpose',
+    -    'ut3_entries_corewise_derivatives_transpose',
+    -    'ut3_probe_corewise_derivatives_transpose',
+    -    'ut3_probe_corewise_derivatives_hessian',
+    -    'ut3_probe_corewise_derivatives_hessian_from_sweep',
+    @@ -21 +12,0 @@
+    -    'ut3_probe_corewise_hessian_from_sweep',
+    @@ -23 +13,0 @@
+    -    'ut3_apply_corewise_hessian_from_sweep',
+    @@ -25,5 +14,0 @@
+    -    'ut3_entries_corewise_hessian_from_sweep',
+    -    'ut3_apply_corewise_derivatives_hessian',
+    -    'ut3_apply_corewise_derivatives_hessian_from_sweep',
+    -    'ut3_entries_corewise_derivatives_hessian',
+    -    'ut3_entries_corewise_derivatives_hessian_from_sweep',
+t3toolbox/backend/ut3_sampling.py: 17 kept statements, 15 unchanged
+CHANGED t3toolbox/backend/utv_sampling.py: Expr@"Uniform tangent sampling (UT3Tangent pr
+    --- 
+    +++ 
+    @@ -3,2 +3,2 @@
+    -The uniform mirror of the ragged ``T3Tangent`` sampling frontend. **Since graded messages P12a** the plain
+    -(jet-free) functions ``utv_{probe,apply,entries}`` and their transposes are one call of the engine
+    +The uniform mirror of the ragged ``T3Tangent`` sampling frontend. The functions ``utv_{probe,apply,entries}`` and
+    +their transposes take the ragged ``tv_*`` signatures and are one call of the engine
+    @@ -6,5 +6,3 @@
+    -the frame and **the variations with the frame's masks** (the variations' own masks are not read; a uniform tangent's
+    -variation masks are the frame's gauge masks), packs the sample, and masks every output. They take the ragged
+    -``tv_*`` signatures (P12b), and ``utv_probe`` mirrors the sample's form. What follows describes the jet functions and the ``*_from_sweep`` seam, which still share the ragged
+    -machinery. The boundary work is the same as the plain layer's
+    -``ut3_sampling`` (the precedent), lifted to the frame-variations pair:
+    +the frame and **the variations with the frame's masks** (the variations' own masks are not read; a uniform
+    +tangent's variation masks are the frame's gauge masks), packs the sample, and masks every output; ``utv_probe``
+    +mirrors the sample's form.
+    @@ -12,12 +10,4 @@
+    -1. **mask-once** the frame (4) and variation (2) supercores -- so the padded rank slots are zero and the
+    -   core algorithm runs mask-free (the padded bonds contract to zero);
+    -2. **pack** the probe vectors into one supercore-shaped tensor (``apply``/``probe``; ``entries`` slices
+    -   fibers, so its integer ``index`` needs no packing);
+    -3. call the polymorphic backend (``is_uniform`` is inferred from the masked supercores being bare ndarrays);
+    -4. **unpack** the ``probe`` output back to ragged-width vectors (``apply``/``entries`` return a scalar --
+    -   nothing to unpack).
+    -
+    -These are the bare Jacobian ``𝒥`` (no gauge projector ``Π``); the transpose ``𝒥ᵀ`` is the last section of this module.
+    -The transposes **re-mask their output** with the variation masks they attach, so the padded slots come back as
+    -exact zeros (one multiply by a host mask; the real block is unchanged bit for bit). The ``*_transpose_from_sweep``
+    -seam halves stay bare: their callers, the uniform fitting kinds, re-mask.
+    +These are the bare Jacobian ``𝒥`` (no gauge projector ``Π``) and its transpose ``𝒥ᵀ``. The transposes attach the
+    +result tangent's variation masks (the frame's gauge masks over the new tangent stack) and **re-mask their
+    +output** with them, so the padded slots come back as exact zeros (one multiply by a host mask; the real block is
+    +unchanged bit for bit).
+CHANGED t3toolbox/backend/utv_sampling.py: __all__
+    --- 
+    +++ 
+    @@ -8,24 +7,0 @@
+    -    'utv_precompute_apply_frame_sweep',
+    -    'utv_precompute_probe_frame_sweep',
+    -    'utv_precompute_entries_frame_sweep',
+    -    'utv_apply_jacobian_from_sweep',
+    -    'utv_probe_jacobian_from_sweep',
+    -    'utv_entries_jacobian_from_sweep',
+    -    'utv_apply_transpose_from_sweep',
+    -    'utv_probe_transpose_from_sweep',
+    -    'utv_entries_transpose_from_sweep',
+    -    'utv_precompute_apply_frame_sweep_jets',
+    -    'utv_precompute_probe_frame_sweep_jets',
+    -    'utv_precompute_entries_frame_sweep_jets',
+    -    'utv_apply_jacobian_derivatives_from_sweep',
+    -    'utv_probe_jacobian_derivatives_from_sweep',
+    -    'utv_entries_jacobian_derivatives_from_sweep',
+    -    'utv_apply_transpose_derivatives_from_sweep',
+    -    'utv_probe_transpose_derivatives_from_sweep',
+    -    'utv_entries_transpose_derivatives_from_sweep',
+    -    'utv_probe_derivatives',
+    -    'utv_apply_derivatives',
+    -    'utv_entries_derivatives',
+    -    'utv_probe_derivatives_transpose',
+    -    'utv_apply_derivatives_transpose',
+    -    'utv_entries_derivatives_transpose',
+CHANGED t3toolbox/backend/utv_sampling.py: _gauge_masks_over_Knew
+    --- 
+    +++ 
+    @@ -7 +7 @@
+    -    ``K_new`` -- the leading stack of the transpose output minus the frame stack ``C``. ``sum_over_probes``
+    +    ``K_new`` -- the leading stack of the transpose output minus the frame stack ``C``. ``sum_over_samples``
+t3toolbox/backend/utv_sampling.py: 11 kept statements, 8 unchanged
+NEW in t3toolbox/backend/fitting.py: Expr@"The least-squares oracle and its batch:
+CHANGED t3toolbox/backend/fitting.py: __all__
+    --- 
+    +++ 
+    @@ -2,20 +1,0 @@
+    -    'SamplingKind',
+    -    'ScalarOutputKind',
+    -    'ProbeOutputKind',
+    -    'ApplyKind',
+    -    'EntriesKind',
+    -    'ProbeKind',
+    -    'ApplyDerivativesKind',
+    -    'EntriesDerivativesKind',
+    -    'ProbeDerivativesKind',
+    -    'APPLY',
+    -    'ENTRIES',
+    -    'PROBE',
+    -    'probe_kind',
+    -    'apply_derivatives_kind',
+    -    'entries_derivatives_kind',
+    -    'probe_derivatives_kind',
+    -    'sumsq_over_samples',
+    -    'sumsq_over_probes',
+    -    'block_sumsq_over_samples',
+    -    'block_sumsq_over_probes',
+t3toolbox/backend/fitting.py: 20 kept statements, 18 unchanged
+NEW in t3toolbox/backend/uniform_fitting.py: Expr@'Uniform-layer fitting: packing a least-
+CHANGED t3toolbox/backend/uniform_fitting.py: __all__
+    --- 
+    +++ 
+    @@ -2,8 +1,0 @@
+    -    'UniformApplyKind',
+    -    'UniformEntriesKind',
+    -    'UniformProbeKind',
+    -    'UniformApplyDerivativesKind',
+    -    'UniformEntriesDerivativesKind',
+    -    'UniformProbeDerivativesKind',
+    -    'uniform_sampling_kind',
+    -    'uniform_derivatives_kind',
+t3toolbox/backend/uniform_fitting.py: 6 kept statements, 4 unchanged
+CHANGED t3toolbox/backend/common.py: readonly_mask_copies
+    --- 
+    +++ 
+    @@ -3,2 +3 @@
+    -    an aliased writeable caller array mutated in place would leave a stale cached jit key
+    -    (the ``_weight_matrix`` precedent)."""
+    +    an aliased writeable caller array mutated in place would leave a stale cached jit key."""
+t3toolbox/backend/common.py: 47 kept statements, 46 unchanged
+13 kept statements changed

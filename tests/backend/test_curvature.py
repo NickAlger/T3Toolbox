@@ -16,29 +16,16 @@
 * **T5 two-holes (T3-T3)** -- ``t3_inner_product_corewise_hessian`` against the block-sum oracle, the dense
   multilinear Hessian and a finite difference of the one-hole; the one-hole against the dense gradient;
   the tangent zippers against finite differences.
-* **T5 two-holes (probe derivatives)** -- ``t3_probe_corewise_derivatives_hessian[_from_sweep]`` at orders
-  0-3 against the block-sum oracle (``d`` = 4, 3, 1, slack frames, raw unsquashed cores) and a finite
-  difference of the one-hole, and **the shipped (recurrence) kernels against the dense-``trs`` reference twins**
-  of ``_curvature_oracles.py`` (orders 0-4), whole and piece by piece, to 1e-14 relative (observed <= 4.4e-16;
-  not bitwise -- the summation order differs); the model's sweep
-  is reused bitwise; stacked == per element (multi-axis ``W``, ``K``, ``C``); uniform supercores == ragged,
-  chunked or not.
-* **T5 two-holes (plain probe / apply / entries, S10 / S11)** -- ``t3_{probe,apply,entries}_corewise_hessian
-  [_from_sweep]`` against the block-sum oracle (``d`` = 4, 3, 1, slack frames, raw unsquashed cores, multi-axis
-  ``K``) and a finite difference of the one-hole; each probe piece against a finite difference of the GN kernel it
-  differentiates; the factored TT assemblies against their unfactored product rule (there is no order axis, so no
-  binomial structure and no ``_trs`` twin); sweep reuse bitwise; stacked == per element; uniform supercores.
-* **T5 two-holes (apply / entries derivatives, S12)** -- ``sd.t3_{apply,entries}_corewise_derivatives_hessian
-  [_from_sweep]`` at orders 0-3 against the block-sum oracle and an exact (Richardson) finite difference of the
-  one-hole; the shipped kernels against their dense-``trs`` twins, whole and piece by piece, orders 0-4, to 1e-14;
-  order 0 is the plain two-hole; the containments (entries == apply at the one-hot vectors, bitwise; apply ==
-  probe derivatives at the paired residual jets); sweep reuse bitwise; stacked == per element; uniform supercores.
+* **T5 two-holes (plain probe / apply / entries, S10 / S11)** -- ``t3_{probe,apply,entries}_corewise_hessian``
+  against the block-sum oracle (``d`` = 4, 3, 1, slack frames, raw unsquashed cores, multi-axis ``K``) and a
+  finite difference of the one-hole; stacked == per element; uniform supercores. (The engine's two-holes at jets
+  are checked against the dense reference in ``tests/test_sampling_*.py`` and as the jvp of the transpose in
+  ``tests/test_dispatch.py``.)
 * **T6 symmetry** -- ``<a, K b> = <b, K a>`` per ``C`` element (a ``K``-stack Gram matrix is symmetric), for
-  the T3-T3, the probe-derivative, the plain kinds' and the apply / entries derivative two-holes.
-* **T11 weights** -- the probe-derivative two-hole at ``z~ = omega^2 r`` (per-order, per-mode and full
-  ``omega[mode, order]``) is the curvature of ``1/2 ||omega (.) r||^2``: a finite difference of its gradient
-  minus the Gauss-Newton term; for plain probe the per-mode weight row (apply / entries carry no weight); for the
-  apply / entries derivatives the per-order row (a per-mode one is their structural error).
+  the T3-T3 and the plain kinds' two-holes.
+* **T11 weights** -- the plain two-hole at the kind's ``omega^2 r`` is the curvature of ``1/2 ||omega (.) r||^2``:
+  a finite difference of its gradient minus the Gauss-Newton term; for plain probe the per-mode weight row
+  (apply / entries carry no weight).
 * **T20 flat slots, backend half** -- at maximal rank and at ``d = 1`` the normal space is trivial, so the
   T3-T3 term at ``Z = P_X R`` cancels the dense ``K_R`` on a lifted tangent; and at a generic point the
   normal curvature ``K_{R - P_X R}`` annihilates vertical (gauge) directions (the Lagrangian null space).
@@ -93,11 +80,9 @@ import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.corewise as cw
 import t3toolbox.backend.fv_conversions as fvc
 import t3toolbox.backend.fv_operations as fvo
-import t3toolbox.backend.fitting as bfit
 import t3toolbox.backend.geometry as bgeo
 import t3toolbox.backend.optimizers as bopt
 import t3toolbox.backend.linalg as linalg
-import t3toolbox.backend.sampling_derivatives as sd
 import t3toolbox.backend.sharing as sharing
 import t3toolbox.backend.t3_constructors as t3k
 import t3toolbox.backend.t3_conversions as t3c
@@ -630,285 +615,29 @@ class TestInnerProductTwoHole(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------------------------------
-# The probe-derivative two-hole
-# ---------------------------------------------------------------------------------------------------
-_PD_STRUCTURES = {'d4': _D4, 'd3': _MINIMAL, 'd1': _D1}
-_PD_ORDERS = (0, 1, 2, 3)
-_PD_STACKS = [((2,), ()), ((2,), (2,)), ((2, 3), ()), ((2, 3), (2,))]     # (K, C)
-
-
-def _pd_problem(struct, order, K, C, W, rng, raw=False):
-    """theta (a frame's base point (D, L), or -- raw -- unconstrained corewise cores), the samples, the
-    residual jets z~ (no K) and the directions (K + C)."""
-    if raw:
-        theta = t3k.t3_corewise_randn(*struct, stack_shape=C)
-        frame = None
-    else:
-        _, frame, _ = _point_and_frame(struct, C)
-        theta = (tuple(frame[0]), tuple(frame[2]))
-    shape = struct[0]
-    ww = [rng.standard_normal(W + (N,)) for N in shape]
-    pp = [rng.standard_normal(W + (N,)) for N in shape]
-    zt = [rng.standard_normal((order + 1,) + W + C + (N,)) for N in shape]
-    return frame, theta, ww, pp, zt, _directions(theta, K, rng)
-
-
-def _pd_blocksum(zt, ww, pp, theta, dirs, order, kk, cc):
-    """The block-sum oracle (F5) for one K + C element: the one-hole at the doubled-rank Y, read back."""
-    nW = ww[0].ndim - 1
-    th_c, dir_kc = _elem(theta, cc), _elem(dirs, kk + cc)
-    zt_c = [z[(slice(None),) * (1 + nW) + cc] for z in zt]
-    gY = sd.t3_probe_corewise_derivatives_transpose(zt_c, ww, pp, oracles.doubled(th_c, dir_kc), order,
-                                                    sum_over_probes=True, chunk_size=None)
-    return oracles.blocksum(gY, th_c)
-
-
-def _tree_relerr(a, b):
-    """||a - b|| / ||b|| over flat sequences of arrays (0 when both vanish)."""
-    num = float(np.sqrt(sum(np.sum((np.asarray(p) - np.asarray(q)) ** 2) for p, q in zip(a, b))))
-    den = float(np.sqrt(sum(np.sum(np.asarray(q) ** 2) for q in b)))
-    return 0.0 if num == 0.0 else num / max(den, 1e-300)
-
-
-class TestProbeDerivativesTwoHole(unittest.TestCase):
-    """T5 (probe derivatives): the shipped two-hole against the block-sum oracle, a finite difference of the
-    one-hole, and the dense-trs reference twins; sweep reuse, stacking, and the polymorphic uniform path."""
-
-    def setUp(self):
-        np.random.seed(13)
-
-    def test_against_the_block_sum_oracle(self):
-        rng = np.random.default_rng(13)
-        cases = [(name, struct, False) for name, struct in _PD_STRUCTURES.items()]
-        cases += [('tucker_slack', _TUCKER_SLACK, False), ('tt_slack', _TT_SLACK, False),
-                  ('raw_unsquashed', ((4, 5, 3), (2, 3, 2), (2, 2, 2, 3)), True),
-                  ('raw_d1_unsquashed', ((5,), (3,), (2, 3)), True)]
-        for name, struct, raw in cases:
-            for order in _PD_ORDERS:
-                for K, C in _PD_STACKS:
-                    if name not in _PD_STRUCTURES and (K, C) != ((2,), (2,)):
-                        continue                                    # the extra structures at one stack
-                    with self.subTest(structure=name, order=order, K=K, C=C):
-                        _, theta, ww, pp, zt, dirs = _pd_problem(struct, order, K, C, (5,), rng, raw)
-                        got = sd.t3_probe_corewise_derivatives_hessian(zt, ww, pp, theta, dirs, order)
-                        for blk, ref_c in zip(got[0] + got[1], dirs[0] + dirs[1]):
-                            self.assertEqual(blk.shape, ref_c.shape)
-                        for kk in np.ndindex(*K):
-                            for cc in np.ndindex(*C):
-                                ref = _pd_blocksum(zt, ww, pp, theta, dirs, order, kk, cc)
-                                self.assertGreater(_norm_flat(ref), 1e-3)
-                                self.assertLess(_relerr_tree(_elem(got, kk + cc), ref), 1e-13)
-
-    def test_against_a_finite_difference_of_the_one_hole(self):
-        rng = np.random.default_rng(14)
-        for name, struct in _PD_STRUCTURES.items():
-            for order in (0, 2):
-                with self.subTest(structure=name, order=order):
-                    _, theta, ww, pp, zt, dirs = _pd_problem(struct, order, (), (), (6,), rng)
-                    got = sd.t3_probe_corewise_derivatives_hessian(zt, ww, pp, theta, dirs, order)
-                    one = lambda cores: sd.t3_probe_corewise_derivatives_transpose(
-                        zt, ww, pp, cores, order, sum_over_probes=True, chunk_size=None)
-                    h = 2e-5                        # a polynomial in h: central difference O(h^2)
-                    shift = lambda t: cw.corewise_add(theta, cw.corewise_scale(dirs, t))
-                    fd = cw.corewise_scale(cw.corewise_sub(one(shift(h)), one(shift(-h))), 0.5 / h)
-                    self.assertLess(_relerr_tree(got, fd), 1e-6)
-
-    def test_production_equals_the_trs_twins(self):
-        """The shipped kernels (banded recurrences / order scans with a carried shifted jet; never the binomial
-        tensor) == the dense-trs twins, whole and piece by piece (each piece fed the twin's own inputs), at orders
-        0..4, a single and a multi-axis sample stack W, d in {1, 3, 4}. Observed <= 4.4e-16; the bar is 1e-14
-        relative -- NOT bitwise: the recurrences sum in a different order from the dense einsums, and CI runs two
-        numpy generations (other einsum / BLAS orders), so a ~2x margin would be flaky. It loses no
-        sensitivity: a dropped or rescaled product-rule term moves the result by O(1e-2..1). The dotted dxi~ is
-        formed only on its two read rows (the twin computes all ``order+1``), so it is compared on those; the
-        TT assembly is checked against both the nine-term twin and the factored dense form S3 shipped."""
-        rng = np.random.default_rng(15)
-        worst = 0.0
-        for name, struct in _PD_STRUCTURES.items():
-            for order in range(5):
-                for (K, C), W in [(kc, (5,)) for kc in _PD_STACKS] + [(((2,), (2,)), (2, 3)), (((2, 3), ()), (2, 3))]:
-                    with self.subTest(structure=name, order=order, K=K, C=C, W=W):
-                        _, theta, ww, pp, zt, dirs = _pd_problem(struct, order, K, C, W, rng)
-                        st = oracles.probe_derivatives_two_hole_states_trs(zt, ww, pp, theta, dirs, order)
-                        G, Gd = theta[1], dirs[1]
-                        s2 = min(2, order + 1)
-                        dxi_got = sd.compute_dxi_tilde_tangent_jets(
-                            G, Gd, st['mu'], st['mud'], st['nu'], st['nud'], st['sigma_t'], st['sigma_td'],
-                            st['tau_t'], st['tau_td'])
-                        self.assertEqual([np.shape(g)[0] for g in dxi_got], [2] * len(dxi_got))   # the two-row contract
-                        if order == 0:
-                            self.assertTrue(all(np.all(g[1] == 0) for g in dxi_got))         # row 1 is zero at order 0
-                        tt_args = (st['sigma_t'], st['sigma_td'], st['tau_t'], st['tau_td'], st['deta_t'],
-                                   st['deta_td'], st['xi'], st['xid'], st['mu'], st['mud'], st['nu'], st['nud'])
-                        tt_got = sd.assemble_tt_tangent_variation_jets(*tt_args, len(W))
-                        pieces = {
-                            'whole': (sd.t3_probe_corewise_derivatives_hessian(zt, ww, pp, theta, dirs, order),
-                                      (st['dB'], st['dG'])),
-                            'deta_tilde_dot': (sd.compute_deta_tilde_tangent_jets(theta[0], dirs[0], zt),
-                                               st['deta_td']),
-                            'tau_tilde_dot': (sd.compute_tau_tilde_tangent_jets(
-                                G, Gd, st['xi'], st['xid'], st['deta_t'], st['deta_td'], st['mu'], st['mud'],
-                                st['tau_t']), st['tau_td']),
-                            'sigma_tilde_dot': (sd.compute_sigma_tilde_tangent_jets(
-                                G, Gd, st['xi'], st['xid'], st['deta_t'], st['deta_td'], st['nu'], st['nud'],
-                                st['sigma_t']), st['sigma_td']),
-                            'dxi_tilde_dot': (tuple(g[:s2] for g in dxi_got), tuple(r[:2] for r in st['dxi_td'])),
-                            'tucker_assembly': (sd.assemble_tucker_tangent_variation_jets(
-                                zt, tuple(r[:2] for r in st['dxi_td']), ww, pp, st['etad'], len(W)), st['dB']),
-                            'tt_assembly': (tt_got, st['dG']),
-                            'tt_assembly_vs_factored': (tt_got, oracles.tt_tangent_assembly_factored_trs(
-                                *tt_args, st['trs'], st['n_frame'])),
-                        }
-                        self.assertGreater(_norm_flat((st['dB'], st['dG'])), 1e-3)
-                        for piece, (got, ref) in pieces.items():
-                            if piece == 'whole':
-                                got, ref = got[0] + got[1], ref[0] + ref[1]
-                            self.assertEqual([np.shape(g) for g in got], [np.shape(r) for r in ref], piece)
-                            err = _tree_relerr(got, ref)
-                            worst = max(worst, err)
-                            self.assertLess(err, 1e-14, piece)
-        self.assertLess(worst, 1e-14)
-
-    def test_from_sweep_reuses_the_model_sweep(self):
-        """The manifold model's probe sweep at the frame (D, U, L, R) carries the corewise xi / mu of its base
-        point (D, L): from_sweep with it -- or with the lean corewise (xi, mu) pair -- is the one-shot, bitwise;
-        and one sweep serves every direction."""
-        rng = np.random.default_rng(16)
-        for C in [(), (2,)]:
-            for order in (0, 2):
-                frame, theta, ww, pp, zt, _ = _pd_problem(_D4, order, (), C, (5,), rng)
-                model_sweep = sd.tv_precompute_probe_frame_sweep_jets(frame, ww, pp, order)
-                lean_sweep = sd.tv_precompute_apply_frame_sweep_jets(fvc.t3_corewise_frame(theta), ww, pp, order)
-                for K in [(), (3,)]:
-                    with self.subTest(C=C, order=order, K=K):
-                        dirs = _directions(theta, K, rng)
-                        one = sd.t3_probe_corewise_derivatives_hessian(zt, ww, pp, theta, dirs, order)
-                        for sweep in (model_sweep, lean_sweep):
-                            two = sd.t3_probe_corewise_derivatives_hessian_from_sweep(
-                                zt, ww, pp, theta, dirs, order, sweep)
-                            self.assertTrue(all(np.array_equal(p, q) for p, q in zip(one[0] + one[1], two[0] + two[1])))
-
-    def test_stacked_equals_per_element(self):
-        """Multi-axis W, K and C (and an empty W -- one probe): each stack element is the unstacked result."""
-        rng = np.random.default_rng(17)
-        for W, K, C in [((2, 3), (2, 2), (2, 3)), ((), (2,), (2,)), ((4,), (), ())]:
-            for order in (0, 2):
-                with self.subTest(W=W, K=K, C=C, order=order):
-                    _, theta, ww, pp, zt, dirs = _pd_problem(_MINIMAL, order, K, C, W, rng)
-                    got = sd.t3_probe_corewise_derivatives_hessian(zt, ww, pp, theta, dirs, order)
-                    for cc in np.ndindex(*C):
-                        zt_c = [z[(slice(None),) * (1 + len(W)) + cc] for z in zt]
-                        for kk in np.ndindex(*K):
-                            ref = sd.t3_probe_corewise_derivatives_hessian(
-                                zt_c, ww, pp, _elem(theta, cc), _elem(dirs, kk + cc), order)
-                            self.assertLess(_relerr_tree(_elem(got, kk + cc), ref), 1e-13)
-
-    def test_uniform_supercores_and_chunking(self):
-        """The kernel is polymorphic: packed uniform supercores (clean padding) give the ragged real block, with
-        the assemblies dense or W-chunked; on the ragged path chunk_size is ignored (bitwise)."""
-        import t3toolbox.backend.ut3_conversions as u3c
-        import t3toolbox.backend.ut3_operations as u3o
-        rng = np.random.default_rng(18)
-        for name, struct in _PD_STRUCTURES.items():
-            for K, C in [((2,), ()), ((2, 3), (2,))]:
-                with self.subTest(structure=name, K=K, C=C):
-                    shape, tr, ttr = struct
-                    d, order, W = len(shape), 2, 7
-                    _, theta, ww, pp, zt, dirs = _pd_problem(struct, order, K, C, (W,), rng)
-                    rag = sd.t3_probe_corewise_derivatives_hessian(zt, ww, pp, theta, dirs, order, chunk_size=None)
-                    rag3 = sd.t3_probe_corewise_derivatives_hessian(zt, ww, pp, theta, dirs, order, chunk_size=3)
-                    self.assertTrue(all(np.array_equal(p, q) for p, q in zip(rag[0] + rag[1], rag3[0] + rag3[1])))
-                    N, n, r = max(shape), max(tr) + 1, max(ttr) + 1      # forced-larger padding everywhere
-                    th_u = u3c.t3_to_ut3(theta, N=N, n=n, r=r, squash_tails=False)[:2]
-                    dir_u = u3c.t3_to_ut3(dirs, N=N, n=n, r=r, squash_tails=False)[:2]
-                    packed = [u3o.pack_vectors(v, N) for v in (zt, ww, pp)]
-                    for cs in (None, 3, 2):                                # dense; 2 full chunks + rem; 3 + rem
-                        oB, oG = sd.t3_probe_corewise_derivatives_hessian(*packed, th_u, dir_u, order, chunk_size=cs)
-                        self.assertEqual(oB.shape, (d,) + K + C + (n, N))
-                        self.assertEqual(oG.shape, (d,) + K + C + (r, n, r))
-                        real = ([oB[i][..., :tr[i], :shape[i]] for i in range(d)],
-                                [oG[i][..., :ttr[i], :tr[i], :ttr[i + 1]] for i in range(d)])
-                        self.assertLess(_relerr_tree(real, rag), 1e-13, cs)
-
-    def test_symmetry(self):
-        """T6: the K-stack Gram matrix <dir_k, K dir_l> is symmetric, per C element."""
-        rng = np.random.default_rng(19)
-        for name, struct in _PD_STRUCTURES.items():
-            for order in _PD_ORDERS:
-                for C in [(), (2,)]:
-                    with self.subTest(structure=name, order=order, C=C):
-                        n_dir = 4
-                        _, theta, ww, pp, zt, dirs = _pd_problem(struct, order, (n_dir,), C, (5,), rng)
-                        Kd = sd.t3_probe_corewise_derivatives_hessian(zt, ww, pp, theta, dirs, order)
-                        c = 'abcdef'[:len(C)]
-                        gram = sum(np.einsum('k%sx,l%sx->kl%s' % (c, c, c),
-                                             a.reshape((n_dir,) + C + (-1,)), b.reshape((n_dir,) + C + (-1,)))
-                                   for a, b in zip(dirs[0] + dirs[1], Kd[0] + Kd[1]))
-                        asym = np.abs(gram - np.swapaxes(gram, 0, 1)).max()
-                        self.assertGreater(np.abs(gram).max(), 1e-3)
-                        self.assertLess(asym, 1e-12 * np.abs(gram).max())
-
-    def test_residual_weights(self):
-        """T11: with the kind's omega^2 applied to the residual, the two-hole is the curvature part of the Hessian
-        of f(theta) = 1/2 sum_{i,t} omega[i,t]^2 ||z_i^(t)(theta) - y_i^(t)||^2: a central difference of
-        grad f = J^T (omega^2 r) along theta_hat, minus the Gauss-Newton term J^T (omega^2 J theta_hat)."""
-        rng = np.random.default_rng(20)
-        struct, order, W = _MINIMAL, 2, (6,)
-        d = len(struct[0])
-        weights = {'per_order': [1.0, 0.5, 0.25],
-                   'per_mode': [[1.0], [0.3], [2.0]],
-                   'matrix': rng.uniform(0.2, 2.0, (d, order + 1))}
-        _, theta, ww, pp, _, dirs = _pd_problem(struct, order, (), (), W, rng)
-        y = [rng.standard_normal((order + 1,) + W + (N,)) for N in struct[0]]
-        z_of = lambda cores: sd.t3_probe_derivatives(ww, pp, cores, order)
-        JT = lambda r, cores: sd.t3_probe_corewise_derivatives_transpose(r, ww, pp, cores, order,
-                                                                       sum_over_probes=True, chunk_size=None)
-        for label, w in weights.items():
-            with self.subTest(weight=label):
-                w2 = lambda r: bfit.ProbeDerivativesKind(order=order, weight=w)._apply_weight(list(r), 2)
-                grad = lambda cores: JT(w2([z - yy for z, yy in zip(z_of(cores), y)]), cores)
-                h = 2e-5                            # a polynomial in h: central difference O(h^2)
-                shift = lambda t: cw.corewise_add(theta, cw.corewise_scale(dirs, t))
-                hess = cw.corewise_scale(cw.corewise_sub(grad(shift(h)), grad(shift(-h))), 0.5 / h)
-                gn = JT(w2(z_of(oracles.doubled(theta, dirs))), theta)          # J theta_hat = z(Y)
-                curv_fd = cw.corewise_sub(hess, gn)
-                r = [z - yy for z, yy in zip(z_of(theta), y)]
-                got = sd.t3_probe_corewise_derivatives_hessian(w2(r), ww, pp, theta, dirs, order)
-                self.assertLess(_relerr_tree(got, curv_fd), 1e-6)
-                unweighted = sd.t3_probe_corewise_derivatives_hessian(r, ww, pp, theta, dirs, order)
-                self.assertGreater(_relerr_tree(unweighted, curv_fd), 1e-2)       # the weight is not a no-op
-
-
-# ---------------------------------------------------------------------------------------------------
 # The plain kinds' two-holes (S10 / S11): probe, apply, entries
 # ---------------------------------------------------------------------------------------------------
+_PD_STRUCTURES = {'d4': _D4, 'd3': _MINIMAL, 'd1': _D1}
 _PLAIN_KINDS = ('probe', 'apply', 'entries')
 _PLAIN_STACKS = [((), ()), ((2,), ()), ((2,), (2,)), ((2, 3), ()), ((2, 3), (2,))]     # (K, C)
 
 
 def _plain_ops(kind):
-    """(two-hole, two-hole from a sweep, the one-hole -- the W-summed corewise transpose, the sweep builder at a
-    frame) for a plain kind; the residual is the kind's own layout (probe: a list of d arrays W+C+(Ni,); apply /
-    entries: one array W+C)."""
+    """(two-hole, the one-hole -- the W-summed corewise transpose) for a plain kind; the residual is the kind's own
+    layout (probe: a list of d arrays W+C+(Ni,); apply / entries: one array W+C)."""
     if kind == 'probe':
         return (lambda z, s, th, dd: probing.t3_probe_corewise_hessian(th, s, z, dd),
-                probing.t3_probe_corewise_hessian_from_sweep,
-                lambda z, s, th: probing.t3_probe_corewise_transpose(th, s, z),
-                probing.tv_precompute_probe_frame_sweep)
+                lambda z, s, th: probing.t3_probe_corewise_transpose(th, s, z))
     if kind == 'apply':
         return (lambda z, s, th, dd: bapply.t3_apply_corewise_hessian(th, s, z, dd),
-                bapply.t3_apply_corewise_hessian_from_sweep,
-                lambda z, s, th: bapply.t3_apply_corewise_transpose(th, s, z),
-                bapply.tv_precompute_apply_frame_sweep)
+                lambda z, s, th: bapply.t3_apply_corewise_transpose(th, s, z))
     return (lambda z, s, th, dd: bentries.t3_entries_corewise_hessian(th, s, z, dd),
-            bentries.t3_entries_corewise_hessian_from_sweep,
-            lambda z, s, th: bentries.t3_entries_corewise_transpose(th, s, z),
-            bentries.tv_precompute_entries_frame_sweep)
+            lambda z, s, th: bentries.t3_entries_corewise_transpose(th, s, z))
 
 
 def _plain_problem(kind, struct, K, C, W, rng, raw=False):
     """theta (a frame's base point (D, L), or -- raw -- unconstrained corewise cores), the sample (ww, or an index
-    grid for entries), the residual (no K) and the directions (K + C), as :py:func:`_pd_problem`."""
+    grid for entries), the residual (no K) and the directions (K + C)."""
     if raw:
         theta = t3k.t3_corewise_randn(*struct, stack_shape=C)
         frame = None
@@ -935,7 +664,7 @@ def _plain_blocksum(kind, z, sample, theta, dirs, kk, cc):
     """The block-sum oracle (F5) for one K + C element: the one-hole at the doubled-rank Y, read back."""
     nW = (sample[0].ndim - 1) if kind != 'entries' else sample.ndim - 1
     th_c, dir_kc = _elem(theta, cc), _elem(dirs, kk + cc)
-    one = _plain_ops(kind)[2]
+    one = _plain_ops(kind)[1]
     return oracles.blocksum(one(_plain_residual_at(kind, z, nW, cc), sample, oracles.doubled(th_c, dir_kc)), th_c)
 
 
@@ -981,7 +710,7 @@ class TestPlainKindsTwoHole(unittest.TestCase):
         not to a finite difference's truncation."""
         rng = np.random.default_rng(52)
         for kind in _PLAIN_KINDS:
-            hess, _, one, _ = _plain_ops(kind)
+            hess, one = _plain_ops(kind)
             for name, struct in _PD_STRUCTURES.items():
                 with self.subTest(kind=kind, structure=name):
                     _, theta, sample, z, dirs = _plain_problem(kind, struct, (), (), (6,), rng)
@@ -995,104 +724,6 @@ class TestPlainKindsTwoHole(unittest.TestCase):
                         term = cw.corewise_scale(cw.corewise_sub(g(h), g(-h)), w * 0.5 / h)
                         fd = term if fd is None else cw.corewise_add(fd, term)
                     self.assertLess(_relerr_tree(got, fd), 1e-12)
-
-    def test_probe_pieces_against_finite_differences_of_the_gn_kernels(self):
-        """Each dotted probe piece is the directional derivative of the GN kernel it is named after (fed the
-        corewise frame's undotted state, which is polynomial in the cores: a central difference is O(h^2)); the
-        factored TT assembly equals its nine-term product rule to rounding."""
-        rng = np.random.default_rng(53)
-        for name, struct in _PD_STRUCTURES.items():
-            for K, C in [((), ()), ((2,), (2,))]:
-                with self.subTest(structure=name, K=K, C=C):
-                    _, theta, ww, zt, dirs = _plain_problem('probe', struct, K, C, (5,), rng)
-                    B, G = theta
-                    Bd, Gd = dirs
-
-                    def state(cores):                                # the corewise undotted state of theta
-                        Bc, Gc = cores
-                        xi = probing.compute_xi(Bc, ww)
-                        mu, nu = probing.compute_mu(Gc, xi), probing.compute_nu(Gc, xi)
-                        dt = probing.compute_deta_tilde(Bc, zt)
-                        tt = probing.compute_tau_tilde(dt, Gc, xi, mu)
-                        st = probing.compute_sigma_tilde(dt, Gc, xi, nu)
-                        return dict(xi=xi, mu=mu, nu=nu, eta=probing.compute_eta(Gc, mu, nu), dt=dt, tt=tt, st=st,
-                                    dxi=probing.compute_dxi_tilde(st, tt, Gc, mu, nu))
-                    s0 = state(theta)
-                    for kk in (np.ndindex(*K) if K else [()]):
-                        dk = _elem(dirs, kk)
-                        h = 1e-5
-                        sp, sm = (state(cw.corewise_add(theta, cw.corewise_scale(dk, t))) for t in (h, -h))
-                        fd = {key: tuple((p - m) / (2 * h) for p, m in zip(sp[key], sm[key])) for key in s0}
-                        xid = probing.compute_dxi(dk[0], ww)
-                        mud = probing.compute_sigma(dk[1], G, G, s0['xi'], xid, s0['mu'])
-                        nud = probing.compute_tau(dk[1], G, G, s0['xi'], xid, s0['nu'])
-                        dtd = probing.compute_deta_tilde_tangent(B, dk[0], zt)
-                        ttd = probing.compute_tau_tilde_tangent(G, dk[1], s0['xi'], xid, s0['dt'], dtd, s0['mu'], mud,
-                                                                s0['tt'])
-                        std = probing.compute_sigma_tilde_tangent(G, dk[1], s0['xi'], xid, s0['dt'], dtd, s0['nu'],
-                                                                  nud, s0['st'])
-                        dxd = probing.compute_dxi_tilde_tangent(G, dk[1], s0['mu'], mud, s0['nu'], nud, s0['st'], std,
-                                                                s0['tt'], ttd)
-                        etad = probing.compute_deta(dk[1], G, G, s0['mu'], s0['nu'], mud, nud)
-                        for label, got, ref in (('mu_dot', mud, fd['mu']), ('nu_dot', nud, fd['nu']),
-                                                ('eta_dot', etad, fd['eta']), ('deta_tilde_dot', dtd, fd['dt']),
-                                                ('tau_tilde_dot', ttd, fd['tt']), ('sigma_tilde_dot', std, fd['st']),
-                                                ('dxi_tilde_dot', dxd, fd['dxi'])):
-                            num = sum(float(np.sum((np.asarray(a) - np.asarray(b)) ** 2)) for a, b in zip(got, ref))
-                            den = sum(float(np.sum(np.asarray(b) ** 2)) for b in ref)
-                            if den == 0.0:                         # d = 1: the tildes and dxi~ vanish identically
-                                self.assertEqual(num, 0.0, label)
-                                continue
-                            self.assertLess((num / den) ** 0.5, 1e-8, label)
-                    # the factored TT assembly == the nine-term product rule (the full K stack)
-                    xid = probing.compute_dxi(Bd, ww)
-                    mud = probing.compute_sigma(Gd, G, G, s0['xi'], xid, s0['mu'])
-                    nud = probing.compute_tau(Gd, G, G, s0['xi'], xid, s0['nu'])
-                    dtd = probing.compute_deta_tilde_tangent(B, Bd, zt)
-                    ttd = probing.compute_tau_tilde_tangent(G, Gd, s0['xi'], xid, s0['dt'], dtd, s0['mu'], mud, s0['tt'])
-                    std = probing.compute_sigma_tilde_tangent(G, Gd, s0['xi'], xid, s0['dt'], dtd, s0['nu'], nud,
-                                                              s0['st'])
-                    args = (s0['st'], std, s0['tt'], ttd, s0['dt'], dtd, s0['xi'], xid, s0['mu'], mud, s0['nu'], nud, 1)
-                    got = probing.assemble_tt_tangent_variations(*args)
-                    ref = oracles.tt_tangent_assembly_nine_term(*args)
-                    self.assertLess(_tree_relerr(got, ref), 1e-14)
-
-    def test_apply_tt_assembly_is_the_three_term_product_rule(self):
-        """The apply / entries two-hole's factored TT assembly (two finals) equals the unfactored three-term
-        product rule of the transpose's ``mu (x) xi (x) sigma_hat``, read off the same intermediates."""
-        rng = np.random.default_rng(54)
-        for K, C in [((), ()), ((2,), (2,))]:
-            with self.subTest(K=K, C=C):
-                _, theta, ww, c, dirs = _plain_problem('apply', _D4, K, C, (5,), rng)
-                B, G = theta
-                xi = probing.compute_xi(B, ww)
-                mu = probing.compute_mu(G, xi)
-                xid = probing.compute_dxi(dirs[0], ww)
-                mud = probing.compute_sigma(dirs[1], G, G, xi, xid, mu)
-                sig_hat = probing.compute_sigma_hat(G, xi, c)
-                sig_hat_d = probing.compute_tau(dirs[1], G, G, xi, xid, sig_hat)
-                got = bapply.t3_apply_corewise_hessian(theta, ww, c, dirs)[1]
-                ref = oracles.apply_tt_tangent_assembly_three_term(mu, mud, xi, xid, sig_hat, sig_hat_d, 1)
-                self.assertLess(_tree_relerr(got, ref), 1e-14)
-
-    def test_from_sweep_reuses_the_model_sweep(self):
-        """The manifold model's sweep at the frame (D, U, L, R) carries the corewise xi / mu of its base point
-        (D, L): from_sweep with it -- or with the sweep at the corewise frame -- is the one-shot, bitwise; one sweep
-        serves every direction."""
-        rng = np.random.default_rng(55)
-        for kind in _PLAIN_KINDS:
-            hess, from_sweep, _, precompute = _plain_ops(kind)
-            for C in [(), (2,)]:
-                frame, theta, sample, z, _ = _plain_problem(kind, _D4, (), C, (5,), rng)
-                for sweep_name, sweep in (('model', precompute(frame, sample)),
-                                          ('corewise', precompute(fvc.t3_corewise_frame(theta), sample))):
-                    for K in [(), (3,)]:
-                        with self.subTest(kind=kind, C=C, sweep=sweep_name, K=K):
-                            dirs = _directions(theta, K, rng)
-                            one = hess(z, sample, theta, dirs)
-                            two = from_sweep(z, sample, theta, dirs, sweep)
-                            # P12: the two-hole is the engine, the from-sweep tail the old kernel: to rounding
-                            self.assertLess(_relerr_tree(one, two), 1e-13)
 
     def test_stacked_equals_per_element(self):
         """Multi-axis W, K and C (and an empty W -- one sample): each stack element is the unstacked result."""
@@ -1166,12 +797,15 @@ class TestPlainKindsTwoHole(unittest.TestCase):
                  ('entries', 'none', None)]
         for kind, label, w in cases:
             with self.subTest(kind=kind, weight=label):
-                hess, _, one, _ = _plain_ops(kind)
+                hess, one = _plain_ops(kind)
                 _, theta, sample, _, dirs = _plain_problem(kind, struct, (), (), W, rng)
-                bkind = {'probe': bfit.ProbeKind(weight=w), 'apply': bfit.APPLY, 'entries': bfit.ENTRIES}[kind]
-                fwd = lambda cores: bkind.point_forward(cores, sample)
+                forward = {'probe': probing.t3_probe, 'apply': bapply.t3_apply, 'entries': bentries.t3_entries}[kind]
+                fwd = lambda cores: forward(cores, sample)
                 y = fwd(_unit_point(struct))
-                w2 = lambda r: bkind._apply_weight(list(r) if kind == 'probe' else r, 2)
+                if w is None:
+                    w2 = lambda r: r
+                else:                                            # probe's per-mode row: omega_i^2 on mode i
+                    w2 = lambda r: [ri * wi ** 2 for ri, wi in zip(r, w)]
                 sub = (lambda a, b: [p - q for p, q in zip(a, b)]) if kind == 'probe' else (lambda a, b: a - b)
                 grad = lambda cores: one(w2(sub(fwd(cores), y)), sample, cores)
                 h = 2e-5                            # a polynomial in h: central difference O(h^2)
@@ -1188,28 +822,9 @@ class TestPlainKindsTwoHole(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------------------------------
-# The apply / entries derivative two-holes (S12)
+# The apply / entries derivative kinds (S12): their samples, for the exact local model below
 # ---------------------------------------------------------------------------------------------------
 _DERIV_KINDS = ('apply_derivatives', 'entries_derivatives')
-
-
-def _deriv_ops(kind, order):
-    """(two-hole, two-hole from a sweep, the one-hole -- the W-summed corewise derivative transpose, the sweep
-    builder at a frame) for a derivative kind at ``order``, in the plain kinds' call shape: ``sample`` is ``(ww, pp)``
-    (apply) or ``(index, pp)`` (entries), the residual a jet ``(order+1,)+W+C``."""
-    if kind == 'apply_derivatives':
-        return (lambda c, s, th, dd: sd.t3_apply_corewise_derivatives_hessian(c, s[0], s[1], th, dd, order),
-                lambda c, s, th, dd, sw: sd.t3_apply_corewise_derivatives_hessian_from_sweep(
-                    c, s[0], s[1], th, dd, order, sw),
-                lambda c, s, th: sd.t3_apply_corewise_derivatives_transpose(c, s[0], s[1], th, order,
-                                                                            sum_over_probes=True),
-                lambda f, s: sd.tv_precompute_apply_frame_sweep_jets(f, s[0], s[1], order))
-    return (lambda c, s, th, dd: sd.t3_entries_corewise_derivatives_hessian(c, s[0], s[1], th, dd, order),
-            lambda c, s, th, dd, sw: sd.t3_entries_corewise_derivatives_hessian_from_sweep(
-                c, s[0], s[1], th, dd, order, sw),
-            lambda c, s, th: sd.t3_entries_corewise_derivatives_transpose(c, s[0], s[1], th, order,
-                                                                          sum_over_probes=True),
-            lambda f, s: sd.tv_precompute_entries_frame_sweep_jets(f, s[0], s[1], order))
 
 
 def _deriv_sample(kind, shape, W, rng):
@@ -1219,308 +834,6 @@ def _deriv_sample(kind, shape, W, rng):
     else:
         first = [rng.standard_normal(W + (N,)) for N in shape]
     return first, [rng.standard_normal(W + (N,)) for N in shape]
-
-
-def _deriv_problem(kind, struct, order, K, C, W, rng, raw=False):
-    """theta (a frame's base point (D, L), or -- raw -- unconstrained corewise cores), the paired sample, the residual
-    jet (no K) and the directions (K + C), as :py:func:`_pd_problem`."""
-    if raw:
-        theta = t3k.t3_corewise_randn(*struct, stack_shape=C)
-        frame = None
-    else:
-        _, frame, _ = _point_and_frame(struct, C)
-        theta = (tuple(frame[0]), tuple(frame[2]))
-    sample = _deriv_sample(kind, struct[0], W, rng)
-    c = rng.standard_normal((order + 1,) + W + C)
-    return frame, theta, sample, c, _directions(theta, K, rng)
-
-
-def _deriv_residual_at(c, nW, cc):
-    """The residual jet of one C element ``cc``."""
-    return c[(slice(None),) * (1 + nW) + cc]
-
-
-class TestDerivativeKindsTwoHole(unittest.TestCase):
-    """T5 / T6 / T11 for the apply / entries derivative two-holes (S12): ``sd.t3_{apply,entries}_corewise_derivatives_
-    hessian[_from_sweep]`` at orders 0-3 against the block-sum oracle (``d`` = 4, 3, 1, slack frames, raw unsquashed
-    cores, ``K = (2, 3)`` and ``C`` stacks) and an exact (Richardson) finite difference of the one-hole; **the shipped
-    (recurrence) kernels against the dense-``trs`` reference twins** of ``_curvature_oracles.py``, whole and piece by
-    piece, at orders 0-4 to 1e-14; order 0 is the plain two-hole; the containments ``entries_derivatives ==
-    apply_derivatives`` at the one-hot vectors and ``apply_derivatives == probe_derivatives`` at the residual jets
-    ``z~_i^(t) = alpha_i (c^(t) w_i + (t+1) c^(t+1) p_i)``; sweep reuse bitwise; stacked == per element; uniform
-    supercores; symmetry; the per-order weight (``omega^2 r``)."""
-
-    def setUp(self):
-        np.random.seed(71)
-
-    def test_against_the_block_sum_oracle(self):
-        rng = np.random.default_rng(71)
-        cases = [(name, struct, False) for name, struct in _PD_STRUCTURES.items()]
-        cases += [('tucker_slack', _TUCKER_SLACK, False), ('tt_slack', _TT_SLACK, False),
-                  ('raw_unsquashed', ((4, 5, 3), (2, 3, 2), (2, 2, 2, 3)), True),
-                  ('raw_d1_unsquashed', ((5,), (3,), (2, 3)), True)]
-        for kind in _DERIV_KINDS:
-            for name, struct, raw in cases:
-                for order in _PD_ORDERS:
-                    hess, _, one, _ = _deriv_ops(kind, order)
-                    for K, C in _PD_STACKS:
-                        if name not in _PD_STRUCTURES and (K, C) != ((2,), (2,)):
-                            continue                                    # the extra structures at one stack
-                        with self.subTest(kind=kind, structure=name, order=order, K=K, C=C):
-                            _, theta, sample, c, dirs = _deriv_problem(kind, struct, order, K, C, (5,), rng, raw)
-                            got = hess(c, sample, theta, dirs)
-                            for blk, ref_c in zip(got[0] + got[1], dirs[0] + dirs[1]):
-                                self.assertEqual(blk.shape, ref_c.shape)
-                            for kk in np.ndindex(*K):
-                                for cc in np.ndindex(*C):
-                                    th_c = _elem(theta, cc)
-                                    ref = oracles.blocksum(one(_deriv_residual_at(c, 1, cc), sample,
-                                                               oracles.doubled(th_c, _elem(dirs, kk + cc))), th_c)
-                                    self.assertGreater(_norm_flat(ref), 1e-3)
-                                    self.assertLess(_relerr_tree(_elem(got, kk + cc), ref), 1e-13)
-
-    def test_against_a_finite_difference_of_the_one_hole(self):
-        """The one-hole along ``theta + s theta_hat`` is a polynomial in ``s`` of degree ``<= 2d - 1`` (the jets are
-        linear in ``Phi``, which is multilinear in the ``2d`` cores), so the Richardson-eliminated central difference
-        is its derivative exactly up to rounding (as for the plain kinds): the two-hole matches to <= 1e-12."""
-        rng = np.random.default_rng(72)
-        for kind in _DERIV_KINDS:
-            for name, struct in _PD_STRUCTURES.items():
-                for order in (0, 2):
-                    hess, _, one, _ = _deriv_ops(kind, order)
-                    with self.subTest(kind=kind, structure=name, order=order):
-                        _, theta, sample, c, dirs = _deriv_problem(kind, struct, order, (), (), (6,), rng)
-                        got = hess(c, sample, theta, dirs)
-                        d = len(struct[0])
-                        hs = [0.1 / 2 ** k for k in range(d)]
-                        weights = np.linalg.solve(np.array([[h ** (2 * j) for j in range(d)] for h in hs]).T,
-                                                  np.eye(d)[0])
-                        g = lambda t: one(c, sample, cw.corewise_add(theta, cw.corewise_scale(dirs, t)))
-                        fd = None
-                        for w, h in zip(weights, hs):
-                            term = cw.corewise_scale(cw.corewise_sub(g(h), g(-h)), w * 0.5 / h)
-                            fd = term if fd is None else cw.corewise_add(fd, term)
-                        self.assertLess(_relerr_tree(got, fd), 1e-12)
-
-    def test_production_equals_the_trs_twins(self):
-        """The shipped kernels (banded recurrences / order scans; never the binomial tensor) == the dense-trs twins,
-        whole and piece by piece (each piece fed the twin's own inputs), at orders 0..4, a single and a multi-axis
-        sample stack W, d in {1, 3, 4}, to 1e-14 relative (not bitwise: the summation order differs; as for the
-        probe-derivative twins). The dotted dxi^ is formed only on its two read rows (the twin computes all
-        ``order+1``), so it is compared on those; the TT assembly (factored: two finals) against the unfactored
-        three-term twin."""
-        rng = np.random.default_rng(73)
-        worst = 0.0
-        for kind in _DERIV_KINDS:
-            entries = kind == 'entries_derivatives'
-            for name, struct in _PD_STRUCTURES.items():
-                for order in range(5):
-                    for (K, C), W in [(kc, (5,)) for kc in _PD_STACKS] + [(((2,), (2,)), (2, 3)),
-                                                                          (((2, 3), ()), (2, 3))]:
-                        with self.subTest(kind=kind, structure=name, order=order, K=K, C=C, W=W):
-                            _, theta, sample, c, dirs = _deriv_problem(kind, struct, order, K, C, W, rng)
-                            st = oracles.apply_derivatives_two_hole_states_trs(c, sample[0], sample[1], theta, dirs,
-                                                                              order, entries=entries)
-                            G, Gd = theta[1], dirs[1]
-                            s2 = min(2, order + 1)
-                            dxi_core = (sd._dxi_hat_tangent_jets_step_ragged((G[i], Gd[i], st['mu'][i], st['mud'][i],
-                                                                              st['sigma_hat'][i],
-                                                                              st['sigma_hat_d'][i]))[0]
-                                        for i in range(len(G)))
-                            dxi_got = tuple(dxi_core)
-                            self.assertEqual([np.shape(g)[0] for g in dxi_got], [2] * len(dxi_got))  # two rows
-                            if order == 0:
-                                self.assertTrue(all(np.all(g[1] == 0) for g in dxi_got))      # row 1 is zero
-                            asm = tuple(zip(*(sd._apply_tangent_assemble_step(
-                                (st['xi'][i], st['xid'][i], st['mu'][i], st['mud'][i], st['sigma_hat'][i],
-                                 st['sigma_hat_d'][i], st['dxi_hat_d'][i][:2], st['w'][i])) for i in range(len(G)))))
-                            pieces = {
-                                'whole': (_deriv_ops(kind, order)[0](c, sample, theta, dirs), (st['dB'], st['dG'])),
-                                'sigma_hat': (sd.compute_sigma_hat_jets(G, st['xi'], c), st['sigma_hat']),
-                                'sigma_hat_dot': (sd.compute_sigma_hat_tangent_jets(G, Gd, st['xi'], st['xid'],
-                                                                                    st['sigma_hat']),
-                                                  st['sigma_hat_d']),
-                                'dxi_hat_dot': (tuple(g[:s2] for g in dxi_got),
-                                                tuple(r[:s2] for r in st['dxi_hat_d'])),
-                                'tucker_assembly': (asm[0], st['dB']),
-                                'tt_assembly': (asm[1], st['dG']),
-                            }
-                            self.assertGreater(_norm_flat((st['dB'], st['dG'])), 1e-3)
-                            for piece, (got, ref) in pieces.items():
-                                if piece == 'whole':
-                                    got, ref = got[0] + got[1], ref[0] + ref[1]
-                                self.assertEqual([np.shape(g) for g in got], [np.shape(r) for r in ref], piece)
-                                err = _tree_relerr(got, ref)
-                                worst = max(worst, err)
-                                self.assertLess(err, 1e-14, piece)
-        self.assertLess(worst, 1e-14)
-
-    def test_order_zero_is_the_plain_two_hole(self):
-        """At ``order = 0`` the derivative two-holes ARE the plain apply / entries two-holes (to rounding: the jet
-        kernels take their order-0 branches, the plain ones plain probing's kernels -- observed <= 3.2e-16)."""
-        rng = np.random.default_rng(74)
-        plain = {'apply_derivatives': lambda c, s, th, dd: bapply.t3_apply_corewise_hessian(th, s[0], c, dd),
-                 'entries_derivatives': lambda c, s, th, dd: bentries.t3_entries_corewise_hessian(th, s[0], c, dd)}
-        for kind in _DERIV_KINDS:
-            for name, struct in _PD_STRUCTURES.items():
-                for K, C in _PD_STACKS:
-                    with self.subTest(kind=kind, structure=name, K=K, C=C):
-                        _, theta, sample, c, dirs = _deriv_problem(kind, struct, 0, K, C, (5,), rng)
-                        got = _deriv_ops(kind, 0)[0](c, sample, theta, dirs)
-                        ref = plain[kind](c[0], sample, theta, dirs)
-                        self.assertLess(_tree_relerr(got[0] + got[1], ref[0] + ref[1]), 1e-13)   # P12: the engine
-
-    def test_containment(self):
-        """The sampling containments, at the two-hole level (the functions ``theta -> <c, S(Phi(theta))>`` coincide, so
-        their Hessians do): (a) ``entries_derivatives(c, index, P) == apply_derivatives(c, e_index, P)`` -- bitwise
-        (a fiber slice IS the contraction with a one-hot, exactly); (b) ``apply_derivatives(c, w, P) ==
-        probe_derivatives(z~)`` at ``z~_i^(t) = alpha_i (c^(t) w_i + (t+1) c^(t+1) p_i)`` (``c^(order+1) = 0``) for any
-        ``alpha`` summing to one -- the apply jet is ``<w_i + s p_i, Y_i(s)>`` for every mode ``i``, whose Taylor
-        coefficients pair ``c`` with the probe jets ``Y_i`` exactly so."""
-        rng = np.random.default_rng(75)
-        for name, struct in _PD_STRUCTURES.items():
-            shape = struct[0]
-            d = len(shape)
-            for order in _PD_ORDERS:
-                for K, C in _PD_STACKS:
-                    with self.subTest(structure=name, order=order, K=K, C=C):
-                        _, theta, (index, pp), c, dirs = _deriv_problem('entries_derivatives', struct, order, K, C,
-                                                                        (6,), rng)
-                        onehot = [np.eye(N)[index[i]] for i, N in enumerate(shape)]
-                        ent = sd.t3_entries_corewise_derivatives_hessian(c, index, pp, theta, dirs, order)
-                        app = sd.t3_apply_corewise_derivatives_hessian(c, onehot, pp, theta, dirs, order)
-                        self.assertTrue(all(np.array_equal(a, b) for a, b in zip(ent[0] + ent[1], app[0] + app[1])))
-                        ww = [rng.standard_normal((6, N)) for N in shape]
-                        alpha = rng.uniform(0.2, 1.0, d)
-                        alpha = alpha / alpha.sum()
-                        c_up = np.concatenate([c[1:], np.zeros_like(c[:1])], axis=0)        # c^(t+1), zero at order
-                        t1 = np.arange(1, order + 2).reshape((order + 1,) + (1,) * (c.ndim - 1))
-                        bc = lambda v: v.reshape((1, 6) + (1,) * len(C) + v.shape[-1:])     # W + (N,) -> jet layout
-                        zt = [a * (c[..., None] * bc(w) + (t1 * c_up)[..., None] * bc(p))
-                              for a, w, p in zip(alpha, ww, pp)]
-                        app = sd.t3_apply_corewise_derivatives_hessian(c, ww, pp, theta, dirs, order)
-                        prb = sd.t3_probe_corewise_derivatives_hessian(zt, ww, pp, theta, dirs, order)
-                        self.assertLess(_tree_relerr(app[0] + app[1], prb[0] + prb[1]), 1e-13)
-
-    def test_from_sweep_reuses_the_model_sweep(self):
-        """The manifold model's lean jet sweep at the frame (D, U, L, R) carries the corewise xi / mu of its base point
-        (D, L): from_sweep with it -- or with the sweep at the corewise frame -- is the one-shot, bitwise; one sweep
-        serves every direction."""
-        rng = np.random.default_rng(76)
-        for kind in _DERIV_KINDS:
-            for order in (0, 2):
-                hess, from_sweep, _, precompute = _deriv_ops(kind, order)
-                for C in [(), (2,)]:
-                    frame, theta, sample, c, _ = _deriv_problem(kind, _D4, order, (), C, (5,), rng)
-                    for sweep_name, sweep in (('model', precompute(frame, sample)),
-                                              ('corewise', precompute(fvc.t3_corewise_frame(theta), sample))):
-                        for K in [(), (3,)]:
-                            with self.subTest(kind=kind, order=order, C=C, sweep=sweep_name, K=K):
-                                dirs = _directions(theta, K, rng)
-                                one = hess(c, sample, theta, dirs)
-                                two = from_sweep(c, sample, theta, dirs, sweep)
-                                self.assertTrue(all(np.array_equal(p, q) for p, q in zip(one[0] + one[1],
-                                                                                         two[0] + two[1])))
-
-    def test_stacked_equals_per_element(self):
-        """Multi-axis W, K and C (and an empty W -- one sample): each stack element is the unstacked result."""
-        rng = np.random.default_rng(77)
-        for kind in _DERIV_KINDS:
-            for order in (0, 2):
-                hess = _deriv_ops(kind, order)[0]
-                for W, K, C in [((2, 3), (2, 2), (2, 3)), ((), (2,), (2,)), ((4,), (), ())]:
-                    with self.subTest(kind=kind, order=order, W=W, K=K, C=C):
-                        _, theta, sample, c, dirs = _deriv_problem(kind, _MINIMAL, order, K, C, W, rng)
-                        got = hess(c, sample, theta, dirs)
-                        for cc in np.ndindex(*C):
-                            c_c = _deriv_residual_at(c, len(W), cc)
-                            for kk in np.ndindex(*K):
-                                ref = hess(c_c, sample, _elem(theta, cc), _elem(dirs, kk + cc))
-                                self.assertLess(_relerr_tree(_elem(got, kk + cc), ref), 1e-13)
-
-    def test_uniform_supercores(self):
-        """The kernels are polymorphic: packed uniform supercores (clean padding) give the ragged real block."""
-        import t3toolbox.backend.ut3_conversions as u3c
-        import t3toolbox.backend.ut3_operations as u3o
-        rng = np.random.default_rng(78)
-        for kind in _DERIV_KINDS:
-            hess = _deriv_ops(kind, 2)[0]
-            for name, struct in _PD_STRUCTURES.items():
-                for K, C in [((2,), ()), ((2, 3), (2,))]:
-                    with self.subTest(kind=kind, structure=name, K=K, C=C):
-                        shape, tr, ttr = struct
-                        d = len(shape)
-                        _, theta, sample, c, dirs = _deriv_problem(kind, struct, 2, K, C, (7,), rng)
-                        rag = hess(c, sample, theta, dirs)
-                        N, n, r = max(shape), max(tr) + 1, max(ttr) + 1      # forced-larger padding everywhere
-                        th_u = u3c.t3_to_ut3(theta, N=N, n=n, r=r, squash_tails=False)[:2]
-                        dir_u = u3c.t3_to_ut3(dirs, N=N, n=n, r=r, squash_tails=False)[:2]
-                        first = sample[0] if kind == 'entries_derivatives' else u3o.pack_vectors(sample[0], N)
-                        oB, oG = hess(c, (first, u3o.pack_vectors(sample[1], N)), th_u, dir_u)
-                        self.assertEqual(oB.shape, (d,) + K + C + (n, N))
-                        self.assertEqual(oG.shape, (d,) + K + C + (r, n, r))
-                        real = ([oB[i][..., :tr[i], :shape[i]] for i in range(d)],
-                                [oG[i][..., :ttr[i], :tr[i], :ttr[i + 1]] for i in range(d)])
-                        self.assertLess(_relerr_tree(real, rag), 1e-13)
-
-    def test_symmetry(self):
-        """T6: the K-stack Gram matrix <dir_k, K dir_l> is symmetric, per C element."""
-        rng = np.random.default_rng(79)
-        for kind in _DERIV_KINDS:
-            for name, struct in _PD_STRUCTURES.items():
-                for order in _PD_ORDERS:
-                    hess = _deriv_ops(kind, order)[0]
-                    for C in [(), (2,)]:
-                        with self.subTest(kind=kind, structure=name, order=order, C=C):
-                            n_dir = 4
-                            _, theta, sample, c, dirs = _deriv_problem(kind, struct, order, (n_dir,), C, (5,), rng)
-                            Kd = hess(c, sample, theta, dirs)
-                            cl = 'abcdef'[:len(C)]
-                            gram = sum(np.einsum('k%sx,l%sx->kl%s' % (cl, cl, cl),
-                                                 a.reshape((n_dir,) + C + (-1,)), b.reshape((n_dir,) + C + (-1,)))
-                                       for a, b in zip(dirs[0] + dirs[1], Kd[0] + Kd[1]))
-                            asym = np.abs(gram - np.swapaxes(gram, 0, 1)).max()
-                            self.assertGreater(np.abs(gram).max(), 1e-3)
-                            self.assertLess(asym, 1e-12 * np.abs(gram).max())
-
-    def test_residual_weights(self):
-        """T11: with the kind's ``omega^2`` (a per-ORDER row: apply / entries have no mode axis) applied to the
-        residual, the two-hole is the curvature part of the Hessian of ``f(theta) = 1/2 sum_t omega_t^2
-        ||S^(t)(Phi(theta)) - y^(t)||^2`` -- a central difference of ``grad f = J^T (omega^2 r)`` along theta_hat, minus
-        the Gauss-Newton term ``J^T (omega^2 J theta_hat)``; and the kind operation weights it so (a per-mode weight is
-        the kinds' structural error)."""
-        rng = np.random.default_rng(80)
-        struct, order, W = _MINIMAL, 2, (6,)
-        for kind in _DERIV_KINDS:
-            hess, _, one, _ = _deriv_ops(kind, order)
-            cls = bfit.ApplyDerivativesKind if kind == 'apply_derivatives' else bfit.EntriesDerivativesKind
-            for label, w in (('per_order', [1.0, 0.5, 0.25]), ('none', None)):
-                with self.subTest(kind=kind, weight=label):
-                    _, theta, sample, _, dirs = _deriv_problem(kind, struct, order, (), (), W, rng)
-                    bkind = cls(order=order, weight=w)
-                    fwd = lambda cores: bkind.point_forward(cores, sample)
-                    y = fwd(_unit_point(struct))
-                    w2 = lambda r: bkind._apply_weight(r, 2)
-                    grad = lambda cores: one(w2(fwd(cores) - y), sample, cores)
-                    h = 2e-5                            # a polynomial in h: central difference O(h^2)
-                    shift = lambda t: cw.corewise_add(theta, cw.corewise_scale(dirs, t))
-                    fd_hess = cw.corewise_scale(cw.corewise_sub(grad(shift(h)), grad(shift(-h))), 0.5 / h)
-                    gn = one(w2(fwd(oracles.doubled(theta, dirs))), sample, theta)        # J theta_hat = S(Y)
-                    curv_fd = cw.corewise_sub(fd_hess, gn)
-                    r = fwd(theta) - y
-                    got = hess(w2(r), sample, theta, dirs)
-                    self.assertLess(_relerr_tree(got, curv_fd), 1e-6)
-                    frame = fvc.t3_corewise_frame(theta)
-                    op = bkind.corewise_hessian(dirs, r, sample, frame, bkind.precompute(frame, sample), theta)
-                    self.assertTrue(all(np.array_equal(a, b) for a, b in zip(op[0] + op[1], got[0] + got[1])))
-                    if w is not None:
-                        self.assertGreater(_relerr_tree(hess(r, sample, theta, dirs), curv_fd), 1e-2)   # not a no-op
-            with self.subTest(kind=kind, weight='per_mode'):
-                with self.assertRaisesRegex(ValueError, 'no mode axis'):
-                    bk = cls(order=order, weight=[[1.0, 0.5, 0.25], [0.3, 0.2, 0.1], [2.0, 1.0, 0.5]])
-                    _, theta, sample, c, dirs = _deriv_problem(kind, struct, order, (), (), W, rng)
-                    frame = fvc.t3_corewise_frame(theta)
-                    bk.corewise_hessian(dirs, c, sample, frame, bk.precompute(frame, sample), theta)
 
 
 class TestFlatSlotsAndVerticalDirections(unittest.TestCase):
@@ -2175,7 +1488,7 @@ class TestPlainKindsExactLocalModel(unittest.TestCase):
                          tuple(rng.standard_normal(g.shape) for g in x[1]))
                     Hp = lm.hvp(p)
                     w2r = _w2r(lm)
-                    K = oracles.blocksum(_plain_ops(kind)[2](w2r, prob.batch.sample, oracles.doubled(x, p)), x)
+                    K = oracles.blocksum(_plain_ops(kind)[1](w2r, prob.batch.sample, oracles.doubled(x, p)), x)
                     self.assertLess(_relerr_tree(Hp, cw.corewise_add(gn.hvp(p), K)), 1e-12)
                     grad = lambda t: prob.local_model(cw.corewise_add(x, cw.corewise_scale(p, t))).gradient
                     d1 = lambda h: cw.corewise_scale(cw.corewise_sub(grad(h), grad(-h)), 0.5 / h)
@@ -2538,9 +1851,8 @@ class TestFlatSlotsModel(unittest.TestCase):
 class TestRequiredSixthOperation(unittest.TestCase):
     """T23 on the oracle seam (P16): exact mode needs an oracle that supplies ``Kp`` (``'Kp'`` in its
     ``optional_outputs``, O-7), checked structurally in ``local_model(hessian='exact')`` and ``newton_cg`` before any
-    work; Gauss-Newton never asks for it. (The old kinds' sixth operation ``corewise_hessian`` is no longer consulted:
-    the kinds go in P20.) Every layout builds an exact model through the least-squares oracle; a geometry without the
-    four exact members is rejected likewise."""
+    work; Gauss-Newton never asks for it. Every layout builds an exact model through the least-squares oracle; a
+    geometry without the four exact members is rejected likewise."""
 
     def setUp(self):
         np.random.seed(45)

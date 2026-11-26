@@ -26,8 +26,7 @@
 - **The oracle:**
   - hash and equality by value;
   - ``order`` required for every kind (O-44);
-  - entries with jets refused (O-46);
-  - the bridge against the old derivative kinds through the conversions.
+  - entries with jets refused (O-46).
 
 numpy only, except the pytree round trip (jax dispatch is ``tests/test_dispatch.py``'s).
 """
@@ -45,7 +44,6 @@ import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.uniform_tucker_tensor_train as ut3
 import t3toolbox.manifold as t3m
 import t3toolbox.uniform_manifold as ut3m
-import t3toolbox.backend.fitting as bfit
 import t3toolbox.backend.jets as jets
 import t3toolbox.backend.sampling_variables as sv
 import t3toolbox.backend.ut3_operations as ut3o
@@ -532,48 +530,6 @@ class TestTheOracle(unittest.TestCase):
         self.assertIs(fitting.LeastSquaresBatch, LeastSquaresBatch)
         self.assertIn('LeastSquaresOracle', fitting.__all__)
         self.assertIn('LeastSquaresBatch', fitting.__all__)
-
-
-class TestTheBridgeToTheOldKinds(Fixture):
-    """Against the old derivative kinds through the conversions: their sample ``(ww, pp)`` is the input jet
-    ``affine_jet(ww, pp)``, their data the derivatives (``taylor_to_derivatives``), their weight a weight on derivative
-    residuals (``derivative_weight_to_taylor_weight``). ``f``, ``g``, ``JtJp`` and ``Kp`` agree."""
-
-    def test_against_the_old_kinds(self):
-        n = 2
-        frame = self.frame.data
-        base = (frame[0], frame[2])
-        ww, pp = ([self.rng.standard_normal((6, N)) for N in SHAPE] for _ in range(2))
-        index = np.stack([self.rng.integers(0, N, size=6) for N in SHAPE])
-        F = (n + 1,)
-        cases = {
-            'probe': (bfit.ProbeDerivativesKind, (ww, pp), jets.affine_jet(ww, pp), 'probe',
-                      0.5 + self.rng.random((3,) + F)),
-            'apply': (bfit.ApplyDerivativesKind, (ww, pp), jets.affine_jet(ww, pp), 'apply', 0.5 + self.rng.random(F)),
-            'entries': (bfit.EntriesDerivativesKind, (index, pp),
-                        jets.affine_jet(jets.index_to_one_hot(index, SHAPE), pp), 'apply', 0.5 + self.rng.random(F)),
-        }
-        for name, (Kind, old_sample, jet, new_kind, w_old) in cases.items():
-            with self.subTest(kind=name):
-                kind = Kind(order=n, weight=w_old)
-                y_taylor = getattr(self.target, new_kind)(jet, (n,))
-                y_old = jets.taylor_to_derivatives(new_kind, (n,), y_taylor)
-                r_old = jets.taylor_to_derivatives(new_kind, (n,), getattr(self.x, new_kind)(jet, (n,)))
-                r_old = [a - b for a, b in zip(r_old, y_old)] if new_kind == 'probe' else r_old - y_old
-                sweep = kind.precompute(frame, old_sample)
-                oracle = LeastSquaresOracle(new_kind, (n,))
-                w_full = jets.blocks_to_weight(new_kind, (n,), w_old, y_taylor)
-                batch = LeastSquaresBatch(jet, y_taylor, jets.derivative_weight_to_taylor_weight(new_kind, (n,), w_full))
-                (f, g, JtJp, Kp), _ = oracle.query(frame, batch, ('f', 'g', 'JtJp', 'Kp'), variations=self.v,
-                                                    core_directions=self.dirs)
-                w2 = kind._apply_weight(r_old, 1)
-                f_old = 0.5 * sum(float(np.sum(a ** 2)) for a in leaves(w2))
-                self.assertLess(abs(float(f) - f_old) / f_old, 1e-12)
-                self.assertLess(relerr(g, kind.transpose(r_old, old_sample, frame, sweep)), 1e-12)
-                Jp_old = kind.forward(self.v, old_sample, frame, sweep)
-                self.assertLess(relerr(JtJp, kind.transpose(Jp_old, old_sample, frame, sweep)), 1e-12)
-                Kp_old = kind.corewise_hessian(self.dirs, r_old, old_sample, frame, sweep, base)
-                self.assertLess(relerr(Kp, Kp_old), 1e-12)
 
 
 if __name__ == '__main__':

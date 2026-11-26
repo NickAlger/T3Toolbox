@@ -522,8 +522,7 @@ def load_core_families(
 
 def readonly_mask_copies(masks):
     """Defensive READ-ONLY numpy copies of a mask tuple, for storage in value-hashed aux objects:
-    an aliased writeable caller array mutated in place would leave a stale cached jit key
-    (the ``_weight_matrix`` precedent)."""
+    an aliased writeable caller array mutated in place would leave a stale cached jit key."""
     out = []
     for m in masks:
         c = np.array(m, copy=True)

@@ -72,22 +72,12 @@ Everything below is importable directly from ``t3toolbox``.
   (one class for both the ragged and the uniform representation; Gauss-Newton by default, the exact
   Riemannian Hessian with ``hessian='exact'``); the frontend twin of the backend
   :py:class:`t3toolbox.backend.optimizers.LocalModel`.
-- The six model factories (in :py:mod:`~t3toolbox.fitting`):
-  :py:func:`~t3toolbox.fitting.entries_model`, :py:func:`~t3toolbox.fitting.apply_model`,
-  :py:func:`~t3toolbox.fitting.probe_model`,
-  :py:func:`~t3toolbox.fitting.entries_derivatives_model`,
-  :py:func:`~t3toolbox.fitting.apply_derivatives_model`,
-  :py:func:`~t3toolbox.fitting.probe_derivatives_model`.
 - The four optimizers (in :py:mod:`~t3toolbox.optimizers`):
   :py:func:`~t3toolbox.optimizers.gradient_descent`, :py:func:`~t3toolbox.optimizers.mc_sgd`,
   :py:func:`~t3toolbox.optimizers.adam`, :py:func:`~t3toolbox.optimizers.newton_cg`.
   Ragged vs uniform is inferred from the initial guess ``x0``. ``newton_cg(..., hessian='exact')`` solves
   with the exact Riemannian Hessian under a trust region (:doc:`fitting_and_optimization` §4.12);
   ``hessian='switch'`` starts with Gauss-Newton and switches to it inside the run (§4.14).
-- Module-level (not at the root): :py:func:`~t3toolbox.optimizers.least_squares_problem` -- the
-  constructor the four optimizers use, public for scripts that drive the backend directly: it builds the
-  backend :py:class:`~t3toolbox.backend.optimizers.Problem` from the frontend vocabulary and returns a
-  :py:class:`~t3toolbox.optimizers.LeastSquaresSetup` (``.problem``, ``.x0_cores``, ``.rewrap``).
 - ``Regularizer`` / ``IdentityRegularizer`` -- the optional objective term ``ρ(x)``
   (:doc:`fitting_and_optimization` §4.9). These are the one exception to the rule above: they are
   **not** re-exported at the package root, so import them from the module --
@@ -127,7 +117,7 @@ Backend modules follow the family-prefix grammar (``t3_`` ragged tensor, ``ut3_`
   :py:mod:`~t3toolbox.backend.padded_frames` and :py:mod:`~t3toolbox.backend.uniform_padded_frames`.
 - **Sampling** (grouped by sampling type, the deliberate exception):
   :py:mod:`~t3toolbox.backend.probing`, :py:mod:`~t3toolbox.backend.apply`,
-  :py:mod:`~t3toolbox.backend.entries`, :py:mod:`~t3toolbox.backend.sampling_derivatives`, and the
+  :py:mod:`~t3toolbox.backend.entries`, and the
   uniform object-type wrappers :py:mod:`~t3toolbox.backend.ut3_sampling`,
   :py:mod:`~t3toolbox.backend.utv_sampling`.
 - **Fitting and optimization**: :py:mod:`~t3toolbox.backend.fitting`,

@@ -14,6 +14,7 @@ from the data) cannot be jitted, so they get a weaker jax-in -> jax-out output c
 numerical smoke tests guard against subtle backend divergence on the most complex ops.
 """
 import dataclasses as dc
+import math
 import os
 import sys
 import numpy as np
@@ -34,7 +35,6 @@ import t3toolbox.backend.optimizers as bopt
 import t3toolbox.backend.fitting as bfit
 import t3toolbox.backend.common as common
 import t3toolbox.backend.contractions as contractions
-import t3toolbox.backend.sampling_derivatives as pd
 import t3toolbox.backend.tv_operations as tops
 import t3toolbox.backend.linalg as linalg
 import t3toolbox.backend.probing as probing
@@ -44,7 +44,6 @@ import t3toolbox.fitting as fitting
 import t3toolbox.optimizers as topt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import _jet_trs_twins as twins      # the binomial tensor: test-only (the package never contracts it)
 import _jet_contract_cases as jet_cases     # the literal jet_contract strings and their operands: test-only
 import os as _os, sys as _sys
 _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
@@ -327,20 +326,16 @@ class TestDispatch(unittest.TestCase):
             jnp.ones(()), jnp.array([1, 2, 3]))
 
     # ---------------------------------------------------- jit bucket: symmetric probe derivatives
-    def test_jit_probe_derivatives(self):
-        # paired (X, P) sample stack W=(2,); order static; all-orders jet output must be all-jax.
-        self.assert_jit_jax(
-            lambda cc, w, p: pd.t3_probe_derivatives(w, p, cc, 3),
-            self.x.data, list(self.ww), list(self.zz))
-        # with a frame/core stack C=(2,) too: output (K+1) + W + C + (N,)
-        xc = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=(2,)).to_jax()
-        self.assert_jit_jax(
-            lambda cc, w, p: pd.t3_probe_derivatives(w, p, cc, 3),
-            xc.data, list(self.ww), list(self.zz))
-        # the grouped-einsum interpreter directly: ndim solve + expansion at trace time (static
-        # string/lens); a 4-operand trs combine (the dense twins' form), an order-broadcast lift, and a
-        # summed-W assemble
-        trs = twins.binomial_combine_tensor(3)
+    def test_jit_the_interpreter_on_multi_group_strings(self):
+        # the grouped-einsum interpreter directly: ndim solve + expansion at trace time (static string/lens); a
+        # 4-operand combine with a binomial tensor, an order-broadcast lift, a summed-W assemble, and the
+        # order-threaded 3-group strings (K=(3,), C=())
+        order = 3
+        trs = np.zeros((order + 1,) * 3)                    # trs[t, r, s] = C(t, r) when r + s == t, else 0
+        for t in range(order + 1):
+            for r in range(t + 1):
+                trs[t, r, t - r] = math.comb(t, r)
+        trs = jnp.asarray(trs)
         mu = jnp.ones((4, 2, 5)); G = jnp.ones((5, 4, 6)); xij = jnp.ones((2, 2, 4)); nu = jnp.ones((4, 2, 6))
         self.assert_jit_jax(lambda a, b, c, e: contractions.contract('trs,rWCa,Caib,sWCi->tWCb', a, b, c, e),
                             trs[:, :, :2], mu, G, xij)
@@ -350,52 +345,6 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda a, b: contractions.contract('tWCi,Cio->tWCo', a, b), eta, D)
         self.assert_jit_jax(lambda a, b: contractions.contract('WCo,WCa->Cao', a, b, len_W=1),
                             jnp.ones((2, 5)), jnp.ones((2, 6)))
-        # Riemannian (tangent) forward derivatives: jit, frame + variation sweeps, all-orders
-        self.assert_jit_jax(
-            lambda var, b, w, p: pd.tv_probe_derivatives(w, p, var, b, 3),
-            self.var.data, self.frame.data, list(self.ww), list(self.zz))
-        # Riemannian (tangent) transpose: jit, residual jets (K+1)+W+(N,) -> variation gradient
-        rt = tuple(jnp.asarray(np.random.randn(4, 2, N)) for N in STRUCT[0])  # K+1=4, W=(2,)
-        self.assert_jit_jax(
-            lambda rr, w, p, b: pd.tv_probe_derivatives_transpose(rr, w, p, b, 3, sum_over_probes=True),
-            rt, list(self.ww), list(self.zz), self.frame.data)
-        # transpose with a frame/core stack C=(2,): residual jets (K+1)+W+C+(N,), both sum_over_probes
-        frameC = bvf.t3_orthogonal_representations(
-            t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=(2,)).to_jax())[0].data
-        rtC = tuple(jnp.asarray(np.random.randn(4, 2, 2, N)) for N in STRUCT[0])  # K+1=4, W=(2,), C=(2,)
-        for sop in (True, False):
-            self.assert_jit_jax(
-                lambda rr, w, p, b: pd.tv_probe_derivatives_transpose(rr, w, p, b, 3, sum_over_probes=sop),
-                rtC, list(self.ww), list(self.zz), frameC)
-        # K-stacked Riemannian forward (exercises the order-threaded 3-block W/K/C contractions under jit)
-        self.assert_jit_jax(
-            lambda var, b, w, p: pd.tv_probe_derivatives(w, p, var, b, 3),
-            self.v_vstack.variations.data, self.frame.data, list(self.ww), list(self.zz))
-        # K-stacked transpose (the order-threaded 3-block ADJOINT contractions): residual (order+1)+W+K+C
-        rtK = tuple(jnp.asarray(np.random.randn(4, 2, 3, N)) for N in STRUCT[0])  # order+1=4, W=(2,), K=(3,)
-        for sop in (True, False):
-            self.assert_jit_jax(
-                lambda rr, w, p, b: pd.tv_probe_derivatives_transpose(rr, w, p, b, 3, sum_over_probes=sop),
-                rtK, list(self.ww), list(self.zz), self.frame.data)
-        # apply derivatives: Euclidean (W+C), Riemannian single, Riemannian K-stacked
-        self.assert_jit_jax(
-            lambda cc, w, p: pd.t3_apply_derivatives(w, p, cc, 3),
-            self.x.data, list(self.ww), list(self.zz))
-        self.assert_jit_jax(
-            lambda var, b, w, p: pd.tv_apply_derivatives(w, p, var, b, 3),
-            self.var.data, self.frame.data, list(self.ww), list(self.zz))
-        self.assert_jit_jax(
-            lambda var, b, w, p: pd.tv_apply_derivatives(w, p, var, b, 3),
-            self.v_vstack.variations.data, self.frame.data, list(self.ww), list(self.zz))
-        # entries derivatives: Euclidean and Riemannian (index a dynamic gather; general perturbation P)
-        idx = jnp.array([[1, 2], [2, 3], [3, 4]])              # (d,) + W, W=(2,)
-        self.assert_jit_jax(
-            lambda cc, ix, p: pd.t3_entries_derivatives(ix, p, cc, 3),
-            self.x.data, idx, list(self.zz))
-        self.assert_jit_jax(
-            lambda var, b, ix, p: pd.tv_entries_derivatives(ix, p, var, b, 3),
-            self.var.data, self.frame.data, idx, list(self.zz))
-        # the order-threaded 3-group interpreter strings directly (K=(3,), C=())
         sig = jnp.ones((4, 2, 3, 5)); Rc = jnp.ones((5, 4, 6)); xij2 = jnp.ones((2, 2, 4))
         self.assert_jit_jax(
             lambda a, b, c, e: contractions.contract('trs,rWKCa,Caib,sWCi->tWKCb', a, b, c, e),
@@ -404,30 +353,6 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(
             lambda a, b, c, e: contractions.contract('trs,rWCa,KCaib,sWCi->tWKCb', a, b, c, e, len_C=0),
             trs[:, :, :2], muc, dGc, xij2)
-        # apply/entries derivative transpose (adjoint-state seeded sweep): residual jet c is a scalar
-        # (order+1)+W+K+C. Single tangent (K=()) and K-stacked; both sum_over_probes; entries gathers idx.
-        ca = jnp.asarray(np.random.randn(4, 2))        # order+1=4, W=(2,), K=(), C=()
-        caK = jnp.asarray(np.random.randn(4, 2, 3))    # K=(3,)
-        for sop in (True, False):
-            self.assert_jit_jax(
-                lambda cc, w, p, b: pd.tv_apply_derivatives_transpose(cc, w, p, b, 3, sum_over_probes=sop),
-                ca, list(self.ww), list(self.zz), self.frame.data)
-            self.assert_jit_jax(
-                lambda cc, w, p, b: pd.tv_apply_derivatives_transpose(cc, w, p, b, 3, sum_over_probes=sop),
-                caK, list(self.ww), list(self.zz), self.frame.data)
-            self.assert_jit_jax(
-                lambda cc, ix, p, b: pd.tv_entries_derivatives_transpose(cc, ix, p, b, 3, sum_over_probes=sop),
-                ca, idx, list(self.zz), self.frame.data)
-        # corewise derivative transposes (U,L,R->G substitution): gradient w.r.t. the frame's own cores
-        self.assert_jit_jax(
-            lambda rr, w, p, cp: pd.t3_probe_corewise_derivatives_transpose(rr, w, p, cp, 3, sum_over_probes=True),
-            rt, list(self.ww), list(self.zz), self.x.data)
-        self.assert_jit_jax(
-            lambda cc, w, p, cp: pd.t3_apply_corewise_derivatives_transpose(cc, w, p, cp, 3, sum_over_probes=True),
-            ca, list(self.ww), list(self.zz), self.x.data)
-        self.assert_jit_jax(
-            lambda cc, ix, p, cp: pd.t3_entries_corewise_derivatives_transpose(cc, ix, p, cp, 3, sum_over_probes=True),
-            ca, idx, list(self.zz), self.x.data)
 
     # ---------------------------------------------------- jit bucket: jet_contract
     # the cases of jet_contract, as (string, the position of a leaf of two slots or None): a ride; a product with a
@@ -1452,54 +1377,8 @@ class TestDispatch(unittest.TestCase):
             self._leaves_all_jax(out)
         self.assertEqual(traces[0], 1, "the two-hole recompiled on a new point")
 
-    def test_jit_probe_derivatives_two_hole(self):
-        """The probe-derivative two-hole (one-shot and from a sweep) jits to pure jax, ragged and on packed
-        uniform supercores (the scanned dotted adjoint step, the d-prefixed dxi~ and assemblies); the
-        from-sweep kernel compiles ONCE across two points (the sweep and the cores are leaves); and with the
-        chunked assemblies engaged (uniform + jax, W = 7 at chunk_size 2: three full chunks through the
-        lax.scan plus a remainder) it jits clean and matches the dense assembly."""
-        import t3toolbox.backend.ut3_conversions as u3c
-        import t3toolbox.backend.ut3_operations as u3o
-        order, W = 2, 7
-        rnd = lambda *s: jnp.asarray(np.random.randn(*s))
-        fd = self.frame.data
-        theta = (tuple(fd[0]), tuple(fd[2]))                                     # the base point (D, L)
-        ww = tuple(rnd(W, N) for N in STRUCT[0])
-        pp = tuple(rnd(W, N) for N in STRUCT[0])
-        zt = tuple(rnd(order + 1, W, N) for N in STRUCT[0])                      # residual jets, no K
-        dirs = (tuple(rnd(3, *B.shape) for B in theta[0]), tuple(rnd(3, *G.shape) for G in theta[1]))  # K=(3,)
-        self.assert_jit_jax(lambda z, w, p, th, dd: pd.t3_probe_corewise_derivatives_hessian(z, w, p, th, dd, order),
-                            zt, ww, pp, theta, dirs)
-
-        traces = [0]
-
-        @jax.jit
-        def two_hole(z, w, p, th, dd, sweep):
-            traces[0] += 1
-            return pd.t3_probe_corewise_derivatives_hessian_from_sweep(z, w, p, th, dd, order, sweep)
-
-        other = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(*STRUCT).to_jax())[0].data
-        for f in (fd, other):                                                    # a new point, same shapes
-            out = two_hole(zt, ww, pp, (tuple(f[0]), tuple(f[2])), dirs,
-                           pd.tv_precompute_probe_frame_sweep_jets(f, ww, pp, order))
-            self._leaves_all_jax(out)
-        self.assertEqual(traces[0], 1, "the probe-derivative two-hole recompiled on a new point")
-
-        N, n, r = max(STRUCT[0]), max(STRUCT[1]), max(STRUCT[2])
-        th_u = u3c.t3_to_ut3(theta, N=N, n=n, r=r, squash_tails=False)[:2]
-        dir_u = u3c.t3_to_ut3(dirs, N=N, n=n, r=r, squash_tails=False)[:2]
-        packed = tuple(u3o.pack_vectors(v, N) for v in (zt, ww, pp))
-        uniform = lambda cs: jax.jit(lambda z, w, p, th, dd: pd.t3_probe_corewise_derivatives_hessian(
-            z, w, p, th, dd, order, chunk_size=cs))
-        chunked = uniform(2)(*packed, th_u, dir_u)
-        self._leaves_all_jax(chunked)
-        dense = uniform(None)(*packed, th_u, dir_u)
-        for a, b in zip(chunked, dense):
-            self.assertLess(norm(a - b), 1e-12 * norm(b))
-
     def test_jit_plain_kind_two_holes(self):
-        """S10 / S11: the plain probe / apply / entries two-holes jit to pure jax -- ragged (one-shot and from a
-        sweep, which compiles ONCE across two points: the sweep and the cores are leaves) and through the uniform
+        """S10 / S11: the plain probe / apply / entries two-holes jit to pure jax -- ragged and through the uniform
         wrappers on packed supercores (the masks closed over as host constants), jit == eager; and the exact local
         model of each kind, ragged and uniform, jits its hvp with the model as an ARGUMENT once across points."""
         import t3toolbox.backend.apply as bapply
@@ -1513,32 +1392,17 @@ class TestDispatch(unittest.TestCase):
         dirs = (tuple(rnd(3, *B.shape) for B in theta[0]), tuple(rnd(3, *G.shape) for G in theta[1]))  # K=(3,)
         ww = tuple(rnd(W, N) for N in STRUCT[0])
         index = jnp.asarray(np.stack([np.random.randint(0, N, size=W) for N in STRUCT[0]]))
-        other = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(*STRUCT).to_jax())[0].data
         ux = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(*STRUCT)).to_jax()
         u_dirs = (rnd(*((ux.data[0].shape[0], 2) + ux.data[0].shape[1:])),
                   rnd(*((ux.data[1].shape[0], 2) + ux.data[1].shape[1:])))
         kinds = {
             'probe': (tuple(rnd(W, N) for N in STRUCT[0]), ww, probing.t3_probe_corewise_hessian,
-                      probing.t3_probe_corewise_hessian_from_sweep, probing.tv_precompute_probe_frame_sweep,
-                      ut3s.ut3_probe_corewise_hessian, bfit.ProbeKind(weight=[0.5, 1.0, 2.0])),
-            'apply': (rnd(W), ww, bapply.t3_apply_corewise_hessian, bapply.t3_apply_corewise_hessian_from_sweep,
-                      bapply.tv_precompute_apply_frame_sweep, ut3s.ut3_apply_corewise_hessian, bfit.APPLY),
-            'entries': (rnd(W), index, bentries.t3_entries_corewise_hessian,
-                        bentries.t3_entries_corewise_hessian_from_sweep, bentries.tv_precompute_entries_frame_sweep,
-                        ut3s.ut3_entries_corewise_hessian, bfit.ENTRIES)}
-        for name, (z, s, hess, from_sweep, precompute, uhess, kind) in kinds.items():
+                      ut3s.ut3_probe_corewise_hessian),
+            'apply': (rnd(W), ww, bapply.t3_apply_corewise_hessian, ut3s.ut3_apply_corewise_hessian),
+            'entries': (rnd(W), index, bentries.t3_entries_corewise_hessian, ut3s.ut3_entries_corewise_hessian)}
+        for name, (z, s, hess, uhess) in kinds.items():
             with self.subTest(kind=name):
                 self.assert_jit_jax(lambda zz, th, dd: hess(th, s, zz, dd), z, theta, dirs)
-                traces = [0]
-
-                @jax.jit
-                def two_hole(zz, th, dd, sweep):
-                    traces[0] += 1
-                    return from_sweep(zz, s, th, dd, sweep)
-
-                for f in (fd, other):                                            # a new point, same shapes
-                    self._leaves_all_jax(two_hole(z, (tuple(f[0]), tuple(f[2])), dirs, precompute(f, s)))
-                self.assertEqual(traces[0], 1, "the %s two-hole recompiled on a new point" % name)
                 u = lambda a, b: (a, b, ux.data[2], ux.data[3])                  # masks: host constants, closed over
                 jitted = jax.jit(lambda zz, a, b, da, db: uhess(u(a, b), s, zz, (da, db)))(z, *ux.data[:2], *u_dirs)
                 self._leaves_all_jax(jitted)
@@ -1573,57 +1437,18 @@ class TestDispatch(unittest.TestCase):
                     self.assertEqual(mtraces[0], 1, "the %s exact LocalModel recompiled across points" % name)
 
     def test_jit_derivative_kind_two_holes(self):
-        """S12: the apply / entries derivative two-holes jit to pure jax -- ragged (one-shot and from a sweep, which
-        compiles ONCE across two points: the sweep and the cores are leaves) and through the uniform wrappers on packed
-        supercores (the masks closed over as host constants), jit == eager; and the exact local model of each kind,
-        ragged and uniform, jits its hvp with the model as an ARGUMENT once across points."""
-        import t3toolbox.backend.ut3_sampling as ut3s
-        import t3toolbox.backend.uniform_fitting as uf
+        """S12: the exact local model of the apply / entries derivative fits (the apply kind at jets, the entries one
+        at the one-hot jet: the two-hole is the oracle's ``Kp``), ragged and uniform, jits its hvp with the model as an
+        ARGUMENT once across points."""
         W, order = 7, 2
         rnd = lambda *s: jnp.asarray(np.random.randn(*s))
-        fd = self.frame.data
-        theta = (tuple(fd[0]), tuple(fd[2]))                                     # the base point (D, L)
-        dirs = (tuple(rnd(3, *B.shape) for B in theta[0]), tuple(rnd(3, *G.shape) for G in theta[1]))  # K=(3,)
         pp = tuple(rnd(W, N) for N in STRUCT[0])
-        c = rnd(order + 1, W)                                                    # the residual jet, no K
-        other = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(*STRUCT).to_jax())[0].data
         ux = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(*STRUCT)).to_jax()
-        u_dirs = (rnd(*((ux.data[0].shape[0], 2) + ux.data[0].shape[1:])),
-                  rnd(*((ux.data[1].shape[0], 2) + ux.data[1].shape[1:])))
-        kinds = {
-            'apply_derivatives': ((tuple(rnd(W, N) for N in STRUCT[0]), pp), pd.t3_apply_corewise_derivatives_hessian,
-                                  pd.t3_apply_corewise_derivatives_hessian_from_sweep,
-                                  pd.tv_precompute_apply_frame_sweep_jets, ut3s.ut3_apply_corewise_derivatives_hessian,
-                                  bfit.ApplyDerivativesKind(order=order, weight=[1.0, 0.5, 0.25])),
-            'entries_derivatives': ((jnp.asarray(np.stack([np.random.randint(0, N, size=W) for N in STRUCT[0]])), pp),
-                                    pd.t3_entries_corewise_derivatives_hessian,
-                                    pd.t3_entries_corewise_derivatives_hessian_from_sweep,
-                                    pd.tv_precompute_entries_frame_sweep_jets,
-                                    ut3s.ut3_entries_corewise_derivatives_hessian,
-                                    bfit.EntriesDerivativesKind(order=order, weight=[1.0, 0.5, 0.25]))}
-        for name, (s, hess, from_sweep, precompute, uhess, kind) in kinds.items():
+        samples = {'apply_derivatives': tuple(rnd(W, N) for N in STRUCT[0]),
+                   'entries_derivatives': jnp.asarray(np.stack([np.random.randint(0, N, size=W) for N in STRUCT[0]]))}
+        for name, first in samples.items():
+            s = (first, pp)
             with self.subTest(kind=name):
-                self.assert_jit_jax(lambda cc, th, dd: hess(cc, s[0], s[1], th, dd, order), c, theta, dirs)
-                traces = [0]
-
-                @jax.jit
-                def two_hole(cc, th, dd, sweep):
-                    traces[0] += 1
-                    return from_sweep(cc, s[0], s[1], th, dd, order, sweep)
-
-                for f in (fd, other):                                            # a new point, same shapes
-                    self._leaves_all_jax(two_hole(c, (tuple(f[0]), tuple(f[2])), dirs, precompute(f, s[0], s[1], order)))
-                self.assertEqual(traces[0], 1, "the %s two-hole recompiled on a new point" % name)
-                u = lambda a, b: (a, b, ux.data[2], ux.data[3])                  # masks: host constants, closed over
-                jitted = jax.jit(lambda cc, a, b, da, db: uhess(cc, s[0], s[1], u(a, b), (da, db), order))(
-                    c, *ux.data[:2], *u_dirs)
-                self._leaves_all_jax(jitted)
-                to_np = lambda t: jax.tree_util.tree_map(np.asarray, t)
-                eager = uhess(np.asarray(c), to_np(s[0]), to_np(s[1]),
-                              (np.asarray(ux.data[0]), np.asarray(ux.data[1]), ux.data[2], ux.data[3]), to_np(u_dirs),
-                              order)
-                for a, b in zip(jitted, eager):
-                    self.assertLess(norm(np.asarray(a) - b), 1e-12 * norm(b))
                 # the exact local model, ragged and uniform: one cache key across points
                 base = name[:-len('_derivatives')]
                 data = jnp.asarray(dd.forward(t3.TuckerTensorTrain.randn(*STRUCT).to_jax(), base, s[0], s[1],
@@ -2023,22 +1848,15 @@ class TestDispatch(unittest.TestCase):
     def test_jit_uniform_exact_ops(self):
         """S8: every uniform exact-mode op jits to pure jax with the masks closed over (host constants, never
         traced) -- the lift factors, the lift and its transpose (K = (2,)), the T3-T3 one-hole / sweep / two-hole,
-        the probe-derivative two-hole one-shot and from a sweep with its W-chunked assemblies ENGAGED (W = 7 at
-        chunk 2: three full chunks through the lax.scan plus a remainder), the uniform kind's corewise_hessian and
-        the geometry's four exact members; and the jitted two-hole equals the eager numpy one."""
+        and the geometry's four exact members."""
         import t3toolbox.backend.ufv_operations as ufo
         import t3toolbox.backend.ufv_masking as ufm
         import t3toolbox.backend.utv_operations as utvo
         import t3toolbox.backend.ut3_linalg as ut3la
-        import t3toolbox.backend.ut3_sampling as ut3s
-        import t3toolbox.backend.ut3_operations as ut3o
-        import t3toolbox.backend.uniform_fitting as uf
         order, W = 1, 7
         prob, sc, (ww, pp), _data, _w, _ux = self._uniform_pd_problem_jax('manifold', seed=5, W=W, order=order,
                                                                            chunk_size=2)
         frame = prob.geom.frame(sc)[0]
-        okind = uf.UniformProbeDerivativesKind.from_point(_ux.data, order=order, weight=_w, chunk_size=2)   # the OLD
-        osample = (ut3o.pack_if_ragged(ww, _ux.N), ut3o.pack_if_ragged(pp, _ux.N))     # uniform kind (until P20)
         sc4, shape, fmasks = tuple(frame[:4]), tuple(frame[4]), frame[5]
         tmasks = (fmasks[0], fmasks[2])
         F = lambda s4: tuple(s4) + (shape, fmasks)
@@ -2064,24 +1882,6 @@ class TestDispatch(unittest.TestCase):
                             z[0], z[1], frame[0], frame[2])
         self.assert_jit_jax(lambda z0, z1, u, l, a, b: ut3la.ut3_inner_product_corewise_hessian(
             Z(z0, z1), TH(u, l), (a, b)), z[0], z[1], frame[0], frame[2], *D)
-        N = frame[0].shape[-1]
-        zt = ut3o.pack_if_ragged([jnp.asarray(rng.standard_normal((order + 1, W, n))) for n in shape], N)
-        pww, ppp = ut3o.pack_if_ragged(ww, N), ut3o.pack_if_ragged(pp, N)
-        two_hole = lambda zz, a1, a2, u, l, a, b: ut3s.ut3_probe_corewise_derivatives_hessian(
-            zz, a1, a2, TH(u, l), (a, b), order, chunk_size=2)
-        jitted = jax.jit(two_hole)(zt, pww, ppp, frame[0], frame[2], *D)
-        self._leaves_all_jax(jitted)
-        eager = two_hole(*(np.asarray(t) for t in (zt, pww, ppp, frame[0], frame[2]) + D))
-        for a, b in zip(jitted, eager):
-            self.assertLess(norm(np.asarray(a) - b), 1e-12 * norm(b))
-        sweep = okind.precompute(frame, osample)
-        self.assert_jit_jax(lambda zz, u, l, a, b, sw: ut3s.ut3_probe_corewise_derivatives_hessian_from_sweep(
-            zz, TH(u, l), (a, b), order, (sw[0], sw[1], sw[2], shape, sw[4]), chunk_size=2),
-            zt, frame[0], frame[2], *D, (sweep[0], sweep[1], sweep[2], None, sweep[4]))
-        r = jnp.asarray(rng.standard_normal((len(shape), order + 1, W, N)))
-        self.assert_jit_jax(lambda a, b, rr, s4, sw: okind.corewise_hessian(
-            (a, b), rr, osample, F(s4), (sw[0], sw[1], sw[2], shape, sw[4]), (s4[0], s4[2])),
-            *D, r, sc4, (sweep[0], sweep[1], sweep[2], None, sweep[4]))
         geom = prob.geom
         self.assert_jit_jax(lambda s4, g0, g1: geom.curvature_precompute(F(s4), (g0, g1), None, 1e-6), sc4, *g)
         cd = geom.curvature_precompute(frame, g, None, 1e-6)
@@ -2184,7 +1984,7 @@ class TestDispatch(unittest.TestCase):
 
         ww = [jnp.asarray(rng.standard_normal((W, n))) for n in SH]
         pp = [jnp.asarray(rng.standard_normal((W, n))) for n in SH]
-        data = [jnp.asarray(z) + 0.1 for z in pd.t3_probe_derivatives(ww, pp, tied_ragged().to_jax().data, order)]
+        data = [jnp.asarray(z) + 0.1 for z in dd.forward(tied_ragged().to_jax(), 'probe', ww, pp, order)]
         ux0 = tied_point()
         oracle, batch = F.old_vocabulary('probe_derivatives', (ww, pp), data, SH, order)
         prob = F.uniform(F.Fit(bgeo.ManifoldGeometryOps(), oracle, batch), ux0, labels)[0]
@@ -2432,8 +2232,8 @@ class TestDispatch(unittest.TestCase):
                     hp = Hmatvec(m, t3m.MANIFOLD.randn(m.frame))
                     jax.block_until_ready(hp.variations.tucker_variations[0])
                 self.assertEqual(traces[0], 1,
-                                 'fitting.LocalModel matvec recompiled on rebuild -- SamplingKind must '
-                                 'compare by identity (parameters), not by its closure fields')
+                                 'fitting.LocalModel matvec recompiled on rebuild -- the oracle must '
+                                 'compare by its parameters, not by identity')
 
         # ... the weight is a batch LEAF (P16): a new weight value shares the compilation. Derivative data always
         # carry a weight (prepare_derivative_data's t! Taylor weight, ones times t! when none is given), so the
@@ -2735,10 +2535,10 @@ class TestDispatch(unittest.TestCase):
 
     # ---------------------------------------------------- jit bucket: uniform forward derivatives (3b-6'b)
     def test_jit_uniform_derivatives(self):
-        # 3b-6'b: the forward derivative jets (probe/apply/entries_derivatives) jit -- the supercores trace
-        # through the d-prefixed JET contractions + the scan sweeps, the binomial tensor + masks stay host
-        # constants, build_input_jets vectorizes over d (no unroll), pack/unpack slice with static shapes.
-        # order is a Python int (static; sets the order-axis length). Plain UT3 + K-stacked UT3Tangent.
+        # 3b-6'b: the forward jets of probe / apply / entries along a line (through _derivative_data: the merged
+        # methods at an input jet, the engine) jit -- the supercores trace through the engine's jet sweeps, the
+        # masks stay host constants. order is a Python int (static; sets the jet axis' length). Plain UT3 and a
+        # K-stacked UT3Tangent.
         import t3toolbox.uniform_manifold as ut3m
         ww = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])    # W = (2,)
         pp = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])
@@ -2755,7 +2555,7 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda t, i, *w: dd.forward(t, 'entries', i, w, 2), v, idx, *pp)
 
         # 3b-6'c transpose derivatives 𝒥ᵀ: residual jets -> UT3Tangent (jit the whole op + .to_dense()); the
-        # supercores trace through the d-prefixed JET adjoint contractions + scan sweeps, gauge masks host.
+        # supercores trace through the engine's adjoint jet sweeps, the gauge masks stay host constants.
         bj = v.frame                                                     # jax frame, C=()
         rj = tuple(jnp.array(np.random.randn(3, 2, N)) for N in STRUCT[0])   # probe residual jets, (order+1,W,Ni)
         cj = jnp.array(np.random.randn(3, 2))                            # scalar residual jet, (order+1,W)
@@ -3981,45 +3781,65 @@ class TestJitStack(unittest.TestCase):
 
 @unittest.skipUnless(HAS_JAX, "jax not available")
 class TestJetDtypeUnderX64(unittest.TestCase):
-    """A float32 jet pipeline stays float32 with jax_enable_x64 on (this module turns it on at import). The
-    sweeps' scan inits (the order-0 ones, the zero boundary jets, the adjoint and accumulator zeros) are built
-    in their operands' dtype; built in the default dtype they promoted every float32 jet to float64 under x64
-    (and every numpy float32 jet to float64 always) -- 2026.2.0 did, which also made the chunk-size estimator
-    depend on the global x64 flag. Uniform supercores (eager and jitted) and ragged numpy float32."""
+    """A float32 jet pipeline stays float32 with jax_enable_x64 on (this module turns it on at import): the engine's
+    start values (the ones that close an end bond, the zero starts) and every intermediate are built in their
+    operands' dtype; built in the default dtype they would promote every float32 jet to float64 under x64 (and every
+    numpy float32 jet to float64 always) -- 2026.2.0's kernels did. The engine's faces at a line, ragged and on
+    uniform supercores, numpy eager, jax eager and jitted."""
 
     def test_float32_in_float32_out(self):
-        import t3toolbox.backend.sampling_derivatives as sd
+        import t3toolbox.uniform_manifold as ut3m
+        import t3toolbox.backend.apply as bapply
+        import t3toolbox.backend.entries as bentries
+        import t3toolbox.backend.ut3_sampling as ut3s
+        import t3toolbox.backend.utv_sampling as utvs
+        from t3toolbox.backend.jets import affine_jet
+        np.random.seed(0)
         rng = np.random.default_rng(0)
-        d, n, r, N, order, W = 3, 3, 3, 5, 2, 8
-        for xnp_ in (jnp, np):
-            R = lambda *s: xnp_.asarray(rng.standard_normal(s), xnp_.float32)
-            frame = (R(d, n, N), R(d, r, n, r), R(d, r, n, r), R(d, r, n, r))
-            var = (R(d, n, N), R(d, r, n, r))
-            zt, ww, pp, c = R(d, order + 1, W, N), R(d, W, N), R(d, W, N), R(order + 1, W)
-            idx = xnp_.asarray(rng.integers(0, N, (d, W)))
-            ops = {
-                't3_probe_derivatives': lambda: sd.t3_probe_derivatives(ww, pp, (frame[0], frame[2]), order),
-                'tv_probe_derivatives': lambda: sd.tv_probe_derivatives(ww, pp, var, frame, order),
-                'tv_probe_derivatives_transpose': lambda: sd.tv_probe_derivatives_transpose(
-                    zt, ww, pp, frame, order, sum_over_probes=True, chunk_size=3),
-                'two_hole': lambda: sd.t3_probe_corewise_derivatives_hessian(
-                    zt, ww, pp, (frame[0], frame[2]), var, order, chunk_size=3),
-                'tv_apply_derivatives': lambda: sd.tv_apply_derivatives(ww, pp, var, frame, order),
-                'tv_apply_derivatives_transpose': lambda: sd.tv_apply_derivatives_transpose(c, ww, pp, frame, order, True),
-                'tv_entries_derivatives_transpose': lambda: sd.tv_entries_derivatives_transpose(
-                    c, idx, pp, frame, order, True),
-            }
+        shape, order, W = (5, 4, 6), (2,), 8
+        x = t3.TuckerTensorTrain.randn(shape, (3, 3, 3), (1, 3, 3, 1))
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x, N=7, n=4, r=4)
+        tangent = t3m.MANIFOLD.randn(t3m.MANIFOLD.frame(x))
+        utangent = ut3m.UNIFORM_MANIFOLD.randn(ut3m.UNIFORM_MANIFOLD.frame(ux))
+        line = affine_jet([rng.standard_normal((W, n)) for n in shape], [rng.standard_normal((W, n)) for n in shape])
+        F = order[0] + 1
+        cp = [rng.standard_normal((F, W, n)) for n in shape]                   # a probe c, F + W + (Ni,)
+        ca = rng.standard_normal((F, W))                                       # an apply c, F + W
+        index = np.stack([rng.integers(0, n, size=W) for n in shape])
+        ce = rng.standard_normal((W,))
+        dirs = tuple(tuple(rng.standard_normal(c.shape) for c in cores) for cores in x.data)
+        udirs = tuple(rng.standard_normal(c.shape) for c in ux.data[:2])
+
+        def cast(tree, xnp):                    # floating arrays to float32 (jax or numpy); masks, ints as they are
+            if isinstance(tree, (tuple, list)):
+                return tuple(cast(t, xnp) for t in tree)
+            if isinstance(tree, np.ndarray) and tree.dtype.kind == 'f':
+                return xnp.asarray(tree, dtype=xnp.float32)
+            return tree
+
+        ops = {
+            't3_probe': lambda X: probing.t3_probe(X['x'], X['line'], order),
+            'tv_probe': lambda X: probing.tv_probe(X['frame'], X['v'], X['line'], order),
+            'tv_probe_transpose': lambda X: probing.tv_probe_transpose(X['frame'], X['line'], X['cp'], order),
+            't3_probe_corewise_hessian': lambda X: probing.t3_probe_corewise_hessian(X['x'], X['line'], X['cp'],
+                                                                                    X['dirs'], order),
+            'tv_apply': lambda X: bapply.tv_apply(X['frame'], X['v'], X['line'], order),
+            'tv_apply_transpose': lambda X: bapply.tv_apply_transpose(X['frame'], X['line'], X['ca'], order),
+            'tv_entries_transpose': lambda X: bentries.tv_entries_transpose(X['frame'], index, X['ce']),
+            'ut3_probe_corewise_hessian': lambda X: ut3s.ut3_probe_corewise_hessian(X['ux'], X['line'], X['cp'],
+                                                                                   X['udirs'], order),
+            'utv_probe_transpose': lambda X: utvs.utv_probe_transpose(X['uframe'], X['line'], X['cp'], order)[:2],
+            'utv_apply': lambda X: utvs.utv_apply(X['uframe'], X['uv'], X['line'], order),
+        }
+        base = dict(x=x.data, frame=tangent.frame.data, v=tangent.variations.data, line=line, cp=cp, ca=ca, ce=ce,
+                    dirs=dirs, ux=ux.data, udirs=udirs, uframe=utangent.frame.data, uv=utangent.variations.data)
+        for xnp in (np, jnp):
+            X = {k: cast(v, xnp) for k, v in base.items()}
             for name, op in ops.items():
-                runs = [op()] + ([jax.jit(op)()] if xnp_ is jnp else [])
+                runs = [op(X)] + ([jax.jit(lambda: op(X))()] if xnp is jnp else [])
                 for k, out in enumerate(runs):
-                    with self.subTest(op=name, backend=xnp_.__name__, jit=bool(k)):
-                        self.assertEqual({str(l.dtype) for l in jax.tree_util.tree_leaves(out)}, {'float32'})
-            ragged = lambda a: tuple(np.asarray(x) for x in a)                     # ragged numpy float32 too
-            if xnp_ is np:
-                with self.subTest(op='tv_probe_derivatives_transpose', backend='ragged numpy'):
-                    out = sd.tv_probe_derivatives_transpose(ragged(zt), ragged(ww), ragged(pp),
-                                                            tuple(ragged(f) for f in frame), order, sum_over_probes=True)
-                    self.assertEqual({str(l.dtype) for l in jax.tree_util.tree_leaves(out)}, {'float32'})
+                    with self.subTest(op=name, backend=xnp.__name__, jit=bool(k)):
+                        self.assertEqual({str(leaf.dtype) for leaf in jax.tree_util.tree_leaves(out)}, {'float32'})
 
 
 if __name__ == "__main__":
@@ -4185,12 +4005,13 @@ class TestJitUniformWeighted(unittest.TestCase):
 @unittest.skipUnless(HAS_JAX, "jax not available")
 class TestCurvatureJvpOracle(unittest.TestCase):
     """The jvp oracle (2026.3.0): every two-hole is the DERIVATIVE of its corewise transpose along raw core
-    directions, so forward-mode autodiff of the shipped one-hole -- ``jax.jvp`` through the Gauss-Newton kernels,
-    independent of the hand-written two-hole sweeps -- must reproduce it. float64 (x64 is on in this module), raw
-    unsquashed cores (``TuckerTensorTrain.randn``: boundary bonds of size 1, no orthogonality), a ``K = (2,)``
-    direction stack (one ``jvp`` per direction), ``W`` summed. The seven ragged two-holes (the six kinds and the
-    T3-to-T3 inner product) and the uniform probe-derivative one (whose transpose masks theta, so the jvp along an
-    UNMASKED direction is the masked one the two-hole computes)."""
+    directions, so forward-mode autodiff of the one-hole -- ``jax.jvp`` through the engine's transpose rows,
+    independent of its two-hole rows -- must reproduce it. float64 (x64 is on in this module), raw unsquashed cores
+    (``TuckerTensorTrain.randn``: boundary bonds of size 1, no orthogonality), a ``K = (2,)`` direction stack (one
+    ``jvp`` per direction), ``W`` summed. The ragged two-holes of the three kinds, of probe and apply at a line
+    (jet shape ``(2,)``), of apply at the one-hot line (the entries kind has no jets), and of the T3-to-T3 inner
+    product; and the uniform probe two-hole at a line (whose transpose masks theta, so the jvp along an UNMASKED
+    direction is the masked one the two-hole computes)."""
 
     def setUp(self):
         np.random.seed(97)
@@ -4215,6 +4036,7 @@ class TestCurvatureJvpOracle(unittest.TestCase):
         import t3toolbox.backend.apply as bapply
         import t3toolbox.backend.entries as bentries
         import t3toolbox.backend.t3_linalg as t3la
+        from t3toolbox.backend.jets import affine_jet, index_to_one_hot
         W, order = 6, 2
         rnd = lambda *s: jnp.asarray(np.random.randn(*s))
         x = t3.TuckerTensorTrain.randn(*STRUCT).to_jax()
@@ -4226,6 +4048,8 @@ class TestCurvatureJvpOracle(unittest.TestCase):
         zt = tuple(rnd(W, N) for N in STRUCT[0])
         zt_jets = tuple(rnd(order + 1, W, N) for N in STRUCT[0])
         c, c_jets = rnd(W), rnd(order + 1, W)
+        line = affine_jet(ww, pp)                                                              # the jet shape (order,)
+        one_hot_line = affine_jet([jnp.asarray(e) for e in index_to_one_hot(index, STRUCT[0])], pp)
         z = t3.TuckerTensorTrain.randn((4, 5, 6), (3, 2, 3), (1, 3, 2, 1)).to_jax().data      # the T3-T3 operand
         cases = {
             'probe': (lambda th: probing.t3_probe_corewise_transpose(th, ww, zt),
@@ -4234,24 +4058,23 @@ class TestCurvatureJvpOracle(unittest.TestCase):
                       lambda th, dd: bapply.t3_apply_corewise_hessian(th, ww, c, dd)),
             'entries': (lambda th: bentries.t3_entries_corewise_transpose(th, index, c),
                         lambda th, dd: bentries.t3_entries_corewise_hessian(th, index, c, dd)),
-            'probe_derivatives': (
-                lambda th: pd.t3_probe_corewise_derivatives_transpose(zt_jets, ww, pp, th, order, sum_over_probes=True,
-                                                                      chunk_size=None),
-                lambda th, dd: pd.t3_probe_corewise_derivatives_hessian(zt_jets, ww, pp, th, dd, order, chunk_size=None)),
-            'apply_derivatives': (
-                lambda th: pd.t3_apply_corewise_derivatives_transpose(c_jets, ww, pp, th, order, sum_over_probes=True),
-                lambda th, dd: pd.t3_apply_corewise_derivatives_hessian(c_jets, ww, pp, th, dd, order)),
-            'entries_derivatives': (
-                lambda th: pd.t3_entries_corewise_derivatives_transpose(c_jets, index, pp, th, order,
-                                                                        sum_over_probes=True),
-                lambda th, dd: pd.t3_entries_corewise_derivatives_hessian(c_jets, index, pp, th, dd, order)),
+            'probe at a line': (
+                lambda th: probing.t3_probe_corewise_transpose(th, line, zt_jets, order=(order,)),
+                lambda th, dd: probing.t3_probe_corewise_hessian(th, line, zt_jets, dd, order=(order,))),
+            'apply at a line': (
+                lambda th: bapply.t3_apply_corewise_transpose(th, line, c_jets, order=(order,)),
+                lambda th, dd: bapply.t3_apply_corewise_hessian(th, line, c_jets, dd, order=(order,))),
+            'apply at the one-hot line': (
+                lambda th: bapply.t3_apply_corewise_transpose(th, one_hot_line, c_jets, order=(order,)),
+                lambda th, dd: bapply.t3_apply_corewise_hessian(th, one_hot_line, c_jets, dd, order=(order,))),
             'inner_product': (lambda th: t3la.t3_inner_product_corewise_transpose(z, th),
                               lambda th, dd: t3la.t3_inner_product_corewise_hessian(z, th, dd))}
         for name, (transpose, hessian) in cases.items():
             self._check(name, transpose, hessian, core_pair, dirs)
 
-    def test_uniform_probe_derivatives_two_hole_is_the_jvp_of_its_transpose(self):
+    def test_uniform_probe_two_hole_at_jets_is_the_jvp_of_its_transpose(self):
         import t3toolbox.backend.ut3_sampling as ut3s
+        from t3toolbox.backend.jets import affine_jet
         W, order = 6, 2
         rnd = lambda *s: jnp.asarray(np.random.randn(*s))
         ux = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 3, 1)))
@@ -4260,11 +4083,12 @@ class TestCurvatureJvpOracle(unittest.TestCase):
         pp = tuple(rnd(W, N) for N in shape)
         zt = tuple(rnd(order + 1, W, N) for N in shape)
         dirs = (rnd(*((Usc.shape[0], 2) + Usc.shape[1:])), rnd(*((Gsc.shape[0], 2) + Gsc.shape[1:])))  # garbage pad
-        transpose = lambda th: ut3s.ut3_probe_corewise_derivatives_transpose(
-            zt, ww, pp, (th[0], th[1], shape, masks), order, sum_over_probes=True, chunk_size=None)
-        hessian = lambda th, dd: tuple(jnp.moveaxis(a, 1, 0) for a in ut3s.ut3_probe_corewise_derivatives_hessian(
-            zt, ww, pp, (th[0], th[1], shape, masks), dd, order, chunk_size=None))     # (d, K, ...) -> (K, d, ...)
+        line = affine_jet(ww, pp)                                                      # the jet shape (order,)
+        transpose = lambda th: ut3s.ut3_probe_corewise_transpose(
+            (th[0], th[1], shape, masks), line, zt, order=(order,))
+        hessian = lambda th, dd: tuple(jnp.moveaxis(a, 1, 0) for a in ut3s.ut3_probe_corewise_hessian(
+            (th[0], th[1], shape, masks), line, zt, dd, order=(order,)))               # (d, K, ...) -> (K, d, ...)
         dirs_k = tuple(jnp.moveaxis(a, 1, 0) for a in dirs)                            # K leading, for _check
-        self._check('uniform probe_derivatives', transpose,
+        self._check('uniform probe at a line', transpose,
                     lambda th, dd: hessian(th, tuple(jnp.moveaxis(a, 0, 1) for a in dd)),
                     (jnp.asarray(Usc), jnp.asarray(Gsc)), dirs_k)

@@ -1,0 +1,6 @@
+doctest-modules	PASS	320 passed	54.4	1673	9988
+doctest-quickstart	PASS	1 file(s), 0 with failures, 0 failed example(s)	2.7	267	11375
+doctest-pages	PASS	47 file(s), 0 with failures, 0 failed example(s)	19.6	333	11359
+examples	PASS	14 examples, 0 failed	583	652	11041
+sphinx	PASS	0 warning/error line(s)	754.6	565	10966
+slow	PASS	52 passed, 2 warnings, 13076 subtests passed	1432.1	262	11325

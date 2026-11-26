@@ -1527,3 +1527,35 @@ passed, 93,034 subtests. Expected after K0: 1,882 passed. Carried: to K5, the ap
 `tests/_derivative_data.py` and its callers; to P19, the pages' prose (16 pages; `signature_style.md` and
 `reading_signatures.md` quote `compute_mu`, which no longer exists) and the new names in `docs/api_reference.rst`.
 Building.
+
+### K0 committed (2026-11-25, 20:45): the old sampling kernels deleted
+
+`K0_HANDOVER.md`; `K0_REVIEW_r1.md` SIGN OFF with three minor points (a count in two comments, a long line, a stale
+test comment), `K0_RESPONSE_r1.md`, `K0_REVIEW_r2.md` SIGN OFF (only comments changed, by token comparison). The
+build was reviewed by a second reviewer, who had not seen the design made and wrote its own tools; approved by Claude.
+**What went:** `backend/sampling_derivatives.py` (3,534 lines) and 161 names of `probing`, `apply`, `entries`,
+`ut3_sampling`, `utv_sampling`, `backend/fitting` (the old kinds), `backend/uniform_fitting`; five test files whole
+and 50 tests elsewhere (98 tests); 32 files, about 380 lines added, 11,400 deleted. Ten tests re-based on the dense
+reference, jax AD or a dense einsum; the transposes' hygiene test checks its real block against ragged per element
+and has a negative control (without the masks the zero-padding check fails). The library's additions are prose only,
+each reviewed as text before the build (`k0/prose_edits.md`); every kept function is textually identical to before
+(signature comments and columns included), checked by both agents. `docs/api_reference.rst` loses nine names of
+things that no longer exist (six of them since P16).
+**Evidence:** suite 1,882 passed, 5 skipped, 1 xfailed (one `-v` run of 1,881 passed and 1 failed, a third scan floor
+the design had missed, then that file alone: `K_ARC_DECISIONS.md` 18, 19); module doctests 320; quickstart; 47 pages;
+14 examples; Sphinx 0 warnings; slow tier 52 passed. The tally against the baseline: 106 nodes differ, each accounted
+for (98 deleted, 1 new, 2 renamed with equal counts, 7 with an expected change of subtest count). No code or doctest
+reference to any of the 315 deleted names, by two independent scans. Every module imports with jax and with jax
+unimportable. The mutations rerun on the built tests by both agents, each caught.
+**Decided by Claude:** `K_ARC_DECISIONS.md` 8 to 20 (three scan floors lowered: 100 to 60, 100 to 60, 400 to 150).
+**Carried.** K5: the apply and entries cases of `TestKpAtTTSlack` before the masking changes; the hygiene control's
+three patch points must follow K5's masking points; the call-site floor (`> 90`, 113 now) is the one the removal of
+the per-mode loops may reach. P17: `sum_over_probes` (61 test lines: `tests/_derivative_data.py` and its callers,
+labels) and `chunk_size` (the translation, its old-form tests, one unread test parameter). P19: the pages' prose (16
+pages, listed by line in the handover's section 5; `signature_style.md` and `reading_signatures.md` quote
+`compute_mu`, deleted, as the exemplar of the signature form); the new names in `docs/api_reference.rst`; the
+history phrases about "the old kinds" in five test files. Noticed, not K0's: `TestTheEngineShardsOverW` has no
+`skipUnless(jax)` though its `setUpClass` imports jax (it had none before); `test_uniform_curvature.py`'s docstring
+names `uniform_least_squares_problem` (gone in P16); `test_curvature.py`'s `_flat_inner` is unused.
+**Agents:** the first implementer and the first reviewer filled their contexts (the reviewer in the plan phase); a
+second reviewer took the build review, a second implementer takes K1. Tokens for K0: about 2.0M (Opus).

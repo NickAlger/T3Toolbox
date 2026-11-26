@@ -893,8 +893,8 @@ class TestCheckers(unittest.TestCase):
                 self.assertNotIn('check_batch', calls)
 
     def test_the_validators_of_pp_are_gone(self):
-        """There is no ``pp``: the two validators P3 copied from ``sampling_derivatives`` are not in ``jets`` (the
-        originals stay in ``sampling_derivatives``, called by the old frontend methods, until P20)."""
+        """There is no ``pp``: the two validators of the old ``sampling_derivatives`` (deleted in K0) are not in
+        ``jets``."""
         for name in ('check_perturbation_vectors', 'check_perturbation_index'):
             self.assertNotIn(name, jets.__all__)
             self.assertFalse(hasattr(jets, name), name)

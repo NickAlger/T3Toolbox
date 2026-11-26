@@ -4,51 +4,30 @@
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
 """The ``apply`` sampling type: contract a T3 with vectors in ALL modes -> one scalar per sample.
 
-Holds the t3 + tv ops, the ambient/tangent/corewise transposes, the corewise transpose's derivative in the
-cores (the exact Hessian's sampling term), and the frame sweeps for applies.
-Specializes the general probing machinery (containment probe ⊃ apply ⊃ entries; this module
-imports from ``probing``, never the reverse). Costs and the role in Riemannian least-squares:
+Holds the t3 + tv ops, the ambient/tangent/corewise transposes, the corewise forward derivative and the
+corewise Hessian (the exact Hessian's sampling term), each but the ambient transpose one call of the engine,
+and the dense reference :py:func:`dense_apply` (containment probe ⊃ apply ⊃ entries; this module imports from
+``probing``, never the reverse). Costs and the role in Riemannian least-squares:
 ``docs/entries_apply_probe.md``.
 """
 import numpy as np
 import typing as typ
 
-import t3toolbox.backend.t3_conversions as t3_conversions
-import t3toolbox.backend.fv_conversions as fv_conversions
-import t3toolbox.backend.contractions as contractions
 import t3toolbox.backend.sampling_variables as sampling_variables
 from t3toolbox.backend.common import *
-import math
 import t3toolbox.backend.probing as probing
-from t3toolbox.backend.probing import compute_xi, compute_mu, compute_dxi, compute_sigma_hat, _sigma_step
 
 __all__ = [
     't3_apply',
     't3_apply_ambient_transpose',
     'tv_apply',
     'tv_apply_transpose',
-    'tv_precompute_apply_frame_sweep',
-    'tv_apply_jacobian_from_sweep',
-    'tv_apply_transpose_from_sweep',
     't3_apply_corewise_tangent',
     't3_apply_corewise_transpose',
     't3_apply_corewise_hessian',
-    't3_apply_corewise_hessian_from_sweep',
     # Apply a dense tensor
     'dense_apply',
 ]
-
-def _t3_apply_step(
-        mu_WCa: NDArray,                                # carry: W+C+(rLi,)
-        v_B_G:  typ.Tuple[NDArray, NDArray, NDArray],   # (v, B, G): W+(Ni,) ; C+(ni,Ni) ; C+(rLi,ni,rL(i+1))
-) -> typ.Tuple[NDArray, typ.Tuple[int]]:   # (next carry, (0,) -- nothing emitted per mode)
-    '''One mode of the all-modes contraction of :py:func:`t3_apply`. Closure-free scan body --
-    ``docs/contributor/scan_body_principles.md``.'''
-    v_Wo, B_Cpo, G_Capb = v_B_G
-    mu_WCb = contractions.contract('WCa,Caib,Wo,Cio->WCb', 
-        mu_WCa, G_Capb, v_Wo, B_Cpo,
-    )
-    return mu_WCb, (0,)
 
 
 def t3_apply(
@@ -212,107 +191,6 @@ def tv_apply_transpose(
     return blocks
 
 
-def tv_precompute_apply_frame_sweep(
-        frame:  typ.Tuple[
-            typ.Sequence[NDArray],          # down_tucker_cores  D. len=d
-            typ.Sequence[NDArray],          # up_tt_cores        U. len=d
-            typ.Sequence[NDArray],          # left_tt_cores      L. len=d
-            typ.Sequence[NDArray],          # right_tt_cores     R. len=d
-        ],                                  # frame order = T3Frame.data = (down, up, left, right)
-        ww:     typ.Sequence[NDArray],      # apply vectors, len=d, elm_shape=W+(Ni,)
-) -> typ.Tuple[
-    typ.Sequence[NDArray],  # xis. len=d, elm_shape=W+C+(nDi,)
-    typ.Sequence[NDArray],  # mus. len=d, elm_shape=W+C+(rLi,)
-]:                                          # lean frame sweep -- (xis, mus) only
-    '''The all-modes apply **frame sweep** (lean): the frame edge variables ``(xi-hat, mu-hat)`` that
-    depend only on the frame frame and the apply vectors ``ww`` -- NOT on the tangent or residual.
-    Computing them is the expensive, ``W``-scaled part of the apply Jacobian; precomputed **once per
-    frame** and reused across every ``J`` / ``Jᵀ`` of an inner solve (the reuse hook for ``fitting.py``).
-
-    **Lean ``(xis, mus)`` only** (not the right ``nu`` / downward ``eta`` sweeps): the all-modes apply
-    forward AND its adjoint-state transpose use only ``(xi, mu)`` -- the transpose recomputes the right
-    context as ``sigma_hat`` from the residual rather than storing ``nu``/``eta``, halving the
-    ``W``-scaling memory (apply on the manifold, §6.2.2 of Alger et al. (2026)). Probe, which leaves a
-    mode free, needs the full sweep -- :py:func:`tv_precompute_probe_frame_sweep`.
-
-    See Also
-    --------
-    tv_apply_jacobian_from_sweep
-    tv_apply_transpose_from_sweep
-    tv_precompute_probe_frame_sweep
-    '''
-    down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores = frame
-    xis = compute_xi(down_tucker_cores, ww)
-    mus = compute_mu(left_tt_cores, xis)
-    return xis, mus
-
-
-def tv_apply_jacobian_from_sweep(
-        variation:  typ.Tuple[
-            typ.Sequence[NDArray],          # var_tucker_cores. len=d, elm_shape=K+C+(nUi,Ni)
-            typ.Sequence[NDArray],          # var_tt_cores.     len=d, elm_shape=K+C+(rLi,nDi,rR(i+1))
-        ],
-        ww:         typ.Sequence[NDArray],  # apply vectors, len=d, elm_shape=W+(Ni,) -- for the variation's dxis
-        frame:      typ.Tuple[
-            typ.Sequence[NDArray],          # down_tucker_cores  D. len=d  (unused; for a uniform call signature)
-            typ.Sequence[NDArray],          # up_tt_cores        U. len=d
-            typ.Sequence[NDArray],          # left_tt_cores      L. len=d  (unused)
-            typ.Sequence[NDArray],          # right_tt_cores     R. len=d
-        ],                                  # frame order = T3Frame.data = (down, up, left, right)
-        frame_sweep: typ.Tuple[
-            typ.Sequence[NDArray],          # xis
-            typ.Sequence[NDArray],          # mus
-        ],                                  # = tv_precompute_apply_frame_sweep(frame, ww)  (lean)
-) -> NDArray:                               # the scalar apply(v, ww), one per stack element; shape = W + K + C
-    '''Forward all-modes apply of a tangent vector reusing a precomputed frame sweep -- the bare ``𝒥`` with
-    the frame edge variables injected. Equivalent to :py:func:`tv_apply`, but it takes the lean
-    ``(xis, mus)`` from ``frame_sweep`` instead of recomputing them (the reuse hook for ``fitting.py``).
-    Only the variation-dependent ``dxis`` is computed here. No gauge projector ``Π``.
-
-    See Also
-    --------
-    tv_precompute_apply_frame_sweep
-    tv_apply
-    '''
-    var_tucker_cores, var_tt_cores = variation
-    _, up_tt_cores, _, right_tt_cores = frame
-    xis, mus = frame_sweep
-    dxis = compute_dxi(var_tucker_cores, ww)     # variation-dependent; not part of the frame sweep
-    return _apply_from_xis(xis, dxis, mus, right_tt_cores, up_tt_cores, var_tt_cores)
-
-
-def tv_apply_transpose_from_sweep(
-        c:          NDArray,                # residual, shape = W + K + C (K optional)
-        ww:         typ.Sequence[NDArray],  # apply vectors (one-hot e_index for entries), len=d, elm_shape=W+(Ni,)
-        frame:      typ.Tuple[
-            typ.Sequence[NDArray],          # down_tucker_cores  D. len=d  (unused; uniform call signature)
-            typ.Sequence[NDArray],          # up_tt_cores        U. len=d
-            typ.Sequence[NDArray],          # left_tt_cores      L. len=d  (unused)
-            typ.Sequence[NDArray],          # right_tt_cores     R. len=d
-        ],                                  # frame order = T3Frame.data = (down, up, left, right)
-        frame_sweep: typ.Tuple[
-            typ.Sequence[NDArray],          # xis
-            typ.Sequence[NDArray],          # mus
-        ],                                  # = tv_precompute_apply_frame_sweep(frame, ww)  (lean: no nu/eta)
-        sum_over_probes: bool = False,
-) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:  # (V_tildes, H_tildes) = T3Variations.data
-    '''Transpose of the all-modes apply reusing a precomputed frame sweep -- the bare ``𝒥ᵀ``, by the
-    **adjoint-state** method (the scalar residual ``c`` seeds one reverse ``sigma_hat`` sweep; see
-    :py:func:`_apply_transpose_adjoint`). Takes the **lean** ``(xis, mus)`` sweep + the frame cores ``U,
-    R`` (it recomputes the right context rather than storing ``nu``/``eta`` -- half the memory). Reuse
-    hook for ``fitting.py`` (one frame sweep feeds the forward and this transpose). Full ``W + K + C``
-    (the residual ``c`` may carry the tangent stack ``K``). No gauge projector ``Π``.
-
-    See Also
-    --------
-    tv_precompute_apply_frame_sweep
-    tv_apply_transpose
-    '''
-    _, up_tt_cores, _, right_tt_cores = frame
-    xis, mus = frame_sweep
-    return _apply_transpose_adjoint(c, ww, xis, mus, up_tt_cores, right_tt_cores, sum_over_probes)
-
-
 def t3_apply_corewise_tangent(
         x:                 typ.Tuple,                    # the point: X, (B, G), whose cores the directions vary
         ww:                typ.Sequence[NDArray],        # input jets: P_in_i⊗V_i, len=d, elm_shape=F_in_i+W+(Ni,)
@@ -394,37 +272,6 @@ def t3_apply_corewise_transpose(
     (blocks,) = sampling_variables.sampling_variables('apply', x, ww, ('JtJp',), order=order, held=held,
                                                        sum_over_samples=sum_over_samples)
     return blocks
-
-
-def t3_apply_corewise_hessian_from_sweep(
-        c:                  NDArray,                # residual (omega^2 applied), shape=W+C
-
-        ww:                 typ.Union[typ.Sequence[NDArray], NDArray],  # apply vectors, len=d, elm_shape=W+(Ni,)
-
-        core_pair:          typ.Tuple[
-            typ.Sequence[NDArray],                  # tucker_cores of theta. len=d, elm_shape=C+(ni,Ni)
-            typ.Sequence[NDArray],                  # tt_cores of theta.     len=d, elm_shape=C+(ri,ni,r(i+1))
-        ],                                          # = TuckerTensorTrain.data
-        core_directions:    typ.Tuple[
-            typ.Sequence[NDArray],                  # Tucker directions theta_hat. len=d, elm_shape=K+C+(ni,Ni)
-            typ.Sequence[NDArray],                  # TT directions theta_hat.     len=d, elm_shape=K+C+(ri,ni,r(i+1))
-        ],
-
-        frame_sweep:        typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (xis, mus) of theta
-) -> typ.Tuple[
-    typ.Tuple[NDArray, ...],                        # Tucker block of K theta_hat. len=d, elm_shape=K+C+(ni,Ni)
-    typ.Tuple[NDArray, ...],                        # TT block of K theta_hat.     len=d, elm_shape=K+C+(ri,ni,r(i+1))
-]:
-    ''':py:func:`t3_apply_corewise_hessian` reusing a precomputed lean ``frame_sweep`` -- the reuse hook for a local
-    model. :py:func:`tv_precompute_apply_frame_sweep` is the same at the manifold frame ``(D, U, L, R)`` and at the
-    corewise frame ``(D, L, L, L)`` of its base point ``theta = (D, L)`` (``xi`` through ``D``, ``mu`` through
-    ``L``), so the model's own sweep is reused; it must be ``core_pair``'s own, which nothing here checks.'''
-    _, tt_cores = core_pair
-    tucker_dirs, tt_dirs = core_directions
-    xis, mus = frame_sweep
-    xis_dot = compute_dxi(tucker_dirs, ww)                                       # xi_dot = Bdot w
-    mus_dot = probing.compute_sigma(tt_dirs, tt_cores, tt_cores, xis, xis_dot, mus)   # mu_dot, through G
-    return _apply_corewise_hessian_adjoint(c, ww, xis, xis_dot, mus, mus_dot, tt_cores, tt_dirs)
 
 
 def t3_apply_corewise_hessian(
@@ -587,116 +434,3 @@ def dense_apply(
     """
     return probing._dense_jet(T, ww, order, None, 'dense_apply')
 
-
-def _apply_from_xis_step(
-        sigma: NDArray,   # carry: W+K+C+(rRi,)
-        x:     typ.Tuple[NDArray, NDArray, NDArray, NDArray, NDArray, NDArray],  # (R, U, H, xi, dxi, mu)
-) -> typ.Tuple[NDArray, typ.Tuple[int]]:   # (next carry, (0,) -- only the terminal carry is used)
-    '''One edge of the sweep of :py:func:`_apply_from_xis`, emitting nothing (the sequence-keeping twin
-    is ``probing._sigma_sweep_step``). Closure-free scan body -- ``docs/contributor/scan_body_principles.md``.'''
-    R, U, H, xi, dxi, mu = x
-    return _sigma_step(sigma, R, U, H, xi, dxi, mu), (0,)
-
-
-def _apply_from_xis(xis, dxis, mus, right_tt_cores, up_tt_cores, var_tt_cores):
-    '''Run the perturbation sigma sweep (via R) to its TERMINAL carry and contract the final bond.
-
-    Shared tail of tv_apply and tv_entries (they differ only in how xis/dxis are formed).
-    '''
-    use_jax = tree_contains_jax((xis, dxis, mus, right_tt_cores))
-    is_uniform = not isinstance(xis, typ.Sequence)
-    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
-
-    # carry sigma is W+K+C; take the leading stack from dxis (carries K), not xis (W+C only).
-    rR0 = right_tt_cores[0].shape[-3]
-    init = xnp.zeros(dxis[0].shape[:-1] + (rR0,))
-    sigma_terminal, _ = xscan(_apply_from_xis_step, init, (right_tt_cores, up_tt_cores, var_tt_cores, xis, dxis, mus))
-    return xnp.sum(sigma_terminal, axis=-1)   # contract the terminal bond -> W + K + C
-
-
-def _apply_transpose_adjoint(c, ww, xis, mus, up_tt_cores, right_tt_cores, sum_over_probes):
-    '''Adjoint-state assembly shared by apply/tv_entries_transpose_from_sweep -- the **low-memory,
-    K-aware** transpose (replaces the old scatter). The scalar residual ``c`` seeds one reverse
-    ``sigma_hat`` sweep (recomputing the right context, so ``nu``/``eta`` are never stored); then
-
-        dxi-hat_k  = mu-hat_{k-1} . U_k . sigma-hat_k                 # over the up mode nU
-        H-tilde_k  = mu-hat_{k-1} (x) xi-hat_k (x) sigma-hat_k        # over (rL, nD, rR)
-        V-tilde_k  = dxi-hat_k (x) w_k                                # over (nU, N)
-
-    Uses only the lean frame sweep ``(xis, mus)`` (half the memory of the ``(xis, mus, nus, etas)`` the
-    scatter stored -- the ``W``-scaling ``nu``/``eta`` are gone), at the cost of the ``sigma_hat`` sweep
-    per transpose. Full ``W + K + C``: the residual ``c`` may carry the tangent stack ``K`` (the output
-    space of a ``K``-stacked forward ``tv_apply``), which rides into the variation gradient -- the
-    capability the scatter lacked. ``sum_over_probes=True`` sums the probe stack ``W`` (the ``J^T r``
-    back-projection); ``False`` keeps it as the output tangent stack. ``K``/``C`` always kept.'''
-    is_uniform = is_ndarray(mus)
-    sigma_hats = compute_sigma_hat(right_tt_cores, xis, c)               # polymorphic reverse sweep
-
-    if is_uniform:
-        # d-prefixed WKC, vectorized over the core index d (NOT a per-core loop -> no jit
-        # unroll). ww is the packed apply/one-hot probe supercore (d,)+W+(N,) -> n_probe = len(W). The
-        # ragged loop below is the oracle.
-        n_probe = ww.ndim - 2
-        dxi_hats = contractions.contract('dWCa,dCaib,dWKCb->dWKCi', mus, up_tt_cores, sigma_hats)
-        if sum_over_probes:
-            H_tildes = contractions.contract('dWCa,dWCi,dWKCb->dKCaib', mus, xis, sigma_hats, len_W=n_probe)
-            V_tildes = contractions.contract('dWo,dWKCa->dKCao', ww, dxi_hats)
-        else:
-            H_tildes = contractions.contract('dWCa,dWCi,dWKCb->dWKCaib', mus, xis, sigma_hats, len_W=n_probe)
-            V_tildes = contractions.contract('dWo,dWKCa->dWKCao', ww, dxi_hats)
-        return V_tildes, H_tildes
-
-    n_probe = ww[0].ndim - 1
-    dxi_hats = tuple(contractions.contract('WCa,Caib,WKCb->WKCi', mu, U, sig_hat)        # dxi_hat = mu . U . sigma_hat
-                     for mu, U, sig_hat in zip(mus, up_tt_cores, sigma_hats))
-    if sum_over_probes:
-        H_tildes = tuple(contractions.contract('WCa,WCi,WKCb->KCaib', mu, xi, sig_hat, len_W=n_probe)
-                          for mu, xi, sig_hat in zip(mus, xis, sigma_hats))
-        V_tildes = tuple(contractions.contract('Wo,WKCa->KCao', w, dxh) for w, dxh in zip(ww, dxi_hats))
-    else:
-        H_tildes = tuple(contractions.contract('WCa,WCi,WKCb->WKCaib', mu, xi, sig_hat, len_W=n_probe)
-                          for mu, xi, sig_hat in zip(mus, xis, sigma_hats))
-        V_tildes = tuple(contractions.contract('Wo,WKCa->WKCao', w, dxh) for w, dxh in zip(ww, dxi_hats))
-    return V_tildes, H_tildes   # (var_tucker, var_tt) = T3Variations.data
-
-
-def _apply_corewise_hessian_adjoint(c, ww, xis, xis_dot, mus, mus_dot, tt_cores, tt_dirs):
-    '''The derivative of :py:func:`_apply_transpose_adjoint` (``sum_over_probes=True``) at the corewise frame
-    ``(B, G, G, G)`` along ``(Bdot, Gdot)``, shared by :py:func:`t3_apply_corewise_hessian_from_sweep` and
-    :py:func:`~t3toolbox.backend.entries.t3_entries_corewise_hessian_from_sweep` (which differ only in how
-    ``xi`` / ``xi_dot`` and the apply vectors ``ww`` are formed). With the residual ``c`` fixed (``W + C``; no
-    ``K``):
-
-        sigma_hat       = the c-seeded reverse sweep through G                (compute_sigma_hat)
-        sigma_hat_dot   = its derivative: the reverse GN tangent sweep        (compute_tau(Gdot, G, G, xi, xi_dot, sigma_hat))
-        dxi_hat_dot     = d(mu G sigma_hat)                                    (compute_deta(Gdot, G, G, mu, sigma_hat, mu_dot, sigma_hat_dot))
-        dB              = sum_W  w (x) dxi_hat_dot
-        dG              = sum_W  mu_dot . E + mu . E_dot,  E = xi (x) sigma_hat,  E_dot = xi_dot (x) sigma_hat + xi (x) sigma_hat_dot
-
-    -- the single-term assemblies' product rule, ``dG``'s three terms grouped by their common factor ``mu`` (two
-    W-summed finals). Polymorphic: ``d``-prefixed contractions on the uniform path, a per-core loop on ragged.'''
-    is_uniform = is_ndarray(mus)
-    sigma_hats = compute_sigma_hat(tt_cores, xis, c)                                   # W+C (c has no K)
-    sigma_hats_dot = probing.compute_tau(tt_dirs, tt_cores, tt_cores, xis, xis_dot, sigma_hats)
-    dxi_hats_dot = probing.compute_deta(tt_dirs, tt_cores, tt_cores, mus, sigma_hats, mus_dot, sigma_hats_dot)
-
-    if is_uniform:
-        n_probe = ww.ndim - 2                     # ww is the W-only packed apply / one-hot supercore (d,)+W+(N,)
-        dB = contractions.contract('dWo,dWKCa->dKCao', ww, dxi_hats_dot)
-        E = contractions.contract('dWCi,dWCb->dWCib', xis, sigma_hats)
-        E_dot = (contractions.contract('dWKCi,dWCb->dWKCib', xis_dot, sigma_hats, len_W=n_probe)
-                 + contractions.contract('dWCi,dWKCb->dWKCib', xis, sigma_hats_dot, len_W=n_probe))
-        dG = (contractions.contract('dWKCa,dWCib->dKCaib', mus_dot, E, len_W=n_probe)
-              + contractions.contract('dWCa,dWKCib->dKCaib', mus, E_dot, len_W=n_probe))
-        return dB, dG
-
-    n_probe = ww[0].ndim - 1
-    dB = tuple(contractions.contract('Wo,WKCa->KCao', w, dxd) for w, dxd in zip(ww, dxi_hats_dot))
-    dG = []
-    for mu, mud, xi, xid, sig_hat, sig_hat_d in zip(mus, mus_dot, xis, xis_dot, sigma_hats, sigma_hats_dot):
-        E = contractions.contract('WCi,WCb->WCib', xi, sig_hat)
-        E_dot = (contractions.contract('WKCi,WCb->WKCib', xid, sig_hat, len_W=n_probe)
-                 + contractions.contract('WCi,WKCb->WKCib', xi, sig_hat_d, len_W=n_probe))
-        dG.append(contractions.contract('WKCa,WCib->KCaib', mud, E, len_W=n_probe)
-                  + contractions.contract('WCa,WKCib->KCaib', mu, E_dot, len_W=n_probe))
-    return dB, tuple(dG)

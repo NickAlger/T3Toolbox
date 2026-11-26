@@ -72,3 +72,21 @@ where it is recorded. Larger rulings are also in `LOG.md`. The design's decision
     and started from `K_REVIEWER_CARRYOVER.md`, avoids a handover in the middle of a review and has not watched the
     design being made. It writes its own tools and its own list of what the build review must establish
     (`k0/REVIEWER2_PLAN.md`). The maintainer (2026-11-25): "Don't worry about the token cost."
+
+## K0, the build (2026-11-25)
+
+18. **A third scan floor is lowered** (`tests/test_contractions_sharding.py:136`, `checked > 400`, to 150): the
+    sweep checks 228 cases after the deletion, 930 before. The design missed it because the vocabulary floor fails
+    first in the same test. Same kind as decision 8 (`checked` is a fixed function of the scanned vocabulary; the
+    reviewer verified that the vocabulary floor already implies at least 122). The reviewer searched every count
+    asserted against a literal in `tests/`: no fourth floor trips at K0. **For K5:** the call-site floor
+    (`> 90`, 113 at K0) is the one the removal of the per-mode loops is most likely to reach.
+    *Correction to decision 8:* the tests' own scan on the built tree gives 84 subscripts, not 86 (the 86 was a
+    simulated tree that still held two dead scan bodies).
+19. **K0's suite count rests on one `-v` run taken before the third floor's fix, plus that one file rerun** (1,881
+    passed and 1 failed, then 4 passed in the fixed file: 1,882). Not rerun in full: the reviewer checked that the
+    library was last written before the run started and that the only file written after it is the fixed test file,
+    and ran that file on the final tree. Both CI legs run the final tree after the push.
+20. **A second implementer takes K1** (the first one's context filled building K0; it finishes K0's three minor
+    fixes). Started on its orientation and K1's design note while K0's fixes are made, with no test runs until K0 is
+    committed.

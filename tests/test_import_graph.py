@@ -9,7 +9,7 @@ for every ``t3toolbox.*`` import) is not an edge -- it would make every module d
 edge to a package ``__init__`` appears only when a module imports the package itself, or a name defined there.
 Every ``import`` statement counts, function-level ones included: a lazy import is still a dependency.
 
-Three facts are pinned:
+Six facts are pinned:
 
 - the backend's import graph (everything reachable from ``t3toolbox/backend/``) is acyclic;
 - ``backend/optimizers.py`` imports only ``common``, ``regularization`` and ``corewise`` -- the optimizer layer
@@ -17,9 +17,12 @@ Three facts are pinned:
 - the padded-frame modules import only the modules their plan names (downward; no new cycle);
 - no backend module imports ``t3toolbox.safety``: there is no safe mode in the backend, which gives checkers and not
   guarantees, and the frontend enforces (graded messages, P3);
-- ``backend/jets.py`` and ``backend/data_preparation.py`` import only what they are built on.
+- ``backend/jets.py`` and ``backend/data_preparation.py`` import only what they are built on;
+- the old sampling kernels' module, ``backend/sampling_derivatives.py``, is gone (deleted in K0; the engine,
+  ``backend/sampling_variables.py``, computes every sampling variable).
 """
 import ast
+import importlib.util
 import pathlib
 import unittest
 
@@ -167,6 +170,10 @@ class TestImportGraph(unittest.TestCase):
         self.assertNotIn('t3toolbox.backend.jets', GRAPH['t3toolbox.backend.contractions'])
         self.assertEqual(GRAPH['t3toolbox.backend.data_preparation'],
                          {'t3toolbox.backend.common', 't3toolbox.backend.jets', 't3toolbox.backend.ut3_operations'})
+
+    def test_the_old_sampling_kernels_are_gone(self):
+        self.assertNotIn('t3toolbox.backend.sampling_derivatives', MODULES)
+        self.assertIsNone(importlib.util.find_spec('t3toolbox.backend.sampling_derivatives'))
 
 
 if __name__ == '__main__':

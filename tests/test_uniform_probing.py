@@ -10,6 +10,7 @@ multi-block stacking, so every op is swept over the full _CONFIGS matrix (incl. 
 varying-C rank sweep. The underlying d-prefixed WKC contractions are unit-tested in
 tests/backend/test_contractions.py (3b-6a)."""
 import unittest
+import unittest.mock
 import numpy as np
 
 import t3toolbox.tucker_tensor_train as t3
@@ -21,7 +22,8 @@ import t3toolbox.uniform_manifold as ut3m
 import t3toolbox.backend.apply as bapply
 import t3toolbox.backend.entries as bentries
 import t3toolbox.backend.probing as bprobing
-import t3toolbox.backend.sampling_derivatives as bsd
+import t3toolbox.backend.sampling_variables as sampling_variables
+import t3toolbox.backend.ufv_masking as ufv_masking
 import t3toolbox.backend.ut3_masking as ut3_masking
 import t3toolbox.backend.ut3_operations as uops
 import t3toolbox.backend.ut3_sampling as ut3s
@@ -762,19 +764,21 @@ def _indicator(rows, left, middle, right, shape, N):
 
 
 class TestTransposeOutputHygiene(unittest.TestCase):
-    """S0c: every uniform transpose wrapper that holds the frame's / point's masks RE-MASKS its output, so the
-    padding comes back as exact zeros instead of the raw sweep's garbage (the boundary-bond squash alone
-    broadcasts into the padded boundary slots). Per wrapper, over default and forced padding, C stacks
-    (multi-axis), a tangent stack K, both ``sum_over_probes``, a varying-rank C stack and a non-minimal frame:
+    """S0c: every uniform transpose that holds the frame's / point's masks returns its padding as exact zeros. Per
+    face (probe, apply, entries; the tangent transposes ``utv_*_transpose`` and the corewise ones
+    ``ut3_*_corewise_transpose``), over default and forced padding, C stacks (multi-axis), a tangent stack K, both
+    ``sum_over_samples``, a varying-rank C stack and a non-minimal frame:
 
     (a) the exact output masks, derived from the RAGGED frame's / point's core shapes (not from any uniform
         mask, so the check is not circular);
-    (b) the real block is BITWISE the pre-S0c value -- the bare seam the wrapper used to return (the
-        ``*_from_sweep`` seam, or the polymorphic backend on the masked supercores);
-    (c) every padded slot is exactly zero -- and, so (c) is not vacuous, the bare seam's padding is NOT;
+    (b) the real block is the ragged face's, per stack element (on the element's ragged frame or point, read off
+        the uniform one with ``to_t3frame`` / ``to_t3``), to 1e-12;
+    (c) every padded slot is exactly zero;
     (d) garbage (``1e6 * (1 - mask)``) in the frame's / point's padding leaves the whole output unchanged.
 
-    Together (b) and (c) pin the effective output mask exactly wherever the real value is nonzero."""
+    Without the masks (the engine's on entry and exit, and the tangent faces' own re-mask), (c) fails: the negative
+    control, so that (c) and (d) cannot pass vacuously. Together (b) and (c) pin the effective output mask exactly
+    wherever the real value is nonzero."""
 
     _W = (2,)
 
@@ -786,24 +790,44 @@ class TestTransposeOutputHygiene(unittest.TestCase):
         np.random.seed(12)
         return np.stack([np.random.randint(0, n, size=self._W) for n in shape], axis=0)
 
-    def _assert_hygiene(self, out, bare, ind, dirty, seen, name):
+    def _assert_hygiene(self, out, ind, dirty):
         for j in range(2):
-            o, b = np.asarray(out[j]), np.asarray(bare[j])
+            o = np.asarray(out[j])
             self.assertEqual(o.shape, ind[j].shape)
             self.assertTrue(np.all(o[~ind[j]] == 0), 'padding not zero')                            # (c)
-            if name in ('probe', 'apply', 'entries'):           # P12: the engine against the old kernel, to rounding
-                scale = max(float(np.abs(b[ind[j]]).max(initial=0.0)), 1.0)
-                self.assertLess(float(np.abs(o[ind[j]] - b[ind[j]]).max(initial=0.0)), 1e-12 * scale, 'real block')
-            else:
-                self.assertEqual(o[ind[j]].tobytes(), b[ind[j]].tobytes(), 'real block not bitwise')    # (b)
             self.assertTrue(np.array_equal(np.asarray(dirty[j]), o), 'garbage leaked')              # (d)
-            seen[name] = max(seen.get(name, 0.0), float(np.abs(b[~ind[j]]).max(initial=0.0)))
 
-    def _assert_nonvacuous(self, seen):
-        for name, worst in seen.items():
-            self.assertGreater(worst, 0.0, '%s: the bare seam left no padding garbage to re-mask' % name)
+    def _assert_real_block(self, out, ragged_of, lead, C):
+        """(b): element ``cc`` of the output's ``C`` stack, cut to the ragged blocks' extents, is the ragged face's."""
+        for cc in np.ndindex(*C):
+            ragged = ragged_of(cc)                                     # (tucker blocks, tt blocks), stack ``lead``
+            for j in range(2):
+                for i, block in enumerate(ragged[j]):
+                    block = np.asarray(block)
+                    real = np.asarray(out[j][i])[(slice(None),) * len(lead) + cc
+                                                 + tuple(slice(0, n) for n in block.shape[len(lead):])]
+                    scale = max(float(np.abs(block).max(initial=0.0)), 1.0)
+                    self.assertLess(float(np.abs(real - block).max(initial=0.0)), 1e-12 * scale, 'real block')
 
-    # -- the tangent transposes (utv_*_transpose, utv_*_derivatives_transpose) -----------------------------
+    def _assert_needs_the_masks(self, op, dirty, ind):
+        """The negative control: with every mask removed -- the engine's entry masks (``_UNIFORM_MASKS`` emptied), its
+        exit mask (``_mask_variable`` the identity) and the tangent faces' own re-mask -- (c) fails on the garbage."""
+        identity = lambda name, value, setting: value
+        with unittest.mock.patch.object(sampling_variables, '_UNIFORM_MASKS', {}), \
+                unittest.mock.patch.object(sampling_variables, '_mask_variable', identity), \
+                unittest.mock.patch.object(ufv_masking, 'ufv_apply_variations_masks', lambda data: tuple(data[:2])):
+            unmasked = op(dirty)
+        with self.assertRaisesRegex(AssertionError, 'padding not zero'):
+            self._assert_hygiene(unmasked, ind, unmasked)
+
+    @staticmethod
+    def _element(tree, cc):
+        """Element ``cc`` of a nested tree shaped like the stack (``to_t3frame`` / ``to_t3`` of a stacked object)."""
+        for k in cc:
+            tree = tree[k]
+        return tree
+
+    # -- the tangent transposes (utv_*_transpose) -------------------------------------------------------------
     def _frames(self):
         """(label, uniform frame, the ragged frame(s) it represents)."""
         np.random.seed(7)
@@ -824,45 +848,39 @@ class TestTransposeOutputHygiene(unittest.TestCase):
         return cases
 
     def _tangent_wrappers(self, shape, C, K):
-        """(name, re-masked wrapper, bare seam) -- each a function of (frame_data, sum_over_probes)."""
-        ww, pp, index = self._vectors(shape, 9), self._vectors(shape, 10), self._index(shape)
+        """(name, uniform face, ragged face, residual) -- each face a function of (frame data, sum_over_samples)."""
+        ww, index = self._vectors(shape, 9), self._index(shape)
         np.random.seed(13)
         S = self._W + tuple(K) + tuple(C)
-        O = _ORDER + 1
         z = [np.random.randn(*(S + (n,))) for n in shape]
         c = np.random.randn(*S)
-        zj = [np.random.randn(*((O,) + S + (n,))) for n in shape]
-        cj = np.random.randn(*((O,) + S))
         return [
             ('probe', lambda f, s: utvs.utv_probe_transpose(f, ww, z, sum_over_samples=s),
-             lambda f, s: utvs.utv_probe_transpose_from_sweep(z, utvs.utv_precompute_probe_frame_sweep(f, ww), s)),
+             lambda f, r, s: bprobing.tv_probe_transpose(f, ww, r, sum_over_samples=s), z),
             ('apply', lambda f, s: utvs.utv_apply_transpose(f, ww, c, sum_over_samples=s),
-             lambda f, s: utvs.utv_apply_transpose_from_sweep(c, utvs.utv_precompute_apply_frame_sweep(f, ww), s)),
+             lambda f, r, s: bapply.tv_apply_transpose(f, ww, r, sum_over_samples=s), c),
             ('entries', lambda f, s: utvs.utv_entries_transpose(f, index, c, sum_over_samples=s),
-             lambda f, s: utvs.utv_entries_transpose_from_sweep(c, utvs.utv_precompute_entries_frame_sweep(f, index), s)),
-            ('probe_derivatives', lambda f, s: utvs.utv_probe_derivatives_transpose(zj, ww, pp, f, _ORDER, s),
-             lambda f, s: utvs.utv_probe_transpose_derivatives_from_sweep(
-                 zj, utvs.utv_precompute_probe_frame_sweep_jets(f, ww, pp, _ORDER), _ORDER, s)),
-            ('apply_derivatives', lambda f, s: utvs.utv_apply_derivatives_transpose(cj, ww, pp, f, _ORDER, s),
-             lambda f, s: utvs.utv_apply_transpose_derivatives_from_sweep(
-                 cj, utvs.utv_precompute_apply_frame_sweep_jets(f, ww, pp, _ORDER), _ORDER, s)),
-            ('entries_derivatives', lambda f, s: utvs.utv_entries_derivatives_transpose(cj, index, pp, f, _ORDER, s),
-             lambda f, s: utvs.utv_entries_transpose_derivatives_from_sweep(
-                 cj, utvs.utv_precompute_entries_frame_sweep_jets(f, index, pp, _ORDER), _ORDER, s)),
+             lambda f, r, s: bentries.tv_entries_transpose(f, index, r, sum_over_samples=s), c),
         ]
 
+    @staticmethod
+    def _residual_element(res, n_lead, cc):
+        """Element ``cc`` of a residual's ``C`` stack, which sits after its ``n_lead`` axes (W + K)."""
+        sl = (slice(None),) * n_lead + tuple(cc)
+        return [r[sl] for r in res] if isinstance(res, list) else res[sl]
+
     def test_tangent_transposes(self):
-        seen = {}
         for label, uframe, rframes in self._frames():
             C = tuple(uframe.stack_shape)
             tabs = [_ragged_frame_ranks(f) for f in rframes]
             sizes = (uframe.nD, uframe.nU, uframe.rL, uframe.rR)
             gauge_C = [_stacked_prefix([t[fam] for t in tabs], C, sizes[fam]) for fam in range(4)]
             dirty_frame = _corrupt(uframe, _GARBAGE).data
+            elements = uframe.to_t3frame()
             for K in [(), (3,)]:
-                for name, op, seam in self._tangent_wrappers(uframe.shape, C, K):
+                for name, op, ragged, res in self._tangent_wrappers(uframe.shape, C, K):
                     for sop in (True, False):
-                        with self.subTest(case=label, K=K, op=name, sum_over_probes=sop):
+                        with self.subTest(case=label, K=K, op=name, sum_over_samples=sop):
                             out = op(uframe.data, sop)
                             K_new = tuple(K) if sop else self._W + tuple(K)
                             exp = tuple(_bc_over_K(m, K_new) for m in gauge_C)
@@ -871,12 +889,16 @@ class TestTransposeOutputHygiene(unittest.TestCase):
                             down, up, left, right = exp
                             ind = _indicator(up, left, down, right, uframe.shape, uframe.N)
                             dirty = op(dirty_frame, sop)
-                            self._assert_hygiene(out, seam(uframe.data, sop), ind, dirty, seen, name)
+                            self._assert_hygiene(out, ind, dirty)                                # (c), (d)
+                            self._assert_real_block(                                             # (b)
+                                out, lambda cc: ragged(self._element(elements, cc).data,
+                                                       self._residual_element(res, len(self._W) + len(K), cc), sop),
+                                K_new, C)
                             for ma, mb in zip(dirty[3], out[3]):
                                 self.assertTrue(np.array_equal(ma, mb))
-        self._assert_nonvacuous(seen)
+                            self._assert_needs_the_masks(lambda f: op(f, sop), dirty_frame, ind)
 
-    # -- the corewise transposes (ut3_*_corewise_transpose, ut3_*_corewise_derivatives_transpose) -----------
+    # -- the corewise transposes (ut3_*_corewise_transpose) ---------------------------------------------------
     def _points(self):
         """(label, uniform point, the ragged point(s) it represents)."""
         np.random.seed(8)
@@ -896,59 +918,42 @@ class TestTransposeOutputHygiene(unittest.TestCase):
         return cases
 
     def _corewise_wrappers(self, shape, C, K):
-        """(name, re-masked wrapper, bare pre-S0c body) -- each a function of (ut3 data, sum_over_probes)."""
-        ww, pp, index = self._vectors(shape, 9), self._vectors(shape, 10), self._index(shape)
+        """(name, uniform face, ragged face, residual) -- each face a function of (point data, sum_over_samples)."""
+        ww, index = self._vectors(shape, 9), self._index(shape)
         np.random.seed(14)
         S = self._W + tuple(K) + tuple(C)
-        O = _ORDER + 1
         z = [np.random.randn(*(S + (n,))) for n in shape]
         c = np.random.randn(*S)
-        zj = [np.random.randn(*((O,) + S + (n,))) for n in shape]
-        cj = np.random.randn(*((O,) + S))
-        pk = lambda vv, d: uops.pack_if_ragged(vv, d[0].shape[-1])
-        mk = ut3_masking.ut3_apply_masks
-        cf = lambda d: (mk(d)[0], mk(d)[1], mk(d)[1], mk(d)[1])       # the masked point's corewise frame (B, G, G, G)
-
-        def old(module, kind, res, sample):                           # P12: the pre-engine body, the old kernels
-            sweep = getattr(module, 'tv_precompute_%s_frame_sweep' % kind)
-            tail = getattr(module, 'tv_%s_transpose_from_sweep' % kind)
-            return lambda d, s: tail(res(d), sample(d), cf(d), sweep(cf(d), sample(d)), sum_over_probes=s)
         return [
             ('probe', lambda d, s: ut3s.ut3_probe_corewise_transpose(d, ww, z, sum_over_samples=s),
-             old(bprobing, 'probe', lambda d: pk(z, d), lambda d: pk(ww, d))),
+             lambda x, r, s: bprobing.t3_probe_corewise_transpose(x, ww, r, sum_over_samples=s), z),
             ('apply', lambda d, s: ut3s.ut3_apply_corewise_transpose(d, ww, c, sum_over_samples=s),
-             old(bapply, 'apply', lambda d: c, lambda d: pk(ww, d))),
+             lambda x, r, s: bapply.t3_apply_corewise_transpose(x, ww, r, sum_over_samples=s), c),
             ('entries', lambda d, s: ut3s.ut3_entries_corewise_transpose(d, index, c, sum_over_samples=s),
-             old(bentries, 'entries', lambda d: c, lambda d: index)),
-            ('probe_derivatives', lambda d, s: ut3s.ut3_probe_corewise_derivatives_transpose(zj, ww, pp, d, _ORDER, s),
-             lambda d, s: bsd.t3_probe_corewise_derivatives_transpose(
-                 pk(zj, d), pk(ww, d), pk(pp, d), mk(d), _ORDER, sum_over_probes=s)),
-            ('apply_derivatives', lambda d, s: ut3s.ut3_apply_corewise_derivatives_transpose(cj, ww, pp, d, _ORDER, s),
-             lambda d, s: bsd.t3_apply_corewise_derivatives_transpose(
-                 cj, pk(ww, d), pk(pp, d), mk(d), _ORDER, sum_over_probes=s)),
-            ('entries_derivatives',
-             lambda d, s: ut3s.ut3_entries_corewise_derivatives_transpose(cj, index, pp, d, _ORDER, s),
-             lambda d, s: bsd.t3_entries_corewise_derivatives_transpose(
-                 cj, index, pk(pp, d), mk(d), _ORDER, sum_over_probes=s)),
+             lambda x, r, s: bentries.t3_entries_corewise_transpose(x, index, r, sum_over_samples=s), c),
         ]
 
     def test_corewise_transposes(self):
-        seen = {}
         for label, xu, xs in self._points():
             C = tuple(xu.stack_shape)
             tk_C = _stacked_prefix([list(x.tucker_ranks) for x in xs], C, xu.n)       # (d,)+C+(n,)
             tt_C = _stacked_prefix([list(x.tt_ranks) for x in xs], C, xu.r)           # (d+1,)+C+(r,)
             dirty_data = _corrupt(xu, _GARBAGE).data
+            elements = xu.to_t3()
             for K in [(), (3,)]:
-                for name, op, seam in self._corewise_wrappers(xu.shape, C, K):
+                for name, op, ragged, res in self._corewise_wrappers(xu.shape, C, K):
                     for sop in (True, False):
-                        with self.subTest(case=label, K=K, op=name, sum_over_probes=sop):
+                        with self.subTest(case=label, K=K, op=name, sum_over_samples=sop):
                             out = op(xu.data, sop)
                             lead = tuple(K) if sop else self._W + tuple(K)                # the output's extra stack
                             tk, tt = _bc_over_K(tk_C, lead), _bc_over_K(tt_C, lead)
                             ind = _indicator(tk, tt[:-1], tk, tt[1:], xu.shape, xu.N)     # (a) the point's masks
-                            self._assert_hygiene(out, seam(xu.data, sop), ind, op(dirty_data, sop), seen, name)
-        self._assert_nonvacuous(seen)
+                            self._assert_hygiene(out, ind, op(dirty_data, sop))           # (c), (d)
+                            self._assert_real_block(                                      # (b)
+                                out, lambda cc: ragged(self._element(elements, cc).data,
+                                                       self._residual_element(res, len(self._W) + len(K), cc), sop),
+                                lead, C)
+                            self._assert_needs_the_masks(lambda d: op(d, sop), dirty_data, ind)
 
 
 if __name__ == '__main__':

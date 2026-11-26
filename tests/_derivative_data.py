@@ -12,9 +12,8 @@ The entries kind is the apply kind at the one-hot jet. The old transposes took t
 convention, ``sum_t D_t^T c_t`` with ``D_t = t! T_t``, so they are the merged transposes of the residual with slot
 ``t`` multiplied by ``t!``: ``taylor_to_derivatives`` again. A packed (uniform) vector keeps its form.
 
-This serves the tests that still fit with the old call form of the frontend optimizers (until P16) and the tests of
-the old kinds (until P20). The plan's prescription, section 5.3, P13. ``chunk_size`` is accepted and ignored: the
-engine does not chunk.
+This serves the tests that still fit with the old call form of the frontend optimizers and the tests written in
+derivative coordinates. The plan's prescription, section 5.3, P13.
 """
 import math
 
@@ -50,7 +49,7 @@ def forward(obj, kind, sample, pp, order):
     return _scale(method, order, getattr(obj, method)(jet, (order,)))
 
 
-def tangent_transpose(cls, kind, residual, sample, pp, frame, order, sum_over_probes=False, chunk_size=None):
+def tangent_transpose(cls, kind, residual, sample, pp, frame, order, sum_over_probes=False):
     """``cls.<kind>_derivatives_transpose(residual, sample, pp, frame, order, sum_over_probes)``,
     ``cls`` the ``T3Tangent`` or the ``UT3Tangent`` class."""
     method, jet = _jet(kind, sample, pp, frame.shape)
@@ -58,7 +57,7 @@ def tangent_transpose(cls, kind, residual, sample, pp, frame, order, sum_over_pr
                                                sum_over_samples=sum_over_probes)
 
 
-def corewise_transpose(x, kind, residual, sample, pp, order, sum_over_probes=False, chunk_size=None):
+def corewise_transpose(x, kind, residual, sample, pp, order, sum_over_probes=False):
     """``x.<kind>_corewise_derivatives_transpose(residual, sample, pp, order, sum_over_probes)``."""
     method, jet = _jet(kind, sample, pp, x.shape)
     return getattr(x, method + '_corewise_transpose')(jet, _scale(method, order, residual), (order,),
