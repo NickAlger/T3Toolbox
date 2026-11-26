@@ -146,3 +146,20 @@ where it is recorded. Larger rulings are also in `LOG.md`. The design's decision
 31. **K1 is built on the local side branch `k1-wip`**, one commit per reviewed part, squashed onto `graded-messages`
     when part 5's gate passes (as M2 and P16 were). The branch is pushed to the remote as a backup (the maintainer:
     the session ends at 03:00 CT and nothing should live only on the laptop); CI does not run on it.
+
+## The maintainer's instructions during the arc
+
+- **2026-11-25, on `typ.Any`:** "I have been skimming the code and see a lot of typ.Any's. Many of these are going
+  to change to have clear types by the time this K slice arc is over. However, at the end of the arc (once all
+  planned K slices are done) I would like to do an audit of typ.Any's in the sampling layer and downstream
+  operations, and assess why they are there and see if we can make them strict on a case-by-case basis. Sometimes
+  typ.Any may be unavoidable, but often it signals a sub-optimal design." **Done about it now** (Claude): the audit
+  is on the list after K7 (`K_ORCHESTRATOR_HANDOFF.md` §1); from K1's part 0 on, each handover lists the `typ.Any`s
+  left in the signatures its slice touched, with the reason for each (`K_BRIEF.md` §5), so the audit starts from a
+  reasoned list and not from a grep. **The count at K0's tree** (`grep -c 'typ\.Any'`, annotations and the few
+  mentions in prose alike): `sampling_definitions` 185, `backend/optimizers` 108, `jets` 47, `sampling_variables` 28,
+  `backend/fitting` 28, `sampling_steps` 23, `t3toolbox/optimizers` 19, `data_preparation` 17, `t3toolbox/fitting` 10,
+  `uniform_fitting` 6, `geometry` 5, `optimizer_display` 1; none in `probing`, `apply`, `entries`, `ut3_sampling`,
+  `utv_sampling`; 492 in the library as a whole.
+- **2026-11-25:** "Don't worry about the token cost." The session ends at 03:00 CT on 2026-11-26 and is resumed later
+  that day; everything is committed and pushed before it ends.

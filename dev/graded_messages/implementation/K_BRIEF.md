@@ -115,6 +115,13 @@ output is pasted from a real run; no email address in any file. In addition:
 - **Expected-red lists are recorded by a run,** never predicted.
 - **Comments are content.** The signature shape comments, their aligned columns and the ASCII diagrams are part of
   the code's contract. A scripted edit that touches comments is checked for them before it is called mechanical.
+- **`typ.Any` in a signature is a debt, and it is counted** (the maintainer, 2026-11-25: after K7 he audits every
+  `typ.Any` of the sampling layer and what is downstream, case by case; "sometimes typ.Any may be unavoidable, but
+  often it signals a sub-optimal design"). When a slice writes or changes a signature, annotate what Python can
+  express (`CLAUDE.md`, "Signature shape comments": real `Union` / `Optional`, a sequence type, the `PerSite`
+  `TypeVar` from K2 on) and do not reach for `typ.Any` out of habit. Each handover lists the `typ.Any`s left in the
+  signatures the slice touched, each with its reason (a per-mode object in two forms; a pytree of the caller's; a
+  duck-typed batch; ...). Do not go hunting for the ones a slice does not touch: that is the audit's.
 - **The planned pauses of `BRIEF.md` do not apply.** The orchestrator pauses for the maintainer when section 3's
   cases need him.
 - **When your context is getting long,** say so in your report, and write what a successor needs in
