@@ -90,3 +90,13 @@ where it is recorded. Larger rulings are also in `LOG.md`. The design's decision
 20. **A second implementer takes K1** (the first one's context filled building K0; it finishes K0's three minor
     fixes). Started on its orientation and K1's design note while K0's fixes are made, with no test runs until K0 is
     committed.
+
+## K1, the plan phase (2026-11-25)
+
+21. **A third reviewer takes K1's design review.** The second reviewer, after K0's two build-review rounds, judged
+    that K1's note, its rounds and its six part reviews would not fit its context and stopped before reading the note
+    (no opinion given), at a clean point, as asked. Its tools are kept in `k0/reviewer2_tools/`, its view of K1's
+    risks in `k1/REVIEWER_PRENOTES.md`, its handover in `K_REVIEWER_CARRYOVER.md`. Observed so far: a reviewer or an
+    implementer lasts about one phase of a slice after its orientation (the orientation is the maintainer's
+    instruction and is kept); rotations are planned at clean points, and each agent is asked after every turn how much
+    room it has.

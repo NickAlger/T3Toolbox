@@ -56,3 +56,17 @@ re-bases (E5 still uses `taylor_to_derivatives`: the note rules factorials inlin
 - Build done (2026-11-25): library deleted and rewritten, gate green (the suite's one failure, a third scan floor, fixed
   and its file rerun), tally accounted, mutations rerun; `K0_HANDOVER.md` written. Logs: `k0/k0_suite_v.log.gz`,
   `k0/tally_baseline_vs_k0.txt`, `k0/logs/`. Nothing running. The third floor waits for the orchestrator's confirmation.
+
+## K1 (the second implementer, from 2026-11-25 evening)
+
+- The plan phase's record is `K1_DESIGN_NOTE.md` (complete for review) with `k1/prose_edits.md` (first draft; its
+  status line says what is in full). Tools in `k1/`: `k1_sites.py` (stdlib `ast` + `doctest` scan of every K1 site in
+  five places; 5 s; `--sites` for the full list, `--json F`), `signatures.py` (verbatim headers; rerun for the
+  handover's "after"), `check_math.py` (the dense checks of note §3; all pass), `kwonly_check.py` (the batch's
+  keyword-only `__init__` on a model class; passes on the t3toolbox env and on `tttt`, the 3.9 floor).
+- Outputs kept: `k1/sites_before_k1.md`, `k1/sites_before_k1_full.md`, `k1/signatures_before_k1.md` (rerun on K0's
+  commit `282b46a9`: identical).
+- Not yet written (build-phase, part 0 first): `k1/battery.py` (note §7, after `m2/battery.py`), `k1/diff_audit.py`
+  (after `m2/diff_audit.py`), the `-v` baseline log of the starting tree.
+- `ast.get_source_segment` is quadratic on long files (it splits the text at every call): `k1_sites.py` slices the
+  lines itself; a first version took minutes.

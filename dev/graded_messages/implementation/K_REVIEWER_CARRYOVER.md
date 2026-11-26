@@ -1,73 +1,93 @@
-# Reviewer carryover (K arc), written after K0's design review r2
+# Reviewer carryover (K arc), written before K1's design review
 
-Claude (reviewer), 2026-11-25. This is what a successor needs that the slice records do not already hold. Read it
-with `K_BRIEF.md`, `BRIEF.md` ("What the reviewer does"), `K0_DESIGN_NOTE.md` (revision 2 or later),
-`K0_DESIGN_REVIEW_r1.md`, `K0_DESIGN_REVIEW_r2.md` and `k0/REVIEWER_PRENOTES.md`.
+Reviewer 2 (Claude), 2026-11-25, about 21:15 CT. I reviewed K0's build: `K0_REVIEW_r1.md` and `_r2.md`, both SIGN
+OFF; K0 is committed as `282b46a9`. I stopped here, at a clean point, before reading `K1_DESIGN_NOTE.md`: my context,
+which holds the orientation and all of K0, would not carry K1's design rounds and its part reviews. This page holds
+what a successor needs that the slice records do not. Read it with:
+- `K_BRIEF.md`, then `BRIEF.md` ("What the reviewer does");
+- `k0/REVIEWER2_PLAN.md` (my tools and my checklist, a model for K1's);
+- `K0_REVIEW_r1.md` (what a build review established, and how);
+- **`k1/REVIEWER_PRENOTES.md`** (my view of K1's risks, written before the note; the orchestrator asks the review to
+  answer it point by point).
 
-## Where K0 stands
+The predecessor's K0 carry-over, which this page replaces, is in git history (`282b46a9`).
 
-The plan phase ended at round 3, SIGN OFF (`K0_DESIGN_REVIEW_r3.md`), with one wording edit to apply in the build:
-`fitting`'s module docstring calls `Π` "the gauge projection", but on the corewise geometry `project` is the identity,
-or the per-group mean when the Tucker factors are tied. The exact replacement text is in r3, M1. Check that it was
-applied when reviewing the build.
+## Where things stand
 
-## Tools (scratch: `/tmp/claude-1000/-home-nick-repos-T3Toolbox/7a03b046-9177-4c43-923a-b31595edb27e/scratchpad/reviewer/k0/`)
+- **K0: done**, committed and pushed. Nothing of K0 is open.
+- **K1: its design note is ready and unreviewed** (`K1_DESIGN_NOTE.md`, 1,242 lines, pinned to `282b46a9`). Its
+  working files are in `k1/`: `k1_sites.py`, `sites_before_k1*.md`, `signatures*.{py,md}`, `check_math.py`,
+  `kwonly_check.py`, and `prose_edits.md` (a partial draft). The orchestrator's request for review round 1 lists what
+  it wants. In short:
+  - the pre-notes answered point by point;
+  - the design against `PACKING_PLAN.md` §2, §4.3, §4.4, §5, §7, §12-14 and `PACKING_PLAN_NOTES.md` §3d, §7;
+  - the note's three amendments of the parts, checked by experiment: an old name deleted with its last library
+    caller; a temporary `full_weight=batch.weight` in the oracle between parts 2 and 4; the translation moved to
+    part 4. In particular, **is there a part boundary at which the tree runs and is silently wrong?**
+  - independent dense checks of `M = γ b² f²`, the left alignment, `k!` at one and two jet variables, and `<y, M y>`
+    with `y`'s `C` axes of 1;
+  - the structural rule as stated at each enforcing place;
+  - the batch's hand-written keyword-only `__init__` (Python 3.9), its static aux, `dataclasses.replace`, old
+    positional calls;
+  - Part 0 as a pure refactor;
+  - an own scan of the site lists, including `getattr` and duck-typed readers;
+  - the prose split;
+  - the open points O1 to O4 and the decisions D1 to D15.
+- Do not run `check_math.py` as evidence: write your own checks (the orchestrator's instruction).
 
-The scratch folder can be cleared; rewrite a tool from this description if it is gone.
+## My tools (scratch: `/tmp/claude-1000/-home-nick-repos-T3Toolbox/7a03b046-9177-4c43-923a-b31595edb27e/scratchpad/reviewer2/`)
 
-- `scan.py`: my own `ast` inventory. It reads every module-level statement, closes over private orphans
-  transitively, and writes `deleted_names.json` (313 names; the note's `k0_names.json` has 315, the extra two being
-  `_t3_apply_step` and `_t3_entries_step`, deleted by decision).
-- `mysim.py OUT [x]`: copies `t3toolbox/` and `tests/` to OUT, removes `sampling_derivatives.py` and every deleted unit
-  (by `ast` line range), the dead imports and the `__all__` entries. Pass a second argument to also delete the two dead
-  scan bodies. It does not delete comment blocks. On that tree, today's tests gave 11 files failing at import (exactly
-  the note's) and 6 failures elsewhere (exactly the note's), in 14 minutes at `-n 2`.
-- `import_all.py [nojax]`: imports every module with `pkgutil`; `nojax` hides jax. 59 modules today, 58 after K0.
-- `tables_scan.py`, `tests_scan.py`, `doctest_scan.py`: module- and class-level test tables; `%s` templates in tests;
-  doctest lines naming deleted names.
-- `jvp_rebase.py`: the re-based jvp oracle at `order=(2,)` (probe, apply, uniform probe). Mutate a step by appending
-  a wrapper to `sampling_steps` in a scratch copy, as `jvp_mut2.py` does, or monkeypatching before `exec`.
-- `f32_x64.py`, `f32_mutant.py`: the engine's float32 under x64, and the `start_zeros` mutant without `dtype`.
-- `base_nodes.txt`: the 1,985 nodes of the baseline log with their outcomes.
+The scratch folder may be cleared. Each tool is short; rewrite it from this description if it is gone.
 
-## What I verified, so a successor need not redo it
+| Tool | What it does | Reuse for K1 |
+|---|---|---|
+| `unitdiff.py OLD NEW [--diff] [--comments] [files]` | every unit (module docstring, top-level or class-level statement, method; decorators, comments, blank lines inside) identical / changed / deleted / added, by exact text; comment blocks between units kept / gone / new | yes: every kept function's text, signature columns included |
+| `refs.py ROOT [NAMES_JSON] [--docs]` | every occurrence of a set of names, tokens classified (code / doctest / string / docstring / comment / page), code hits resolved by `ast` to the owning module; run-time names (`getattr`/`hasattr` with a computed name, `%`/format/f-string templates) | adapt: K1's removed names (`blocks_to_weight`, `check_weight`, `pack_data`, `_pack_data_space`, `data_metric`, the old helper names) as a names file `{'deleted': {module: [names]}}` |
+| `sim.py SRC OUT` | the mechanical cut of a frozen name list | K0 only |
+| `prose_check.py ROOT [PROSE_MD]` | each indented "After" block of a `prose_edits.md` present EXACT (relative indentation kept) in its file; each "Before" absent | yes, on `k1/prose_edits.md` (the file path comes from the last `path:lines` in a heading or bullet) |
+| `imports.py ROOT [nojax]` | imports every module, jax present or hidden; asserts the tree imported is ROOT's | yes |
+| `roles.py PAGE...` | every `:py:` role resolved by import plus `getattr` (Sphinx `-W` is blind: `nitpicky` is off) | yes |
+| `tally2.py OLDLOG NEWLOG OLDROOT NEWROOT` | per-node outcomes and subtest counts of two `-v` logs, each difference labelled by the static status of the test's text; an unchanged test whose record moved is flagged. It stops at the report sections (the FAILURES section echoes captured subtest lines). Its totals equalled pytest's on K0's logs | yes |
+| `helper_users.py OLD NEW` | unchanged tests reached through a changed or deleted helper (same file; class-scoped; imported helper modules; transitive) | yes |
+| `doctest_count.py ROOT` | docstrings with examples by `DocTestFinder` (pytest's count differs: 325 → 320 at K0, which is the one to state) | optional |
+| `mut.py copy/step/patch/same` and `run_mut.sh NAME "MUTATION" TESTS...` | scratch copies; a step scaled by `1 + eps` (rebinding the module attribute: the engine looks steps up by name); exact single-occurrence patches from a JSON spec; a check that the copy differs from its source only by the mutation; the runner prints the failed subtests | yes |
 
-- The 98 deleted tests all PASS at baseline. The expected count is 1,882 (1,979 - 98 + 1).
-- The `start_zeros` dtype mutant is caught by the surviving `test_sampling_stacks.TestTheDtypeMatrix`. My pre-note
-  claimed it would be unguarded; that was wrong.
-- A `Kp` mutant (`H_tilde_dot_step`) is caught by `TestByDefinition` and by the kept block-sum test.
-  `H_tilde_step` reaches apply's `Kp`; `V_top_step` is invisible to the identity tests (pinned by
-  `test_sampling_apply.TestByDefinition`).
-- Mutation (i) of note r1, the square dropped in the test's own weight, survives `test_residual_weights`: the
-  identity holds for any diagonal weight.
-- E1, E1c and E2 reproduce. The direction mask is not load-bearing on the real block in general position.
-  Parametrizing `TestKpAtTTSlack` over the three kinds needs real harness work (`ttslack_kinds.py` errors): K5's job,
-  by ruling.
-- `docs/conf.py` is not nitpicky, so Sphinx `-W` never catches a dangling `:py:` role. Check pages by script (import
-  plus `getattr` per role).
-- No kept doctest of the seven modules reads a module global that the note's import cleanup removes.
+Snapshots there: `head/` (the tree at `3a480e7c`, library as at `3375d213`) and `built/` (K0 as reviewed). Both can go
+once K1 starts; take a fresh `git archive` of `282b46a9` as K1's "before".
 
-## What to check in K0's build review
+## Lessons from K0 worth keeping
 
-- The prose against `prose_edits.md`, word for word. The deleted comment blocks against the note's ranges, especially
-  that no section banner of kept code is lost. Signature columns and diagrams of kept functions untouched (diff them).
-- `k0_inventory.py --check` gives 0. Rerun my `scan.py` on the built tree: it should find nothing left of the 315.
-- `import_all.py` both ways on the built tree.
-- The tally against `k0/baseline_v.log.gz` (renames mapped). Each edited test's subtest count as stated in the
-  handover.
-- The mutations of note §6, rerun on the **built** tests, not the prototypes. Add mine: `H_tilde_step` on the jvp
-  apply row; `start_zeros` dtype on the re-based dtype test; the hygiene control with masks in place (must pass) and
-  removed (must raise).
-- The re-based `test_tucker_tensor_train` forward uses `dense_*` and inline factorials, no `taylor_to_derivatives`.
-- The negative control patches `_UNIFORM_MASKS`, `_mask_variable` and `ufv_masking.ufv_apply_variations_masks`, and
-  asserts `'padding not zero'`.
-- The slow tier of `test_uniform_curvature.py` was run before the deletion (the recorded step), and again in the gate.
-- `test_import_graph.py`'s module docstring mentions the new test.
+- **Compare code tokens, not diffs, when only prose should change.** An `ast` with docstrings blanked, plus tokens
+  without comments and strings, settled K0's round 2 without a test run.
+- **A `-v` log's validity for the final tree:** compare the files' mtimes (with seconds) against the run's start
+  (its end less its duration). Then run only what changed after it.
+- **Negative controls with several patches:** remove each patch in turn and see which rows go red. At K0 each
+  masking layer alone zeroes the padding, so all three patches are needed, and the re-mask patch only on the tangent
+  rows.
+- **Floors that scan the library**, measured at K0 with the test modules' own functions:
+
+  | Floor | At K0 |
+  |---|---|
+  | vocabulary `> 60` | 84 |
+  | call sites `> 90` | 113 |
+  | subscript literals `> 100` | 208 |
+  | jet literals `>= 29` | 38 |
+  | sharding cases `> 150` | 228 |
+  | backend modules `> 30` | 47 |
+
+  Re-measure in any slice that removes contractions (K5 above all: the call-site floor is the nearest).
+- The dense reference (`sampling_definitions._weight_squared`) forms `ω²` itself and imports no `jets`. Keep it that
+  way through K1 (pre-notes §1c).
 
 ## Carried to later slices
 
-- K5: point the hygiene negative control's patches at K5's masking points, and add the apply and entries cases of
-  `TestKpAtTTSlack` first, against the engine as it then is, before changing the masking (ruling, `K_ARC_DECISIONS.md`).
-- P17: `sum_over_probes` in `tests/_derivative_data.py` and its callers, by name.
-- P19: the pages' prose listed in note §2.2, including `signature_style.md`/`reading_signatures.md` quoting
-  `compute_mu`; adding new names to `api_reference.rst`.
+- **K5:**
+  - point the hygiene negative control's three patches (`_UNIFORM_MASKS`, `_mask_variable`,
+    `ufv_masking.ufv_apply_variations_masks`) at K5's masking points;
+  - add the apply and entries cases of `TestKpAtTTSlack` before changing the masking (`K_ARC_DECISIONS.md` 11);
+  - re-measure the floors above.
+- **P17:** `sum_over_probes` in `tests/_derivative_data.py` and its callers (ruling 10); `chunk_size` in the
+  translation; `tests/oracle_sweeps/oracle.py:146`'s "until the old kinds go".
+- **P19:** the pages' prose naming deleted code (`K0_HANDOVER.md` §5 lists them; `signature_style.md` and
+  `reading_signatures.md` quote `compute_mu`); `test_uniform_curvature.py`'s docstring naming
+  `uniform_least_squares_problem` (a P16 leftover).
