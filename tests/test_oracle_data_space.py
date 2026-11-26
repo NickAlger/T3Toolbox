@@ -4,7 +4,7 @@
 """The least-squares oracle's batch on the data-space rule (the data-metric arc, M2 part 4): ``y`` and the weight are
 of the type of ``z``, each axis 1 or ``z``'s size, with the model's stack ``C``.
 
-- ``check_batch(batch, shape, stack_shape)`` passes the stack to both checkers;
+- the batch's ``check(shape, stack_shape)`` passes the stack to both checkers;
 - ``take`` draws ``y`` and the weight against explicit index loops (a weight full on one ``W`` axis only, one constant
   over ``W``; probe ragged, mode-leading and packed);
 - ``pack_batch`` packs the weight with ``y`` by one rule, against loops (the join across the modes, an edge of 1 kept or
@@ -133,23 +133,29 @@ class TestCheckBatch(Base):
             per_element = of_type(kind, patterned(self.rng, full, [[True] * len(s) for s in full], positive=True))
             unstacked = of_type(kind, patterned(self.rng, z_shapes(kind, order, W, ()),
                                                 [[True] * len(s) for s in z_shapes(kind, order, W, ())]))
-            oracle = LeastSquaresOracle(kind, order)
+            oracle = LeastSquaresOracle()
             with self.subTest(kind=kind, case='good'):
-                oracle.check_batch(LeastSquaresBatch(sample, shared_y, per_element), SHAPE, stack_shape=C)
-                oracle.check_batch(LeastSquaresBatch(sample, per_element, None), SHAPE, stack_shape=C)
-                oracle.check_batch(LeastSquaresBatch(sample, unstacked, None), SHAPE)       # the default (): unstacked
+                LeastSquaresBatch(kind, order, sample, shared_y, weight=per_element).check(SHAPE, stack_shape=C)
+                LeastSquaresBatch(kind, order, sample, per_element, weight=None).check(SHAPE, stack_shape=C)
+                LeastSquaresBatch(kind, order, sample, unstacked, weight=None).check(SHAPE)   # default (): unstacked
             three = of_type(kind, patterned(self.rng, z_shapes(kind, order, W, (3,)),
                                             [[True] * len(s) for s in z_shapes(kind, order, W, (3,))], positive=True))
-            bad = {'y full in C, no stack_shape': (LeastSquaresBatch(sample, per_element, None), ()),
-                   'weight full in C, no stack_shape': (LeastSquaresBatch(sample, unstacked, per_element), ()),
-                   'a stacked y against C = ()': (LeastSquaresBatch(sample, shared_y, None), ()),
-                   'y with C = 3 against C = 2': (LeastSquaresBatch(sample, three, None), C),
-                   'weight with C = 3 against C = 2': (LeastSquaresBatch(sample, shared_y, three), C),
-                   'an unstacked weight against C = 2': (LeastSquaresBatch(sample, shared_y, unstacked), C)}
+            bad = {'y full in C, no stack_shape':
+                       (LeastSquaresBatch(kind, order, sample, per_element, weight=None), ()),
+                   'weight full in C, no stack_shape':
+                       (LeastSquaresBatch(kind, order, sample, unstacked, weight=per_element), ()),
+                   'a stacked y against C = ()':
+                       (LeastSquaresBatch(kind, order, sample, shared_y, weight=None), ()),
+                   'y with C = 3 against C = 2':
+                       (LeastSquaresBatch(kind, order, sample, three, weight=None), C),
+                   'weight with C = 3 against C = 2':
+                       (LeastSquaresBatch(kind, order, sample, shared_y, weight=three), C),
+                   'an unstacked weight against C = 2':
+                       (LeastSquaresBatch(kind, order, sample, shared_y, weight=unstacked), C)}
             for label, (batch, stack) in bad.items():
                 with self.subTest(kind=kind, case=label):
                     with self.assertRaisesRegex(ValueError, 'of the type of z'):
-                        oracle.check_batch(batch, SHAPE, stack_shape=stack)
+                        batch.check(SHAPE, stack_shape=stack)
 
 
 class TestTake(Base):
@@ -179,7 +185,7 @@ class TestTake(Base):
                 m = len(order)
                 sample = sample_of(kind, self.rng, order, self.W)
                 full = z_shapes(kind, order, self.W, ())
-                oracle = LeastSquaresOracle(kind, order)
+                oracle = LeastSquaresOracle()
                 for wk in self.W_KEEPS:
                     for yk in ((True, True), (False, False)):          # y full, or constant over W
                         rest = lambda s, keepW: [bool(self.rng.integers(2)) for _ in range(m)] + list(keepW) + \
@@ -192,7 +198,7 @@ class TestTake(Base):
                                           1 + m))
                         for form, yv, wv, start in forms:
                             with self.subTest(kind=kind, order=order, weight_W=wk, y_W=yk, form=form):
-                                sub = oracle.take(LeastSquaresBatch(sample, yv, wv), indices)
+                                sub = LeastSquaresBatch(kind, order, sample, yv, weight=wv).take(indices)
                                 for got, given in ((sub.y, yv), (sub.weight, wv)):
                                     if form == 'ragged' and kind == 'probe':
                                         self.assertIsInstance(got, list)
@@ -209,7 +215,7 @@ class TestTake(Base):
         order = (1,)
         sample = sample_of('probe', self.rng, order, self.W)
         w = 0.5 + self.rng.random((3, 2, 1, 3, 1))                 # (d,) + F + W + (edge,), full on W's axis 1
-        sub = LeastSquaresOracle('probe', order).take(LeastSquaresBatch(sample, None, w), np.array([5, 2]))
+        sub = LeastSquaresBatch('probe', order, sample, None, weight=w).take(np.array([5, 2]))
         self.assertEqual(sub.weight.shape, (3, 2, 2, 1))
         self.assertTrue(np.array_equal(sub.weight, self.expected(w, 2, [5, 2])))
 
@@ -217,11 +223,11 @@ class TestTake(Base):
         """A weight that is not of the type of ``z`` (one value per block: its W axes are missing) raises at the draw,
         instead of being read with its jet axes in W's place."""
         sample = sample_of('apply', self.rng, (1,), self.W)
-        oracle = LeastSquaresOracle('apply', (1,))
+        oracle = LeastSquaresOracle()
         for label, w in (('blocks', np.ones(2)), ('a W of another size', np.ones((2, 4, 3)))):
             with self.subTest(case=label):
                 with self.assertRaisesRegex(ValueError, 'not of the type of z'):
-                    oracle.take(LeastSquaresBatch(sample, None, w), np.array([0, 1]))
+                    LeastSquaresBatch('apply', (1,), sample, None, weight=w).take(np.array([0, 1]))
 
 
 class TestPacking(Base):
@@ -259,11 +265,12 @@ class TestPacking(Base):
             w = patterned(self.rng, full, keeps, positive=True)
             y = patterned(self.rng, full, keeps[::-1])
             with self.subTest(case=label):
-                packed = pack_batch('probe', order, LeastSquaresBatch(sample, y, w, 2.0, np.array([0])), NPACK)
+                packed = pack_batch(LeastSquaresBatch('probe', order, sample, y, weight=w, minibatch_scale=2.0,
+                                                      drawn_indices=np.array([0])), NPACK)
                 self.assertTrue(np.array_equal(packed.weight, self.expected_packed(w)))
                 self.assertTrue(np.array_equal(packed.y, self.expected_packed(y)))
                 self.assertEqual(packed.minibatch_scale, 2.0)
-                again = pack_batch('probe', order, packed, NPACK)               # a packed object is kept as it is
+                again = pack_batch(packed, NPACK)               # a packed object is kept as it is
                 self.assertIs(again.weight, packed.weight)
                 self.assertIs(again.y, packed.y)
         for kind in ('apply', 'entries'):                                       # no mode edge: not packed
@@ -273,7 +280,7 @@ class TestPacking(Base):
             (y,) = patterned(self.rng, [shape], [[True] * len(shape)])
             (w,) = patterned(self.rng, [shape], [[True] * len(shape)], positive=True)
             with self.subTest(kind=kind):
-                packed = pack_batch(kind, order, LeastSquaresBatch(s, y, w), NPACK)
+                packed = pack_batch(LeastSquaresBatch(kind, order, s, y, weight=w), NPACK)
                 self.assertIs(packed.weight, w)
                 self.assertIs(packed.y, y)
 
@@ -290,10 +297,10 @@ class TestPacking(Base):
                    'mixed edges': patterned(self.rng, full, [[True, True, True], [True, False, False],
                                                               [False, True, True]], positive=True)}
         want = ('f', 'f_resolution', 'r_block_sumsq', 'g')
-        oracle = LeastSquaresOracle('probe', order)
+        oracle = LeastSquaresOracle()
         for label, w in weights.items():
-            batch = LeastSquaresBatch(sample, y, w)
-            pb = pack_batch('probe', order, batch, NPACK)
+            batch = LeastSquaresBatch('probe', order, sample, y, weight=w)
+            pb = pack_batch(batch, NPACK)
             garbage = {}
             for name in ('sample', 'y', 'weight'):
                 a = np.array(getattr(pb, name))
@@ -330,7 +337,7 @@ class TestFResolution(Base):
                     xu = ut3.UniformTuckerTensorTrain.from_t3(x, N=NPACK, n=4, r=4)
                     sample = sample_of(kind, self.rng, order, W)
                     full = z_shapes(kind, order, W, C)
-                    oracle = LeastSquaresOracle(kind, order)
+                    oracle = LeastSquaresOracle()
                     for trial in range(4):
                         ky = [[bool(self.rng.integers(2)) for _ in s] for s in full]
                         kw = [[bool(self.rng.integers(2)) for _ in s] for s in full]
@@ -339,7 +346,7 @@ class TestFResolution(Base):
                                   for s in full]
                         y = of_type(kind, patterned(self.rng, full, ky))
                         w = None if trial == 1 else of_type(kind, patterned(self.rng, full, kw, positive=True))
-                        batch = LeastSquaresBatch(sample, y, w)
+                        batch = LeastSquaresBatch(kind, order, sample, y, weight=w)
                         expected_yMy = np.zeros(C)
                         ys = y if kind == 'probe' else [y]
                         ws = [None] * len(ys) if w is None else (w if kind == 'probe' else [w])
@@ -352,7 +359,7 @@ class TestFResolution(Base):
                                 total += float(np.sum((O * O * Y * Y)[at]))
                             expected_yMy[c] = total
                         calls = [('frame', t3m.MANIFOLD.frame(x).data, batch), ('point', x.data, batch),
-                                 ('uniform point', xu.data, pack_batch(kind, order, batch, NPACK))]
+                                 ('uniform point', xu.data, pack_batch(batch, NPACK))]
                         for label, frame, b in calls:
                             with self.subTest(kind=kind, order=order, C=C, trial=trial, call=label):
                                 (f, fres), _ = oracle.query(frame, b, ('f', 'f_resolution'))
@@ -366,8 +373,8 @@ class TestFResolution(Base):
     def test_it_needs_y_even_with_a_held_r(self):
         """``f`` can come from a held ``r`` with no ``y``; ``<y, M y>`` cannot: a ``ValueError`` saying so."""
         sample = sample_of('apply', self.rng, (), (4,))
-        batch = LeastSquaresBatch(sample, self.data('apply', self.target, sample, ()))
-        oracle = LeastSquaresOracle('apply', ())
+        batch = LeastSquaresBatch('apply', (), sample, self.data('apply', self.target, sample, ()))
+        oracle = LeastSquaresOracle()
         (f,), held = oracle.query(self.x.data, batch, ('f',))
         (f_held,), _ = oracle.query(self.x.data, dc.replace(batch, y=None), ('f',), held=held)
         self.assertEqual(float(f_held), float(f))
@@ -407,16 +414,16 @@ class TestAZeroWeightDeletesASample(Base):
                     sample_cut = [cut(a, m) for a in sample]
                 y_cut = [cut(a, m) for a in y] if kind == 'probe' else cut(y, m)
                 w_cut = [cut(a, m) for a in w] if kind == 'probe' else cut(weight, m)
-                with_zero = LeastSquaresBatch(sample, y, weight)
-                deleted = LeastSquaresBatch(sample_cut, y_cut, w_cut)
-                oracle = LeastSquaresOracle(kind, order)
+                with_zero = LeastSquaresBatch(kind, order, sample, y, weight=weight)
+                deleted = LeastSquaresBatch(kind, order, sample_cut, y_cut, weight=w_cut)
+                oracle = LeastSquaresOracle()
                 # the residual at j is not zero (the deletion is visible)
                 (r,), _ = oracle.query(frame.data, with_zero, ('r',))
                 r_j = [np.take(a, j, axis=m) for a in r] if kind == 'probe' else np.take(r, j, axis=m)
                 self.assertGreater(min(float(np.max(np.abs(a))) for a in leaves(r_j)), 1e-3)
                 calls = [('ragged', frame.data, v, with_zero, deleted),
-                         ('uniform', uframe.data, uv, pack_batch(kind, order, with_zero, NPACK),
-                          pack_batch(kind, order, deleted, NPACK))]
+                         ('uniform', uframe.data, uv, pack_batch(with_zero, NPACK),
+                          pack_batch(deleted, NPACK))]
                 for label, fr, dirs, a_batch, b_batch in calls:
                     with self.subTest(kind=kind, order=order, layout=label):
                         got, _ = oracle.query(fr, a_batch, want, variations=dirs)
@@ -426,8 +433,8 @@ class TestAZeroWeightDeletesASample(Base):
                         w_one = [a.copy() for a in w]
                         for a in w_one:
                             a[(slice(None),) * m + (j,)] = 1.0
-                        one = LeastSquaresBatch(sample, y, of_type(kind, w_one))
-                        one = one if label == 'ragged' else pack_batch(kind, order, one, NPACK)
+                        one = LeastSquaresBatch(kind, order, sample, y, weight=of_type(kind, w_one))
+                        one = one if label == 'ragged' else pack_batch(one, NPACK)
                         (f_one,), _ = oracle.query(fr, one, ('f',))
                         term_j = 0.5 * sum(float(np.sum(a ** 2)) for a in leaves(r_j))      # weight 1 at j
                         self.assertGreater(term_j, 1e-6 * float(got[0]))
@@ -456,12 +463,14 @@ class TestStackedDataAreSeparateFits(Base):
                 y = self.data(kind, target, sample, order)              # F+W+C(+(N_i,)): one dataset per element
                 full = z_shapes(kind, order, W, C)
                 weight = of_type(kind, patterned(self.rng, full, [[True] * len(s) for s in full], positive=True))
-                oracle = LeastSquaresOracle(kind, order)
-                stacked, _ = oracle.query(frame, LeastSquaresBatch(sample, y, weight), want, variations=v)
+                oracle = LeastSquaresOracle()
+                stacked, _ = oracle.query(frame, LeastSquaresBatch(kind, order, sample, y, weight=weight), want,
+                                          variations=v)
                 f_elements = []
                 for c in range(C[0]):
                     with self.subTest(kind=kind, order=order, element=c):
-                        b_c = LeastSquaresBatch(sample, element(kind, y, axis, c), element(kind, weight, axis, c))
+                        b_c = LeastSquaresBatch(kind, order, sample, element(kind, y, axis, c),
+                                                weight=element(kind, weight, axis, c))
                         single, _ = oracle.query(tree_at(frame, c), b_c, want, variations=tree_at(v, c))
                         f_elements.append(float(single[0]))
                         self.assertLess(abs(float(stacked[0][c]) - float(single[0])), 1e-13 * float(single[0]))
@@ -469,13 +478,13 @@ class TestStackedDataAreSeparateFits(Base):
                         self.assertLess(relerr(tree_at(stacked[2], c), single[2]), 1e-13)
                         self.assertLess(abs(float(stacked[3][c]) - float(single[3])), 1e-13 * float(single[3]))
                         # the other element's data give another f (a mix-up of the elements would show)
-                        other = LeastSquaresBatch(sample, element(kind, y, axis, 1 - c),
-                                                  element(kind, weight, axis, 1 - c))
+                        other = LeastSquaresBatch(kind, order, sample, element(kind, y, axis, 1 - c),
+                                                  weight=element(kind, weight, axis, 1 - c))
                         (f_other,), _ = oracle.query(tree_at(frame, c), other, ('f',))
                         self.assertGreater(abs(float(f_other) - float(single[0])), 1e-3 * float(single[0]))
                 with self.subTest(kind=kind, order=order, layout='uniform'):
-                    batch = LeastSquaresBatch(sample, y, weight)
-                    (f_u, g_u, fres_u), _ = oracle.query(xu.data, pack_batch(kind, order, batch, NPACK),
+                    batch = LeastSquaresBatch(kind, order, sample, y, weight=weight)
+                    (f_u, g_u, fres_u), _ = oracle.query(xu.data, pack_batch(batch, NPACK),
                                                          ('f', 'g', 'f_resolution'))
                     (f_r, g_r, fres_r), _ = oracle.query(x.data, batch, ('f', 'g', 'f_resolution'))
                     self.assertLess(relerr(f_u, f_r), 1e-12)
@@ -514,11 +523,11 @@ class TestUnbiasedOverEverySubset(Base):
                       'y constant over W': of_type(kind, patterned(self.rng, full,
                                                                    [[True] * m + [False] * n_w + [True] * (kind == 'probe')
                                                                     for _ in full]))}
-                oracle = LeastSquaresOracle(kind, order)
+                oracle = LeastSquaresOracle()
                 X = self.x.to_dense()
                 for label, y in ys.items():
                     with self.subTest(kind=kind, order=order, y=label):
-                        batch = LeastSquaresBatch(sample, y, w)
+                        batch = LeastSquaresBatch(kind, order, sample, y, weight=w)
                         (f, g), _ = oracle.query(self.x.data, batch, ('f', 'g'))
                         f_dense = dense_oracle.misfit_full(kind, X, dense_sample, y, w, order)
                         self.assertLess(abs(float(f) - f_dense), 1e-12 * f_dense)
@@ -533,7 +542,7 @@ class TestUnbiasedOverEverySubset(Base):
                                         1e-10 * max(f_dense, 1.0))
                         fs, gs = [], []
                         for subset in itertools.combinations(range(math.prod(W)), 2):
-                            (fb, gb), _ = oracle.query(self.x.data, oracle.take(batch, np.array(subset)), ('f', 'g'))
+                            (fb, gb), _ = oracle.query(self.x.data, batch.take(np.array(subset)), ('f', 'g'))
                             fs.append(float(fb))
                             gs.append(leaves(gb))
                         self.assertEqual(len(fs), 15)

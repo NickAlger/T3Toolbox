@@ -1085,7 +1085,7 @@ class TestExactLocalModel(unittest.TestCase):
                 x, other = _unit_point(_MINIMAL), _unit_point(_MINIMAL)
                 ww = [rng.standard_normal((40, N)) for N in _MINIMAL[0]]
                 data = bapply.t3_apply(other, ww) + 0.1 * rng.standard_normal(40)
-                prob = F.Fit(_MANIFOLD, _BlockSumApplyOracle('apply', ()), LeastSquaresBatch(ww, data))
+                prob = F.Fit(_MANIFOLD, _BlockSumApplyOracle(), LeastSquaresBatch('apply', (), ww, data))
                 self._check_retraction_fd(prob, x, cd)
 
     def _check_retraction_fd(self, prob, x, cd):
@@ -1861,9 +1861,9 @@ class TestRequiredSixthOperation(unittest.TestCase):
         rng = np.random.default_rng(45)
         x, other = _unit_point(_MINIMAL), _unit_point(_MINIMAL)
         ww = [rng.standard_normal((30, N)) for N in _MINIMAL[0]]
-        batch = LeastSquaresBatch(ww, bapply.t3_apply(other, ww))
-        prob = F.Fit(_MANIFOLD, _NoKpOracle('apply', ()), batch)
-        ref = F.Fit(_MANIFOLD, LeastSquaresOracle('apply', ()), batch)
+        batch = LeastSquaresBatch('apply', (), ww, bapply.t3_apply(other, ww))
+        prob = F.Fit(_MANIFOLD, _NoKpOracle(), batch)
+        ref = F.Fit(_MANIFOLD, LeastSquaresOracle(), batch)
         p = _unit_tangent(_MANIFOLD, prob.local_model(x).frame)
         self.assertTrue(all(np.array_equal(a, b) for a, b in zip(sum(prob.local_model(x).hvp(p), ()),
                                                                  sum(ref.local_model(x).hvp(p), ()))))

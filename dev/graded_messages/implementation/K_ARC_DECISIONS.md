@@ -165,3 +165,24 @@ where it is recorded. Larger rulings are also in `LOG.md`. The design's decision
   `backend/sampling_definitions.py`, 185 of the 492). The handovers' lists leave it out too.
 - **2026-11-25:** "Don't worry about the token cost." The session ends at 03:00 CT on 2026-11-26 and is resumed later
   that day; everything is committed and pushed before it ends.
+
+## K1, the build (2026-11-25 and 26)
+
+32. **Part 0 approved and committed to `k1-wip`** (`K1_part0_HANDOVER.md`; `K1_part0_REVIEW_r1.md` SIGN OFF with five
+    minor findings; `K1_part0_RESPONSE_r1.md`). The four fixes made after the sign-off (an aligned comment pair in a
+    page, a blank line before a doctest, a test for an untested branch of `_require_draw`, the layout of one module
+    docstring) were checked by Claude by a diff of the two diffs and by running what they touch, not by a second
+    review round: the reviewer's context was three quarters used, and the changes are four small hunks.
+33. **Prose is not re-flowed incidentally** (told to the implementer, written into its carry-over): where a part
+    rewrites a sentence of a docstring, the lines that do not change stay byte for byte, so that the diff shows the
+    change; a paragraph is re-wrapped only where an inserted sentence forces it. Cause: a wrapping script of the
+    implementer's re-filled the `backend/fitting.py` module docstring (and, earlier, long lines already in the test
+    files, which it reverted before the handover). The reviewer confirmed by text and token comparison that no other
+    line moved. Found by Claude reading the library diff.
+34. **Towards precise types, small departures from the approved signatures are the implementer's** (the maintainer's
+    `typ.Any` rule): in part 0, `minibatch_scale: typ.Optional[typ.Union[float, NDArray]]` and two typed frontend
+    helpers. The reviewer checked each is true under jit. For the audit after K7, noted by the reviewer: the batch's
+    `sample`, `y` and weights could be `Union[Sequence[NDArray], NDArray, None]` today; left to K2's `PerSite`.
+35. **A third implementer takes part 1** (the second one's context: the design, its two rounds, part 0 and its
+    fixes), started on `K_IMPLEMENTER_CARRYOVER.md`; a fourth reviewer will take part 1's review from
+    `K_REVIEWER_CARRYOVER.md`.

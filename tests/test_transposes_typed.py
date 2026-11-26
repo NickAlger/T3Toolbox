@@ -245,8 +245,8 @@ class TestTheGradientOfAWeightedFit(unittest.TestCase):
             for w in weight:
                 w.reshape(-1)[::5] = 0.0
             y, weight = (y, weight) if kind == 'probe' else (y[0], weight[0])
-            oracle = LeastSquaresOracle(kind, order)
-            drawn = oracle.take(LeastSquaresBatch(sample, y, weight), indices)
+            oracle = LeastSquaresOracle()
+            drawn = LeastSquaresBatch(kind, order, sample, y, weight=weight).take(indices)
             gamma = float(drawn.minibatch_scale)
             forward = (lambda T: T.entries(drawn.sample)) if kind == 'entries' else \
                 (lambda T: getattr(T, kind)(drawn.sample, order))

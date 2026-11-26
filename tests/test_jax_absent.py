@@ -71,8 +71,8 @@ lift = fvo.fv_lift_factors(frame.data, 1e-6)
 assert type(lift) is fvo.LiftFactors
 geom = bgeo.ManifoldGeometryOps()
 line = jets_.affine_jet(wwe, ppe)
-oracle = bfit.LeastSquaresOracle('probe', (order,))
-batch = bfit.LeastSquaresBatch(line, target.probe(line, (order,)))     # the Taylor coefficients along the lines
+oracle = bfit.LeastSquaresOracle()
+batch = bfit.LeastSquaresBatch('probe', (order,), line, target.probe(line, (order,)))     # the Taylor coefficients
 lm = bopt.local_model(geom, oracle, batch, xe.data, hessian='exact')
 assert type(lm.curvature) is bopt.CurvatureState and lm.is_exact
 assert type(lm.curvature.geometry_data) is bgeo.ManifoldCurvatureData

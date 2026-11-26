@@ -82,7 +82,8 @@ class TestDataMetric(unittest.TestCase):
                     assert_law(self, lambda b: jets.blocks_to_weight(kind, order, b, y), (blocks,),
                                (law.P_star(blocks, lead=lead),), lambda w: law.P_star(w, lead=lead))
                 weight = jets.blocks_to_weight(kind, order, blocks, y)
-                method = lambda r, w: LeastSquaresBatch(None, y, w, 0.5).data_metric(r)
+                method = lambda r, w: LeastSquaresBatch(kind, order, None, y, weight=w,
+                                                        minibatch_scale=0.5).data_metric(r)
                 with self.subTest(kind=kind, order=order, function='LeastSquaresBatch.data_metric'):
                     assert_law(self, method, (y, weight), (law.P(y), law.P_star(weight, lead=lead)), law.P_star)
 

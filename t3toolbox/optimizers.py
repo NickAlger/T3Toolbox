@@ -7,7 +7,7 @@ A thin wrapper over :py:mod:`t3toolbox.backend.optimizers` (where the algorithms
 raw-``.data`` user can call them directly). Each optimizer takes ``(geometry, oracle, batch, x0, ...)``: the
 frontend geometry, the objective's **oracle** (e.g. :py:class:`~t3toolbox.fitting.LeastSquaresOracle`), its **batch**
 of data (e.g. :py:class:`~t3toolbox.fitting.LeastSquaresBatch`) and the start. This layer (1) checks the batch
-(``oracle.check_batch`` on a ragged batch, when the oracle has it; structural, before any work), (2) maps the
+(``batch.check`` on a ragged batch, when the batch has it; structural, before any work), (2) maps the
 geometry to the backend one and reduces ``x0`` to minimal ranks (a manifold geometry; always on the uniform layer),
 (3) packs the batch for a uniform ``x0``, (4) calls the backend optimizer on the raw cores, and (5) re-wraps the
 result. Design: ``docs/contributor/fitting_internals.md`` §"Backend-first".
@@ -100,12 +100,12 @@ class _Setup:
         return t3.TuckerTensorTrain(*cores)
 
 
-def _setup(geometry, oracle, batch, x0) -> _Setup:
+def _setup(geometry, batch, x0: Point) -> _Setup:
     """The frontend's work before a backend optimizer: the layer check, the batch check (structural, before any
     work), x0's reduction to minimal ranks, the backend geometry, the batch packed for a uniform x0 (the reduction
     keeps the packed width N, so packing at the given x0 is packing at the reduced one)."""
     _fitting._require_layer(geometry, x0)
-    bbatch = _fitting.prepare_batch(oracle, batch, x0)
+    bbatch = _fitting.prepare_batch(batch, x0)
     sharing = _fitting._sharing_of(geometry)
     if isinstance(x0, ut3.UniformTuckerTensorTrain):
         x0 = uf.uniform_minimal(x0, sharing=sharing)          # transparent SHARED-minimal reduction (no-op if minimal)
@@ -114,12 +114,33 @@ def _setup(geometry, oracle, batch, x0) -> _Setup:
     return _Setup(_fitting.backend_geometry(geometry, x0), x0, (x0.data[0], x0.data[1]), bbatch)
 
 
-def _frontend_draw(oracle, draw, x0):
-    """A draw for a uniform x0 packs what it returns (a ragged batch from the caller's draw; not re-checked each
-    step)."""
-    if draw is None or not isinstance(x0, ut3.UniformTuckerTensorTrain):
+def _same_kind_and_order(
+        batch,                       # the full batch: a LeastSquaresBatch, or a user's type (getattr, None if absent)
+        other,                       # a drawn or validation batch, likewise
+        who:   str,                  # for the message
+) -> None:
+    """One kind and one jet shape per fit: each batch is read under its own, so a second batch of another kind or
+    order would fit another objective with no error. Structural (two static tuples); a ``ValueError`` naming both."""
+    full = (getattr(batch, 'kind', None), getattr(batch, 'order', None))
+    given = (getattr(other, 'kind', None), getattr(other, 'order', None))
+    if given != full:
+        raise ValueError('%s is of kind %r and order %r, the batch of kind %r and order %r: a fit has one kind and one '
+                         'jet shape' % ((who,) + given + full))
+
+
+def _frontend_draw(draw: typ.Optional[typ.Callable], batch, x0: Point) -> typ.Optional[typ.Callable]:
+    """Each batch a user's draw returns is compared with the full batch, its kind and its jet shape (structural, two
+    tuples per draw: a draw of another kind or order would fit another objective), and for a uniform x0 packed (not
+    re-checked each step)."""
+    if draw is None:
         return draw
-    return lambda rng: _fitting.prepare_batch(oracle, draw(rng), x0, check=False)
+    uniform = isinstance(x0, ut3.UniformTuckerTensorTrain)
+
+    def checked(rng):
+        drawn = draw(rng)
+        _same_kind_and_order(batch, drawn, 'the batch a draw returned')
+        return _fitting.prepare_batch(drawn, x0, check=False) if uniform else drawn
+    return checked
 
 
 # --------------------------------------------------------------------------------------------------
@@ -195,7 +216,7 @@ def _old_fit(
         data = _shared_by_the_stack(kind, data, stack_shape)
         w = None if wm is None else jets.blocks_to_weight(kind, (), np.ascontiguousarray(
             np.broadcast_to(wm[:d, 0], (d,))), data)
-        return LeastSquaresOracle(kind, ()), LeastSquaresBatch(sample, data, w)
+        return LeastSquaresOracle(), LeastSquaresBatch(kind, (), sample, data, weight=w)
     if kind not in _OLD_DERIVATIVE:
         raise ValueError(f"unknown sampling kind {kind!r}; expected one of "
                          f"{sorted(_OLD_PLAIN) + sorted(_OLD_DERIVATIVE)}")
@@ -215,7 +236,7 @@ def _old_fit(
     data = _shared_by_the_stack(base, data, stack_shape)
     w = None if w is None else jets.blocks_to_weight(base, (n,), w, data)          # on the derivatives, then converted
     y, w, _ = jets.prepare_derivative_data(base, (n,), data, w)
-    return LeastSquaresOracle(base, (n,)), LeastSquaresBatch(jets.affine_jet(main, pp), y, w)
+    return LeastSquaresOracle(), LeastSquaresBatch(base, (n,), jets.affine_jet(main, pp), y, weight=w)
 
 
 def _old_draw(draw, kind, shape, order, weight, scale, who, stack_shape=()):
@@ -246,7 +267,7 @@ def _translate(name, args, kwargs):
     if name in ('mc_sgd', 'adam'):
         draw = a['draw']
         if draw is not None:
-            n = oracle.n_measurements(batch)
+            n = batch.n_measurements
             draw = _old_draw(draw, a['kind'], shape, a['order'], a['weight'], n / min(int(a['batch']), n), name,
                              stack)
         new_kw.update(draw=draw, use_jit=a['use_jit'])
@@ -283,8 +304,8 @@ def _translates(new_fn):
 @_translates
 def gradient_descent(
         geometry,                       # ragged or uniform geometry (must match x0's representation)
-        oracle,                         # the objective, e.g. LeastSquaresOracle('probe', order=())
-        batch,                          # its data, e.g. LeastSquaresBatch(ww, y)
+        oracle,                         # the objective, e.g. LeastSquaresOracle()
+        batch,                          # its data, e.g. LeastSquaresBatch('probe', (), ww, y)
         x0:       Point,                # initial point (any cores; the geometry orthogonalizes internally)
         regularizer: typ.Any = None,    # optional regularizer, e.g. optimizers.IdentityRegularizer(λ)
         g0_reference: typ.Optional[str] = None,   # the stop's ‖g0‖: None = the geometry's own ('zero' on manifolds); 'zero' | 'warm_start' | 'cone'
@@ -314,12 +335,12 @@ def gradient_descent(
     >>> A = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 2, 2), (1, 2, 2, 1))
     >>> ww = [np.random.randn(60, N) for N in (4, 5, 6)]
     >>> x0 = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 2, 2), (1, 2, 2, 1))
-    >>> x, stats = optimizers.gradient_descent(t3m.MANIFOLD, LeastSquaresOracle('apply', order=()),
-    ...                                        LeastSquaresBatch(ww, A.apply(ww)), x0, n_iter=20)
+    >>> x, stats = optimizers.gradient_descent(t3m.MANIFOLD, LeastSquaresOracle(),
+    ...                                        LeastSquaresBatch('apply', (), ww, A.apply(ww)), x0, n_iter=20)
     >>> stats['losses'][-1] < 0.1 * stats['losses'][0]
     True
     """
-    s = _setup(geometry, oracle, batch, x0)
+    s = _setup(geometry, batch, x0)
     x_cores, stats = bopt.gradient_descent(s.geom, oracle, s.batch, s.x0_cores, regularizer,
                                            g0_reference=g0_reference, **kwargs)
     return s.rewrap(x_cores), stats
@@ -328,8 +349,8 @@ def gradient_descent(
 @_translates
 def mc_sgd(
         geometry,                       # ragged/uniform MANIFOLD (intended) / COREWISE (must match x0)
-        oracle,                         # the objective (with n_measurements / take for the default draw)
-        batch,                          # its full data
+        oracle,                         # the objective
+        batch,                          # its full data (with n_measurements / take for the default draw)
         x0:       Point,                # initial point
         rng,                            # np.random.Generator -- passed to the draw each step
         batch_size: int,                # measurements per minibatch (the default flat draw's; unread with a draw)
@@ -340,19 +361,20 @@ def mc_sgd(
 ) -> typ.Tuple[Point, dict]:
     """Manifold Cauchy SGD -- minibatched, tuning-free Cauchy step. Ragged or uniform ``x0`` (see
     :py:func:`gradient_descent`). Each step builds a model afresh on a drawn batch: the oracle scales the misfit to
-    estimate the full one, and the ``regularizer`` is not scaled. A custom ``draw(rng)`` returns a batch (ragged; it
-    is packed for a uniform ``x0``). See :py:func:`t3toolbox.backend.optimizers.mc_sgd`."""
-    s = _setup(geometry, oracle, batch, x0)
+    estimate the full one, and the ``regularizer`` is not scaled. A custom ``draw(rng)`` returns a batch of the full
+    batch's kind and jet shape, checked on each draw (another raises a ``ValueError``); ragged, it is packed for a
+    uniform ``x0``. See :py:func:`t3toolbox.backend.optimizers.mc_sgd`."""
+    s = _setup(geometry, batch, x0)
     x_cores, stats = bopt.mc_sgd(s.geom, oracle, s.batch, s.x0_cores, rng, batch_size, regularizer,
-                                 draw=_frontend_draw(oracle, draw, s.x0), use_jit=use_jit, **kwargs)
+                                 draw=_frontend_draw(draw, batch, s.x0), use_jit=use_jit, **kwargs)
     return s.rewrap(x_cores), stats
 
 
 @_translates
 def adam(
         geometry,                       # ragged/uniform COREWISE (intended) / MANIFOLD (must match x0)
-        oracle,                         # the objective (with n_measurements / take for the default draw)
-        batch,                          # its full data
+        oracle,                         # the objective
+        batch,                          # its full data (with n_measurements / take for the default draw)
         x0:       Point,                # initial point
         rng,                            # np.random.Generator -- passed to the draw each step
         batch_size: int,                # measurements per minibatch (the default flat draw's; unread with a draw)
@@ -370,9 +392,9 @@ def adam(
                       "representation (measured ~1e-2 between numpy, jax and uniform). It runs, but COREWISE "
                       "is the intended geometry for adam; mc_sgd / newton_cg are the gauge-invariant "
                       "manifold optimizers.", RuntimeWarning, stacklevel=3)
-    s = _setup(geometry, oracle, batch, x0)
+    s = _setup(geometry, batch, x0)
     x_cores, stats = bopt.adam(s.geom, oracle, s.batch, s.x0_cores, rng, batch_size, regularizer,
-                               draw=_frontend_draw(oracle, draw, s.x0), use_jit=use_jit, **kwargs)
+                               draw=_frontend_draw(draw, batch, s.x0), use_jit=use_jit, **kwargs)
     return s.rewrap(x_cores), stats
 
 
@@ -439,15 +461,15 @@ def _old_point_data(
 @_translates
 def newton_cg(
         geometry,                   # ragged/uniform MANIFOLD (intended) / COREWISE (must match x0)
-        oracle,                     # the objective, e.g. LeastSquaresOracle('probe', order=(1,))
-        batch,                      # its data, e.g. LeastSquaresBatch(affine_jet(ww, pp), y, weight)
+        oracle,                     # the objective, e.g. LeastSquaresOracle()
+        batch,                      # its data, e.g. LeastSquaresBatch('probe', (1,), affine_jet(ww, pp), y)
         x0:                     Point,    # initial point (zero is fine on the manifold)
 
         regularizer:            typ.Any = None,    # optional regularizer, e.g. optimizers.IdentityRegularizer(λ)
 
         verbose:                bool = False,    # print per-iteration diagnostics (a relative-error table + more)
         error_table:            bool = True,     # with verbose: False prints each row's header lines, no table
-        val_batch:              typ.Any = None,  # optional validation batch for the same oracle -> a train|val table
+        val_batch:              typ.Any = None,  # optional validation batch, batch's kind and order -> a train|val table
 
         callback:               typ.Optional[typ.Callable] = None,  # custom callback(NewtonInfo) each iter (overrides `verbose`)
 
@@ -526,14 +548,14 @@ def newton_cg(
     (below) are the backend's too, checked at the call before the problem is built and forwarded only when set.
 
     ``verbose=True`` prints a per-iteration diagnostic block (objective / gradient, CG stats, line search,
-    and the per-block relative-error table ``‖ω⊙r_b‖ / ‖ω⊙y_b‖``, in the block shape); pass ``val_batch`` (a batch
-    for the same oracle) to add a validation column, and ``error_table=False`` to print the header lines only (the
-    records are unchanged). Each table is under its own batch's weight: give ``val_batch`` a weight of the same form as
-    ``batch``'s, or the training and validation cells are different quantities. With a ``regularizer`` attached the
-    objective is shown split as ``obj = misfit + reg`` (the ``½‖ω⊙r‖²`` data misfit vs ``ρ(x)``); both parts are on
-    every record as ``misfit`` / ``regularization`` (the latter ``None`` when unregularized), in ``stats['history']``
-    (always) and ``stats['diagnostics']`` (when verbose). This is a thin convenience over the **backend** display --
-    a raw-``.data`` user builds the same callback with
+    and the per-block relative-error table ``‖ω⊙r_b‖ / ‖ω⊙y_b‖``, in the block shape); pass ``val_batch`` (a batch of
+    the same kind and jet shape as ``batch``; another raises a ``ValueError`` at entry) to add a validation column, and
+    ``error_table=False`` to print the header lines only (the records are unchanged). Each table is under its own
+    batch's weight: give ``val_batch`` a weight of the same form as ``batch``'s, or the training and validation cells
+    are different quantities. With a ``regularizer`` attached the objective is shown split as ``obj = misfit + reg``
+    (the ``½‖ω⊙r‖²`` data misfit vs ``ρ(x)``); both parts are on every record as ``misfit`` / ``regularization`` (the
+    latter ``None`` when unregularized), in ``stats['history']`` (always) and ``stats['diagnostics']`` (when verbose).
+    This is a thin convenience over the **backend** display -- a raw-``.data`` user builds the same callback with
     :py:func:`t3toolbox.backend.optimizer_display.make_newton_display` and passes it as ``callback=`` to
     :py:func:`t3toolbox.backend.optimizers.newton_cg`; this one hands the display the very batch the run uses (under
     ``use_jit`` the converted one), so each row reads the residual the model's build computed. A custom ``callback``
@@ -566,7 +588,7 @@ def newton_cg(
     >>> shape = (5, 6, 5)
     >>> ww = [np.random.randn(80, n) for n in shape]
     >>> data = t3.TuckerTensorTrain.randn(shape, (3, 4, 3), (1, 3, 3, 1)).probe(ww)
-    >>> oracle, batch = LeastSquaresOracle('probe', order=()), LeastSquaresBatch(ww, data)
+    >>> oracle, batch = LeastSquaresOracle(), LeastSquaresBatch('probe', (), ww, data)
     >>> x_old, _ = optimizers.newton_cg(t3m.MANIFOLD, oracle, batch,
     ...                                 t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)), max_newton=5)
     >>> x0 = x_old.resize(shape, (3, 4, 3), (1, 3, 3, 1))                  # the next level, zero-padded
@@ -719,8 +741,8 @@ def newton_cg(
     >>> ww = [w / np.linalg.norm(w, axis=1, keepdims=True) for w in ww]   # unit-norm rows
     >>> b = A.apply(ww)
     >>> x0 = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.zeros((6, 7, 8), (2, 2, 2), (1, 2, 2, 1)))
-    >>> x_opt, stats = optimizers.newton_cg(ut3m.UNIFORM_MANIFOLD, LeastSquaresOracle('apply', order=()),
-    ...                                     LeastSquaresBatch(ww, b), x0, max_newton=30)
+    >>> x_opt, stats = optimizers.newton_cg(ut3m.UNIFORM_MANIFOLD, LeastSquaresOracle(),
+    ...                                     LeastSquaresBatch('apply', (), ww, b), x0, max_newton=30)
     >>> type(x_opt).__name__                              # returned in the same (uniform) representation
     'UniformTuckerTensorTrain'
     >>> bool(np.linalg.norm(x_opt.to_dense() - A.to_dense()) / np.linalg.norm(A.to_dense()) < 1e-6)
@@ -742,7 +764,7 @@ def newton_cg(
     >>> from t3toolbox.fitting import affine_jet
     >>> jet = affine_jet(ww, pp)                                   # the lines ww + s pp
     >>> data = [z + 0.01 * rng.standard_normal(z.shape) for z in target.probe(jet, (1,))]   # noisy, along lines
-    >>> oracle, batch = LeastSquaresOracle('probe', order=(1,)), LeastSquaresBatch(jet, data)
+    >>> oracle, batch = LeastSquaresOracle(), LeastSquaresBatch('probe', (1,), jet, data)
     >>> x0, _ = optimizers.newton_cg(t3m.MANIFOLD, oracle, batch,
     ...                              t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)), max_newton=5)
     >>> opts = dict(max_newton=40, g0_reference='warm_start')
@@ -804,7 +826,7 @@ def newton_cg(
     >>> ww = [np.random.randn(60, N) for N in (4, 5, 6)]
     >>> ww = [w / np.linalg.norm(w, axis=1, keepdims=True) for w in ww]
     >>> b = A.probe(ww)
-    >>> oracle, batch = LeastSquaresOracle('probe', order=()), LeastSquaresBatch(ww, b)
+    >>> oracle, batch = LeastSquaresOracle(), LeastSquaresBatch('probe', (), ww, b)
     >>> x0 = t3.TuckerTensorTrain.zeros((4, 5, 6), (2, 2, 2), (1, 2, 2, 1))
     >>> def rel_err(x): return float(np.linalg.norm(np.asarray(x.to_dense()) - A.to_dense()) / np.linalg.norm(A.to_dense()))
 
@@ -837,9 +859,10 @@ def newton_cg(
     if not isinstance(timing, (bool, np.bool_)):
         raise TypeError('newton_cg: timing must be a bool, got %r' % (timing,))
     if val_batch is not None:                        # checked (structural, before any work) and packed for a uniform x0
+        _same_kind_and_order(batch, val_batch, 'newton_cg: the validation batch')
         _fitting._require_layer(geometry, x0)
-        val_batch = _fitting.prepare_batch(oracle, val_batch, x0)
-    s = _setup(geometry, oracle, batch, x0)
+        val_batch = _fitting.prepare_batch(val_batch, x0)
+    s = _setup(geometry, batch, x0)
     x0_cores, run_batch = s.x0_cores, s.batch
     to_jax = bool(use_jit) and common.jax_available
     if to_jax:                                       # convert here, so the display holds the very batch the run uses

@@ -20,6 +20,7 @@ run and switch_k=0 the exact run, bit for bit; the junction; what counts and wha
 options; the stats and row contract; the tracking phase of a timed run. T5 and T9 jit: `tests/test_dispatch.py`."""
 import collections
 import contextlib
+import itertools
 import dataclasses as dc
 import typing as typ
 import math
@@ -347,8 +348,8 @@ class TestBackendOptimizers(unittest.TestCase):
                 fd = (float(prob.objective(plus)) - float(prob.objective(minus))) / (2 * eps)
                 self.assertLess(abs(inner - fd) / max(abs(fd), 1e-30), 1e-5)
                 # default flat draw: a multi-axis W=(NP,NX) flattens to NP*NX; a minibatch local model builds
-                self.assertEqual(prob.oracle.n_measurements(prob.batch), NP * NX)
-                drawn = opt.flat_draw(prob.oracle, prob.batch, 5)(rng)
+                self.assertEqual(prob.batch.n_measurements, NP * NX)
+                drawn = opt.flat_draw(prob.batch, 5)(rng)
                 self.assertEqual(drawn.minibatch_scale, NP * NX / 5)
                 self.assertTrue(np.isfinite(float(opt.local_model(prob.geom, prob.oracle, drawn, X0.data).objective)))
         # recovery: mc_sgd (manifold) from a zero start, apply-derivative data + the flat default draw
@@ -725,7 +726,7 @@ class TestBackendOptimizers(unittest.TestCase):
         reg = opt.IdentityRegularizer(0.5)
         prob = F.fit(bgeo.ManifoldGeometryOps(), 'probe', ww, data, regularizer=reg)
         geom, x = prob.geom, t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).data
-        drawn = opt.flat_draw(prob.oracle, prob.batch, b)(np.random.default_rng(1))
+        drawn = opt.flat_draw(prob.batch, b)(np.random.default_rng(1))
         self.assertEqual(drawn.minibatch_scale, n / b)
         plain = dc.replace(drawn, minibatch_scale=None)                          # the same samples, unscaled
         lm, lm_plain = (opt.local_model(geom, prob.oracle, B, x, regularizer=reg) for B in (drawn, plain))
@@ -906,7 +907,7 @@ class _OffsetOracle(LeastSquaresOracle):
 def _offset(fit, offset, x0=None):
     """``fit`` with its oracle's objective raised by ``offset`` away from the start ``x0`` (:class:`_OffsetOracle`)."""
     key = None if x0 is None else _point_key(fit.geom.point_data(x0))
-    return fit.with_(oracle=_OffsetOracle(fit.oracle.kind, fit.oracle.order, offset, key))
+    return fit.with_(oracle=_OffsetOracle(offset, key))
 
 
 def _restart_problem(W=60, order=1):
@@ -1206,7 +1207,7 @@ class TestProblemContracts(unittest.TestCase):
         objective at a point and the model on another batch score that batch's data, not the training data."""
         problem, ww, b = self._problem()
         x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 2, 2), (1, 2, 2, 1))
-        other = LeastSquaresBatch(ww, b + 5.0)
+        other = LeastSquaresBatch('apply', (), ww, b + 5.0)
         truth = 0.5 * float(np.sum((x.apply(ww) - (b + 5.0)) ** 2))
         self.assertAlmostEqual(float(problem.objective(x.data, batch=other)), truth, places=8)
         self.assertAlmostEqual(float(opt.local_model(problem.geom, problem.oracle, other, x.data).objective), truth,
@@ -1302,7 +1303,7 @@ class TestOracleSeam(unittest.TestCase):
                                  'frame', 'centers'],
                  'point_objective': ['geom', 'oracle', 'batch', 'x_cores', 'regularizer'],
                  'padded_start': ['geom', 'oracle', 'batch', 'x0', 'x_old'],
-                 'flat_draw': ['oracle', 'batch', 'batch_size']}
+                 'flat_draw': ['batch', 'batch_size']}
         for name, head in heads.items():
             with self.subTest(function=name):
                 self.assertEqual(list(inspect.signature(getattr(opt, name)).parameters)[:len(head)], head)
@@ -1338,10 +1339,10 @@ class TestOracleSeam(unittest.TestCase):
         fit = self._probe_fit(n=80, regularizer=reg)
         x0 = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).data
         x, stats = fit.mc_sgd(x0, np.random.default_rng(9), 20, max_iter=6, check_every=3)
-        rng, n = np.random.default_rng(9), fit.oracle.n_measurements(fit.batch)
+        rng, n = np.random.default_rng(9), fit.batch.n_measurements
         xr = x0
         for _ in range(6):
-            batch = fit.oracle.take(fit.batch, rng.choice(n, size=20, replace=False))
+            batch = fit.batch.take(rng.choice(n, size=20, replace=False))
             frame, aux, g, q, _ = self._direct_gradient(fit, xr, batch)
             alpha = float(fit.geom.inner(g, g)) / max(float(q), 1e-30)
             xr = fit.geom.retract(frame, cw.corewise_scale(g, -alpha), aux=aux)
@@ -1354,10 +1355,10 @@ class TestOracleSeam(unittest.TestCase):
         fit = self._probe_fit('corewise', n=80)
         x0 = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).data
         x, _ = fit.adam(x0, np.random.default_rng(4), 16, max_iter=5, lr=1e-2, cosine=False)
-        rng, n = np.random.default_rng(4), fit.oracle.n_measurements(fit.batch)
+        rng, n = np.random.default_rng(4), fit.batch.n_measurements
         xr, m, v = x0, cw.corewise_zeros_like(x0), cw.corewise_zeros_like(x0)
         for k in range(5):
-            batch = fit.oracle.take(fit.batch, rng.choice(n, size=16, replace=False))
+            batch = fit.batch.take(rng.choice(n, size=16, replace=False))
             _, _, g, _, _ = self._direct_gradient(fit, xr, batch)
             m = cw.corewise_map(lambda mi, gi: 0.9 * mi + 0.1 * gi, m, g)
             v = cw.corewise_map(lambda vi, gi: 0.999 * vi + 0.001 * gi * gi, v, g)
@@ -1371,10 +1372,10 @@ class TestOracleSeam(unittest.TestCase):
         point, and an accepted row's objective plus its delta_f (the trial, scored by point_objective with nothing
         held) is the next row's. A build reusing the last model's held, or a trial scored with it, breaks both."""
         fit = self._probe_fit(n=120)
-        rng, n = np.random.default_rng(2), fit.oracle.n_measurements(fit.batch)
+        rng, n = np.random.default_rng(2), fit.batch.n_measurements
         x = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).data
         for draw in range(3):
-            batch = fit.oracle.take(fit.batch, rng.choice(n, size=40, replace=False))
+            batch = fit.batch.take(rng.choice(n, size=40, replace=False))
             seen = []
             x, stats = opt.newton_cg(fit.geom, fit.oracle, batch, x, max_newton=3, callback=seen.append,
                                      g0_reference='warm_start')
@@ -1577,7 +1578,7 @@ class TestOracleSeam(unittest.TestCase):
                 wy = math.sqrt(sum(float(np.sum(np.asarray(a, dtype=np.float64) ** 2)) for a in y))
                 by_hand = eps * (wy * math.sqrt(float(r @ r)) + abs(float(lm.f) + rho))
                 self.assertAlmostEqual(opt._objective_resolution(lm, rho), by_hand, delta=1e-5 * by_hand)
-                bare = fit.with_(oracle=_NoResolutionOracle('probe', ()))
+                bare = fit.with_(oracle=_NoResolutionOracle())
                 lm_bare = bare.local_model(x)
                 self.assertAlmostEqual(opt._objective_resolution(lm_bare, rho), eps * (abs(float(lm_bare.f)) + rho),
                                        delta=1e-6 * eps * (abs(float(lm_bare.f)) + rho))
@@ -1586,21 +1587,30 @@ class TestOracleSeam(unittest.TestCase):
 
     # ---- what an oracle must supply --------------------------------------------------------------------------------
     def test_optional_outputs_are_checked_where_needed(self):
-        """Structural, before any work: mc_sgd and adam without a draw need an oracle with take and n_measurements; the
-        exact mode needs Kp; jacobian needs Jp and residual needs r. With a draw, an oracle without take runs."""
+        """Structural, before any work: mc_sgd and adam without a draw need a batch with take and the property
+        n_measurements (a batch whose n_measurements is still a method is told so); the exact mode needs Kp; jacobian
+        needs Jp and residual needs r. With a draw, a batch without take runs."""
         fit = self._probe_fit()
         x0 = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).data
-        bare = fit.with_(oracle=_BareOracle('probe', ()))
-        for name, call in (('mc_sgd', lambda: bare.mc_sgd(x0, np.random.default_rng(0), 10, max_iter=1)),
-                           ('adam', lambda: bare.adam(x0, np.random.default_rng(0), 10, max_iter=1))):
-            with self.subTest(optimizer=name):
+        b = fit.batch
+        no_draw = fit.with_(batch=_BareBatch(b.kind, b.order, b.sample, b.y, weight=b.weight))
+        old_protocol = fit.with_(batch=_MethodCountBatch(b.kind, b.order, b.sample, b.y, weight=b.weight))
+        not_an_int = fit.with_(batch=_FloatCountBatch(b.kind, b.order, b.sample, b.y, weight=b.weight))
+        for (name, call), (label, problem, message) in itertools.product(
+                (('mc_sgd', lambda p: p.mc_sgd(x0, np.random.default_rng(0), 10, max_iter=1)),
+                 ('adam', lambda p: p.adam(x0, np.random.default_rng(0), 10, max_iter=1))),
+                (('no take', no_draw, '_BareBatch has no take'),
+                 ('a method', old_protocol, 'n_measurements is a method'),
+                 ('not an int', not_an_int, r'_FloatCountBatch has no take\(indices\) and the property'))):
+            with self.subTest(optimizer=name, batch=label):
                 with unittest.mock.patch.object(opt, '_prepare_jit_inputs', wraps=opt._prepare_jit_inputs) as work:
-                    with self.assertRaisesRegex(ValueError, "_BareOracle has no take"):
-                        call()
+                    with self.assertRaisesRegex(ValueError, message):
+                        call(problem)
                 work.assert_not_called()
-        draw = lambda rng: fit.oracle.take(fit.batch, rng.choice(60, size=10, replace=False))
-        x, _ = bare.mc_sgd(x0, np.random.default_rng(0), 10, draw=draw, max_iter=2)
+        draw = lambda rng: fit.batch.take(rng.choice(60, size=10, replace=False))
+        x, _ = no_draw.mc_sgd(x0, np.random.default_rng(0), 10, draw=draw, max_iter=2)
         self.assertEqual(len(x[0]), 3)
+        bare = fit.with_(oracle=_BareOracle())
         lm = bare.local_model(x0)
         for who, call, name in (('jacobian', lambda: lm.jacobian(lm.gradient), 'Jp'), ('residual', lambda: lm.residual, 'r')):
             with self.subTest(member=who):
@@ -1618,10 +1628,28 @@ class _NoResolutionOracle(LeastSquaresOracle):
 
 @dc.dataclass(frozen=True, eq=False)
 class _BareOracle(LeastSquaresOracle):
-    """An oracle with the four required outputs only, and no draw (take, n_measurements hidden)."""
+    """An oracle with the four required outputs only."""
     optional_outputs = ()
+
+
+@dc.dataclass(frozen=True, eq=False, init=False)
+class _BareBatch(LeastSquaresBatch):
+    """A user's batch type with no default draw (take, n_measurements hidden)."""
     take = None
     n_measurements = None
+
+
+@dc.dataclass(frozen=True, eq=False, init=False)
+class _MethodCountBatch(LeastSquaresBatch):
+    """A user's batch type written to the protocol before K1: n_measurements a method."""
+    def n_measurements(self):
+        return 60
+
+
+@dc.dataclass(frozen=True, eq=False, init=False)
+class _FloatCountBatch(LeastSquaresBatch):
+    """A user's batch type with take and a count that is not an integer."""
+    n_measurements = 60.0
 
 
 class TestStackedPointIsRejected(unittest.TestCase):
@@ -2607,7 +2635,7 @@ class TestSwitchNewton(unittest.TestCase):
                (dict(curvature_damping=1e-3), "newton_cg: curvature_damping is only meaningful with hessian='exact' or "
                                               "'switch'"),
                (dict(hessian='switch', step_control='line_search', tr_radius0=1.0), 'tr_radius0 is only meaningful')]
-        no_two_hole = problem.with_(oracle=_NoKpOracle(problem.oracle.kind, problem.oracle.order))
+        no_two_hole = problem.with_(oracle=_NoKpOracle())
         cases = [(problem, kw, message) for kw, message in bad] + [
             (no_two_hole, dict(hessian='switch'), "_NoKpOracle does not supply 'Kp' (it is not in its optional_outputs), "
                                                   "which hessian='switch' (it still works with hessian='gauss_newton') "

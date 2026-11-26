@@ -340,8 +340,8 @@ class LocalModel:
     >>> x = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 3, 2), (1, 2, 2, 1))
     >>> ww = [np.random.randn(15, N) for N in (6, 7, 8)]    # 15 samples, each a (w_1, w_2, w_3)
     >>> y = x.apply(ww) - np.random.randn(15)                # data whose residual at x is known
-    >>> oracle = fitting.LeastSquaresOracle('apply', order=())
-    >>> batch = fitting.LeastSquaresBatch(ww, y)
+    >>> oracle = fitting.LeastSquaresOracle()
+    >>> batch = fitting.LeastSquaresBatch('apply', (), ww, y)
 
     On the **manifold** geometry the gradient ``g = Π Jᵀ(M r)`` is a gauged tangent and ``H p`` stays on the
     gauged tangent space:
@@ -579,33 +579,32 @@ def _tied(geometry, x):
     return t3.TuckerTensorTrain(*backend_sharing.t3_tie_tucker_factors(x.data, sharing))
 
 
-def _is_packed(oracle, batch) -> bool:
+def _is_packed(batch) -> bool:
     '''Whether a least-squares batch is already packed for the uniform layer (its sample a supercore, not a list).
     Asked only for a uniform point: a ragged point's batch is always checked.'''
-    return (getattr(oracle, 'kind', None) in ('probe', 'apply') and isinstance(batch, LeastSquaresBatch)
+    return (isinstance(batch, LeastSquaresBatch) and batch.kind in ('probe', 'apply')
             and not isinstance(batch.sample, (tuple, list)))
 
 
 def prepare_batch(
-        oracle,
         batch,
         x,                           # the point: its shape, and on the uniform layer its width N
         check:  bool = True,         # False: pack only (a draw's batch, made by the caller's draw every step)
 ):                                   # the batch the backend takes (packed on the uniform layer)
     '''The frontend's batch handling, the one place for it (private to the frontend; the optimizers and
-    :py:func:`local_model` share it): ``oracle.check_batch(batch, x.shape, stack_shape=x.stack_shape)`` when the oracle
-    has it (structural, before any work; O-18: the data and the weight of a stacked ``x`` carry its stack ``C``, of size 1
+    :py:func:`local_model` share it): ``batch.check(x.shape, stack_shape=x.stack_shape)`` when the batch has it
+    (structural, before any work; O-18: the data and the weight of a stacked ``x`` carry its stack ``C``, of size 1
     where they are shared), then, for a uniform ``x``, a ``LeastSquaresBatch`` packed with
     :py:func:`~t3toolbox.backend.uniform_fitting.pack_batch`. A batch already packed for a uniform ``x`` is neither
-    checked (the checker reads the ragged form) nor packed again; another oracle's batch passes unchanged.'''
+    checked (the checker reads the ragged form) nor packed again; a batch of another type passes unchanged.'''
     if batch is None:
         return None
     uniform = isinstance(x, ut3.UniformTuckerTensorTrain)
-    packed = uniform and _is_packed(oracle, batch)
-    if check and hasattr(oracle, 'check_batch') and not packed:
-        oracle.check_batch(batch, tuple(x.shape), stack_shape=tuple(x.stack_shape))
+    packed = uniform and _is_packed(batch)
+    if check and callable(getattr(batch, 'check', None)) and not packed:
+        batch.check(tuple(x.shape), stack_shape=tuple(x.stack_shape))
     if uniform and isinstance(batch, LeastSquaresBatch) and not packed:
-        return ufit.pack_batch(oracle.kind, oracle.order, batch, x.N)
+        return ufit.pack_batch(batch, x.N)
     return batch
 
 
@@ -647,8 +646,8 @@ def check_given_frame(
 
 def local_model(
         geometry,                                  # MANIFOLD / COREWISE / UNIFORM_* / a SharedGeometry over one
-        oracle,                                    # e.g. LeastSquaresOracle('probe', order=(3,))
-        batch,                                     # e.g. LeastSquaresBatch(affine_jet(ww, pp), y, weight)
+        oracle,                                    # e.g. LeastSquaresOracle()
+        batch,                                     # e.g. LeastSquaresBatch('probe', (3,), affine_jet(ww, pp), y)
         x,                                         # the point: a TuckerTensorTrain or a UniformTuckerTensorTrain
         regularizer:        typ.Any = None,        # e.g. IdentityRegularizer(lam)
         hessian:            str = 'gauss_newton',  # or 'exact'
@@ -657,7 +656,7 @@ def local_model(
 ) -> LocalModel:                                   # tangents in and out, the same-frame guard
     '''The local model of ``oracle`` on ``batch`` at ``x`` through ``geometry`` (:py:class:`LocalModel`).
 
-    It checks the batch (``oracle.check_batch``, when the oracle has it), packs it for a uniform ``x``, and in safe
+    It checks the batch (``batch.check``, when the batch has it), packs it for a uniform ``x``, and in safe
     mode checks a ``frame`` the caller gives (:py:func:`check_given_frame`: orthonormal, consistent, tied on a shared
     geometry, representing ``x``), then calls the
     backend :py:func:`~t3toolbox.backend.optimizers.local_model`. The model keeps the user's point: no reduction to
@@ -674,8 +673,8 @@ def local_model(
     >>> target, x = (t3.TuckerTensorTrain.randn((4, 5, 6), (2, 2, 2), (1, 2, 2, 1)) for _ in range(2))
     >>> ww, pp = ([np.random.randn(30, N) for N in (4, 5, 6)] for _ in range(2))
     >>> jet = fitting.affine_jet(ww, pp)                       # the lines ww + s pp
-    >>> oracle = fitting.LeastSquaresOracle('probe', order=(1,))
-    >>> batch = fitting.LeastSquaresBatch(jet, target.probe(jet, (1,)))
+    >>> oracle = fitting.LeastSquaresOracle()
+    >>> batch = fitting.LeastSquaresBatch('probe', (1,), jet, target.probe(jet, (1,)))
     >>> model = fitting.local_model(t3m.MANIFOLD, oracle, batch, x, hessian='exact')
     >>> p = t3m.MANIFOLD.randn(model.frame)
     >>> bool(np.isclose(float(model.quadratic(p)), float(model.gn_quadratic(p) + model.curvature_quadratic(p))))
@@ -683,7 +682,8 @@ def local_model(
 
     A bad batch raises before any work:
 
-    >>> fitting.local_model(t3m.MANIFOLD, oracle, fitting.LeastSquaresBatch(ww, batch.y), x)   # doctest: +IGNORE_EXCEPTION_DETAIL
+    >>> bad = fitting.LeastSquaresBatch('probe', (1,), ww, batch.y)       # the points, not their lines
+    >>> fitting.local_model(t3m.MANIFOLD, oracle, bad, x)   # doctest: +IGNORE_EXCEPTION_DETAIL
     Traceback (most recent call last):
     ValueError: ...
     '''
@@ -696,7 +696,7 @@ def local_model(
         check_given_frame(geometry, frame, x, 'local_model')
     else:
         x = _tied(geometry, x)
-    bbatch = prepare_batch(oracle, batch, x)
+    bbatch = prepare_batch(batch, x)
     frame_data = centers = None
     if frame is not None:                                                # the caller's frame, without centers
         frame_data = frame.data

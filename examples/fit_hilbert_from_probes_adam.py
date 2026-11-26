@@ -162,8 +162,8 @@ def corewise_adam(X0, ww, data, rng,
         ww_B = [w[sel] for w in ww]
         data_B = [dd[sel] for dd in data]
         X = t3.TuckerTensorTrain(*cores)
-        model = fitting.local_model(t3m.COREWISE, fitting.LeastSquaresOracle('probe', order=()),
-                                    fitting.LeastSquaresBatch(ww_B, data_B), X)    # the minibatch's objective
+        drawn = fitting.LeastSquaresBatch('probe', (), ww_B, data_B)
+        model = fitting.local_model(t3m.COREWISE, fitting.LeastSquaresOracle(), drawn, X)   # the minibatch's objective
         grad = model.gradient.variations.data                                       # tree of core grads
 
         t = k + 1

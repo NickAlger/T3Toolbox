@@ -1454,7 +1454,7 @@ class TestSharedManifoldDimGroundTruth(unittest.TestCase):
 
 def _apply_model(geometry, x, ww, y, **kw):
     '''The local model of the plain apply fit of the data ``y`` at ``x`` (``fitting.local_model``).'''
-    return fitting.local_model(geometry, fitting.LeastSquaresOracle('apply', ()), fitting.LeastSquaresBatch(ww, y), x,
+    return fitting.local_model(geometry, fitting.LeastSquaresOracle(), fitting.LeastSquaresBatch('apply', (), ww, y), x,
                                **kw)
 
 

@@ -36,7 +36,9 @@ Before:
     :py:class:`LeastSquaresBatch` holds the data, arrays only: the sample, ``y``, the weight, the minibatch scale and
     the drawn indices. What the oracle returns is bare, before any projection: ...
 
-After (the rest of the docstring, from "What the oracle returns is bare", unchanged):
+After (the rest of the docstring unchanged, its lines as they are; the one line that holds the new sentence's end
+is split after "before any" so that the next line, "projection: ``Jp = 𝒥p``, ``g = 𝒥ᵀ(M r)`` and", ends where
+today's does and the lines after it stay byte for byte):
 
     '''The least-squares oracle and its batch: what the optimizers ask of the data.
 
@@ -46,14 +48,19 @@ After (the rest of the docstring, from "What the oracle returns is bare", unchan
     the drawn indices; it checks itself against a model, draws from itself, counts its samples and applies its data
     metric. :py:class:`LeastSquaresOracle` is the objective's rule, with no fields: it answers what an optimizer asks
     at a frame or a corewise point (``f``, ``g``, ``Jp``, ``JtJp``, ``Kp``, the block sums, ...) on a batch, through
-    one call of the engine :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables`. What the oracle
-    returns is bare, before any projection: ...
+    one call of the engine
+    :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables`. What the oracle returns is bare, before any
+    projection: ``Jp = 𝒥p``, ``g = 𝒥ᵀ(M r)`` and
+    ``JtJp = 𝒥ᵀ M 𝒥p``, ... (unchanged)
 
 ### 1.2 `LeastSquaresBatch`, the class docstring (`backend/fitting.py:69-83`)
 
 Before: quoted in the file (it says "arrays only", "Checked by `LeastSquaresOracle.check_batch`").
 
-After (part 4's final text; part 0 keeps its sentences on `weight` as today):
+After (part 4's final text). **Part 0's interim text** (round 2, finding 15) keeps today's sentences on `y` and on
+`weight` (each axis 1 or `z`'s size), with the kind, the order, keyword-only fields and `check` / `take` /
+`n_measurements` as below; the `y` sentence ("exactly `z`'s shape; only its `C` axes may be 1") arrives in part 2 (the
+engine) and `check`'s in part 3 (`check_data`), each with the part that makes it true:
 
     """The measurements of a least-squares fit: their kind and jet shape, the sample, the data and the weights.
 
@@ -96,7 +103,10 @@ After (part 4's final text; part 0 keeps its sentences on `weight` as today):
     >>> LeastSquaresBatch(ww, np.zeros(10))                                   # doctest: +IGNORE_EXCEPTION_DETAIL
     Traceback (most recent call last):
         ...
-    TypeError: __init__() missing 1 required positional argument: 'sample'
+    TypeError: LeastSquaresBatch.__init__() missing 1 required positional argument: 'sample'
+
+(the line to be pasted from the run on the project's Python, 3.11; `+IGNORE_EXCEPTION_DETAIL` covers the floor's
+`__init__() missing ...`)
     """
 
 ### 1.3 `LeastSquaresBatch.data_metric` (`backend/fitting.py:95-116`)
@@ -139,8 +149,9 @@ After:
     ValueError: the data y of the apply kind has shape (10, 3); ...
     '''
 
-(Part 0's text is the same with "the weight against the sample and the stack (`check_weight`)" in place of the two
-weights' sentences.)
+(Part 0's text is today's `check_batch` text with the batch's own kind and order: "the data and the weight against
+the sample and the model's stack ``stack_shape`` (``check_data``, ``check_weight``: each of the type of ``z``, every
+axis 1 or ``z``'s size)"; part 3 brings `y`'s sentence, part 4 the two weights'.)
 
 ### 1.5 `LeastSquaresBatch.take` (from `LeastSquaresOracle.take`, `backend/fitting.py:500-534`)
 
@@ -231,9 +242,10 @@ The comments of the `draw` parameter of `mc_sgd` and `adam` (`:1233`, `:1283`): 
 None = flat_draw(batch, batch_size)`. Their docstrings (finding r1-7c): `mc_sgd` (`:1243`) "(``draw(rng)``; by
 default :py:func:`flat_draw`, which needs an oracle with ``take``, else a ``ValueError`` at entry)" becomes
 "(``draw(rng)``, which returns a batch of the full batch's kind and jet shape; by default :py:func:`flat_draw`, which
-needs a batch with ``take`` and ``n_measurements``, else a ``ValueError`` at entry)"; `adam` (`:1295`) "(the
-regularizer unscaled; an oracle without ``take`` needs a ``draw``)" becomes "(the regularizer unscaled; a batch without
-``take`` and ``n_measurements`` needs a ``draw``)".
+needs a batch with ``take`` and ``n_measurements``, else a ``ValueError`` at entry; a draw's batch is not checked
+here, the frontend checks it)"; `adam` (`:1295`) "(the regularizer unscaled; an oracle without ``take`` needs a
+``draw``)" becomes "(the regularizer unscaled; a batch without ``take`` and ``n_measurements`` needs a ``draw``, whose
+batches, of the full batch's kind and jet shape, are not checked here)".
 
 ### 1.10 `make_newton_display` (`optimizer_display.py:549-601`)
 

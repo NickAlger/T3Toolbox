@@ -309,7 +309,7 @@ class TestBatchMethod(unittest.TestCase):
         r = tuple(rng.standard_normal((3, 4, n)) for n in (5, 6))
         weight = jets.blocks_to_weight('probe', (2,), 0.5 + rng.random((2, 3)), y)
         for scale in (None, 2.0):
-            batch = LeastSquaresBatch(None, y, weight, scale)
+            batch = LeastSquaresBatch('probe', (2,), None, y, weight=weight, minibatch_scale=scale)
             with self.subTest(scale=repr(scale)):
                 got, wanted = batch.data_metric(r), jets.data_metric(r, weight, scale)
                 self.assertTrue(all(np.array_equal(a, b) for a, b in zip(got, wanted)))
@@ -321,9 +321,12 @@ class TestBatchMethod(unittest.TestCase):
         and is never read as a full-form weight. (The forms coincide only with no sample or stack axes.)"""
         rng = np.random.default_rng(12)
         y_apply, y_probe = rng.standard_normal((3, 4)), tuple(rng.standard_normal((3, 4, n)) for n in (5, 6))
-        for label, batch, r in (('apply', LeastSquaresBatch(None, y_apply, 0.5 + rng.random(3)), y_apply),
-                                ('probe', LeastSquaresBatch(None, y_probe, 0.5 + rng.random((2, 3))), y_probe),
-                                ('entries', LeastSquaresBatch(None, y_apply[0], np.asarray(0.5)), y_apply[0])):
+        for label, batch, r in (('apply', LeastSquaresBatch('apply', (2,), None, y_apply, weight=0.5 + rng.random(3)),
+                                  y_apply),
+                                ('probe', LeastSquaresBatch('probe', (2,), None, y_probe,
+                                                            weight=0.5 + rng.random((2, 3))), y_probe),
+                                ('entries', LeastSquaresBatch('entries', (), None, y_apply[0], weight=np.asarray(0.5)),
+                                 y_apply[0])):
             with self.subTest(kind=label):
                 with self.assertRaisesRegex(ValueError, 'rank'):
                     batch.data_metric(r)

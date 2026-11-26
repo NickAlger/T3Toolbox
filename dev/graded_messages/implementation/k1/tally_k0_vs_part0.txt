@@ -1,0 +1,30 @@
+baseline: 1888 nodes {'FAILED': 2, 'PASSED': 1881, 'SKIPPED': 5, 'SUBPASSED': 90361, 'XFAIL': 1}
+new:      1893 nodes {'PASSED': 1887, 'SKIPPED': 5, 'SUBPASSED': 90148, 'XFAIL': 1}
+  tests/backend/test_optimizer_display.py::TestMakeNewtonDisplay::test_a_validation_batch_of_another_kind_or_order
+      baseline {}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+  tests/backend/test_optimizers.py::TestOracleSeam::test_optional_outputs_are_checked_where_needed
+      baseline {'SUBPASSED': 4, 'PASSED': 1}
+      new      {'SUBPASSED': 6, 'PASSED': 1}
+  tests/test_contractions_sharding.py::TestInterpreterAnyAxisSharding::test_every_sub_axis_of_every_group_shards_free
+      baseline {'SUBPASSED': 455, 'FAILED': 2}
+      new      {'SUBPASSED': 228, 'PASSED': 1}
+  tests/test_least_squares_oracle.py::TestTheBatchConstructor::test_reachable_from_the_frontend
+      baseline {}
+      new      {'PASSED': 1}
+  tests/test_least_squares_oracle.py::TestTheBatchConstructor::test_the_fields_after_y_are_keywords
+      baseline {}
+      new      {'PASSED': 1}
+  tests/test_least_squares_oracle.py::TestTheBatchConstructor::test_the_static_fields_are_aux_data
+      baseline {}
+      new      {'PASSED': 1}
+  tests/test_least_squares_oracle.py::TestTheOracle::test_reachable_from_the_frontend
+      baseline {'PASSED': 1}
+      new      {}
+  tests/test_optimizers_frontend.py::TestOneKindAndOrderPerFit::test_a_drawn_batch_of_another_kind_or_order
+      baseline {}
+      new      {'SUBPASSED': 8, 'PASSED': 1}
+  tests/test_optimizers_frontend.py::TestOneKindAndOrderPerFit::test_a_validation_batch_of_another_kind_or_order
+      baseline {}
+      new      {'SUBPASSED': 2, 'PASSED': 1}
+9 nodes differ

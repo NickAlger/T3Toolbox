@@ -1,0 +1,66 @@
+== t3toolbox/backend/fitting.py: 27 unchanged, 12 changed, 10 added, 9 removed
+   changed <docstring>                                        header CHANGED
+   changed LeastSquaresBatch                                  header CHANGED
+   changed LeastSquaresBatch.<docstring>                      header CHANGED
+   changed LeastSquaresBatch.minibatch_scale                  header CHANGED
+   changed LeastSquaresBatch.drawn_indices                    header CHANGED
+   changed LeastSquaresBatch.data_metric                      header same
+   changed If#2                                               header CHANGED
+   changed _take_W                                            header same
+   changed _take_data_space                                   header same
+   changed LeastSquaresOracle                                 header CHANGED
+   changed LeastSquaresOracle.<docstring>                     header CHANGED
+   changed LeastSquaresOracle.query                           header same
+   added   LeastSquaresBatch._W
+   added   LeastSquaresBatch.__init__
+   added   LeastSquaresBatch._w_axes
+   added   LeastSquaresBatch.check
+   added   LeastSquaresBatch.kind
+   added   LeastSquaresBatch.n_measurements
+   added   LeastSquaresBatch.order
+   added   LeastSquaresBatch.take
+   added   _BATCH_LEAVES
+   added   import:import t3toolbox.backend.contractions as contractions
+   removed LeastSquaresOracle._W
+   removed LeastSquaresOracle.__post_init__
+   removed LeastSquaresOracle._w_axes
+   removed LeastSquaresOracle.check_batch
+   removed LeastSquaresOracle.kind
+   removed LeastSquaresOracle.n_measurements
+   removed LeastSquaresOracle.order
+   removed LeastSquaresOracle.take
+   removed _BATCH_FIELDS
+== t3toolbox/backend/optimizer_display.py: 28 unchanged, 2 changed, 0 added, 0 removed
+   changed _format_table                                      header same
+   changed make_newton_display                                header same
+== t3toolbox/backend/optimizers.py: 220 unchanged, 10 changed, 0 added, 0 removed
+   changed Oracle                                             header CHANGED
+   changed Oracle.<docstring>                                 header CHANGED
+   changed local_model                                        header same
+   changed point_objective                                    header same
+   changed flat_draw                                          header CHANGED
+   changed _require_draw                                      header CHANGED
+   changed padded_start                                       header same
+   changed mc_sgd                                             header CHANGED
+   changed adam                                               header CHANGED
+   changed newton_cg                                          header same
+== t3toolbox/backend/uniform_fitting.py: 11 unchanged, 2 changed, 0 added, 0 removed
+   changed <docstring>                                        header CHANGED
+   changed pack_batch                                         header CHANGED
+== t3toolbox/fitting.py: 66 unchanged, 5 changed, 0 added, 0 removed
+   changed LocalModel                                         header CHANGED
+   changed LocalModel.<docstring>                             header CHANGED
+   changed _is_packed                                         header CHANGED
+   changed prepare_batch                                      header CHANGED
+   changed local_model                                        header CHANGED
+== t3toolbox/optimizers.py: 37 unchanged, 9 changed, 1 added, 0 removed
+   changed <docstring>                                        header CHANGED
+   changed _setup                                             header CHANGED
+   changed _frontend_draw                                     header CHANGED
+   changed _old_fit                                           header same
+   changed _translate                                         header same
+   changed gradient_descent                                   header CHANGED
+   changed mc_sgd                                             header CHANGED
+   changed adam                                               header CHANGED
+   changed newton_cg                                          header CHANGED
+   added   _same_kind_and_order

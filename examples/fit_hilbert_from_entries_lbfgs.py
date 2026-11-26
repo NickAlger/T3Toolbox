@@ -141,8 +141,8 @@ def corewise_lbfgs(X0, index, y, tucker_ranks, tt_ranks,
     entries fit there, and return ``(f, grad_flat)``. The gradient is the *corewise* ``J^T r`` (no gauge
     projection -- ``COREWISE.project`` is the identity); its ``to_vector()`` shares the point's flat layout,
     which is what makes the round-trip exact."""
-    oracle = fitting.LeastSquaresOracle('entries', order=())     # the objective 1/2 ||X[index] - y||^2
-    batch = fitting.LeastSquaresBatch(index, y)                  # its data
+    oracle = fitting.LeastSquaresOracle()                        # the objective 1/2 ||X[index] - y||^2
+    batch = fitting.LeastSquaresBatch('entries', (), index, y)   # its data
 
     def objective_and_grad(x_flat):
         X = t3.TuckerTensorTrain.from_vector(x_flat, SHAPE, tucker_ranks, tt_ranks)

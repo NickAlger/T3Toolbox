@@ -1580,3 +1580,14 @@ ones), since neither conversion can be caught by a number. Part 0 also brings th
 or drawn batch of another kind or order. The public docstrings of a part are written in full and reviewed before it
 is built (`k1/prose_edits.md`: parts 0 and 1 done). For the maintainer at K2: a public full-weight checker
 (`K_ARC_DECISIONS.md` 29).
+K1 part 0 (the kind and the order into the batch), 2026-11-26 00:10: `K1_part0_HANDOVER.md`, `K1_part0_REVIEW_r1.md`
+SIGN OFF (the reviewer's own record of the old tree: 9,156 battery arrays and 3,017 notes bitwise equal, optimizer
+paths and the jitted query included; 31 attacks on the built batch class pass on Python 3.11 and the 3.9 floor; the
+71 constructions the audit could not pair read by hand, each with its old oracle's kind and order; its own full
+suite run on the final tree: 1,887 passed, 5 skipped, 1 xfailed, 90,148 subtests; six mutations, five caught, the
+sixth an untested branch, since tested). Module doctests 321, 47 pages, 14 examples, Sphinx 0 warnings, slow tier 52
+passed (the implementer's runs). `LeastSquaresBatch(kind, order, sample, y, *, weight=, minibatch_scale=,
+drawn_indices=)` with `check`, `take`, `n_measurements` (a property), `data_metric`; `LeastSquaresOracle()` with no
+fields; `pack_batch(batch, N=None)`; `flat_draw(batch, batch_size)`; the frontend refuses a validation or drawn
+batch of another kind or order, the display likewise. **Committed to `k1-wip`** and pushed there as a backup.
+`K_ARC_DECISIONS.md` 32 to 35. Next: part 1 (the dense reference and the test oracles), with a third implementer.

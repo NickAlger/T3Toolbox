@@ -124,8 +124,8 @@ def corewise_optax(X0, ww, data, rng, optimizer, batch=OPTAX_BATCH, max_iter=OPT
     @jax.jit
     def step(cores, opt_state, ww_B, data_B):
         X = t3.TuckerTensorTrain(*cores)                  # jax cores -> jax dispatch throughout
-        model = fitting.local_model(t3m.COREWISE, fitting.LeastSquaresOracle('probe', order=()),
-                                    fitting.LeastSquaresBatch(ww_B, data_B), X)    # the minibatch's objective
+        drawn = fitting.LeastSquaresBatch('probe', (), ww_B, data_B)
+        model = fitting.local_model(t3m.COREWISE, fitting.LeastSquaresOracle(), drawn, X)   # the minibatch's objective
         grad = model.gradient.variations.data
         updates, opt_state = optimizer.update(grad, opt_state, cores)
         return optax.apply_updates(cores, updates), opt_state

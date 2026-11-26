@@ -91,8 +91,8 @@ certify a computed tangent's gauge, check that tangent (`Hp.is_gauged()`), not a
 >>> derivatives = lambda t: fitting.taylor_to_derivatives('probe', (1,), t.probe(fitting.affine_jet(ww, pp), (1,)))
 >>> y = derivatives(t3.TuckerTensorTrain.randn(shape, *ranks))
 >>> taylor_y, taylor_w, _ = fitting.prepare_derivative_data('probe', (1,), y, None)   # Taylor coefficients
->>> oracle = fitting.LeastSquaresOracle('probe', order=(1,))
->>> batch = fitting.LeastSquaresBatch(fitting.affine_jet(ww, pp), taylor_y, taylor_w)
+>>> oracle = fitting.LeastSquaresOracle()
+>>> batch = fitting.LeastSquaresBatch('probe', (1,), fitting.affine_jet(ww, pp), taylor_y, weight=taylor_w)
 >>> def model_at(x, hessian='gauss_newton'):
 ...     return fitting.local_model(M, oracle, batch, x, hessian=hessian)
 >>> model = model_at(t3.TuckerTensorTrain.randn(shape, *ranks), hessian='exact')

@@ -225,6 +225,10 @@ M2 did) and the tally against the part before. The part of the order of §7 "K1"
 - The tests that compare the engine with the reference pass the reference the two weights and the engine, still on
   one weight, `weight=jets.blocks_to_weight(...)` of the block weight (or the full weight itself): the old engine then
   pins the reference's new reading.
+- **Part 1 rewrites every test that hands the reference a form it now refuses** (round 2, finding 12), among them
+  `tests/test_engine_data_space.py:139-158` (`TestAgainstTheReference`: a `y` constant in `W`, weights with a
+  structural axis of 1): the reference gets the written-out `y` and the `(block, full)` pair, the old engine the same
+  written-out `y` and `blocks_to_weight(block)` or the written-out full weight. The part's run finds the list.
 - **Red at its end:** none expected. **Review:** the pins use no library code but dense functions; the engine
   comparisons pass unchanged in their numbers.
 
@@ -254,8 +258,15 @@ M2 did) and the tally against the part before. The part of the order of §7 "K1"
     with `kind='probe'` and its callers, `old_vocabulary('probe_derivatives', ...)`, and every translated
     `probe_derivatives` old-form call in the tests (the examples and pages are run at part 5 only);
   - every test whose `y` has a size-1 `W` or structural axis and reaches the engine;
+  - hand-built probe or apply full-form weights with a structural axis of 1 (round 2, finding 13; e.g.
+    `tests/backend/test_optimizer_display.py:425`, a probe weight with an edge of 1);
   - not red: apply and entries fits with a `blocks_to_weight` weight (a legal full weight, today's numbers bitwise),
-    and every fit with no weight but the probe derivative ones. **Review:** the engine against the reference (part 1), uniform against ragged with
+    and every fit with no weight but the probe derivative ones.
+
+  The expected red is recorded **per subtest** from the `-v` log (the `SUBPASSED(...)` / `SUBFAIL` labels), each
+  failing subtest classified by its label, so that a red node's other cases stay visible. A test that stops at its
+  first failure hides its other cases: **part 4's green run is the first check of part 2's engine on the cases hidden
+  behind a red node**, and part 4's review says so. **Review:** the engine against the reference (part 1), uniform against ragged with
   finite junk in the padding of `y` and the full weight, the named laws (§6), the battery's engine rows bitwise (§7).
 
 **Part 3: the public surface of `jets`** (additive, but for the dual-jet pair).
@@ -1195,10 +1206,17 @@ listed by name. Expected: no tolerance changed anywhere; the assertions changed 
 - In each scope: every new batch pair equals an old oracle pair of the same scope (or of the enclosing class's
   `setUp` or body, or of the module level, in that order); every old batch construction has a new one (equal counts);
   every old read `<x>.kind` / `<x>.order` with `x` an oracle is now a read off a batch, and listed.
-- **Listed, unresolved, for the reviewer to read by hand**, each with its call chain: a scope whose batches have no
-  oracle pair in reach (the oracle came in as an argument, or the pair is built by a helper such as `tests/_fits.fit`,
-  which receives `kind` and `order` once and builds both); a pair whose expressions differ. The handover gives their
-  count; the reviewer reads each.
+- **One level of helper** (round 2, finding 11): when a new batch's pair is made of its scope's own parameter names
+  (a helper such as `Fixture.batch(self, kind, order)`, `_batch(kind, order, ...)`, `tests/_fits.fit`), each call site
+  of the helper in the same file substitutes its arguments for them, and the result is compared with the old oracle
+  pairs of the call site's scope.
+- **Listed, for the reviewer to read by hand**, each with its call chain: a pair that still cannot be resolved; every
+  removed oracle construction whose scope keeps no paired batch; every scope with two distinct old pairs (ambiguous:
+  "equals an old pair" would accept the wrong one; none in `tests/`, one in the library's doctests,
+  `LeastSquaresOracle`'s, whose printed outputs cover it); and every construction of a test subclass of the oracle,
+  its old and its new argument lists side by side (`_OffsetOracle(kind, order, offset, key)` becoming
+  `_OffsetOracle(offset, key)`: a swapped `offset`, `key` is invisible to every number but the test's own). The
+  handover gives the counts.
 
 **(c) Parts 1 to 5: the weights.**
 - Every `blocks_to_weight(k, o, b, y)` call removed is paired with a `block_weight=` in the same scope whose value is

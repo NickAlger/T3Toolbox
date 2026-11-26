@@ -184,7 +184,8 @@ class Oracle(typ.Protocol):
     :py:class:`~t3toolbox.backend.fitting.LeastSquaresOracle`.
 
     An oracle is a frozen description with no arrays (it rides as jax ``aux_data``; value-hashed); its data are its
-    ``batch``, which the optimizers pass through unread (``None`` for an oracle with no data). ``query`` returns the
+    ``batch``, which the optimizers pass through unread (``None`` for an oracle with no data), with one exception, the
+    default draw below. ``query`` returns the
     values of ``want``, aligned with it, and ``held``: anything the oracle wants back at the same frame and batch
     (O-8), passed back unread by the optimizers; in a compiled program it must be something jax can carry (arrays,
     tuples, ``None`` or a registered record, O-30). The required outputs are ``f``, ``g``, ``JtJp`` and
@@ -203,12 +204,14 @@ class Oracle(typ.Protocol):
     :py:meth:`LocalModel.jacobian` and ``r`` by :py:attr:`LocalModel.residual` (each checked structurally where it
     is needed). Without ``f_resolution`` the trust region's floor is ``eps |f|``, ``eps`` read off ``f``'s dtype.
 
-    **Optional members** ``check_batch(batch, shape, stack_shape=()) -> None`` (O-29): the structural checker of a
-    batch against the mode sizes ``shape`` and the model's stack of base points ``stack_shape`` (``C``; ``()`` for an
-    unstacked model), which the frontend calls, always with the model's ``stack_shape``, where a batch enters when the
-    oracle has one, and nothing about the batch otherwise; and
-    ``n_measurements(batch)`` with ``take(batch, indices)``, the default draw of ``mc_sgd`` and ``adam``
-    (:py:func:`flat_draw`), which without them need a ``draw``.
+    **What a batch may have** (O-29; the least-squares batch has all three): ``check(shape, stack_shape=()) -> None``,
+    the structural checker of the batch against the mode sizes ``shape`` and the model's stack of base points
+    ``stack_shape`` (``C``; ``()`` for an unstacked model), which the frontend calls, always with the model's
+    ``stack_shape``, where a batch enters; and the property ``n_measurements`` with ``take(indices)``, which the
+    default draw of ``mc_sgd`` and ``adam`` calls (:py:func:`flat_draw`): a batch without them needs a ``draw``. A
+    user's ``draw`` returns a batch of the same kind and jet shape as the full batch; the backend does not check it.
+    An oracle that reuses :py:class:`~t3toolbox.backend.fitting.LeastSquaresBatch` reads the kind and the jet shape
+    off it.
     """
     optional_outputs: typ.ClassVar[typ.Tuple[str, ...]]
 
@@ -492,8 +495,8 @@ def local_model(
     >>> np.random.seed(0)
     >>> shape, ranks = (4, 5, 6), ((2, 2, 2), (1, 2, 2, 1))
     >>> ww = [np.random.randn(20, N) for N in shape]
-    >>> oracle = LeastSquaresOracle('probe', order=())
-    >>> batch = LeastSquaresBatch(ww, t3_probe(t3_corewise_randn(shape, *ranks), ww))
+    >>> oracle = LeastSquaresOracle()
+    >>> batch = LeastSquaresBatch('probe', (), ww, t3_probe(t3_corewise_randn(shape, *ranks), ww))
     >>> geom = ManifoldGeometryOps()
     >>> x = t3_corewise_randn(shape, *ranks)
     >>> model = bopt.local_model(geom, oracle, batch, x)
@@ -595,8 +598,8 @@ def point_objective(
     >>> x = t3_corewise_randn((4, 5, 6), (2, 2, 2), (1, 2, 2, 1))
     >>> ww = [np.random.randn(10, N) for N in (4, 5, 6)]
     >>> y = np.random.randn(10)
-    >>> f = bopt.point_objective(CorewiseGeometryOps(), LeastSquaresOracle('apply', order=()),
-    ...                          LeastSquaresBatch(ww, y), x)
+    >>> f = bopt.point_objective(CorewiseGeometryOps(), LeastSquaresOracle(),
+    ...                          LeastSquaresBatch('apply', (), ww, y), x)
     >>> print(bool(np.isclose(f, 0.5 * np.sum((t3_apply(x, ww) - y) ** 2))))
     True
     """
@@ -623,35 +626,43 @@ def _scored(geom, oracle, batch, x_cores, regularizer):
 
 
 def flat_draw(
-        oracle:      typ.Any,       # an oracle with n_measurements(batch) and take(batch, indices)
-        batch:       typ.Any,       # the full batch
+        batch:       typ.Any,       # the full batch: with the property n_measurements and take(indices)
         batch_size:  int,           # samples per minibatch
 ) -> typ.Callable:                  # draw(rng) -> a drawn batch
     """The **default** minibatch draw: a uniform random subset of ``min(batch_size, n)`` of the ``n`` samples
-    (``oracle.n_measurements(batch)``), flat across the whole sample stack ``W``, as ``oracle.take(batch, indices)``
-    returns it: for the least-squares oracle a batch with ``minibatch_scale = n / b`` and the ``drawn_indices``. Returns
+    (``batch.n_measurements``), flat across the whole sample stack ``W``, as ``batch.take(indices)`` returns it: for
+    the least-squares batch a batch with ``minibatch_scale = n / b`` and the ``drawn_indices``. Returns
     ``draw(rng) -> batch``, which calls ``rng.choice(n, size=min(batch_size, n), replace=False)`` once per draw. A user
-    may pass **any** ``draw`` instead (slice ``W``, importance-sample, ...), returning a batch of the oracle. Host numpy
-    indices; on a jax batch the gather runs on device (the optimizer never compiles the draw, only the step)."""
-    n = oracle.n_measurements(batch)
+    may pass **any** ``draw`` instead (slice ``W``, importance-sample, ...), returning a batch of the same kind and jet
+    shape as the full batch: the backend does not check it (the frontend optimizers do). Host numpy indices; on a jax
+    batch the gather runs on device (the optimizer never compiles the draw, only the step)."""
+    n = batch.n_measurements
     size = min(batch_size, n)
 
     def draw(rng):
-        return oracle.take(batch, rng.choice(n, size=size, replace=False))
+        return batch.take(rng.choice(n, size=size, replace=False))
     return draw
 
 
 def _require_draw(
-        oracle:  typ.Any,
-        draw:    typ.Optional[typ.Callable],   # the user's draw, or None (the default flat_draw)
-        who:     str,
+        batch:  typ.Any,
+        draw:   typ.Optional[typ.Callable],    # the user's draw, or None (the default flat_draw)
+        who:    str,
 ) -> None:
-    """Structural, at entry: without a ``draw`` the oracle needs ``take(batch, indices)`` and ``n_measurements(batch)``,
-    the default draw (:py:func:`flat_draw`); else a ``ValueError``."""
-    if draw is None and not (callable(getattr(oracle, 'take', None))
-                             and callable(getattr(oracle, 'n_measurements', None))):
-        raise ValueError('%s: %s has no take(batch, indices) and n_measurements(batch), the default draw; pass '
-                         'draw=, a function draw(rng) returning a batch of the oracle' % (who, type(oracle).__name__))
+    """Structural, at entry: without a ``draw`` the batch needs ``take(indices)`` and the property
+    ``n_measurements`` (an int), the default draw (:py:func:`flat_draw`); else a ``ValueError``, which says so when
+    ``n_measurements`` is a method (a batch written before it became a property)."""
+    if draw is not None:
+        return
+    n = getattr(batch, 'n_measurements', None)
+    if callable(n):
+        raise ValueError('%s: %s.n_measurements is a method; the default draw reads n_measurements as a property of '
+                         'the batch now, an int (and calls batch.take(indices)); make it a property, or pass draw=, '
+                         'a function draw(rng) returning a batch' % (who, type(batch).__name__))
+    if not callable(getattr(batch, 'take', None)) or not isinstance(n, numbers.Integral):
+        raise ValueError('%s: %s has no take(indices) and the property n_measurements (an int), the default draw; '
+                         'pass draw=, a function draw(rng) returning a batch of the same kind and jet shape'
+                         % (who, type(batch).__name__))
 
 
 # --------------------------------------------------------------------------------------------------
@@ -1001,8 +1012,8 @@ def padded_start(
     >>> np.random.seed(0)
     >>> shape = (5, 6, 5)
     >>> ww = [np.random.randn(60, n) for n in shape]
-    >>> batch = LeastSquaresBatch(ww, t3.TuckerTensorTrain.randn(shape, (3, 4, 3), (1, 3, 3, 1)).probe(ww))
-    >>> geom, oracle = ManifoldGeometryOps(), LeastSquaresOracle('probe', order=())
+    >>> batch = LeastSquaresBatch('probe', (), ww, t3.TuckerTensorTrain.randn(shape, (3, 4, 3), (1, 3, 3, 1)).probe(ww))
+    >>> geom, oracle = ManifoldGeometryOps(), LeastSquaresOracle()
     >>> x_old = t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1))
     >>> x0 = x_old.resize(shape, (3, 4, 3), (1, 3, 3, 1))                 # zero-padded to the target ranks
     >>> frame, centers, movements = bopt.padded_start(geom, oracle, batch, x0.data, x_old.data)
@@ -1230,7 +1241,7 @@ def mc_sgd(
         rng,                     # np.random.Generator -- passed to the draw each step
         batch_size:  int,        # samples per minibatch (the default flat draw's; unread with a draw)
         regularizer: typ.Any = None,   # optional backend.regularization.Regularizer (unscaled on a draw)
-        draw:        typ.Optional[typ.Callable] = None,  # custom draw(rng) -> a batch; None = flat_draw(oracle, batch, batch_size)
+        draw:        typ.Optional[typ.Callable] = None,  # custom draw(rng) -> a batch; None = flat_draw(batch, batch_size)
         max_iter:    int   = 3000,
         check_every: int   = 25,     # iterations between full-batch loss checks (the absolute-iteration window)
         smooth_tau:  float = 2.0,    # EMA timescale of the loss check, in checks
@@ -1240,19 +1251,21 @@ def mc_sgd(
     """Manifold Cauchy SGD (T4S §5.3.2): minibatch + the tuning-free Cauchy step
     ``α = ‖g‖² / ‖𝒥g‖²`` -- no learning rate. Intended for the **manifold** geometry (its bounded
     retraction makes the raw Cauchy step stable; on the additive corewise chart use ``adam``). Each step draws a batch
-    (``draw(rng)``; by default :py:func:`flat_draw`, which needs an oracle with ``take``, else a ``ValueError`` at
-    entry) and builds a model there afresh: the step objective is the drawn batch's misfit, scaled by the oracle to
-    estimate the full one, plus the **unscaled** regularizer. Stops on an exponentially-smoothed **full-batch** loss
-    (:py:func:`point_objective`) with an **absolute-iteration window** (``plateau_lag * check_every`` iterations) --
-    decoupled from batch size (the epoch-based window made small batches fragile; findings in a separate research repo,
-    maintainer-local). ``stats['losses']`` records the **smoothed** check values (the stop signal), not the raw
-    full-batch losses. ``use_jit`` jits the per-step kernel (the host loop draws minibatches; the full-batch stop check
-    stays on the host), auto-converting numpy inputs to jax first (:py:func:`_prepare_jit_inputs`) -- so the
+    (``draw(rng)``, which returns a batch of the full batch's kind and jet shape; by default :py:func:`flat_draw`, which
+    needs a batch with ``take`` and ``n_measurements``, else a ``ValueError`` at entry; a draw's batch is not checked
+    here, the frontend checks it) and builds a model there afresh: the step objective is the drawn batch's misfit,
+    scaled by the oracle to estimate the full one, plus the **unscaled** regularizer. Stops on an exponentially-smoothed
+    **full-batch** loss (:py:func:`point_objective`) with an **absolute-iteration window**
+    (``plateau_lag * check_every`` iterations) -- decoupled from batch size (the epoch-based window made small batches
+    fragile; findings in a separate research repo, maintainer-local). ``stats['losses']`` records the **smoothed** check
+    values (the stop signal), not the raw full-batch losses. ``use_jit`` jits the per-step kernel (the host loop draws
+    minibatches; the full-batch stop check stays on the host), auto-converting numpy inputs to jax first
+    (:py:func:`_prepare_jit_inputs`) -- so the
     **default** draw then slices the on-device batch (a custom ``draw`` should return jax batches to stay on device)."""
     _require_unstacked(geom, x0, 'mc_sgd')
-    _require_draw(oracle, draw, 'mc_sgd')
+    _require_draw(batch, draw, 'mc_sgd')
     x0, batch = _prepare_jit_inputs(use_jit, x0, batch)
-    draw = draw if draw is not None else flat_draw(oracle, batch, batch_size)
+    draw = draw if draw is not None else flat_draw(batch, batch_size)
     a_smooth = 1.0 - math.exp(-1.0 / smooth_tau)
 
     step = _jitted(_mc_sgd_step, (0, 1, 2)) if _jit_engaged(use_jit, x0, batch) else _mc_sgd_step
@@ -1280,7 +1293,7 @@ def adam(
         rng,                  # np.random.Generator -- passed to the draw each step
         batch_size:  int,     # samples per minibatch (the default flat draw's; unread with a draw)
         regularizer: typ.Any = None,   # optional backend.regularization.Regularizer (unscaled on a draw)
-        draw:     typ.Optional[typ.Callable] = None,  # custom draw(rng) -> a batch; None = flat_draw(oracle, batch, batch_size)
+        draw:     typ.Optional[typ.Callable] = None,  # custom draw(rng) -> a batch; None = flat_draw(batch, batch_size)
         lr:       float = 1e-2,
         max_iter: int   = 2000,
         betas:    typ.Tuple[float, float] = (0.9, 0.999),
@@ -1292,18 +1305,19 @@ def adam(
     moments ``m`` / ``v`` are trees matching the cores (a ``corewise_map`` per step); elementwise, so this
     is exactly per-core Adam. (``lr`` is a real hyperparameter -- Adam is not tuning-free, unlike the Cauchy
     step.) On corewise the step is additive (``lm.retract`` = ``cores += step``). Each step builds a model afresh at a
-    drawn batch, as :py:func:`mc_sgd` does (the regularizer unscaled; an oracle without ``take`` needs a ``draw``).
+    drawn batch, as :py:func:`mc_sgd` does (the regularizer unscaled; a batch without ``take`` and ``n_measurements``
+    needs a ``draw``, whose batches, of the full batch's kind and jet shape, are not checked here).
     ``use_jit`` jits the per-step kernel (``lr_t``/``t`` flow in as traced args, so the schedule does not force a
     recompile), auto-converting numpy inputs to jax first (:py:func:`_prepare_jit_inputs`). ``stats['losses']`` is
     the full-batch objective (:py:func:`point_objective`) every 50 steps."""
     _require_unstacked(geom, x0, 'adam')
-    _require_draw(oracle, draw, 'adam')
+    _require_draw(batch, draw, 'adam')
     x0, batch = _prepare_jit_inputs(use_jit, x0, batch)
     b1, b2 = betas
 
     step = _jitted(_adam_step, (0, 1, 2)) if _jit_engaged(use_jit, x0, batch) else _adam_step
 
-    draw = draw if draw is not None else flat_draw(oracle, batch, batch_size)
+    draw = draw if draw is not None else flat_draw(batch, batch_size)
     cores = x0
     m = cw.corewise_zeros_like(cores)
     v = cw.corewise_zeros_like(cores)
@@ -2210,10 +2224,10 @@ def newton_cg(
     >>> np.random.seed(0)
     >>> shape, rng = (5, 5, 5), np.random.default_rng(0)
     >>> ww, pp = ([rng.standard_normal((40, n)) for n in shape] for _ in range(2))
-    >>> oracle = LeastSquaresOracle('probe', order=(1,))
+    >>> oracle = LeastSquaresOracle()
     >>> target = t3.TuckerTensorTrain.randn(shape, (3, 3, 3), (1, 3, 3, 1)).data
     >>> y = [z + 0.01 * rng.standard_normal(z.shape) for z in t3_probe(target, affine_jet(ww, pp), (1,))]
-    >>> geom, batch = ManifoldGeometryOps(), LeastSquaresBatch(affine_jet(ww, pp), y)
+    >>> geom, batch = ManifoldGeometryOps(), LeastSquaresBatch('probe', (1,), affine_jet(ww, pp), y)
     >>> x0, _ = bopt.newton_cg(geom, oracle, batch, t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)).data,
     ...                        max_newton=5)
     >>> _, gn = bopt.newton_cg(geom, oracle, batch, x0, max_newton=40, g0_reference='warm_start')

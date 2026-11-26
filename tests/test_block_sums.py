@@ -181,14 +181,14 @@ class TestAgainstDenseSums(unittest.TestCase):
                 xu = ut3.UniformTuckerTensorTrain.from_t3(x, N=NPACK, n=4, r=4)
                 sample = sample_of(kind, rng, order, W)
                 full = z_shapes(kind, order, W, C)
-                oracle = LeastSquaresOracle(kind, order)
+                oracle = LeastSquaresOracle()
                 for y_label, keep in y_forms(kind, order, C).items():
                     y = of_type(kind, patterned(rng, full, keep))
                     for w_label, weight in weight_forms(rng, kind, order, C).items():
                         r_ref, y_ref = dense_sums(kind, order, lambda c: tree_at(frame, c[0]) if C else frame,
                                                   sample, y, weight, C)
-                        batch = LeastSquaresBatch(sample, y, weight)
-                        pb = pack_batch(kind, order, batch, NPACK)
+                        batch = LeastSquaresBatch(kind, order, sample, y, weight=weight)
+                        pb = pack_batch(batch, NPACK)
                         if kind == 'probe':
                             pb = with_garbage(pb)
                         calls = [('frame', frame, batch), ('point', x.data, batch), ('uniform', xu.data, pb)]
@@ -225,7 +225,7 @@ class TestSharedData(unittest.TestCase):
             m = len(order)
             sample = sample_of(kind, rng, order, Wb)
             F = tuple(n + 1 for n in order)
-            oracle = LeastSquaresOracle(kind, order)
+            oracle = LeastSquaresOracle()
             arrays = len(SHAPE) if kind == 'probe' else 1
             for label, counted, shape_of in [
                     ('stack', C[0], lambda N: F + Wb + (1,) + ((N,) if kind == 'probe' else ())),
@@ -235,7 +235,8 @@ class TestSharedData(unittest.TestCase):
                 one_copy = [np.sum(a ** 2, axis=tuple(range(m, a.ndim))) for a in copies]
                 one_copy = np.stack(one_copy) if kind == 'probe' else one_copy[0]
                 with self.subTest(kind=kind, shared_by=label):
-                    (ybs,), _ = oracle.query(frame, LeastSquaresBatch(sample, y, None), ('y_block_sumsq',))
+                    (ybs,), _ = oracle.query(frame, LeastSquaresBatch(kind, order, sample, y, weight=None),
+                                             ('y_block_sumsq',))
                     self.assertLess(relerr(ybs, counted * one_copy), 1e-13)
 
 
@@ -266,7 +267,8 @@ class TestNoWeight(unittest.TestCase):
                         self.assertEqual(np.asarray(got).tobytes(), np.asarray(plain).tobytes())
                 if not C:
                     with self.subTest(kind=kind, order=order, name='y_block_sumsq'):
-                        (ybs,), _ = LeastSquaresOracle(kind, order).query(frame, LeastSquaresBatch(sample, y, None),
+                        (ybs,), _ = LeastSquaresOracle().query(frame, LeastSquaresBatch(kind, order, sample, y,
+                                                                                        weight=None),
                                                                           ('y_block_sumsq',))
                         ref = data_preparation.data_block_norms(kind, order, y) ** 2
                         self.assertLess(relerr(ybs, ref), 1e-14)
@@ -289,8 +291,8 @@ class TestTheScale(unittest.TestCase):
             m = len(order)
             weight = of_type(kind, patterned(rng, full, [[False] * m + [True] + [False] * (len(s) - m - 1)
                                                          for s in full], positive=True))
-            oracle = LeastSquaresOracle(kind, order)
-            drawn = oracle.take(LeastSquaresBatch(sample, y, weight), indices)
+            oracle = LeastSquaresOracle()
+            drawn = LeastSquaresBatch(kind, order, sample, y, weight=weight).take(indices)
             pick = lambda a: np.take(np.asarray(a), indices, axis=m)           # W is the axis after the jets
             if kind == 'entries':
                 sub_sample = np.asarray(sample)[:, indices]

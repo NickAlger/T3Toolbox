@@ -146,8 +146,8 @@ If you want to write your own iteration (a custom trust region, a different line
 ```python
 >>> import t3toolbox.fitting as fitting
 >>> x = t3.TuckerTensorTrain.randn(shape, tucker_ranks, tt_ranks)   # the current point
->>> oracle = fitting.LeastSquaresOracle('apply', order=())           # the objective ½‖apply(x) − y‖²
->>> batch = fitting.LeastSquaresBatch(ww, data)                      # its data
+>>> oracle = fitting.LeastSquaresOracle()                            # the objective ½‖apply(x) − y‖²
+>>> batch = fitting.LeastSquaresBatch('apply', (), ww, data)         # its data: apply at no jets
 >>> model = fitting.local_model(t3m.MANIFOLD, oracle, batch, x)
 >>> g  = model.gradient                   # Π 𝒥ᵀr   (a gauged T3Tangent)
 >>> v  = t3m.MANIFOLD.randn(model.frame)  # any tangent at the model's frame
@@ -426,14 +426,14 @@ on both layers.
 >>> blocks = np.outer(mode_w, order_w)                                          # ω[mode,order], (3, 4)
 >>> omega = fitting.blocks_to_weight('probe', (3,), blocks, y3)                 # a weight of the type of z
 >>> y, w, _ = fitting.prepare_derivative_data('probe', (3,), y3, omega)
->>> model = fitting.local_model(t3m.MANIFOLD, fitting.LeastSquaresOracle('probe', order=(3,)),
-...                             fitting.LeastSquaresBatch(affine_jet(ww3, pp3), y, w), x)
+>>> model = fitting.local_model(t3m.MANIFOLD, fitting.LeastSquaresOracle(),
+...                             fitting.LeastSquaresBatch('probe', (3,), affine_jet(ww3, pp3), y, weight=w), x)
 >>> np.shape(w)                                                                 # (d,) + F + W + (edge,), W and edge 1
 (3, 4, 1, 1)
 >>> # plain probe: one value per mode, placed the same way:
 >>> per_mode = fitting.blocks_to_weight('probe', (), np.array([0.5, 1.0, 2.0]), pdata)
->>> model = fitting.local_model(t3m.MANIFOLD, fitting.LeastSquaresOracle('probe', order=()),
-...                             fitting.LeastSquaresBatch(ww, pdata, per_mode), x)
+>>> model = fitting.local_model(t3m.MANIFOLD, fitting.LeastSquaresOracle(),
+...                             fitting.LeastSquaresBatch('probe', (), ww, pdata, weight=per_mode), x)
 >>> print(model.gradient.is_gauged())
 True
 

@@ -315,10 +315,12 @@ def _batch(kind, order, W, rng, target, weight=None):
     if kind == 'entries':
         index = np.stack([rng.integers(0, N, W) for N in SH])
         y = target.entries(index)
-        return LeastSquaresBatch(index, y, None if weight is None else blocks_to_weight(kind, order, weight, y))
+        return LeastSquaresBatch(kind, order, index, y,
+                                 weight=None if weight is None else blocks_to_weight(kind, order, weight, y))
     sample = _jets(order, W, rng)
     y = target.probe(sample, order) if kind == 'probe' else target.apply(sample, order)
-    return LeastSquaresBatch(sample, y, None if weight is None else blocks_to_weight(kind, order, weight, y))
+    return LeastSquaresBatch(kind, order, sample, y,
+                             weight=None if weight is None else blocks_to_weight(kind, order, weight, y))
 
 
 def _weight_shape(kind, order):
@@ -360,13 +362,26 @@ class TestMakeNewtonDisplay(unittest.TestCase):
                                   max_newton=max_newton, callback=callback, **(newton or {}))
         return stats, records, printed, infos
 
+    def test_a_validation_batch_of_another_kind_or_order(self):
+        """K1 part 0: the table's layout is read off the batch's order, and a validation batch of another kind or order
+        is refused at once (its table would set two quantities side by side); a batch type without a kind and an order
+        (a user's) is labelled by position and not refused against another such type."""
+        oracle = LeastSquaresOracle()
+        batch = _batch('probe', (1,), 40, self.rng, self.target)
+        for label, val in (('order', _batch('probe', (), 15, self.rng, self.target)),
+                           ('kind', _batch('apply', (1,), 15, self.rng, self.target))):
+            with self.subTest(other=label):
+                with self.assertRaisesRegex(ValueError, 'the validation batch is of kind'):
+                    bdisp.make_newton_display(oracle, batch, val, print_fn=None)
+        bdisp.make_newton_display(oracle, batch, _batch('probe', (1,), 15, self.rng, self.target), print_fn=None)
+
     def test_records_in_the_weights_shape(self):
         """train_err and val_err keep the block shape, nothing reduced: () per kind, (2,) and (1, 1) for probe and
         apply; with and without validation (no val_err key without). The (1, 1) table has one column per multi-index."""
         cases = [('probe', ()), ('apply', ()), ('entries', ()), ('probe', (1,)), ('apply', (1,)), ('probe', (1, 1)),
                  ('apply', (1, 1))]
         for kind, order in cases:
-            oracle = LeastSquaresOracle(kind, order)
+            oracle = LeastSquaresOracle()
             batch = _batch(kind, order, 40, self.rng, self.target)
             for validation in (False, True):
                 with self.subTest(kind=kind, order=order, validation=validation):
@@ -396,7 +411,7 @@ class TestMakeNewtonDisplay(unittest.TestCase):
                 batch = _batch(kind, (), 40, self.rng, self.target, weight)
                 batch = dc.replace(batch, y=_perturb(batch.y, y_noise, self.rng))
                 val_batch = _batch(kind, (), 15, self.rng, self.target)
-                _, records, printed, infos = self.run_display(LeastSquaresOracle(kind, ()), batch, val_batch)
+                _, records, printed, infos = self.run_display(LeastSquaresOracle(), batch, val_batch)
                 for rec, info, text in zip(records, infos, printed):
                     T = t3.TuckerTensorTrain(*info.x_cores).to_dense()
                     for b, err in ((batch, rec['train_err']), (val_batch, rec['val_err'])):
@@ -424,8 +439,8 @@ class TestMakeNewtonDisplay(unittest.TestCase):
                 omega = [np.ones((1,) * m + (40, 1)) for _ in SH] if kind == 'probe' else np.ones((40,))
                 for a in (omega if kind == 'probe' else [omega]):
                     a[(0,) * m + (bad,)] = 0.0
-                batch = LeastSquaresBatch(batch.sample, ys if kind == 'probe' else ys[0], omega)
-                _, records, _, infos = self.run_display(LeastSquaresOracle(kind, order), batch, max_newton=12)
+                batch = LeastSquaresBatch(kind, order, batch.sample, ys if kind == 'probe' else ys[0], weight=omega)
+                _, records, _, infos = self.run_display(LeastSquaresOracle(), batch, max_newton=12)
                 for rec, info in zip(records, infos):
                     z = getattr(t3.TuckerTensorTrain(*info.x_cores), kind)(batch.sample, order)
                     zs = list(z) if kind == 'probe' else [z]
@@ -451,7 +466,7 @@ class TestMakeNewtonDisplay(unittest.TestCase):
                                    weight=[omega[:, None] for _ in SH] if kind == 'probe' else omega)
                 val_batch = _batch(kind, (), 40, self.rng, self.target)
                 val_batch = dc.replace(val_batch, y=_perturb(val_batch.y, 0.2, self.rng))
-                _, records, _, infos = self.run_display(LeastSquaresOracle(kind, ()), batch, val_batch, max_newton=2)
+                _, records, _, infos = self.run_display(LeastSquaresOracle(), batch, val_batch, max_newton=2)
                 dense = (lambda T, b: _dense_probe(T, b.sample)) if kind == 'probe' else \
                     (lambda T, b: [_dense_apply(T, b.sample)])
                 as_list = (lambda y: list(y)) if kind == 'probe' else (lambda y: [y])
@@ -471,10 +486,10 @@ class TestMakeNewtonDisplay(unittest.TestCase):
 
     def test_no_unwt_figure_on_any_run(self):
         """M3: no row prints an ``(unwt …)`` figure: weighted, regularized, or on a drawn batch."""
-        oracle = LeastSquaresOracle('apply', ())
+        oracle = LeastSquaresOracle()
         weighted = dc.replace(_batch('apply', (), 40, self.rng, self.target), weight=0.5 + self.rng.random(40))
         runs = [dict(batch=weighted), dict(batch=weighted, newton=dict(regularizer=IdentityRegularizer(1e-2))),
-                dict(batch=oracle.take(weighted, np.arange(0, 40, 2)))]
+                dict(batch=weighted.take(np.arange(0, 40, 2)))]
         for i, run in enumerate(runs):
             with self.subTest(run=i):
                 _, _, printed, _ = self.run_display(oracle, run['batch'], max_newton=2, newton=run.get('newton'))
@@ -487,7 +502,7 @@ class TestMakeNewtonDisplay(unittest.TestCase):
         the validation r_block_sumsq at the same frame on val_batch, never with a held (the training one belongs to
         the training batch)."""
         import unittest.mock
-        oracle = LeastSquaresOracle('probe', (1,))
+        oracle = LeastSquaresOracle()
         batch, val_batch = (_batch('probe', (1,), W, self.rng, self.target) for W in (40, 15))
         calls = []
         real = LeastSquaresOracle.query
@@ -520,7 +535,7 @@ class TestMakeNewtonDisplay(unittest.TestCase):
         the row's point (the measured case: 2.469 on the drawn third against 0.550 recorded before); those queries get
         no held (the run's held belongs to the drawn batch); and no (unwt …) figure is printed (dropped in M3)."""
         import unittest.mock
-        oracle = LeastSquaresOracle('apply', ())
+        oracle = LeastSquaresOracle()
         full = _batch('apply', (), 60, self.rng, self.target)
         full = dc.replace(full, y=_perturb(full.y, 0.05, self.rng))
         geom = bgeo.ManifoldGeometryOps()
@@ -533,7 +548,7 @@ class TestMakeNewtonDisplay(unittest.TestCase):
             return real(self_, frame, b, want, **kw)
         with unittest.mock.patch.object(LeastSquaresOracle, 'query', recording):
             for start in (0, 1):
-                drawn = oracle.take(full, np.arange(start, 60, 3))
+                drawn = full.take(np.arange(start, 60, 3))
                 bopt.newton_cg(geom, oracle, drawn, _start(), max_newton=3,
                                callback=lambda info: (infos.append(info), display(info)))
         self.assertEqual(len(records), len(infos))
@@ -553,7 +568,7 @@ class TestMakeNewtonDisplay(unittest.TestCase):
         none of the plain sweep's rules (xi, mu, nu, eta, z, r) while the display works."""
         import t3toolbox.backend.sampling_variables as sv
         import unittest.mock
-        oracle = LeastSquaresOracle('probe', (1,))
+        oracle = LeastSquaresOracle()
         batch = _batch('probe', (1,), 40, self.rng, self.target)
         display, records = bdisp.make_newton_display(oracle, batch, print_fn=None)
         ran, real = [], sv._run
@@ -576,7 +591,7 @@ class TestMakeNewtonDisplay(unittest.TestCase):
         import unittest.mock
         np.random.seed(0)
         target = t3.TuckerTensorTrain.randn(SH, (3, 3, 3), (1, 3, 3, 1))
-        oracle = LeastSquaresOracle('probe', (1,))
+        oracle = LeastSquaresOracle()
         batch, val_batch = (_batch('probe', (1,), W, self.rng, target) for W in (40, 15))
         geom = bgeo.ManifoldGeometryOps()
         x0 = _start()
@@ -617,7 +632,7 @@ class TestMakeNewtonDisplay(unittest.TestCase):
         for cls in (_NoBlockSums, _NoDataBlockSums):
             for validation in (False, True):
                 with self.subTest(oracle=cls.__name__, validation=validation):
-                    oracle = cls('probe', ())
+                    oracle = cls()
                     batch = _batch('probe', (), 40, self.rng, self.target)
                     val_batch = _batch('probe', (), 15, self.rng, self.target) if validation else None
                     stats, records, printed, _ = self.run_display(oracle, batch, val_batch)
@@ -634,7 +649,7 @@ class TestMakeNewtonDisplay(unittest.TestCase):
         (arrays bitwise)."""
         import re
         clock = re.compile(r'\| \d+\.\d\ds\b')
-        oracle = LeastSquaresOracle('apply', (1, 1))
+        oracle = LeastSquaresOracle()
         batch, val_batch = (_batch('apply', (1, 1), W, self.rng, self.target) for W in (40, 15))
         runs = [self.run_display(oracle, batch, val_batch, error_table=flag) for flag in (True, False)]
         (_, rec_on, text_on, _), (_, rec_off, text_off, _) = runs
@@ -653,12 +668,12 @@ class TestMakeNewtonDisplay(unittest.TestCase):
 
     def test_uniform_equals_ragged(self):
         """The uniform layout: the packed batches give the ragged run's errors, in the same (unpadded) shape."""
-        oracle = LeastSquaresOracle('probe', (1,))
+        oracle = LeastSquaresOracle()
         batch, val_batch = (_batch('probe', (1,), W, self.rng, self.target) for W in (40, 15))
         x0 = _start()
         ux = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain(*x0), N=8, n=3, r=3)
         ufit, usc = F.uniform(F.Fit(bgeo.ManifoldGeometryOps(), oracle, batch), ux)
-        uval = uf.pack_batch(oracle.kind, oracle.order, val_batch, ux.N)
+        uval = uf.pack_batch(val_batch, ux.N)
         _, ragged, _, _ = self.run_display(oracle, batch, val_batch, x0=x0)
         display, uniform = bdisp.make_newton_display(oracle, ufit.batch, uval, print_fn=None)
         bopt.newton_cg(ufit.geom, oracle, ufit.batch, usc, max_newton=3, callback=display)
@@ -671,9 +686,9 @@ class TestMakeNewtonDisplay(unittest.TestCase):
     def test_a_drawn_batch(self):
         """On a drawn batch the scale is in both block sums and cancels: the errors equal the plain subset's (the same
         draw with the scale dropped), and no (unwt …) figure is printed."""
-        oracle = LeastSquaresOracle('apply', ())
+        oracle = LeastSquaresOracle()
         full = _batch('apply', (), 60, self.rng, self.target)
-        drawn = oracle.take(full, np.arange(0, 60, 3))
+        drawn = full.take(np.arange(0, 60, 3))
         plain = dc.replace(drawn, minibatch_scale=None)
         x0 = _start()
         _, on_drawn, printed, infos = self.run_display(oracle, drawn, x0=x0, max_newton=1)

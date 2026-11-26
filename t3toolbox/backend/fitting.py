@@ -1,12 +1,13 @@
 '''The least-squares oracle and its batch: what the optimizers ask of the data.
 
 A fit is ``f = 1/2 <M r, r>`` with ``r = z(x) - y`` the residual of a sampling kind (probe, apply or entries) at
-a jet shape ``order``, and ``M`` the batch's data metric. :py:class:`LeastSquaresOracle` (the kind and the order,
-a frozen description with no arrays) answers what an optimizer asks at a frame or a corewise point (``f``,
-``g``, ``Jp``, ``JtJp``, ``Kp``, the block sums, ...) through one call of the engine
-:py:func:`~t3toolbox.backend.sampling_variables.sampling_variables`, and checks, draws from and counts a batch.
-:py:class:`LeastSquaresBatch` holds the data, arrays only: the sample, ``y``, the weight, the minibatch scale and
-the drawn indices. What the oracle returns is bare, before any projection: ``Jp = 𝒥p``, ``g = 𝒥ᵀ(M r)`` and
+a jet shape ``order``, and ``M`` the batch's data metric. :py:class:`LeastSquaresBatch` holds the measurements: their
+kind and jet shape (static), the sample, ``y``, the weight, the minibatch scale and the drawn indices; it checks itself
+against a model, draws from itself, counts its samples and applies its data metric. :py:class:`LeastSquaresOracle` is
+the objective's rule, with no fields: it answers what an optimizer asks at a frame or a corewise point (``f``, ``g``,
+``Jp``, ``JtJp``, ``Kp``, the block sums, ...) on a batch, through one call of the engine
+:py:func:`~t3toolbox.backend.sampling_variables.sampling_variables`. What the oracle returns is bare, before any
+projection: ``Jp = 𝒥p``, ``g = 𝒥ᵀ(M r)`` and
 ``JtJp = 𝒥ᵀ M 𝒥p``, with ``𝒥`` the Jacobian of ``z`` at the frame and ``M`` the batch's data metric (its minibatch
 scale inside). The geometry (manifold or corewise, :py:mod:`t3toolbox.backend.geometry`) is the other half of a
 fit: it supplies the projection ``Π`` (``geometry.project``: the gauge projection on the manifold; on the
@@ -20,6 +21,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+import t3toolbox.backend.contractions as contractions
 import t3toolbox.backend.sampling_variables as sampling_variables
 import t3toolbox.backend.jets as jets
 import t3toolbox.backend.ut3_operations as ut3_operations
@@ -36,7 +38,7 @@ __all__ = [
 
 # --------------------------------------------------------------------------------------------------
 # The flat draw over the sample stack W: flatten W's axes into one and gather the drawn positions. The
-# oracle's `take` uses it for the sample (and, through `_take_W`, for y and the weight), wherever W sits in
+# batch's `take` uses it for the sample (and, through `_take_W`, for y and the weight), wherever W sits in
 # the array. A USER-supplied draw bypasses it entirely.
 # --------------------------------------------------------------------------------------------------
 def _flat_gather(
@@ -64,28 +66,83 @@ _SCALED = ('f', 'g', 'JtJp', 'Jp_norm_sq', 'Kp', 'r_block_sumsq')   # the miniba
                                                                       #   oracle's own y_block_sumsq and f_resolution
 
 
-@dataclass(frozen=True, eq=False)
+@dataclass(frozen=True, eq=False, init=False)
 class LeastSquaresBatch:
-    """The data of a least-squares fit, arrays only: a registered pytree, every field a leaf (``None`` allowed).
+    """The measurements of a least-squares fit: their kind and jet shape, the sample, the data and the weight.
 
-    ``sample`` is the input jets ``ww`` (probe, apply: ``len=d``, ``elm_shape=F_in_i+W+(Ni,)``, or packed
-    ``(d,)+F_in+W+(N,)`` on the uniform layout, :py:func:`~t3toolbox.backend.uniform_fitting.pack_batch`), or the
-    integer ``index`` ``(d,)+W`` (entries). ``y`` and ``weight`` are **of the type of** ``z``, with the model's stack
-    of base points ``C``: probe ``F+W+C+(Ni,)`` per mode (a tuple or a list of ``d`` arrays, or one array whose first
-    axis is the mode; packed ``(d,)+F+W+C+(e,)`` on the uniform layout), apply ``F+W+C``, entries ``W+C``; each axis 1
-    or that size, a size of 1 meaning the same along the axis (data shared by a stack have size-1 ``C`` axes, a
-    weight per slot size-1 ``W``, ``C`` and edge axes). :py:func:`~t3toolbox.backend.jets.blocks_to_weight` makes a
-    weight from one value per block. ``weight=None`` is ones. ``minibatch_scale`` is ``n / batch_size`` on a drawn
-    batch (:py:meth:`LeastSquaresOracle.take`), ``None`` (one) on a full batch; ``drawn_indices`` the flat sample
-    indices a draw took, relative to the batch it was taken from. Checked by
-    :py:meth:`LeastSquaresOracle.check_batch`, never by the oracle's ``query`` (the engine checks the rule of ``y``
-    and the weight on entry).
+    A registered pytree: ``kind`` and ``order`` are static (jax ``aux_data``: a compiled program is for one kind and
+    one jet shape, the same for every draw of a fit), every other field a leaf (``None`` allowed). Every field after
+    ``y`` is keyword-only, so that no positional call puts a scale in a weight:
+    ``LeastSquaresBatch('probe', (2,), ww, y, weight=omega)``.
+
+    - ``kind``: ``'probe'``, ``'apply'`` or ``'entries'``; ``order``: the jet shape of the sample and the data, a
+      tuple of nonnegative integers (``()`` for no jets; the entries kind takes ``()`` only). Both are checked when the
+      batch is made, and ``order`` is kept as Python ints.
+    - ``sample``: the input jets ``ww`` (probe, apply: ``len=d``, ``elm_shape=F_in_i+W+(Ni,)``, or packed
+      ``(d,)+F_in+W+(N,)`` on the uniform layout, :py:func:`~t3toolbox.backend.uniform_fitting.pack_batch`), or the
+      integer ``index`` ``(d,)+W`` (entries).
+    - ``y`` and ``weight``: **of the type of** ``z``, with the model's stack of base points ``C``: probe
+      ``F+W+C+(Ni,)`` per mode (a tuple or a list of ``d`` arrays, or one array whose first axis is the mode; packed
+      ``(d,)+F+W+C+(e,)`` on the uniform layout), apply ``F+W+C``, entries ``W+C``; each axis 1 or that size, a size of
+      1 meaning the same along the axis (data shared by a stack have size-1 ``C`` axes, a weight per slot size-1 ``W``,
+      ``C`` and edge axes). :py:func:`~t3toolbox.backend.jets.blocks_to_weight` makes a weight from one value per
+      block. ``weight=None`` is ones.
+    - ``minibatch_scale``: ``gamma``, ``n / b`` on a batch drawn by :py:meth:`take`, ``None`` (one) on a full batch;
+      ``drawn_indices``: the flat sample indices a draw took, relative to the batch it was taken from.
+
+    The arrays are checked against a model by :py:meth:`check`, which the frontend calls where a batch enters, never by
+    the oracle's ``query`` (the engine checks the rule of ``y`` and the weight on entry).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from t3toolbox.backend.fitting import LeastSquaresBatch
+    >>> ww = [np.ones((10, N)) for N in (4, 5, 6)]                            # W = (10,)
+    >>> batch = LeastSquaresBatch('apply', (), ww, np.zeros(10))
+    >>> print(batch.kind, batch.order, batch.n_measurements)
+    apply () 10
+
+    A batch made without its kind and jet shape fails at once (here on the missing third argument; with more
+    positional arguments, on the kind):
+
+    >>> LeastSquaresBatch(ww, np.zeros(10))                                   # doctest: +IGNORE_EXCEPTION_DETAIL
+    Traceback (most recent call last):
+        ...
+    TypeError: LeastSquaresBatch.__init__() missing 1 required positional argument: 'sample'
     """
+    kind:             str                                        # 'probe' | 'apply' | 'entries'; static (aux_data)
+    order:            typ.Tuple[int, ...]                        # the jet shape, Python ints; entries (); static
     sample:           typ.Any                                    # P_in_i⊗V_i (the input jets ww) | index^d (entries)
     y:                typ.Any = None                             # Y*: probe len=d, F+W+C+(Ni,); apply F+W+C; entries W+C
     weight:           typ.Any = None                             # omega, of the type of z likewise; None = ones
-    minibatch_scale:  typ.Optional[typ.Any] = None               # gamma: n / batch_size on a drawn batch; None = 1
-    drawn_indices:    typ.Optional[NDArray] = None               # int, (batch_size,): the draw, flat over W
+
+    minibatch_scale:  typ.Optional[typ.Union[float, NDArray]] = None   # gamma: n / b on a drawn batch; None = 1
+    drawn_indices:    typ.Optional[NDArray] = None                     # int, (batch_size,): the draw, flat over W
+
+    def __init__(
+            self,
+            kind:             str,                               # 'probe' | 'apply' | 'entries'
+            order:            typ.Tuple[int, ...],               # a tuple of nonnegative ints; entries: ()
+            sample:           typ.Any,
+            y:                typ.Any = None,
+            *,
+            weight:           typ.Any = None,
+            minibatch_scale:  typ.Optional[typ.Union[float, NDArray]] = None,
+            drawn_indices:    typ.Optional[NDArray] = None,
+    ) -> None:
+        if not isinstance(kind, str):
+            raise TypeError('LeastSquaresBatch: the kind is a string, one of %s, the first argument: '
+                            'LeastSquaresBatch(kind, order, sample, y, *, weight=..., minibatch_scale=..., '
+                            'drawn_indices=...); got a %s' % (_KINDS, type(kind).__name__))
+        if kind not in _KINDS:
+            raise ValueError('LeastSquaresBatch: unknown kind %r; expected one of %s' % (kind, _KINDS))
+        order = contractions._read_order(order, 'LeastSquaresBatch')
+        if kind == 'entries' and order != ():
+            raise ValueError("LeastSquaresBatch: the entries kind has no jets: its order is (), got %r "
+                             "(a derivative of entries is the apply kind at the one-hot jet)" % (order,))
+        for name, value in (('kind', kind), ('order', order), ('sample', sample), ('y', y), ('weight', weight),
+                            ('minibatch_scale', minibatch_scale), ('drawn_indices', drawn_indices)):
+            object.__setattr__(self, name, value)
 
     def __eq__(self, other):
         raise TypeError('LeastSquaresBatch: == is not defined on array-carrying records; compare the fields you mean')
@@ -109,20 +166,123 @@ class LeastSquaresBatch:
         >>> from t3toolbox.backend.fitting import LeastSquaresBatch
         >>> from t3toolbox.backend.jets import blocks_to_weight
         >>> y = np.ones((3, 4))                                             # apply: F + W, F = (3,), W = (4,)
-        >>> batch = LeastSquaresBatch(None, y, blocks_to_weight('apply', (2,), np.array([1.0, 2.0, 3.0]), y), 0.5)
+        >>> batch = LeastSquaresBatch('apply', (2,), None, y, minibatch_scale=0.5,
+        ...                           weight=blocks_to_weight('apply', (2,), np.array([1.0, 2.0, 3.0]), y))
         >>> print(batch.data_metric(y)[:, 0].tolist())                     # 0.5 * weight**2 * r
         [0.5, 2.0, 4.5]
         """
         return jets.data_metric(r, self.weight, self.minibatch_scale)
 
+    # ------------------------------------------------------------------ checks, counts, draws
+    def check(
+            self,
+            shape:        typ.Sequence[int],                  # the mode sizes (N0, ..., N(d-1))
+            stack_shape:  typ.Tuple[int, ...] = (),           # C, the model's stack of base points; () unstacked
+    ) -> None:
+        '''Check this batch structurally against a model's mode sizes ``shape`` and stack ``stack_shape``, on its
+        ragged form (check before packing): the sample against the jet shape and ``shape``
+        (:py:func:`~t3toolbox.backend.jets.check_sample`), the data and the weight against the sample and the model's
+        stack (``check_data``, ``check_weight``: each of the type of ``z``, every axis 1 or ``z``'s size); raise a
+        ``ValueError`` naming what is wrong. Data of a stacked model checked without its ``stack_shape`` fail by rank.
+        A checker: the oracle's ``query`` does not call it; the frontend does, where a batch enters.
 
-_BATCH_FIELDS = ('sample', 'y', 'weight', 'minibatch_scale', 'drawn_indices')
+        >>> import numpy as np
+        >>> from t3toolbox.backend.fitting import LeastSquaresBatch
+        >>> ww = [np.ones((10, N)) for N in (4, 5, 6)]                            # W = (10,)
+        >>> LeastSquaresBatch('apply', (), ww, np.zeros((10, 1))).check((4, 5, 6), stack_shape=(2,))   # y for C = (2,)
+        >>> LeastSquaresBatch('apply', (), ww, np.zeros((10, 3))).check((4, 5, 6), stack_shape=(2,))
+        ... # doctest: +IGNORE_EXCEPTION_DETAIL
+        Traceback (most recent call last):
+            ...
+        ValueError: the data y of the apply kind has shape (10, 3); it is of the type of z, ...
+        '''
+        jets.check_sample(self.kind, self.order, self.sample, shape)
+        if self.y is not None:
+            jets.check_data(self.kind, self.order, self.sample, self.y, stack_shape)
+        jets.check_weight(self.kind, self.order, self.sample, self.weight, stack_shape)
+
+    def _w_axes(self):
+        '''(where W starts in the sample, the number of W axes): after the jets (and the packed d), or after the
+        mode axis of an index.'''
+        m = len(self.order)
+        if self.kind == 'entries':
+            return 1, np.ndim(self.sample) - 1
+        if isinstance(self.sample, (tuple, list)):
+            return m, np.ndim(self.sample[0]) - m - 1
+        return 1 + m, np.ndim(self.sample) - m - 2
+
+    def _W(self) -> typ.Tuple[int, ...]:
+        '''The sample stack ``W``, read off the sample.'''
+        start, n_w = self._w_axes()
+        lead = self.sample if self.kind == 'entries' or not isinstance(self.sample, (tuple, list)) \
+            else self.sample[0]
+        return tuple(int(n) for n in np.shape(lead)[start:start + n_w])
+
+    @property
+    def n_measurements(self) -> int:                          # |W|, the number of samples
+        '''The number of samples, ``prod(W)``: the population a draw takes from
+        (:py:func:`~t3toolbox.backend.optimizers.flat_draw`).'''
+        return math.prod(self._W())
+
+    def take(
+            self,
+            indices:  NDArray,                                # int, (b,): flat positions over W; len(indices) static
+    ) -> 'LeastSquaresBatch':                                 # the drawn batch, W flattened to (b,)
+        '''A draw: the samples at ``indices`` (flat over ``W``, which becomes one axis of ``b = len(indices)``), with
+        ``minibatch_scale = n / b`` (times this batch's own scale) and ``drawn_indices = indices``, relative to this
+        batch. The scale makes the drawn ``f`` (and every scaled output) an unbiased estimate of the full one under a
+        uniform draw of ``b`` of the ``n`` samples. Traceable, ``b`` static. For a plain subset with no scale, such as a
+        fixed validation slice, drop it: ``dataclasses.replace(sub, minibatch_scale=None)``.
+
+        The data ``y`` and the weight are of the type of ``z``, each axis 1 or ``z``'s size, and are drawn alike: an
+        object whose every ``W`` axis is 1 (the same for every sample) keeps one axis of 1 in their place, with no
+        gather; any other is broadcast to the batch's ``W``, flattened and gathered at ``indices``. So a weight per
+        sample is drawn with its samples, and a weight per slot stays one per slot.
+
+        >>> import dataclasses as dc
+        >>> import numpy as np
+        >>> from t3toolbox.backend.fitting import LeastSquaresBatch
+        >>> batch = LeastSquaresBatch('apply', (), [np.ones((10, N)) for N in (4, 5, 6)], np.zeros(10))
+        >>> sub = batch.take(np.array([0, 3]))
+        >>> print(sub.y.shape, sub.minibatch_scale, sub.drawn_indices)
+        (2,) 5.0 [0 3]
+        >>> print(dc.replace(sub, minibatch_scale=None).minibatch_scale)          # a plain subset
+        None
+
+        A weight per sample is drawn with the samples; one constant over the samples keeps its axis of 1:
+
+        >>> per_sample = dc.replace(batch, weight=np.arange(10.0))
+        >>> print(per_sample.take(np.array([0, 3])).weight)
+        [0. 3.]
+        >>> print(dc.replace(batch, weight=np.full((1,), 2.0)).take(np.array([0, 3])).weight)
+        [2.]
+        '''
+        n = self.n_measurements
+        start, n_w = self._w_axes()
+        W = self._W()
+        m = len(self.order)
+        if self.kind == 'entries':
+            sample = _flat_gather(self.sample, 1, n_w, indices)
+        elif isinstance(self.sample, (tuple, list)):
+            sample = [_flat_gather(w, m, n_w, indices) for w in self.sample]
+        else:
+            sample = _flat_gather(self.sample, 1 + m, n_w, indices)
+        y = _take_data_space(self.kind, m, W, self.y, indices, 'the data y')
+        weight = _take_data_space(self.kind, m, W, self.weight, indices, 'the weight')
+        scale = n / len(indices)
+        if self.minibatch_scale is not None:
+            scale = self.minibatch_scale * scale
+        return LeastSquaresBatch(self.kind, self.order, sample, y, weight=weight, minibatch_scale=scale,
+                                 drawn_indices=indices)
+
+
+_BATCH_LEAVES = ('sample', 'y', 'weight', 'minibatch_scale', 'drawn_indices')
 
 if jax_available:
     jax.tree_util.register_pytree_node(
         LeastSquaresBatch,
-        lambda b: (tuple(getattr(b, name) for name in _BATCH_FIELDS), None),
-        lambda aux, children: LeastSquaresBatch(*children))
+        lambda b: (tuple(getattr(b, name) for name in _BATCH_LEAVES), (b.kind, b.order)),
+        lambda aux, children: LeastSquaresBatch(*aux, **dict(zip(_BATCH_LEAVES, children))))
 
 
 def _same_leaves(
@@ -258,7 +418,7 @@ def _take_W(
     n_w = len(W)
     shape = tuple(np.shape(array))
     if len(shape) < w_start + n_w or any(a not in (1, b) for a, b in zip(shape[w_start:w_start + n_w], W)):
-        raise ValueError('LeastSquaresOracle.take: %s has shape %s, whose axes %d to %d are not the sample stack W = '
+        raise ValueError('LeastSquaresBatch.take: %s has shape %s, whose axes %d to %d are not the sample stack W = '
                          '%s (each axis 1 or its size): it is not of the type of z'
                          % (what, shape, w_start, w_start + n_w - 1, W))
     xnp, _, _ = get_backend(False, is_jax_ndarray(array))
@@ -277,7 +437,7 @@ def _take_data_space(
         indices:  NDArray,                  # int, (b,): flat positions over W
         what:     str,                      # 'the data y' or 'the weight', for the message
 ) -> typ.Any:                               # value drawn, its form kept; None for None
-    '''``y`` or the weight of a drawn batch (:py:meth:`LeastSquaresOracle.take`): its ``W`` axes start at ``m`` in an
+    '''``y`` or the weight of a drawn batch (:py:meth:`LeastSquaresBatch.take`): its ``W`` axes start at ``m`` in an
     apply or entries array and in each array of a ragged probe object, and at ``1 + m`` in a mode-leading probe array.'''
     if value is None:
         return None
@@ -292,10 +452,9 @@ class LeastSquaresOracle(ValueHashedFields):
     (:py:meth:`LeastSquaresBatch.data_metric`, ``minibatch_scale * weight**2`` elementwise), and what an optimizer asks
     of it at a frame, through one call of the engine.
 
-    It is a frozen description with no arrays (its fields are statics, value-hashed: it rides as jax ``aux_data``);
-    the data are its batch, a :py:class:`LeastSquaresBatch`. ``order`` is the jet shape of the sample and the data, a
-    tuple, **required for every kind** (O-44): ``LeastSquaresOracle('apply', order=())`` for a plain fit,
-    ``('probe', order=(2,))`` along a line; the entries kind has no jets and takes ``order=()`` only (O-46).
+    It is the objective's rule and has no fields (value-hashed, it rides as jax ``aux_data``); the measurements, their
+    kind and their jet shape are its batch's, a :py:class:`LeastSquaresBatch` (``LeastSquaresBatch('apply', (), ww,
+    y)`` for a plain fit, ``LeastSquaresBatch('probe', (2,), jets, y)`` along a line).
 
     :py:meth:`query` answers ``want`` at a frame (a manifold frame, or a corewise point ``(B, G)``, told from its
     structure by :py:func:`~t3toolbox.backend.sampling_variables.frame_form`). On a corewise point a direction has one
@@ -313,9 +472,9 @@ class LeastSquaresOracle(ValueHashedFields):
     samples, the stack ``C`` and the mode edge, over ``z``'s shape (``y`` broadcast to it, as for ``f_resolution``).
     Both carry the scale, so their ratio, ``‖omega⊙r_b‖² / ‖omega⊙y_b‖²``, does not depend on it; with no weight they
     are sums of squares. On a drawn batch they estimate the full batch's without bias, as ``f`` does; a ``y`` and a
-    weight that are the same for every sample (``W`` axes of 1, kept as one axis of 1 by :py:meth:`take`) give the full
-    batch's ``y_block_sumsq`` exactly. Each batch's sums use that batch's own weight: a validation batch with another
-    weight (or none) gives the ratio under that weight.
+    weight that are the same for every sample (``W`` axes of 1, kept as one axis of 1 by
+    :py:meth:`LeastSquaresBatch.take`) give the full batch's ``y_block_sumsq`` exactly. Each batch's sums use that
+    batch's own weight: a validation batch with another weight (or none) gives the ratio under that weight.
 
     **The outputs, typed** (the glossary's Symbols): ``r`` and ``Jp`` are in ``Y*``, of the type of ``z``; ``g``,
     ``JtJp`` and ``Kp`` in ``X*``, the blocks before the geometry's projection; ``f``, ``Jp_norm_sq`` and
@@ -339,41 +498,29 @@ class LeastSquaresOracle(ValueHashedFields):
     >>> x, target = (t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1)) for _ in range(2))
     >>> frame = t3m.MANIFOLD.frame(x).data
     >>> ww, pp = ([np.random.randn(7, N) for N in x.shape] for _ in range(2))          # W = (7,)
-    >>> oracle = LeastSquaresOracle('probe', order=(1,))
-    >>> batch = LeastSquaresBatch(affine_jet(ww, pp), target.probe(affine_jet(ww, pp), (1,)))
+    >>> oracle = LeastSquaresOracle()
+    >>> batch = LeastSquaresBatch('probe', (1,), affine_jet(ww, pp), target.probe(affine_jet(ww, pp), (1,)))
     >>> (f, g), held = oracle.query(frame, batch, ('f', 'g'))
     >>> print(f.shape, [b.shape for b in g[0]], held.keys())
     () [(2, 4), (3, 5), (2, 6)] ('xi', 'mu', 'nu', 'eta', 'r')
 
-    The trap: input jets read with ``order=()`` pass every check of shapes (the jet axis is read as one more sample
-    axis), and fit a different problem -- the probes at ``ww`` and at ``pp`` separately, not along the line:
+    The trap: a batch made with ``order=()`` from input jets passes every check of shapes (the jet axis is read as one
+    more sample axis), and fits a different problem -- the probes at ``ww`` and at ``pp`` separately, not along the
+    line:
 
-    >>> plain = LeastSquaresOracle('probe', order=())
-    >>> (f_wrong,), _ = plain.query(frame, LeastSquaresBatch(affine_jet(ww, pp), x.probe(affine_jet(ww, pp))), ('f',))
-    >>> (f_right,), _ = oracle.query(frame, LeastSquaresBatch(affine_jet(ww, pp), x.probe(affine_jet(ww, pp), (1,))),
-    ...                              ('f',))
+    >>> plain = LeastSquaresBatch('probe', (), affine_jet(ww, pp), x.probe(affine_jet(ww, pp)))
+    >>> (f_wrong,), _ = oracle.query(frame, plain, ('f',))
+    >>> (f_right,), _ = oracle.query(frame, LeastSquaresBatch('probe', (1,), affine_jet(ww, pp),
+    ...                                                       x.probe(affine_jet(ww, pp), (1,))), ('f',))
     >>> print(float(f_wrong) < 1e-20, float(f_right) < 1e-20)                 # each fits its own data exactly
     True True
-    >>> (f_mixed,), _ = oracle.query(frame, LeastSquaresBatch(affine_jet(ww, pp), x.probe(affine_jet(ww, pp))), ('f',))
+    >>> mixed = LeastSquaresBatch('probe', (1,), affine_jet(ww, pp), x.probe(affine_jet(ww, pp)))
+    >>> (f_mixed,), _ = oracle.query(frame, mixed, ('f',))
     >>> print(float(f_mixed) > 1.0)                    # the slots of the line are not the probes at ww and pp
     True
     """
-    kind:   str                                         # 'probe' | 'apply' | 'entries'
-    order:  typ.Tuple[int, ...]                         # the jet shape; required (O-44); entries: () only (O-46)
-
     optional_outputs: typ.ClassVar[typ.Tuple[str, ...]] = (
         'Kp', 'Jp', 'r', 'r_block_sumsq', 'y_block_sumsq', 'f_resolution')
-
-    def __post_init__(self):
-        if self.kind not in _KINDS:
-            raise ValueError('LeastSquaresOracle: unknown kind %r; expected one of %s' % (self.kind, _KINDS))
-        if not isinstance(self.order, tuple) or not all(isinstance(n, (int, np.integer)) and not isinstance(n, bool)
-                                                         and n >= 0 for n in self.order):
-            raise TypeError('LeastSquaresOracle: order is the jet shape, a tuple of nonnegative ints (() for no jets); '
-                            'got %r' % (self.order,))
-        if self.kind == 'entries' and self.order != ():
-            raise ValueError("LeastSquaresOracle: the entries kind has no jets: its order is (), got %r "
-                             "(a derivative of entries is the apply kind at the one-hot jet)" % (self.order,))
 
     # ------------------------------------------------------------------ the operation
     def query(
@@ -411,11 +558,11 @@ class LeastSquaresOracle(ValueHashedFields):
         if engine_want:
             # one set of arguments for the query and the call: the hold-list names the call computes anyway are
             # added to want and split off (none is computed only to be held; TARGET_DECISIONS, the hold list)
-            args = dict(order=self.order, y=batch.y, weight=batch.weight, variations=variations,
+            args = dict(order=batch.order, y=batch.y, weight=batch.weight, variations=variations,
                         core_directions=core_directions, Vc=Vc, held=held)
-            free = sampling_variables.computed_names(self.kind, frame, batch.sample, engine_want, **args)
+            free = sampling_variables.computed_names(batch.kind, frame, batch.sample, engine_want, **args)
             extras = tuple(name for name in _HOLD_LIST if name in free and name not in engine_want)
-            outs = sampling_variables.sampling_variables(self.kind, frame, batch.sample, engine_want + extras, **args)
+            outs = sampling_variables.sampling_variables(batch.kind, frame, batch.sample, engine_want + extras, **args)
             values = dict(zip(engine_want + extras, outs))
             kept = {name: values[name] for name in _HOLD_LIST if name in free}
             held_out = held_out.with_values(**kept) if kept else held_out
@@ -423,7 +570,7 @@ class LeastSquaresOracle(ValueHashedFields):
             if batch.y is None:
                 raise ValueError('LeastSquaresOracle.query: y_block_sumsq is <y, M y> per block and needs the '
                                  'batch\'s data y, which is None')
-            values['y_block_sumsq'] = _y_block_metric_y(self.kind, self.order, batch.y, batch.weight, self._W(batch),
+            values['y_block_sumsq'] = _y_block_metric_y(batch.kind, batch.order, batch.y, batch.weight, batch._W(),
                                                         _stack_of_frame(frame), sampling_variables.frame_shape(frame))
         if 'f_resolution' in want:                    # from the unscaled batch values; the scale once, below
             if batch.y is None:                         # f can come from a held r; <y, M y> cannot
@@ -432,7 +579,7 @@ class LeastSquaresOracle(ValueHashedFields):
                                  'resolution cannot)')
             f = values['f']
             xnp, _, _ = get_backend(False, tree_contains_jax((f, batch.y, batch.weight)))
-            y_norm_sq = _y_metric_y(self.kind, self.order, batch.y, batch.weight, self._W(batch),
+            y_norm_sq = _y_metric_y(batch.kind, batch.order, batch.y, batch.weight, batch._W(),
                                     _stack_of_frame(frame), sampling_variables.frame_shape(frame))
             eps = float(np.finfo(np.dtype(f.dtype)).eps)
             values['f_resolution'] = eps * (xnp.sqrt(y_norm_sq) * xnp.sqrt(2.0 * f) + xnp.abs(f))
@@ -442,109 +589,3 @@ class LeastSquaresOracle(ValueHashedFields):
                 if name in values and name in want:
                     values[name] = _scale_tree(values[name], scale)
         return tuple(values[name] for name in want), held_out
-
-    # ------------------------------------------------------------------ the batch
-    def check_batch(
-            self,
-            batch:        LeastSquaresBatch,                  # ragged (check before packing)
-            shape:        typ.Sequence[int],                  # the mode sizes (N0, ..., N(d-1))
-            stack_shape:  typ.Tuple[int, ...] = (),           # C, the model's stack of base points; () unstacked
-    ) -> None:
-        '''Check a batch structurally, on its ragged form: the sample against the jet shape and ``shape``
-        (:py:func:`~t3toolbox.backend.jets.check_sample`), the data and the weight against the sample and the model's
-        stack ``stack_shape`` (``check_data``, ``check_weight``: each of the type of ``z``, every axis 1 or ``z``'s
-        size); raise a ``ValueError`` naming what is wrong. Data of a stacked model checked without its
-        ``stack_shape`` fail by rank. A checker: :py:meth:`query` does not call it.
-
-        >>> import numpy as np
-        >>> from t3toolbox.backend.fitting import LeastSquaresOracle, LeastSquaresBatch
-        >>> oracle = LeastSquaresOracle('apply', order=())
-        >>> ww = [np.ones((10, N)) for N in (4, 5, 6)]                            # W = (10,)
-        >>> shared = LeastSquaresBatch(ww, np.zeros((10, 1)))                     # one y for a stack C = (2,)
-        >>> oracle.check_batch(shared, (4, 5, 6), stack_shape=(2,))
-        >>> oracle.check_batch(LeastSquaresBatch(ww, np.zeros((10, 3))), (4, 5, 6), stack_shape=(2,))
-        ... # doctest: +IGNORE_EXCEPTION_DETAIL
-        Traceback (most recent call last):
-            ...
-        ValueError: the data y of the apply kind has shape (10, 3); it is of the type of z, ...
-        '''
-        jets.check_sample(self.kind, self.order, batch.sample, shape)
-        if batch.y is not None:
-            jets.check_data(self.kind, self.order, batch.sample, batch.y, stack_shape)
-        jets.check_weight(self.kind, self.order, batch.sample, batch.weight, stack_shape)
-
-    def _w_axes(self, batch):
-        '''(where W starts in the sample, the number of W axes): after the jets (and the packed d), or after the
-        mode axis of an index.'''
-        m = len(self.order)
-        if self.kind == 'entries':
-            return 1, np.ndim(batch.sample) - 1
-        if isinstance(batch.sample, (tuple, list)):
-            return m, np.ndim(batch.sample[0]) - m - 1
-        return 1 + m, np.ndim(batch.sample) - m - 2
-
-    def _W(self, batch) -> typ.Tuple[int, ...]:
-        '''The sample stack ``W``, read off the sample.'''
-        start, n_w = self._w_axes(batch)
-        lead = batch.sample if self.kind == 'entries' or not isinstance(batch.sample, (tuple, list)) \
-            else batch.sample[0]
-        return tuple(int(n) for n in np.shape(lead)[start:start + n_w])
-
-    def n_measurements(
-            self,
-            batch:  LeastSquaresBatch,
-    ) -> int:                                                 # |W|, the number of samples
-        '''The number of samples of a batch, ``prod(W)``: the population a draw takes from.'''
-        return math.prod(self._W(batch))
-
-    def take(
-            self,
-            batch:    LeastSquaresBatch,
-            indices:  NDArray,                                # int, (b,): flat positions over W; len(indices) static
-    ) -> LeastSquaresBatch:                                   # the drawn batch, W flattened to (b,)
-        '''A draw: the samples at ``indices`` (flat over ``W``, which becomes one axis of ``b = len(indices)``), with
-        ``minibatch_scale = n / b`` (times the batch's own scale) and ``drawn_indices = indices``, relative to
-        ``batch``. The scale makes the drawn ``f`` (and every scaled output) an unbiased estimate of the full one under
-        a uniform draw of ``b`` of the ``n`` samples. Traceable, ``b`` static. For a plain subset with no scale, such
-        as a fixed validation slice, drop it: ``dataclasses.replace(sub, minibatch_scale=None)``.
-
-        The data ``y`` and the weight are of the type of ``z``, each axis 1 or ``z``'s size, and are drawn alike: an
-        object whose every ``W`` axis is 1 (the same for every sample) keeps one axis of 1 in their place, with no
-        gather; any other is broadcast to the batch's ``W``, flattened and gathered at ``indices``. So a weight per
-        sample is drawn with its samples, and a weight per slot stays one per slot.
-
-        >>> import dataclasses as dc
-        >>> import numpy as np
-        >>> from t3toolbox.backend.fitting import LeastSquaresOracle, LeastSquaresBatch
-        >>> oracle = LeastSquaresOracle('apply', order=())
-        >>> batch = LeastSquaresBatch([np.ones((10, N)) for N in (4, 5, 6)], np.zeros(10))
-        >>> sub = oracle.take(batch, np.array([0, 3]))
-        >>> print(sub.y.shape, sub.minibatch_scale, sub.drawn_indices)
-        (2,) 5.0 [0 3]
-        >>> print(dc.replace(sub, minibatch_scale=None).minibatch_scale)          # a plain subset
-        None
-
-        A weight per sample is drawn with the samples; one constant over the samples keeps its axis of 1:
-
-        >>> per_sample = dc.replace(batch, weight=np.arange(10.0))
-        >>> print(oracle.take(per_sample, np.array([0, 3])).weight)
-        [0. 3.]
-        >>> print(oracle.take(dc.replace(batch, weight=np.full((1,), 2.0)), np.array([0, 3])).weight)
-        [2.]
-        '''
-        n = self.n_measurements(batch)
-        start, n_w = self._w_axes(batch)
-        W = self._W(batch)
-        m = len(self.order)
-        if self.kind == 'entries':
-            sample = _flat_gather(batch.sample, 1, n_w, indices)
-        elif isinstance(batch.sample, (tuple, list)):
-            sample = [_flat_gather(w, m, n_w, indices) for w in batch.sample]
-        else:
-            sample = _flat_gather(batch.sample, 1 + m, n_w, indices)
-        y = _take_data_space(self.kind, m, W, batch.y, indices, 'the data y')
-        weight = _take_data_space(self.kind, m, W, batch.weight, indices, 'the weight')
-        scale = n / len(indices)
-        if batch.minibatch_scale is not None:
-            scale = batch.minibatch_scale * scale
-        return LeastSquaresBatch(sample, y, weight, scale, indices)

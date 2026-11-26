@@ -1,0 +1,1026 @@
+K1 diff audit, part 0, base dfb9585f
+changed lines by class: {'construction': 435, 'other': 730, 'method': 190, 'kind_order': 62}
+audit entries: {'AMBIG': 11, 'TWOPRS': 5, 'PAIRED': 116, 'LINE': 760, 'SCOPE': 7, 'NOORCL': 35, 'ORPHAN': 38, 'OREAD': 24, 'SUBCLS': 9, 'HELPER': 16}
+RESULT: PASS
+
+AMBIG  docs/fitting_and_optimization.md:127 page:<module>: ("'probe'", '(3,)')  (old pairs in reach: [("'apply'", '()'), ("'probe'", '()'), ("'probe'", '(3,)')])
+AMBIG  docs/fitting_and_optimization.md:134 page:<module>: ("'probe'", '()')  (old pairs in reach: [("'apply'", '()'), ("'probe'", '()'), ("'probe'", '(3,)')])
+AMBIG  docs/fitting_and_optimization.md:76 page:<module>: ("'apply'", '()')  (old pairs in reach: [("'apply'", '()'), ("'probe'", '()'), ("'probe'", '(3,)')])
+AMBIG  t3toolbox/backend/fitting.py:471 doc:LeastSquaresOracle:<module>: ("'probe'", '(1,)')  (old pairs in reach: [("'probe'", '()'), ("'probe'", '(1,)')])
+AMBIG  t3toolbox/backend/fitting.py:477 doc:LeastSquaresOracle:<module>: ("'probe'", '()')  (old pairs in reach: [("'probe'", '()'), ("'probe'", '(1,)')])
+AMBIG  t3toolbox/backend/fitting.py:481 doc:LeastSquaresOracle:<module>: ("'probe'", '(1,)')  (old pairs in reach: [("'probe'", '()'), ("'probe'", '(1,)')])
+AMBIG  t3toolbox/backend/fitting.py:486 doc:LeastSquaresOracle:<module>: ("'probe'", '(1,)')  (old pairs in reach: [("'probe'", '()'), ("'probe'", '(1,)')])
+AMBIG  t3toolbox/optimizers.py:537 doc:newton_cg:<module>: ("'probe'", '()')  (old pairs in reach: [("'apply'", '()'), ("'probe'", '()'), ("'probe'", '(1,)')])
+AMBIG  t3toolbox/optimizers.py:573 doc:newton_cg:<module>: ("'apply'", '()')  (old pairs in reach: [("'apply'", '()'), ("'probe'", '()'), ("'probe'", '(1,)')])
+AMBIG  t3toolbox/optimizers.py:595 doc:newton_cg:<module>: ("'probe'", '(1,)')  (old pairs in reach: [("'apply'", '()'), ("'probe'", '()'), ("'probe'", '(1,)')])
+AMBIG  t3toolbox/optimizers.py:662 doc:newton_cg:<module>: ("'probe'", '()')  (old pairs in reach: [("'apply'", '()'), ("'probe'", '()'), ("'probe'", '(1,)')])
+HELPER tests/backend/test_optimizer_display.py:318 _batch -> call tests/backend/test_optimizer_display.py:370 TestMakeNewtonDisplay.test_a_validation_batch_of_another_kind_or_order: ("'probe'", '(1,)') (no old oracle in reach of the call: read by hand)
+HELPER tests/backend/test_optimizer_display.py:318 _batch -> call tests/backend/test_optimizer_display.py:371 TestMakeNewtonDisplay.test_a_validation_batch_of_another_kind_or_order: ("'probe'", '()') (no old oracle in reach of the call: read by hand)
+HELPER tests/backend/test_optimizer_display.py:318 _batch -> call tests/backend/test_optimizer_display.py:372 TestMakeNewtonDisplay.test_a_validation_batch_of_another_kind_or_order: ("'apply'", '(1,)') (no old oracle in reach of the call: read by hand)
+HELPER tests/backend/test_optimizer_display.py:318 _batch -> call tests/backend/test_optimizer_display.py:376 TestMakeNewtonDisplay.test_a_validation_batch_of_another_kind_or_order: ("'probe'", '(1,)') (no old oracle in reach of the call: read by hand)
+HELPER tests/backend/test_optimizer_display.py:318 _batch -> call tests/backend/test_optimizer_display.py:636 TestMakeNewtonDisplay.test_an_oracle_without_block_sums_gets_the_header_lines: ("'probe'", '()') (no old oracle in reach of the call: read by hand)
+HELPER tests/backend/test_optimizer_display.py:318 _batch -> call tests/backend/test_optimizer_display.py:637 TestMakeNewtonDisplay.test_an_oracle_without_block_sums_gets_the_header_lines: ("'probe'", '()') (no old oracle in reach of the call: read by hand)
+HELPER tests/backend/test_optimizer_display.py:322 _batch -> call tests/backend/test_optimizer_display.py:370 TestMakeNewtonDisplay.test_a_validation_batch_of_another_kind_or_order: ("'probe'", '(1,)') (no old oracle in reach of the call: read by hand)
+HELPER tests/backend/test_optimizer_display.py:322 _batch -> call tests/backend/test_optimizer_display.py:371 TestMakeNewtonDisplay.test_a_validation_batch_of_another_kind_or_order: ("'probe'", '()') (no old oracle in reach of the call: read by hand)
+HELPER tests/backend/test_optimizer_display.py:322 _batch -> call tests/backend/test_optimizer_display.py:372 TestMakeNewtonDisplay.test_a_validation_batch_of_another_kind_or_order: ("'apply'", '(1,)') (no old oracle in reach of the call: read by hand)
+HELPER tests/backend/test_optimizer_display.py:322 _batch -> call tests/backend/test_optimizer_display.py:376 TestMakeNewtonDisplay.test_a_validation_batch_of_another_kind_or_order: ("'probe'", '(1,)') (no old oracle in reach of the call: read by hand)
+HELPER tests/backend/test_optimizer_display.py:322 _batch -> call tests/backend/test_optimizer_display.py:636 TestMakeNewtonDisplay.test_an_oracle_without_block_sums_gets_the_header_lines: ("'probe'", '()') (no old oracle in reach of the call: read by hand)
+HELPER tests/backend/test_optimizer_display.py:322 _batch -> call tests/backend/test_optimizer_display.py:637 TestMakeNewtonDisplay.test_an_oracle_without_block_sums_gets_the_header_lines: ("'probe'", '()') (no old oracle in reach of the call: read by hand)
+HELPER tests/test_least_squares_oracle.py:129 Fixture.batch -> call tests/test_least_squares_oracle.py:162 TestTheEngineAdditions.test_computed_names_is_what_the_engine_runs: ('kind', 'order') (no old oracle in reach of the call: read by hand)
+HELPER tests/test_least_squares_oracle.py:129 Fixture.batch -> call tests/test_least_squares_oracle.py:191 TestTheEngineAdditions.test_computed_names_raises_as_the_engine: ("'probe'", '()') (no old oracle in reach of the call: read by hand)
+HELPER tests/test_least_squares_oracle.py:129 Fixture.batch -> call tests/test_least_squares_oracle.py:474 TestTheBatch.test_check: ('kind', 'order') (no old oracle in reach of the call: read by hand)
+HELPER tests/test_least_squares_oracle.py:129 Fixture.batch -> call tests/test_least_squares_oracle.py:495 TestTheBatch.test_the_pytree_round_trip: ("'probe'", '(2,)') (no old oracle in reach of the call: read by hand)
+LINE   examples/fit_hilbert_tensor_newton_cg.py +139 [other] model_builder = lambda X, b: fitting.local_model(t3m.MANIFOLD, oracle,
+LINE   examples/fit_varied_rank_tensor_newton_cg.py +133 [other] model_builder = lambda X, b: fitting.local_model(t3m.MANIFOLD, oracle,
+LINE   t3toolbox/backend/fitting.py +10 [other] projection: ``Jp = 𝒥p``, ``g = 𝒥ᵀ(M r)`` and ``JtJp = 𝒥ᵀ M 𝒥p``, with ``𝒥`` the Jacobian of ``z`` at the frame and ``M``
+LINE   t3toolbox/backend/fitting.py +102 [other] apply () 10
+LINE   t3toolbox/backend/fitting.py +103 [other] 
+LINE   t3toolbox/backend/fitting.py +104 [other] A batch made without its kind and jet shape fails at once (here on the missing third argument; with more
+LINE   t3toolbox/backend/fitting.py +105 [other] positional arguments, on the kind):
+LINE   t3toolbox/backend/fitting.py +106 [other] 
+LINE   t3toolbox/backend/fitting.py +108 [other] Traceback (most recent call last):
+LINE   t3toolbox/backend/fitting.py +109 [other] ...
+LINE   t3toolbox/backend/fitting.py +11 [other] the batch's data metric (its minibatch scale inside). The geometry (manifold or corewise,
+LINE   t3toolbox/backend/fitting.py +110 [other] TypeError: LeastSquaresBatch.__init__() missing 1 required positional argument: 'sample'
+LINE   t3toolbox/backend/fitting.py +112 [other] kind:             str                                        # 'probe' | 'apply' | 'entries'; static (aux_data)
+LINE   t3toolbox/backend/fitting.py +113 [other] order:            typ.Tuple[int, ...]                        # the jet shape, Python ints; entries (); static
+LINE   t3toolbox/backend/fitting.py +117 [other] 
+LINE   t3toolbox/backend/fitting.py +118 [other] minibatch_scale:  typ.Optional[typ.Union[float, NDArray]] = None   # gamma: n / b on a drawn batch; None = 1
+LINE   t3toolbox/backend/fitting.py +119 [other] drawn_indices:    typ.Optional[NDArray] = None                     # int, (batch_size,): the draw, flat over W
+LINE   t3toolbox/backend/fitting.py +12 [other] :py:mod:`t3toolbox.backend.geometry`) is the other half of a fit: it supplies the projection ``Π``
+LINE   t3toolbox/backend/fitting.py +120 [other] 
+LINE   t3toolbox/backend/fitting.py +121 [other] def __init__(
+LINE   t3toolbox/backend/fitting.py +122 [other] self,
+LINE   t3toolbox/backend/fitting.py +123 [other] kind:             str,                               # 'probe' | 'apply' | 'entries'
+LINE   t3toolbox/backend/fitting.py +124 [other] order:            typ.Tuple[int, ...],               # a tuple of nonnegative ints; entries: ()
+LINE   t3toolbox/backend/fitting.py +125 [other] sample:           typ.Any,
+LINE   t3toolbox/backend/fitting.py +126 [other] y:                typ.Any = None,
+LINE   t3toolbox/backend/fitting.py +127 [other] *,
+LINE   t3toolbox/backend/fitting.py +128 [other] weight:           typ.Any = None,
+LINE   t3toolbox/backend/fitting.py +129 [other] minibatch_scale:  typ.Optional[typ.Union[float, NDArray]] = None,
+LINE   t3toolbox/backend/fitting.py +13 [other] (``geometry.project``: the gauge projection on the manifold; on the corewise geometry the identity, or the per-group
+LINE   t3toolbox/backend/fitting.py +130 [other] drawn_indices:    typ.Optional[NDArray] = None,
+LINE   t3toolbox/backend/fitting.py +131 [other] ) -> None:
+LINE   t3toolbox/backend/fitting.py +132 [other] if not isinstance(kind, str):
+LINE   t3toolbox/backend/fitting.py +133 [other] raise TypeError('LeastSquaresBatch: the kind is a string, one of %s, the first argument: '
+LINE   t3toolbox/backend/fitting.py +135 [other] 'drawn_indices=...); got a %s' % (_KINDS, type(kind).__name__))
+LINE   t3toolbox/backend/fitting.py +136 [other] if kind not in _KINDS:
+LINE   t3toolbox/backend/fitting.py +137 [other] raise ValueError('LeastSquaresBatch: unknown kind %r; expected one of %s' % (kind, _KINDS))
+LINE   t3toolbox/backend/fitting.py +138 [other] order = contractions._read_order(order, 'LeastSquaresBatch')
+LINE   t3toolbox/backend/fitting.py +139 [other] if kind == 'entries' and order != ():
+LINE   t3toolbox/backend/fitting.py +14 [other] mean of tied factors), so that the forward is ``J = 𝒥∘Π`` and the gradient ``Jᵀr = Π∘𝒥ᵀr``;
+LINE   t3toolbox/backend/fitting.py +140 [other] raise ValueError("LeastSquaresBatch: the entries kind has no jets: its order is (), got %r "
+LINE   t3toolbox/backend/fitting.py +141 [other] "(a derivative of entries is the apply kind at the one-hot jet)" % (order,))
+LINE   t3toolbox/backend/fitting.py +142 [other] for name, value in (('kind', kind), ('order', order), ('sample', sample), ('y', y), ('weight', weight),
+LINE   t3toolbox/backend/fitting.py +143 [other] ('minibatch_scale', minibatch_scale), ('drawn_indices', drawn_indices)):
+LINE   t3toolbox/backend/fitting.py +144 [other] object.__setattr__(self, name, value)
+LINE   t3toolbox/backend/fitting.py +15 [other] :py:mod:`t3toolbox.backend.optimizers` composes the two. '''
+LINE   t3toolbox/backend/fitting.py +169 [other] ...                           weight=blocks_to_weight('apply', (2,), np.array([1.0, 2.0, 3.0]), y))
+LINE   t3toolbox/backend/fitting.py +175 [other] # ------------------------------------------------------------------ checks, counts, draws
+LINE   t3toolbox/backend/fitting.py +176 [other] def check(
+LINE   t3toolbox/backend/fitting.py +177 [other] self,
+LINE   t3toolbox/backend/fitting.py +178 [other] shape:        typ.Sequence[int],                  # the mode sizes (N0, ..., N(d-1))
+LINE   t3toolbox/backend/fitting.py +179 [other] stack_shape:  typ.Tuple[int, ...] = (),           # C, the model's stack of base points; () unstacked
+LINE   t3toolbox/backend/fitting.py +180 [other] ) -> None:
+LINE   t3toolbox/backend/fitting.py +181 [other] '''Check this batch structurally against a model's mode sizes ``shape`` and stack ``stack_shape``, on its
+LINE   t3toolbox/backend/fitting.py +182 [other] ragged form (check before packing): the sample against the jet shape and ``shape``
+LINE   t3toolbox/backend/fitting.py +183 [other] (:py:func:`~t3toolbox.backend.jets.check_sample`), the data and the weight against the sample and the model's
+LINE   t3toolbox/backend/fitting.py +184 [other] stack (``check_data``, ``check_weight``: each of the type of ``z``, every axis 1 or ``z``'s size); raise a
+LINE   t3toolbox/backend/fitting.py +185 [other] ``ValueError`` naming what is wrong. Data of a stacked model checked without its ``stack_shape`` fail by rank.
+LINE   t3toolbox/backend/fitting.py +186 [other] A checker: the oracle's ``query`` does not call it; the frontend does, where a batch enters.
+LINE   t3toolbox/backend/fitting.py +188 [other] >>> import numpy as np
+LINE   t3toolbox/backend/fitting.py +189 [other] >>> from t3toolbox.backend.fitting import LeastSquaresBatch
+LINE   t3toolbox/backend/fitting.py +190 [other] >>> ww = [np.ones((10, N)) for N in (4, 5, 6)]                            # W = (10,)
+LINE   t3toolbox/backend/fitting.py +193 [other] ... # doctest: +IGNORE_EXCEPTION_DETAIL
+LINE   t3toolbox/backend/fitting.py +194 [other] Traceback (most recent call last):
+LINE   t3toolbox/backend/fitting.py +195 [other] ...
+LINE   t3toolbox/backend/fitting.py +196 [other] ValueError: the data y of the apply kind has shape (10, 3); it is of the type of z, ...
+LINE   t3toolbox/backend/fitting.py +197 [other] '''
+LINE   t3toolbox/backend/fitting.py +199 [other] if self.y is not None:
+LINE   t3toolbox/backend/fitting.py +202 [other] 
+LINE   t3toolbox/backend/fitting.py +203 [other] def _w_axes(self):
+LINE   t3toolbox/backend/fitting.py +204 [other] '''(where W starts in the sample, the number of W axes): after the jets (and the packed d), or after the
+LINE   t3toolbox/backend/fitting.py +205 [other] mode axis of an index.'''
+LINE   t3toolbox/backend/fitting.py +208 [other] return 1, np.ndim(self.sample) - 1
+LINE   t3toolbox/backend/fitting.py +209 [other] if isinstance(self.sample, (tuple, list)):
+LINE   t3toolbox/backend/fitting.py +210 [other] return m, np.ndim(self.sample[0]) - m - 1
+LINE   t3toolbox/backend/fitting.py +211 [other] return 1 + m, np.ndim(self.sample) - m - 2
+LINE   t3toolbox/backend/fitting.py +212 [other] 
+LINE   t3toolbox/backend/fitting.py +213 [other] def _W(self) -> typ.Tuple[int, ...]:
+LINE   t3toolbox/backend/fitting.py +214 [other] '''The sample stack ``W``, read off the sample.'''
+LINE   t3toolbox/backend/fitting.py +215 [other] start, n_w = self._w_axes()
+LINE   t3toolbox/backend/fitting.py +217 [other] else self.sample[0]
+LINE   t3toolbox/backend/fitting.py +218 [other] return tuple(int(n) for n in np.shape(lead)[start:start + n_w])
+LINE   t3toolbox/backend/fitting.py +219 [other] 
+LINE   t3toolbox/backend/fitting.py +220 [other] @property
+LINE   t3toolbox/backend/fitting.py +221 [other] def n_measurements(self) -> int:                          # |W|, the number of samples
+LINE   t3toolbox/backend/fitting.py +222 [other] '''The number of samples, ``prod(W)``: the population a draw takes from
+LINE   t3toolbox/backend/fitting.py +224 [other] return math.prod(self._W())
+LINE   t3toolbox/backend/fitting.py +225 [other] 
+LINE   t3toolbox/backend/fitting.py +226 [other] def take(
+LINE   t3toolbox/backend/fitting.py +227 [other] self,
+LINE   t3toolbox/backend/fitting.py +228 [other] indices:  NDArray,                                # int, (b,): flat positions over W; len(indices) static
+LINE   t3toolbox/backend/fitting.py +229 [other] ) -> 'LeastSquaresBatch':                                 # the drawn batch, W flattened to (b,)
+LINE   t3toolbox/backend/fitting.py +23 [other] import t3toolbox.backend.contractions as contractions
+LINE   t3toolbox/backend/fitting.py +230 [other] '''A draw: the samples at ``indices`` (flat over ``W``, which becomes one axis of ``b = len(indices)``), with
+LINE   t3toolbox/backend/fitting.py +231 [other] ``minibatch_scale = n / b`` (times this batch's own scale) and ``drawn_indices = indices``, relative to this
+LINE   t3toolbox/backend/fitting.py +232 [other] batch. The scale makes the drawn ``f`` (and every scaled output) an unbiased estimate of the full one under a
+LINE   t3toolbox/backend/fitting.py +233 [other] uniform draw of ``b`` of the ``n`` samples. Traceable, ``b`` static. For a plain subset with no scale, such as a
+LINE   t3toolbox/backend/fitting.py +234 [other] fixed validation slice, drop it: ``dataclasses.replace(sub, minibatch_scale=None)``.
+LINE   t3toolbox/backend/fitting.py +235 [other] 
+LINE   t3toolbox/backend/fitting.py +236 [other] The data ``y`` and the weight are of the type of ``z``, each axis 1 or ``z``'s size, and are drawn alike: an
+LINE   t3toolbox/backend/fitting.py +237 [other] object whose every ``W`` axis is 1 (the same for every sample) keeps one axis of 1 in their place, with no
+LINE   t3toolbox/backend/fitting.py +238 [other] gather; any other is broadcast to the batch's ``W``, flattened and gathered at ``indices``. So a weight per
+LINE   t3toolbox/backend/fitting.py +239 [other] sample is drawn with its samples, and a weight per slot stays one per slot.
+LINE   t3toolbox/backend/fitting.py +240 [other] 
+LINE   t3toolbox/backend/fitting.py +241 [other] >>> import dataclasses as dc
+LINE   t3toolbox/backend/fitting.py +242 [other] >>> import numpy as np
+LINE   t3toolbox/backend/fitting.py +243 [other] >>> from t3toolbox.backend.fitting import LeastSquaresBatch
+LINE   t3toolbox/backend/fitting.py +246 [other] >>> print(sub.y.shape, sub.minibatch_scale, sub.drawn_indices)
+LINE   t3toolbox/backend/fitting.py +247 [other] (2,) 5.0 [0 3]
+LINE   t3toolbox/backend/fitting.py +248 [other] >>> print(dc.replace(sub, minibatch_scale=None).minibatch_scale)          # a plain subset
+LINE   t3toolbox/backend/fitting.py +249 [other] None
+LINE   t3toolbox/backend/fitting.py +250 [other] 
+LINE   t3toolbox/backend/fitting.py +251 [other] A weight per sample is drawn with the samples; one constant over the samples keeps its axis of 1:
+LINE   t3toolbox/backend/fitting.py +252 [other] 
+LINE   t3toolbox/backend/fitting.py +253 [other] >>> per_sample = dc.replace(batch, weight=np.arange(10.0))
+LINE   t3toolbox/backend/fitting.py +255 [other] [0. 3.]
+LINE   t3toolbox/backend/fitting.py +257 [other] [2.]
+LINE   t3toolbox/backend/fitting.py +258 [other] '''
+LINE   t3toolbox/backend/fitting.py +260 [other] start, n_w = self._w_axes()
+LINE   t3toolbox/backend/fitting.py +261 [other] W = self._W()
+LINE   t3toolbox/backend/fitting.py +264 [other] sample = _flat_gather(self.sample, 1, n_w, indices)
+LINE   t3toolbox/backend/fitting.py +265 [other] elif isinstance(self.sample, (tuple, list)):
+LINE   t3toolbox/backend/fitting.py +266 [other] sample = [_flat_gather(w, m, n_w, indices) for w in self.sample]
+LINE   t3toolbox/backend/fitting.py +267 [other] else:
+LINE   t3toolbox/backend/fitting.py +268 [other] sample = _flat_gather(self.sample, 1 + m, n_w, indices)
+LINE   t3toolbox/backend/fitting.py +271 [other] scale = n / len(indices)
+LINE   t3toolbox/backend/fitting.py +272 [other] if self.minibatch_scale is not None:
+LINE   t3toolbox/backend/fitting.py +273 [other] scale = self.minibatch_scale * scale
+LINE   t3toolbox/backend/fitting.py +275 [other] drawn_indices=indices)
+LINE   t3toolbox/backend/fitting.py +276 [other] 
+LINE   t3toolbox/backend/fitting.py +277 [other] 
+LINE   t3toolbox/backend/fitting.py +278 [other] _BATCH_LEAVES = ('sample', 'y', 'weight', 'minibatch_scale', 'drawn_indices')
+LINE   t3toolbox/backend/fitting.py +3 [other] A fit is ``f = 1/2 <M r, r>`` with ``r = z(x) - y`` the residual of a sampling kind (probe, apply or entries) at a jet
+LINE   t3toolbox/backend/fitting.py +4 [other] shape ``order``, and ``M`` the batch's data metric. :py:class:`LeastSquaresBatch` holds the measurements: their kind and
+LINE   t3toolbox/backend/fitting.py +40 [other] # batch's `take` uses it for the sample (and, through `_take_W`, for y and the weight), wherever W sits in
+LINE   t3toolbox/backend/fitting.py +454 [other] It is the objective's rule and has no fields (value-hashed, it rides as jax ``aux_data``); the measurements, their
+LINE   t3toolbox/backend/fitting.py +474 [other] weight that are the same for every sample (``W`` axes of 1, kept as one axis of 1 by
+LINE   t3toolbox/backend/fitting.py +476 [other] batch's own weight: a validation batch with another weight (or none) gives the ratio under that weight.
+LINE   t3toolbox/backend/fitting.py +5 [other] jet shape (static), the sample, ``y``, the weight, the minibatch scale and the drawn indices; it checks itself against a
+LINE   t3toolbox/backend/fitting.py +506 [other] The trap: a batch made with ``order=()`` from input jets passes every check of shapes (the jet axis is read as one
+LINE   t3toolbox/backend/fitting.py +507 [other] more sample axis), and fits a different problem -- the probes at ``ww`` and at ``pp`` separately, not along the
+LINE   t3toolbox/backend/fitting.py +508 [other] line:
+LINE   t3toolbox/backend/fitting.py +511 [other] >>> (f_wrong,), _ = oracle.query(frame, plain, ('f',))
+LINE   t3toolbox/backend/fitting.py +513 [other] ...                                                       x.probe(affine_jet(ww, pp), (1,))), ('f',))
+LINE   t3toolbox/backend/fitting.py +517 [other] >>> (f_mixed,), _ = oracle.query(frame, mixed, ('f',))
+LINE   t3toolbox/backend/fitting.py +6 [other] model, draws from itself, counts its samples and applies its data metric. :py:class:`LeastSquaresOracle` is the
+LINE   t3toolbox/backend/fitting.py +68 [other] @dataclass(frozen=True, eq=False, init=False)
+LINE   t3toolbox/backend/fitting.py +7 [other] objective's rule, with no fields: it answers what an optimizer asks at a frame or a corewise point (``f``, ``g``,
+LINE   t3toolbox/backend/fitting.py +70 [other] """The measurements of a least-squares fit: their kind and jet shape, the sample, the data and the weight.
+LINE   t3toolbox/backend/fitting.py +72 [other] A registered pytree: ``kind`` and ``order`` are static (jax ``aux_data``: a compiled program is for one kind and
+LINE   t3toolbox/backend/fitting.py +73 [other] one jet shape, the same for every draw of a fit), every other field a leaf (``None`` allowed). Every field after
+LINE   t3toolbox/backend/fitting.py +74 [other] ``y`` is keyword-only, so that no positional call puts a scale in a weight:
+LINE   t3toolbox/backend/fitting.py +76 [other] 
+LINE   t3toolbox/backend/fitting.py +77 [other] - ``kind``: ``'probe'``, ``'apply'`` or ``'entries'``; ``order``: the jet shape of the sample and the data, a
+LINE   t3toolbox/backend/fitting.py +78 [other] tuple of nonnegative integers (``()`` for no jets; the entries kind takes ``()`` only). Both are checked when the
+LINE   t3toolbox/backend/fitting.py +79 [other] batch is made, and ``order`` is kept as Python ints.
+LINE   t3toolbox/backend/fitting.py +8 [other] ``Jp``, ``JtJp``, ``Kp``, the block sums, ...) on a batch, through one call of the engine
+LINE   t3toolbox/backend/fitting.py +80 [other] - ``sample``: the input jets ``ww`` (probe, apply: ``len=d``, ``elm_shape=F_in_i+W+(Ni,)``, or packed
+LINE   t3toolbox/backend/fitting.py +82 [other] integer ``index`` ``(d,)+W`` (entries).
+LINE   t3toolbox/backend/fitting.py +83 [other] - ``y`` and ``weight``: **of the type of** ``z``, with the model's stack of base points ``C``: probe
+LINE   t3toolbox/backend/fitting.py +84 [other] ``F+W+C+(Ni,)`` per mode (a tuple or a list of ``d`` arrays, or one array whose first axis is the mode; packed
+LINE   t3toolbox/backend/fitting.py +85 [other] ``(d,)+F+W+C+(e,)`` on the uniform layout), apply ``F+W+C``, entries ``W+C``; each axis 1 or that size, a size of
+LINE   t3toolbox/backend/fitting.py +86 [other] 1 meaning the same along the axis (data shared by a stack have size-1 ``C`` axes, a weight per slot size-1 ``W``,
+LINE   t3toolbox/backend/fitting.py +87 [other] ``C`` and edge axes). :py:func:`~t3toolbox.backend.jets.blocks_to_weight` makes a weight from one value per
+LINE   t3toolbox/backend/fitting.py +88 [other] block. ``weight=None`` is ones.
+LINE   t3toolbox/backend/fitting.py +89 [other] - ``minibatch_scale``: ``gamma``, ``n / b`` on a batch drawn by :py:meth:`take`, ``None`` (one) on a full batch;
+LINE   t3toolbox/backend/fitting.py +9 [other] :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables`. What the oracle returns is bare, before any
+LINE   t3toolbox/backend/fitting.py +90 [other] ``drawn_indices``: the flat sample indices a draw took, relative to the batch it was taken from.
+LINE   t3toolbox/backend/fitting.py +91 [other] 
+LINE   t3toolbox/backend/fitting.py +92 [other] The arrays are checked against a model by :py:meth:`check`, which the frontend calls where a batch enters, never by
+LINE   t3toolbox/backend/fitting.py +93 [other] the oracle's ``query`` (the engine checks the rule of ``y`` and the weight on entry).
+LINE   t3toolbox/backend/fitting.py +94 [other] 
+LINE   t3toolbox/backend/fitting.py +95 [other] Examples
+LINE   t3toolbox/backend/fitting.py +96 [other] --------
+LINE   t3toolbox/backend/fitting.py +97 [other] >>> import numpy as np
+LINE   t3toolbox/backend/fitting.py +98 [other] >>> from t3toolbox.backend.fitting import LeastSquaresBatch
+LINE   t3toolbox/backend/fitting.py +99 [other] >>> ww = [np.ones((10, N)) for N in (4, 5, 6)]                            # W = (10,)
+LINE   t3toolbox/backend/fitting.py -10 [other] ``JtJp = 𝒥ᵀ M 𝒥p``, with ``𝒥`` the Jacobian of ``z`` at the frame and ``M`` the batch's data metric (its minibatch
+LINE   t3toolbox/backend/fitting.py -11 [other] scale inside). The geometry (manifold or corewise, :py:mod:`t3toolbox.backend.geometry`) is the other half of a
+LINE   t3toolbox/backend/fitting.py -119 [other] _BATCH_FIELDS = ('sample', 'y', 'weight', 'minibatch_scale', 'drawn_indices')
+LINE   t3toolbox/backend/fitting.py -12 [other] fit: it supplies the projection ``Π`` (``geometry.project``: the gauge projection on the manifold; on the
+LINE   t3toolbox/backend/fitting.py -124 [other] lambda b: (tuple(getattr(b, name) for name in _BATCH_FIELDS), None),
+LINE   t3toolbox/backend/fitting.py -13 [other] corewise geometry the identity, or the per-group mean of tied factors), so that the forward is ``J = 𝒥∘Π`` and
+LINE   t3toolbox/backend/fitting.py -14 [other] the gradient ``Jᵀr = Π∘𝒥ᵀr``; :py:mod:`t3toolbox.backend.optimizers` composes the two.
+LINE   t3toolbox/backend/fitting.py -15 [other] '''
+LINE   t3toolbox/backend/fitting.py -295 [other] It is a frozen description with no arrays (its fields are statics, value-hashed: it rides as jax ``aux_data``);
+LINE   t3toolbox/backend/fitting.py -296 [other] the data are its batch, a :py:class:`LeastSquaresBatch`. ``order`` is the jet shape of the sample and the data, a
+LINE   t3toolbox/backend/fitting.py -298 [other] ``('probe', order=(2,))`` along a line; the entries kind has no jets and takes ``order=()`` only (O-46).
+LINE   t3toolbox/backend/fitting.py -3 [other] A fit is ``f = 1/2 <M r, r>`` with ``r = z(x) - y`` the residual of a sampling kind (probe, apply or entries) at
+LINE   t3toolbox/backend/fitting.py -316 [other] weight that are the same for every sample (``W`` axes of 1, kept as one axis of 1 by :py:meth:`take`) give the full
+LINE   t3toolbox/backend/fitting.py -317 [other] batch's ``y_block_sumsq`` exactly. Each batch's sums use that batch's own weight: a validation batch with another
+LINE   t3toolbox/backend/fitting.py -318 [other] weight (or none) gives the ratio under that weight.
+LINE   t3toolbox/backend/fitting.py -348 [other] The trap: input jets read with ``order=()`` pass every check of shapes (the jet axis is read as one more sample
+LINE   t3toolbox/backend/fitting.py -349 [other] axis), and fit a different problem -- the probes at ``ww`` and at ``pp`` separately, not along the line:
+LINE   t3toolbox/backend/fitting.py -354 [other] ...                              ('f',))
+LINE   t3toolbox/backend/fitting.py -361 [other] kind:   str                                         # 'probe' | 'apply' | 'entries'
+LINE   t3toolbox/backend/fitting.py -362 [other] order:  typ.Tuple[int, ...]                         # the jet shape; required (O-44); entries: () only (O-46)
+LINE   t3toolbox/backend/fitting.py -363 [other] 
+LINE   t3toolbox/backend/fitting.py -366 [other] 
+LINE   t3toolbox/backend/fitting.py -367 [other] def __post_init__(self):
+LINE   t3toolbox/backend/fitting.py -372 [other] raise TypeError('LeastSquaresOracle: order is the jet shape, a tuple of nonnegative ints (() for no jets); '
+LINE   t3toolbox/backend/fitting.py -375 [other] raise ValueError("LeastSquaresOracle: the entries kind has no jets: its order is (), got %r "
+LINE   t3toolbox/backend/fitting.py -39 [other] # oracle's `take` uses it for the sample (and, through `_take_W`, for y and the weight), wherever W sits in
+LINE   t3toolbox/backend/fitting.py -4 [other] a jet shape ``order``, and ``M`` the batch's data metric. :py:class:`LeastSquaresOracle` (the kind and the order,
+LINE   t3toolbox/backend/fitting.py -445 [other] 
+LINE   t3toolbox/backend/fitting.py -446 [other] # ------------------------------------------------------------------ the batch
+LINE   t3toolbox/backend/fitting.py -447 [other] def check_batch(
+LINE   t3toolbox/backend/fitting.py -448 [other] self,
+LINE   t3toolbox/backend/fitting.py -449 [other] batch:        LeastSquaresBatch,                  # ragged (check before packing)
+LINE   t3toolbox/backend/fitting.py -450 [other] shape:        typ.Sequence[int],                  # the mode sizes (N0, ..., N(d-1))
+LINE   t3toolbox/backend/fitting.py -451 [other] stack_shape:  typ.Tuple[int, ...] = (),           # C, the model's stack of base points; () unstacked
+LINE   t3toolbox/backend/fitting.py -452 [other] ) -> None:
+LINE   t3toolbox/backend/fitting.py -453 [other] '''Check a batch structurally, on its ragged form: the sample against the jet shape and ``shape``
+LINE   t3toolbox/backend/fitting.py -454 [other] (:py:func:`~t3toolbox.backend.jets.check_sample`), the data and the weight against the sample and the model's
+LINE   t3toolbox/backend/fitting.py -455 [other] stack ``stack_shape`` (``check_data``, ``check_weight``: each of the type of ``z``, every axis 1 or ``z``'s
+LINE   t3toolbox/backend/fitting.py -456 [other] size); raise a ``ValueError`` naming what is wrong. Data of a stacked model checked without its
+LINE   t3toolbox/backend/fitting.py -457 [other] ``stack_shape`` fail by rank. A checker: :py:meth:`query` does not call it.
+LINE   t3toolbox/backend/fitting.py -458 [other] 
+LINE   t3toolbox/backend/fitting.py -459 [other] >>> import numpy as np
+LINE   t3toolbox/backend/fitting.py -460 [other] >>> from t3toolbox.backend.fitting import LeastSquaresOracle, LeastSquaresBatch
+LINE   t3toolbox/backend/fitting.py -462 [other] >>> ww = [np.ones((10, N)) for N in (4, 5, 6)]                            # W = (10,)
+LINE   t3toolbox/backend/fitting.py -466 [other] ... # doctest: +IGNORE_EXCEPTION_DETAIL
+LINE   t3toolbox/backend/fitting.py -467 [other] Traceback (most recent call last):
+LINE   t3toolbox/backend/fitting.py -468 [other] ...
+LINE   t3toolbox/backend/fitting.py -469 [other] ValueError: the data y of the apply kind has shape (10, 3); it is of the type of z, ...
+LINE   t3toolbox/backend/fitting.py -470 [other] '''
+LINE   t3toolbox/backend/fitting.py -472 [other] if batch.y is not None:
+LINE   t3toolbox/backend/fitting.py -475 [other] 
+LINE   t3toolbox/backend/fitting.py -476 [other] def _w_axes(self, batch):
+LINE   t3toolbox/backend/fitting.py -477 [other] '''(where W starts in the sample, the number of W axes): after the jets (and the packed d), or after the
+LINE   t3toolbox/backend/fitting.py -478 [other] mode axis of an index.'''
+LINE   t3toolbox/backend/fitting.py -481 [other] return 1, np.ndim(batch.sample) - 1
+LINE   t3toolbox/backend/fitting.py -482 [other] if isinstance(batch.sample, (tuple, list)):
+LINE   t3toolbox/backend/fitting.py -483 [other] return m, np.ndim(batch.sample[0]) - m - 1
+LINE   t3toolbox/backend/fitting.py -484 [other] return 1 + m, np.ndim(batch.sample) - m - 2
+LINE   t3toolbox/backend/fitting.py -485 [other] 
+LINE   t3toolbox/backend/fitting.py -486 [other] def _W(self, batch) -> typ.Tuple[int, ...]:
+LINE   t3toolbox/backend/fitting.py -487 [other] '''The sample stack ``W``, read off the sample.'''
+LINE   t3toolbox/backend/fitting.py -488 [other] start, n_w = self._w_axes(batch)
+LINE   t3toolbox/backend/fitting.py -490 [other] else batch.sample[0]
+LINE   t3toolbox/backend/fitting.py -491 [other] return tuple(int(n) for n in np.shape(lead)[start:start + n_w])
+LINE   t3toolbox/backend/fitting.py -492 [other] 
+LINE   t3toolbox/backend/fitting.py -493 [other] def n_measurements(
+LINE   t3toolbox/backend/fitting.py -494 [other] self,
+LINE   t3toolbox/backend/fitting.py -495 [other] batch:  LeastSquaresBatch,
+LINE   t3toolbox/backend/fitting.py -496 [other] ) -> int:                                                 # |W|, the number of samples
+LINE   t3toolbox/backend/fitting.py -497 [other] '''The number of samples of a batch, ``prod(W)``: the population a draw takes from.'''
+LINE   t3toolbox/backend/fitting.py -498 [other] return math.prod(self._W(batch))
+LINE   t3toolbox/backend/fitting.py -499 [other] 
+LINE   t3toolbox/backend/fitting.py -5 [other] a frozen description with no arrays) answers what an optimizer asks at a frame or a corewise point (``f``,
+LINE   t3toolbox/backend/fitting.py -500 [other] def take(
+LINE   t3toolbox/backend/fitting.py -501 [other] self,
+LINE   t3toolbox/backend/fitting.py -502 [other] batch:    LeastSquaresBatch,
+LINE   t3toolbox/backend/fitting.py -503 [other] indices:  NDArray,                                # int, (b,): flat positions over W; len(indices) static
+LINE   t3toolbox/backend/fitting.py -504 [other] ) -> LeastSquaresBatch:                                   # the drawn batch, W flattened to (b,)
+LINE   t3toolbox/backend/fitting.py -505 [other] '''A draw: the samples at ``indices`` (flat over ``W``, which becomes one axis of ``b = len(indices)``), with
+LINE   t3toolbox/backend/fitting.py -506 [other] ``minibatch_scale = n / b`` (times the batch's own scale) and ``drawn_indices = indices``, relative to
+LINE   t3toolbox/backend/fitting.py -507 [other] ``batch``. The scale makes the drawn ``f`` (and every scaled output) an unbiased estimate of the full one under
+LINE   t3toolbox/backend/fitting.py -508 [other] a uniform draw of ``b`` of the ``n`` samples. Traceable, ``b`` static. For a plain subset with no scale, such
+LINE   t3toolbox/backend/fitting.py -509 [other] as a fixed validation slice, drop it: ``dataclasses.replace(sub, minibatch_scale=None)``.
+LINE   t3toolbox/backend/fitting.py -510 [other] 
+LINE   t3toolbox/backend/fitting.py -511 [other] The data ``y`` and the weight are of the type of ``z``, each axis 1 or ``z``'s size, and are drawn alike: an
+LINE   t3toolbox/backend/fitting.py -512 [other] object whose every ``W`` axis is 1 (the same for every sample) keeps one axis of 1 in their place, with no
+LINE   t3toolbox/backend/fitting.py -513 [other] gather; any other is broadcast to the batch's ``W``, flattened and gathered at ``indices``. So a weight per
+LINE   t3toolbox/backend/fitting.py -514 [other] sample is drawn with its samples, and a weight per slot stays one per slot.
+LINE   t3toolbox/backend/fitting.py -515 [other] 
+LINE   t3toolbox/backend/fitting.py -516 [other] >>> import dataclasses as dc
+LINE   t3toolbox/backend/fitting.py -517 [other] >>> import numpy as np
+LINE   t3toolbox/backend/fitting.py -518 [other] >>> from t3toolbox.backend.fitting import LeastSquaresOracle, LeastSquaresBatch
+LINE   t3toolbox/backend/fitting.py -522 [other] >>> print(sub.y.shape, sub.minibatch_scale, sub.drawn_indices)
+LINE   t3toolbox/backend/fitting.py -523 [other] (2,) 5.0 [0 3]
+LINE   t3toolbox/backend/fitting.py -524 [other] >>> print(dc.replace(sub, minibatch_scale=None).minibatch_scale)          # a plain subset
+LINE   t3toolbox/backend/fitting.py -525 [other] None
+LINE   t3toolbox/backend/fitting.py -526 [other] 
+LINE   t3toolbox/backend/fitting.py -527 [other] A weight per sample is drawn with the samples; one constant over the samples keeps its axis of 1:
+LINE   t3toolbox/backend/fitting.py -528 [other] 
+LINE   t3toolbox/backend/fitting.py -529 [other] >>> per_sample = dc.replace(batch, weight=np.arange(10.0))
+LINE   t3toolbox/backend/fitting.py -531 [other] [0. 3.]
+LINE   t3toolbox/backend/fitting.py -533 [other] [2.]
+LINE   t3toolbox/backend/fitting.py -534 [other] '''
+LINE   t3toolbox/backend/fitting.py -536 [other] start, n_w = self._w_axes(batch)
+LINE   t3toolbox/backend/fitting.py -537 [other] W = self._W(batch)
+LINE   t3toolbox/backend/fitting.py -540 [other] sample = _flat_gather(batch.sample, 1, n_w, indices)
+LINE   t3toolbox/backend/fitting.py -541 [other] elif isinstance(batch.sample, (tuple, list)):
+LINE   t3toolbox/backend/fitting.py -542 [other] sample = [_flat_gather(w, m, n_w, indices) for w in batch.sample]
+LINE   t3toolbox/backend/fitting.py -543 [other] else:
+LINE   t3toolbox/backend/fitting.py -544 [other] sample = _flat_gather(batch.sample, 1 + m, n_w, indices)
+LINE   t3toolbox/backend/fitting.py -547 [other] scale = n / len(indices)
+LINE   t3toolbox/backend/fitting.py -548 [other] if batch.minibatch_scale is not None:
+LINE   t3toolbox/backend/fitting.py -549 [other] scale = batch.minibatch_scale * scale
+LINE   t3toolbox/backend/fitting.py -6 [other] ``g``, ``Jp``, ``JtJp``, ``Kp``, the block sums, ...) through one call of the engine
+LINE   t3toolbox/backend/fitting.py -67 [other] @dataclass(frozen=True, eq=False)
+LINE   t3toolbox/backend/fitting.py -69 [other] """The data of a least-squares fit, arrays only: a registered pytree, every field a leaf (``None`` allowed).
+LINE   t3toolbox/backend/fitting.py -7 [other] :py:func:`~t3toolbox.backend.sampling_variables.sampling_variables`, and checks, draws from and counts a batch.
+LINE   t3toolbox/backend/fitting.py -71 [other] ``sample`` is the input jets ``ww`` (probe, apply: ``len=d``, ``elm_shape=F_in_i+W+(Ni,)``, or packed
+LINE   t3toolbox/backend/fitting.py -73 [other] integer ``index`` ``(d,)+W`` (entries). ``y`` and ``weight`` are **of the type of** ``z``, with the model's stack
+LINE   t3toolbox/backend/fitting.py -74 [other] of base points ``C``: probe ``F+W+C+(Ni,)`` per mode (a tuple or a list of ``d`` arrays, or one array whose first
+LINE   t3toolbox/backend/fitting.py -75 [other] axis is the mode; packed ``(d,)+F+W+C+(e,)`` on the uniform layout), apply ``F+W+C``, entries ``W+C``; each axis 1
+LINE   t3toolbox/backend/fitting.py -76 [other] or that size, a size of 1 meaning the same along the axis (data shared by a stack have size-1 ``C`` axes, a
+LINE   t3toolbox/backend/fitting.py -77 [other] weight per slot size-1 ``W``, ``C`` and edge axes). :py:func:`~t3toolbox.backend.jets.blocks_to_weight` makes a
+LINE   t3toolbox/backend/fitting.py -78 [other] weight from one value per block. ``weight=None`` is ones. ``minibatch_scale`` is ``n / batch_size`` on a drawn
+LINE   t3toolbox/backend/fitting.py -8 [other] :py:class:`LeastSquaresBatch` holds the data, arrays only: the sample, ``y``, the weight, the minibatch scale and
+LINE   t3toolbox/backend/fitting.py -80 [other] indices a draw took, relative to the batch it was taken from. Checked by
+LINE   t3toolbox/backend/fitting.py -82 [other] and the weight on entry).
+LINE   t3toolbox/backend/fitting.py -87 [other] minibatch_scale:  typ.Optional[typ.Any] = None               # gamma: n / batch_size on a drawn batch; None = 1
+LINE   t3toolbox/backend/fitting.py -88 [other] drawn_indices:    typ.Optional[NDArray] = None               # int, (batch_size,): the draw, flat over W
+LINE   t3toolbox/backend/fitting.py -9 [other] the drawn indices. What the oracle returns is bare, before any projection: ``Jp = 𝒥p``, ``g = 𝒥ᵀ(M r)`` and
+LINE   t3toolbox/backend/optimizer_display.py +171 [other] probe, ``train`` / ``val`` rows for apply. Without ``order`` (a batch that names none), the axes are labelled by
+LINE   t3toolbox/backend/optimizer_display.py +576 [other] are different quantities (a weighted ratio beside an unweighted one, say). A ``val_batch`` of another kind or jet
+LINE   t3toolbox/backend/optimizer_display.py +577 [other] shape than ``batch`` raises a ``ValueError`` at once: its table would set two different quantities side by side.
+LINE   t3toolbox/backend/optimizer_display.py +578 [other] An oracle that lacks either block sum (not in its ``optional_outputs``) gets the header lines and no table, and its
+LINE   t3toolbox/backend/optimizer_display.py +579 [other] records no error arrays.
+LINE   t3toolbox/backend/optimizer_display.py +583 [other] reduced. ``error_table=False`` changes the printed text only. The layout of the printed table follows the batch's
+LINE   t3toolbox/backend/optimizer_display.py +584 [other] ``order`` (:py:func:`format_newton_iter`; a batch without one: axes labelled by position).
+LINE   t3toolbox/backend/optimizer_display.py +625 [other] order = getattr(batch, 'order', None)
+LINE   t3toolbox/backend/optimizer_display.py +627 [other] if val_batch is not None:                    # one kind and one order per fit: each batch is read under its own
+LINE   t3toolbox/backend/optimizer_display.py +628 [other] given = (getattr(val_batch, 'kind', None), getattr(val_batch, 'order', None))
+LINE   t3toolbox/backend/optimizer_display.py +629 [other] if given != (getattr(batch, 'kind', None), getattr(batch, 'order', None)):
+LINE   t3toolbox/backend/optimizer_display.py +631 [other] '%r and order %r; their tables would set two different quantities side by side'
+LINE   t3toolbox/backend/optimizer_display.py +632 [other] % (given + (getattr(batch, 'kind', None), getattr(batch, 'order', None))))
+LINE   t3toolbox/backend/optimizer_display.py -171 [other] probe, ``train`` / ``val`` rows for apply. Without ``order`` (an oracle that names none), the axes are labelled by
+LINE   t3toolbox/backend/optimizer_display.py -576 [other] are different quantities (a weighted ratio beside an unweighted one, say). An oracle that lacks either block sum
+LINE   t3toolbox/backend/optimizer_display.py -577 [other] (not in its ``optional_outputs``) gets the header lines and no table, and its records no error arrays.
+LINE   t3toolbox/backend/optimizer_display.py -581 [other] reduced. ``error_table=False`` changes the printed text only. The layout of the printed table follows the oracle's
+LINE   t3toolbox/backend/optimizer_display.py -582 [other] ``order`` (:py:func:`format_newton_iter`; an oracle without one: axes labelled by position).
+LINE   t3toolbox/backend/optimizer_display.py -622 [other] order = getattr(oracle, 'order', None)
+LINE   t3toolbox/backend/optimizers.py +1255 [other] needs a batch with ``take`` and ``n_measurements``, else a ``ValueError`` at entry; a draw's batch is not checked
+LINE   t3toolbox/backend/optimizers.py +1256 [other] here, the frontend checks it) and builds a model there afresh: the step objective is the drawn batch's misfit,
+LINE   t3toolbox/backend/optimizers.py +1257 [other] scaled by the oracle to estimate the full one, plus the **unscaled** regularizer. Stops on an exponentially-smoothed
+LINE   t3toolbox/backend/optimizers.py +1258 [other] **full-batch** loss (:py:func:`point_objective`) with an **absolute-iteration window**
+LINE   t3toolbox/backend/optimizers.py +1259 [other] (``plateau_lag * check_every`` iterations) -- decoupled from batch size (the epoch-based window made small batches
+LINE   t3toolbox/backend/optimizers.py +1260 [other] fragile; findings in a separate research repo, maintainer-local). ``stats['losses']`` records the **smoothed** check
+LINE   t3toolbox/backend/optimizers.py +1261 [other] values (the stop signal), not the raw full-batch losses. ``use_jit`` jits the per-step kernel (the host loop draws
+LINE   t3toolbox/backend/optimizers.py +1262 [other] minibatches; the full-batch stop check stays on the host), auto-converting numpy inputs to jax first
+LINE   t3toolbox/backend/optimizers.py +1263 [other] (:py:func:`_prepare_jit_inputs`) -- so the
+LINE   t3toolbox/backend/optimizers.py +1308 [other] drawn batch, as :py:func:`mc_sgd` does (the regularizer unscaled; a batch without ``take`` and ``n_measurements``
+LINE   t3toolbox/backend/optimizers.py +1309 [other] needs a ``draw``, whose batches, of the full batch's kind and jet shape, are not checked here).
+LINE   t3toolbox/backend/optimizers.py +187 [other] ``batch``, which the optimizers pass through unread (``None`` for an oracle with no data), with one exception, the
+LINE   t3toolbox/backend/optimizers.py +188 [other] default draw below. ``query`` returns the
+LINE   t3toolbox/backend/optimizers.py +207 [other] **What a batch may have** (O-29; the least-squares batch has all three): ``check(shape, stack_shape=()) -> None``,
+LINE   t3toolbox/backend/optimizers.py +208 [other] the structural checker of the batch against the mode sizes ``shape`` and the model's stack of base points
+LINE   t3toolbox/backend/optimizers.py +209 [other] ``stack_shape`` (``C``; ``()`` for an unstacked model), which the frontend calls, always with the model's
+LINE   t3toolbox/backend/optimizers.py +210 [other] ``stack_shape``, where a batch enters; and the property ``n_measurements`` with ``take(indices)``, which the
+LINE   t3toolbox/backend/optimizers.py +212 [other] user's ``draw`` returns a batch of the same kind and jet shape as the full batch; the backend does not check it.
+LINE   t3toolbox/backend/optimizers.py +213 [other] An oracle that reuses :py:class:`~t3toolbox.backend.fitting.LeastSquaresBatch` reads the kind and the jet shape
+LINE   t3toolbox/backend/optimizers.py +214 [other] off it.
+LINE   t3toolbox/backend/optimizers.py +629 [other] batch:       typ.Any,       # the full batch: with the property n_measurements and take(indices)
+LINE   t3toolbox/backend/optimizers.py +634 [other] the least-squares batch a batch with ``minibatch_scale = n / b`` and the ``drawn_indices``. Returns
+LINE   t3toolbox/backend/optimizers.py +636 [other] may pass **any** ``draw`` instead (slice ``W``, importance-sample, ...), returning a batch of the same kind and jet
+LINE   t3toolbox/backend/optimizers.py +637 [other] shape as the full batch: the backend does not check it (the frontend optimizers do). Host numpy indices; on a jax
+LINE   t3toolbox/backend/optimizers.py +638 [other] batch the gather runs on device (the optimizer never compiles the draw, only the step)."""
+LINE   t3toolbox/backend/optimizers.py +648 [other] batch:  typ.Any,
+LINE   t3toolbox/backend/optimizers.py +650 [other] who:    str,
+LINE   t3toolbox/backend/optimizers.py +652 [other] """Structural, at entry: without a ``draw`` the batch needs ``take(indices)`` and the property
+LINE   t3toolbox/backend/optimizers.py +654 [other] ``n_measurements`` is a method (a batch written before it became a property)."""
+LINE   t3toolbox/backend/optimizers.py +655 [other] if draw is not None:
+LINE   t3toolbox/backend/optimizers.py +656 [other] return
+LINE   t3toolbox/backend/optimizers.py +657 [other] n = getattr(batch, 'n_measurements', None)
+LINE   t3toolbox/backend/optimizers.py +658 [other] if callable(n):
+LINE   t3toolbox/backend/optimizers.py +661 [other] 'a function draw(rng) returning a batch' % (who, type(batch).__name__))
+LINE   t3toolbox/backend/optimizers.py +662 [other] if not callable(getattr(batch, 'take', None)) or not isinstance(n, numbers.Integral):
+LINE   t3toolbox/backend/optimizers.py +663 [other] raise ValueError('%s: %s has no take(indices) and the property n_measurements (an int), the default draw; '
+LINE   t3toolbox/backend/optimizers.py +664 [other] 'pass draw=, a function draw(rng) returning a batch of the same kind and jet shape'
+LINE   t3toolbox/backend/optimizers.py +665 [other] % (who, type(batch).__name__))
+LINE   t3toolbox/backend/optimizers.py -1244 [other] entry) and builds a model there afresh: the step objective is the drawn batch's misfit, scaled by the oracle to
+LINE   t3toolbox/backend/optimizers.py -1245 [other] estimate the full one, plus the **unscaled** regularizer. Stops on an exponentially-smoothed **full-batch** loss
+LINE   t3toolbox/backend/optimizers.py -1246 [other] (:py:func:`point_objective`) with an **absolute-iteration window** (``plateau_lag * check_every`` iterations) --
+LINE   t3toolbox/backend/optimizers.py -1247 [other] decoupled from batch size (the epoch-based window made small batches fragile; findings in a separate research repo,
+LINE   t3toolbox/backend/optimizers.py -1248 [other] maintainer-local). ``stats['losses']`` records the **smoothed** check values (the stop signal), not the raw
+LINE   t3toolbox/backend/optimizers.py -1249 [other] full-batch losses. ``use_jit`` jits the per-step kernel (the host loop draws minibatches; the full-batch stop check
+LINE   t3toolbox/backend/optimizers.py -1250 [other] stays on the host), auto-converting numpy inputs to jax first (:py:func:`_prepare_jit_inputs`) -- so the
+LINE   t3toolbox/backend/optimizers.py -1295 [other] drawn batch, as :py:func:`mc_sgd` does (the regularizer unscaled; an oracle without ``take`` needs a ``draw``).
+LINE   t3toolbox/backend/optimizers.py -187 [other] ``batch``, which the optimizers pass through unread (``None`` for an oracle with no data). ``query`` returns the
+LINE   t3toolbox/backend/optimizers.py -206 [other] **Optional members** ``check_batch(batch, shape, stack_shape=()) -> None`` (O-29): the structural checker of a
+LINE   t3toolbox/backend/optimizers.py -207 [other] batch against the mode sizes ``shape`` and the model's stack of base points ``stack_shape`` (``C``; ``()`` for an
+LINE   t3toolbox/backend/optimizers.py -208 [other] unstacked model), which the frontend calls, always with the model's ``stack_shape``, where a batch enters when the
+LINE   t3toolbox/backend/optimizers.py -209 [other] oracle has one, and nothing about the batch otherwise; and
+LINE   t3toolbox/backend/optimizers.py -210 [other] ``n_measurements(batch)`` with ``take(batch, indices)``, the default draw of ``mc_sgd`` and ``adam``
+LINE   t3toolbox/backend/optimizers.py -626 [other] oracle:      typ.Any,       # an oracle with n_measurements(batch) and take(batch, indices)
+LINE   t3toolbox/backend/optimizers.py -627 [other] batch:       typ.Any,       # the full batch
+LINE   t3toolbox/backend/optimizers.py -632 [other] returns it: for the least-squares oracle a batch with ``minibatch_scale = n / b`` and the ``drawn_indices``. Returns
+LINE   t3toolbox/backend/optimizers.py -634 [other] may pass **any** ``draw`` instead (slice ``W``, importance-sample, ...), returning a batch of the oracle. Host numpy
+LINE   t3toolbox/backend/optimizers.py -635 [other] indices; on a jax batch the gather runs on device (the optimizer never compiles the draw, only the step)."""
+LINE   t3toolbox/backend/optimizers.py -645 [other] oracle:  typ.Any,
+LINE   t3toolbox/backend/optimizers.py -647 [other] who:     str,
+LINE   t3toolbox/backend/optimizers.py -649 [other] """Structural, at entry: without a ``draw`` the oracle needs ``take(batch, indices)`` and ``n_measurements(batch)``,
+LINE   t3toolbox/backend/optimizers.py -651 [other] if draw is None and not (callable(getattr(oracle, 'take', None))
+LINE   t3toolbox/backend/optimizers.py -652 [other] and callable(getattr(oracle, 'n_measurements', None))):
+LINE   t3toolbox/backend/optimizers.py -653 [other] raise ValueError('%s: %s has no take(batch, indices) and n_measurements(batch), the default draw; pass '
+LINE   t3toolbox/backend/optimizers.py -654 [other] 'draw=, a function draw(rng) returning a batch of the oracle' % (who, type(oracle).__name__))
+LINE   t3toolbox/backend/uniform_fitting.py +10 [other] geometry (:py:mod:`t3toolbox.backend.geometry`, ``from_point``). :py:func:`uniform_minimal` reduces a
+LINE   t3toolbox/backend/uniform_fitting.py +100 [other] largest size across the modes by writing zero coefficients (data, not padding: an input jet is zero beyond its
+LINE   t3toolbox/backend/uniform_fitting.py +101 [other] slots, O-45), and the probe data ``y`` and weight with :py:func:`pack_data`, the one rule for a data-space object
+LINE   t3toolbox/backend/uniform_fitting.py +102 [other] (each to ``(d,)+F+W+C+(e,)``, an edge of 1 kept). The entries ``index`` and the data and weight of apply and entries
+LINE   t3toolbox/backend/uniform_fitting.py +103 [other] are not packed; the scale and the drawn indices pass through. A packed sample, ``y`` or weight is kept as it is.
+LINE   t3toolbox/backend/uniform_fitting.py +104 [other] ``N=None`` is the largest mode size of a ragged sample (an entries batch is not padded, and a packed sample keeps
+LINE   t3toolbox/backend/uniform_fitting.py +105 [other] its own width).
+LINE   t3toolbox/backend/uniform_fitting.py +116 [other] if N is None and kind != 'entries':
+LINE   t3toolbox/backend/uniform_fitting.py +117 [other] N = (max(int(np.shape(w)[-1]) for w in batch.sample) if isinstance(batch.sample, (tuple, list))
+LINE   t3toolbox/backend/uniform_fitting.py +118 [other] else int(np.shape(batch.sample)[-1]))
+LINE   t3toolbox/backend/uniform_fitting.py +96 [other] N:      typ.Optional[int] = None,           # the packed mode width; None = the largest mode size of the sample
+LINE   t3toolbox/backend/uniform_fitting.py +98 [other] """Pack a :py:class:`~t3toolbox.backend.fitting.LeastSquaresBatch` once for the uniform layout, by its kind and
+LINE   t3toolbox/backend/uniform_fitting.py +99 [other] jet shape: the input jets with ``pack_if_ragged(sample, N, len_P=len(order))``, which brings each jet axis to its
+LINE   t3toolbox/backend/uniform_fitting.py -10 [other] uniform geometry (:py:mod:`t3toolbox.backend.geometry`, ``from_point``). :py:func:`uniform_minimal` reduces a
+LINE   t3toolbox/backend/uniform_fitting.py -100 [other] """Pack a :py:class:`~t3toolbox.backend.fitting.LeastSquaresBatch` once for the uniform layout: the input jets
+LINE   t3toolbox/backend/uniform_fitting.py -101 [other] with ``pack_if_ragged(sample, N, len_P=len(order))``, which brings each jet axis to its largest size across the
+LINE   t3toolbox/backend/uniform_fitting.py -102 [other] modes by writing zero coefficients (data, not padding: an input jet is zero beyond its slots, O-45), and the
+LINE   t3toolbox/backend/uniform_fitting.py -103 [other] probe data ``y`` and weight with :py:func:`pack_data`, the one rule for a data-space object (each to
+LINE   t3toolbox/backend/uniform_fitting.py -104 [other] ``(d,)+F+W+C+(e,)``, an edge of 1 kept). The entries ``index`` and the data and weight of apply and entries are
+LINE   t3toolbox/backend/uniform_fitting.py -105 [other] not packed; the scale and the drawn indices pass through. A packed sample, ``y`` or weight is kept as it is.
+LINE   t3toolbox/backend/uniform_fitting.py -106 [other] 
+LINE   t3toolbox/backend/uniform_fitting.py -95 [other] kind:   str,                                # 'probe' | 'apply' | 'entries'
+LINE   t3toolbox/backend/uniform_fitting.py -96 [other] order:  typ.Tuple[int, ...],                # the jet shape
+LINE   t3toolbox/backend/uniform_fitting.py -98 [other] N:      int,                                # the packed mode width
+LINE   t3toolbox/fitting.py +582 [other] def _is_packed(batch) -> bool:
+LINE   t3toolbox/fitting.py +596 [other] (structural, before any work; O-18: the data and the weight of a stacked ``x`` carry its stack ``C``, of size 1
+LINE   t3toolbox/fitting.py +599 [other] checked (the checker reads the ragged form) nor packed again; a batch of another type passes unchanged.'''
+LINE   t3toolbox/fitting.py +603 [other] packed = uniform and _is_packed(batch)
+LINE   t3toolbox/fitting.py +604 [other] if check and callable(getattr(batch, 'check', None)) and not packed:
+LINE   t3toolbox/fitting.py +686 [other] >>> fitting.local_model(t3m.MANIFOLD, oracle, bad, x)   # doctest: +IGNORE_EXCEPTION_DETAIL
+LINE   t3toolbox/fitting.py -582 [other] def _is_packed(oracle, batch) -> bool:
+LINE   t3toolbox/fitting.py -585 [other] return (getattr(oracle, 'kind', None) in ('probe', 'apply') and isinstance(batch, LeastSquaresBatch)
+LINE   t3toolbox/fitting.py -590 [other] oracle,
+LINE   t3toolbox/fitting.py -597 [other] has it (structural, before any work; O-18: the data and the weight of a stacked ``x`` carry its stack ``C``, of size 1
+LINE   t3toolbox/fitting.py -600 [other] checked (the checker reads the ragged form) nor packed again; another oracle's batch passes unchanged.'''
+LINE   t3toolbox/fitting.py -604 [other] packed = uniform and _is_packed(oracle, batch)
+LINE   t3toolbox/fitting.py -605 [other] if check and hasattr(oracle, 'check_batch') and not packed:
+LINE   t3toolbox/optimizers.py +103 [other] def _setup(geometry, batch, x0: Point) -> _Setup:
+LINE   t3toolbox/optimizers.py +117 [other] def _same_kind_and_order(
+LINE   t3toolbox/optimizers.py +118 [other] batch,                       # the full batch: a LeastSquaresBatch, or a user's type (getattr, None if absent)
+LINE   t3toolbox/optimizers.py +119 [other] other,                       # a drawn or validation batch, likewise
+LINE   t3toolbox/optimizers.py +120 [other] who:   str,                  # for the message
+LINE   t3toolbox/optimizers.py +121 [other] ) -> None:
+LINE   t3toolbox/optimizers.py +122 [other] """One kind and one jet shape per fit: each batch is read under its own, so a second batch of another kind or
+LINE   t3toolbox/optimizers.py +123 [other] order would fit another objective with no error. Structural (two static tuples); a ``ValueError`` naming both."""
+LINE   t3toolbox/optimizers.py +124 [other] full = (getattr(batch, 'kind', None), getattr(batch, 'order', None))
+LINE   t3toolbox/optimizers.py +125 [other] given = (getattr(other, 'kind', None), getattr(other, 'order', None))
+LINE   t3toolbox/optimizers.py +126 [other] if given != full:
+LINE   t3toolbox/optimizers.py +127 [other] raise ValueError('%s is of kind %r and order %r, the batch of kind %r and order %r: a fit has one kind and one '
+LINE   t3toolbox/optimizers.py +128 [other] 'jet shape' % ((who,) + given + full))
+LINE   t3toolbox/optimizers.py +129 [other] 
+LINE   t3toolbox/optimizers.py +130 [other] 
+LINE   t3toolbox/optimizers.py +132 [other] """Each batch a user's draw returns is compared with the full batch, its kind and its jet shape (structural, two
+LINE   t3toolbox/optimizers.py +133 [other] tuples per draw: a draw of another kind or order would fit another objective), and for a uniform x0 packed (not
+LINE   t3toolbox/optimizers.py +134 [other] re-checked each step)."""
+LINE   t3toolbox/optimizers.py +135 [other] if draw is None:
+LINE   t3toolbox/optimizers.py +137 [other] uniform = isinstance(x0, ut3.UniformTuckerTensorTrain)
+LINE   t3toolbox/optimizers.py +138 [other] 
+LINE   t3toolbox/optimizers.py +139 [other] def checked(rng):
+LINE   t3toolbox/optimizers.py +140 [other] drawn = draw(rng)
+LINE   t3toolbox/optimizers.py +141 [other] _same_kind_and_order(batch, drawn, 'the batch a draw returned')
+LINE   t3toolbox/optimizers.py +143 [other] return checked
+LINE   t3toolbox/optimizers.py +343 [other] s = _setup(geometry, batch, x0)
+LINE   t3toolbox/optimizers.py +352 [other] oracle,                         # the objective
+LINE   t3toolbox/optimizers.py +353 [other] batch,                          # its full data (with n_measurements / take for the default draw)
+LINE   t3toolbox/optimizers.py +364 [other] estimate the full one, and the ``regularizer`` is not scaled. A custom ``draw(rng)`` returns a batch of the full
+LINE   t3toolbox/optimizers.py +365 [other] batch's kind and jet shape, checked on each draw (another raises a ``ValueError``); ragged, it is packed for a
+LINE   t3toolbox/optimizers.py +366 [other] uniform ``x0``. See :py:func:`t3toolbox.backend.optimizers.mc_sgd`."""
+LINE   t3toolbox/optimizers.py +367 [other] s = _setup(geometry, batch, x0)
+LINE   t3toolbox/optimizers.py +376 [other] oracle,                         # the objective
+LINE   t3toolbox/optimizers.py +377 [other] batch,                          # its full data (with n_measurements / take for the default draw)
+LINE   t3toolbox/optimizers.py +395 [other] s = _setup(geometry, batch, x0)
+LINE   t3toolbox/optimizers.py +472 [other] val_batch:              typ.Any = None,  # optional validation batch, batch's kind and order -> a train|val table
+LINE   t3toolbox/optimizers.py +551 [other] and the per-block relative-error table ``‖ω⊙r_b‖ / ‖ω⊙y_b‖``, in the block shape); pass ``val_batch`` (a batch of
+LINE   t3toolbox/optimizers.py +552 [other] the same kind and jet shape as ``batch``; another raises a ``ValueError`` at entry) to add a validation column, and
+LINE   t3toolbox/optimizers.py +553 [other] ``error_table=False`` to print the header lines only (the records are unchanged). Each table is under its own
+LINE   t3toolbox/optimizers.py +554 [other] batch's weight: give ``val_batch`` a weight of the same form as ``batch``'s, or the training and validation cells
+LINE   t3toolbox/optimizers.py +555 [other] are different quantities. With a ``regularizer`` attached the objective is shown split as ``obj = misfit + reg``
+LINE   t3toolbox/optimizers.py +556 [other] (the ``½‖ω⊙r‖²`` data misfit vs ``ρ(x)``); both parts are on every record as ``misfit`` / ``regularization`` (the
+LINE   t3toolbox/optimizers.py +557 [other] latter ``None`` when unregularized), in ``stats['history']`` (always) and ``stats['diagnostics']`` (when verbose).
+LINE   t3toolbox/optimizers.py +558 [other] This is a thin convenience over the **backend** display -- a raw-``.data`` user builds the same callback with
+LINE   t3toolbox/optimizers.py +862 [other] _same_kind_and_order(batch, val_batch, 'newton_cg: the validation batch')
+LINE   t3toolbox/optimizers.py +865 [other] s = _setup(geometry, batch, x0)
+LINE   t3toolbox/optimizers.py -103 [other] def _setup(geometry, oracle, batch, x0) -> _Setup:
+LINE   t3toolbox/optimizers.py -118 [other] """A draw for a uniform x0 packs what it returns (a ragged batch from the caller's draw; not re-checked each
+LINE   t3toolbox/optimizers.py -119 [other] step)."""
+LINE   t3toolbox/optimizers.py -120 [other] if draw is None or not isinstance(x0, ut3.UniformTuckerTensorTrain):
+LINE   t3toolbox/optimizers.py -322 [other] s = _setup(geometry, oracle, batch, x0)
+LINE   t3toolbox/optimizers.py -331 [other] oracle,                         # the objective (with n_measurements / take for the default draw)
+LINE   t3toolbox/optimizers.py -332 [other] batch,                          # its full data
+LINE   t3toolbox/optimizers.py -343 [other] estimate the full one, and the ``regularizer`` is not scaled. A custom ``draw(rng)`` returns a batch (ragged; it
+LINE   t3toolbox/optimizers.py -344 [other] is packed for a uniform ``x0``). See :py:func:`t3toolbox.backend.optimizers.mc_sgd`."""
+LINE   t3toolbox/optimizers.py -345 [other] s = _setup(geometry, oracle, batch, x0)
+LINE   t3toolbox/optimizers.py -354 [other] oracle,                         # the objective (with n_measurements / take for the default draw)
+LINE   t3toolbox/optimizers.py -355 [other] batch,                          # its full data
+LINE   t3toolbox/optimizers.py -373 [other] s = _setup(geometry, oracle, batch, x0)
+LINE   t3toolbox/optimizers.py -450 [other] val_batch:              typ.Any = None,  # optional validation batch for the same oracle -> a train|val table
+LINE   t3toolbox/optimizers.py -529 [other] and the per-block relative-error table ``‖ω⊙r_b‖ / ‖ω⊙y_b‖``, in the block shape); pass ``val_batch`` (a batch
+LINE   t3toolbox/optimizers.py -530 [other] for the same oracle) to add a validation column, and ``error_table=False`` to print the header lines only (the
+LINE   t3toolbox/optimizers.py -531 [other] records are unchanged). Each table is under its own batch's weight: give ``val_batch`` a weight of the same form as
+LINE   t3toolbox/optimizers.py -532 [other] ``batch``'s, or the training and validation cells are different quantities. With a ``regularizer`` attached the
+LINE   t3toolbox/optimizers.py -533 [other] objective is shown split as ``obj = misfit + reg`` (the ``½‖ω⊙r‖²`` data misfit vs ``ρ(x)``); both parts are on
+LINE   t3toolbox/optimizers.py -534 [other] every record as ``misfit`` / ``regularization`` (the latter ``None`` when unregularized), in ``stats['history']``
+LINE   t3toolbox/optimizers.py -535 [other] (always) and ``stats['diagnostics']`` (when verbose). This is a thin convenience over the **backend** display --
+LINE   t3toolbox/optimizers.py -536 [other] a raw-``.data`` user builds the same callback with
+LINE   t3toolbox/optimizers.py -842 [other] s = _setup(geometry, oracle, batch, x0)
+LINE   tests/_fits.py +107 [other] regularizer)
+LINE   tests/backend/test_optimizer_display.py +319 [other] weight=None if weight is None else blocks_to_weight(kind, order, weight, y))
+LINE   tests/backend/test_optimizer_display.py +323 [other] weight=None if weight is None else blocks_to_weight(kind, order, weight, y))
+LINE   tests/backend/test_optimizer_display.py +365 [other] def test_a_validation_batch_of_another_kind_or_order(self):
+LINE   tests/backend/test_optimizer_display.py +366 [other] """K1 part 0: the table's layout is read off the batch's order, and a validation batch of another kind or order
+LINE   tests/backend/test_optimizer_display.py +367 [other] is refused at once (its table would set two quantities side by side); a batch type without a kind and an order
+LINE   tests/backend/test_optimizer_display.py +368 [other] (a user's) is labelled by position and not refused against another such type."""
+LINE   tests/backend/test_optimizer_display.py +370 [other] batch = _batch('probe', (1,), 40, self.rng, self.target)
+LINE   tests/backend/test_optimizer_display.py +371 [other] for label, val in (('order', _batch('probe', (), 15, self.rng, self.target)),
+LINE   tests/backend/test_optimizer_display.py +372 [other] ('kind', _batch('apply', (1,), 15, self.rng, self.target))):
+LINE   tests/backend/test_optimizer_display.py +373 [other] with self.subTest(other=label):
+LINE   tests/backend/test_optimizer_display.py +374 [other] with self.assertRaisesRegex(ValueError, 'the validation batch is of kind'):
+LINE   tests/backend/test_optimizer_display.py +377 [other] 
+LINE   tests/backend/test_optimizer_display.py +635 [other] oracle = cls()
+LINE   tests/backend/test_optimizer_display.py -620 [other] oracle = cls('probe', ())
+LINE   tests/backend/test_optimizers.py +1590 [other] """Structural, before any work: mc_sgd and adam without a draw need a batch with take and the property
+LINE   tests/backend/test_optimizers.py +1591 [other] n_measurements (a batch whose n_measurements is still a method is told so); the exact mode needs Kp; jacobian
+LINE   tests/backend/test_optimizers.py +1592 [other] needs Jp and residual needs r. With a draw, a batch without take runs."""
+LINE   tests/backend/test_optimizers.py +1595 [other] b = fit.batch
+LINE   tests/backend/test_optimizers.py +1598 [other] for (name, call), (label, problem, message) in itertools.product(
+LINE   tests/backend/test_optimizers.py +1599 [other] (('mc_sgd', lambda p: p.mc_sgd(x0, np.random.default_rng(0), 10, max_iter=1)),
+LINE   tests/backend/test_optimizers.py +1600 [other] ('adam', lambda p: p.adam(x0, np.random.default_rng(0), 10, max_iter=1))),
+LINE   tests/backend/test_optimizers.py +1601 [other] (('no take', no_draw, '_BareBatch has no take'),
+LINE   tests/backend/test_optimizers.py +1602 [other] ('a method', old_protocol, 'n_measurements is a method'))):
+LINE   tests/backend/test_optimizers.py +1603 [other] with self.subTest(optimizer=name, batch=label):
+LINE   tests/backend/test_optimizers.py +1605 [other] with self.assertRaisesRegex(ValueError, message):
+LINE   tests/backend/test_optimizers.py +1606 [other] call(problem)
+LINE   tests/backend/test_optimizers.py +1609 [other] x, _ = no_draw.mc_sgd(x0, np.random.default_rng(0), 10, draw=draw, max_iter=2)
+LINE   tests/backend/test_optimizers.py +1629 [other] """An oracle with the four required outputs only."""
+LINE   tests/backend/test_optimizers.py +1631 [other] 
+LINE   tests/backend/test_optimizers.py +1632 [other] 
+LINE   tests/backend/test_optimizers.py +1633 [other] @dc.dataclass(frozen=True, eq=False, init=False)
+LINE   tests/backend/test_optimizers.py +1634 [other] class _BareBatch(LeastSquaresBatch):
+LINE   tests/backend/test_optimizers.py +1635 [other] """A user's batch type with no default draw (take, n_measurements hidden)."""
+LINE   tests/backend/test_optimizers.py +1638 [other] 
+LINE   tests/backend/test_optimizers.py +1639 [other] 
+LINE   tests/backend/test_optimizers.py +1640 [other] @dc.dataclass(frozen=True, eq=False, init=False)
+LINE   tests/backend/test_optimizers.py +1641 [other] class _MethodCountBatch(LeastSquaresBatch):
+LINE   tests/backend/test_optimizers.py +1642 [other] """A user's batch type written to the protocol before K1: n_measurements a method."""
+LINE   tests/backend/test_optimizers.py +1643 [other] def n_measurements(self):
+LINE   tests/backend/test_optimizers.py +1644 [other] return 60
+LINE   tests/backend/test_optimizers.py +23 [other] import itertools
+LINE   tests/backend/test_optimizers.py +351 [method] self.assertEqual(prob.batch.n_measurements, NP * NX)
+LINE   tests/backend/test_optimizers.py -1589 [other] """Structural, before any work: mc_sgd and adam without a draw need an oracle with take and n_measurements; the
+LINE   tests/backend/test_optimizers.py -1590 [other] exact mode needs Kp; jacobian needs Jp and residual needs r. With a draw, an oracle without take runs."""
+LINE   tests/backend/test_optimizers.py -1594 [other] for name, call in (('mc_sgd', lambda: bare.mc_sgd(x0, np.random.default_rng(0), 10, max_iter=1)),
+LINE   tests/backend/test_optimizers.py -1595 [other] ('adam', lambda: bare.adam(x0, np.random.default_rng(0), 10, max_iter=1))):
+LINE   tests/backend/test_optimizers.py -1596 [other] with self.subTest(optimizer=name):
+LINE   tests/backend/test_optimizers.py -1598 [other] with self.assertRaisesRegex(ValueError, "_BareOracle has no take"):
+LINE   tests/backend/test_optimizers.py -1599 [other] call()
+LINE   tests/backend/test_optimizers.py -1602 [other] x, _ = bare.mc_sgd(x0, np.random.default_rng(0), 10, draw=draw, max_iter=2)
+LINE   tests/backend/test_optimizers.py -1621 [other] """An oracle with the four required outputs only, and no draw (take, n_measurements hidden)."""
+LINE   tests/backend/test_optimizers.py -350 [method] self.assertEqual(prob.oracle.n_measurements(prob.batch), NP * NX)
+LINE   tests/test_block_sums.py +239 [other] ('y_block_sumsq',))
+LINE   tests/test_block_sums.py +271 [other] weight=None),
+LINE   tests/test_data_metric.py +325 [other] y_apply),
+LINE   tests/test_data_metric.py +327 [other] weight=0.5 + rng.random((2, 3))), y_probe),
+LINE   tests/test_data_metric.py +329 [other] y_apply[0])):
+LINE   tests/test_dispatch.py +2184 [construction] self.assertNotEqual(HalfOracle(), bfit.LeastSquaresOracle())
+LINE   tests/test_dispatch.py +2185 [construction] self.assertNotEqual(hash(HalfOracle()), hash(bfit.LeastSquaresOracle()))
+LINE   tests/test_dispatch.py +829 [other] weight=jets.blocks_to_weight('probe', (1,), jnp.ones((3, 2)), y))
+LINE   tests/test_dispatch.py -2183 [construction] self.assertNotEqual(HalfOracle('apply', ()), bfit.LeastSquaresOracle('apply', ()))
+LINE   tests/test_dispatch.py -2184 [construction] self.assertNotEqual(hash(HalfOracle('apply', ())), hash(bfit.LeastSquaresOracle('apply', ())))
+LINE   tests/test_fitting.py +498 [other] weight=blocks_to_weight('probe', (), omega, y)),
+LINE   tests/test_fitting.py +524 [other] self.x)
+LINE   tests/test_fitting.py +527 [other] weight=blocks_to_weight('probe', (), self.w5[:3], self.y)), self.x)
+LINE   tests/test_jets.py +864 [other] the batch's method since K1); and no backend module calls a batch's ``check``."""
+LINE   tests/test_jets.py +879 [other] elif path.name == 'fitting.py':                              # only inside the batch's check
+LINE   tests/test_jets.py +880 [other] batch_checker = [node for cls in ast.walk(tree)
+LINE   tests/test_jets.py +881 [other] if isinstance(cls, ast.ClassDef) and cls.name == 'LeastSquaresBatch'
+LINE   tests/test_jets.py +882 [other] for node in cls.body if isinstance(node, ast.FunctionDef) and node.name == 'check']
+LINE   tests/test_jets.py +883 [other] self.assertEqual(len(batch_checker), 1)
+LINE   tests/test_jets.py +892 [other] # and nothing in the backend calls a batch's check: a checker, called by the frontend only (round 1)
+LINE   tests/test_jets.py +896 [other] self.assertNotIn('check', calls)
+LINE   tests/test_jets.py -864 [other] P14); and no backend module calls ``check_batch``."""
+LINE   tests/test_jets.py -879 [other] elif path.name == 'fitting.py':                              # only inside check_batch
+LINE   tests/test_jets.py -880 [other] batch_checker = [node for node in ast.walk(tree)
+LINE   tests/test_jets.py -881 [other] if isinstance(node, ast.FunctionDef) and node.name == 'check_batch']
+LINE   tests/test_jets.py -890 [other] # and nothing in the backend calls check_batch: a checker, called by the frontend only (round 1)
+LINE   tests/test_least_squares_oracle.py +130 [other] weight=jets.blocks_to_weight(kind, order, weight_of(kind, self.rng, order), y),
+LINE   tests/test_least_squares_oracle.py +131 [other] minibatch_scale=scale)
+LINE   tests/test_least_squares_oracle.py +24 [other] - **The batch:** ``take`` (scale, indices, jets skipped, packed), ``check`` on each wrong part, the pytree round
+LINE   tests/test_least_squares_oracle.py +25 [other] trip; its constructor's checks of the kind and the order (the oracle's before K1), the keyword-only fields, the
+LINE   tests/test_least_squares_oracle.py +26 [other] static fields as jax aux data (one trace per kind and order).
+LINE   tests/test_least_squares_oracle.py +442 [method] self.assertEqual(full.n_measurements, 6)
+LINE   tests/test_least_squares_oracle.py +443 [method] self.assertEqual(sub.n_measurements, 3)
+LINE   tests/test_least_squares_oracle.py +446 [method] self.assertEqual(sub.take(np.array([0])).minibatch_scale, 6.0)     # nested: multiplied
+LINE   tests/test_least_squares_oracle.py +460 [method] self.assertEqual(packed.n_measurements, 6)
+LINE   tests/test_least_squares_oracle.py +461 [method] self.assertTrue(np.array_equal(psub.sample, pack_batch(sub, 6).sample))
+LINE   tests/test_least_squares_oracle.py +463 [method] self.assertTrue(np.array_equal(psub.y, pack_batch(sub, 6).y))
+LINE   tests/test_least_squares_oracle.py +467 [other] full.y.reshape(2, 3))
+LINE   tests/test_least_squares_oracle.py +471 [other] def test_check(self):
+LINE   tests/test_least_squares_oracle.py +503 [other] none = jax.tree_util.tree_unflatten(*reversed(jax.tree_util.tree_flatten(bare)))
+LINE   tests/test_least_squares_oracle.py +510 [other] """Fieldless since K1 (the kind and the order are the batch's): every instance equal, one hash; a subclass is
+LINE   tests/test_least_squares_oracle.py +511 [other] another type (test_dispatch pins that it compiles apart)."""
+LINE   tests/test_least_squares_oracle.py +517 [other] with self.assertRaises(TypeError):
+LINE   tests/test_least_squares_oracle.py +528 [other] class TestTheBatchConstructor(unittest.TestCase):
+LINE   tests/test_least_squares_oracle.py +529 [other] """The checks of the batch's static fields (the oracle's before K1, O-44, O-46), the keyword-only fields after
+LINE   tests/test_least_squares_oracle.py +530 [other] ``y``, and the static fields as jax aux data."""
+LINE   tests/test_least_squares_oracle.py +531 [other] 
+LINE   tests/test_least_squares_oracle.py +532 [other] def test_the_kind_and_the_order(self):
+LINE   tests/test_least_squares_oracle.py +533 [other] ww = [np.ones((4, n)) for n in SHAPE]
+LINE   tests/test_least_squares_oracle.py +534 [other] for kind in ('probe', 'apply', 'entries'):
+LINE   tests/test_least_squares_oracle.py +535 [other] with self.subTest(kind=kind):
+LINE   tests/test_least_squares_oracle.py +536 [other] with self.assertRaises(TypeError):
+LINE   tests/test_least_squares_oracle.py +538 [other] with self.assertRaises(TypeError):
+LINE   tests/test_least_squares_oracle.py +540 [other] with self.assertRaises(TypeError):
+LINE   tests/test_least_squares_oracle.py +542 [other] with self.assertRaises(ValueError):
+LINE   tests/test_least_squares_oracle.py +545 [other] with self.assertRaisesRegex(ValueError, 'no jets'):
+LINE   tests/test_least_squares_oracle.py +547 [other] with self.assertRaisesRegex(ValueError, 'unknown kind'):
+LINE   tests/test_least_squares_oracle.py +549 [other] with self.assertRaisesRegex(TypeError, 'the kind is a string'):
+LINE   tests/test_least_squares_oracle.py +551 [other] with self.assertRaises(TypeError):
+LINE   tests/test_least_squares_oracle.py +554 [kind_order] self.assertEqual(b.order, (2,))
+LINE   tests/test_least_squares_oracle.py +555 [kind_order] self.assertIs(type(b.order[0]), int)
+LINE   tests/test_least_squares_oracle.py +556 [other] 
+LINE   tests/test_least_squares_oracle.py +557 [other] def test_the_fields_after_y_are_keywords(self):
+LINE   tests/test_least_squares_oracle.py +558 [other] ww = [np.ones((4, n)) for n in SHAPE]
+LINE   tests/test_least_squares_oracle.py +559 [other] with self.assertRaises(TypeError):
+LINE   tests/test_least_squares_oracle.py +562 [other] drawn_indices=np.arange(4))
+LINE   tests/test_least_squares_oracle.py +563 [other] self.assertEqual(b.minibatch_scale, 2.0)
+LINE   tests/test_least_squares_oracle.py +564 [other] r = dc.replace(b, minibatch_scale=None)                        # replace passes every field by keyword
+LINE   tests/test_least_squares_oracle.py +565 [kind_order] self.assertEqual((r.kind, r.order, r.minibatch_scale), ('apply', (), None))
+LINE   tests/test_least_squares_oracle.py +566 [other] with self.assertRaisesRegex(ValueError, 'unknown kind'):
+LINE   tests/test_least_squares_oracle.py +567 [other] dc.replace(b, kind='nonsense')
+LINE   tests/test_least_squares_oracle.py +568 [other] 
+LINE   tests/test_least_squares_oracle.py +569 [other] def test_the_static_fields_are_aux_data(self):
+LINE   tests/test_least_squares_oracle.py +570 [other] try:
+LINE   tests/test_least_squares_oracle.py +571 [other] import jax
+LINE   tests/test_least_squares_oracle.py +572 [other] import jax.numpy as jnp
+LINE   tests/test_least_squares_oracle.py +573 [other] except ImportError:
+LINE   tests/test_least_squares_oracle.py +574 [other] self.skipTest('jax is not installed')
+LINE   tests/test_least_squares_oracle.py +575 [other] ww = [np.ones((4, n)) for n in SHAPE]
+LINE   tests/test_least_squares_oracle.py +577 [other] leaves_, treedef = jax.tree_util.tree_flatten(b)
+LINE   tests/test_least_squares_oracle.py +579 [other] self.assertEqual(jax.tree_util.tree_structure(same), treedef)
+LINE   tests/test_least_squares_oracle.py +580 [other] placeholders = jax.tree_util.tree_unflatten(treedef, [object()] * len(leaves_))   # no array is read
+LINE   tests/test_least_squares_oracle.py +581 [kind_order] self.assertEqual((placeholders.kind, placeholders.order), ('apply', (1,)))
+LINE   tests/test_least_squares_oracle.py +582 [other] traces = []
+LINE   tests/test_least_squares_oracle.py +583 [other] 
+LINE   tests/test_least_squares_oracle.py +584 [other] @jax.jit
+LINE   tests/test_least_squares_oracle.py +585 [other] def count(batch):
+LINE   tests/test_least_squares_oracle.py +587 [other] return jnp.sum(jax.tree_util.tree_leaves(batch.y)[0])
+LINE   tests/test_least_squares_oracle.py +588 [other] for kind, order, y in (('apply', (), np.zeros(4)), ('apply', (), np.ones(4)), ('apply', (1,), np.zeros((2, 4))),
+LINE   tests/test_least_squares_oracle.py +589 [other] ('probe', (), [np.zeros((4, n)) for n in SHAPE])):
+LINE   tests/test_least_squares_oracle.py +590 [other] sample = ww if not order else [np.ones((2, 4, n)) for n in SHAPE]
+LINE   tests/test_least_squares_oracle.py +592 [other] self.assertEqual(traces, [('apply', ()), ('apply', (1,)), ('probe', ())])     # once per kind and order
+LINE   tests/test_least_squares_oracle.py +593 [other] 
+LINE   tests/test_least_squares_oracle.py +594 [other] 
+LINE   tests/test_least_squares_oracle.py -24 [other] - **The batch:** ``take`` (scale, indices, jets skipped, packed), ``check_batch`` on each wrong part, the pytree round
+LINE   tests/test_least_squares_oracle.py -25 [other] trip.
+LINE   tests/test_least_squares_oracle.py -439 [method] self.assertEqual(oracle.n_measurements(full), 6)
+LINE   tests/test_least_squares_oracle.py -440 [method] self.assertEqual(oracle.n_measurements(sub), 3)
+LINE   tests/test_least_squares_oracle.py -443 [method] self.assertEqual(oracle.take(sub, np.array([0])).minibatch_scale, 6.0)     # nested: multiplied
+LINE   tests/test_least_squares_oracle.py -457 [method] self.assertEqual(oracle.n_measurements(packed), 6)
+LINE   tests/test_least_squares_oracle.py -458 [method] self.assertTrue(np.array_equal(psub.sample, pack_batch(kind, order, sub, 6).sample))
+LINE   tests/test_least_squares_oracle.py -460 [method] self.assertTrue(np.array_equal(psub.y, pack_batch(kind, order, sub, 6).y))
+LINE   tests/test_least_squares_oracle.py -467 [other] def test_check_batch(self):
+LINE   tests/test_least_squares_oracle.py -509 [construction] self.assertNotEqual(a, LeastSquaresOracle('probe', (1,)))
+LINE   tests/test_least_squares_oracle.py -510 [construction] self.assertNotEqual(a, LeastSquaresOracle('apply', (2,)))
+LINE   tests/test_least_squares_oracle.py -511 [other] 
+LINE   tests/test_least_squares_oracle.py -512 [other] def test_order_is_required_and_entries_has_no_jets(self):
+LINE   tests/test_least_squares_oracle.py -513 [other] for kind in ('probe', 'apply', 'entries'):
+LINE   tests/test_least_squares_oracle.py -514 [other] with self.subTest(kind=kind):
+LINE   tests/test_least_squares_oracle.py -515 [other] with self.assertRaises(TypeError):
+LINE   tests/test_least_squares_oracle.py -517 [other] with self.assertRaises(TypeError):
+LINE   tests/test_least_squares_oracle.py -520 [other] with self.assertRaisesRegex(ValueError, 'no jets'):
+LINE   tests/test_least_squares_oracle.py -522 [other] with self.assertRaises(ValueError):
+LINE   tests/test_optimizers_frontend.py +1241 [other] with mock.patch.object(LeastSquaresBatch, 'check') as check:
+LINE   tests/test_optimizers_frontend.py +1246 [other] with mock.patch.object(LeastSquaresBatch, 'check') as check:
+LINE   tests/test_optimizers_frontend.py +1526 [kind_order] self.assertEqual((batch.kind, batch.order), ('probe', (2,)))
+LINE   tests/test_optimizers_frontend.py +1534 [kind_order] self.assertEqual((batch.kind, batch.order), ('apply', (1,)))
+LINE   tests/test_optimizers_frontend.py +1540 [kind_order] self.assertEqual((batch.kind, batch.order), ('probe', ()))
+LINE   tests/test_optimizers_frontend.py +1559 [other] 
+LINE   tests/test_optimizers_frontend.py +1560 [other] 
+LINE   tests/test_optimizers_frontend.py +1561 [other] class TestOneKindAndOrderPerFit(unittest.TestCase):
+LINE   tests/test_optimizers_frontend.py +1562 [other] """K1 part 0: with the kind and the order in the batch each batch is read under its own, so the frontend refuses a
+LINE   tests/test_optimizers_frontend.py +1563 [other] second batch of another kind or order (a validation batch at entry, each drawn batch at its draw) before it could
+LINE   tests/test_optimizers_frontend.py +1564 [other] fit another objective with no error. Ragged and uniform."""
+LINE   tests/test_optimizers_frontend.py +1565 [other] 
+LINE   tests/test_optimizers_frontend.py +1566 [other] def setUp(self):
+LINE   tests/test_optimizers_frontend.py +1567 [other] from t3toolbox.fitting import LeastSquaresBatch, LeastSquaresOracle
+LINE   tests/test_optimizers_frontend.py +1568 [other] rng = np.random.default_rng(21)
+LINE   tests/test_optimizers_frontend.py +1569 [other] np.random.seed(21)
+LINE   tests/test_optimizers_frontend.py +1570 [other] self.x_true = t3.TuckerTensorTrain.randn((4, 5, 3), (2, 2, 2), (1, 2, 2, 1))
+LINE   tests/test_optimizers_frontend.py +1571 [other] self.x0 = t3.TuckerTensorTrain.randn((4, 5, 3), (2, 2, 2), (1, 2, 2, 1))
+LINE   tests/test_optimizers_frontend.py +1572 [other] self.ww = [rng.standard_normal((30, n)) for n in self.x_true.shape]
+LINE   tests/test_optimizers_frontend.py +1573 [other] self.pp = [rng.standard_normal((30, n)) for n in self.x_true.shape]
+LINE   tests/test_optimizers_frontend.py +1576 [other] line = jets_of(self.ww, self.pp)
+LINE   tests/test_optimizers_frontend.py +1579 [other] 
+LINE   tests/test_optimizers_frontend.py +1580 [other] def test_a_validation_batch_of_another_kind_or_order(self):
+LINE   tests/test_optimizers_frontend.py +1581 [other] from unittest import mock
+LINE   tests/test_optimizers_frontend.py +1582 [other] for label, val in (('order', self.other_order), ('kind', self.other_kind)):
+LINE   tests/test_optimizers_frontend.py +1583 [other] with self.subTest(other=label):
+LINE   tests/test_optimizers_frontend.py +1584 [other] with mock.patch.object(topt, '_setup') as setup:
+LINE   tests/test_optimizers_frontend.py +1585 [other] with self.assertRaisesRegex(ValueError, 'the validation batch is of kind'):
+LINE   tests/test_optimizers_frontend.py +1586 [other] topt.newton_cg(t3m.MANIFOLD, self.oracle, self.batch, self.x0, val_batch=val, max_newton=1)
+LINE   tests/test_optimizers_frontend.py +1587 [other] setup.assert_not_called()                               # before any work
+LINE   tests/test_optimizers_frontend.py +1588 [other] x, _ = topt.newton_cg(t3m.MANIFOLD, self.oracle, self.batch, self.x0, val_batch=self.batch, max_newton=1)
+LINE   tests/test_optimizers_frontend.py +1589 [other] self.assertIsInstance(x, t3.TuckerTensorTrain)
+LINE   tests/test_optimizers_frontend.py +1590 [other] 
+LINE   tests/test_optimizers_frontend.py +1591 [other] def test_a_drawn_batch_of_another_kind_or_order(self):
+LINE   tests/test_optimizers_frontend.py +1592 [other] x0s = (('ragged', t3m.MANIFOLD, self.x0),
+LINE   tests/test_optimizers_frontend.py +1593 [other] ('uniform', ut3m.UNIFORM_MANIFOLD, ut3.UniformTuckerTensorTrain.from_t3(self.x0)))
+LINE   tests/test_optimizers_frontend.py +1594 [other] for (layer, geometry, x0), (label, other) in itertools.product(
+LINE   tests/test_optimizers_frontend.py +1595 [other] x0s, (('order', self.other_order), ('kind', self.other_kind))):
+LINE   tests/test_optimizers_frontend.py +1596 [other] with self.subTest(layer=layer, other=label):
+LINE   tests/test_optimizers_frontend.py +1598 [other] with self.assertRaisesRegex(ValueError, 'the batch a draw returned is of kind'):
+LINE   tests/test_optimizers_frontend.py +1599 [other] topt.mc_sgd(geometry, self.oracle, self.batch, x0, np.random.default_rng(0), 8, draw=draw,
+LINE   tests/test_optimizers_frontend.py +1600 [other] max_iter=2)
+LINE   tests/test_optimizers_frontend.py +1601 [other] with self.subTest(layer=layer, other='the same'):
+LINE   tests/test_optimizers_frontend.py +1603 [other] x, _ = topt.mc_sgd(geometry, self.oracle, self.batch, x0, np.random.default_rng(0), 8, draw=draw,
+LINE   tests/test_optimizers_frontend.py +1604 [other] max_iter=2)
+LINE   tests/test_optimizers_frontend.py +1605 [other] self.assertIsInstance(x, type(x0))
+LINE   tests/test_optimizers_frontend.py +1606 [other] 
+LINE   tests/test_optimizers_frontend.py +1607 [other] 
+LINE   tests/test_optimizers_frontend.py +1608 [other] def jets_of(ww, pp):
+LINE   tests/test_optimizers_frontend.py +1609 [other] from t3toolbox.fitting import affine_jet
+LINE   tests/test_optimizers_frontend.py +1610 [other] return affine_jet(ww, pp)
+LINE   tests/test_optimizers_frontend.py +1648 [other] x, _ = optimizers.newton_cg(t3m.MANIFOLD, oracle, batch, x0, max_newton=30)
+LINE   tests/test_optimizers_frontend.py +1659 [other] def test_a_user_batch_without_a_draw(self):
+LINE   tests/test_optimizers_frontend.py +1662 [other] from t3toolbox.fitting import LeastSquaresOracle
+LINE   tests/test_optimizers_frontend.py +1666 [other] for name, call in (('mc_sgd', lambda: topt.mc_sgd(t3m.MANIFOLD, oracle, bare, x0, np.random.default_rng(0), 8,
+LINE   tests/test_optimizers_frontend.py +1668 [other] ('adam', lambda: topt.adam(t3m.COREWISE, oracle, bare, x0, np.random.default_rng(0), 8,
+LINE   tests/test_optimizers_frontend.py +1672 [other] with self.assertRaisesRegex(ValueError, '_NoDrawBatch has no take'):
+LINE   tests/test_optimizers_frontend.py +1676 [other] x, _ = topt.mc_sgd(t3m.MANIFOLD, oracle, bare, x0, np.random.default_rng(0), 8, draw=draw, max_iter=2)
+LINE   tests/test_optimizers_frontend.py +1723 [other] def _batch_subclass(name, **fields):
+LINE   tests/test_optimizers_frontend.py +1724 [other] import dataclasses as dc_
+LINE   tests/test_optimizers_frontend.py +1725 [other] from t3toolbox.fitting import LeastSquaresBatch
+LINE   tests/test_optimizers_frontend.py +1726 [other] return dc_.dataclass(frozen=True, eq=False, init=False)(type(name, (LeastSquaresBatch,), fields))
+LINE   tests/test_optimizers_frontend.py +1727 [other] 
+LINE   tests/test_optimizers_frontend.py +1728 [other] 
+LINE   tests/test_optimizers_frontend.py +1729 [other] _NoDrawBatch = _batch_subclass('_NoDrawBatch', take=None, n_measurements=None)
+LINE   tests/test_optimizers_frontend.py +4 [other] import itertools
+LINE   tests/test_optimizers_frontend.py +460 [other] sm = topt._setup(t3m.MANIFOLD, self.batch, x0)
+LINE   tests/test_optimizers_frontend.py +465 [other] sc = topt._setup(t3m.COREWISE, self.batch, x0)
+LINE   tests/test_optimizers_frontend.py +472 [other] s = topt._setup(t3m.MANIFOLD, self.batch, self.x0)
+LINE   tests/test_optimizers_frontend.py +535 [other] with mock.patch.object(type(bad), 'check') as check:
+LINE   tests/test_optimizers_frontend.py -1238 [other] with mock.patch.object(LeastSquaresOracle, 'check_batch') as check:
+LINE   tests/test_optimizers_frontend.py -1243 [other] with mock.patch.object(LeastSquaresOracle, 'check_batch') as check:
+LINE   tests/test_optimizers_frontend.py -1523 [kind_order] self.assertEqual((oracle.kind, oracle.order), ('probe', (2,)))
+LINE   tests/test_optimizers_frontend.py -1531 [kind_order] self.assertEqual((oracle.kind, oracle.order), ('apply', (1,)))
+LINE   tests/test_optimizers_frontend.py -1537 [kind_order] self.assertEqual((oracle.kind, oracle.order), ('probe', ()))
+LINE   tests/test_optimizers_frontend.py -1603 [other] def test_a_user_oracle_without_a_draw(self):
+LINE   tests/test_optimizers_frontend.py -1608 [other] for name, call in (('mc_sgd', lambda: topt.mc_sgd(t3m.MANIFOLD, bare, batch, x0, np.random.default_rng(0), 8,
+LINE   tests/test_optimizers_frontend.py -1610 [other] ('adam', lambda: topt.adam(t3m.COREWISE, bare, batch, x0, np.random.default_rng(0), 8,
+LINE   tests/test_optimizers_frontend.py -1614 [other] with self.assertRaisesRegex(ValueError, '_NoDrawOracle has no take'):
+LINE   tests/test_optimizers_frontend.py -1617 [other] from t3toolbox.fitting import LeastSquaresOracle
+LINE   tests/test_optimizers_frontend.py -1620 [other] x, _ = topt.mc_sgd(t3m.MANIFOLD, bare, batch, x0, np.random.default_rng(0), 8, draw=draw, max_iter=2)
+LINE   tests/test_optimizers_frontend.py -1667 [other] _NoDrawOracle = _ls_subclass('_NoDrawOracle', optional_outputs=(), take=None, n_measurements=None)
+LINE   tests/test_optimizers_frontend.py -457 [other] sm = topt._setup(t3m.MANIFOLD, self.oracle, self.batch, x0)
+LINE   tests/test_optimizers_frontend.py -462 [other] sc = topt._setup(t3m.COREWISE, self.oracle, self.batch, x0)
+LINE   tests/test_optimizers_frontend.py -469 [other] s = topt._setup(t3m.MANIFOLD, self.oracle, self.batch, self.x0)
+LINE   tests/test_optimizers_frontend.py -532 [other] with mock.patch.object(self.oracle.__class__, 'check_batch') as check:
+LINE   tests/test_oracle_data_space.py +143 [other] bad = {'y full in C, no stack_shape':
+LINE   tests/test_oracle_data_space.py +145 [other] 'weight full in C, no stack_shape':
+LINE   tests/test_oracle_data_space.py +147 [other] 'a stacked y against C = ()':
+LINE   tests/test_oracle_data_space.py +149 [other] 'y with C = 3 against C = 2':
+LINE   tests/test_oracle_data_space.py +151 [other] 'weight with C = 3 against C = 2':
+LINE   tests/test_oracle_data_space.py +153 [other] 'an unstacked weight against C = 2':
+LINE   tests/test_oracle_data_space.py +269 [other] drawn_indices=np.array([0])), NPACK)
+LINE   tests/test_oracle_data_space.py +468 [other] variations=v)
+LINE   tests/test_oracle_data_space.py +473 [other] weight=element(kind, weight, axis, c))
+LINE   tests/test_oracle_data_space.py +482 [other] weight=element(kind, weight, axis, 1 - c))
+LINE   tests/test_oracle_data_space.py +7 [other] - the batch's ``check(shape, stack_shape)`` passes the stack to both checkers;
+LINE   tests/test_oracle_data_space.py -473 [other] element(kind, weight, axis, 1 - c))
+LINE   tests/test_oracle_data_space.py -7 [other] - ``check_batch(batch, shape, stack_shape)`` passes the stack to both checkers;
+NOORCL t3toolbox/backend/fitting.py:164 doc:data_metric:<module>: ("'apply'", '(2,)'), no old oracle in reach (read by hand)
+NOORCL t3toolbox/backend/fitting.py:188 doc:check:<module>: ("'apply'", '()'), no old oracle in reach (read by hand)
+NOORCL t3toolbox/backend/fitting.py:190 doc:check:<module>: ("'apply'", '()'), no old oracle in reach (read by hand)
+NOORCL t3toolbox/backend/fitting.py:77 doc:LeastSquaresBatch:<module>: ("'apply'", '()'), no old oracle in reach (read by hand)
+NOORCL t3toolbox/backend/fitting.py:81 doc:LeastSquaresBatch:<module>: ('ww', 'np.zeros(10)'), no old oracle in reach (read by hand)
+NOORCL t3toolbox/backend/uniform_fitting.py:109 doc:pack_batch:<module>: ("'probe'", '(2,)'), no old oracle in reach (read by hand)
+NOORCL tests/backend/test_optimizers.py:1210 TestProblemContracts.test_another_batch_is_scored_on_its_own_data: ("'apply'", '()'), no old oracle in reach (read by hand)
+NOORCL tests/backend/test_uniform_fitting.py:363 TestPackSampleAndData.test_the_forms: ("'probe'", '(2,)'), no old oracle in reach (read by hand)
+NOORCL tests/test_data_metric.py:312 TestBatchMethod.test_it_is_data_metric_with_the_batch_s_weight_and_scale: ("'probe'", '(2,)'), no old oracle in reach (read by hand)
+NOORCL tests/test_data_metric.py:324 TestBatchMethod.test_a_batch_with_a_weight_per_block_raises_by_rank: ("'apply'", '(2,)'), no old oracle in reach (read by hand)
+NOORCL tests/test_data_metric.py:326 TestBatchMethod.test_a_batch_with_a_weight_per_block_raises_by_rank: ("'probe'", '(2,)'), no old oracle in reach (read by hand)
+NOORCL tests/test_data_metric.py:328 TestBatchMethod.test_a_batch_with_a_weight_per_block_raises_by_rank: ("'entries'", '()'), no old oracle in reach (read by hand)
+NOORCL tests/test_least_squares_oracle.py:502 TestTheBatch.test_the_pytree_round_trip: ("'probe'", '(2,)'), no old oracle in reach (read by hand)
+NOORCL tests/test_least_squares_oracle.py:537 TestTheBatchConstructor.test_the_kind_and_the_order: ('kind', '2'), no old oracle in reach (read by hand)
+NOORCL tests/test_least_squares_oracle.py:539 TestTheBatchConstructor.test_the_kind_and_the_order: ('kind', '[1]'), no old oracle in reach (read by hand)
+NOORCL tests/test_least_squares_oracle.py:541 TestTheBatchConstructor.test_the_kind_and_the_order: ('kind', '(True,)'), no old oracle in reach (read by hand)
+NOORCL tests/test_least_squares_oracle.py:543 TestTheBatchConstructor.test_the_kind_and_the_order: ("'probe'", '(-1,)'), no old oracle in reach (read by hand)
+NOORCL tests/test_least_squares_oracle.py:544 TestTheBatchConstructor.test_the_kind_and_the_order: ("'entries'", '()'), no old oracle in reach (read by hand)
+NOORCL tests/test_least_squares_oracle.py:546 TestTheBatchConstructor.test_the_kind_and_the_order: ("'entries'", '(1,)'), no old oracle in reach (read by hand)
+NOORCL tests/test_least_squares_oracle.py:548 TestTheBatchConstructor.test_the_kind_and_the_order: ("'nonsense'", '()'), no old oracle in reach (read by hand)
+NOORCL tests/test_least_squares_oracle.py:550 TestTheBatchConstructor.test_the_kind_and_the_order: ('ww', 'np.zeros(4)'), no old oracle in reach (read by hand)
+NOORCL tests/test_least_squares_oracle.py:552 TestTheBatchConstructor.test_the_kind_and_the_order: ('ww', 'np.zeros(4)'), no old oracle in reach (read by hand)
+NOORCL tests/test_least_squares_oracle.py:553 TestTheBatchConstructor.test_the_kind_and_the_order: ("'apply'", '(np.int64(2),)'), no old oracle in reach (read by hand)
+NOORCL tests/test_least_squares_oracle.py:560 TestTheBatchConstructor.test_the_fields_after_y_are_keywords: ("'apply'", '()'), no old oracle in reach (read by hand)
+NOORCL tests/test_least_squares_oracle.py:561 TestTheBatchConstructor.test_the_fields_after_y_are_keywords: ("'apply'", '()'), no old oracle in reach (read by hand)
+NOORCL tests/test_least_squares_oracle.py:576 TestTheBatchConstructor.test_the_static_fields_are_aux_data: ("'apply'", '(np.int64(1),)'), no old oracle in reach (read by hand)
+NOORCL tests/test_least_squares_oracle.py:578 TestTheBatchConstructor.test_the_static_fields_are_aux_data: ("'apply'", '(1,)'), no old oracle in reach (read by hand)
+NOORCL tests/test_least_squares_oracle.py:591 TestTheBatchConstructor.test_the_static_fields_are_aux_data: ('kind', 'order'), no old oracle in reach (read by hand)
+NOORCL tests/test_optimizers_frontend.py:1575 TestOneKindAndOrderPerFit.setUp: ("'apply'", '()'), no old oracle in reach (read by hand)
+NOORCL tests/test_optimizers_frontend.py:1577 TestOneKindAndOrderPerFit.setUp: ("'apply'", '(1,)'), no old oracle in reach (read by hand)
+NOORCL tests/test_optimizers_frontend.py:1578 TestOneKindAndOrderPerFit.setUp: ("'probe'", '()'), no old oracle in reach (read by hand)
+NOORCL tests/test_optimizers_frontend.py:1657 TestFrontendOnlyAndUserOracles._apply_fit: ("'apply'", '()'), no old oracle in reach (read by hand)
+NOORCL tests/test_oracle_data_space.py:268 TestPacking.test_pack_batch_packs_the_weight_by_the_rule_of_y: ("'probe'", 'order'), no old oracle in reach (read by hand)
+NOORCL tests/test_oracle_data_space.py:283 TestPacking.test_pack_batch_packs_the_weight_by_the_rule_of_y: ('kind', 'order'), no old oracle in reach (read by hand)
+NOORCL tests/test_type_laws.py:85 TestDataMetric.test_blocks_to_weight_and_the_batch_method: ('kind', 'order'), no old oracle in reach (read by hand)
+OREAD  tests/_fits.py:119 shared_over: old fit.oracle.kind | new reads in scope: []
+OREAD  tests/_fits.py:142 at_element: old fit.oracle.kind | new reads in scope: []
+OREAD  tests/_fits.py:168 uniform: old ragged.oracle.kind | new reads in scope: []
+OREAD  tests/_fits.py:168 uniform: old ragged.oracle.order | new reads in scope: []
+OREAD  tests/backend/test_optimizer_display.py:661 TestMakeNewtonDisplay.test_uniform_equals_ragged: old oracle.kind | new reads in scope: []
+OREAD  tests/backend/test_optimizer_display.py:661 TestMakeNewtonDisplay.test_uniform_equals_ragged: old oracle.order | new reads in scope: []
+OREAD  tests/backend/test_optimizers.py:2610 TestSwitchNewton.test_options: old problem.oracle.kind | new reads in scope: []
+OREAD  tests/backend/test_optimizers.py:2610 TestSwitchNewton.test_options: old problem.oracle.order | new reads in scope: []
+OREAD  tests/backend/test_optimizers.py:909 _offset: old fit.oracle.kind | new reads in scope: []
+OREAD  tests/backend/test_optimizers.py:909 _offset: old fit.oracle.order | new reads in scope: []
+OREAD  tests/backend/test_uniform_curvature.py:605 _uniform_batch: old fit.oracle.kind | new reads in scope: []
+OREAD  tests/backend/test_uniform_curvature.py:605 _uniform_batch: old fit.oracle.order | new reads in scope: []
+OREAD  tests/backend/test_uniform_curvature.py:606 _uniform_batch: old fit.oracle.kind | new reads in scope: []
+OREAD  tests/backend/test_uniform_curvature.py:607 _uniform_batch: old fit.oracle.kind | new reads in scope: []
+OREAD  tests/test_fitting.py:67 _backend_model: old oracle.kind | new reads in scope: []
+OREAD  tests/test_fitting.py:67 _backend_model: old oracle.order | new reads in scope: []
+OREAD  tests/test_optimizers_frontend.py:1523 TestTheTranslation.test_each_old_form_is_the_new_form: old oracle.kind | new reads in scope: []
+OREAD  tests/test_optimizers_frontend.py:1523 TestTheTranslation.test_each_old_form_is_the_new_form: old oracle.order | new reads in scope: []
+OREAD  tests/test_optimizers_frontend.py:1531 TestTheTranslation.test_each_old_form_is_the_new_form: old oracle.kind | new reads in scope: []
+OREAD  tests/test_optimizers_frontend.py:1531 TestTheTranslation.test_each_old_form_is_the_new_form: old oracle.order | new reads in scope: []
+OREAD  tests/test_optimizers_frontend.py:1537 TestTheTranslation.test_each_old_form_is_the_new_form: old oracle.kind | new reads in scope: []
+OREAD  tests/test_optimizers_frontend.py:1537 TestTheTranslation.test_each_old_form_is_the_new_form: old oracle.order | new reads in scope: []
+OREAD  tests/test_optimizers_frontend.py:670 _twin: old oracle.kind | new reads in scope: []
+OREAD  tests/test_optimizers_frontend.py:670 _twin: old oracle.order | new reads in scope: []
+ORPHAN t3toolbox/backend/fitting.py:458 doc:check_batch:<module>: LeastSquaresOracle('apply', order=()) removed; no batch of its pair in this scope
+ORPHAN tests/backend/test_optimizer_display.py:369 TestMakeNewtonDisplay.test_records_in_the_weights_shape: LeastSquaresOracle(kind, order) removed; no batch of its pair in this scope
+ORPHAN tests/backend/test_optimizer_display.py:399 TestMakeNewtonDisplay.test_the_errors_against_dense_residuals: LeastSquaresOracle(kind, ()) removed; no batch of its pair in this scope
+ORPHAN tests/backend/test_optimizer_display.py:454 TestMakeNewtonDisplay.test_each_table_is_under_its_own_batch_weight: LeastSquaresOracle(kind, ()) removed; no batch of its pair in this scope
+ORPHAN tests/backend/test_optimizer_display.py:474 TestMakeNewtonDisplay.test_no_unwt_figure_on_any_run: LeastSquaresOracle('apply', ()) removed; no batch of its pair in this scope
+ORPHAN tests/backend/test_optimizer_display.py:490 TestMakeNewtonDisplay.test_the_queries: LeastSquaresOracle('probe', (1,)) removed; no batch of its pair in this scope
+ORPHAN tests/backend/test_optimizer_display.py:523 TestMakeNewtonDisplay.test_the_errors_are_on_the_displays_batch: LeastSquaresOracle('apply', ()) removed; no batch of its pair in this scope
+ORPHAN tests/backend/test_optimizer_display.py:556 TestMakeNewtonDisplay.test_on_the_runs_batch_no_sweep: LeastSquaresOracle('probe', (1,)) removed; no batch of its pair in this scope
+ORPHAN tests/backend/test_optimizer_display.py:579 TestMakeNewtonDisplay.test_rows_after_a_rejection_reuse_the_errors: LeastSquaresOracle('probe', (1,)) removed; no batch of its pair in this scope
+ORPHAN tests/backend/test_optimizer_display.py:637 TestMakeNewtonDisplay.test_error_table_false_changes_no_record: LeastSquaresOracle('apply', (1, 1)) removed; no batch of its pair in this scope
+ORPHAN tests/backend/test_optimizer_display.py:656 TestMakeNewtonDisplay.test_uniform_equals_ragged: LeastSquaresOracle('probe', (1,)) removed; no batch of its pair in this scope
+ORPHAN tests/backend/test_optimizer_display.py:674 TestMakeNewtonDisplay.test_a_drawn_batch: LeastSquaresOracle('apply', ()) removed; no batch of its pair in this scope
+ORPHAN tests/backend/test_optimizers.py:1580 TestOracleSeam.test_the_floor_reads_eps_off_f: _NoResolutionOracle('probe', ()) removed; no batch of its pair in this scope
+ORPHAN tests/backend/test_optimizers.py:1593 TestOracleSeam.test_optional_outputs_are_checked_where_needed: _BareOracle('probe', ()) removed; no batch of its pair in this scope
+ORPHAN tests/backend/test_optimizers.py:2610 TestSwitchNewton.test_options: _NoKpOracle(problem.oracle.kind, problem.oracle.order) removed; no batch of its pair in this scope
+ORPHAN tests/backend/test_optimizers.py:909 _offset: _OffsetOracle(fit.oracle.kind, fit.oracle.order, offset, key) removed; no batch of its pair in this scope
+ORPHAN tests/test_dispatch.py:2183 TestDispatch.test_a_derived_kind_does_not_inherit_its_parents_cache_key: HalfOracle('apply', ()) removed; no batch of its pair in this scope
+ORPHAN tests/test_dispatch.py:2183 TestDispatch.test_a_derived_kind_does_not_inherit_its_parents_cache_key: LeastSquaresOracle('apply', ()) removed; no batch of its pair in this scope
+ORPHAN tests/test_dispatch.py:2184 TestDispatch.test_a_derived_kind_does_not_inherit_its_parents_cache_key: HalfOracle('apply', ()) removed; no batch of its pair in this scope
+ORPHAN tests/test_dispatch.py:2184 TestDispatch.test_a_derived_kind_does_not_inherit_its_parents_cache_key: LeastSquaresOracle('apply', ()) removed; no batch of its pair in this scope
+ORPHAN tests/test_dispatch.py:2195 TestDispatch.test_a_derived_kind_does_not_inherit_its_parents_cache_key: HalfOracle('apply', ()) removed; no batch of its pair in this scope
+ORPHAN tests/test_least_squares_oracle.py:204 TestTheEngineAdditions.test_the_oracle_holds_what_is_free: LeastSquaresOracle(kind, order) removed; no batch of its pair in this scope
+ORPHAN tests/test_least_squares_oracle.py:272 TestQuery.test_each_output_against_the_engine: LeastSquaresOracle(kind, order) removed; no batch of its pair in this scope
+ORPHAN tests/test_least_squares_oracle.py:299 TestQuery.test_the_uniform_layout_after_pack_batch: LeastSquaresOracle(kind, order) removed; no batch of its pair in this scope
+ORPHAN tests/test_least_squares_oracle.py:347 TestTheCorewiseDirection.test_the_three_cases: LeastSquaresOracle('apply', ()) removed; no batch of its pair in this scope
+ORPHAN tests/test_least_squares_oracle.py:373 TestTheMinibatchScale.test_unbiased_over_every_subset: LeastSquaresOracle(kind, order) removed; no batch of its pair in this scope
+ORPHAN tests/test_least_squares_oracle.py:390 TestTheMinibatchScale.test_a_drawn_batch: LeastSquaresOracle(kind, order) removed; no batch of its pair in this scope
+ORPHAN tests/test_least_squares_oracle.py:470 TestTheBatch.test_check_batch: LeastSquaresOracle(kind, order) removed; no batch of its pair in this scope
+ORPHAN tests/test_least_squares_oracle.py:506 TestTheOracle.test_value_hash_and_equality: LeastSquaresOracle('probe', (2,)) removed; no batch of its pair in this scope
+ORPHAN tests/test_least_squares_oracle.py:506 TestTheOracle.test_value_hash_and_equality: LeastSquaresOracle('probe', (2,)) removed; no batch of its pair in this scope
+ORPHAN tests/test_least_squares_oracle.py:509 TestTheOracle.test_value_hash_and_equality: LeastSquaresOracle('probe', (1,)) removed; no batch of its pair in this scope
+ORPHAN tests/test_least_squares_oracle.py:510 TestTheOracle.test_value_hash_and_equality: LeastSquaresOracle('apply', (2,)) removed; no batch of its pair in this scope
+ORPHAN tests/test_least_squares_oracle.py:516 TestTheOracle.test_order_is_required_and_entries_has_no_jets: LeastSquaresOracle(kind) removed; no batch of its pair in this scope
+ORPHAN tests/test_least_squares_oracle.py:518 TestTheOracle.test_order_is_required_and_entries_has_no_jets: LeastSquaresOracle(kind, 2) removed; no batch of its pair in this scope
+ORPHAN tests/test_least_squares_oracle.py:519 TestTheOracle.test_order_is_required_and_entries_has_no_jets: LeastSquaresOracle('entries', ()) removed; no batch of its pair in this scope
+ORPHAN tests/test_least_squares_oracle.py:521 TestTheOracle.test_order_is_required_and_entries_has_no_jets: LeastSquaresOracle('entries', (1,)) removed; no batch of its pair in this scope
+ORPHAN tests/test_least_squares_oracle.py:523 TestTheOracle.test_order_is_required_and_entries_has_no_jets: LeastSquaresOracle('nonsense', ()) removed; no batch of its pair in this scope
+ORPHAN tests/test_optimizers_frontend.py:1618 TestFrontendOnlyAndUserOracles.test_a_user_oracle_without_a_draw: LeastSquaresOracle('apply', ()) removed; no batch of its pair in this scope
+PAIRED docs/numerical_contracts.md:27 page:<module>: ("'probe'", '(1,)')
+PAIRED examples/fit_hilbert_from_entries_lbfgs.py:145 corewise_lbfgs: ("'entries'", '()')
+PAIRED examples/fit_hilbert_from_probes_adam.py:165 corewise_adam: ("'probe'", '()')
+PAIRED examples/fit_hilbert_from_probes_optax.py:127 step: ("'probe'", '()')
+PAIRED examples/fit_hilbert_tensor_newton_cg.py:140 apply_operator: ("'apply'", '()')
+PAIRED examples/fit_varied_rank_tensor_newton_cg.py:134 apply_operator: ("'apply'", '()')
+PAIRED t3toolbox/backend/fitting.py:237 doc:take:<module>: ("'apply'", '()')
+PAIRED t3toolbox/backend/optimizer_display.py:579 doc:make_newton_display:<module>: ("'probe'", '()')
+PAIRED t3toolbox/backend/optimizer_display.py:581 doc:make_newton_display:<module>: ("'probe'", '()')
+PAIRED t3toolbox/backend/optimizers.py:1013 doc:padded_start:<module>: ("'probe'", '()')
+PAIRED t3toolbox/backend/optimizers.py:2080 doc:newton_cg:<module>: ("'probe'", '(1,)')
+PAIRED t3toolbox/backend/optimizers.py:487 doc:local_model:<module>: ("'probe'", '()')
+PAIRED t3toolbox/backend/optimizers.py:606 doc:point_objective:<module>: ("'apply'", '()')
+PAIRED t3toolbox/fitting.py:329 doc:LocalModel:<module>: ("'apply'", '()')
+PAIRED t3toolbox/fitting.py:676 doc:local_model:<module>: ("'probe'", '(1,)')
+PAIRED t3toolbox/fitting.py:684 doc:local_model:<module>: ("'probe'", '(1,)')
+PAIRED t3toolbox/optimizers.py:334 doc:gradient_descent:<module>: ("'apply'", '()')
+PAIRED tests/_fits.py:106 derivative_fit: ('kind', 'o')
+PAIRED tests/_fits.py:86 fit: ('kind', 'order')
+PAIRED tests/backend/test_curvature.py:1088 TestExactLocalModel.test_quadratic_form_is_the_second_derivative_along_the_retraction: ("'apply'", '()')
+PAIRED tests/backend/test_curvature.py:1864 TestRequiredSixthOperation.test_an_oracle_without_Kp_works_for_gauss_newton_and_is_rejected_for_exact: ("'apply'", '()')
+PAIRED tests/backend/test_optimizer_display.py:318 _batch -> call tests/backend/test_optimizer_display.py:385 TestMakeNewtonDisplay.test_records_in_the_weights_shape: ('kind', 'order')
+PAIRED tests/backend/test_optimizer_display.py:318 _batch -> call tests/backend/test_optimizer_display.py:388 TestMakeNewtonDisplay.test_records_in_the_weights_shape: ('kind', 'order')
+PAIRED tests/backend/test_optimizer_display.py:318 _batch -> call tests/backend/test_optimizer_display.py:411 TestMakeNewtonDisplay.test_the_errors_against_dense_residuals: ('kind', '()')
+PAIRED tests/backend/test_optimizer_display.py:318 _batch -> call tests/backend/test_optimizer_display.py:413 TestMakeNewtonDisplay.test_the_errors_against_dense_residuals: ('kind', '()')
+PAIRED tests/backend/test_optimizer_display.py:318 _batch -> call tests/backend/test_optimizer_display.py:435 TestMakeNewtonDisplay.test_a_zero_weighted_outlier_counts_in_neither_sum: ('kind', 'order')
+PAIRED tests/backend/test_optimizer_display.py:318 _batch -> call tests/backend/test_optimizer_display.py:464 TestMakeNewtonDisplay.test_each_table_is_under_its_own_batch_weight: ('kind', '()')
+PAIRED tests/backend/test_optimizer_display.py:318 _batch -> call tests/backend/test_optimizer_display.py:467 TestMakeNewtonDisplay.test_each_table_is_under_its_own_batch_weight: ('kind', '()')
+PAIRED tests/backend/test_optimizer_display.py:318 _batch -> call tests/backend/test_optimizer_display.py:490 TestMakeNewtonDisplay.test_no_unwt_figure_on_any_run: ("'apply'", '()')
+PAIRED tests/backend/test_optimizer_display.py:318 _batch -> call tests/backend/test_optimizer_display.py:506 TestMakeNewtonDisplay.test_the_queries: ("'probe'", '(1,)')
+PAIRED tests/backend/test_optimizer_display.py:318 _batch -> call tests/backend/test_optimizer_display.py:539 TestMakeNewtonDisplay.test_the_errors_are_on_the_displays_batch: ("'apply'", '()')
+PAIRED tests/backend/test_optimizer_display.py:318 _batch -> call tests/backend/test_optimizer_display.py:572 TestMakeNewtonDisplay.test_on_the_runs_batch_no_sweep: ("'probe'", '(1,)')
+PAIRED tests/backend/test_optimizer_display.py:318 _batch -> call tests/backend/test_optimizer_display.py:595 TestMakeNewtonDisplay.test_rows_after_a_rejection_reuse_the_errors: ("'probe'", '(1,)')
+PAIRED tests/backend/test_optimizer_display.py:318 _batch -> call tests/backend/test_optimizer_display.py:653 TestMakeNewtonDisplay.test_error_table_false_changes_no_record: ("'apply'", '(1, 1)')
+PAIRED tests/backend/test_optimizer_display.py:318 _batch -> call tests/backend/test_optimizer_display.py:672 TestMakeNewtonDisplay.test_uniform_equals_ragged: ("'probe'", '(1,)')
+PAIRED tests/backend/test_optimizer_display.py:318 _batch -> call tests/backend/test_optimizer_display.py:690 TestMakeNewtonDisplay.test_a_drawn_batch: ("'apply'", '()')
+PAIRED tests/backend/test_optimizer_display.py:322 _batch -> call tests/backend/test_optimizer_display.py:385 TestMakeNewtonDisplay.test_records_in_the_weights_shape: ('kind', 'order')
+PAIRED tests/backend/test_optimizer_display.py:322 _batch -> call tests/backend/test_optimizer_display.py:388 TestMakeNewtonDisplay.test_records_in_the_weights_shape: ('kind', 'order')
+PAIRED tests/backend/test_optimizer_display.py:322 _batch -> call tests/backend/test_optimizer_display.py:411 TestMakeNewtonDisplay.test_the_errors_against_dense_residuals: ('kind', '()')
+PAIRED tests/backend/test_optimizer_display.py:322 _batch -> call tests/backend/test_optimizer_display.py:413 TestMakeNewtonDisplay.test_the_errors_against_dense_residuals: ('kind', '()')
+PAIRED tests/backend/test_optimizer_display.py:322 _batch -> call tests/backend/test_optimizer_display.py:435 TestMakeNewtonDisplay.test_a_zero_weighted_outlier_counts_in_neither_sum: ('kind', 'order')
+PAIRED tests/backend/test_optimizer_display.py:322 _batch -> call tests/backend/test_optimizer_display.py:464 TestMakeNewtonDisplay.test_each_table_is_under_its_own_batch_weight: ('kind', '()')
+PAIRED tests/backend/test_optimizer_display.py:322 _batch -> call tests/backend/test_optimizer_display.py:467 TestMakeNewtonDisplay.test_each_table_is_under_its_own_batch_weight: ('kind', '()')
+PAIRED tests/backend/test_optimizer_display.py:322 _batch -> call tests/backend/test_optimizer_display.py:490 TestMakeNewtonDisplay.test_no_unwt_figure_on_any_run: ("'apply'", '()')
+PAIRED tests/backend/test_optimizer_display.py:322 _batch -> call tests/backend/test_optimizer_display.py:506 TestMakeNewtonDisplay.test_the_queries: ("'probe'", '(1,)')
+PAIRED tests/backend/test_optimizer_display.py:322 _batch -> call tests/backend/test_optimizer_display.py:539 TestMakeNewtonDisplay.test_the_errors_are_on_the_displays_batch: ("'apply'", '()')
+PAIRED tests/backend/test_optimizer_display.py:322 _batch -> call tests/backend/test_optimizer_display.py:572 TestMakeNewtonDisplay.test_on_the_runs_batch_no_sweep: ("'probe'", '(1,)')
+PAIRED tests/backend/test_optimizer_display.py:322 _batch -> call tests/backend/test_optimizer_display.py:595 TestMakeNewtonDisplay.test_rows_after_a_rejection_reuse_the_errors: ("'probe'", '(1,)')
+PAIRED tests/backend/test_optimizer_display.py:322 _batch -> call tests/backend/test_optimizer_display.py:653 TestMakeNewtonDisplay.test_error_table_false_changes_no_record: ("'apply'", '(1, 1)')
+PAIRED tests/backend/test_optimizer_display.py:322 _batch -> call tests/backend/test_optimizer_display.py:672 TestMakeNewtonDisplay.test_uniform_equals_ragged: ("'probe'", '(1,)')
+PAIRED tests/backend/test_optimizer_display.py:322 _batch -> call tests/backend/test_optimizer_display.py:690 TestMakeNewtonDisplay.test_a_drawn_batch: ("'apply'", '()')
+PAIRED tests/backend/test_optimizer_display.py:442 TestMakeNewtonDisplay.test_a_zero_weighted_outlier_counts_in_neither_sum: ('kind', 'order')
+PAIRED tests/test_aligned_padded_frame_frontend.py:152 TestTwinsAreTheirBackendCalls.test_newton_cg_padded_from: ("'probe'", '()')
+PAIRED tests/test_block_sums.py:190 TestAgainstDenseSums.test_engine_and_oracle: ('kind', 'order')
+PAIRED tests/test_block_sums.py:238 TestSharedData.test_shared_by_the_stack_and_by_the_samples: ('kind', 'order')
+PAIRED tests/test_block_sums.py:270 TestNoWeight.test_none_ones_and_blocks_of_ones_are_the_sum_of_squares: ('kind', 'order')
+PAIRED tests/test_block_sums.py:295 TestTheScale.test_a_drawn_batch: ('kind', 'order')
+PAIRED tests/test_dispatch.py:828 TestDispatch.test_jit_the_least_squares_oracle: ("'probe'", '(1,)')
+PAIRED tests/test_fitting.py:156 _setup: ('kind', '()')
+PAIRED tests/test_fitting.py:231 TestLocalModel.test_uniform_regularizer: ("'probe'", '()')
+PAIRED tests/test_fitting.py:497 TestResidualWeighting.test_plain_probe_per_mode: ("'probe'", '()')
+PAIRED tests/test_fitting.py:502 TestResidualWeighting.test_plain_probe_per_mode: ("'probe'", '()')
+PAIRED tests/test_fitting.py:523 TestPerModeWeightRowCount.test_over_long_is_rejected: ("'probe'", '()')
+PAIRED tests/test_fitting.py:526 TestPerModeWeightRowCount.test_over_long_is_rejected: ("'probe'", '()')
+PAIRED tests/test_fitting.py:532 TestPerModeWeightRowCount.test_short_is_rejected: ("'probe'", '()')
+PAIRED tests/test_fitting.py:611 TestUniformLayerLocalModel.test_representation_geometry_must_match: ("'apply'", '()')
+PAIRED tests/test_fitting.py:623 TestUniformLayerLocalModel.test_same_frame_guard: ("'apply'", '()')
+PAIRED tests/test_fitting.py:639 TestFactoryValidation.test_mismatches_are_named_value_errors: ('kind', 'order')
+PAIRED tests/test_fitting.py:742 TestUniformBackendGeometryFromFrame.test_from_frame_is_from_point_without_the_orthogonalization: ("'probe'", '()')
+PAIRED tests/test_least_squares_oracle.py:129 Fixture.batch -> call tests/test_least_squares_oracle.py:208 TestTheEngineAdditions.test_the_oracle_holds_what_is_free: ('kind', 'order')
+PAIRED tests/test_least_squares_oracle.py:129 Fixture.batch -> call tests/test_least_squares_oracle.py:276 TestQuery.test_each_output_against_the_engine: ('kind', 'order')
+PAIRED tests/test_least_squares_oracle.py:129 Fixture.batch -> call tests/test_least_squares_oracle.py:303 TestQuery.test_the_uniform_layout_after_pack_batch: ('kind', 'order')
+PAIRED tests/test_least_squares_oracle.py:129 Fixture.batch -> call tests/test_least_squares_oracle.py:335 TestTheResolutionDtype.test_float32_inputs_give_float32_eps: ("'apply'", '(2,)')
+PAIRED tests/test_least_squares_oracle.py:129 Fixture.batch -> call tests/test_least_squares_oracle.py:351 TestTheCorewiseDirection.test_the_three_cases: ("'apply'", '()')
+PAIRED tests/test_least_squares_oracle.py:129 Fixture.batch -> call tests/test_least_squares_oracle.py:377 TestTheMinibatchScale.test_unbiased_over_every_subset: ('kind', 'order')
+PAIRED tests/test_least_squares_oracle.py:129 Fixture.batch -> call tests/test_least_squares_oracle.py:394 TestTheMinibatchScale.test_a_drawn_batch: ('kind', 'order')
+PAIRED tests/test_least_squares_oracle.py:129 Fixture.batch -> call tests/test_least_squares_oracle.py:438 TestTheBatch.test_take: ('kind', 'order')
+PAIRED tests/test_least_squares_oracle.py:338 TestTheResolutionDtype.test_float32_inputs_give_float32_eps: ("'apply'", '(2,)')
+PAIRED tests/test_least_squares_oracle.py:466 TestTheBatch.test_take: ('kind', 'order')
+PAIRED tests/test_manifold.py:998 TestStructuralTangentMismatch.test_fitting_model_rejects_wrong_structure_in_unsafe_mode: ("'apply'", '()')
+PAIRED tests/test_optimizers_frontend.py:1161 TestReview4aChecks.setUp: ("'apply'", '()')
+PAIRED tests/test_optimizers_frontend.py:1236 TestReview4aChecks.test_the_batch_is_checked_unless_packed_for_a_uniform_point: ("'apply'", '()')
+PAIRED tests/test_optimizers_frontend.py:1647 TestFrontendOnlyAndUserOracles._fit_body: ("'probe'", '(order,)')
+PAIRED tests/test_optimizers_frontend.py:167 TestFrontendOptimizers.test_verbose_display_and_diagnostics: ("'probe'", '()')
+PAIRED tests/test_optimizers_frontend.py:168 TestFrontendOptimizers.test_verbose_display_and_diagnostics: ("'probe'", '()')
+PAIRED tests/test_optimizers_frontend.py:199 TestFrontendOptimizers.test_verbose_error_table_and_the_runs_batch: ("'apply'", '(1, 1)')
+PAIRED tests/test_optimizers_frontend.py:306 TestFrontendUniformOptimizers.test_verbose_display_matches_ragged: ("'probe'", '()')
+PAIRED tests/test_optimizers_frontend.py:307 TestFrontendUniformOptimizers.test_verbose_display_matches_ragged: ("'probe'", '()')
+PAIRED tests/test_optimizers_frontend.py:439 TestFrontendHeadsAndKeywords.setUp: ("'apply'", '()')
+PAIRED tests/test_optimizers_frontend.py:521 TestFrontendHeadsAndKeywords.test_a_bad_batch_raises_before_any_work: ("'apply'", '()')
+PAIRED tests/test_oracle_data_space.py:138 TestCheckBatch.test_the_stack_reaches_both_checkers: ('kind', 'order')
+PAIRED tests/test_oracle_data_space.py:139 TestCheckBatch.test_the_stack_reaches_both_checkers: ('kind', 'order')
+PAIRED tests/test_oracle_data_space.py:140 TestCheckBatch.test_the_stack_reaches_both_checkers: ('kind', 'order')
+PAIRED tests/test_oracle_data_space.py:144 TestCheckBatch.test_the_stack_reaches_both_checkers: ('kind', 'order')
+PAIRED tests/test_oracle_data_space.py:146 TestCheckBatch.test_the_stack_reaches_both_checkers: ('kind', 'order')
+PAIRED tests/test_oracle_data_space.py:148 TestCheckBatch.test_the_stack_reaches_both_checkers: ('kind', 'order')
+PAIRED tests/test_oracle_data_space.py:150 TestCheckBatch.test_the_stack_reaches_both_checkers: ('kind', 'order')
+PAIRED tests/test_oracle_data_space.py:152 TestCheckBatch.test_the_stack_reaches_both_checkers: ('kind', 'order')
+PAIRED tests/test_oracle_data_space.py:154 TestCheckBatch.test_the_stack_reaches_both_checkers: ('kind', 'order')
+PAIRED tests/test_oracle_data_space.py:201 TestTake.test_y_and_the_weight_against_index_loops: ('kind', 'order')
+PAIRED tests/test_oracle_data_space.py:218 TestTake.test_a_mode_leading_weight_is_drawn_after_its_mode_axis: ("'probe'", 'order')
+PAIRED tests/test_oracle_data_space.py:230 TestTake.test_an_object_without_the_W_axes_raises: ("'apply'", '(1,)')
+PAIRED tests/test_oracle_data_space.py:302 TestPacking.test_garbage_in_the_packed_padding_changes_nothing: ("'probe'", 'order')
+PAIRED tests/test_oracle_data_space.py:349 TestFResolution.test_against_a_dense_sum_over_zs_shape: ('kind', 'order')
+PAIRED tests/test_oracle_data_space.py:376 TestFResolution.test_it_needs_y_even_with_a_held_r: ("'apply'", '()')
+PAIRED tests/test_oracle_data_space.py:417 TestAZeroWeightDeletesASample.test_f_g_and_JtJp_are_those_of_the_batch_without_it: ('kind', 'order')
+PAIRED tests/test_oracle_data_space.py:418 TestAZeroWeightDeletesASample.test_f_g_and_JtJp_are_those_of_the_batch_without_it: ('kind', 'order')
+PAIRED tests/test_oracle_data_space.py:436 TestAZeroWeightDeletesASample.test_f_g_and_JtJp_are_those_of_the_batch_without_it: ('kind', 'order')
+PAIRED tests/test_oracle_data_space.py:467 TestStackedDataAreSeparateFits.test_each_element_is_its_own_fit: ('kind', 'order')
+PAIRED tests/test_oracle_data_space.py:472 TestStackedDataAreSeparateFits.test_each_element_is_its_own_fit: ('kind', 'order')
+PAIRED tests/test_oracle_data_space.py:481 TestStackedDataAreSeparateFits.test_each_element_is_its_own_fit: ('kind', 'order')
+PAIRED tests/test_oracle_data_space.py:486 TestStackedDataAreSeparateFits.test_each_element_is_its_own_fit: ('kind', 'order')
+PAIRED tests/test_oracle_data_space.py:530 TestUnbiasedOverEverySubset.test_with_a_partly_broadcast_weight: ('kind', 'order')
+PAIRED tests/test_sampling_typed.py:294 TestTheOracle.query: ('kind', 'order')
+PAIRED tests/test_sharing.py:1457 _apply_model: ("'apply'", '()')
+PAIRED tests/test_transposes_typed.py:249 TestTheGradientOfAWeightedFit.test_every_kind: ('kind', 'order')
+SCOPE  t3toolbox/backend/fitting.py doc:LeastSquaresBatch:<module>: a scope only after, with 2 batch constructions (read by hand: a new test, or a docstring that moved)
+SCOPE  t3toolbox/backend/fitting.py doc:check:<module>: a scope only after, with 2 batch constructions (read by hand: a new test, or a docstring that moved)
+SCOPE  t3toolbox/backend/fitting.py doc:check_batch:<module>: a scope only before, with 2 batch constructions (read by hand: a new test, or a docstring that moved)
+SCOPE  tests/test_least_squares_oracle.py TestTheBatchConstructor.test_the_fields_after_y_are_keywords: a scope only after, with 2 batch constructions (read by hand: a new test, or a docstring that moved)
+SCOPE  tests/test_least_squares_oracle.py TestTheBatchConstructor.test_the_kind_and_the_order: a scope only after, with 10 batch constructions (read by hand: a new test, or a docstring that moved)
+SCOPE  tests/test_least_squares_oracle.py TestTheBatchConstructor.test_the_static_fields_are_aux_data: a scope only after, with 3 batch constructions (read by hand: a new test, or a docstring that moved)
+SCOPE  tests/test_optimizers_frontend.py TestOneKindAndOrderPerFit.setUp: a scope only after, with 3 batch constructions (read by hand: a new test, or a docstring that moved)
+SUBCLS tests/backend/test_curvature.py:1088 TestExactLocalModel.test_quadratic_form_is_the_second_derivative_along_the_retraction: old _BlockSumApplyOracle('apply', ()) | new _BlockSumApplyOracle()
+SUBCLS tests/backend/test_curvature.py:1865 TestRequiredSixthOperation.test_an_oracle_without_Kp_works_for_gauss_newton_and_is_rejected_for_exact: old _NoKpOracle('apply', ()) | new _NoKpOracle()
+SUBCLS tests/backend/test_optimizers.py:1580 TestOracleSeam.test_the_floor_reads_eps_off_f: old _NoResolutionOracle('probe', ()) | new _NoResolutionOracle()
+SUBCLS tests/backend/test_optimizers.py:1593 TestOracleSeam.test_optional_outputs_are_checked_where_needed: old _BareOracle('probe', ()) | new _BareOracle()
+SUBCLS tests/backend/test_optimizers.py:2610 TestSwitchNewton.test_options: old _NoKpOracle(problem.oracle.kind, problem.oracle.order) | new _NoKpOracle()
+SUBCLS tests/backend/test_optimizers.py:909 _offset: old _OffsetOracle(fit.oracle.kind, fit.oracle.order, offset, key) | new _OffsetOracle(offset, key)
+SUBCLS tests/test_dispatch.py:2183 TestDispatch.test_a_derived_kind_does_not_inherit_its_parents_cache_key: old HalfOracle('apply', ()) | new HalfOracle(); HalfOracle(); HalfOracle()
+SUBCLS tests/test_dispatch.py:2184 TestDispatch.test_a_derived_kind_does_not_inherit_its_parents_cache_key: old HalfOracle('apply', ()) | new HalfOracle(); HalfOracle(); HalfOracle()
+SUBCLS tests/test_dispatch.py:2195 TestDispatch.test_a_derived_kind_does_not_inherit_its_parents_cache_key: old HalfOracle('apply', ()) | new HalfOracle(); HalfOracle(); HalfOracle()
+TWOPRS docs/fitting_and_optimization.md page:<module>: two distinct old pairs [("'apply'", '()'), ("'probe'", '()'), ("'probe'", '(3,)')]
+TWOPRS t3toolbox/backend/fitting.py doc:LeastSquaresOracle:<module>: two distinct old pairs [("'probe'", '()'), ("'probe'", '(1,)')]
+TWOPRS t3toolbox/optimizers.py doc:newton_cg:<module>: two distinct old pairs [("'apply'", '()'), ("'probe'", '()'), ("'probe'", '(1,)')]
+TWOPRS tests/test_least_squares_oracle.py TestTheOracle.test_order_is_required_and_entries_has_no_jets: two distinct old pairs [("'entries'", '()'), ("'entries'", '(1,)'), ("'nonsense'", '()'), ('kind', '2')]
+TWOPRS tests/test_least_squares_oracle.py TestTheOracle.test_value_hash_and_equality: two distinct old pairs [("'apply'", '(2,)'), ("'probe'", '(1,)'), ("'probe'", '(2,)')]

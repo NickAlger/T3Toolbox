@@ -1,6 +1,7 @@
 """Frontend optimizer adapter (t3toolbox/optimizers.py) -- end-to-end: it returns a TuckerTensorTrain,
 the loss descends, and the fit recovers a low-rank target. The heavy correctness check (backend oracle ==
 fitting.LocalModel) lives in tests/backend/test_optimizers.py."""
+import itertools
 import typing as typ
 import unittest
 import warnings
@@ -162,8 +163,9 @@ class TestFrontendOptimizers(unittest.TestCase):
         datav = dense_probe(self.A, wwv)
         x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
         from t3toolbox.fitting import LeastSquaresOracle, LeastSquaresBatch
-        oracle = LeastSquaresOracle('probe', order=())
-        batch, val_batch = LeastSquaresBatch(self.ww, self.data), LeastSquaresBatch(wwv, datav)
+        oracle = LeastSquaresOracle()
+        batch = LeastSquaresBatch('probe', (), self.ww, self.data)
+        val_batch = LeastSquaresBatch('probe', (), wwv, datav)
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             x, stats = topt.newton_cg(t3m.MANIFOLD, oracle, batch, t3.TuckerTensorTrain(*x0),
@@ -193,8 +195,8 @@ class TestFrontendOptimizers(unittest.TestCase):
         rng = np.random.default_rng(3)
         jets = [np.stack([np.stack([w, p]), np.stack([q, np.zeros_like(w)])])
                 for w, p, q in zip(*([rng.standard_normal((30, N)) for N in SHAPE] for _ in range(3)))]
-        oracle = LeastSquaresOracle('apply', order=(1, 1))
-        batch = LeastSquaresBatch(jets, self.A_t3.apply(jets, (1, 1)))
+        oracle = LeastSquaresOracle()
+        batch = LeastSquaresBatch('apply', (1, 1), jets, self.A_t3.apply(jets, (1, 1)))
         x0 = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
         clock = re.compile(r'\| \d+\.\d\ds\b')
         texts, stats = [], []
@@ -300,8 +302,9 @@ class TestFrontendUniformOptimizers(unittest.TestCase):
                for w in (rng.standard_normal((40, N)) for N in SHAPE)]
         datav = dense_probe(self.A, wwv)
         from t3toolbox.fitting import LeastSquaresOracle, LeastSquaresBatch
-        oracle = LeastSquaresOracle('probe', order=())
-        batch, val_batch = LeastSquaresBatch(self.ww, self.data), LeastSquaresBatch(wwv, datav)
+        oracle = LeastSquaresOracle()
+        batch = LeastSquaresBatch('probe', (), self.ww, self.data)
+        val_batch = LeastSquaresBatch('probe', (), wwv, datav)
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             xu, su = topt.newton_cg(ut3m.UNIFORM_MANIFOLD, oracle, batch, self.uX0,
@@ -432,8 +435,8 @@ class TestFrontendHeadsAndKeywords(unittest.TestCase):
         self.ww = tuple(np.random.randn(12, n) for n in self.x_true.shape)
         self.b = self.x_true.apply(self.ww)
         self.x0 = t3.TuckerTensorTrain.randn((4, 5, 3), (2, 2, 2), (1, 2, 2, 1))
-        self.oracle = LeastSquaresOracle('apply', order=())
-        self.batch = LeastSquaresBatch(self.ww, self.b)
+        self.oracle = LeastSquaresOracle()
+        self.batch = LeastSquaresBatch('apply', (), self.ww, self.b)
 
     def test_the_heads(self):
         import inspect
@@ -454,19 +457,19 @@ class TestFrontendHeadsAndKeywords(unittest.TestCase):
         backend call; on corewise it is untouched."""
         x0 = t3.TuckerTensorTrain.randn((4, 5, 3), (2, 3, 2), (1, 2, 1, 1))
         self.assertFalse(x0.has_minimal_ranks)
-        sm = topt._setup(t3m.MANIFOLD, self.oracle, self.batch, x0)
+        sm = topt._setup(t3m.MANIFOLD, self.batch, x0)
         xm = sm.rewrap(sm.x0_cores)
         self.assertTrue(xm.has_minimal_ranks)
         self.assertLess(float(np.linalg.norm(xm.to_dense() - x0.to_dense())),
                         1e-12 * float(np.linalg.norm(x0.to_dense())))                # the same tensor
-        sc = topt._setup(t3m.COREWISE, self.oracle, self.batch, x0)
+        sc = topt._setup(t3m.COREWISE, self.batch, x0)
         self.assertTrue(sc.rewrap(sc.x0_cores).corewise_equal(x0))
 
     def test_gradient_matches_frontend_local_model(self):
         """The backend model at the setup's cores has the frontend local model's gradient (and the dense one)."""
         import t3toolbox.fitting as fitting
         import t3toolbox.backend.optimizers as bopt
-        s = topt._setup(t3m.MANIFOLD, self.oracle, self.batch, self.x0)
+        s = topt._setup(t3m.MANIFOLD, self.batch, self.x0)
         g_tucker, g_tt = bopt.local_model(s.geom, self.oracle, s.batch, s.x0_cores).gradient
         model = fitting.local_model(t3m.MANIFOLD, self.oracle, self.batch, self.x0)
         self.assertIsInstance(model, fitting.LocalModel)
@@ -515,7 +518,7 @@ class TestFrontendHeadsAndKeywords(unittest.TestCase):
         from unittest import mock
         from t3toolbox.fitting import LeastSquaresBatch
         import t3toolbox.backend.optimizers as bopt
-        bad = LeastSquaresBatch(self.ww[:2], self.b)                    # two vectors for a 3-mode tensor
+        bad = LeastSquaresBatch('apply', (), self.ww[:2], self.b)                    # two vectors for a 3-mode tensor
         calls = (('newton_cg', lambda: topt.newton_cg(t3m.MANIFOLD, self.oracle, bad, self.x0, max_newton=1)),
                  ('gradient_descent', lambda: topt.gradient_descent(t3m.MANIFOLD, self.oracle, bad, self.x0, n_iter=1)))
         for name, call in calls:
@@ -529,7 +532,7 @@ class TestFrontendHeadsAndKeywords(unittest.TestCase):
                 topt.newton_cg(t3m.MANIFOLD, self.oracle, self.batch, self.x0, val_batch=bad, verbose=True,
                                max_newton=1)
         setup.assert_not_called()
-        with mock.patch.object(self.oracle.__class__, 'check_batch') as check:
+        with mock.patch.object(type(bad), 'check') as check:
             try:
                 bopt.newton_cg(bgeo_manifold(), self.oracle, bad, self.x0.data, max_newton=1)
             except Exception:
@@ -667,7 +670,7 @@ def _twin(geometry, oracle, batch, x0):
         x = ufit.uniform_minimal(x0, sharing=sharing)
         cls = bgeo.UniformManifoldGeometryOps if base is ut3m.UNIFORM_MANIFOLD else bgeo.UniformCorewiseGeometryOps
         return _Twin(cls.from_point(x.data, sharing), (x.data[0], x.data[1]),
-                     ufit.pack_batch(oracle.kind, oracle.order, batch, x.N))
+                     ufit.pack_batch(batch, x.N))
     manifold = base is t3m.MANIFOLD
     geom = bgeo.ManifoldGeometryOps() if manifold else bgeo.CorewiseGeometryOps()
     if sharing is not None:
@@ -1154,8 +1157,8 @@ class TestReview4aChecks(unittest.TestCase):
         np.random.seed(11)
         self.x = t3.TuckerTensorTrain.randn((4, 5, 4), (2, 2, 2), (1, 2, 2, 1))
         self.ww = [np.random.randn(20, n) for n in self.x.shape]
-        self.oracle = LeastSquaresOracle('apply', order=())
-        self.batch = LeastSquaresBatch(self.ww, np.random.randn(20))
+        self.oracle = LeastSquaresOracle()
+        self.batch = LeastSquaresBatch('apply', (), self.ww, np.random.randn(20))
 
     def test_a_float32_frame_the_library_built_passes_and_a_perturbed_one_raises(self):
         """Orthonormality is checked at ``safety.effective_rtol`` (as consistency is), so the float32 frame the
@@ -1230,18 +1233,18 @@ class TestReview4aChecks(unittest.TestCase):
         ux = ut3.UniformTuckerTensorTrain.from_t3(self.x)
         ww4 = [np.random.randn(20, 4) for _ in range(3)]
         x4 = t3.TuckerTensorTrain.randn((4, 4, 4), (2, 2, 2), (1, 2, 2, 1))
-        array_sample = LeastSquaresBatch(np.stack(ww4), np.zeros(20))     # an ndarray sample, for a ragged point
-        packed = ufit.pack_batch('apply', (), self.batch, ux.N)
+        array_sample = LeastSquaresBatch('apply', (), np.stack(ww4), np.zeros(20))   # an ndarray sample, ragged point
+        packed = ufit.pack_batch(self.batch, ux.N)
         for x, batch, checked in ((self.x, self.batch, True), (x4, array_sample, True), (ux, self.batch, True),
                                   (ux, packed, False)):
             with self.subTest(layer=type(x).__name__, sample=type(batch.sample).__name__):
-                with mock.patch.object(LeastSquaresOracle, 'check_batch') as check:
-                    out = fitting.prepare_batch(self.oracle, batch, x)
+                with mock.patch.object(LeastSquaresBatch, 'check') as check:
+                    out = fitting.prepare_batch(batch, x)
                 self.assertEqual(check.called, checked)
                 if isinstance(x, ut3.UniformTuckerTensorTrain):
                     self.assertFalse(isinstance(out.sample, (tuple, list)))   # packed
-        with mock.patch.object(LeastSquaresOracle, 'check_batch') as check:
-            fitting.prepare_batch(self.oracle, self.batch, ux, check=False)      # a draw's batch: packed only
+        with mock.patch.object(LeastSquaresBatch, 'check') as check:
+            fitting.prepare_batch(self.batch, ux, check=False)      # a draw's batch: packed only
         check.assert_not_called()
 
     def test_the_old_plain_probe_weight_of_length_one_broadcasts(self):
@@ -1520,7 +1523,7 @@ class TestTheTranslation(unittest.TestCase):
                              (np.arange(12.).reshape(4, 3) + 1, np.arange(9.).reshape(3, 3) + 1)):   # extra rows
             with self.subTest(weight=np.shape(weight)):
                 oracle, batch = topt._old_fit('probe_derivatives', s, y, shape, 2, weight, 'test')
-                self.assertEqual((oracle.kind, oracle.order), ('probe', (2,)))
+                self.assertEqual((batch.kind, batch.order), ('probe', (2,)))
                 self.assertTrue(np.array_equal(batch.weight, blocks_to_weight('probe', (2,), full * fact2, y)))
                 for got, want in zip(batch.y, y):
                     self.assertTrue(np.allclose(got, want / fact2[:, None, None], rtol=1e-15, atol=0))
@@ -1528,13 +1531,13 @@ class TestTheTranslation(unittest.TestCase):
                     self.assertTrue(np.array_equal(got, want))
         s, y = _tr_problem('entries_derivatives', 1)
         oracle, batch = topt._old_fit('ENTRIES_DERIVATIVES', s, y, shape, 1, [1., 2.], 'test')
-        self.assertEqual((oracle.kind, oracle.order), ('apply', (1,)))
+        self.assertEqual((batch.kind, batch.order), ('apply', (1,)))
         for got, want in zip(batch.sample, affine_jet(index_to_one_hot(s[0], shape), s[1])):
             self.assertTrue(np.array_equal(got, want))
         self.assertTrue(np.array_equal(batch.weight, blocks_to_weight('apply', (1,), np.array([1., 2.]), y)))
         s, y = _tr_problem('probe', 0)
         oracle, batch = topt._old_fit('probe', s, y, shape, None, [1., 2., .5, 9.], 'test')   # extra rows dropped
-        self.assertEqual((oracle.kind, oracle.order), ('probe', ()))
+        self.assertEqual((batch.kind, batch.order), ('probe', ()))
         self.assertTrue(np.array_equal(batch.weight, blocks_to_weight('probe', (), np.array([1., 2., .5]), y)))
         with self.assertRaisesRegex(ValueError, "takes no residual weight"):
             topt._old_fit('apply', *_tr_problem('apply', 0), shape, None, [1.], 'test')
@@ -1553,6 +1556,58 @@ class TestTheTranslation(unittest.TestCase):
                 drawn = kw['draw'](np.random.default_rng(1))
                 self.assertEqual(drawn.minibatch_scale, scale)
 
+
+
+class TestOneKindAndOrderPerFit(unittest.TestCase):
+    """K1 part 0: with the kind and the order in the batch each batch is read under its own, so the frontend refuses a
+    second batch of another kind or order (a validation batch at entry, each drawn batch at its draw) before it could
+    fit another objective with no error. Ragged and uniform."""
+
+    def setUp(self):
+        from t3toolbox.fitting import LeastSquaresBatch, LeastSquaresOracle
+        rng = np.random.default_rng(21)
+        np.random.seed(21)
+        self.x_true = t3.TuckerTensorTrain.randn((4, 5, 3), (2, 2, 2), (1, 2, 2, 1))
+        self.x0 = t3.TuckerTensorTrain.randn((4, 5, 3), (2, 2, 2), (1, 2, 2, 1))
+        self.ww = [rng.standard_normal((30, n)) for n in self.x_true.shape]
+        self.pp = [rng.standard_normal((30, n)) for n in self.x_true.shape]
+        self.oracle = LeastSquaresOracle()
+        self.batch = LeastSquaresBatch('apply', (), self.ww, self.x_true.apply(self.ww))
+        line = jets_of(self.ww, self.pp)
+        self.other_order = LeastSquaresBatch('apply', (1,), line, self.x_true.apply(line, (1,)))
+        self.other_kind = LeastSquaresBatch('probe', (), self.ww, list(self.x_true.probe(self.ww)))
+
+    def test_a_validation_batch_of_another_kind_or_order(self):
+        from unittest import mock
+        for label, val in (('order', self.other_order), ('kind', self.other_kind)):
+            with self.subTest(other=label):
+                with mock.patch.object(topt, '_setup') as setup:
+                    with self.assertRaisesRegex(ValueError, 'the validation batch is of kind'):
+                        topt.newton_cg(t3m.MANIFOLD, self.oracle, self.batch, self.x0, val_batch=val, max_newton=1)
+                setup.assert_not_called()                               # before any work
+        x, _ = topt.newton_cg(t3m.MANIFOLD, self.oracle, self.batch, self.x0, val_batch=self.batch, max_newton=1)
+        self.assertIsInstance(x, t3.TuckerTensorTrain)
+
+    def test_a_drawn_batch_of_another_kind_or_order(self):
+        x0s = (('ragged', t3m.MANIFOLD, self.x0),
+               ('uniform', ut3m.UNIFORM_MANIFOLD, ut3.UniformTuckerTensorTrain.from_t3(self.x0)))
+        for (layer, geometry, x0), (label, other) in itertools.product(
+                x0s, (('order', self.other_order), ('kind', self.other_kind))):
+            with self.subTest(layer=layer, other=label):
+                draw = lambda rng: other.take(rng.choice(30, size=8, replace=False))
+                with self.assertRaisesRegex(ValueError, 'the batch a draw returned is of kind'):
+                    topt.mc_sgd(geometry, self.oracle, self.batch, x0, np.random.default_rng(0), 8, draw=draw,
+                                max_iter=2)
+            with self.subTest(layer=layer, other='the same'):
+                draw = lambda rng: self.batch.take(rng.choice(30, size=8, replace=False))
+                x, _ = topt.mc_sgd(geometry, self.oracle, self.batch, x0, np.random.default_rng(0), 8, draw=draw,
+                                   max_iter=2)
+                self.assertIsInstance(x, type(x0))
+
+
+def jets_of(ww, pp):
+    from t3toolbox.fitting import affine_jet
+    return affine_jet(ww, pp)
 
 
 class TestFrontendOnlyAndUserOracles(unittest.TestCase):
@@ -1587,9 +1642,10 @@ class TestFrontendOnlyAndUserOracles(unittest.TestCase):
         blocks = np.tile([1.0, 0.5, 0.25], (len(shape), 1))                  # on the derivatives, per (mode, order)
         weight = fitting.blocks_to_weight('probe', (order,), blocks, derivatives)    # of the type of z
         y, w, _ = fitting.prepare_derivative_data('probe', (order,), derivatives, weight)
-        oracle = fitting.LeastSquaresOracle('probe', order=(order,))
+        oracle = fitting.LeastSquaresOracle()
         x0 = t3.TuckerTensorTrain.zeros(shape, (2, 2, 2), (1, 2, 2, 1))
-        x, _ = optimizers.newton_cg(t3m.MANIFOLD, oracle, fitting.LeastSquaresBatch(line, y, w), x0, max_newton=30)
+        batch = fitting.LeastSquaresBatch('probe', (order,), line, y, weight=w)
+        x, _ = optimizers.newton_cg(t3m.MANIFOLD, oracle, batch, x0, max_newton=30)
         return x, target
 
     def _apply_fit(self):
@@ -1598,26 +1654,26 @@ class TestFrontendOnlyAndUserOracles(unittest.TestCase):
         x_true = t3.TuckerTensorTrain.randn((4, 5, 3), (2, 2, 2), (1, 2, 2, 1))
         ww = tuple(np.random.randn(30, n) for n in x_true.shape)
         x0 = t3.TuckerTensorTrain.randn((4, 5, 3), (2, 2, 2), (1, 2, 2, 1))
-        return x_true, ww, LeastSquaresBatch(ww, x_true.apply(ww)), x0
+        return x_true, ww, LeastSquaresBatch('apply', (), ww, x_true.apply(ww)), x0
 
-    def test_a_user_oracle_without_a_draw(self):
+    def test_a_user_batch_without_a_draw(self):
         from unittest import mock
         import t3toolbox.backend.optimizers as bopt
+        from t3toolbox.fitting import LeastSquaresOracle
         _, _, batch, x0 = self._apply_fit()
-        bare = _NoDrawOracle('apply', ())
-        for name, call in (('mc_sgd', lambda: topt.mc_sgd(t3m.MANIFOLD, bare, batch, x0, np.random.default_rng(0), 8,
+        oracle = LeastSquaresOracle()
+        bare = _NoDrawBatch(batch.kind, batch.order, batch.sample, batch.y)
+        for name, call in (('mc_sgd', lambda: topt.mc_sgd(t3m.MANIFOLD, oracle, bare, x0, np.random.default_rng(0), 8,
                                                           max_iter=1)),
-                           ('adam', lambda: topt.adam(t3m.COREWISE, bare, batch, x0, np.random.default_rng(0), 8,
+                           ('adam', lambda: topt.adam(t3m.COREWISE, oracle, bare, x0, np.random.default_rng(0), 8,
                                                       max_iter=1))):
             with self.subTest(optimizer=name):
                 with mock.patch.object(bopt, 'local_model', wraps=bopt.local_model) as work:
-                    with self.assertRaisesRegex(ValueError, '_NoDrawOracle has no take'):
+                    with self.assertRaisesRegex(ValueError, '_NoDrawBatch has no take'):
                         call()
                 work.assert_not_called()
-        from t3toolbox.fitting import LeastSquaresOracle
-        full = LeastSquaresOracle('apply', ())
-        draw = lambda rng: full.take(batch, rng.choice(30, size=8, replace=False))
-        x, _ = topt.mc_sgd(t3m.MANIFOLD, bare, batch, x0, np.random.default_rng(0), 8, draw=draw, max_iter=2)
+        draw = lambda rng: batch.take(rng.choice(30, size=8, replace=False))
+        x, _ = topt.mc_sgd(t3m.MANIFOLD, oracle, bare, x0, np.random.default_rng(0), 8, draw=draw, max_iter=2)
         self.assertIsInstance(x, t3.TuckerTensorTrain)
 
     def test_the_floor_without_f_resolution(self):
@@ -1627,7 +1683,7 @@ class TestFrontendOnlyAndUserOracles(unittest.TestCase):
         from unittest import mock
         import t3toolbox.backend.optimizers as bopt
         _, _, batch, x0 = self._apply_fit()
-        oracle = _NoResolutionOracle('apply', ())
+        oracle = _NoResolutionOracle()
         asked = []
         real = _NoResolutionOracle.query
 
@@ -1664,7 +1720,13 @@ def _ls_subclass(name, **fields):
     return dc_.dataclass(frozen=True, eq=False)(type(name, (LeastSquaresOracle,), fields))
 
 
-_NoDrawOracle = _ls_subclass('_NoDrawOracle', optional_outputs=(), take=None, n_measurements=None)
+def _batch_subclass(name, **fields):
+    import dataclasses as dc_
+    from t3toolbox.fitting import LeastSquaresBatch
+    return dc_.dataclass(frozen=True, eq=False, init=False)(type(name, (LeastSquaresBatch,), fields))
+
+
+_NoDrawBatch = _batch_subclass('_NoDrawBatch', take=None, n_measurements=None)
 _NoResolutionOracle = _ls_subclass('_NoResolutionOracle',
                                    optional_outputs=('Kp', 'Jp', 'r', 'r_block_sumsq', 'y_block_sumsq'))
 

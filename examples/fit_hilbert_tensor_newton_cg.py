@@ -135,8 +135,9 @@ def rms(x):
 def apply_operator(ww):
     forward       = lambda Z: Z.apply(ww)   # works for a TuckerTensorTrain (point) or a T3Tangent (Jacobian)
     # build the Gauss-Newton model of 1/2 ||X.apply(ww) - b||^2 at the current point -- one sweep, held for reuse.
-    oracle        = fitting.LeastSquaresOracle('apply', order=())
-    model_builder = lambda X, b: fitting.local_model(t3m.MANIFOLD, oracle, fitting.LeastSquaresBatch(ww, b), X)
+    oracle        = fitting.LeastSquaresOracle()
+    model_builder = lambda X, b: fitting.local_model(t3m.MANIFOLD, oracle,
+                                                     fitting.LeastSquaresBatch('apply', (), ww, b), X)
     meas_dot      = lambda a, b: float(np.dot(np.asarray(a), np.asarray(b)))
     return forward, model_builder, meas_dot
 

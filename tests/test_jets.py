@@ -860,8 +860,8 @@ class TestCheckers(unittest.TestCase):
     # ------------------------------------------------------------------------------------------ the tier
     def test_no_backend_module_calls_a_checker(self):
         """Checkers, not guarantees: outside ``jets`` itself, no backend module refers to one of the checkers, except
-        ``LeastSquaresOracle.check_batch`` in ``fitting.py``, itself a checker built from them (the plan's 2.2, O-29;
-        P14); and no backend module calls ``check_batch``."""
+        ``LeastSquaresBatch.check`` in ``fitting.py``, itself a checker built from them (the plan's 2.2, O-29; P14;
+        the batch's method since K1); and no backend module calls a batch's ``check``."""
         names = {'check_sample', 'check_data', 'check_weight', 'check_coordinate_scales'}
         backend = pathlib.Path(t3toolbox.__file__).resolve().parent / 'backend'
         files = sorted(backend.glob('*.py'))
@@ -876,9 +876,11 @@ class TestCheckers(unittest.TestCase):
                     calls = {node.func.id for node in ast.walk(tree)
                              if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)}
                     self.assertEqual(calls & names, set())                   # not even their own modules call them
-                elif path.name == 'fitting.py':                              # only inside check_batch
-                    batch_checker = [node for node in ast.walk(tree)
-                                     if isinstance(node, ast.FunctionDef) and node.name == 'check_batch']
+                elif path.name == 'fitting.py':                              # only inside the batch's check
+                    batch_checker = [node for cls in ast.walk(tree)
+                                     if isinstance(cls, ast.ClassDef) and cls.name == 'LeastSquaresBatch'
+                                     for node in cls.body if isinstance(node, ast.FunctionDef) and node.name == 'check']
+                    self.assertEqual(len(batch_checker), 1)
                     inner = {id(n) for f in batch_checker for n in ast.walk(f)}
                     inside = {n.attr for n in ast.walk(tree) if id(n) in inner and isinstance(n, ast.Attribute)}
                     outside = {n.attr for n in ast.walk(tree) if id(n) not in inner and isinstance(n, ast.Attribute)} \
@@ -887,10 +889,11 @@ class TestCheckers(unittest.TestCase):
                     self.assertEqual(inside & names, {'check_sample', 'check_data', 'check_weight'})
                 else:
                     self.assertEqual(used & names, set())
-                # and nothing in the backend calls check_batch: a checker, called by the frontend only (round 1)
+                # and nothing in the backend calls a batch's check: a checker, called by the frontend only (round 1)
                 calls = {node.func.attr if isinstance(node.func, ast.Attribute) else getattr(node.func, 'id', None)
                          for node in ast.walk(tree) if isinstance(node, ast.Call)}
                 self.assertNotIn('check_batch', calls)
+                self.assertNotIn('check', calls)
 
     def test_the_validators_of_pp_are_gone(self):
         """There is no ``pp``: the two validators of the old ``sampling_derivatives`` (deleted in K0) are not in

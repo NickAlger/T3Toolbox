@@ -11,8 +11,8 @@ forms are pinned by the module doctests, by ``tests/backend/test_optimizers.py``
 ``tests/test_dispatch.py``.
 
 The builders:
-- :func:`fit` -- a plain fit (or a fit of Taylor data at a jet shape ``order``): ``LeastSquaresOracle(kind, order)``
-  and ``LeastSquaresBatch(sample, y, weight)``;
+- :func:`fit` -- a plain fit (or a fit of Taylor data at a jet shape ``order``): ``LeastSquaresOracle()`` and
+  ``LeastSquaresBatch(kind, order, sample, y, weight=weight)``;
 - :func:`derivative_fit` -- a fit of derivative data along the line ``w + s p`` (what the old derivative kinds fitted):
   the sample ``affine_jet(ww, pp)`` (entries: the apply kind at ``affine_jet(index_to_one_hot(index, shape), pp)``),
   the data and the weight through ``prepare_derivative_data``, so the objective is the old kinds' exactly
@@ -83,7 +83,7 @@ def fit(
 ) -> Fit:
     order = tuple(order)
     omega = None if weight is None else jets.blocks_to_weight(kind, order, np.asarray(weight), y)
-    return Fit(geom, LeastSquaresOracle(kind, order), LeastSquaresBatch(sample, y, omega), regularizer)
+    return Fit(geom, LeastSquaresOracle(), LeastSquaresBatch(kind, order, sample, y, weight=omega), regularizer)
 
 
 def derivative_fit(
@@ -103,7 +103,8 @@ def derivative_fit(
         kind, sample = 'apply', jets.index_to_one_hot(sample, shape)
     omega = None if weight is None else jets.blocks_to_weight(kind, o, np.asarray(weight), derivatives)
     y, w, _ = jets.prepare_derivative_data(kind, o, derivatives, omega)
-    return Fit(geom, LeastSquaresOracle(kind, o), LeastSquaresBatch(jets.affine_jet(sample, pp), y, w), regularizer)
+    return Fit(geom, LeastSquaresOracle(), LeastSquaresBatch(kind, o, jets.affine_jet(sample, pp), y, weight=w),
+               regularizer)
 
 
 def shared_over(
@@ -116,7 +117,7 @@ def shared_over(
     whatever the form (a ragged tuple, one mode-leading array, packed). ``C = ()`` returns the fit unchanged."""
     if not C:
         return fit
-    probe = fit.oracle.kind == 'probe'
+    probe = fit.batch.kind == 'probe'
 
     def placed(a):
         a = np.asarray(a) if not hasattr(a, 'shape') else a
@@ -139,7 +140,7 @@ def at_element(
     """The fit of one element of a stacked model: ``y`` and the weight at the element ``cc`` of their ``C`` axes (an
     axis of size 1 is the same for every element, read at 0), ``C`` dropped. The inverse of :func:`shared_over`, and
     the per-element fit of data that differ by element. ``C`` is located as there."""
-    probe = fit.oracle.kind == 'probe'
+    probe = fit.batch.kind == 'probe'
     n = len(cc)
 
     def picked(a):
@@ -165,7 +166,7 @@ def uniform(
     manifold = isinstance(ragged.geom, bgeo.ManifoldGeometryOps)
     cls = bgeo.UniformManifoldGeometryOps if manifold else bgeo.UniformCorewiseGeometryOps
     geom = cls.from_point(ux.data, sharing)
-    batch = uf.pack_batch(ragged.oracle.kind, ragged.oracle.order, ragged.batch, ux.N)
+    batch = uf.pack_batch(ragged.batch, ux.N)
     return Fit(geom, ragged.oracle, batch, ragged.regularizer), (ux.data[0], ux.data[1])
 
 

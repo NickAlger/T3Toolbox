@@ -168,7 +168,7 @@ def _format_table(
     entries). With the jet shape ``order`` (``m = len(order)``), the leading ``ndim - m`` axes (none or one) are the
     modes: at ``m <= 1`` the 2026.5.0 table (:py:func:`_format_matrix` of the ``(n_mode, n_order)`` matrix); at
     ``m >= 2`` one column per multi-index of the jet axes, row-major (O-42), mode rows with ``train|val`` cells for
-    probe, ``train`` / ``val`` rows for apply. Without ``order`` (an oracle that names none), the axes are labelled by
+    probe, ``train`` / ``val`` rows for apply. Without ``order`` (a batch that names none), the axes are labelled by
     position: a scalar on one line, one axis in columns, else the first axis in rows and the others unfolded row-major
     in columns. A malformed shape raises a ``ValueError`` (structural)."""
     train_err = np.asarray(train_err, dtype=float)
@@ -573,13 +573,15 @@ def make_newton_display(
     recovery error under the weight, a draw's scale cancelling (a weight constant within each block cancels too: the
     plain ``‖r_b‖ / ‖y_b‖``). **Each table is under its own batch's weight**: the validation cells use ``val_batch``'s
     weight, so give ``val_batch`` a weight of the same form as ``batch``'s, or the two halves of a ``train|val`` cell
-    are different quantities (a weighted ratio beside an unweighted one, say). An oracle that lacks either block sum
-    (not in its ``optional_outputs``) gets the header lines and no table, and its records no error arrays.
+    are different quantities (a weighted ratio beside an unweighted one, say). A ``val_batch`` of another kind or jet
+    shape than ``batch`` raises a ``ValueError`` at once: its table would set two different quantities side by side.
+    An oracle that lacks either block sum (not in its ``optional_outputs``) gets the header lines and no table, and its
+    records no error arrays.
 
     **The records.** Each row appends a self-contained record: the history's scalar fields, ``train_err`` and (with a
     ``val_batch``) ``val_err`` in the block shape (``(d,) + F`` probe, ``F`` apply, ``()`` entries), nothing
-    reduced. ``error_table=False`` changes the printed text only. The layout of the printed table follows the oracle's
-    ``order`` (:py:func:`format_newton_iter`; an oracle without one: axes labelled by position).
+    reduced. ``error_table=False`` changes the printed text only. The layout of the printed table follows the batch's
+    ``order`` (:py:func:`format_newton_iter`; a batch without one: axes labelled by position).
 
     After a **rejected** trust-region trial (``tr_accepted is False``) the next row starts from the same point with
     the same local model, so it reuses that row's errors -- no queries for an unchanged ``x``. (Reuse is keyed on that
@@ -607,8 +609,9 @@ def make_newton_display(
     >>> np.random.seed(0)
     >>> target = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 2, 2), (1, 2, 2, 1))
     >>> ww, wv = ([np.random.randn(W, N) for N in target.shape] for W in (60, 20))
-    >>> oracle = LeastSquaresOracle('probe', order=())
-    >>> batch, val_batch = LeastSquaresBatch(ww, target.probe(ww)), LeastSquaresBatch(wv, target.probe(wv))
+    >>> oracle = LeastSquaresOracle()
+    >>> batch = LeastSquaresBatch('probe', (), ww, target.probe(ww))
+    >>> val_batch = LeastSquaresBatch('probe', (), wv, target.probe(wv))
     >>> cb, records = bdisp.make_newton_display(oracle, batch, val_batch, print_fn=None)
     >>> x0 = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 2, 2), (1, 2, 2, 1)).data
     >>> x, stats = bopt.newton_cg(ManifoldGeometryOps(), oracle, batch, x0, max_newton=4, callback=cb)
@@ -619,8 +622,14 @@ def make_newton_display(
     """
     outputs = tuple(getattr(oracle, 'optional_outputs', ()))
     tables = 'r_block_sumsq' in outputs and 'y_block_sumsq' in outputs
-    order = getattr(oracle, 'order', None)
+    order = getattr(batch, 'order', None)
     order = None if order is None else tuple(order)
+    if val_batch is not None:                    # one kind and one order per fit: each batch is read under its own
+        given = (getattr(val_batch, 'kind', None), getattr(val_batch, 'order', None))
+        if given != (getattr(batch, 'kind', None), getattr(batch, 'order', None)):
+            raise ValueError('make_newton_display: the validation batch is of kind %r and order %r, the batch of kind '
+                             '%r and order %r; their tables would set two different quantities side by side'
+                             % (given + (getattr(batch, 'kind', None), getattr(batch, 'order', None))))
     denominators: dict = {}              # 'train' (and 'val'): y_block_sumsq, queried once at the first row's frame
     records: list = []
     previous = {'lm': None}              # the last row's model if it was a rejected TR trial, and its errors

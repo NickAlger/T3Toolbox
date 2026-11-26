@@ -822,13 +822,14 @@ class TestDispatch(unittest.TestCase):
         import t3toolbox.uniform_frame_variations_format as ubv
         from t3toolbox.backend.fitting import LeastSquaresOracle, LeastSquaresBatch
         from t3toolbox.backend.uniform_fitting import pack_batch
-        oracle = LeastSquaresOracle('probe', (1,))
+        oracle = LeastSquaresOracle()
         jet = [jnp.asarray(w) for w in jets.affine_jet(list(self.ww), list(self.zz))]
         y = [jnp.asarray(a) for a in self.x_other.probe(jet, (1,))]
-        batch = LeastSquaresBatch(jet, y, jets.blocks_to_weight('probe', (1,), jnp.ones((3, 2)), y))
+        batch = LeastSquaresBatch('probe', (1,), jet, y,
+                                  weight=jets.blocks_to_weight('probe', (1,), jnp.ones((3, 2)), y))
         uframe = ubv.UT3Frame.from_t3frame(self.frame)
         layouts = {'ragged': (self.frame.data, batch, self.var.data),
-                   'uniform': (uframe.data, pack_batch('probe', (1,), batch, uframe.data[0].shape[-1]),
+                   'uniform': (uframe.data, pack_batch(batch, uframe.data[0].shape[-1]),
                                ubv.UT3Variations.from_t3variations(self.var).data[:2])}
         for name, (frame, b, v) in layouts.items():
             with self.subTest(layout=name):
@@ -2180,8 +2181,8 @@ class TestDispatch(unittest.TestCase):
                 values, held = super().query(frame, batch, want, *args, **kwargs)
                 return tuple(0.5 * v if name == 'Jp_norm_sq' else v for name, v in zip(want, values)), held
 
-        self.assertNotEqual(HalfOracle('apply', ()), bfit.LeastSquaresOracle('apply', ()))
-        self.assertNotEqual(hash(HalfOracle('apply', ())), hash(bfit.LeastSquaresOracle('apply', ())))
+        self.assertNotEqual(HalfOracle(), bfit.LeastSquaresOracle())
+        self.assertNotEqual(hash(HalfOracle()), hash(bfit.LeastSquaresOracle()))
 
         np.random.seed(0)
         x = t3.TuckerTensorTrain.randn(SH, TK, TT)
@@ -2192,7 +2193,7 @@ class TestDispatch(unittest.TestCase):
 
         quad = jax.jit(lambda m, p: m.gn_quadratic(p))
         plain = _fmodel(t3m.MANIFOLD, x, 'apply', ww, y)
-        derived = dc.replace(plain, backend=dc.replace(plain.backend, oracle=HalfOracle('apply', ())))
+        derived = dc.replace(plain, backend=dc.replace(plain.backend, oracle=HalfOracle()))
         p0 = t3m.MANIFOLD.randn(plain.frame)
 
         q_plain = float(quad(plain, p0))

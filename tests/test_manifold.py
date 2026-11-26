@@ -994,8 +994,8 @@ class TestStructuralTangentMismatch(unittest.TestCase):
         np.random.seed(22)
         x = t3.TuckerTensorTrain.randn((4, 5, 3), (2, 2, 2), (1, 2, 2, 1))
         ww = tuple(np.random.randn(6, n) for n in x.shape)
-        model = fitting.local_model(t3m.MANIFOLD, fitting.LeastSquaresOracle('apply', ()),
-                                    fitting.LeastSquaresBatch(ww, x.apply(ww) * 0.5), x)
+        model = fitting.local_model(t3m.MANIFOLD, fitting.LeastSquaresOracle(),
+                                    fitting.LeastSquaresBatch('apply', (), ww, x.apply(ww) * 0.5), x)
         p = _random_tangent(((4, 5, 3), (1, 1, 1), (1, 1, 1, 1)))
         with safety.unsafe():
             with self.assertRaises(ValueError):

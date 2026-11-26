@@ -602,9 +602,9 @@ def _derivatives(cores, ww, pp, order):
 def _uniform_batch(fit, shape, N, seed=31):
     """``fit``'s batch packed to ``N`` with garbage beyond each ``N_i`` in the packed sample and probe data (the
     engine masks them on entry: padding is not data)."""
-    ub = uf.pack_batch(fit.oracle.kind, fit.oracle.order, fit.batch, N)
-    sample = ub.sample if fit.oracle.kind == 'entries' else _dirty_packed_vectors(ub.sample, shape, seed + 1)
-    y = _dirty_packed_vectors(ub.y, shape, seed) if fit.oracle.kind == 'probe' else ub.y
+    ub = uf.pack_batch(fit.batch, N)
+    sample = ub.sample if fit.batch.kind == 'entries' else _dirty_packed_vectors(ub.sample, shape, seed + 1)
+    y = _dirty_packed_vectors(ub.y, shape, seed) if fit.batch.kind == 'probe' else ub.y
     return dc.replace(ub, sample=sample, y=y)
 
 
@@ -1624,7 +1624,7 @@ class TestUniformSharedExactModel(unittest.TestCase):
         masks = (uframe[5][0], uframe[5][2])
         fit = _pd(_MANIFOLD, ww, pp, r, 1)
         geom = bgeo.UniformManifoldGeometryOps.from_frame(uframe, masks, labels)
-        lm = _uniform_exact_model(uframe, masks, fit.oracle, uf.pack_batch('probe', (1,), fit.batch, N), None, geom=geom)
+        lm = _uniform_exact_model(uframe, masks, fit.oracle, uf.pack_batch(fit.batch, N), None, geom=geom)
         rlm = _ragged_exact_model(rframe, fit.oracle, fit.batch, None, geom=_MANIFOLD.with_sharing(labels, shape))
         P = _random_variation_sc(uframe, (3,), rng)
         HP = lm.hvp(P)

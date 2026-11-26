@@ -1,0 +1,8 @@
+UNMUTATED: exit 0, 12 passed, 62 subtests passed in 2.21s
+CAUGHT   the constructor does not normalize order to Python ints -- 1 failed, 1 passed, 3 subtests passed in 0.77s
+CAUGHT   make_newton_display does not refuse a validation batch of another kind or order -- 2 failed, 1 passed in 0.82s
+CAUGHT   _frontend_draw does not compare a drawn batch -- 4 failed, 1 passed, 4 subtests passed in 1.18s
+CAUGHT   the frontend newton_cg does not compare its validation batch -- 2 failed, 1 passed in 0.93s
+CAUGHT   _require_draw accepts a callable n_measurements -- 2 failed, 1 passed, 4 subtests passed in 1.04s
+CAUGHT   the oracle reads a fixed kind instead of the batch's -- 8 failed, 1 passed, 6 subtests passed in 1.74s
+CAUGHT   the pytree drops the order from the aux data (rebuilt with order ()) -- 1 failed, 2 passed, 3 subtests passed in 0.80s

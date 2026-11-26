@@ -149,14 +149,14 @@ class TestTwinsAreTheirBackendCalls(unittest.TestCase):
                 geometry = t3m.MANIFOLD if layer == 'ragged' else ut3m.UNIFORM_MANIFOLD
                 start = x0 if layer == 'ragged' else ut3.UniformTuckerTensorTrain.from_t3(x0)
                 old = x_old if layer == 'ragged' else ut3.UniformTuckerTensorTrain.from_t3(x_old, N=start.N)
-                oracle, batch = LeastSquaresOracle('probe', order=()), LeastSquaresBatch(ww, data)
+                oracle, batch = LeastSquaresOracle(), LeastSquaresBatch('probe', (), ww, data)
                 _, front = topt.newton_cg(geometry, oracle, batch, start, max_newton=3, padded_from=old,
                                           padded_max_passes=4)
                 if layer == 'ragged':                       # the backend twin, built here (start and old minimal)
                     geom, cores, bbatch = bgeo.ManifoldGeometryOps(), start.data, batch
                 else:
                     geom = bgeo.UniformManifoldGeometryOps.from_point(start.data)
-                    cores, bbatch = start.data[:2], uniform_fitting.pack_batch('probe', (), batch, start.N)
+                    cores, bbatch = start.data[:2], uniform_fitting.pack_batch(batch, start.N)
                 _, back = bopt.newton_cg(geom, oracle, bbatch, cores, max_newton=3, padded_from=old.data,
                                          padded_max_passes=4)
                 self.assertEqual(front['losses'], back['losses'])

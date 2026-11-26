@@ -21,8 +21,9 @@
     ``<Jp, r> = <p, g>``, ``Jp_norm_sq = <Jp, Jp>`` and ``r_block_sumsq = <r, r>`` per block hold in the batch's inner
     product;
   - ``f_resolution`` is from the unscaled values, scaled once.
-- **The batch:** ``take`` (scale, indices, jets skipped, packed), ``check_batch`` on each wrong part, the pytree round
-  trip.
+- **The batch:** ``take`` (scale, indices, jets skipped, packed), ``check`` on each wrong part, the pytree round
+  trip; its constructor's checks of the kind and the order (the oracle's before K1), the keyword-only fields, the
+  static fields as jax aux data (one trace per kind and order).
 - **The oracle:**
   - hash and equality by value;
   - ``order`` required for every kind (O-44);
@@ -125,7 +126,9 @@ class Fixture(unittest.TestCase):
     def batch(self, kind, order, scale=None):
         s = jet_sample(kind, self.rng, order)
         y = data_of(kind, self.target, s, order)
-        return LeastSquaresBatch(s, y, jets.blocks_to_weight(kind, order, weight_of(kind, self.rng, order), y), scale)
+        return LeastSquaresBatch(kind, order, s, y,
+                                 weight=jets.blocks_to_weight(kind, order, weight_of(kind, self.rng, order), y),
+                                 minibatch_scale=scale)
 
 
 class TestTheEngineAdditions(Fixture):
@@ -201,7 +204,7 @@ class TestTheEngineAdditions(Fixture):
     def test_the_oracle_holds_what_is_free(self):
         for kind in ('probe', 'apply', 'entries'):
             order = ORDERS[kind][-1]
-            oracle = LeastSquaresOracle(kind, order)
+            oracle = LeastSquaresOracle()
             b = self.batch(kind, order)
             for want in [('f',), ('f', 'g'), ('JtJp',), ('r', 'f')]:
                 with self.subTest(kind=kind, want=want):
@@ -269,7 +272,7 @@ class TestQuery(Fixture):
         point = self.x.data
         for kind in ('probe', 'apply', 'entries'):
             for order in ORDERS[kind]:
-                oracle = LeastSquaresOracle(kind, order)
+                oracle = LeastSquaresOracle()
                 b = self.batch(kind, order)
                 for call, frame in (('manifold', self.frame.data), ('corewise', point)):
                     with self.subTest(kind=kind, order=order, call=call):
@@ -296,9 +299,9 @@ class TestQuery(Fixture):
         xu = ut3.UniformTuckerTensorTrain.from_t3(self.x, N=6, n=4, r=4)
         for kind in ('probe', 'apply', 'entries'):
             for order in ORDERS[kind]:
-                oracle = LeastSquaresOracle(kind, order)
+                oracle = LeastSquaresOracle()
                 b = self.batch(kind, order)
-                pb = pack_batch(kind, order, b, 6)
+                pb = pack_batch(b, 6)
                 if kind != 'entries':                    # garbage in the mode padding of every packed form (round 1)
                     sample = np.array(pb.sample)
                     for i, N in enumerate(SHAPE):
@@ -332,8 +335,8 @@ class TestTheResolutionDtype(Fixture):
         b = self.batch('apply', (2,))
         f32 = lambda t: tuple(f32(a) for a in t) if isinstance(t, (tuple, list)) else np.asarray(t, np.float32)
         frame = f32(self.frame.data)
-        b32 = LeastSquaresBatch(f32(b.sample), f32(b.y), f32(b.weight))
-        (f, fres, ybs), _ = LeastSquaresOracle('apply', (2,)).query(frame, b32, ('f', 'f_resolution', 'y_block_sumsq'))
+        b32 = LeastSquaresBatch('apply', (2,), f32(b.sample), f32(b.y), weight=f32(b.weight))
+        (f, fres, ybs), _ = LeastSquaresOracle().query(frame, b32, ('f', 'f_resolution', 'y_block_sumsq'))
         self.assertEqual(np.asarray(f).dtype, np.float32)
         self.assertEqual(np.asarray(ybs).dtype, np.float32)                  # the block sums in the result dtype too
         wy = math.sqrt(y_metric_y('apply', np.asarray(b32.y, float), np.asarray(b32.weight, float), b32.y))
@@ -344,7 +347,7 @@ class TestTheResolutionDtype(Fixture):
 class TestTheCorewiseDirection(Fixture):
 
     def test_the_three_cases(self):
-        oracle = LeastSquaresOracle('apply', ())
+        oracle = LeastSquaresOracle()
         b = self.batch('apply', ())
         point = self.x.data
         ref, _ = oracle.query(point, b, ('JtJp', 'Jp', 'Kp'), core_directions=self.dirs)
@@ -370,13 +373,13 @@ class TestTheMinibatchScale(Fixture):
     def test_unbiased_over_every_subset(self):
         for kind in ('probe', 'apply', 'entries'):
             order = ORDERS[kind][-1]
-            oracle = LeastSquaresOracle(kind, order)
+            oracle = LeastSquaresOracle()
             full = self.batch(kind, order)
             (f, g), _ = oracle.query(self.frame.data, full, ('f', 'g'))
-            n, b = oracle.n_measurements(full), 2
+            n, b = full.n_measurements, 2
             fs, gs = [], []
             for subset in itertools.combinations(range(n), b):
-                (fb, gb), _ = oracle.query(self.frame.data, oracle.take(full, np.array(subset)), ('f', 'g'))
+                (fb, gb), _ = oracle.query(self.frame.data, full.take(np.array(subset)), ('f', 'g'))
                 fs.append(float(fb))
                 gs.append(leaves(gb))
             with self.subTest(kind=kind):
@@ -387,9 +390,9 @@ class TestTheMinibatchScale(Fixture):
     def test_a_drawn_batch(self):
         for kind in ('probe', 'apply', 'entries'):
             for order in ORDERS[kind]:
-                oracle = LeastSquaresOracle(kind, order)
+                oracle = LeastSquaresOracle()
                 full = self.batch(kind, order)
-                sub = oracle.take(full, np.array([1, 4]))
+                sub = full.take(np.array([1, 4]))
                 s = sub.minibatch_scale
                 want = ('f', 'g', 'r', 'Jp', 'Jp_norm_sq', 'JtJp', 'Kp', 'r_block_sumsq', 'y_block_sumsq',
                         'f_resolution')
@@ -431,16 +434,16 @@ class TestTheBatch(Fixture):
     def test_take(self):
         for kind in ('probe', 'apply', 'entries'):
             for order in ORDERS[kind]:
-                oracle = LeastSquaresOracle(kind, order)
+                oracle = LeastSquaresOracle()
                 full = self.batch(kind, order)
                 idx = np.array([5, 0, 2])
-                sub = oracle.take(full, idx)
+                sub = full.take(idx)
                 with self.subTest(kind=kind, order=order):
-                    self.assertEqual(oracle.n_measurements(full), 6)
-                    self.assertEqual(oracle.n_measurements(sub), 3)
+                    self.assertEqual(full.n_measurements, 6)
+                    self.assertEqual(sub.n_measurements, 3)
                     self.assertEqual(sub.minibatch_scale, 2.0)
                     self.assertIs(sub.drawn_indices, idx)
-                    self.assertEqual(oracle.take(sub, np.array([0])).minibatch_scale, 6.0)     # nested: multiplied
+                    self.assertEqual(sub.take(np.array([0])).minibatch_scale, 6.0)     # nested: multiplied
                     m = len(order)
                     if kind == 'entries':
                         self.assertTrue(np.array_equal(sub.sample, full.sample[:, idx]))
@@ -452,24 +455,24 @@ class TestTheBatch(Fixture):
                         yf = full.y if kind == 'probe' else [full.y]
                         for a, c in zip(ys, yf):
                             self.assertTrue(np.array_equal(a, np.take(c, idx, axis=m)))
-                        packed = pack_batch(kind, order, full, 6)
-                        psub = oracle.take(packed, idx)
-                        self.assertEqual(oracle.n_measurements(packed), 6)
-                        self.assertTrue(np.array_equal(psub.sample, pack_batch(kind, order, sub, 6).sample))
+                        packed = pack_batch(full, 6)
+                        psub = packed.take(idx)
+                        self.assertEqual(packed.n_measurements, 6)
+                        self.assertTrue(np.array_equal(psub.sample, pack_batch(sub, 6).sample))
                         if kind == 'probe':
-                            self.assertTrue(np.array_equal(psub.y, pack_batch(kind, order, sub, 6).y))
+                            self.assertTrue(np.array_equal(psub.y, pack_batch(sub, 6).y))
                     # a multi-axis W is flattened
                     if kind == 'apply' and order == ():
-                        b2 = LeastSquaresBatch([a.reshape(2, 3, -1) for a in full.sample], full.y.reshape(2, 3))
-                        t = oracle.take(b2, np.array([4, 1]))
+                        b2 = LeastSquaresBatch(kind, order, [a.reshape(2, 3, -1) for a in full.sample],
+                                               full.y.reshape(2, 3))
+                        t = b2.take(np.array([4, 1]))
                         self.assertTrue(np.array_equal(t.y, full.y[[4, 1]]))
 
-    def test_check_batch(self):
+    def test_check(self):
         for kind in ('probe', 'apply', 'entries'):
             order = ORDERS[kind][-1]
-            oracle = LeastSquaresOracle(kind, order)
             good = self.batch(kind, order)
-            oracle.check_batch(good, SHAPE)
+            good.check(SHAPE)
             bad = {'weight': dc.replace(good, weight=np.ones(7))}
             if kind == 'entries':
                 bad['index rows'] = dc.replace(good, sample=good.sample[:2])
@@ -482,7 +485,7 @@ class TestTheBatch(Fixture):
             for label, b in bad.items():
                 with self.subTest(kind=kind, case=label):
                     with self.assertRaises(ValueError):
-                        oracle.check_batch(b, SHAPE)
+                        b.check(SHAPE)
 
     def test_the_pytree_round_trip(self):
         try:
@@ -496,33 +499,23 @@ class TestTheBatch(Fixture):
         self.assertIsInstance(back, LeastSquaresBatch)
         for name in ('sample', 'y', 'weight', 'minibatch_scale', 'drawn_indices'):
             self.assertEqual(relerr(getattr(back, name), getattr(b, name)), 0.0)
-        none = jax.tree_util.tree_unflatten(*reversed(jax.tree_util.tree_flatten(LeastSquaresBatch(b.sample))))
+        bare = LeastSquaresBatch('probe', (2,), b.sample)
+        none = jax.tree_util.tree_unflatten(*reversed(jax.tree_util.tree_flatten(bare)))
         self.assertIsNone(none.y)
 
 
 class TestTheOracle(unittest.TestCase):
 
     def test_value_hash_and_equality(self):
-        a, b = LeastSquaresOracle('probe', (2,)), LeastSquaresOracle('probe', (2,))
+        """Fieldless since K1 (the kind and the order are the batch's): every instance equal, one hash; a subclass is
+        another type (test_dispatch pins that it compiles apart)."""
+        a, b = LeastSquaresOracle(), LeastSquaresOracle()
         self.assertEqual(a, b)
         self.assertEqual(hash(a), hash(b))
-        self.assertNotEqual(a, LeastSquaresOracle('probe', (1,)))
-        self.assertNotEqual(a, LeastSquaresOracle('apply', (2,)))
-
-    def test_order_is_required_and_entries_has_no_jets(self):
-        for kind in ('probe', 'apply', 'entries'):
-            with self.subTest(kind=kind):
-                with self.assertRaises(TypeError):
-                    LeastSquaresOracle(kind)
-                with self.assertRaises(TypeError):
-                    LeastSquaresOracle(kind, 2)
-        LeastSquaresOracle('entries', ())
-        with self.assertRaisesRegex(ValueError, 'no jets'):
-            LeastSquaresOracle('entries', (1,))
-        with self.assertRaises(ValueError):
-            LeastSquaresOracle('nonsense', ())
         self.assertEqual(set(LeastSquaresOracle.optional_outputs),
                          {'Kp', 'Jp', 'r', 'r_block_sumsq', 'y_block_sumsq', 'f_resolution'})
+        with self.assertRaises(TypeError):
+            LeastSquaresOracle('probe', (2,))                        # the form before K1: the kind is the batch's
 
     def test_reachable_from_the_frontend(self):
         import t3toolbox.fitting as fitting
@@ -530,6 +523,73 @@ class TestTheOracle(unittest.TestCase):
         self.assertIs(fitting.LeastSquaresBatch, LeastSquaresBatch)
         self.assertIn('LeastSquaresOracle', fitting.__all__)
         self.assertIn('LeastSquaresBatch', fitting.__all__)
+
+
+class TestTheBatchConstructor(unittest.TestCase):
+    """The checks of the batch's static fields (the oracle's before K1, O-44, O-46), the keyword-only fields after
+    ``y``, and the static fields as jax aux data."""
+
+    def test_the_kind_and_the_order(self):
+        ww = [np.ones((4, n)) for n in SHAPE]
+        for kind in ('probe', 'apply', 'entries'):
+            with self.subTest(kind=kind):
+                with self.assertRaises(TypeError):
+                    LeastSquaresBatch(kind, 2, ww)                      # an int is not a jet shape
+                with self.assertRaises(TypeError):
+                    LeastSquaresBatch(kind, [1], ww)                    # nor a list
+                with self.assertRaises(TypeError):
+                    LeastSquaresBatch(kind, (True,), ww)                # nor a bool
+        with self.assertRaises(ValueError):
+            LeastSquaresBatch('probe', (-1,), ww)
+        LeastSquaresBatch('entries', (), np.zeros((3, 4), dtype=int))
+        with self.assertRaisesRegex(ValueError, 'no jets'):
+            LeastSquaresBatch('entries', (1,), np.zeros((3, 4), dtype=int))
+        with self.assertRaisesRegex(ValueError, 'unknown kind'):
+            LeastSquaresBatch('nonsense', (), ww)
+        with self.assertRaisesRegex(TypeError, 'the kind is a string'):
+            LeastSquaresBatch(ww, np.zeros(4), None)                   # the form before K1, three positionals
+        with self.assertRaises(TypeError):
+            LeastSquaresBatch(ww, np.zeros(4))                         # two: Python's missing 'sample'
+        b = LeastSquaresBatch('apply', (np.int64(2),), ww)
+        self.assertEqual(b.order, (2,))
+        self.assertIs(type(b.order[0]), int)
+
+    def test_the_fields_after_y_are_keywords(self):
+        ww = [np.ones((4, n)) for n in SHAPE]
+        with self.assertRaises(TypeError):
+            LeastSquaresBatch('apply', (), ww, np.zeros(4), np.ones(4))
+        b = LeastSquaresBatch('apply', (), ww, np.zeros(4), weight=np.ones(4), minibatch_scale=2.0,
+                              drawn_indices=np.arange(4))
+        self.assertEqual(b.minibatch_scale, 2.0)
+        r = dc.replace(b, minibatch_scale=None)                        # replace passes every field by keyword
+        self.assertEqual((r.kind, r.order, r.minibatch_scale), ('apply', (), None))
+        with self.assertRaisesRegex(ValueError, 'unknown kind'):
+            dc.replace(b, kind='nonsense')
+
+    def test_the_static_fields_are_aux_data(self):
+        try:
+            import jax
+            import jax.numpy as jnp
+        except ImportError:
+            self.skipTest('jax is not installed')
+        ww = [np.ones((4, n)) for n in SHAPE]
+        b = LeastSquaresBatch('apply', (np.int64(1),), [np.ones((2, 4, n)) for n in SHAPE], np.zeros((2, 4)))
+        leaves_, treedef = jax.tree_util.tree_flatten(b)
+        same = LeastSquaresBatch('apply', (1,), [np.ones((2, 4, n)) for n in SHAPE], np.zeros((2, 4)))
+        self.assertEqual(jax.tree_util.tree_structure(same), treedef)
+        placeholders = jax.tree_util.tree_unflatten(treedef, [object()] * len(leaves_))   # no array is read
+        self.assertEqual((placeholders.kind, placeholders.order), ('apply', (1,)))
+        traces = []
+
+        @jax.jit
+        def count(batch):
+            traces.append((batch.kind, batch.order))
+            return jnp.sum(jax.tree_util.tree_leaves(batch.y)[0])
+        for kind, order, y in (('apply', (), np.zeros(4)), ('apply', (), np.ones(4)), ('apply', (1,), np.zeros((2, 4))),
+                               ('probe', (), [np.zeros((4, n)) for n in SHAPE])):
+            sample = ww if not order else [np.ones((2, 4, n)) for n in SHAPE]
+            count(LeastSquaresBatch(kind, order, sample, y))
+        self.assertEqual(traces, [('apply', ()), ('apply', (1,)), ('probe', ())])     # once per kind and order
 
 
 if __name__ == '__main__':

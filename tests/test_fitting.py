@@ -64,7 +64,7 @@ def _backend_model(geometry, oracle, batch, x, **kw):
     '''The backend twin of ``fitting.local_model(geometry, oracle, batch, x, **kw)``, built here from the backend pieces
     (the batch packed for a uniform ``x``).'''
     if isinstance(x, ut3.UniformTuckerTensorTrain):
-        batch = ufit.pack_batch(oracle.kind, oracle.order, batch, x.N)
+        batch = ufit.pack_batch(batch, x.N)
     return bopt.local_model(_backend_geometry(geometry, x), oracle, batch, (x.data[0], x.data[1]), **kw)
 
 
@@ -153,7 +153,7 @@ def _setup(kind, geom_name, C):
         samp_dot = lambda a, b: np.sum(a * b, axis=tuple(range(n_w)))
         samp_add = lambda a, b: a + b
         rand_like = lambda v: np.random.randn(*v.shape)
-    oracle, batch = LeastSquaresOracle(kind, ()), LeastSquaresBatch(sample, y)
+    oracle, batch = LeastSquaresOracle(), LeastSquaresBatch(kind, (), sample, y)
     model = fitting.local_model(geometry, oracle, batch, x)
     return dict(x=x, geometry=geometry, geom_name=geom_name, model=model, frame=model.frame, oracle=oracle,
                 batch=batch, kind=kind, sample=sample, y=y, r=r, c=0.5 * samp_dot(r, r), n_c=n_c, n_w=n_w,
@@ -228,7 +228,7 @@ class TestLocalModel(unittest.TestCase):
         Xu = ut3.UniformTuckerTensorTrain.from_t3(Xr)
         ww = [np.random.randn(20, N) for N in (6, 7, 8)]
         y = [np.random.randn(20, N) for N in (6, 7, 8)]
-        oracle, batch = LeastSquaresOracle('probe', ()), LeastSquaresBatch(ww, y)
+        oracle, batch = LeastSquaresOracle(), LeastSquaresBatch('probe', (), ww, y)
         for ug, rg in [(ut3m.UNIFORM_MANIFOLD, t3m.MANIFOLD), (ut3m.UNIFORM_COREWISE, t3m.COREWISE)]:
             with self.subTest(geom=type(ug).__name__):
                 um = fitting.local_model(ug, oracle, batch, Xu, regularizer=R)
@@ -491,14 +491,15 @@ class TestResidualWeighting(unittest.TestCase):
         z = dense_probe(x.to_dense(), ww, 0)
         r = [a - b for a, b in zip(z, y)]
         y2 = [z[i] - omega[i] ** 2 * r[i] for i in range(d)]      # residual ω²⊙r, unweighted
-        oracle = LeastSquaresOracle('probe', ())
+        oracle = LeastSquaresOracle()
         for geom in (t3m.MANIFOLD, t3m.COREWISE):
             with self.subTest(geom=type(geom).__name__):   # name, not the object -- xdist reports must serialize (execnet)
-                w = fitting.local_model(geom, oracle, LeastSquaresBatch(ww, y, blocks_to_weight('probe', (), omega, y)),
+                w = fitting.local_model(geom, oracle, LeastSquaresBatch('probe', (), ww, y,
+                                                                      weight=blocks_to_weight('probe', (), omega, y)),
                                         x)
                 obj_oracle = 0.5 * sum((omega[i] ** 2) * np.sum(r[i] ** 2) for i in range(d))
                 self.assertTrue(np.allclose(float(w.objective_value), obj_oracle))
-                u = fitting.local_model(geom, oracle, LeastSquaresBatch(ww, y2), x)
+                u = fitting.local_model(geom, oracle, LeastSquaresBatch('probe', (), ww, y2), x)
                 self.assertTrue(w.gradient.allclose(u.gradient, rtol=1e-9, atol=1e-11).all())
                 p = t3m.COREWISE.randn(w.frame)
                 self.assertTrue(np.allclose(float(w.gn_quadratic(p)), float(p.corewise_inner(w.gn_hessian(p)))))
@@ -517,16 +518,18 @@ class TestPerModeWeightRowCount(unittest.TestCase):
         self.w5 = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
 
     def test_over_long_is_rejected(self):
-        oracle = LeastSquaresOracle('probe', ())
+        oracle = LeastSquaresOracle()
         with self.assertRaisesRegex(ValueError, 'weight'):
-            fitting.local_model(t3m.MANIFOLD, oracle, LeastSquaresBatch(self.ww, self.y, self.w5), self.x)
+            fitting.local_model(t3m.MANIFOLD, oracle, LeastSquaresBatch('probe', (), self.ww, self.y, weight=self.w5),
+                                self.x)
         fitting.local_model(t3m.MANIFOLD, oracle,
-                            LeastSquaresBatch(self.ww, self.y, blocks_to_weight('probe', (), self.w5[:3], self.y)), self.x)
+                            LeastSquaresBatch('probe', (), self.ww, self.y,
+                                              weight=blocks_to_weight('probe', (), self.w5[:3], self.y)), self.x)
 
     def test_short_is_rejected(self):
         with self.assertRaisesRegex(ValueError, 'weight'):
-            fitting.local_model(t3m.MANIFOLD, LeastSquaresOracle('probe', ()),
-                                LeastSquaresBatch(self.ww, self.y, self.w5[:2]), self.x)
+            fitting.local_model(t3m.MANIFOLD, LeastSquaresOracle(),
+                                LeastSquaresBatch('probe', (), self.ww, self.y, weight=self.w5[:2]), self.x)
 
 
 class TestUniformLayerLocalModel(unittest.TestCase):
@@ -604,8 +607,8 @@ class TestUniformLayerLocalModel(unittest.TestCase):
         shape = (5, 6, 7)
         ux = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(shape, (2, 3, 2), (1, 2, 2, 1)))
         rx = t3.TuckerTensorTrain.randn(shape, (2, 3, 2), (1, 2, 2, 1))
-        oracle = LeastSquaresOracle('apply', ())
-        batch = LeastSquaresBatch([rng.standard_normal((10, N)) for N in shape], rng.standard_normal(10))
+        oracle = LeastSquaresOracle()
+        batch = LeastSquaresBatch('apply', (), [rng.standard_normal((10, N)) for N in shape], rng.standard_normal(10))
         with self.assertRaises(ValueError):   # uniform x + ragged geometry
             fitting.local_model(t3m.MANIFOLD, oracle, batch, ux)
         with self.assertRaises(ValueError):   # ragged x + uniform geometry
@@ -617,8 +620,8 @@ class TestUniformLayerLocalModel(unittest.TestCase):
         shape = (5, 6, 7)
         x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(shape, (2, 3, 2), (1, 2, 2, 1)))
         other = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(shape, (2, 3, 2), (1, 2, 2, 1)))
-        batch = LeastSquaresBatch([rng.standard_normal((10, N)) for N in shape], rng.standard_normal(10))
-        m = fitting.local_model(ut3m.UNIFORM_MANIFOLD, LeastSquaresOracle('apply', ()), batch, x)
+        batch = LeastSquaresBatch('apply', (), [rng.standard_normal((10, N)) for N in shape], rng.standard_normal(10))
+        m = fitting.local_model(ut3m.UNIFORM_MANIFOLD, LeastSquaresOracle(), batch, x)
         p_other = ut3m.UNIFORM_MANIFOLD.randn(ut3m.UNIFORM_MANIFOLD.frame(other))
         with self.assertRaises(ValueError):
             m.gn_hessian(p_other)
@@ -626,14 +629,14 @@ class TestUniformLayerLocalModel(unittest.TestCase):
 
 class TestFactoryValidation(unittest.TestCase):
     """Review 2026-08-22 (C13), in the new form: ``local_model`` checks the batch against the point up front
-    (``oracle.check_batch``), each mismatch a ``ValueError``."""
+    (``batch.check``), each mismatch a ``ValueError``."""
 
     def test_mismatches_are_named_value_errors(self):
         np.random.seed(6)
         x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 2, 2), (1, 2, 2, 1))
         ww = tuple(np.random.randn(7, n) for n in x.shape)
         model = lambda kind, sample, y, order=(): fitting.local_model(
-            t3m.MANIFOLD, LeastSquaresOracle(kind, order), LeastSquaresBatch(sample, y), x)
+            t3m.MANIFOLD, LeastSquaresOracle(), LeastSquaresBatch(kind, order, sample, y), x)
         y = x.apply(ww)
         model('apply', ww, y)                                                          # the good case
         with self.assertRaises(ValueError):
@@ -736,7 +739,7 @@ class TestUniformBackendGeometryFromFrame(unittest.TestCase):
                 geom = ut3m.UNIFORM_MANIFOLD if sharing is None else sg.shared(ut3m.UNIFORM_MANIFOLD, sharing)
                 ww = [rng.standard_normal((6, N)) for N in struct[0]]
                 y = [rng.standard_normal((6,) + (1,) * len(C) + (N,)) for N in struct[0]]   # shared by C: size 1
-                oracle, batch = LeastSquaresOracle('probe', ()), LeastSquaresBatch(ww, y)
+                oracle, batch = LeastSquaresOracle(), LeastSquaresBatch('probe', (), ww, y)
                 with mock.patch.object(ufc, 'ut3_orthogonal_representations',
                                        wraps=ufc.ut3_orthogonal_representations) as spy:
                     m = fitting.local_model(geom, oracle, batch, x)

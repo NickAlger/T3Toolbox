@@ -290,8 +290,8 @@ class TestTheOracle(Fixture):
         return (y, weight) if kind == 'probe' else (y[0], weight[0])
 
     def query(self, kind, order, base, sample, y, weight, directions):
-        oracle = LeastSquaresOracle(kind, order)
-        drawn = oracle.take(LeastSquaresBatch(sample, y, weight), self.INDICES)
+        oracle = LeastSquaresOracle()
+        drawn = LeastSquaresBatch(kind, order, sample, y, weight=weight).take(self.INDICES)
         self.assertEqual(float(drawn.minibatch_scale), 2.0)
         values, _ = oracle.query(base, drawn, self.WANT, **directions)
         return values

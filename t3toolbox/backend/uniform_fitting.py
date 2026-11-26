@@ -6,8 +6,8 @@ a uniform start.
 
 :py:func:`pack_batch` (with :py:func:`pack_sample` and :py:func:`pack_data`) packs the loop-invariant sample and data
 of a :py:class:`~t3toolbox.backend.fitting.LeastSquaresBatch` ONCE, so the optimizers run fully packed -- no
-per-matvec pack/unpack: ``newton_cg(geom, oracle, pack_batch(kind, order, batch, N), (x_sc[0], x_sc[1]))`` with a
-uniform geometry (:py:mod:`t3toolbox.backend.geometry`, ``from_point``). :py:func:`uniform_minimal` reduces a
+per-matvec pack/unpack: ``newton_cg(geom, oracle, pack_batch(batch, N), (x_sc[0], x_sc[1]))`` with a uniform
+geometry (:py:mod:`t3toolbox.backend.geometry`, ``from_point``). :py:func:`uniform_minimal` reduces a
 uniform start to minimal ranks, which the uniform manifold geometry requires.
 """
 import dataclasses as dc
@@ -92,27 +92,31 @@ def pack_data(
 
 
 def pack_batch(
-        kind:   str,                                # 'probe' | 'apply' | 'entries'
-        order:  typ.Tuple[int, ...],                # the jet shape
         batch:  'bfit.LeastSquaresBatch',           # ragged (or already packed: kept)
-        N:      int,                                # the packed mode width
+        N:      typ.Optional[int] = None,           # the packed mode width; None = the largest mode size of the sample
 ) -> 'bfit.LeastSquaresBatch':                      # the sample's vectors and the probe data packed to N
-    """Pack a :py:class:`~t3toolbox.backend.fitting.LeastSquaresBatch` once for the uniform layout: the input jets
-    with ``pack_if_ragged(sample, N, len_P=len(order))``, which brings each jet axis to its largest size across the
-    modes by writing zero coefficients (data, not padding: an input jet is zero beyond its slots, O-45), and the
-    probe data ``y`` and weight with :py:func:`pack_data`, the one rule for a data-space object (each to
-    ``(d,)+F+W+C+(e,)``, an edge of 1 kept). The entries ``index`` and the data and weight of apply and entries are
-    not packed; the scale and the drawn indices pass through. A packed sample, ``y`` or weight is kept as it is.
+    """Pack a :py:class:`~t3toolbox.backend.fitting.LeastSquaresBatch` once for the uniform layout, by its kind and
+    jet shape: the input jets with ``pack_if_ragged(sample, N, len_P=len(order))``, which brings each jet axis to its
+    largest size across the modes by writing zero coefficients (data, not padding: an input jet is zero beyond its
+    slots, O-45), and the probe data ``y`` and weight with :py:func:`pack_data`, the one rule for a data-space object
+    (each to ``(d,)+F+W+C+(e,)``, an edge of 1 kept). The entries ``index`` and the data and weight of apply and entries
+    are not packed; the scale and the drawn indices pass through. A packed sample, ``y`` or weight is kept as it is.
+    ``N=None`` is the largest mode size of a ragged sample (an entries batch is not padded, and a packed sample keeps
+    its own width).
 
     >>> import numpy as np
     >>> from t3toolbox.backend.fitting import LeastSquaresBatch
     >>> from t3toolbox.backend.uniform_fitting import pack_batch
     >>> ww = [np.ones((2, 3, 4)), np.ones((1, 3, 5))]                 # jet sizes 2 and 1, W = (3,)
     >>> y = [np.zeros((3, 3, 4)), np.zeros((3, 3, 5))]                # F = (3,): order (2,)
-    >>> packed = pack_batch('probe', (2,), LeastSquaresBatch(ww, y), 6)
+    >>> packed = pack_batch(LeastSquaresBatch('probe', (2,), ww, y), 6)
     >>> print(packed.sample.shape, packed.y.shape)
     (2, 2, 3, 6) (2, 3, 3, 6)
     """
+    kind, order = batch.kind, batch.order
+    if N is None and kind != 'entries':
+        N = (max(int(np.shape(w)[-1]) for w in batch.sample) if isinstance(batch.sample, (tuple, list))
+             else int(np.shape(batch.sample)[-1]))
     y = batch.y if batch.y is None else pack_data(kind, order, batch.y, N)
     weight = batch.weight if batch.weight is None else pack_data(kind, order, batch.weight, N)
     return dc.replace(batch, sample=pack_sample(kind, order, batch.sample, N), y=y, weight=weight)

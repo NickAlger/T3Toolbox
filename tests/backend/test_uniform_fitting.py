@@ -360,7 +360,7 @@ class TestPackSampleAndData(unittest.TestCase):
         self.assertIs(uf.pack_sample('entries', (), index, N), index)
         scalar = rng.standard_normal((3, W))
         self.assertIs(uf.pack_data('apply', (2,), scalar, N), scalar)
-        batch = uf.pack_batch('probe', (2,), bfit.LeastSquaresBatch(ww, y, np.ones((3, 3))), N)
+        batch = uf.pack_batch(bfit.LeastSquaresBatch('probe', (2,), ww, y, weight=np.ones((3, 3))), N)
         self.assertTrue(np.array_equal(batch.sample, packed) and np.array_equal(batch.y, py))
 
 

@@ -129,8 +129,9 @@ def rms(x):
 # --------------------------------------------------------------------------------------------------
 def apply_operator(ww):
     forward       = lambda Z: Z.apply(ww)   # works for a TuckerTensorTrain (point) or a T3Tangent (Jacobian)
-    oracle        = fitting.LeastSquaresOracle('apply', order=())      # the objective 1/2 ||X.apply(ww) - b||^2
-    model_builder = lambda X, b: fitting.local_model(t3m.MANIFOLD, oracle, fitting.LeastSquaresBatch(ww, b), X)
+    oracle        = fitting.LeastSquaresOracle()                       # the objective 1/2 ||X.apply(ww) - b||^2
+    model_builder = lambda X, b: fitting.local_model(t3m.MANIFOLD, oracle,
+                                                     fitting.LeastSquaresBatch('apply', (), ww, b), X)
     meas_dot      = lambda a, b: float(np.dot(np.asarray(a), np.asarray(b)))
     return forward, model_builder, meas_dot
 
