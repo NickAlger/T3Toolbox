@@ -1509,3 +1509,21 @@ a discussion after the arc. His instructions in the session supersede `BRIEF.md`
 conflict; the agents' brief for the arc is `K_BRIEF.md`. The orchestrator's own start: `K_ORCHESTRATOR_HANDOFF.md`.
 K0 started with a fresh pair: the implementer orients and writes `K0_DESIGN_NOTE.md`; the reviewer orients and notes
 its own view of K0's risks first.
+
+### K0 designed and approved (2026-11-25, 18:00)
+
+`K0_DESIGN_NOTE.md` (the implementer), three rounds of review (`K0_DESIGN_REVIEW_r1.md` to `_r3.md`, the responses
+`K0_DESIGN_RESPONSE_r1.md`, `_r2.md`): SIGN OFF, approved by Claude. Measured on the tree by both agents
+independently (the reviewer's inventory was written before it saw the note): 315 top-level names go
+(`sampling_derivatives.py` whole, 154; 161 in seven modules; the private helpers by a closure over every module-level
+statement), about 6,500 lines, 98 tests (five files whole); 17 tests edited, 10 of them re-based on the dense
+reference, jax AD or a dense einsum. Where the plan's K0 did not fit: `tests/oracle_sweeps/o1_*.py` were re-based in
+P13b already; two scan floors (more than 100 contraction strings; 86 remain) turn red; `sum_over_probes` survives as
+a test helper's keyword. Claude's rulings: `K_ARC_DECISIONS.md` 8 to 16. The prose that K0 rewrites was reviewed as
+text before the build (`k0/prose_edits.md`): the review found one false sentence and three headers of kept code on
+the delete list; the implementer's recheck found two more. Baseline of the tally: `k0/baseline_v.log.gz`, 1,979
+passed, 93,034 subtests. Expected after K0: 1,882 passed. Carried: to K5, the apply and entries cases of
+`TestKpAtTTSlack` before the masking changes, and the hygiene control's patch points; to P17, `sum_over_probes` in
+`tests/_derivative_data.py` and its callers; to P19, the pages' prose (16 pages; `signature_style.md` and
+`reading_signatures.md` quote `compute_mu`, which no longer exists) and the new names in `docs/api_reference.rst`.
+Building.
